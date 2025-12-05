@@ -1,4 +1,5 @@
 __IMPORTANT CAVEAT: This application is provided solely for training and pedagogical purposes; its information is not guaranteed for accuracy and must not be used for operational decision-making. Always rely on the official Aircraft Flight Manual (AFM) and approved checklists when operating an aircraft.__
+
 _NOTE: This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
 # AéroCheck - WT9 Dynamic

@@ -535,7 +535,7 @@ struct FlightDetailView: View {
                     DetailRow(label: "Go Arounds", value: "\(flight.goAroundCount)", icon: "arrow.up.right.circle.fill")
                 }
                 if flight.touchAndGoCount > 0 {
-                    DetailRow(label: "Touch and gos", value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
+                    DetailRow(label: "Touch-and-goes", value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
                 }
             }
             .cardStyle()

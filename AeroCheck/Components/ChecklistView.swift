@@ -450,7 +450,7 @@ struct ChecklistView: View {
                         icon: "arrow.triangle.2.circlepath",
                         color: .aviationBlue,
                         count: touchAndGoCount,
-                        countLabel: "Touch and gos",
+                        countLabel: "Touch-and-goes",
                         onPress: { onTouchAndGo?() }
                     )
                     .id("touchAndGoButton")

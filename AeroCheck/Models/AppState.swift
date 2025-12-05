@@ -168,10 +168,48 @@ class AppState: ObservableObject {
         currentFlight?.landingTime = landingTime
         hasLandingBeenDetected = true
     }
+
+    /// Update landing time to current time (for long-press update)
+    func updateLandingTime() {
+        landingTime = Date()
+        currentFlight?.landingTime = landingTime
+    }
     
     func recordEngineShutdown() {
         engineShutdownTime = Date()
         currentFlight?.engineShutdownTime = engineShutdownTime
+    }
+
+    /// Record a go-around and return to climb phase, resetting subsequent phases
+    func recordGoAround() {
+        currentFlight?.goAroundCount += 1
+
+        // Reset phases from climb onwards
+        for phase in ChecklistPhase.allCases {
+            if phase.rawValue >= ChecklistPhase.climb.rawValue {
+                phaseCompletionStatus[phase] = nil
+                currentHighlightedItem[phase] = 0
+            }
+        }
+
+        // Go to climb phase
+        currentPhase = .climb
+    }
+
+    /// Record a touch-and-go and return to climb phase, resetting subsequent phases
+    func recordTouchAndGo() {
+        currentFlight?.touchAndGoCount += 1
+
+        // Reset phases from climb onwards
+        for phase in ChecklistPhase.allCases {
+            if phase.rawValue >= ChecklistPhase.climb.rawValue {
+                phaseCompletionStatus[phase] = nil
+                currentHighlightedItem[phase] = 0
+            }
+        }
+
+        // Go to climb phase
+        currentPhase = .climb
     }
     
     func addGPSPoint(_ point: GPSPoint) {

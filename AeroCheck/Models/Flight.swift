@@ -14,7 +14,9 @@ struct Flight: Identifiable, Codable {
     var engineShutdownTime: Date?
     var gpsTrack: [GPSPoint]
     var notes: String
-    
+    var goAroundCount: Int
+    var touchAndGoCount: Int
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -26,7 +28,9 @@ struct Flight: Identifiable, Codable {
         landingTime: Date? = nil,
         engineShutdownTime: Date? = nil,
         gpsTrack: [GPSPoint] = [],
-        notes: String = ""
+        notes: String = "",
+        goAroundCount: Int = 0,
+        touchAndGoCount: Int = 0
     ) {
         self.id = id
         self.name = name
@@ -39,6 +43,8 @@ struct Flight: Identifiable, Codable {
         self.engineShutdownTime = engineShutdownTime
         self.gpsTrack = gpsTrack
         self.notes = notes
+        self.goAroundCount = goAroundCount
+        self.touchAndGoCount = touchAndGoCount
     }
     
     /// Display name: "Custom Name (Airplane)" or just "Airplane" if no name
@@ -98,6 +104,27 @@ struct Flight: Identifiable, Codable {
             return "< 0.1 km"
         }
         return String(format: "%.1f km", distanceKilometers)
+    }
+
+    /// Export filename in format: YYYYMMDD_PLANE_NameOfFlight (without extension)
+    var exportFilename: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let dateStr = startTime.map { formatter.string(from: $0) } ?? "Unknown"
+
+        // Clean airplane name (remove spaces and special characters)
+        let cleanAirplane = airplane.replacingOccurrences(of: " ", with: "-")
+
+        if name.isEmpty {
+            return "\(dateStr)_\(cleanAirplane)"
+        } else {
+            // Clean flight name (replace spaces with underscores, remove problematic chars)
+            let cleanName = name
+                .replacingOccurrences(of: " ", with: "_")
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: "\\", with: "-")
+            return "\(dateStr)_\(cleanAirplane)_\(cleanName)"
+        }
     }
 }
 
@@ -198,7 +225,15 @@ extension Flight {
         }
         
         gpx += "\n        <pc:distanceKm>\(String(format: "%.2f", distanceKilometers))</pc:distanceKm>"
-        
+
+        if goAroundCount > 0 {
+            gpx += "\n        <pc:goAroundCount>\(goAroundCount)</pc:goAroundCount>"
+        }
+
+        if touchAndGoCount > 0 {
+            gpx += "\n        <pc:touchAndGoCount>\(touchAndGoCount)</pc:touchAndGoCount>"
+        }
+
         if !notes.isEmpty {
             gpx += "\n        <pc:notes><![CDATA[\(notes)]]></pc:notes>"
         }
@@ -345,6 +380,10 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.engineShutdownTime = dateFormatter.date(from: text)
         case "stopTime":
             flight?.stopTime = dateFormatter.date(from: text)
+        case "goAroundCount":
+            flight?.goAroundCount = Int(text) ?? 0
+        case "touchAndGoCount":
+            flight?.touchAndGoCount = Int(text) ?? 0
         case "ele":
             if var point = currentPoint, let alt = Double(text) {
                 currentPoint = GPSPoint(

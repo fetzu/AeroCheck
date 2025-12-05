@@ -124,6 +124,56 @@ struct TimestampActionButton: View {
     }
 }
 
+// MARK: - Counter Action Button (for Go Around / Touch and Go)
+
+/// A button that can be pressed multiple times and shows a counter
+struct CounterActionButton: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let count: Int
+    let countLabel: String
+    let onPress: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // The button
+            Button(action: {
+                // Haptic feedback
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                onPress()
+            }) {
+                HStack {
+                    Image(systemName: icon)
+                    Text(title)
+                }
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(color)
+                        .shadow(color: color.opacity(0.4), radius: 6, x: 0, y: 3)
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: isPressed)
+
+            // Counter display
+            if count > 0 {
+                Text("\(countLabel): \(count)")
+                    .font(.captionText)
+                    .foregroundColor(color)
+            }
+        }
+    }
+}
+
 /// Main checklist display view - shows checklist items exactly as in the document
 struct ChecklistView: View {
     let phase: ChecklistPhase
@@ -133,12 +183,19 @@ struct ChecklistView: View {
     var onLineUpUpdate: (() -> Void)?
     var onEngineShutdown: (() -> Void)?
     var onEngineShutdownUpdate: (() -> Void)?
+    var onGoAround: (() -> Void)?
+    var onTouchAndGo: (() -> Void)?
+    var onLanded: (() -> Void)?
+    var onLandedUpdate: (() -> Void)?
     var onBriefingTap: ((BriefingType) -> Void)?
     var onTapToAdvance: (() -> Void)?
     var onAllItemsCompleted: (() -> Void)?
     var engineStartTime: String?
     var lineUpTime: String?
+    var landingTime: String?
     var engineShutdownTime: String?
+    var goAroundCount: Int = 0
+    var touchAndGoCount: Int = 0
     
     // Settings
     var stepByStepEnabled: Bool = true
@@ -163,19 +220,26 @@ struct ChecklistView: View {
         allItems.count - visibleItems.count
     }
     
-    init(phase: ChecklistPhase, 
+    init(phase: ChecklistPhase,
          onEngineStart: (() -> Void)? = nil,
          onEngineStartUpdate: (() -> Void)? = nil,
          onLineUp: (() -> Void)? = nil,
          onLineUpUpdate: (() -> Void)? = nil,
          onEngineShutdown: (() -> Void)? = nil,
          onEngineShutdownUpdate: (() -> Void)? = nil,
+         onGoAround: (() -> Void)? = nil,
+         onTouchAndGo: (() -> Void)? = nil,
+         onLanded: (() -> Void)? = nil,
+         onLandedUpdate: (() -> Void)? = nil,
          onBriefingTap: ((BriefingType) -> Void)? = nil,
          onTapToAdvance: (() -> Void)? = nil,
          onAllItemsCompleted: (() -> Void)? = nil,
          engineStartTime: String? = nil,
          lineUpTime: String? = nil,
+         landingTime: String? = nil,
          engineShutdownTime: String? = nil,
+         goAroundCount: Int = 0,
+         touchAndGoCount: Int = 0,
          stepByStepEnabled: Bool = true,
          learningModeEnabled: Bool = false,
          highlightedItemIndex: Int = 0,
@@ -187,12 +251,19 @@ struct ChecklistView: View {
         self.onLineUpUpdate = onLineUpUpdate
         self.onEngineShutdown = onEngineShutdown
         self.onEngineShutdownUpdate = onEngineShutdownUpdate
+        self.onGoAround = onGoAround
+        self.onTouchAndGo = onTouchAndGo
+        self.onLanded = onLanded
+        self.onLandedUpdate = onLandedUpdate
         self.onBriefingTap = onBriefingTap
         self.onTapToAdvance = onTapToAdvance
         self.onAllItemsCompleted = onAllItemsCompleted
         self.engineStartTime = engineStartTime
         self.lineUpTime = lineUpTime
+        self.landingTime = landingTime
         self.engineShutdownTime = engineShutdownTime
+        self.goAroundCount = goAroundCount
+        self.touchAndGoCount = touchAndGoCount
         self.stepByStepEnabled = stepByStepEnabled
         self.learningModeEnabled = learningModeEnabled
         self.highlightedItemIndex = highlightedItemIndex
@@ -304,10 +375,10 @@ struct ChecklistView: View {
             // Special buttons
             if phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
                 Spacer().frame(height: 24)
-                
+
                 HStack {
                     Spacer()
-                    
+
                     if phase.showsEngineStartButton {
                         TimestampActionButton(
                             title: "ENGINE START",
@@ -321,7 +392,7 @@ struct ChecklistView: View {
                         )
                         .id("actionButton")
                     }
-                    
+
                     if phase.showsLineUpButton {
                         TimestampActionButton(
                             title: "READY FOR LINE UP",
@@ -336,7 +407,7 @@ struct ChecklistView: View {
                         )
                         .id("actionButton")
                     }
-                    
+
                     if phase.showsEngineShutdownButton {
                         TimestampActionButton(
                             title: "ENGINE SHUTDOWN",
@@ -350,7 +421,63 @@ struct ChecklistView: View {
                         )
                         .id("actionButton")
                     }
-                    
+
+                    Spacer()
+                }
+            }
+
+            // Go Around / Touch and Go buttons
+            if phase.showsGoAroundButtons {
+                Spacer().frame(height: 24)
+
+                HStack(spacing: 16) {
+                    Spacer()
+
+                    // Go Around button
+                    CounterActionButton(
+                        title: "GO AROUND",
+                        icon: "arrow.up.right.circle.fill",
+                        color: .aviationAmber,
+                        count: goAroundCount,
+                        countLabel: "Go Arounds",
+                        onPress: { onGoAround?() }
+                    )
+                    .id("goAroundButton")
+
+                    // Touch and Go button
+                    CounterActionButton(
+                        title: "TOUCH-AND-GO",
+                        icon: "arrow.triangle.2.circlepath",
+                        color: .aviationBlue,
+                        count: touchAndGoCount,
+                        countLabel: "Touch and gos",
+                        onPress: { onTouchAndGo?() }
+                    )
+                    .id("touchAndGoButton")
+
+                    Spacer()
+                }
+            }
+
+            // Landed button
+            if phase.showsLandedButton {
+                Spacer().frame(height: 24)
+
+                HStack {
+                    Spacer()
+
+                    TimestampActionButton(
+                        title: "LANDED",
+                        icon: "airplane.arrival",
+                        color: .aviationBlue,
+                        timestamp: landingTime,
+                        timestampLabel: "Landing",
+                        isPulsing: pulseActionButton,
+                        onFirstPress: { onLanded?() },
+                        onUpdateTime: { onLandedUpdate?() }
+                    )
+                    .id("actionButton")
+
                     Spacer()
                 }
             }

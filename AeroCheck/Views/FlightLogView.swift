@@ -101,22 +101,20 @@ struct FlightLogView: View {
     
     private func createExportAllZip() -> Data? {
         var zipEntries: [(filename: String, data: Data)] = []
-        
+
         for flight in appState.flights {
-            let baseName = "\(flight.displayName)_\(flight.formattedDate)".replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "-")
-            
             switch exportAllType {
             case .gpx:
                 if let data = flight.toGPX().data(using: .utf8) {
-                    zipEntries.append((filename: "\(baseName).gpx", data: data))
+                    zipEntries.append((filename: "\(flight.exportFilename).gpx", data: data))
                 }
             case .json:
                 if let data = flight.toJSON() {
-                    zipEntries.append((filename: "\(baseName).json", data: data))
+                    zipEntries.append((filename: "\(flight.exportFilename).json", data: data))
                 }
             }
         }
-        
+
         return createSimpleZip(entries: zipEntries)
     }
     
@@ -449,13 +447,13 @@ struct FlightDetailView: View {
             case .gpx:
                 if let gpxData = flight.toGPX().data(using: .utf8) {
                     ShareSheet(activityItems: [
-                        GPXFile(data: gpxData, filename: "\(flight.airplane)_\(flight.formattedDate).gpx")
+                        GPXFile(data: gpxData, filename: "\(flight.exportFilename).gpx")
                     ])
                 }
             case .json:
                 if let jsonData = flight.toJSON() {
                     ShareSheet(activityItems: [
-                        JSONFile(data: jsonData, filename: "\(flight.airplane)_\(flight.formattedDate).json")
+                        JSONFile(data: jsonData, filename: "\(flight.exportFilename).json")
                     ])
                 }
             }
@@ -533,6 +531,12 @@ struct FlightDetailView: View {
                 DetailRow(label: "Flight Time", value: flight.formattedDuration, icon: "clock.fill")
                 DetailRow(label: "Distance", value: flight.formattedDistance, icon: "point.topleft.down.to.point.bottomright.curvepath.fill")
                 DetailRow(label: "GPS Points", value: "\(flight.gpsTrack.count)", icon: "location.fill")
+                if flight.goAroundCount > 0 {
+                    DetailRow(label: "Go Arounds", value: "\(flight.goAroundCount)", icon: "arrow.up.right.circle.fill")
+                }
+                if flight.touchAndGoCount > 0 {
+                    DetailRow(label: "Touch and gos", value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
+                }
             }
             .cardStyle()
             

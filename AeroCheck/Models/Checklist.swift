@@ -95,6 +95,16 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
     var showsEngineShutdownButton: Bool {
         self == .shutdown
     }
+
+    /// Whether this phase shows the "Go Around" and "Touch-and-Go" buttons
+    var showsGoAroundButtons: Bool {
+        self == .landing
+    }
+
+    /// Whether this phase shows the "Landed" button
+    var showsLandedButton: Bool {
+        self == .afterLanding
+    }
     
     /// Target speed for the phase (nil means no speed display, e.g. during taxi)
     var targetSpeed: Int? {

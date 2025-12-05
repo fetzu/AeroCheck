@@ -27,6 +27,8 @@ struct FlightView: View {
             return appState.engineStartTime == nil
         case .beforeDeparture:
             return appState.lineUpTime == nil
+        case .afterLanding:
+            return appState.landingTime == nil
         case .shutdown:
             return appState.engineShutdownTime == nil
         default:
@@ -124,6 +126,31 @@ struct FlightView: View {
                             onEngineShutdownUpdate: {
                                 appState.recordEngineShutdown()
                             },
+                            onGoAround: {
+                                appState.recordGoAround()
+                                // Reset UI state since we're jumping to a new phase
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
+                            onTouchAndGo: {
+                                appState.recordTouchAndGo()
+                                // Reset UI state since we're jumping to a new phase
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
+                            onLanded: {
+                                appState.recordLanding()
+                                pulseActionButton = false
+                                // Now pulse NEXT button if all items checked
+                                if allItemsChecked {
+                                    triggerNextButtonPulse()
+                                }
+                            },
+                            onLandedUpdate: {
+                                appState.updateLandingTime()
+                            },
                             onBriefingTap: { briefingType in
                                 switch briefingType {
                                 case .departure:
@@ -140,7 +167,10 @@ struct FlightView: View {
                             },
                             engineStartTime: appState.formattedEngineStartTime,
                             lineUpTime: appState.formattedLineUpTime,
+                            landingTime: appState.formattedLandingTime,
                             engineShutdownTime: appState.formattedEngineShutdownTime,
+                            goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
+                            touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
@@ -373,17 +403,35 @@ struct FlightView: View {
     
     // MARK: - Flight Info Panel
     
+    private var gpsStatusColor: Color {
+        guard locationManager.isTracking else { return .dimText }
+        switch locationManager.gpsSignalStatus {
+        case .good: return .aviationGreen
+        case .degraded: return .orange
+        case .lost: return .aviationRed
+        }
+    }
+
+    private var gpsStatusIndicator: StatusIndicator.Status {
+        guard locationManager.isTracking else { return .inactive }
+        switch locationManager.gpsSignalStatus {
+        case .good: return .active
+        case .degraded: return .warning
+        case .lost: return .error
+        }
+    }
+
     private var flightInfoPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             // GPS Status
             HStack {
                 Image(systemName: "location.fill")
-                    .foregroundColor(locationManager.isTracking ? .aviationGreen : .dimText)
+                    .foregroundColor(gpsStatusColor)
                 Text("GPS")
                     .font(.captionText)
                     .foregroundColor(.secondaryText)
                 Spacer()
-                StatusIndicator(locationManager.isTracking ? .active : .inactive)
+                StatusIndicator(gpsStatusIndicator)
             }
             
             // Points recorded

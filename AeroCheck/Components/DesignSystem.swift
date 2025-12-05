@@ -224,9 +224,9 @@ struct SpeedIndicatorView: View {
     let currentSpeed: Double // in knots (from GPS, m/s converted)
     let targetSpeed: Int
     let stallSpeed: Int = 42 // Vs clean stall speed
-    
+
     @State private var isFlashing = false
-    
+
     // Speed state categories
     private var speedState: SpeedState {
         let speedInt = Int(currentSpeed)
@@ -238,10 +238,10 @@ struct SpeedIndicatorView: View {
             return .offTarget
         }
     }
-    
+
     enum SpeedState {
-        case onTarget   // Green: within 5 KIAS of target
-        case offTarget  // Orange: outside 5 KIAS range
+        case onTarget   // Green (solid): within 5 KIAS of target
+        case offTarget  // Orange (solid): above Vs but outside 5 KIAS range
         case stall      // Flashing red/white: below stall speed
     }
     
@@ -299,10 +299,11 @@ struct SpeedIndicatorView: View {
         case .offTarget:
             return Color.orange.opacity(0.2)
         case .stall:
+            // Only animate in stall state
             return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
-    
+
     private var textColor: Color {
         switch speedState {
         case .onTarget:
@@ -310,6 +311,7 @@ struct SpeedIndicatorView: View {
         case .offTarget:
             return .orange
         case .stall:
+            // Only animate in stall state
             return isFlashing ? .white : .aviationRed
         }
     }

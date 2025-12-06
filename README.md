@@ -4,16 +4,16 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 # AéroCheck
 
+![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![License](https://img.shields.io/badge/License-MIT-red)
+
 A native iPad application for pilot students at Aéroclub du Jura GVMP. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
 ## Supported Aircraft
 
 - **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025)
 - **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020)
-
-![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-![License](https://img.shields.io/badge/License-MIT-red)
 
 ## Features
 

@@ -4,16 +4,17 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 # AéroCheck
 
-A native iPad application for pilot students at Aéroclub du Jura GVMP. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+A native iOS application for pilot students at Aéroclub du Jura GVMP. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data. Works on both iPad and iPhone with adaptive UI.
 
 ## Supported Aircraft
 
 - **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025)
 - **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020)
 
-![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
+![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-Private-red)
+![Devices](https://img.shields.io/badge/Devices-iPhone%20%7C%20iPad-green)
 
 ## Features
 
@@ -82,6 +83,7 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - Aviation-inspired color scheme (gold, blue, green)
 - Large readable text
 - Screen stays on during flights
+- **Adaptive layout**: Optimized for both iPad (side panel) and iPhone (compact view)
 - Phase completion tracking with color-coded indicators:
   - **Green dot**: Phase completed (pressed NEXT)
   - **Orange dot**: Phase skipped (jumped ahead without NEXT)
@@ -115,19 +117,26 @@ The app includes all 16 phases from the official checklists (same structure for 
 
 ## Requirements
 
-- iPad Air (11-inch) or larger
-- iPadOS 17.0 or later (designed for iOS 26)
+### For iPad
+- iPad Air (11-inch) or larger recommended
+- iPadOS 26.0 or later
+
+### For iPhone
+- Any iPhone running iOS 26.0 or later
+- Compact UI adapts to smaller screens
+
+### General
 - Location services enabled
-- Xcode 15.0+ for building
+- Xcode 16.0+ for building
 
 ## Installation
 
 ### From Xcode
 
 1. Clone or download this repository
-2. Open `AeroCheck.xcodeproj` in Xcode 15+
+2. Open `AeroCheck.xcodeproj` in Xcode 16+
 3. Select your development team in Signing & Capabilities
-4. Connect your iPad or select a simulator
+4. Connect your iPhone/iPad or select a simulator
 5. Build and run (⌘R)
 
 ### Building for Distribution
@@ -151,7 +160,8 @@ The app includes all 16 phases from the official checklists (same structure for 
 - Use "PREVIOUS" and "NEXT" buttons to navigate
 - Tap the phase indicator to jump to any checklist
 - Access speed reference anytime via "SPEEDS" button
-- Side panel shows all phases and current status
+- **iPad**: Side panel shows all phases, flight times, and current status
+- **iPhone**: Tap the info button (i) to view flight info and phases in a sheet
 
 ### Special Buttons
 

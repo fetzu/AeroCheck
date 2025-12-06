@@ -202,6 +202,7 @@ struct ChecklistView: View {
     var learningModeEnabled: Bool = false
     var highlightedItemIndex: Int = 0
     var pulseActionButton: Bool = false
+    var isCompact: Bool = false
 
     // State for temporarily revealing hidden items
     @State private var hiddenItemsRevealed: Bool = false
@@ -254,7 +255,8 @@ struct ChecklistView: View {
          stepByStepEnabled: Bool = true,
          learningModeEnabled: Bool = false,
          highlightedItemIndex: Int = 0,
-         pulseActionButton: Bool = false) {
+         pulseActionButton: Bool = false,
+         isCompact: Bool = false) {
         self.phase = phase
         self.onEngineStart = onEngineStart
         self.onEngineStartUpdate = onEngineStartUpdate
@@ -279,6 +281,7 @@ struct ChecklistView: View {
         self.learningModeEnabled = learningModeEnabled
         self.highlightedItemIndex = highlightedItemIndex
         self.pulseActionButton = pulseActionButton
+        self.isCompact = isCompact
     }
     
     var body: some View {
@@ -286,37 +289,37 @@ struct ChecklistView: View {
             // Page indicator with optional step-by-step hint
             HStack {
                 Text("PAGE \(phase.pageNumber)")
-                    .font(.captionText)
+                    .font(isCompact ? .system(size: 11) : .captionText)
                     .foregroundColor(.dimText)
-                
+
                 Spacer()
-                
+
                 if stepByStepEnabled && !visibleItems.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
-                            .font(.system(size: 10))
+                            .font(.system(size: isCompact ? 9 : 10))
                         Text("Tap to advance")
-                            .font(.system(size: 11))
+                            .font(.system(size: isCompact ? 10 : 11))
                     }
                     .foregroundColor(.dimText)
                 }
             }
-            .padding(.bottom, 8)
-            
+            .padding(.bottom, isCompact ? 4 : 8)
+
             // Briefing text if applicable (tappable)
             if let briefingText = phase.briefingText, let briefingType = phase.briefingType {
                 Button(action: { onBriefingTap?(briefingType) }) {
                     HStack {
                         Text(briefingText)
-                            .font(.system(size: 16, weight: .medium, design: .monospaced))
+                            .font(.system(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
                             .foregroundColor(.aviationAmber)
                             .italic()
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundColor(.aviationAmber)
                     }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 12)
+                    .padding(.vertical, isCompact ? 8 : 12)
+                    .padding(.horizontal, isCompact ? 8 : 12)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.aviationAmber.opacity(0.1))
@@ -327,18 +330,21 @@ struct ChecklistView: View {
                     )
                 }
                 .buttonStyle(PlainButtonStyle())
-                .padding(.bottom, 16)
+                .padding(.bottom, isCompact ? 8 : 16)
             }
-            
+
             // Checklist title
             HStack {
                 Text(phase.title)
-                    .headerStyle()
+                    .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
+                    .foregroundColor(.aviationGold)
+                    .textCase(.uppercase)
+                    .tracking(isCompact ? 1 : 2)
                 Spacer()
             }
-            
+
             AviationDivider()
-                .padding(.vertical, 12)
+                .padding(.vertical, isCompact ? 8 : 12)
             
             // Checklist items with optional step-by-step highlighting
             ScrollViewReader { scrollProxy in
@@ -348,7 +354,8 @@ struct ChecklistView: View {
                             item: item,
                             showSeparator: index < visibleItems.count - 1,
                             isHighlighted: stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count,
-                            isCompleted: stepByStepEnabled && index < highlightedItemIndex
+                            isCompleted: stepByStepEnabled && index < highlightedItemIndex,
+                            isCompact: isCompact
                         )
                         .id(index)
                     }
@@ -593,12 +600,14 @@ struct ChecklistItemRow: View {
     let showSeparator: Bool
     var isHighlighted: Bool = false
     var isCompleted: Bool = false
-    
-    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false) {
+    var isCompact: Bool = false
+
+    init(item: ChecklistItem, showSeparator: Bool = true, isHighlighted: Bool = false, isCompleted: Bool = false, isCompact: Bool = false) {
         self.item = item
         self.showSeparator = showSeparator
         self.isHighlighted = isHighlighted
         self.isCompleted = isCompleted
+        self.isCompact = isCompact
     }
     
     private var numberColor: Color {
@@ -624,69 +633,81 @@ struct ChecklistItemRow: View {
         return .secondaryText
     }
     
+    private var itemFont: Font {
+        isCompact ? .system(size: 16, weight: .medium, design: .monospaced) : .checklistItem
+    }
+
+    private var responseFont: Font {
+        isCompact ? .system(size: 16, weight: .regular, design: .monospaced) : .checklistResponse
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline, spacing: 0) {
                 // Item number - fixed width to prevent wrapping
                 if let number = item.number {
-                    HStack(spacing: 4) {
+                    HStack(spacing: isCompact ? 2 : 4) {
                         if isCompleted {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: isCompact ? 11 : 14, weight: .bold))
                                 .foregroundColor(.aviationGreen.opacity(0.6))
                         }
                         Text("\(number).")
-                            .font(.checklistItem)
+                            .font(itemFont)
                             .foregroundColor(numberColor)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                     }
-                    .frame(minWidth: isCompleted ? 60 : 40, alignment: .trailing)
-                    .padding(.trailing, 10)
+                    .frame(minWidth: isCompleted ? (isCompact ? 44 : 60) : (isCompact ? 28 : 40), alignment: .trailing)
+                    .padding(.trailing, isCompact ? 6 : 10)
                 } else {
-                    Spacer().frame(width: 50)
+                    Spacer().frame(width: isCompact ? 34 : 50)
                 }
-                
+
                 // Challenge text
                 Text(item.challenge)
-                    .font(.checklistItem)
+                    .font(itemFont)
                     .foregroundColor(challengeColor)
                     .fixedSize(horizontal: false, vertical: true)
-                
+
                 // Dot leader - fills remaining space, aligned to text baseline
-                DotLeader()
-                    .padding(.horizontal, 8)
-                    .opacity(isCompleted ? 0.5 : 1.0)
-                
+                if !isCompact {
+                    DotLeader()
+                        .padding(.horizontal, 8)
+                        .opacity(isCompleted ? 0.5 : 1.0)
+                } else {
+                    Spacer(minLength: 8)
+                }
+
                 // Response text
                 Text(item.response)
-                    .font(.checklistResponse)
+                    .font(responseFont)
                     .foregroundColor(responseColor)
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, isHighlighted ? 8 : 0)
+            .padding(.vertical, isCompact ? 6 : 10)
+            .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(
                 Group {
                     if isHighlighted {
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: isCompact ? 6 : 8)
                             .fill(Color.aviationGold.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.aviationGold.opacity(0.4), lineWidth: 2)
+                                RoundedRectangle(cornerRadius: isCompact ? 6 : 8)
+                                    .stroke(Color.aviationGold.opacity(0.4), lineWidth: isCompact ? 1.5 : 2)
                             )
                     }
                 }
             )
             .animation(.easeInOut(duration: 0.2), value: isHighlighted)
-            
+
             // Subtle separator line
             if showSeparator {
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
-                    .padding(.leading, 50)
+                    .padding(.leading, isCompact ? 34 : 50)
             }
         }
     }

@@ -378,12 +378,28 @@ extension Color {
 struct AltimeterView: View {
     let altitudeFeet: Double
 
+    /// Dynamic font size based on digit count to ensure full number is always visible
+    private var altitudeFontSize: CGFloat {
+        let altitude = Int(altitudeFeet)
+        let digitCount = String(abs(altitude)).count
+        switch digitCount {
+        case 1, 2:
+            return 36  // 0-99
+        case 3:
+            return 32  // 100-999
+        case 4:
+            return 26  // 1000-9999
+        default:
+            return 20  // 10000-99999+
+        }
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             // Altitude label
             Text("ALT")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.black.opacity(0.6))
+                .foregroundColor(.secondaryText)
 
             // Altitude display
             ZStack {
@@ -394,13 +410,16 @@ struct AltimeterView: View {
                 // Altitude value
                 VStack(spacing: 2) {
                     Text("\(Int(altitudeFeet))")
-                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
                         .foregroundColor(.black)
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
 
                     Text("FT")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.black.opacity(0.7))
                 }
+                .padding(.horizontal, 4)
             }
             .frame(width: 100, height: 70)
 

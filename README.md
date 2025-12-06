@@ -2,9 +2,14 @@ __IMPORTANT CAVEAT: This application is provided solely for training and pedagog
 
 _NOTE: This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
-# AéroCheck - WT9 Dynamic
+# AéroCheck
 
-A native iPad application for pilot students flying the WT9 Dynamic aircraft. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+A native iPad application for pilot students at Aéroclub du Jura GVMP. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+
+## Supported Aircraft
+
+- **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025)
+- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020)
 
 ![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
@@ -12,12 +17,14 @@ A native iPad application for pilot students flying the WT9 Dynamic aircraft. Th
 
 ## Features
 
-### ✈️ Complete Checklist System
-- All 16 flight phases from the official WT9 Dynamic checklist (Version 2.1e)
+### ✈️ Multi-Aircraft Checklist System
+- **Two aircraft supported**: WT9 Dynamic (F-HVXA) and PA-28-181 (HB-PFA)
+- All 16 flight phases from official checklists
+- Aircraft selection in Settings - checklists, speeds, and limits adapt automatically
 - Checklists displayed exactly as in the official documentation
 - Easy navigation between phases
 - Quick phase selector for jumping to any checklist
-- Speed reference card always accessible
+- Speed reference card with aircraft-specific speeds always accessible
 - **Step-by-Step Highlighting**: Items highlighted one at a time; tap anywhere in the checklist area to advance
 - **Smart completion**: When all items are checked, the NEXT button pulses to draw attention
 - **Learning Mode**: Toggle to show all checks for studying, or hide memorizable checks to test memory
@@ -33,10 +40,15 @@ A native iPad application for pilot students flying the WT9 Dynamic aircraft. Th
 - Color-coded feedback:
   - **Green**: Speed within 5 KIAS of target
   - **Orange**: Speed outside ±5 KIAS range
-  - **Flashing Red/White**: Below stall speed (42 KIAS)
-- Target speed guidance based on current flight phase
+  - **Flashing Red/White**: Below stall speed (aircraft-specific: 42 KIAS for WT9, 53 KIAS for PA-28)
+- Target speed guidance based on current flight phase and aircraft type
 - Arrow indicators showing speed trend (up/down/on target)
 - Automatically hidden during ground operations (taxi, parking)
+
+### 📏 Live Altimeter
+- Real-time GPS altitude display (feet MSL)
+- Light blue background for easy visibility
+- Displayed alongside speed indicator during flight phases
 
 ### 📊 Flight Log
 - Complete flight history with all parameters
@@ -51,6 +63,7 @@ A native iPad application for pilot students flying the WT9 Dynamic aircraft. Th
   5. Engine Shutdown
   6. Session End
 - GPS track visualization on map
+- **Altitude profile graph**: Time-based altitude chart with flight event markers (Engine Start, Take-off, Landing, Shutdown)
 - Notes for each flight
 
 ### 💾 Data Export/Import
@@ -81,7 +94,7 @@ A native iPad application for pilot students flying the WT9 Dynamic aircraft. Th
 
 ## Checklist Phases
 
-The app includes all phases from the official checklist:
+The app includes all 16 phases from the official checklists (same structure for both aircraft):
 
 1. **Preflight Check** (Page 1)
 2. **Check Before Engine Start** (Page 1)
@@ -128,7 +141,7 @@ The app includes all phases from the official checklist:
 ### Starting a Flight
 
 1. Launch the app
-2. Verify your aircraft registration (default: F-HVXA)
+2. Select your aircraft in Settings if needed (F-HVXA or HB-PFA)
 3. Tap "START FLIGHT"
 4. GPS tracking begins automatically
 5. Follow the checklists in order
@@ -179,8 +192,11 @@ AeroCheck/
 │   ├── Info.plist                    # App configuration
 │   ├── Assets.xcassets/             # Images and colors
 │   ├── Models/
+│   │   ├── Aircraft.swift           # Aircraft types & metadata
 │   │   ├── Flight.swift             # Flight data model & GPX
-│   │   ├── Checklist.swift          # Checklist items & phases
+│   │   ├── Checklist.swift          # Checklist phases & items
+│   │   ├── WT9ChecklistData.swift   # WT9 Dynamic checklist data
+│   │   ├── PA28ChecklistData.swift  # PA-28-181 checklist data
 │   │   └── AppState.swift           # App state management
 │   ├── Views/
 │   │   ├── ContentView.swift        # Root view
@@ -263,15 +279,17 @@ JSON export includes all flight data in a structured format:
 
 In Settings:
 
-- **Default Aircraft**: Registration code for new flights
+- **Aircraft in use**: Select between F-HVXA (WT9 Dynamic) and HB-PFA (PA-28-181) - this changes checklists, speeds, and stall warnings
 - **GPS Recording Interval**: 1-30 seconds between points
 - **Keep Screen On**: Prevents display sleep during use
 - **Step-by-Step Highlighting**: Highlights checklist items one at a time; tap anywhere to advance to the next item (auto-scrolls if needed)
-- **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases include Engine Start (items 3+), Taxi, Runup (items 4+), Line Up, Climb, Descent, Approach, Landing, and After Landing
+- **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases vary by aircraft
 
 ## Speed Reference
 
-Quick access to all important speeds (KIAS):
+Quick access to all important speeds (KIAS). The SPEEDS modal shows aircraft-specific values:
+
+### WT9 Dynamic (F-HVXA)
 
 | Speed | Value | Description |
 |-------|-------|-------------|
@@ -284,7 +302,26 @@ Quick access to all important speeds (KIAS):
 | Vfe | 76 | Flaps extension |
 | Vbg | 70 | Best glide |
 
+**Max crosswind**: TO 14 kt / LDG 16 kt
+
+### PA-28-181 (HB-PFA)
+
+| Speed | Value | Description |
+|-------|-------|-------------|
+| Vso | 47 | Stall (flaps down) |
+| Vs | 53 | Stall (clean) |
+| Vr | 53 | Rotation |
+| Vx | 64 | Best angle |
+| Vy | 76 | Best rate of climb |
+| Vcc | 87 | Cruise climb |
+| Vfe | 103 | Flaps extension |
+| Vbg | 76 | Best glide |
+
+**Max crosswind**: 17 kt
+
 ### Target Speeds by Phase
+
+Target speeds vary by aircraft. Examples for WT9:
 
 | Phase | Target | Notes |
 |-------|--------|-------|
@@ -299,7 +336,7 @@ Quick access to all important speeds (KIAS):
 ## Based On
 
 - WT9 F-HVXA Checklist Version 2.1e (March 2025)
-- Extended Checklist Version 1.2 (March 2025)
+- PA-28-181 HB-PFA Checklist Version 1.6e (July 2020)
 - Aéroclub du Jura GVMP
 - SPHAIR Bases et procédures
 

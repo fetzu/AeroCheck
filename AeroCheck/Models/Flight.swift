@@ -356,7 +356,7 @@ class GPXParser: NSObject, XMLParserDelegate {
             if let date = dateFormatter.date(from: text) {
                 if flight?.startTime == nil {
                     flight?.startTime = date
-                } else if var point = currentPoint {
+                } else if let point = currentPoint {
                     currentPoint = GPSPoint(
                         id: point.id,
                         latitude: point.latitude,
@@ -385,7 +385,7 @@ class GPXParser: NSObject, XMLParserDelegate {
         case "touchAndGoCount":
             flight?.touchAndGoCount = Int(text) ?? 0
         case "ele":
-            if var point = currentPoint, let alt = Double(text) {
+            if let point = currentPoint, let alt = Double(text) {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -397,7 +397,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 )
             }
         case "speed":
-            if var point = currentPoint, let spd = Double(text) {
+            if let point = currentPoint, let spd = Double(text) {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -409,7 +409,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 )
             }
         case "course":
-            if var point = currentPoint, let crs = Double(text) {
+            if let point = currentPoint, let crs = Double(text) {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -435,3 +435,4 @@ class GPXParser: NSObject, XMLParserDelegate {
         }
     }
 }
+

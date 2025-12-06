@@ -4,7 +4,7 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 # AéroCheck
 
-![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
+![Platform](https://img.shields.io/badge/Platform-i(Pad)OS%2017%2B-blue)
 ![Devices](https://img.shields.io/badge/Devices-iPhone%20%7C%20iPad-green)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-MIT-red)

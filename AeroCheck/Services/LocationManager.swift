@@ -161,6 +161,16 @@ class LocationManager: NSObject, ObservableObject {
         guard let speed = currentLocation?.speed, speed >= 0 else { return 0 }
         return speed
     }
+
+    /// Current altitude in meters (raw GPS value)
+    var currentAltitudeMeters: Double {
+        currentLocation?.altitude ?? 0
+    }
+
+    /// Current altitude in feet (converted from meters)
+    var currentAltitudeFeet: Double {
+        currentAltitudeMeters * 3.28084 // meters to feet
+    }
 }
 
 // MARK: - CLLocationManagerDelegate

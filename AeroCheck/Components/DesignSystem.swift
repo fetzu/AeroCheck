@@ -351,16 +351,70 @@ struct SpeedIndicatorView: View {
 struct FlightSpeedIndicator: View {
     let gpsSpeedMetersPerSecond: Double
     let targetSpeed: Int?
-    
+
     // Convert m/s to knots (1 m/s = 1.94384 knots)
     private var speedInKnots: Double {
         gpsSpeedMetersPerSecond * 1.94384
     }
-    
+
     var body: some View {
         if let target = targetSpeed {
             SpeedIndicatorView(currentSpeed: max(0, speedInKnots), targetSpeed: target)
         }
+    }
+}
+
+// MARK: - Altimeter Display
+
+/// Light blue color for altimeter background
+extension Color {
+    static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)
+}
+
+struct AltimeterView: View {
+    let altitudeFeet: Double
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Altitude label
+            Text("ALT")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.black.opacity(0.6))
+
+            // Altitude display
+            ZStack {
+                // Background
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.altimeterBlue)
+
+                // Altitude value
+                VStack(spacing: 2) {
+                    Text("\(Int(altitudeFeet))")
+                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+
+                    Text("FT")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.black.opacity(0.7))
+                }
+            }
+            .frame(width: 100, height: 70)
+
+            // MSL indicator
+            Text("MSL")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundColor(.secondaryText)
+        }
+    }
+}
+
+// MARK: - Altimeter Container (handles altitude in feet)
+
+struct FlightAltimeter: View {
+    let altitudeFeet: Double
+
+    var body: some View {
+        AltimeterView(altitudeFeet: max(0, altitudeFeet))
     }
 }
 

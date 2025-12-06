@@ -364,7 +364,13 @@ struct FlightView: View {
                     targetSpeed: appState.currentPhase.targetSpeed
                 )
                 .padding(.vertical, 16)
-                
+
+                // Altimeter display below speed indicator
+                FlightAltimeter(
+                    altitudeFeet: locationManager.currentAltitudeFeet
+                )
+                .padding(.bottom, 16)
+
                 AviationDivider(color: .dimText)
             }
             

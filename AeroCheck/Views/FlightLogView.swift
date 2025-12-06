@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import Charts
 import UniformTypeIdentifiers
 
 /// Flight log view showing all recorded flights
@@ -403,13 +404,16 @@ struct FlightDetailView: View {
                 VStack(spacing: 24) {
                     // Map
                     mapSection
-                    
+
+                    // Altitude graph
+                    altitudeGraphSection
+
                     // Flight details
                     detailsSection
-                    
+
                     // Notes
                     notesSection
-                    
+
                     // Actions
                     actionsSection
                 }
@@ -498,33 +502,57 @@ struct FlightDetailView: View {
             }
         }
     }
-    
-    // MARK: - Details Section
-    
-    private var detailsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Flight Name editing
-            Text("FLIGHT NAME")
+
+    // MARK: - Altitude Graph Section
+
+    private var altitudeGraphSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ALTITUDE PROFILE")
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
-            
-            TextField("Enter flight name (e.g., Circuits 2)", text: $flightName)
-                .font(.bodyText)
-                .foregroundColor(.primaryText)
+
+            if flight.gpsTrack.isEmpty {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .frame(height: 200)
+                    .overlay(
+                        VStack(spacing: 12) {
+                            Image(systemName: "chart.xyaxis.line")
+                                .font(.system(size: 40))
+                                .foregroundColor(.dimText)
+                            Text("No altitude data recorded")
+                                .font(.bodyText)
+                                .foregroundColor(.dimText)
+                        }
+                    )
+            } else {
+                AltitudeChartView(
+                    gpsTrack: flight.gpsTrack,
+                    engineStartTime: flight.engineStartTime,
+                    lineUpTime: flight.lineUpTime,
+                    landingTime: flight.landingTime,
+                    engineShutdownTime: flight.engineShutdownTime,
+                    goAroundCount: flight.goAroundCount,
+                    touchAndGoCount: flight.touchAndGoCount
+                )
+                .frame(height: 200)
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.cardBackground)
                 )
-                .onChange(of: flightName) { _, newValue in
-                    appState.updateFlightName(flight, name: newValue)
-                }
-            
+            }
+        }
+    }
+
+    // MARK: - Details Section
+
+    private var detailsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Text("FLIGHT DETAILS")
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
-                .padding(.top, 8)
-            
+
             VStack(spacing: 12) {
                 DetailRow(label: "Aircraft", value: flight.airplane, icon: "airplane")
                 DetailRow(label: "Date", value: flight.formattedDate, icon: "calendar")
@@ -539,39 +567,57 @@ struct FlightDetailView: View {
                 }
             }
             .cardStyle()
-            
+
             // Chronological times
             Text("FLIGHT TIMES")
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
                 .padding(.top, 8)
-            
+
             VStack(spacing: 12) {
                 if let start = flight.startTime {
                     TimelineRow(label: "Session Start", time: timeString(from: start), icon: "play.fill", color: .dimText)
                 }
-                
+
                 if let engineStart = flight.engineStartTime {
                     TimelineRow(label: "Engine Start", time: timeString(from: engineStart), icon: "engine.combustion", color: .aviationGreen)
                 }
-                
+
                 if let lineUp = flight.lineUpTime {
                     TimelineRow(label: "Take-off", time: timeString(from: lineUp), icon: "airplane.departure", color: .aviationAmber)
                 }
-                
+
                 if let landing = flight.landingTime {
                     TimelineRow(label: "Landing", time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
                 }
-                
+
                 if let shutdown = flight.engineShutdownTime {
                     TimelineRow(label: "Engine Shutdown", time: timeString(from: shutdown), icon: "engine.combustion.fill", color: .aviationRed)
                 }
-                
+
                 if let stop = flight.stopTime {
                     TimelineRow(label: "Session End", time: timeString(from: stop), icon: "stop.fill", color: .dimText)
                 }
             }
             .cardStyle()
+
+            // Flight Name editing (moved to be between FLIGHT TIMES and NOTES)
+            Text("FLIGHT NAME")
+                .font(.captionText)
+                .foregroundColor(.secondaryText)
+                .padding(.top, 8)
+
+            TextField("Enter flight name (e.g., Circuits 2)", text: $flightName)
+                .font(.bodyText)
+                .foregroundColor(.primaryText)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.cardBackground)
+                )
+                .onChange(of: flightName) { _, newValue in
+                    appState.updateFlightName(flight, name: newValue)
+                }
         }
     }
     
@@ -774,12 +820,129 @@ class FlightAnnotation: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
     let title: String?
     let isStart: Bool
-    
+
     init(coordinate: CLLocationCoordinate2D, title: String, isStart: Bool) {
         self.coordinate = coordinate
         self.title = title
         self.isStart = isStart
         super.init()
+    }
+}
+
+// MARK: - Altitude Chart View
+
+struct AltitudeChartView: View {
+    let gpsTrack: [GPSPoint]
+    let engineStartTime: Date?
+    let lineUpTime: Date?
+    let landingTime: Date?
+    let engineShutdownTime: Date?
+    let goAroundCount: Int
+    let touchAndGoCount: Int
+
+    /// Altitude data points for the chart
+    private var altitudeData: [(time: Date, altitude: Double)] {
+        gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) } // Convert to feet
+    }
+
+    /// Flight event annotations to display on the chart
+    private var eventAnnotations: [(time: Date, label: String, color: Color)] {
+        var annotations: [(time: Date, label: String, color: Color)] = []
+
+        if let engineStart = engineStartTime {
+            annotations.append((time: engineStart, label: "Engine Start", color: .aviationGreen))
+        }
+        if let lineUp = lineUpTime {
+            annotations.append((time: lineUp, label: "Take-off", color: .aviationAmber))
+        }
+        if let landing = landingTime {
+            annotations.append((time: landing, label: "Landing", color: .aviationBlue))
+        }
+        if let shutdown = engineShutdownTime {
+            annotations.append((time: shutdown, label: "Shutdown", color: .aviationRed))
+        }
+
+        return annotations
+    }
+
+    var body: some View {
+        if altitudeData.isEmpty {
+            Text("No altitude data")
+                .font(.captionText)
+                .foregroundColor(.dimText)
+        } else {
+            Chart {
+                // Altitude line
+                ForEach(altitudeData, id: \.time) { point in
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("Altitude", point.altitude)
+                    )
+                    .foregroundStyle(Color.altimeterBlue)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                }
+
+                // Area fill under the line
+                ForEach(altitudeData, id: \.time) { point in
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        y: .value("Altitude", point.altitude)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.altimeterBlue.opacity(0.3), Color.altimeterBlue.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+
+                // Event annotations
+                ForEach(eventAnnotations, id: \.time) { event in
+                    RuleMark(x: .value("Event", event.time))
+                        .foregroundStyle(event.color.opacity(0.7))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
+                        .annotation(position: .top, alignment: .center) {
+                            Text(event.label)
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundColor(event.color)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.cardBackground)
+                                )
+                        }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.dimText.opacity(0.3))
+                    AxisValueLabel()
+                        .foregroundStyle(Color.secondaryText)
+                        .font(.system(size: 10))
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.dimText.opacity(0.3))
+                    AxisValueLabel {
+                        if let altitude = value.as(Double.self) {
+                            Text("\(Int(altitude)) ft")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.secondaryText)
+                        }
+                    }
+                }
+            }
+            .chartYAxisLabel(position: .leading, alignment: .center) {
+                Text("Altitude (ft MSL)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.secondaryText)
+            }
+        }
     }
 }
 

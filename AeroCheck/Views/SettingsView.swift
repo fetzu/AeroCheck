@@ -5,8 +5,8 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @Environment(\.dismiss) var dismiss
-    
-    @State private var airplane: String = ""
+
+    @State private var selectedAircraft: AircraftType = .wt9Dynamic
     @State private var gpsInterval: Double = 5.0
     @State private var keepScreenOn: Bool = true
     @State private var stepByStepHighlighting: Bool = true
@@ -17,20 +17,22 @@ struct SettingsView: View {
             Form {
                 // Aircraft section
                 Section {
-                    HStack {
-                        Text("Default Aircraft")
-                        Spacer()
-                        TextField("Registration", text: $airplane)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 150)
-                            .multilineTextAlignment(.center)
-                            .textCase(.uppercase)
-                            .autocorrectionDisabled()
+                    Picker("Aircraft in use", selection: $selectedAircraft) {
+                        ForEach(AircraftType.allCases) { aircraft in
+                            HStack {
+                                Text(aircraft.registration)
+                                    .font(.system(.body, design: .monospaced))
+                                Text("(\(aircraft.shortModelName))")
+                                    .foregroundColor(.secondary)
+                            }
+                            .tag(aircraft)
+                        }
                     }
+                    .pickerStyle(.menu)
                 } header: {
                     Label("Aircraft", systemImage: "airplane")
                 } footer: {
-                    Text("This will be used for new flights")
+                    Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
                 }
                 
                 // GPS section
@@ -96,43 +98,52 @@ struct SettingsView: View {
                         Text("1.0.0 (beta)")
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
                         Text("Author")
                         Spacer()
                         Text("Julien 'fetzu' Bono")
                             .foregroundColor(.secondary)
                     }
-                    
-                    HStack {
-                        Text("Aircraft Type")
-                        Spacer()
-                        Text("WT9 Dynamic")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Checklist Version")
-                        Spacer()
-                        Text("2.1e")
-                            .foregroundColor(.secondary)
-                    }
-                    
+
                     HStack {
                         Text("Organization")
                         Spacer()
                         Text("Aéroclub du Jura GVMP")
                             .foregroundColor(.secondary)
                     }
-                    
-                    HStack {
-                        Text("Last Updated")
-                        Spacer()
-                        Text("March 2025")
-                            .foregroundColor(.secondary)
-                    }
                 } header: {
                     Label("About", systemImage: "info.circle.fill")
+                }
+
+                // Available Checklists section
+                Section {
+                    ForEach(AircraftType.allCases) { aircraft in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(aircraft.registration)
+                                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                                Text(aircraft.shortModelName)
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack {
+                                Text("Version \(aircraft.checklistVersion)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("•")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(aircraft.lastUpdated)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Label("Available Checklists", systemImage: "checklist")
+                } footer: {
+                    Text("Checklist data provided by GVMP")
                 }
                 
                 // Data section
@@ -210,21 +221,21 @@ struct SettingsView: View {
     // MARK: - Methods
     
     private func loadSettings() {
-        airplane = appState.settings.defaultAirplane
+        selectedAircraft = appState.settings.selectedAircraft
         gpsInterval = appState.settings.gpsRecordingInterval
         keepScreenOn = appState.settings.keepScreenOn
         stepByStepHighlighting = appState.settings.stepByStepHighlighting
         learningMode = appState.settings.learningMode
     }
-    
+
     private func saveSettings() {
-        appState.settings.defaultAirplane = airplane.isEmpty ? "F-HVXA" : airplane.uppercased()
+        appState.settings.selectedAircraft = selectedAircraft
         appState.settings.gpsRecordingInterval = gpsInterval
         appState.settings.keepScreenOn = keepScreenOn
         appState.settings.stepByStepHighlighting = stepByStepHighlighting
         appState.settings.learningMode = learningMode
         appState.saveSettings()
-        
+
         // Apply screen setting
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
     }

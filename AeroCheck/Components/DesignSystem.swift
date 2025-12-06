@@ -223,7 +223,11 @@ struct StatusIndicator: View {
 struct SpeedIndicatorView: View {
     let currentSpeed: Double // in knots (from GPS, m/s converted)
     let targetSpeed: Int
-    let stallSpeed: Int = 42 // Vs clean stall speed
+
+    /// Stall speed from current aircraft type
+    private var stallSpeed: Int {
+        ChecklistData.currentAircraft.stallSpeed
+    }
 
     @State private var isFlashing = false
 

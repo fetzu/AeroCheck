@@ -11,12 +11,17 @@ enum PhaseCompletionStatus {
 
 /// Application-wide settings
 struct AppSettings: Codable {
-    var defaultAirplane: String = "F-HVXA"
+    var selectedAircraft: AircraftType = .wt9Dynamic
     var keepScreenOn: Bool = true
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
     var learningMode: Bool = false // Hide memorizable checks
+
+    /// Aircraft registration (derived from selected aircraft)
+    var defaultAirplane: String {
+        selectedAircraft.registration
+    }
 }
 
 /// Main application state manager
@@ -55,10 +60,16 @@ class AppState: ObservableObject {
     private let settingsKey = "appSettings"
     
     // MARK: - Initialization
-    
+
     init() {
         loadFlights()
         loadSettings()
+        syncAircraftType()
+    }
+
+    /// Sync the current aircraft type to ChecklistData
+    private func syncAircraftType() {
+        ChecklistData.currentAircraft = settings.selectedAircraft
     }
     
     // MARK: - Flight Management
@@ -388,6 +399,7 @@ class AppState: ObservableObject {
         if let encoded = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(encoded, forKey: settingsKey)
         }
+        syncAircraftType()
     }
     
     private func loadSettings() {

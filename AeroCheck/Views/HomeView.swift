@@ -8,33 +8,39 @@ struct HomeView: View {
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
     
+    /// Check if we're on a compact width device (iPhone)
+    private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
+        geometry.size.width < 600
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let isLandscape = geometry.size.width > geometry.size.height
-            
+            let isCompact = isCompactWidth(geometry)
+
             ZStack {
                 // Background
                 Color.cockpitBackground
                     .ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
                     // Header
-                    header(isLandscape: isLandscape)
-                        .padding(.horizontal, 24)
-                        .padding(.top, isLandscape ? 8 : 20)
-                    
-                    Spacer(minLength: isLandscape ? 8 : 24)
-                    
+                    header(isLandscape: isLandscape, isCompact: isCompact)
+                        .padding(.horizontal, isCompact ? 16 : 24)
+                        .padding(.top, isLandscape ? 8 : (isCompact ? 12 : 20))
+
+                    Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
+
                     // Main content
-                    mainContent(isLandscape: isLandscape)
+                    mainContent(isLandscape: isLandscape, isCompact: isCompact)
                         .frame(maxWidth: 700)
-                    
-                    Spacer(minLength: isLandscape ? 8 : 24)
-                    
+
+                    Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
+
                     // Quick access buttons
-                    bottomBar(isLandscape: isLandscape)
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, isLandscape ? 12 : 32)
+                    bottomBar(isLandscape: isLandscape, isCompact: isCompact)
+                        .padding(.horizontal, isCompact ? 12 : 24)
+                        .padding(.bottom, isLandscape ? 12 : (isCompact ? 16 : 32))
                 }
             }
         }
@@ -51,22 +57,22 @@ struct HomeView: View {
     
     // MARK: - Header
 
-    private func header(isLandscape: Bool) -> some View {
+    private func header(isLandscape: Bool, isCompact: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 10) {
+                HStack(spacing: isCompact ? 6 : 10) {
                     Image(systemName: "airplane")
-                        .font(.system(size: isLandscape ? 26 : 32))
+                        .font(.system(size: isCompact ? 22 : (isLandscape ? 26 : 32)))
                         .foregroundColor(.aviationGold)
 
                     Text("AéroCheck")
-                        .font(.system(size: isLandscape ? 24 : 28, weight: .bold, design: .default))
+                        .font(.system(size: isCompact ? 20 : (isLandscape ? 24 : 28), weight: .bold, design: .default))
                         .foregroundColor(.primaryText)
-                        .tracking(2)
+                        .tracking(isCompact ? 1 : 2)
                 }
 
                 Text("Aéroclub du Jura • GVMP")
-                    .font(.system(size: 12))
+                    .font(.system(size: isCompact ? 10 : 12))
                     .foregroundColor(.secondaryText)
             }
 
@@ -74,35 +80,35 @@ struct HomeView: View {
 
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: isCompact ? 18 : 22))
                     .foregroundColor(.secondaryText)
             }
         }
     }
     
     // MARK: - Main Content
-    
-    private func mainContent(isLandscape: Bool) -> some View {
-        VStack(spacing: isLandscape ? 12 : 40) {
+
+    private func mainContent(isLandscape: Bool, isCompact: Bool) -> some View {
+        VStack(spacing: isLandscape ? 12 : (isCompact ? 20 : 40)) {
             // Aircraft card
-            aircraftCard(isLandscape: isLandscape)
-            
+            aircraftCard(isLandscape: isLandscape, isCompact: isCompact)
+
             // Start flight button - keep consistent size
             Button(action: startFlight) {
-                HStack(spacing: 14) {
+                HStack(spacing: isCompact ? 10 : 14) {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: isCompact ? 18 : 22))
                     Text("START FLIGHT")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: isCompact ? 18 : 22, weight: .bold))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, isLandscape ? 14 : 22)
+                .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
             }
             .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-            .padding(.horizontal, 40)
-            
-            // Info text - hide in landscape to save space
-            if !isLandscape {
+            .padding(.horizontal, isCompact ? 20 : 40)
+
+            // Info text - hide in landscape and compact to save space
+            if !isLandscape && !isCompact {
                 Text("Starting a flight will begin GPS tracking and guide you through all checklists.")
                     .font(.system(size: 15))
                     .foregroundColor(.dimText)
@@ -110,7 +116,7 @@ struct HomeView: View {
                     .padding(.horizontal, 40)
             }
         }
-        .padding(isLandscape ? 12 : 32)
+        .padding(isLandscape ? 12 : (isCompact ? 16 : 32))
     }
     
     // MARK: - Aircraft Card
@@ -120,24 +126,24 @@ struct HomeView: View {
         appState.settings.selectedAircraft
     }
 
-    private func aircraftCard(isLandscape: Bool) -> some View {
-        VStack(spacing: isLandscape ? 8 : 20) {
+    private func aircraftCard(isLandscape: Bool, isCompact: Bool) -> some View {
+        VStack(spacing: isLandscape ? 8 : (isCompact ? 10 : 20)) {
             // Aircraft silhouette
             Image(systemName: "airplane")
-                .font(.system(size: isLandscape ? 44 : 80))
+                .font(.system(size: isCompact ? 40 : (isLandscape ? 44 : 80)))
                 .foregroundColor(.aviationGold.opacity(0.3))
 
             // Aircraft info
-            VStack(spacing: isLandscape ? 2 : 8) {
+            VStack(spacing: isLandscape ? 2 : (isCompact ? 4 : 8)) {
                 Text(currentAircraft.registration)
-                    .font(.system(size: isLandscape ? 28 : 36, weight: .bold, design: .monospaced))
+                    .font(.system(size: isCompact ? 24 : (isLandscape ? 28 : 36), weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationGold)
 
                 Text(currentAircraft.shortModelName)
-                    .font(.system(size: isLandscape ? 15 : 18, weight: .semibold))
+                    .font(.system(size: isCompact ? 13 : (isLandscape ? 15 : 18), weight: .semibold))
                     .foregroundColor(.primaryText)
 
-                if !isLandscape {
+                if !isLandscape && !isCompact {
                     Text("Version \(currentAircraft.checklistVersion) • \(currentAircraft.lastUpdated)")
                         .font(.system(size: 13))
                         .foregroundColor(.dimText)
@@ -145,81 +151,85 @@ struct HomeView: View {
             }
 
             AviationDivider()
-                .padding(.horizontal, isLandscape ? 20 : 40)
+                .padding(.horizontal, isCompact ? 16 : (isLandscape ? 20 : 40))
 
             // Quick stats
-            HStack(spacing: isLandscape ? 24 : 40) {
+            HStack(spacing: isCompact ? 16 : (isLandscape ? 24 : 40)) {
                 QuickStatView(
                     icon: "book.closed.fill",
                     value: "\(ChecklistPhase.allCases.count)",
                     label: "Checklists",
-                    isCompact: isLandscape
+                    isCompact: isLandscape || isCompact
                 )
 
                 QuickStatView(
                     icon: "list.bullet",
                     value: "\(currentAircraft.totalChecklistItems)",
                     label: "Items",
-                    isCompact: isLandscape
+                    isCompact: isLandscape || isCompact
                 )
 
                 QuickStatView(
                     icon: "doc.text.fill",
                     value: "\(currentAircraft.pageCount)",
                     label: "Pages",
-                    isCompact: isLandscape
+                    isCompact: isLandscape || isCompact
                 )
             }
         }
-        .padding(isLandscape ? 14 : 32)
+        .padding(isCompact ? 12 : (isLandscape ? 14 : 32))
         .background(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: isCompact ? 12 : 18)
                 .fill(Color.cardBackground)
-                .shadow(color: .black.opacity(0.4), radius: isLandscape ? 12 : 20, x: 0, y: isLandscape ? 6 : 10)
+                .shadow(color: .black.opacity(0.4), radius: isCompact ? 8 : (isLandscape ? 12 : 20), x: 0, y: isCompact ? 4 : (isLandscape ? 6 : 10))
         )
     }
     
     // MARK: - Bottom Bar
-    
-    private func bottomBar(isLandscape: Bool) -> some View {
-        HStack(spacing: 16) {
+
+    private func bottomBar(isLandscape: Bool, isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 8 : 16) {
             // Flight log button - consistent size
             Button(action: { showFlightLog = true }) {
-                HStack(spacing: 8) {
+                HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 18))
-                    Text("FLIGHT LOG")
-                        .font(.system(size: 14, weight: .semibold))
-                    if !appState.flights.isEmpty {
-                        Text("(\(appState.flights.count))")
+                        .font(.system(size: isCompact ? 14 : 18))
+                    if !isCompact {
+                        Text("FLIGHT LOG")
                             .font(.system(size: 14, weight: .semibold))
+                    }
+                    if !appState.flights.isEmpty {
+                        Text(isCompact ? "\(appState.flights.count)" : "(\(appState.flights.count))")
+                            .font(.system(size: isCompact ? 12 : 14, weight: .semibold))
                             .foregroundColor(.aviationGold)
                     }
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
-            
+
             Spacer()
-            
+
             // Location status
-            HStack(spacing: 6) {
+            HStack(spacing: isCompact ? 4 : 6) {
                 Image(systemName: locationStatusIcon)
-                    .font(.system(size: 13))
+                    .font(.system(size: isCompact ? 11 : 13))
                     .foregroundColor(locationStatusColor)
-                Text(locationStatusText)
+                Text(isCompact ? "" : locationStatusText)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
             }
-            
+
             Spacer()
-            
+
             // Speed reference button - consistent size
             Button(action: { showSpeedReference = true }) {
-                HStack(spacing: 8) {
+                HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "speedometer")
-                        .font(.system(size: 18))
-                    Text("SPEEDS")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: isCompact ? 14 : 18))
+                    if !isCompact {
+                        Text("SPEEDS")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                 }
             }
             .buttonStyle(SecondaryButtonStyle())

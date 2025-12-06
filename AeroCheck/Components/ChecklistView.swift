@@ -562,7 +562,7 @@ struct ChecklistView: View {
     private func startRevealLongPressTimer() {
         revealLongPressProgress = 0
         revealLongPressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            revealLongPressProgress += 0.05 / 1.5 // 1.5 seconds total
+            revealLongPressProgress += 0.05 / 0.40 // 0.40 seconds total
             if revealLongPressProgress >= 1.0 {
                 timer.invalidate()
                 revealLongPressTimer = nil

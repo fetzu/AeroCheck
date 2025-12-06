@@ -393,6 +393,8 @@ struct FlightDetailView: View {
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
     @State private var selectedTime: Date?
+    @State private var showShareSheet = false
+    @State private var shareImage: UIImage?
 
     enum ExportType {
         case gpx
@@ -427,12 +429,22 @@ struct FlightDetailView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { generateAndShareImage() }) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
             flightName = flight.name
             notes = flight.notes
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let image = shareImage {
+                ShareSheet(activityItems: [image])
+            }
         }
         .confirmationDialog("Export Format", isPresented: $showExportOptions, titleVisibility: .visible) {
             Button("GPX (GPS Track)") {
@@ -673,11 +685,22 @@ struct FlightDetailView: View {
     }
     
     // MARK: - Helpers
-    
+
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func generateAndShareImage() {
+        let shareCard = FlightShareCard(flight: flight)
+        let renderer = ImageRenderer(content: shareCard)
+        renderer.scale = 3.0 // High resolution for sharing
+
+        if let image = renderer.uiImage {
+            shareImage = image
+            showShareSheet = true
+        }
     }
 }
 
@@ -1168,6 +1191,290 @@ class ZIPFile: NSObject, UIActivityItemSource {
     
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
+    }
+}
+
+// MARK: - Flight Share Card
+
+/// A landscape card view designed for sharing flight summaries
+/// Renders at 1200x630 (common social media share size)
+struct FlightShareCard: View {
+    let flight: Flight
+
+    // Card dimensions (landscape format similar to Strava)
+    private let cardWidth: CGFloat = 1200
+    private let cardHeight: CGFloat = 630
+
+    private var title: String {
+        flight.name.isEmpty ? flight.airplane : flight.name
+    }
+
+    private var subtitle: String {
+        flight.name.isEmpty ? "" : flight.airplane
+    }
+
+    var body: some View {
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.08, blue: 0.15),
+                    Color(red: 0.1, green: 0.12, blue: 0.2)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 0) {
+                // Header section
+                headerSection
+                    .padding(.top, 40)
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Stats section
+                statsSection
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Timeline section
+                timelineSection
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Footer
+                footerSection
+                    .padding(.bottom, 30)
+                    .padding(.horizontal, 50)
+            }
+        }
+        .frame(width: cardWidth, height: cardHeight)
+    }
+
+    // MARK: - Header Section
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Title
+                Text(title)
+                    .font(.system(size: 48, weight: .bold, design: .default))
+                    .foregroundColor(.white)
+
+                // Subtitle (aircraft if name is set)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 28, weight: .medium, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+                }
+
+                // Date
+                Text(flight.formattedDate)
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Spacer()
+
+            // Flight duration (prominent)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("FLIGHT TIME")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .tracking(2)
+
+                Text(flight.formattedDuration)
+                    .font(.system(size: 56, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+            }
+        }
+    }
+
+    // MARK: - Stats Section
+
+    private var statsSection: some View {
+        HStack(spacing: 60) {
+            // Distance
+            statItem(
+                icon: "point.topleft.down.to.point.bottomright.curvepath.fill",
+                label: "DISTANCE",
+                value: flight.formattedDistance
+            )
+
+            // GPS Points
+            statItem(
+                icon: "location.fill",
+                label: "GPS POINTS",
+                value: "\(flight.gpsTrack.count)"
+            )
+
+            // Max Altitude
+            if let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() {
+                statItem(
+                    icon: "arrow.up.to.line",
+                    label: "MAX ALTITUDE",
+                    value: "\(Int(maxAlt)) ft"
+                )
+            }
+
+            // Go-arounds (if any)
+            if flight.goAroundCount > 0 {
+                statItem(
+                    icon: "arrow.up.right.circle.fill",
+                    label: "GO-AROUNDS",
+                    value: "\(flight.goAroundCount)"
+                )
+            }
+
+            // Touch-and-goes (if any)
+            if flight.touchAndGoCount > 0 {
+                statItem(
+                    icon: "arrow.triangle.2.circlepath",
+                    label: "TOUCH & GO",
+                    value: "\(flight.touchAndGoCount)"
+                )
+            }
+        }
+    }
+
+    private func statItem(icon: String, label: String, value: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28))
+                .foregroundColor(.aviationGold)
+
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white.opacity(0.5))
+                .tracking(1)
+
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+        }
+        .frame(minWidth: 120)
+    }
+
+    // MARK: - Timeline Section
+
+    private var timelineSection: some View {
+        HStack(spacing: 0) {
+            // Engine Start
+            if let time = flight.engineStartTime {
+                timelineItem(
+                    icon: "engine.combustion",
+                    label: "Engine Start",
+                    time: formatTime(time),
+                    color: .aviationGreen
+                )
+            }
+
+            timelineConnector
+
+            // Take-off
+            if let time = flight.lineUpTime {
+                timelineItem(
+                    icon: "airplane.departure",
+                    label: "Take-off",
+                    time: formatTime(time),
+                    color: .aviationAmber
+                )
+            }
+
+            timelineConnector
+
+            // Landing
+            if let time = flight.landingTime {
+                timelineItem(
+                    icon: "airplane.arrival",
+                    label: "Landing",
+                    time: formatTime(time),
+                    color: .aviationBlue
+                )
+            }
+
+            timelineConnector
+
+            // Engine Shutdown
+            if let time = flight.engineShutdownTime {
+                timelineItem(
+                    icon: "engine.combustion.fill",
+                    label: "Shutdown",
+                    time: formatTime(time),
+                    color: .aviationRed
+                )
+            }
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 30)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func timelineItem(icon: String, label: String, time: String, color: Color) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 50, height: 50)
+
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(color)
+            }
+
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+
+            Text(time)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+        }
+        .frame(minWidth: 120)
+    }
+
+    private var timelineConnector: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.2))
+            .frame(width: 40, height: 2)
+    }
+
+    // MARK: - Footer Section
+
+    private var footerSection: some View {
+        HStack {
+            // App branding
+            HStack(spacing: 8) {
+                Image(systemName: "airplane.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.aviationGold)
+
+                Text("AéroCheck")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            // Flight ID (small, for reference)
+            Text(flight.airplane)
+                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.4))
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

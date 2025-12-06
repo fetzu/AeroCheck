@@ -84,7 +84,7 @@ struct TimestampActionButton: View {
             
             // Long press hint when already pressed
             if hasBeenPressed {
-                Text("Hold 3s to update")
+                Text("Hold 1.5s to update")
                     .font(.system(size: 10))
                     .foregroundColor(.dimText)
             }
@@ -102,7 +102,7 @@ struct TimestampActionButton: View {
     private func startLongPressTimer() {
         longPressProgress = 0
         longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            longPressProgress += 0.05 / 3.0 // 3 seconds total
+            longPressProgress += 0.05 / 1.5 // 1.5 seconds total
             if longPressProgress >= 1.0 {
                 timer.invalidate()
                 longPressTimer = nil

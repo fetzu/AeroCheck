@@ -46,9 +46,12 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
+                .environmentObject(appState)
+                .environmentObject(locationManager)
         }
         .sheet(isPresented: $showFlightLog) {
             FlightLogView()
+                .environmentObject(appState)
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
@@ -314,3 +317,4 @@ struct QuickStatView: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
 }
+

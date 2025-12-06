@@ -13,5 +13,14 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .preferredColorScheme(.dark)
         }
+        
+        #if os(macOS)
+        Settings {
+            SettingsView()
+                .environmentObject(appState)
+                .environmentObject(locationManager)
+                .preferredColorScheme(.dark)
+        }
+        #endif
     }
 }

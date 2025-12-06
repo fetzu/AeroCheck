@@ -487,6 +487,7 @@ struct ChecklistView: View {
                         color: .aviationBlue,
                         timestamp: landingTime,
                         timestampLabel: "Landing",
+                        timestampSuffix: " (-1 min)",
                         isPulsing: pulseActionButton,
                         onFirstPress: { onLanded?() },
                         onUpdateTime: { onLandedUpdate?() }

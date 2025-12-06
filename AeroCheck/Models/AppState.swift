@@ -175,14 +175,15 @@ class AppState: ObservableObject {
     }
     
     func recordLanding() {
-        landingTime = Date()
+        // Removes 1 minute (while vacating the runway)
+        landingTime = Date().addingTimeInterval(-60)
         currentFlight?.landingTime = landingTime
         hasLandingBeenDetected = true
     }
 
-    /// Update landing time to current time (for long-press update)
+    /// Update landing time to current time minus 1 minute (for long-press update)
     func updateLandingTime() {
-        landingTime = Date()
+        landingTime = Date().addingTimeInterval(-60)
         currentFlight?.landingTime = landingTime
     }
     
@@ -236,8 +237,8 @@ class AppState: ObservableObject {
         if speed >= 0 && speed < lowSpeedThreshold {
             consecutiveLowSpeedReadings += 1
             if consecutiveLowSpeedReadings >= requiredLowSpeedReadings {
-                // Plane has stopped - record landing time (minus 2 minutes)
-                landingTime = Date().addingTimeInterval(-120)
+                // Plane has stopped - record landing time (minus 1 minute)
+                landingTime = Date().addingTimeInterval(-60)
                 currentFlight?.landingTime = landingTime
                 hasLandingBeenDetected = true
             }

@@ -385,14 +385,15 @@ struct FlightDetailView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
     let flight: Flight
-    
+
     @State private var flightName: String = ""
     @State private var notes: String = ""
     @State private var showExportSheet = false
     @State private var showDeleteAlert = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
-    
+    @State private var selectedTime: Date?
+
     enum ExportType {
         case gpx
         case json
@@ -496,7 +497,7 @@ struct FlightDetailView: View {
                         }
                     )
             } else {
-                FlightMapView(points: flight.gpsTrack)
+                FlightMapView(points: flight.gpsTrack, selectedTime: selectedTime)
                     .frame(height: 300)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
@@ -533,7 +534,8 @@ struct FlightDetailView: View {
                     landingTime: flight.landingTime,
                     engineShutdownTime: flight.engineShutdownTime,
                     goAroundCount: flight.goAroundCount,
-                    touchAndGoCount: flight.touchAndGoCount
+                    touchAndGoCount: flight.touchAndGoCount,
+                    selectedTime: $selectedTime
                 )
                 .frame(height: 200)
                 .padding(12)
@@ -744,46 +746,69 @@ struct TimelineRow: View {
 
 struct FlightMapView: UIViewRepresentable {
     let points: [GPSPoint]
-    
+    let selectedTime: Date?
+
+    /// Find the GPS point closest to the selected time
+    private var selectedPoint: GPSPoint? {
+        guard let time = selectedTime else { return nil }
+        return points.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+    }
+
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.overrideUserInterfaceStyle = .dark
         return mapView
     }
-    
+
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Remove existing overlays and annotations
         mapView.removeOverlays(mapView.overlays)
         mapView.removeAnnotations(mapView.annotations)
-        
+
         guard points.count >= 2 else { return }
-        
+
         // Create coordinates array
         let coordinates = points.map { $0.coordinate }
-        
+
         // Add polyline
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         mapView.addOverlay(polyline)
-        
+
         // Add start and end annotations
         if let first = points.first, let last = points.last {
-            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true)
-            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false)
+            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false)
+            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
             mapView.addAnnotations([startAnnotation, endAnnotation])
         }
-        
-        // Set visible region
-        let rect = polyline.boundingMapRect
-        let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-        mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
+
+        // Add selected position annotation if available
+        if let selected = selectedPoint {
+            let selectedAnnotation = FlightAnnotation(
+                coordinate: selected.coordinate,
+                title: "Position",
+                isStart: false,
+                isSelected: true
+            )
+            mapView.addAnnotation(selectedAnnotation)
+        }
+
+        // Set visible region (only on initial load, not when selection changes)
+        if context.coordinator.initialRegionSet == false {
+            let rect = polyline.boundingMapRect
+            let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
+            mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
+            context.coordinator.initialRegionSet = true
+        }
     }
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
-    
+
     class Coordinator: NSObject, MKMapViewDelegate {
+        var initialRegionSet = false
+
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
@@ -795,22 +820,41 @@ struct FlightMapView: UIViewRepresentable {
             }
             return MKOverlayRenderer(overlay: overlay)
         }
-        
+
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let flightAnnotation = annotation as? FlightAnnotation else { return nil }
-            
+
+            // Handle selected position marker
+            if flightAnnotation.isSelected {
+                let identifier = "selected"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                }
+
+                view?.annotation = annotation
+                view?.markerTintColor = UIColor(Color.aviationGold)
+                view?.glyphImage = UIImage(systemName: "location.fill")
+                view?.displayPriority = .required
+                view?.zPriority = .max
+
+                return view
+            }
+
+            // Handle start/end markers
             let identifier = flightAnnotation.isStart ? "start" : "end"
             var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-            
+
             if view == nil {
                 view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             }
-            
+
             view?.annotation = annotation
             view?.markerTintColor = flightAnnotation.isStart ? UIColor(Color.aviationGreen) : UIColor(Color.aviationRed)
             view?.glyphImage = UIImage(systemName: flightAnnotation.isStart ? "airplane.departure" : "airplane.arrival")
             view?.displayPriority = .required
-            
+
             return view
         }
     }
@@ -820,11 +864,13 @@ class FlightAnnotation: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
     let title: String?
     let isStart: Bool
+    let isSelected: Bool
 
-    init(coordinate: CLLocationCoordinate2D, title: String, isStart: Bool) {
+    init(coordinate: CLLocationCoordinate2D, title: String, isStart: Bool, isSelected: Bool) {
         self.coordinate = coordinate
         self.title = title
         self.isStart = isStart
+        self.isSelected = isSelected
         super.init()
     }
 }
@@ -839,30 +885,51 @@ struct AltitudeChartView: View {
     let engineShutdownTime: Date?
     let goAroundCount: Int
     let touchAndGoCount: Int
+    @Binding var selectedTime: Date?
 
     /// Altitude data points for the chart
     private var altitudeData: [(time: Date, altitude: Double)] {
         gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) } // Convert to feet
     }
 
+    /// Computed altitude range with 500ft padding
+    private var altitudeRange: ClosedRange<Double> {
+        guard !altitudeData.isEmpty else { return 0...1000 }
+        let altitudes = altitudeData.map { $0.altitude }
+        let minAlt = altitudes.min() ?? 0
+        let maxAlt = altitudes.max() ?? 1000
+        // Add 500ft padding above and below, but don't go below 0
+        let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
+        let upperBound = ceil((maxAlt + 500) / 100) * 100
+        return lowerBound...upperBound
+    }
+
     /// Flight event annotations to display on the chart
-    private var eventAnnotations: [(time: Date, label: String, color: Color)] {
-        var annotations: [(time: Date, label: String, color: Color)] = []
+    private var eventAnnotations: [(time: Date, icon: String, color: Color)] {
+        var annotations: [(time: Date, icon: String, color: Color)] = []
 
         if let engineStart = engineStartTime {
-            annotations.append((time: engineStart, label: "Engine Start", color: .aviationGreen))
+            annotations.append((time: engineStart, icon: "engine.combustion", color: .aviationGreen))
         }
         if let lineUp = lineUpTime {
-            annotations.append((time: lineUp, label: "Take-off", color: .aviationAmber))
+            annotations.append((time: lineUp, icon: "airplane.departure", color: .aviationAmber))
         }
         if let landing = landingTime {
-            annotations.append((time: landing, label: "Landing", color: .aviationBlue))
+            annotations.append((time: landing, icon: "airplane.arrival", color: .aviationBlue))
         }
         if let shutdown = engineShutdownTime {
-            annotations.append((time: shutdown, label: "Shutdown", color: .aviationRed))
+            annotations.append((time: shutdown, icon: "engine.combustion.fill", color: .aviationRed))
         }
 
         return annotations
+    }
+
+    /// Find the altitude at the selected time
+    private var selectedAltitude: Double? {
+        guard let time = selectedTime else { return nil }
+        // Find the closest GPS point to the selected time
+        let closest = gpsTrack.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+        return closest.map { $0.altitude * 3.28084 }
     }
 
     var body: some View {
@@ -897,22 +964,48 @@ struct AltitudeChartView: View {
                     )
                 }
 
-                // Event annotations
+                // Event annotations with icons
                 ForEach(eventAnnotations, id: \.time) { event in
                     RuleMark(x: .value("Event", event.time))
                         .foregroundStyle(event.color.opacity(0.7))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                         .annotation(position: .top, alignment: .center) {
-                            Text(event.label)
-                                .font(.system(size: 8, weight: .medium))
+                            Image(systemName: event.icon)
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(event.color)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
+                                .padding(4)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 3)
+                                    Circle()
                                         .fill(Color.cardBackground)
+                                        .shadow(color: event.color.opacity(0.3), radius: 2)
                                 )
                         }
+                }
+
+                // Selection indicator
+                if let time = selectedTime, let altitude = selectedAltitude {
+                    RuleMark(x: .value("Selected", time))
+                        .foregroundStyle(Color.aviationGold.opacity(0.8))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+
+                    PointMark(
+                        x: .value("Selected", time),
+                        y: .value("Altitude", altitude)
+                    )
+                    .foregroundStyle(Color.aviationGold)
+                    .symbolSize(100)
+                    .annotation(position: .top, spacing: 8) {
+                        Text("\(Int(altitude)) ft")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.cardBackground)
+                                    .shadow(color: Color.aviationGold.opacity(0.3), radius: 3)
+                            )
+                    }
                 }
             }
             .chartXAxis {
@@ -937,10 +1030,43 @@ struct AltitudeChartView: View {
                     }
                 }
             }
+            .chartYScale(domain: altitudeRange)
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text("Altitude (ft MSL)")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.secondaryText)
+            }
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let xPosition = value.location.x
+                                    if let time: Date = proxy.value(atX: xPosition) {
+                                        // Clamp to track bounds
+                                        if let first = gpsTrack.first?.timestamp,
+                                           let last = gpsTrack.last?.timestamp {
+                                            if time >= first && time <= last {
+                                                selectedTime = time
+                                            }
+                                        }
+                                    }
+                                }
+                                .onEnded { _ in
+                                    // Keep selection visible after touch ends
+                                }
+                        )
+                        .simultaneousGesture(
+                            TapGesture()
+                                .onEnded {
+                                    // Clear selection on tap outside
+                                    selectedTime = nil
+                                }
+                        )
+                }
             }
         }
     }

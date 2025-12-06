@@ -196,28 +196,39 @@ struct ChecklistView: View {
     var engineShutdownTime: String?
     var goAroundCount: Int = 0
     var touchAndGoCount: Int = 0
-    
+
     // Settings
     var stepByStepEnabled: Bool = true
     var learningModeEnabled: Bool = false
     var highlightedItemIndex: Int = 0
     var pulseActionButton: Bool = false
+
+    // State for temporarily revealing hidden items
+    @State private var hiddenItemsRevealed: Bool = false
+    @State private var revealLongPressProgress: CGFloat = 0
+    @State private var revealLongPressTimer: Timer?
     
     // Computed properties
     private var allItems: [ChecklistItem] {
         ChecklistData.items(for: phase)
     }
-    
+
+    private var effectiveLearningMode: Bool {
+        learningModeEnabled || hiddenItemsRevealed
+    }
+
     private var visibleItems: [ChecklistItem] {
-        ChecklistData.visibleItems(for: phase, learningMode: learningModeEnabled)
+        ChecklistData.visibleItems(for: phase, learningMode: effectiveLearningMode)
     }
-    
+
+    /// Whether there are items that could be hidden (memorizable items exist and learning mode is off)
     private var hasHiddenItems: Bool {
-        ChecklistData.hasHiddenItems(for: phase, learningMode: learningModeEnabled)
+        !learningModeEnabled && !hiddenItemsRevealed && ChecklistData.hasHiddenItems(for: phase, learningMode: false)
     }
-    
+
     private var hiddenItemCount: Int {
-        allItems.count - visibleItems.count
+        // Count of items hidden when not in learning mode
+        ChecklistData.items(for: phase).count - ChecklistData.visibleItems(for: phase, learningMode: false).count
     }
     
     init(phase: ChecklistPhase,
@@ -356,6 +367,10 @@ struct ChecklistView: View {
                         }
                     }
                 }
+                .onChange(of: phase) { _, _ in
+                    // Reset hidden items reveal state when phase changes
+                    hiddenItemsRevealed = false
+                }
             }
             
             // Completion text
@@ -485,39 +500,89 @@ struct ChecklistView: View {
     }
     
     // MARK: - Learning Mode Indicator
-    
+
     private var learningModeIndicator: some View {
         VStack(spacing: 12) {
             AviationDivider(color: .aviationAmber.opacity(0.3))
                 .padding(.top, 16)
-            
+
             HStack {
-                Image(systemName: "brain.head.profile")
+                Image(systemName: "eye.slash.fill")
                     .font(.system(size: 20))
                     .foregroundColor(.aviationAmber)
-                
+
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("MEMORY TEST")
+                    Text("HIDDEN CHECKLIST ITEMS")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.aviationAmber)
-                    
-                    Text("\(hiddenItemCount) item\(hiddenItemCount == 1 ? "" : "s") hidden — recall from memory")
+
+                    Text("\(hiddenItemCount) item\(hiddenItemCount == 1 ? "" : "s") hidden — hold to reveal")
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                 }
-                
+
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.aviationAmber.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1)
-                    )
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.aviationAmber.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1)
+                        )
+
+                    // Long press progress indicator
+                    if revealLongPressProgress > 0 {
+                        GeometryReader { geo in
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.aviationAmber.opacity(0.3))
+                                .frame(width: geo.size.width * revealLongPressProgress)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
             )
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if revealLongPressTimer == nil {
+                            startRevealLongPressTimer()
+                        }
+                    }
+                    .onEnded { _ in
+                        cancelRevealLongPressTimer()
+                    }
+            )
+        }
+    }
+
+    private func startRevealLongPressTimer() {
+        revealLongPressProgress = 0
+        revealLongPressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            revealLongPressProgress += 0.05 / 1.5 // 1.5 seconds total
+            if revealLongPressProgress >= 1.0 {
+                timer.invalidate()
+                revealLongPressTimer = nil
+                revealLongPressProgress = 0
+                // Haptic feedback
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                // Reveal hidden items
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    hiddenItemsRevealed = true
+                }
+            }
+        }
+    }
+
+    private func cancelRevealLongPressTimer() {
+        revealLongPressTimer?.invalidate()
+        revealLongPressTimer = nil
+        withAnimation(.easeOut(duration: 0.2)) {
+            revealLongPressProgress = 0
         }
     }
 }

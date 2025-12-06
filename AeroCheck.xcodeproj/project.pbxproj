@@ -20,6 +20,9 @@
 		A1000001211111110000011 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000011 /* DesignSystem.swift */; };
 		A1000001211111110000012 /* ChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000012 /* ChecklistView.swift */; };
 		A1000001211111110000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000013 /* Assets.xcassets */; };
+		A1000001211111110000015 /* Aircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000015 /* Aircraft.swift */; };
+		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
+		A1000001211111110000017 /* PA28ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000017 /* PA28ChecklistData.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +41,9 @@
 		A1000001111111110000012 /* ChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistView.swift; sourceTree = "<group>"; };
 		A1000001111111110000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000001111111110000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000001111111110000015 /* Aircraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Aircraft.swift; sourceTree = "<group>"; };
+		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
+		A1000001111111110000017 /* PA28ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PA28ChecklistData.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,8 +102,11 @@
 		A1000003111111110000005 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1000001111111110000015 /* Aircraft.swift */,
 				A1000001111111110000007 /* Flight.swift */,
 				A1000001111111110000008 /* Checklist.swift */,
+				A1000001111111110000016 /* WT9ChecklistData.swift */,
+				A1000001111111110000017 /* PA28ChecklistData.swift */,
 				A1000001111111110000009 /* AppState.swift */,
 			);
 			path = Models;
@@ -201,6 +210,9 @@
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000011 /* DesignSystem.swift in Sources */,
 				A1000001211111110000012 /* ChecklistView.swift in Sources */,
+				A1000001211111110000015 /* Aircraft.swift in Sources */,
+				A1000001211111110000016 /* WT9ChecklistData.swift in Sources */,
+				A1000001211111110000017 /* PA28ChecklistData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

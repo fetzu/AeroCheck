@@ -716,50 +716,64 @@ struct DotLeader: View {
 // MARK: - Speed Reference View
 
 struct SpeedReferenceView: View {
+    /// Current aircraft type from ChecklistData
+    private var aircraft: AircraftType {
+        ChecklistData.currentAircraft
+    }
+
+    /// Get speeds split into two columns
+    private var speedColumns: (left: [SpeedReference], right: [SpeedReference]) {
+        let speeds = aircraft.speeds
+        let midpoint = (speeds.count + 1) / 2
+        let left = Array(speeds.prefix(midpoint))
+        let right = Array(speeds.suffix(from: midpoint))
+        return (left, right)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("SPEEDS (according to AFM)")
-                .headerStyle()
-                .padding(.top, 8)
-            
+            // Header with aircraft info
+            HStack {
+                Text("SPEEDS (according to AFM)")
+                    .headerStyle()
+                Spacer()
+                Text(aircraft.registration)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+            }
+            .padding(.top, 8)
+
             AviationDivider()
                 .padding(.bottom, 4)
-            
+
             // Use two columns for compact display
             HStack(alignment: .top, spacing: 24) {
                 // Left column
                 VStack(alignment: .leading, spacing: 2) {
-                    CompactSpeedRow(name: "Vso", description: "flaps down", value: "33")
-                    CompactSpeedRow(name: "Vs", description: "stall clean", value: "42")
-                    CompactSpeedRow(name: "Vr", description: "rotation", value: "40")
-                    CompactSpeedRow(name: "Vx", description: "best angle", value: "55")
-                    CompactSpeedRow(name: "Vy", description: "best rate", value: "70")
-                    CompactSpeedRow(name: "Vcc", description: "cruise climb", value: "85")
-                    CompactSpeedRow(name: "Vfe", description: "flaps ext.", value: "76")
+                    ForEach(speedColumns.left) { speed in
+                        CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+                    }
                 }
-                
+
                 // Right column
                 VStack(alignment: .leading, spacing: 2) {
-                    CompactSpeedRow(name: "VA", description: "600kg", value: "97")
-                    CompactSpeedRow(name: "VA", description: "410kg", value: "75")
-                    CompactSpeedRow(name: "Vbg", description: "best glide", value: "70")
-                    CompactSpeedRow(name: "Vapp", description: "init (clean)", value: "70")
-                    CompactSpeedRow(name: "Vapp", description: "init (F1)", value: "65")
-                    CompactSpeedRow(name: "Vapp", description: "interm (F2)", value: "65")
-                    CompactSpeedRow(name: "Vfinal", description: "F2-F3", value: "60-55")
+                    ForEach(speedColumns.right) { speed in
+                        CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+                    }
                 }
             }
-            
+
             AviationDivider()
                 .padding(.top, 6)
-            
+
             // Crosswind limits
             HStack {
                 Text("Max crosswind")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondaryText)
                 Spacer()
-                Text("TO: 14 kt  /  LDG: 16 kt")
+                let crosswind = aircraft.crosswindLimits
+                Text("TO: \(crosswind.takeoff)  /  LDG: \(crosswind.landing)")
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationAmber)
             }

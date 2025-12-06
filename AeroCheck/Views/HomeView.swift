@@ -50,7 +50,7 @@ struct HomeView: View {
     }
     
     // MARK: - Header
-    
+
     private func header(isLandscape: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -58,20 +58,20 @@ struct HomeView: View {
                     Image(systemName: "airplane")
                         .font(.system(size: isLandscape ? 26 : 32))
                         .foregroundColor(.aviationGold)
-                    
-                    Text("PILOT CHECKLIST")
+
+                    Text("AéroCheck")
                         .font(.system(size: isLandscape ? 24 : 28, weight: .bold, design: .default))
                         .foregroundColor(.primaryText)
                         .tracking(2)
                 }
-                
-                Text("WT9 Dynamic • Aéroclub du Jura • GVMP")
+
+                Text("Aéroclub du Jura • GVMP")
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
             }
-            
+
             Spacer()
-            
+
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 22))
@@ -114,34 +114,39 @@ struct HomeView: View {
     }
     
     // MARK: - Aircraft Card
-    
+
+    /// Current aircraft from settings
+    private var currentAircraft: AircraftType {
+        appState.settings.selectedAircraft
+    }
+
     private func aircraftCard(isLandscape: Bool) -> some View {
         VStack(spacing: isLandscape ? 8 : 20) {
             // Aircraft silhouette
             Image(systemName: "airplane")
                 .font(.system(size: isLandscape ? 44 : 80))
                 .foregroundColor(.aviationGold.opacity(0.3))
-            
+
             // Aircraft info
             VStack(spacing: isLandscape ? 2 : 8) {
-                Text(appState.settings.defaultAirplane)
+                Text(currentAircraft.registration)
                     .font(.system(size: isLandscape ? 28 : 36, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationGold)
-                
-                Text("WT9 Dynamic")
+
+                Text(currentAircraft.shortModelName)
                     .font(.system(size: isLandscape ? 15 : 18, weight: .semibold))
                     .foregroundColor(.primaryText)
-                
+
                 if !isLandscape {
-                    Text("Version 2.1e • March 2025")
+                    Text("Version \(currentAircraft.checklistVersion) • \(currentAircraft.lastUpdated)")
                         .font(.system(size: 13))
                         .foregroundColor(.dimText)
                 }
             }
-            
+
             AviationDivider()
                 .padding(.horizontal, isLandscape ? 20 : 40)
-            
+
             // Quick stats
             HStack(spacing: isLandscape ? 24 : 40) {
                 QuickStatView(
@@ -150,17 +155,17 @@ struct HomeView: View {
                     label: "Checklists",
                     isCompact: isLandscape
                 )
-                
+
                 QuickStatView(
                     icon: "list.bullet",
-                    value: "\(totalChecklistItems)",
+                    value: "\(currentAircraft.totalChecklistItems)",
                     label: "Items",
                     isCompact: isLandscape
                 )
-                
+
                 QuickStatView(
                     icon: "doc.text.fill",
-                    value: "4",
+                    value: "\(currentAircraft.pageCount)",
                     label: "Pages",
                     isCompact: isLandscape
                 )
@@ -222,13 +227,7 @@ struct HomeView: View {
     }
     
     // MARK: - Helpers
-    
-    private var totalChecklistItems: Int {
-        ChecklistPhase.allCases.reduce(0) { count, phase in
-            count + ChecklistData.items(for: phase).count
-        }
-    }
-    
+
     private var locationStatusIcon: String {
         switch locationManager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:

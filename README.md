@@ -13,7 +13,7 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 
 ![Platform](https://img.shields.io/badge/Platform-iPadOS%2017%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-![License](https://img.shields.io/badge/License-Private-red)
+![License](https://img.shields.io/badge/License-MIT-red)
 
 ## Features
 
@@ -348,9 +348,7 @@ Target speeds vary by aircraft. Examples for WT9:
 
 ## Support
 
-For questions about the checklist content, contact Aéroclub du Jura GVMP.
-
-For app technical issues, check the project repository.
+The app is provided as-is and support is not guaranteed. In case of issues, feel free to open an issue on GitHub.
 
 ---
 

@@ -1,0 +1,55 @@
+### Xcode ###
+# Build products
+build/
+DerivedData/
+
+# User settings
+xcuserdata/
+*.xcuserstate
+
+# Xcode workspace
+*.xcworkspace
+!workspaceSettings.xcsettings
+
+# Schemes
+xcshareddata/WorkspaceSettings.xcsettings
+
+# SwiftPM
+.swiftpm/
+.build/
+
+# Archives
+*.xcarchive
+
+# Package manager metadata
+Package.resolved
+
+# Generated files
+*.hmap
+
+# Dependency caches
+*.dSYM
+*.ipa
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that may appear on network volumes
+.Spotlight-V100
+.Trashes
+
+### Misc ###
+*.swp
+*.lock
+*.tmp
+*.log
+*.orig
+*~

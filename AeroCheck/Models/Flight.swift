@@ -16,6 +16,8 @@ struct Flight: Identifiable, Codable {
     var notes: String
     var goAroundCount: Int
     var touchAndGoCount: Int
+    var goAroundTimes: [Date]
+    var touchAndGoTimes: [Date]
 
     init(
         id: UUID = UUID(),
@@ -30,7 +32,9 @@ struct Flight: Identifiable, Codable {
         gpsTrack: [GPSPoint] = [],
         notes: String = "",
         goAroundCount: Int = 0,
-        touchAndGoCount: Int = 0
+        touchAndGoCount: Int = 0,
+        goAroundTimes: [Date] = [],
+        touchAndGoTimes: [Date] = []
     ) {
         self.id = id
         self.name = name
@@ -45,6 +49,8 @@ struct Flight: Identifiable, Codable {
         self.notes = notes
         self.goAroundCount = goAroundCount
         self.touchAndGoCount = touchAndGoCount
+        self.goAroundTimes = goAroundTimes
+        self.touchAndGoTimes = touchAndGoTimes
     }
     
     /// Display name: "Custom Name (Airplane)" or just "Airplane" if no name
@@ -228,10 +234,16 @@ extension Flight {
 
         if goAroundCount > 0 {
             gpx += "\n        <pc:goAroundCount>\(goAroundCount)</pc:goAroundCount>"
+            for goAroundTime in goAroundTimes {
+                gpx += "\n        <pc:goAroundTime>\(dateFormatter.string(from: goAroundTime))</pc:goAroundTime>"
+            }
         }
 
         if touchAndGoCount > 0 {
             gpx += "\n        <pc:touchAndGoCount>\(touchAndGoCount)</pc:touchAndGoCount>"
+            for touchAndGoTime in touchAndGoTimes {
+                gpx += "\n        <pc:touchAndGoTime>\(dateFormatter.string(from: touchAndGoTime))</pc:touchAndGoTime>"
+            }
         }
 
         if !notes.isEmpty {
@@ -300,7 +312,9 @@ class GPXParser: NSObject, XMLParserDelegate {
     private var currentPoint: GPSPoint?
     private var points: [GPSPoint] = []
     private var attributes: [String: String] = [:]
-    
+    private var goAroundTimes: [Date] = []
+    private var touchAndGoTimes: [Date] = []
+
     private let dateFormatter = ISO8601DateFormatter()
     
     init(data: Data) {
@@ -382,8 +396,16 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.stopTime = dateFormatter.date(from: text)
         case "goAroundCount":
             flight?.goAroundCount = Int(text) ?? 0
+        case "goAroundTime":
+            if let date = dateFormatter.date(from: text) {
+                goAroundTimes.append(date)
+            }
         case "touchAndGoCount":
             flight?.touchAndGoCount = Int(text) ?? 0
+        case "touchAndGoTime":
+            if let date = dateFormatter.date(from: text) {
+                touchAndGoTimes.append(date)
+            }
         case "ele":
             if let point = currentPoint, let alt = Double(text) {
                 currentPoint = GPSPoint(
@@ -427,6 +449,8 @@ class GPXParser: NSObject, XMLParserDelegate {
             currentPoint = nil
         case "trk":
             flight?.gpsTrack = points
+            flight?.goAroundTimes = goAroundTimes
+            flight?.touchAndGoTimes = touchAndGoTimes
             if flight?.stopTime == nil, let lastPoint = points.last {
                 flight?.stopTime = lastPoint.timestamp
             }

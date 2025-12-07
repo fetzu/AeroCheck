@@ -199,7 +199,9 @@ class AppState: ObservableObject {
 
     /// Record a go-around and return to climb phase, resetting subsequent phases
     func recordGoAround() {
+        let goAroundTime = Date()
         currentFlight?.goAroundCount += 1
+        currentFlight?.goAroundTimes.append(goAroundTime)
 
         // Reset phases from climb onwards
         for phase in ChecklistPhase.allCases {
@@ -215,7 +217,9 @@ class AppState: ObservableObject {
 
     /// Record a touch-and-go and return to climb phase, resetting subsequent phases
     func recordTouchAndGo() {
+        let touchAndGoTime = Date()
         currentFlight?.touchAndGoCount += 1
+        currentFlight?.touchAndGoTimes.append(touchAndGoTime)
 
         // Reset phases from climb onwards
         for phase in ChecklistPhase.allCases {

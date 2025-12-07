@@ -92,26 +92,74 @@ struct SettingsView: View {
                 
                 // About section
                 Section {
-                    HStack {
-                        Text("App Version")
-                        Spacer()
-                        Text("1.0.0 (beta)")
-                            .foregroundColor(.secondary)
+                    Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
+                        HStack {
+                            Text("App Version")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text("1.0.0 (beta)")
+                                .foregroundColor(.secondary)
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
 
-                    HStack {
-                        Text("Author")
-                        Spacer()
-                        Text("Julien 'fetzu' Bono")
-                            .foregroundColor(.secondary)
+                    Link(destination: URL(string: "https://www.julienbono.ch/")!) {
+                        HStack {
+                            Text("Author")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text("Julien 'fetzu' Bono")
+                                .foregroundColor(.secondary)
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
 
-                    HStack {
-                        Text("Organization")
-                        Spacer()
-                        Text("Aéroclub du Jura GVMP")
-                            .foregroundColor(.secondary)
+                    Link(destination: URL(string: "https://www.gvmp.aero/")!) {
+                        HStack {
+                            Text("Organization")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text("Aéroclub du Jura (GVMP)")
+                                .foregroundColor(.secondary)
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                                .foregroundColor(.primary)
+                            Text("Open Source")
+                                .font(.headline)
+                        }
+
+                        Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
+                            HStack(spacing: 4) {
+                                Text("This app is open source and available on GitHub.")
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        }
+
+                        Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
+                            HStack(spacing: 4) {
+                                Text("Released under the MIT License.")
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 } header: {
                     Label("About", systemImage: "info.circle.fill")
                 }

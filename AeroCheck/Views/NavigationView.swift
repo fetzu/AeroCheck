@@ -51,6 +51,15 @@ enum MapLayerType: String, CaseIterable, Identifiable {
         case .swissimage: return "ch.swisstopo.swissimage"
         }
     }
+
+    /// File extension for tiles (some layers only support jpeg)
+    var tileExtension: String {
+        switch self {
+        case .standard, .satellite: return "png"
+        case .icao: return "png"
+        case .landeskarten, .swissimage: return "jpeg"
+        }
+    }
 }
 
 // MARK: - Navigation Map View
@@ -65,12 +74,75 @@ struct NavigationMapView: View {
     @State private var mapCameraPosition: MapCameraPosition = .automatic
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
+    @State private var currentTime = Date()
+
+    // Timer for updating time display
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     // Map region for manual control
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2), // Switzerland center
         span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
     )
+
+    /// Current target speed from flight phase (if applicable)
+    private var targetSpeed: Int? {
+        appState.currentPhase.targetSpeed
+    }
+
+    /// Stall speed from current aircraft
+    private var stallSpeed: Int {
+        ChecklistData.currentAircraft.stallSpeed
+    }
+
+    /// Speed color based on current speed vs target
+    private var speedColor: Color {
+        let speedKnots = Int(locationManager.currentSpeedKnots)
+
+        // If below stall speed, always red
+        if speedKnots < stallSpeed {
+            return .aviationRed
+        }
+
+        // If we have a target speed, color based on that
+        if let target = targetSpeed {
+            if abs(speedKnots - target) <= 5 {
+                return .aviationGreen // On target
+            } else {
+                return .orange // Off target
+            }
+        }
+
+        // No target speed, use green
+        return .aviationGreen
+    }
+
+    /// GPS status color
+    private var gpsStatusColor: Color {
+        guard locationManager.isTracking else { return .dimText }
+        switch locationManager.gpsSignalStatus {
+        case .good: return .aviationGreen
+        case .degraded: return .orange
+        case .lost: return .aviationRed
+        }
+    }
+
+    /// GPS status indicator
+    private var gpsStatusIndicator: StatusIndicator.Status {
+        guard locationManager.isTracking else { return .inactive }
+        switch locationManager.gpsSignalStatus {
+        case .good: return .active
+        case .degraded: return .warning
+        case .lost: return .error
+        }
+    }
+
+    /// Formatted current time
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: currentTime)
+    }
 
     var body: some View {
         ZStack {
@@ -93,6 +165,9 @@ struct NavigationMapView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             centerOnAircraft()
+        }
+        .onReceive(timer) { time in
+            currentTime = time
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             if isFollowingAircraft, let location = newLocation {
@@ -141,10 +216,8 @@ struct NavigationMapView: View {
                 }
             }
             .mapStyle(selectedLayer == .satellite ? .imagery : .standard)
-            .onMapCameraChange { context in
-                // Disable follow mode when user manually pans
-                if !isFollowingAircraft { return }
-                // This is intentionally empty - we detect manual interaction elsewhere
+            .mapControls {
+                MapScaleView()
             }
             .gesture(
                 DragGesture()
@@ -175,14 +248,14 @@ struct NavigationMapView: View {
 
             // Speed and altitude display
             HStack(spacing: 16) {
-                // Speed
+                // Speed (color-coded based on target)
                 HStack(spacing: 4) {
                     Text("\(Int(locationManager.currentSpeedKnots))")
                         .font(.system(size: 18, weight: .bold, design: .monospaced))
                     Text("kt")
                         .font(.system(size: 12, weight: .medium))
                 }
-                .foregroundColor(.aviationGreen)
+                .foregroundColor(speedColor)
 
                 // Altitude
                 HStack(spacing: 4) {
@@ -227,19 +300,50 @@ struct NavigationMapView: View {
     // MARK: - Bottom Controls
 
     private var bottomControls: some View {
-        HStack {
+        HStack(alignment: .bottom) {
+            // Scale indicator placeholder for Swiss maps (scale is built into SwissMapView)
+            if selectedLayer.isSwissLayer {
+                Spacer()
+                    .frame(width: 100)
+            }
+
             Spacer()
 
-            // Center on aircraft button
-            Button(action: centerOnAircraft) {
-                Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                    .frame(width: 50, height: 50)
-                    .background(
-                        Circle()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+            // Right side: Time, GPS status, and center button
+            VStack(alignment: .trailing, spacing: 12) {
+                // Time and GPS status
+                HStack(spacing: 12) {
+                    // GPS Status
+                    HStack(spacing: 6) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(gpsStatusColor)
+                        StatusIndicator(gpsStatusIndicator, size: 8)
+                    }
+
+                    // Current time
+                    Text(formattedTime)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+
+                // Center on aircraft button
+                Button(action: centerOnAircraft) {
+                    Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                        .frame(width: 50, height: 50)
+                        .background(
+                            Circle()
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
+                }
             }
         }
     }
@@ -299,6 +403,7 @@ struct AircraftMarker: View {
 struct LayerPickerSheet: View {
     @Binding var selectedLayer: MapLayerType
     @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     var body: some View {
         NavigationView {
@@ -315,6 +420,7 @@ struct LayerPickerSheet: View {
                     }
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Map Layer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -323,7 +429,7 @@ struct LayerPickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents(horizontalSizeClass == .regular ? [.medium, .large] : [.height(400)])
         .preferredColorScheme(.dark)
     }
 
@@ -372,21 +478,27 @@ struct SwissMapView: UIViewRepresentable {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.showsCompass = true
-        mapView.showsScale = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
+
+        // Configure scale view to always show in bottom left
+        mapView.showsScale = true
 
         // Add gesture recognizer to detect user interaction
         let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         panGesture.delegate = context.coordinator
         mapView.addGestureRecognizer(panGesture)
 
+        let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinchGesture.delegate = context.coordinator
+        mapView.addGestureRecognizer(pinchGesture)
+
         return mapView
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Update tile overlay
-        updateTileOverlay(mapView)
+        // Update tile overlay if layer changed
+        context.coordinator.updateTileOverlayIfNeeded(mapView, layerType: layerType)
 
         // Update region
         if isFollowingAircraft {
@@ -406,29 +518,10 @@ struct SwissMapView: UIViewRepresentable {
 
     // MARK: - Update Methods
 
-    private func updateTileOverlay(_ mapView: MKMapView) {
-        // Remove existing tile overlays
-        mapView.overlays.forEach { overlay in
-            if overlay is MKTileOverlay {
-                mapView.removeOverlay(overlay)
-            }
-        }
-
-        // Add new tile overlay
-        if let layerId = layerType.swisstopoLayerIdentifier {
-            let overlay = SwisstopoTileOverlay(layerIdentifier: layerId)
-            overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
-        }
-    }
-
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
         // Remove existing aircraft annotations
-        mapView.annotations.forEach { annotation in
-            if annotation is AircraftAnnotation {
-                mapView.removeAnnotation(annotation)
-            }
-        }
+        let existingAircraftAnnotations = mapView.annotations.compactMap { $0 as? AircraftAnnotation }
+        mapView.removeAnnotations(existingAircraftAnnotations)
 
         // Add aircraft annotation
         if let location = currentLocation {
@@ -441,12 +534,9 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing track overlays
-        mapView.overlays.forEach { overlay in
-            if overlay is MKPolyline {
-                mapView.removeOverlay(overlay)
-            }
-        }
+        // Remove existing track overlays (polylines only, not tile overlays)
+        let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
+        mapView.removeOverlays(existingPolylines)
 
         // Add track overlay
         if gpsTrack.count > 1 {
@@ -460,6 +550,7 @@ struct SwissMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
+        private var currentLayerType: MapLayerType?
 
         init(_ parent: SwissMapView) {
             self.parent = parent
@@ -471,8 +562,34 @@ struct SwissMapView: UIViewRepresentable {
             }
         }
 
+        @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            if gesture.state == .began {
+                parent.isFollowingAircraft = false
+            }
+        }
+
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true
+        }
+
+        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType) {
+            // Only update if layer changed
+            guard layerType != currentLayerType else { return }
+            currentLayerType = layerType
+
+            // Remove existing tile overlays
+            let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
+            mapView.removeOverlays(existingTileOverlays)
+
+            // Add new tile overlay
+            if let layerId = layerType.swisstopoLayerIdentifier {
+                let overlay = SwisstopoTileOverlay(
+                    layerIdentifier: layerId,
+                    tileExtension: layerType.tileExtension
+                )
+                overlay.canReplaceMapContent = true
+                mapView.addOverlay(overlay, level: .aboveLabels)
+            }
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -501,12 +618,15 @@ struct SwissMapView: UIViewRepresentable {
             if annotationView == nil {
                 annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
                 annotationView?.canShowCallout = false
+            } else {
+                annotationView?.annotation = annotation
             }
 
-            // Create aircraft image
+            // Create aircraft image with aviation gold color
             let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .bold)
+            let goldColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0) // aviationGold
             let image = UIImage(systemName: "airplane", withConfiguration: config)?
-                .withTintColor(UIColor(Color.aviationGold), renderingMode: .alwaysOriginal)
+                .withTintColor(goldColor, renderingMode: .alwaysOriginal)
 
             annotationView?.image = image
             annotationView?.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
@@ -516,6 +636,15 @@ struct SwissMapView: UIViewRepresentable {
             annotationView?.layer.shadowOffset = CGSize(width: 0, height: 1)
             annotationView?.layer.shadowOpacity = 0.5
             annotationView?.layer.shadowRadius = 2
+
+            // Add background glow
+            if annotationView?.subviews.first(where: { $0.tag == 999 }) == nil {
+                let glowView = UIView(frame: CGRect(x: -8, y: -8, width: 40, height: 40))
+                glowView.backgroundColor = goldColor.withAlphaComponent(0.3)
+                glowView.layer.cornerRadius = 20
+                glowView.tag = 999
+                annotationView?.insertSubview(glowView, at: 0)
+            }
 
             return annotationView
         }
@@ -540,13 +669,15 @@ class AircraftAnnotation: NSObject, MKAnnotation {
 /// Custom tile overlay for swisstopo WMTS layers
 class SwisstopoTileOverlay: MKTileOverlay {
     let layerIdentifier: String
+    let tileExtension: String
 
-    init(layerIdentifier: String) {
+    init(layerIdentifier: String, tileExtension: String = "png") {
         self.layerIdentifier = layerIdentifier
+        self.tileExtension = tileExtension
 
         // Swisstopo WMTS URL template
         // Using the EPSG:3857 (Web Mercator) projection which is compatible with MapKit
-        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/{z}/{x}/{y}.png"
+        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/{z}/{x}/{y}.\(tileExtension)"
 
         super.init(urlTemplate: urlTemplate)
 
@@ -556,7 +687,7 @@ class SwisstopoTileOverlay: MKTileOverlay {
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
         // Construct the URL for swisstopo tiles
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(path.z)/\(path.x)/\(path.y).png"
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(path.z)/\(path.x)/\(path.y).\(tileExtension)"
         return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }

@@ -611,23 +611,47 @@ struct FlightView: View {
             
             Spacer()
 
-            // Navigation mode button
+            // Navigation mode button (compact for portrait)
             Button(action: { showNavigationMode = true }) {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "map")
+                        .font(.system(size: 16))
                     Text("NAV")
+                        .font(.system(size: 16, weight: .semibold))
                 }
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.aviationBlue, lineWidth: 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.aviationBlue.opacity(0.2))
+                        )
+                )
             }
-            .buttonStyle(SecondaryButtonStyle())
 
-            // Speed reference button
+            // Speed reference button (compact for portrait)
             Button(action: { showSpeedReference = true }) {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "speedometer")
+                        .font(.system(size: 16))
                     Text("SPEEDS")
+                        .font(.system(size: 16, weight: .semibold))
                 }
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.aviationBlue, lineWidth: 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.aviationBlue.opacity(0.2))
+                        )
+                )
             }
-            .buttonStyle(SecondaryButtonStyle())
 
             Spacer()
             

@@ -397,14 +397,18 @@ struct FlightView: View {
             if let targetSpeed = appState.currentPhase.targetSpeed {
                 CompactSpeedView(
                     speedKnots: locationManager.currentSpeedMPS * 1.94384,
-                    targetSpeed: targetSpeed
+                    targetSpeed: targetSpeed,
+                    gpsSignalStatus: locationManager.gpsSignalStatus
                 )
             }
 
             Spacer()
 
             // Altimeter (compact)
-            CompactAltimeterView(altitudeFeet: locationManager.currentAltitudeFeet)
+            CompactAltimeterView(
+                altitudeFeet: locationManager.currentAltitudeFeet,
+                gpsSignalStatus: locationManager.gpsSignalStatus
+            )
         }
     }
 
@@ -641,13 +645,15 @@ struct FlightView: View {
             if appState.currentPhase.showsSpeedIndicator {
                 FlightSpeedIndicator(
                     gpsSpeedMetersPerSecond: locationManager.currentSpeedMPS,
-                    targetSpeed: appState.currentPhase.targetSpeed
+                    targetSpeed: appState.currentPhase.targetSpeed,
+                    gpsSignalStatus: locationManager.gpsSignalStatus
                 )
                 .padding(.vertical, 16)
 
                 // Altimeter display below speed indicator
                 FlightAltimeter(
-                    altitudeFeet: locationManager.currentAltitudeFeet
+                    altitudeFeet: locationManager.currentAltitudeFeet,
+                    gpsSignalStatus: locationManager.gpsSignalStatus
                 )
                 .padding(.bottom, 16)
 
@@ -941,6 +947,7 @@ struct SpeedReferenceSheet: View {
 struct CompactSpeedView: View {
     let speedKnots: Double
     let targetSpeed: Int
+    let gpsSignalStatus: GPSSignalStatus
 
     private var stallSpeed: Int {
         ChecklistData.currentAircraft.stallSpeed
@@ -963,25 +970,46 @@ struct CompactSpeedView: View {
 
     @State private var isFlashing = false
 
+    /// Whether to show failure flag overlay
+    private var showFailureFlag: Bool {
+        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
+    }
+
+    /// Failure level for the flag
+    private var failureLevel: InstrumentFailureFlag.FailureLevel {
+        gpsSignalStatus == .lost ? .lost : .degraded
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            // Speed value
-            HStack(spacing: 4) {
-                Text("\(Int(max(0, speedKnots)))")
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                    .foregroundColor(textColor)
-                Text("kt")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(textColor.opacity(0.8))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(backgroundColor)
-            )
+            // Speed value with failure flag
+            ZStack {
+                HStack(spacing: 4) {
+                    if gpsSignalStatus != .lost {
+                        Text("\(Int(max(0, speedKnots)))")
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .foregroundColor(textColor)
+                        Text("kt")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(textColor.opacity(0.8))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(backgroundColor)
+                )
 
-            // Target indicator
+                // Failure flag overlay
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 40))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+            .frame(minWidth: 70, minHeight: 40)
+
+            // Target indicator (always shown)
             VStack(alignment: .leading, spacing: 2) {
                 Text("TGT")
                     .font(.system(size: 9, weight: .medium))
@@ -1043,6 +1071,7 @@ struct CompactSpeedView: View {
 
 struct CompactAltimeterView: View {
     let altitudeFeet: Double
+    let gpsSignalStatus: GPSSignalStatus
 
     private var altitudeFontSize: CGFloat {
         let altitude = Int(altitudeFeet)
@@ -1055,25 +1084,46 @@ struct CompactAltimeterView: View {
         }
     }
 
+    /// Whether to show failure flag overlay
+    private var showFailureFlag: Bool {
+        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
+    }
+
+    /// Failure level for the flag
+    private var failureLevel: InstrumentFailureFlag.FailureLevel {
+        gpsSignalStatus == .lost ? .lost : .degraded
+    }
+
     var body: some View {
         HStack(spacing: 8) {
-            // Altitude value
-            HStack(spacing: 4) {
-                Text("\(Int(max(0, altitudeFeet)))")
-                    .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
-                    .foregroundColor(.black)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                Text("ft")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.black.opacity(0.7))
+            // Altitude value with failure flag
+            ZStack {
+                HStack(spacing: 4) {
+                    if gpsSignalStatus != .lost {
+                        Text("\(Int(max(0, altitudeFeet)))")
+                            .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
+                            .foregroundColor(.black)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                        Text("ft")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.altimeterBlue)
+                )
+
+                // Failure flag overlay
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 80, height: 40))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.altimeterBlue)
-            )
+            .frame(minWidth: 80, minHeight: 40)
 
             Text("MSL")
                 .font(.system(size: 10, weight: .medium))

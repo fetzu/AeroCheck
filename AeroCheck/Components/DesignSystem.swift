@@ -186,6 +186,73 @@ struct AviationDivider: View {
     }
 }
 
+// MARK: - Instrument Failure Flag
+
+/// Avionics-style failure flag overlay (X pattern)
+/// Used to indicate GPS signal degradation affecting speed/altitude readings
+struct InstrumentFailureFlag: View {
+    enum FailureLevel {
+        case degraded   // White X, data still visible underneath
+        case lost       // Red X, black background, no data shown
+    }
+
+    let level: FailureLevel
+    let size: CGSize
+
+    /// Stroke width based on failure level
+    private var strokeWidth: CGFloat {
+        switch level {
+        case .degraded:
+            // Thinner stroke so data is still readable underneath
+            return min(size.width, size.height) * 0.06
+        case .lost:
+            // Thicker stroke for clear failure indication
+            return min(size.width, size.height) * 0.12
+        }
+    }
+
+    private var strokeColor: Color {
+        switch level {
+        case .degraded: return .white
+        case .lost: return .aviationRed
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Black background only for lost signal
+            if level == .lost {
+                Rectangle()
+                    .fill(Color.black)
+            }
+
+            // X pattern (failure flag)
+            Canvas { context, canvasSize in
+                let inset: CGFloat = 4
+                let topLeft = CGPoint(x: inset, y: inset)
+                let topRight = CGPoint(x: canvasSize.width - inset, y: inset)
+                let bottomLeft = CGPoint(x: inset, y: canvasSize.height - inset)
+                let bottomRight = CGPoint(x: canvasSize.width - inset, y: canvasSize.height - inset)
+
+                var path = Path()
+                // Diagonal 1: top-left to bottom-right
+                path.move(to: topLeft)
+                path.addLine(to: bottomRight)
+                // Diagonal 2: top-right to bottom-left
+                path.move(to: topRight)
+                path.addLine(to: bottomLeft)
+
+                context.stroke(
+                    path,
+                    with: .color(strokeColor),
+                    style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
+                )
+            }
+        }
+        .frame(width: size.width, height: size.height)
+    }
+}
+
 // MARK: - Status Indicator
 
 struct StatusIndicator: View {
@@ -223,6 +290,7 @@ struct StatusIndicator: View {
 struct SpeedIndicatorView: View {
     let currentSpeed: Double // in knots (from GPS, m/s converted)
     let targetSpeed: Int
+    let gpsSignalStatus: GPSSignalStatus
 
     /// Stall speed from current aircraft type
     private var stallSpeed: Int {
@@ -248,34 +316,52 @@ struct SpeedIndicatorView: View {
         case offTarget  // Orange (solid): above Vs but outside 5 KIAS range
         case stall      // Flashing red/white: below stall speed
     }
-    
+
+    /// Whether to show failure flag overlay
+    private var showFailureFlag: Bool {
+        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
+    }
+
+    /// Failure level for the flag
+    private var failureLevel: InstrumentFailureFlag.FailureLevel {
+        gpsSignalStatus == .lost ? .lost : .degraded
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             // Speed label
             Text("SPEED")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.secondaryText)
-            
+
             // Current speed display
             ZStack {
                 // Background
                 RoundedRectangle(cornerRadius: 8)
                     .fill(backgroundColor)
-                
-                // Speed value
-                VStack(spacing: 2) {
-                    Text("\(Int(currentSpeed))")
-                        .font(.system(size: 36, weight: .bold, design: .monospaced))
-                        .foregroundColor(textColor)
-                    
-                    Text("KIAS")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(textColor.opacity(0.8))
+
+                // Speed value (hidden when GPS lost)
+                if gpsSignalStatus != .lost {
+                    VStack(spacing: 2) {
+                        Text("\(Int(currentSpeed))")
+                            .font(.system(size: 36, weight: .bold, design: .monospaced))
+                            .foregroundColor(textColor)
+
+                        Text("KIAS")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(textColor.opacity(0.8))
+                    }
+                }
+
+                // Failure flag overlay
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 100, height: 70))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
             .frame(width: 100, height: 70)
-            
-            // Target speed indicator
+
+            // Target speed indicator (always shown)
             HStack(spacing: 4) {
                 Image(systemName: targetIcon)
                     .font(.system(size: 10))
@@ -295,7 +381,7 @@ struct SpeedIndicatorView: View {
             }
         }
     }
-    
+
     private var backgroundColor: Color {
         switch speedState {
         case .onTarget:
@@ -319,7 +405,7 @@ struct SpeedIndicatorView: View {
             return isFlashing ? .white : .aviationRed
         }
     }
-    
+
     private var targetIcon: String {
         let speedInt = Int(currentSpeed)
         if speedInt < targetSpeed - 5 {
@@ -330,19 +416,19 @@ struct SpeedIndicatorView: View {
             return "checkmark"
         }
     }
-    
+
     private func startFlashingIfNeeded() {
         if speedState == .stall {
             startFlashing()
         }
     }
-    
+
     private func startFlashing() {
         withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
             isFlashing = true
         }
     }
-    
+
     private func stopFlashing() {
         withAnimation(.easeInOut(duration: 0.1)) {
             isFlashing = false
@@ -355,6 +441,7 @@ struct SpeedIndicatorView: View {
 struct FlightSpeedIndicator: View {
     let gpsSpeedMetersPerSecond: Double
     let targetSpeed: Int?
+    let gpsSignalStatus: GPSSignalStatus
 
     // Convert m/s to knots (1 m/s = 1.94384 knots)
     private var speedInKnots: Double {
@@ -363,7 +450,11 @@ struct FlightSpeedIndicator: View {
 
     var body: some View {
         if let target = targetSpeed {
-            SpeedIndicatorView(currentSpeed: max(0, speedInKnots), targetSpeed: target)
+            SpeedIndicatorView(
+                currentSpeed: max(0, speedInKnots),
+                targetSpeed: target,
+                gpsSignalStatus: gpsSignalStatus
+            )
         }
     }
 }
@@ -377,6 +468,7 @@ extension Color {
 
 struct AltimeterView: View {
     let altitudeFeet: Double
+    let gpsSignalStatus: GPSSignalStatus
 
     /// Dynamic font size based on digit count to ensure full number is always visible
     private var altitudeFontSize: CGFloat {
@@ -394,6 +486,16 @@ struct AltimeterView: View {
         }
     }
 
+    /// Whether to show failure flag overlay
+    private var showFailureFlag: Bool {
+        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
+    }
+
+    /// Failure level for the flag
+    private var failureLevel: InstrumentFailureFlag.FailureLevel {
+        gpsSignalStatus == .lost ? .lost : .degraded
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             // Altitude label
@@ -407,19 +509,27 @@ struct AltimeterView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.altimeterBlue)
 
-                // Altitude value
-                VStack(spacing: 2) {
-                    Text("\(Int(altitudeFeet))")
-                        .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
-                        .foregroundColor(.black)
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
+                // Altitude value (hidden when GPS lost)
+                if gpsSignalStatus != .lost {
+                    VStack(spacing: 2) {
+                        Text("\(Int(altitudeFeet))")
+                            .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
+                            .foregroundColor(.black)
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
 
-                    Text("FT")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.black.opacity(0.7))
+                        Text("FT")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
+
+                // Failure flag overlay
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 100, height: 70))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
             }
             .frame(width: 100, height: 70)
 
@@ -435,9 +545,10 @@ struct AltimeterView: View {
 
 struct FlightAltimeter: View {
     let altitudeFeet: Double
+    let gpsSignalStatus: GPSSignalStatus
 
     var body: some View {
-        AltimeterView(altitudeFeet: max(0, altitudeFeet))
+        AltimeterView(altitudeFeet: max(0, altitudeFeet), gpsSignalStatus: gpsSignalStatus)
     }
 }
 

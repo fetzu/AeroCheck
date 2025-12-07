@@ -385,14 +385,17 @@ struct FlightDetailView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
     let flight: Flight
-    
+
     @State private var flightName: String = ""
     @State private var notes: String = ""
     @State private var showExportSheet = false
     @State private var showDeleteAlert = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
-    
+    @State private var selectedTime: Date?
+    @State private var showShareSheet = false
+    @State private var shareImage: UIImage?
+
     enum ExportType {
         case gpx
         case json
@@ -426,12 +429,22 @@ struct FlightDetailView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { generateAndShareImage() }) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
             flightName = flight.name
             notes = flight.notes
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let image = shareImage {
+                ShareSheet(activityItems: [image])
+            }
         }
         .confirmationDialog("Export Format", isPresented: $showExportOptions, titleVisibility: .visible) {
             Button("GPX (GPS Track)") {
@@ -496,7 +509,7 @@ struct FlightDetailView: View {
                         }
                     )
             } else {
-                FlightMapView(points: flight.gpsTrack)
+                FlightMapView(points: flight.gpsTrack, selectedTime: selectedTime)
                     .frame(height: 300)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
@@ -533,7 +546,8 @@ struct FlightDetailView: View {
                     landingTime: flight.landingTime,
                     engineShutdownTime: flight.engineShutdownTime,
                     goAroundCount: flight.goAroundCount,
-                    touchAndGoCount: flight.touchAndGoCount
+                    touchAndGoCount: flight.touchAndGoCount,
+                    selectedTime: $selectedTime
                 )
                 .frame(height: 200)
                 .padding(12)
@@ -671,11 +685,22 @@ struct FlightDetailView: View {
     }
     
     // MARK: - Helpers
-    
+
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func generateAndShareImage() {
+        let shareCard = FlightShareCard(flight: flight)
+        let renderer = ImageRenderer(content: shareCard)
+        renderer.scale = 3.0 // High resolution for sharing
+
+        if let image = renderer.uiImage {
+            shareImage = image
+            showShareSheet = true
+        }
     }
 }
 
@@ -744,46 +769,69 @@ struct TimelineRow: View {
 
 struct FlightMapView: UIViewRepresentable {
     let points: [GPSPoint]
-    
+    let selectedTime: Date?
+
+    /// Find the GPS point closest to the selected time
+    private var selectedPoint: GPSPoint? {
+        guard let time = selectedTime else { return nil }
+        return points.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+    }
+
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.overrideUserInterfaceStyle = .dark
         return mapView
     }
-    
+
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Remove existing overlays and annotations
         mapView.removeOverlays(mapView.overlays)
         mapView.removeAnnotations(mapView.annotations)
-        
+
         guard points.count >= 2 else { return }
-        
+
         // Create coordinates array
         let coordinates = points.map { $0.coordinate }
-        
+
         // Add polyline
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         mapView.addOverlay(polyline)
-        
+
         // Add start and end annotations
         if let first = points.first, let last = points.last {
-            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true)
-            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false)
+            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false)
+            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
             mapView.addAnnotations([startAnnotation, endAnnotation])
         }
-        
-        // Set visible region
-        let rect = polyline.boundingMapRect
-        let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-        mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
+
+        // Add selected position annotation if available
+        if let selected = selectedPoint {
+            let selectedAnnotation = FlightAnnotation(
+                coordinate: selected.coordinate,
+                title: "Position",
+                isStart: false,
+                isSelected: true
+            )
+            mapView.addAnnotation(selectedAnnotation)
+        }
+
+        // Set visible region (only on initial load, not when selection changes)
+        if context.coordinator.initialRegionSet == false {
+            let rect = polyline.boundingMapRect
+            let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
+            mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
+            context.coordinator.initialRegionSet = true
+        }
     }
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
-    
+
     class Coordinator: NSObject, MKMapViewDelegate {
+        var initialRegionSet = false
+
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
@@ -795,22 +843,41 @@ struct FlightMapView: UIViewRepresentable {
             }
             return MKOverlayRenderer(overlay: overlay)
         }
-        
+
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let flightAnnotation = annotation as? FlightAnnotation else { return nil }
-            
+
+            // Handle selected position marker
+            if flightAnnotation.isSelected {
+                let identifier = "selected"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                }
+
+                view?.annotation = annotation
+                view?.markerTintColor = UIColor(Color.aviationGold)
+                view?.glyphImage = UIImage(systemName: "location.fill")
+                view?.displayPriority = .required
+                view?.zPriority = .max
+
+                return view
+            }
+
+            // Handle start/end markers
             let identifier = flightAnnotation.isStart ? "start" : "end"
             var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-            
+
             if view == nil {
                 view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             }
-            
+
             view?.annotation = annotation
             view?.markerTintColor = flightAnnotation.isStart ? UIColor(Color.aviationGreen) : UIColor(Color.aviationRed)
             view?.glyphImage = UIImage(systemName: flightAnnotation.isStart ? "airplane.departure" : "airplane.arrival")
             view?.displayPriority = .required
-            
+
             return view
         }
     }
@@ -820,11 +887,13 @@ class FlightAnnotation: NSObject, MKAnnotation {
     let coordinate: CLLocationCoordinate2D
     let title: String?
     let isStart: Bool
+    let isSelected: Bool
 
-    init(coordinate: CLLocationCoordinate2D, title: String, isStart: Bool) {
+    init(coordinate: CLLocationCoordinate2D, title: String, isStart: Bool, isSelected: Bool) {
         self.coordinate = coordinate
         self.title = title
         self.isStart = isStart
+        self.isSelected = isSelected
         super.init()
     }
 }
@@ -839,30 +908,51 @@ struct AltitudeChartView: View {
     let engineShutdownTime: Date?
     let goAroundCount: Int
     let touchAndGoCount: Int
+    @Binding var selectedTime: Date?
 
     /// Altitude data points for the chart
     private var altitudeData: [(time: Date, altitude: Double)] {
         gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) } // Convert to feet
     }
 
+    /// Computed altitude range with 500ft padding
+    private var altitudeRange: ClosedRange<Double> {
+        guard !altitudeData.isEmpty else { return 0...1000 }
+        let altitudes = altitudeData.map { $0.altitude }
+        let minAlt = altitudes.min() ?? 0
+        let maxAlt = altitudes.max() ?? 1000
+        // Add 500ft padding above and below, but don't go below 0
+        let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
+        let upperBound = ceil((maxAlt + 500) / 100) * 100
+        return lowerBound...upperBound
+    }
+
     /// Flight event annotations to display on the chart
-    private var eventAnnotations: [(time: Date, label: String, color: Color)] {
-        var annotations: [(time: Date, label: String, color: Color)] = []
+    private var eventAnnotations: [(time: Date, icon: String, color: Color)] {
+        var annotations: [(time: Date, icon: String, color: Color)] = []
 
         if let engineStart = engineStartTime {
-            annotations.append((time: engineStart, label: "Engine Start", color: .aviationGreen))
+            annotations.append((time: engineStart, icon: "engine.combustion", color: .aviationGreen))
         }
         if let lineUp = lineUpTime {
-            annotations.append((time: lineUp, label: "Take-off", color: .aviationAmber))
+            annotations.append((time: lineUp, icon: "airplane.departure", color: .aviationAmber))
         }
         if let landing = landingTime {
-            annotations.append((time: landing, label: "Landing", color: .aviationBlue))
+            annotations.append((time: landing, icon: "airplane.arrival", color: .aviationBlue))
         }
         if let shutdown = engineShutdownTime {
-            annotations.append((time: shutdown, label: "Shutdown", color: .aviationRed))
+            annotations.append((time: shutdown, icon: "engine.combustion.fill", color: .aviationRed))
         }
 
         return annotations
+    }
+
+    /// Find the altitude at the selected time
+    private var selectedAltitude: Double? {
+        guard let time = selectedTime else { return nil }
+        // Find the closest GPS point to the selected time
+        let closest = gpsTrack.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+        return closest.map { $0.altitude * 3.28084 }
     }
 
     var body: some View {
@@ -897,22 +987,48 @@ struct AltitudeChartView: View {
                     )
                 }
 
-                // Event annotations
+                // Event annotations with icons
                 ForEach(eventAnnotations, id: \.time) { event in
                     RuleMark(x: .value("Event", event.time))
                         .foregroundStyle(event.color.opacity(0.7))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                         .annotation(position: .top, alignment: .center) {
-                            Text(event.label)
-                                .font(.system(size: 8, weight: .medium))
+                            Image(systemName: event.icon)
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(event.color)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
+                                .padding(4)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 3)
+                                    Circle()
                                         .fill(Color.cardBackground)
+                                        .shadow(color: event.color.opacity(0.3), radius: 2)
                                 )
                         }
+                }
+
+                // Selection indicator
+                if let time = selectedTime, let altitude = selectedAltitude {
+                    RuleMark(x: .value("Selected", time))
+                        .foregroundStyle(Color.aviationGold.opacity(0.8))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+
+                    PointMark(
+                        x: .value("Selected", time),
+                        y: .value("Altitude", altitude)
+                    )
+                    .foregroundStyle(Color.aviationGold)
+                    .symbolSize(100)
+                    .annotation(position: .top, spacing: 8) {
+                        Text("\(Int(altitude)) ft")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.cardBackground)
+                                    .shadow(color: Color.aviationGold.opacity(0.3), radius: 3)
+                            )
+                    }
                 }
             }
             .chartXAxis {
@@ -937,10 +1053,43 @@ struct AltitudeChartView: View {
                     }
                 }
             }
+            .chartYScale(domain: altitudeRange)
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text("Altitude (ft MSL)")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.secondaryText)
+            }
+            .chartOverlay { proxy in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let xPosition = value.location.x
+                                    if let time: Date = proxy.value(atX: xPosition) {
+                                        // Clamp to track bounds
+                                        if let first = gpsTrack.first?.timestamp,
+                                           let last = gpsTrack.last?.timestamp {
+                                            if time >= first && time <= last {
+                                                selectedTime = time
+                                            }
+                                        }
+                                    }
+                                }
+                                .onEnded { _ in
+                                    // Keep selection visible after touch ends
+                                }
+                        )
+                        .simultaneousGesture(
+                            TapGesture()
+                                .onEnded {
+                                    // Clear selection on tap outside
+                                    selectedTime = nil
+                                }
+                        )
+                }
             }
         }
     }
@@ -1042,6 +1191,290 @@ class ZIPFile: NSObject, UIActivityItemSource {
     
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
+    }
+}
+
+// MARK: - Flight Share Card
+
+/// A landscape card view designed for sharing flight summaries
+/// Renders at 1200x630 (common social media share size)
+struct FlightShareCard: View {
+    let flight: Flight
+
+    // Card dimensions (landscape format similar to Strava)
+    private let cardWidth: CGFloat = 1200
+    private let cardHeight: CGFloat = 630
+
+    private var title: String {
+        flight.name.isEmpty ? flight.airplane : flight.name
+    }
+
+    private var subtitle: String {
+        flight.name.isEmpty ? "" : flight.airplane
+    }
+
+    var body: some View {
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.08, blue: 0.15),
+                    Color(red: 0.1, green: 0.12, blue: 0.2)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 0) {
+                // Header section
+                headerSection
+                    .padding(.top, 40)
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Stats section
+                statsSection
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Timeline section
+                timelineSection
+                    .padding(.horizontal, 50)
+
+                Spacer()
+
+                // Footer
+                footerSection
+                    .padding(.bottom, 30)
+                    .padding(.horizontal, 50)
+            }
+        }
+        .frame(width: cardWidth, height: cardHeight)
+    }
+
+    // MARK: - Header Section
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Title
+                Text(title)
+                    .font(.system(size: 48, weight: .bold, design: .default))
+                    .foregroundColor(.white)
+
+                // Subtitle (aircraft if name is set)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 28, weight: .medium, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+                }
+
+                // Date
+                Text(flight.formattedDate)
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Spacer()
+
+            // Flight duration (prominent)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("FLIGHT TIME")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .tracking(2)
+
+                Text(flight.formattedDuration)
+                    .font(.system(size: 56, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+            }
+        }
+    }
+
+    // MARK: - Stats Section
+
+    private var statsSection: some View {
+        HStack(spacing: 60) {
+            // Distance
+            statItem(
+                icon: "point.topleft.down.to.point.bottomright.curvepath.fill",
+                label: "DISTANCE",
+                value: flight.formattedDistance
+            )
+
+            // GPS Points
+            statItem(
+                icon: "location.fill",
+                label: "GPS POINTS",
+                value: "\(flight.gpsTrack.count)"
+            )
+
+            // Max Altitude
+            if let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() {
+                statItem(
+                    icon: "arrow.up.to.line",
+                    label: "MAX ALTITUDE",
+                    value: "\(Int(maxAlt)) ft"
+                )
+            }
+
+            // Go-arounds (if any)
+            if flight.goAroundCount > 0 {
+                statItem(
+                    icon: "arrow.up.right.circle.fill",
+                    label: "GO-AROUNDS",
+                    value: "\(flight.goAroundCount)"
+                )
+            }
+
+            // Touch-and-goes (if any)
+            if flight.touchAndGoCount > 0 {
+                statItem(
+                    icon: "arrow.triangle.2.circlepath",
+                    label: "TOUCH & GO",
+                    value: "\(flight.touchAndGoCount)"
+                )
+            }
+        }
+    }
+
+    private func statItem(icon: String, label: String, value: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28))
+                .foregroundColor(.aviationGold)
+
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white.opacity(0.5))
+                .tracking(1)
+
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+        }
+        .frame(minWidth: 120)
+    }
+
+    // MARK: - Timeline Section
+
+    private var timelineSection: some View {
+        HStack(spacing: 0) {
+            // Engine Start
+            if let time = flight.engineStartTime {
+                timelineItem(
+                    icon: "engine.combustion",
+                    label: "Engine Start",
+                    time: formatTime(time),
+                    color: .aviationGreen
+                )
+            }
+
+            timelineConnector
+
+            // Take-off
+            if let time = flight.lineUpTime {
+                timelineItem(
+                    icon: "airplane.departure",
+                    label: "Take-off",
+                    time: formatTime(time),
+                    color: .aviationAmber
+                )
+            }
+
+            timelineConnector
+
+            // Landing
+            if let time = flight.landingTime {
+                timelineItem(
+                    icon: "airplane.arrival",
+                    label: "Landing",
+                    time: formatTime(time),
+                    color: .aviationBlue
+                )
+            }
+
+            timelineConnector
+
+            // Engine Shutdown
+            if let time = flight.engineShutdownTime {
+                timelineItem(
+                    icon: "engine.combustion.fill",
+                    label: "Shutdown",
+                    time: formatTime(time),
+                    color: .aviationRed
+                )
+            }
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 30)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func timelineItem(icon: String, label: String, time: String, color: Color) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 50, height: 50)
+
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(color)
+            }
+
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+
+            Text(time)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+        }
+        .frame(minWidth: 120)
+    }
+
+    private var timelineConnector: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.2))
+            .frame(width: 40, height: 2)
+    }
+
+    // MARK: - Footer Section
+
+    private var footerSection: some View {
+        HStack {
+            // App branding
+            HStack(spacing: 8) {
+                Image(systemName: "airplane.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.aviationGold)
+
+                Text("AéroCheck")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            // Flight ID (small, for reference)
+            Text(flight.airplane)
+                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.4))
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

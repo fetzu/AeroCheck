@@ -28,12 +28,13 @@ struct AppSettings: Codable {
 @MainActor
 class AppState: ObservableObject {
     // MARK: - Published Properties
-    
+
     @Published var currentPhase: ChecklistPhase = .preflight
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
     @Published var flights: [Flight] = []
     @Published var settings: AppSettings = AppSettings()
+    @Published var showFlightLog: Bool = false
     
     // Recorded times during flight
     @Published var engineStartTime: Date?
@@ -75,7 +76,11 @@ class AppState: ObservableObject {
     // MARK: - Flight Management
     
     func startFlight() {
-        currentFlight = Flight(airplane: settings.defaultAirplane, startTime: Date())
+        startFlight(withAircraft: settings.defaultAirplane)
+    }
+
+    func startFlight(withAircraft aircraft: String) {
+        currentFlight = Flight(airplane: aircraft, startTime: Date())
         currentPhase = .preflight
         isFlightActive = true
         engineStartTime = nil

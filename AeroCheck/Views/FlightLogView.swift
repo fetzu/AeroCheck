@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import Charts
 import UniformTypeIdentifiers
+import Compression
 
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
@@ -71,7 +72,7 @@ struct FlightLogView: View {
         }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = createExportAllZip() {
-                let filename = "AeroCheck_Flights_\(formattedExportDate).\(exportAllType == .gpx ? "gpx" : "json").zip"
+                let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
                 ShareSheet(activityItems: [
                     ZIPFile(data: zipData, filename: filename)
                 ])
@@ -81,7 +82,8 @@ struct FlightLogView: View {
             isPresented: $showImportPicker,
             allowedContentTypes: [
                 UTType(filenameExtension: "gpx") ?? .xml,
-                UTType(filenameExtension: "json") ?? .json
+                UTType(filenameExtension: "json") ?? .json,
+                .zip
             ],
             allowsMultipleSelection: false
         ) { result in
@@ -96,7 +98,7 @@ struct FlightLogView: View {
     
     private var formattedExportDate: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "yyyyMMdd"
         return formatter.string(from: Date())
     }
     
@@ -267,37 +269,181 @@ struct FlightLogView: View {
     }
     
     // MARK: - Import Handler
-    
+
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            
+
             guard url.startAccessingSecurityScopedResource() else {
                 importError = "Cannot access the selected file."
                 showImportError = true
                 return
             }
-            
+
             defer { url.stopAccessingSecurityScopedResource() }
-            
+
             do {
                 let data = try Data(contentsOf: url)
-                if appState.importFlight(from: data) {
+
+                // Check if it's a ZIP file
+                if url.pathExtension.lowercased() == "zip" {
+                    handleZipImport(data: data)
+                } else if appState.importFlight(from: data) {
                     // Success - no action needed
                 } else {
-                    importError = "Could not parse the flight file. Supported formats: GPX, JSON"
+                    importError = "Could not parse the flight file. Supported formats: GPX, JSON, ZIP"
                     showImportError = true
                 }
             } catch {
                 importError = error.localizedDescription
                 showImportError = true
             }
-            
+
         case .failure(let error):
             importError = error.localizedDescription
             showImportError = true
         }
+    }
+
+    private func handleZipImport(data: Data) {
+        do {
+            let entries = try extractZipEntries(from: data)
+            var successCount = 0
+            var failCount = 0
+
+            for entry in entries {
+                if appState.importFlight(from: entry.data) {
+                    successCount += 1
+                } else {
+                    failCount += 1
+                }
+            }
+
+            if successCount == 0 {
+                importError = "No valid flight files found in the ZIP archive."
+                showImportError = true
+            } else if failCount > 0 {
+                importError = "Imported \(successCount) flight(s). \(failCount) file(s) could not be imported."
+                showImportError = true
+            }
+            // If all succeeded, no error message needed
+        } catch {
+            importError = "Failed to extract ZIP archive: \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+
+    private func extractZipEntries(from data: Data) throws -> [(filename: String, data: Data)] {
+        var entries: [(filename: String, data: Data)] = []
+        var offset = 0
+
+        while offset < data.count {
+            // Check for local file header signature (0x04034b50)
+            guard offset + 30 <= data.count else { break }
+
+            // Read signature using aligned access
+            let signature: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                guard offset + 4 <= bytes.count else { return 0 }
+                return UInt32(bytes[offset])
+                    | (UInt32(bytes[offset + 1]) << 8)
+                    | (UInt32(bytes[offset + 2]) << 16)
+                    | (UInt32(bytes[offset + 3]) << 24)
+            }
+
+            // 0x04034b50 = local file header
+            if signature != 0x04034b50 {
+                // Check for central directory (0x02014b50) or end (0x06054b50)
+                if signature == 0x02014b50 || signature == 0x06054b50 {
+                    break
+                }
+                offset += 1
+                continue
+            }
+
+            // Read header fields using aligned byte-by-byte access
+            let compressionMethod: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 8
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
+            }
+
+            let compressedSize: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 18
+                return UInt32(bytes[pos])
+                    | (UInt32(bytes[pos + 1]) << 8)
+                    | (UInt32(bytes[pos + 2]) << 16)
+                    | (UInt32(bytes[pos + 3]) << 24)
+            }
+
+            let uncompressedSize: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 22
+                return UInt32(bytes[pos])
+                    | (UInt32(bytes[pos + 1]) << 8)
+                    | (UInt32(bytes[pos + 2]) << 16)
+                    | (UInt32(bytes[pos + 3]) << 24)
+            }
+
+            let filenameLength: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 26
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
+            }
+
+            let extraFieldLength: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 28
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
+            }
+
+            // Read filename
+            let filenameStart = offset + 30
+            let filenameEnd = filenameStart + Int(filenameLength)
+            guard filenameEnd <= data.count else { break }
+
+            let filenameData = data.subdata(in: filenameStart..<filenameEnd)
+            let filename = String(data: filenameData, encoding: .utf8) ?? ""
+
+            // Skip directories and hidden files
+            if filename.hasSuffix("/") || filename.hasPrefix("__MACOSX/") || filename.contains("/.") {
+                offset = filenameEnd + Int(extraFieldLength) + Int(compressedSize)
+                continue
+            }
+
+            // Only process .gpx and .json files
+            let ext = (filename as NSString).pathExtension.lowercased()
+            guard ext == "gpx" || ext == "json" else {
+                offset = filenameEnd + Int(extraFieldLength) + Int(compressedSize)
+                continue
+            }
+
+            // Read file data
+            let dataStart = filenameEnd + Int(extraFieldLength)
+            let dataEnd = dataStart + Int(compressedSize)
+            guard dataEnd <= data.count else { break }
+
+            var fileData = data.subdata(in: dataStart..<dataEnd)
+
+            // Handle compression (method 0 = uncompressed, method 8 = deflate)
+            if compressionMethod == 8 {
+                // Decompress using zlib
+                fileData = try decompress(fileData, uncompressedSize: Int(uncompressedSize))
+            }
+
+            entries.append((filename: filename, data: fileData))
+            offset = dataEnd
+        }
+
+        return entries
+    }
+
+    private func decompress(_ data: Data, uncompressedSize: Int) throws -> Data {
+        // Use Swift's built-in decompression with DEFLATE algorithm
+        let decompressedData = try (data as NSData).decompressed(using: .zlib) as Data
+        return decompressedData
     }
 }
 
@@ -1275,25 +1421,27 @@ struct ImageShareSheet: UIViewControllerRepresentable {
 class GPXFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "com.topografix.gpx"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }
@@ -1304,25 +1452,27 @@ class GPXFile: NSObject, UIActivityItemSource {
 class JSONFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "public.json"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }
@@ -1333,25 +1483,27 @@ class JSONFile: NSObject, UIActivityItemSource {
 class ZIPFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "public.zip-archive"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }

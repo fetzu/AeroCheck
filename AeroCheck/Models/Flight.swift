@@ -6,6 +6,8 @@ struct Flight: Identifiable, Codable {
     let id: UUID
     var name: String // Custom flight name
     var airplane: String
+    var aircraftType: String? // Aircraft type identifier (e.g., "WT9", "PA28")
+    var checklistVersion: String? // Checklist version used (e.g., "2.1e")
     var startTime: Date?
     var stopTime: Date?
     var engineStartTime: Date?
@@ -23,6 +25,8 @@ struct Flight: Identifiable, Codable {
         id: UUID = UUID(),
         name: String = "",
         airplane: String = "F-HVXA",
+        aircraftType: String? = nil,
+        checklistVersion: String? = nil,
         startTime: Date? = nil,
         stopTime: Date? = nil,
         engineStartTime: Date? = nil,
@@ -39,6 +43,8 @@ struct Flight: Identifiable, Codable {
         self.id = id
         self.name = name
         self.airplane = airplane
+        self.aircraftType = aircraftType
+        self.checklistVersion = checklistVersion
         self.startTime = startTime
         self.stopTime = stopTime
         self.engineStartTime = engineStartTime
@@ -112,25 +118,37 @@ struct Flight: Identifiable, Codable {
         return String(format: "%.1f km", distanceKilometers)
     }
 
-    /// Export filename in format: YYYYMMDD_PLANE_NameOfFlight (without extension)
+    /// Export filename in format: AeroCheck_YYYYMMDD_HHMM_FlightName (without extension)
+    /// Uses flight start date/time, or current date if unavailable
+    /// Includes time component to ensure uniqueness when multiple flights on same day
     var exportFilename: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        let dateStr = startTime.map { formatter.string(from: $0) } ?? "Unknown"
+        let dateFormatter = DateFormatter()
+        let timeFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd"
+        timeFormatter.dateFormat = "HHmm"
 
-        // Clean airplane name (remove spaces and special characters)
-        let cleanAirplane = airplane.replacingOccurrences(of: " ", with: "-")
+        // Use flight start time if available, otherwise current date
+        let flightDate = startTime ?? Date()
+        let dateStr = dateFormatter.string(from: flightDate)
+        let timeStr = timeFormatter.string(from: flightDate)
 
+        // Use flight name if provided, otherwise use airplane name
+        let flightIdentifier: String
         if name.isEmpty {
-            return "\(dateStr)_\(cleanAirplane)"
-        } else {
-            // Clean flight name (replace spaces with underscores, remove problematic chars)
-            let cleanName = name
+            // Clean airplane name (remove spaces and special characters)
+            flightIdentifier = airplane
                 .replacingOccurrences(of: " ", with: "_")
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: "\\", with: "-")
-            return "\(dateStr)_\(cleanAirplane)_\(cleanName)"
+        } else {
+            // Clean flight name (replace spaces with underscores, remove problematic chars)
+            flightIdentifier = name
+                .replacingOccurrences(of: " ", with: "_")
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: "\\", with: "-")
         }
+
+        return "AeroCheck_\(dateStr)_\(timeStr)_\(flightIdentifier)"
     }
 }
 
@@ -201,7 +219,7 @@ extension Flight {
         }
         
         gpx += """
-        
+
           </metadata>
           <trk>
             <name>\(airplane)</name>
@@ -210,6 +228,15 @@ extension Flight {
                 <pc:name>\(name)</pc:name>
                 <pc:airplane>\(airplane)</pc:airplane>
         """
+
+        if let aircraftType = aircraftType {
+            gpx += "\n        <pc:aircraftType>\(aircraftType)</pc:aircraftType>"
+        }
+        if let checklistVersion = checklistVersion {
+            gpx += "\n        <pc:checklistVersion>\(checklistVersion)</pc:checklistVersion>"
+        }
+
+        gpx += ""
         
         if let start = startTime {
             gpx += "\n        <pc:startTime>\(dateFormatter.string(from: start))</pc:startTime>"
@@ -356,7 +383,7 @@ class GPXParser: NSObject, XMLParserDelegate {
         
         // Handle both prefixed and non-prefixed element names
         let elementKey = elementName.replacingOccurrences(of: "pc:", with: "")
-        
+
         switch elementKey {
         case "name":
             if flight != nil && flight?.airplane == "F-HVXA" {
@@ -364,6 +391,10 @@ class GPXParser: NSObject, XMLParserDelegate {
             }
         case "airplane":
             flight?.airplane = text
+        case "aircraftType":
+            flight?.aircraftType = text
+        case "checklistVersion":
+            flight?.checklistVersion = text
         case "notes":
             flight?.notes = text
         case "time":

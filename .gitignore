@@ -54,3 +54,4 @@ Icon
 *.orig
 *~
 *.xcuserstate
+.claude/

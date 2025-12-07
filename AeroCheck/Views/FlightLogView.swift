@@ -342,8 +342,14 @@ struct FlightLogView: View {
             // Check for local file header signature (0x04034b50)
             guard offset + 30 <= data.count else { break }
 
-            let signature = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset, as: UInt32.self)
+            // Read signature using aligned access
+            let signature: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                guard offset + 4 <= bytes.count else { return 0 }
+                return UInt32(bytes[offset])
+                    | (UInt32(bytes[offset + 1]) << 8)
+                    | (UInt32(bytes[offset + 2]) << 16)
+                    | (UInt32(bytes[offset + 3]) << 24)
             }
 
             // 0x04034b50 = local file header
@@ -356,21 +362,41 @@ struct FlightLogView: View {
                 continue
             }
 
-            // Read header fields
-            let compressionMethod = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset + 8, as: UInt16.self)
+            // Read header fields using aligned byte-by-byte access
+            let compressionMethod: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 8
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
             }
-            let compressedSize = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset + 18, as: UInt32.self)
+
+            let compressedSize: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 18
+                return UInt32(bytes[pos])
+                    | (UInt32(bytes[pos + 1]) << 8)
+                    | (UInt32(bytes[pos + 2]) << 16)
+                    | (UInt32(bytes[pos + 3]) << 24)
             }
-            let uncompressedSize = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset + 22, as: UInt32.self)
+
+            let uncompressedSize: UInt32 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 22
+                return UInt32(bytes[pos])
+                    | (UInt32(bytes[pos + 1]) << 8)
+                    | (UInt32(bytes[pos + 2]) << 16)
+                    | (UInt32(bytes[pos + 3]) << 24)
             }
-            let filenameLength = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset + 26, as: UInt16.self)
+
+            let filenameLength: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 26
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
             }
-            let extraFieldLength = data.withUnsafeBytes { bytes in
-                bytes.load(fromByteOffset: offset + 28, as: UInt16.self)
+
+            let extraFieldLength: UInt16 = data.withUnsafeBytes { rawPtr in
+                let bytes = rawPtr.bindMemory(to: UInt8.self)
+                let pos = offset + 28
+                return UInt16(bytes[pos]) | (UInt16(bytes[pos + 1]) << 8)
             }
 
             // Read filename
@@ -1395,25 +1421,27 @@ struct ImageShareSheet: UIViewControllerRepresentable {
 class GPXFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "com.topografix.gpx"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }
@@ -1424,25 +1452,27 @@ class GPXFile: NSObject, UIActivityItemSource {
 class JSONFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "public.json"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }
@@ -1453,25 +1483,27 @@ class JSONFile: NSObject, UIActivityItemSource {
 class ZIPFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
-    
+
     init(data: Data, filename: String) {
         self.data = data
         self.filename = filename
         super.init()
     }
-    
+
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return data
+        return filename
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return data
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try? data.write(to: tempURL)
+        return tempURL
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
         return "public.zip-archive"
     }
-    
+
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         return filename
     }

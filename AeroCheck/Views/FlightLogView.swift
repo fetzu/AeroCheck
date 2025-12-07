@@ -703,23 +703,117 @@ struct FlightDetailView: View {
     private func generateAndShareImage() {
         isGeneratingImage = true
 
-        // Use Task to allow UI to update before heavy rendering
-        Task { @MainActor in
-            // Small delay to show loading indicator
-            try? await Task.sleep(nanoseconds: 50_000_000)
+        Task {
+            // First, generate map snapshot if we have GPS data
+            let mapImage: UIImage? = await generateMapSnapshot()
 
-            let shareCard = FlightShareCard(flight: flight)
-            let renderer = ImageRenderer(content: shareCard)
-            renderer.scale = 3.0 // High resolution for sharing
+            // Then render the share card on main thread
+            await MainActor.run {
+                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage)
+                let renderer = ImageRenderer(content: shareCard)
+                renderer.scale = 3.0 // High resolution for sharing
 
-            if let image = renderer.uiImage {
-                shareImage = image
-                isGeneratingImage = false
-                showShareSheet = true
-            } else {
-                isGeneratingImage = false
+                if let image = renderer.uiImage {
+                    shareImage = image
+                    isGeneratingImage = false
+                    showShareSheet = true
+                } else {
+                    isGeneratingImage = false
+                }
             }
         }
+    }
+
+    private func generateMapSnapshot() async -> UIImage? {
+        guard flight.gpsTrack.count >= 2 else { return nil }
+
+        let coordinates = flight.gpsTrack.map { $0.coordinate }
+        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+        let mapRect = polyline.boundingMapRect
+
+        // Add padding to the map rect
+        let paddingFactor = 0.2
+        let paddedRect = mapRect.insetBy(
+            dx: -mapRect.size.width * paddingFactor,
+            dy: -mapRect.size.height * paddingFactor
+        )
+
+        let options = MKMapSnapshotter.Options()
+        options.mapRect = paddedRect
+        options.size = CGSize(width: 1000, height: 450 * 3) // Match card dimensions at 3x scale
+        options.scale = 1.0
+        options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
+
+        let snapshotter = MKMapSnapshotter(options: options)
+
+        do {
+            let snapshot = try await snapshotter.start()
+
+            // Draw the route on the snapshot
+            UIGraphicsBeginImageContextWithOptions(snapshot.image.size, true, snapshot.image.scale)
+            snapshot.image.draw(at: .zero)
+
+            guard let context = UIGraphicsGetCurrentContext() else {
+                UIGraphicsEndImageContext()
+                return snapshot.image
+            }
+
+            // Draw polyline
+            context.setStrokeColor(UIColor(Color.aviationGold).cgColor)
+            context.setLineWidth(8)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+
+            let path = UIBezierPath()
+            for (index, coordinate) in coordinates.enumerated() {
+                let point = snapshot.point(for: coordinate)
+                if index == 0 {
+                    path.move(to: point)
+                } else {
+                    path.addLine(to: point)
+                }
+            }
+            context.addPath(path.cgPath)
+            context.strokePath()
+
+            // Draw start marker (green circle)
+            if let firstCoord = coordinates.first {
+                let startPoint = snapshot.point(for: firstCoord)
+                drawMarker(at: startPoint, color: UIColor(Color.aviationGreen), in: context)
+            }
+
+            // Draw end marker (red circle)
+            if let lastCoord = coordinates.last {
+                let endPoint = snapshot.point(for: lastCoord)
+                drawMarker(at: endPoint, color: UIColor(Color.aviationRed), in: context)
+            }
+
+            let finalImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+
+            return finalImage
+        } catch {
+            return nil
+        }
+    }
+
+    private func drawMarker(at point: CGPoint, color: UIColor, in context: CGContext) {
+        let markerSize: CGFloat = 24
+        let rect = CGRect(
+            x: point.x - markerSize / 2,
+            y: point.y - markerSize / 2,
+            width: markerSize,
+            height: markerSize
+        )
+
+        // Draw filled circle
+        context.setFillColor(color.cgColor)
+        context.fillEllipse(in: rect)
+
+        // Draw white border
+        context.setStrokeColor(UIColor.white.cgColor)
+        context.setLineWidth(3)
+        context.strokeEllipse(in: rect)
     }
 }
 
@@ -1134,11 +1228,45 @@ struct ImageShareSheet: UIViewControllerRepresentable {
     let image: UIImage
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        let itemSource = ImageActivityItemSource(image: image)
+        let controller = UIActivityViewController(activityItems: [itemSource], applicationActivities: nil)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Image Activity Item Source
+
+/// Custom activity item source that properly identifies the content as an image
+/// This ensures "Save Image" and other image-specific options appear in the share sheet
+class ImageActivityItemSource: NSObject, UIActivityItemSource {
+    let image: UIImage
+
+    init(image: UIImage) {
+        self.image = image
+        super.init()
+    }
+
+    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
+        return image
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
+        return image
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return "public.png"
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return "Flight Summary"
+    }
+
+    func activityViewController(_ activityViewController: UIActivityViewController, thumbnailImageForActivityType activityType: UIActivity.ActivityType?, suggestedSize size: CGSize) -> UIImage? {
+        return image
+    }
 }
 
 // MARK: - GPX File for Sharing
@@ -1234,6 +1362,7 @@ class ZIPFile: NSObject, UIActivityItemSource {
 /// Renders at 1080x1920 (9:16 aspect ratio, common for mobile/stories)
 struct FlightShareCard: View {
     let flight: Flight
+    let mapImage: UIImage?
 
     // Card dimensions (portrait format for mobile viewing)
     private let cardWidth: CGFloat = 1080
@@ -1336,8 +1465,10 @@ struct FlightShareCard: View {
 
     private var mapSection: some View {
         Group {
-            if flight.gpsTrack.count >= 2 {
-                ShareCardMapView(points: flight.gpsTrack)
+            if let mapImg = mapImage {
+                Image(uiImage: mapImg)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
                     .frame(height: 450)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .overlay(
@@ -1575,89 +1706,6 @@ struct FlightShareCard: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
-    }
-}
-
-// MARK: - Share Card Map View
-
-/// A static map view for the share card that renders the flight route
-struct ShareCardMapView: View {
-    let points: [GPSPoint]
-
-    var body: some View {
-        ShareCardMapViewRepresentable(points: points)
-    }
-}
-
-struct ShareCardMapViewRepresentable: UIViewRepresentable {
-    let points: [GPSPoint]
-
-    func makeUIView(context: Context) -> MKMapView {
-        let mapView = MKMapView()
-        mapView.delegate = context.coordinator
-        mapView.overrideUserInterfaceStyle = .dark
-        mapView.isUserInteractionEnabled = false
-        mapView.mapType = .standard
-        return mapView
-    }
-
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
-
-        guard points.count >= 2 else { return }
-
-        let coordinates = points.map { $0.coordinate }
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        mapView.addOverlay(polyline)
-
-        // Add start and end markers
-        if let first = points.first, let last = points.last {
-            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false)
-            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
-            mapView.addAnnotations([startAnnotation, endAnnotation])
-        }
-
-        // Set region
-        let rect = polyline.boundingMapRect
-        let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-        mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    class Coordinator: NSObject, MKMapViewDelegate {
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(Color.aviationGold)
-                renderer.lineWidth = 5
-                renderer.lineCap = .round
-                renderer.lineJoin = .round
-                return renderer
-            }
-            return MKOverlayRenderer(overlay: overlay)
-        }
-
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard let flightAnnotation = annotation as? FlightAnnotation else { return nil }
-
-            let identifier = flightAnnotation.isStart ? "start" : "end"
-            var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-
-            if view == nil {
-                view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-            }
-
-            view?.annotation = annotation
-            view?.markerTintColor = flightAnnotation.isStart ? UIColor(Color.aviationGreen) : UIColor(Color.aviationRed)
-            view?.glyphImage = UIImage(systemName: flightAnnotation.isStart ? "airplane.departure" : "airplane.arrival")
-            view?.displayPriority = .required
-
-            return view
-        }
     }
 }
 

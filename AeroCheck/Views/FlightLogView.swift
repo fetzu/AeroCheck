@@ -812,9 +812,9 @@ struct FlightDetailView: View {
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         let mapRect = polyline.boundingMapRect
 
-        // Target size for the snapshot (matching card width at 3x scale)
+        // Target size for the snapshot (matching card map dimensions at 3x scale)
         let targetWidth: CGFloat = 1000 * 3
-        let targetHeight: CGFloat = 450 * 3
+        let targetHeight: CGFloat = 520 * 3
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
@@ -1429,14 +1429,14 @@ class ZIPFile: NSObject, UIActivityItemSource {
 // MARK: - Flight Share Card
 
 /// A portrait card view designed for sharing flight summaries on mobile
-/// Renders at 1080x1620 (2:3 aspect ratio, compact portrait format)
+/// Renders at 1080x1920 (9:16 aspect ratio, standard mobile/stories format)
 struct FlightShareCard: View {
     let flight: Flight
     let mapImage: UIImage?
 
-    // Card dimensions (compact portrait format for mobile viewing)
+    // Card dimensions (9:16 aspect ratio for mobile viewing and stories)
     private let cardWidth: CGFloat = 1080
-    private let cardHeight: CGFloat = 1620
+    private let cardHeight: CGFloat = 1920
 
     /// Display title: flight name if set, otherwise airplane
     private var displayTitle: String {
@@ -1462,33 +1462,34 @@ struct FlightShareCard: View {
             VStack(spacing: 0) {
                 // Header section
                 headerSection
-                    .padding(.top, 40)
+                    .padding(.top, 50)
                     .padding(.horizontal, 40)
 
                 // Map section
                 mapSection
-                    .padding(.top, 24)
+                    .padding(.top, 32)
                     .padding(.horizontal, 40)
 
                 // Altitude graph section
                 altitudeSection
-                    .padding(.top, 20)
+                    .padding(.top, 28)
                     .padding(.horizontal, 40)
 
                 // Stats section
                 statsSection
-                    .padding(.top, 24)
+                    .padding(.top, 28)
                     .padding(.horizontal, 40)
 
                 // Timeline section
                 timelineSection
-                    .padding(.top, 24)
+                    .padding(.top, 28)
                     .padding(.horizontal, 40)
+
+                Spacer()
 
                 // Footer
                 footerSection
-                    .padding(.top, 24)
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 40)
                     .padding(.horizontal, 40)
             }
         }
@@ -1538,7 +1539,7 @@ struct FlightShareCard: View {
                 Image(uiImage: mapImg)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 450)
+                    .frame(height: 520)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
@@ -1547,7 +1548,7 @@ struct FlightShareCard: View {
             } else {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.white.opacity(0.05))
-                    .frame(height: 450)
+                    .frame(height: 520)
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")

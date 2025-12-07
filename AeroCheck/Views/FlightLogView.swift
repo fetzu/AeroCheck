@@ -553,8 +553,8 @@ struct FlightDetailView: View {
                     lineUpTime: flight.lineUpTime,
                     landingTime: flight.landingTime,
                     engineShutdownTime: flight.engineShutdownTime,
-                    goAroundCount: flight.goAroundCount,
-                    touchAndGoCount: flight.touchAndGoCount,
+                    goAroundTimes: flight.goAroundTimes,
+                    touchAndGoTimes: flight.touchAndGoTimes,
                     selectedTime: $selectedTime
                 )
                 .frame(height: 200)
@@ -1041,8 +1041,8 @@ struct AltitudeChartView: View {
     let lineUpTime: Date?
     let landingTime: Date?
     let engineShutdownTime: Date?
-    let goAroundCount: Int
-    let touchAndGoCount: Int
+    let goAroundTimes: [Date]
+    let touchAndGoTimes: [Date]
     @Binding var selectedTime: Date?
 
     /// Altitude data points for the chart
@@ -1072,6 +1072,17 @@ struct AltitudeChartView: View {
         if let lineUp = lineUpTime {
             annotations.append((time: lineUp, icon: "airplane.departure", color: .aviationAmber))
         }
+
+        // Add go-around events
+        for goAroundTime in goAroundTimes {
+            annotations.append((time: goAroundTime, icon: "arrow.up.right.circle.fill", color: .aviationAmber))
+        }
+
+        // Add touch-and-go events
+        for touchAndGoTime in touchAndGoTimes {
+            annotations.append((time: touchAndGoTime, icon: "arrow.triangle.2.circlepath", color: .aviationBlue))
+        }
+
         if let landing = landingTime {
             annotations.append((time: landing, icon: "airplane.arrival", color: .aviationBlue))
         }

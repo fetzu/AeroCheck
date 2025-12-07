@@ -72,7 +72,7 @@ struct FlightLogView: View {
         }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = createExportAllZip() {
-                let filename = "AeroCheck_Flights_\(formattedExportDate).\(exportAllType == .gpx ? "gpx" : "json").zip"
+                let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
                 ShareSheet(activityItems: [
                     ZIPFile(data: zipData, filename: filename)
                 ])
@@ -98,7 +98,7 @@ struct FlightLogView: View {
     
     private var formattedExportDate: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "yyyyMMdd"
         return formatter.string(from: Date())
     }
     

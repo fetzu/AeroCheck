@@ -118,25 +118,30 @@ struct Flight: Identifiable, Codable {
         return String(format: "%.1f km", distanceKilometers)
     }
 
-    /// Export filename in format: YYYYMMDD_PLANE_NameOfFlight (without extension)
+    /// Export filename in format: AeroCheck_YYYYMMDD_FlightName (without extension)
+    /// Uses current date for export time, flight name if provided, otherwise airplane name
     var exportFilename: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
-        let dateStr = startTime.map { formatter.string(from: $0) } ?? "Unknown"
+        let dateStr = formatter.string(from: Date()) // Use current date for export time
 
-        // Clean airplane name (remove spaces and special characters)
-        let cleanAirplane = airplane.replacingOccurrences(of: " ", with: "-")
-
+        // Use flight name if provided, otherwise use airplane name
+        let flightIdentifier: String
         if name.isEmpty {
-            return "\(dateStr)_\(cleanAirplane)"
-        } else {
-            // Clean flight name (replace spaces with underscores, remove problematic chars)
-            let cleanName = name
+            // Clean airplane name (remove spaces and special characters)
+            flightIdentifier = airplane
                 .replacingOccurrences(of: " ", with: "_")
                 .replacingOccurrences(of: "/", with: "-")
                 .replacingOccurrences(of: "\\", with: "-")
-            return "\(dateStr)_\(cleanAirplane)_\(cleanName)"
+        } else {
+            // Clean flight name (replace spaces with underscores, remove problematic chars)
+            flightIdentifier = name
+                .replacingOccurrences(of: " ", with: "_")
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: "\\", with: "-")
         }
+
+        return "AeroCheck_\(dateStr)_\(flightIdentifier)"
     }
 }
 

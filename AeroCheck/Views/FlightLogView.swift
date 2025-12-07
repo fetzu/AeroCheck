@@ -731,16 +731,37 @@ struct FlightDetailView: View {
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         let mapRect = polyline.boundingMapRect
 
-        // Add padding to the map rect
-        let paddingFactor = 0.2
-        let paddedRect = mapRect.insetBy(
+        // Target size for the snapshot (matching card width at 3x scale)
+        let targetWidth: CGFloat = 1000 * 3
+        let targetHeight: CGFloat = 450 * 3
+        let targetAspectRatio = targetWidth / targetHeight
+
+        // Calculate padded rect that maintains aspect ratio
+        let paddingFactor = 0.35 // 35% padding on each side for comfortable margins
+        var paddedRect = mapRect.insetBy(
             dx: -mapRect.size.width * paddingFactor,
             dy: -mapRect.size.height * paddingFactor
         )
 
+        // Adjust rect to match target aspect ratio
+        let currentAspectRatio = paddedRect.size.width / paddedRect.size.height
+        if currentAspectRatio > targetAspectRatio {
+            // Map is wider than target - expand height
+            let newHeight = paddedRect.size.width / targetAspectRatio
+            let heightDiff = newHeight - paddedRect.size.height
+            paddedRect.origin.y -= heightDiff / 2
+            paddedRect.size.height = newHeight
+        } else {
+            // Map is taller than target - expand width
+            let newWidth = paddedRect.size.height * targetAspectRatio
+            let widthDiff = newWidth - paddedRect.size.width
+            paddedRect.origin.x -= widthDiff / 2
+            paddedRect.size.width = newWidth
+        }
+
         let options = MKMapSnapshotter.Options()
         options.mapRect = paddedRect
-        options.size = CGSize(width: 1000, height: 450 * 3) // Match card dimensions at 3x scale
+        options.size = CGSize(width: targetWidth, height: targetHeight)
         options.scale = 1.0
         options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
 
@@ -1228,45 +1249,12 @@ struct ImageShareSheet: UIViewControllerRepresentable {
     let image: UIImage
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        let itemSource = ImageActivityItemSource(image: image)
-        let controller = UIActivityViewController(activityItems: [itemSource], applicationActivities: nil)
+        // Pass UIImage directly - iOS will recognize it as an image and show Save to Photos
+        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// MARK: - Image Activity Item Source
-
-/// Custom activity item source that properly identifies the content as an image
-/// This ensures "Save Image" and other image-specific options appear in the share sheet
-class ImageActivityItemSource: NSObject, UIActivityItemSource {
-    let image: UIImage
-
-    init(image: UIImage) {
-        self.image = image
-        super.init()
-    }
-
-    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return image
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        return image
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "public.png"
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "Flight Summary"
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, thumbnailImageForActivityType activityType: UIActivity.ActivityType?, suggestedSize size: CGSize) -> UIImage? {
-        return image
-    }
 }
 
 // MARK: - GPX File for Sharing

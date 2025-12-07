@@ -23,7 +23,36 @@
 		A1000001211111110000015 /* Aircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000015 /* Aircraft.swift */; };
 		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
 		A1000001211111110000017 /* PA28ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000017 /* PA28ChecklistData.swift */; };
+		A2000001211111110000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000001 /* WidgetKit.framework */; };
+		A2000001211111110000002 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000002 /* SwiftUI.framework */; };
+		A2000001211111110000003 /* AeroCheckWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000003 /* AeroCheckWidget.swift */; };
+		A2000001211111110000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000013 /* Assets.xcassets */; };
+		A2000001211111110000005 /* AeroCheckWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A2000001111111110000000 /* AeroCheckWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A2000002111111110000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000006111111110000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A2000004111111110000001;
+			remoteInfo = AeroCheckWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A2000003111111110000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A2000001211111110000005 /* AeroCheckWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A1000001111111110000000 /* AeroCheck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheck.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,6 +73,11 @@
 		A1000001111111110000015 /* Aircraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Aircraft.swift; sourceTree = "<group>"; };
 		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000017 /* PA28ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PA28ChecklistData.swift; sourceTree = "<group>"; };
+		A2000001111111110000000 /* AeroCheckWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AeroCheckWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000001111111110000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A2000001111111110000002 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		A2000001111111110000003 /* AeroCheckWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWidget.swift; sourceTree = "<group>"; };
+		A2000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,6 +88,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A2000002111111110000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2000001211111110000002 /* SwiftUI.framework in Frameworks */,
+				A2000001211111110000001 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -61,6 +104,8 @@
 			isa = PBXGroup;
 			children = (
 				A1000003111111110000002 /* AeroCheck */,
+				A2000003111111110000002 /* AeroCheckWidget */,
+				A2000003111111110000003 /* Frameworks */,
 				A1000003111111110000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -83,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000001111111110000000 /* AeroCheck.app */,
+				A2000001111111110000000 /* AeroCheckWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -129,6 +175,24 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		A2000003111111110000002 /* AeroCheckWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A2000001111111110000003 /* AeroCheckWidget.swift */,
+				A2000001111111110000004 /* Info.plist */,
+			);
+			path = AeroCheckWidget;
+			sourceTree = "<group>";
+		};
+		A2000003111111110000003 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A2000001111111110000001 /* WidgetKit.framework */,
+				A2000001111111110000002 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -139,15 +203,34 @@
 				A1000004111111110000002 /* Sources */,
 				A1000002111111110000001 /* Frameworks */,
 				A1000004111111110000003 /* Resources */,
+				A2000003111111110000001 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A2000004111111110000002 /* PBXTargetDependency */,
 			);
 			name = AeroCheck;
 			productName = AeroCheck;
 			productReference = A1000001111111110000000 /* AeroCheck.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A2000004111111110000001 /* AeroCheckWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A2000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckWidgetExtension" */;
+			buildPhases = (
+				A2000004111111110000003 /* Sources */,
+				A2000002111111110000002 /* Frameworks */,
+				A2000004111111110000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AeroCheckWidgetExtension;
+			productName = AeroCheckWidgetExtension;
+			productReference = A2000001111111110000000 /* AeroCheckWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -160,6 +243,9 @@
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					A1000004111111110000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					A2000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -178,6 +264,7 @@
 			projectRoot = "";
 			targets = (
 				A1000004111111110000001 /* AeroCheck */,
+				A2000004111111110000001 /* AeroCheckWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -188,6 +275,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000001211111110000013 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A2000004111111110000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2000001211111110000004 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,7 +311,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A2000004111111110000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2000001211111110000003 /* AeroCheckWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A2000004111111110000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A2000004111111110000001 /* AeroCheckWidgetExtension */;
+			targetProxy = A2000002111111110000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000005211111110000001 /* Debug */ = {
@@ -410,6 +521,62 @@
 			};
 			name = Release;
 		};
+		A2000005211111110000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A2000005211111110000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -427,6 +594,15 @@
 			buildConfigurations = (
 				A1000005211111110000003 /* Debug */,
 				A1000005211111110000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A2000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2000005211111110000001 /* Debug */,
+				A2000005211111110000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

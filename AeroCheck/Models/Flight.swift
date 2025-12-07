@@ -118,12 +118,19 @@ struct Flight: Identifiable, Codable {
         return String(format: "%.1f km", distanceKilometers)
     }
 
-    /// Export filename in format: AeroCheck_YYYYMMDD_FlightName (without extension)
-    /// Uses current date for export time, flight name if provided, otherwise airplane name
+    /// Export filename in format: AeroCheck_YYYYMMDD_HHMM_FlightName (without extension)
+    /// Uses flight start date/time, or current date if unavailable
+    /// Includes time component to ensure uniqueness when multiple flights on same day
     var exportFilename: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        let dateStr = formatter.string(from: Date()) // Use current date for export time
+        let dateFormatter = DateFormatter()
+        let timeFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd"
+        timeFormatter.dateFormat = "HHmm"
+
+        // Use flight start time if available, otherwise current date
+        let flightDate = startTime ?? Date()
+        let dateStr = dateFormatter.string(from: flightDate)
+        let timeStr = timeFormatter.string(from: flightDate)
 
         // Use flight name if provided, otherwise use airplane name
         let flightIdentifier: String
@@ -141,7 +148,7 @@ struct Flight: Identifiable, Codable {
                 .replacingOccurrences(of: "\\", with: "-")
         }
 
-        return "AeroCheck_\(dateStr)_\(flightIdentifier)"
+        return "AeroCheck_\(dateStr)_\(timeStr)_\(flightIdentifier)"
     }
 }
 

@@ -36,6 +36,10 @@ struct ContentView: View {
             // Apply screen setting
             UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn
         }
+        .sheet(isPresented: $appState.showFlightLog) {
+            FlightLogView()
+                .environmentObject(appState)
+        }
     }
 }
 

@@ -733,7 +733,7 @@ struct FlightDetailView: View {
 
         // Target size for the snapshot (matching card map dimensions at 3x scale)
         let targetWidth: CGFloat = 1000 * 3
-        let targetHeight: CGFloat = 520 * 3
+        let targetHeight: CGFloat = 620 * 3
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
@@ -1381,34 +1381,34 @@ struct FlightShareCard: View {
             VStack(spacing: 0) {
                 // Header section
                 headerSection
-                    .padding(.top, 50)
+                    .padding(.top, 60)
                     .padding(.horizontal, 40)
 
                 // Map section
                 mapSection
-                    .padding(.top, 32)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
 
                 // Altitude graph section
                 altitudeSection
-                    .padding(.top, 28)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
 
                 // Stats section
                 statsSection
-                    .padding(.top, 28)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
 
                 // Timeline section
                 timelineSection
-                    .padding(.top, 28)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
 
                 Spacer()
 
                 // Footer
                 footerSection
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 50)
                     .padding(.horizontal, 40)
             }
         }
@@ -1458,7 +1458,7 @@ struct FlightShareCard: View {
                 Image(uiImage: mapImg)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 520)
+                    .frame(height: 620)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
@@ -1467,7 +1467,7 @@ struct FlightShareCard: View {
             } else {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.white.opacity(0.05))
-                    .frame(height: 520)
+                    .frame(height: 620)
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")
@@ -1493,7 +1493,7 @@ struct FlightShareCard: View {
 
             if !flight.gpsTrack.isEmpty {
                 ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
-                    .frame(height: 200)
+                    .frame(height: 280)
                     .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
@@ -1502,7 +1502,7 @@ struct FlightShareCard: View {
             } else {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.white.opacity(0.05))
-                    .frame(height: 200)
+                    .frame(height: 280)
                     .overlay(
                         Text("No altitude data")
                             .font(.system(size: 20))
@@ -1557,7 +1557,7 @@ struct FlightShareCard: View {
                 )
             }
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 28)
         .padding(.horizontal, 25)
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -1566,9 +1566,9 @@ struct FlightShareCard: View {
     }
 
     private func statItem(icon: String, label: String, value: String) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 32))
+                .font(.system(size: 36))
                 .foregroundColor(.aviationGold)
 
             Text(label)
@@ -1577,7 +1577,7 @@ struct FlightShareCard: View {
                 .tracking(1)
 
             Text(value)
-                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .font(.system(size: 30, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
         }
         .frame(maxWidth: .infinity)
@@ -1633,7 +1633,7 @@ struct FlightShareCard: View {
                 )
             }
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 28)
         .padding(.horizontal, 15)
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -1642,23 +1642,23 @@ struct FlightShareCard: View {
     }
 
     private func timelineItem(icon: String, label: String, time: String, color: Color) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             ZStack {
                 Circle()
                     .fill(color.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 54, height: 54)
 
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                     .foregroundColor(color)
             }
 
             Text(label)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.white.opacity(0.7))
 
             Text(time)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
         }
         .frame(maxWidth: .infinity)

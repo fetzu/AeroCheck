@@ -2,7 +2,6 @@ import SwiftUI
 import MapKit
 import Charts
 import UniformTypeIdentifiers
-import Photos
 
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
@@ -397,9 +396,6 @@ struct FlightDetailView: View {
     @State private var showShareSheet = false
     @State private var shareImage: UIImage?
     @State private var isGeneratingImage = false
-    @State private var showShareOptions = false
-    @State private var showPhotoSaveAlert = false
-    @State private var photoSaveError: String?
 
     enum ExportType {
         case gpx
@@ -435,7 +431,7 @@ struct FlightDetailView: View {
                     Button("Close") { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showShareOptions = true }) {
+                    Button(action: { generateAndShareImage() }) {
                         if isGeneratingImage {
                             ProgressView()
                         } else {
@@ -456,26 +452,6 @@ struct FlightDetailView: View {
         }) {
             if let image = shareImage {
                 ImageShareSheet(image: image)
-            }
-        }
-        .confirmationDialog("Share Flight Summary", isPresented: $showShareOptions, titleVisibility: .visible) {
-            Button("Save to Photos") {
-                generateAndSaveToPhotos()
-            }
-            Button("Share...") {
-                generateAndShareImage()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Share a visual summary of your flight")
-        }
-        .alert(photoSaveError == nil ? "Saved!" : "Error", isPresented: $showPhotoSaveAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            if let error = photoSaveError {
-                Text(error)
-            } else {
-                Text("Flight summary saved to your photo library.")
             }
         }
         .confirmationDialog("Export Format", isPresented: $showExportOptions, titleVisibility: .visible) {
@@ -743,63 +719,6 @@ struct FlightDetailView: View {
                     showShareSheet = true
                 } else {
                     isGeneratingImage = false
-                }
-            }
-        }
-    }
-
-    private func generateAndSaveToPhotos() {
-        isGeneratingImage = true
-
-        Task {
-            // First, generate map snapshot if we have GPS data
-            let mapImage: UIImage? = await generateMapSnapshot()
-
-            // Then render the share card on main thread
-            await MainActor.run {
-                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage)
-                let renderer = ImageRenderer(content: shareCard)
-                renderer.scale = 3.0 // High resolution for sharing
-
-                guard let image = renderer.uiImage else {
-                    isGeneratingImage = false
-                    photoSaveError = "Failed to generate image"
-                    showPhotoSaveAlert = true
-                    return
-                }
-
-                // Request photo library access and save
-                PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-                    DispatchQueue.main.async {
-                        switch status {
-                        case .authorized, .limited:
-                            PHPhotoLibrary.shared().performChanges {
-                                PHAssetCreationRequest.creationRequestForAsset(from: image)
-                            } completionHandler: { success, error in
-                                DispatchQueue.main.async {
-                                    isGeneratingImage = false
-                                    if success {
-                                        photoSaveError = nil
-                                    } else {
-                                        photoSaveError = error?.localizedDescription ?? "Failed to save image"
-                                    }
-                                    showPhotoSaveAlert = true
-                                }
-                            }
-                        case .denied, .restricted:
-                            isGeneratingImage = false
-                            photoSaveError = "Photo library access denied. Please enable it in Settings."
-                            showPhotoSaveAlert = true
-                        case .notDetermined:
-                            isGeneratingImage = false
-                            photoSaveError = "Photo library access not determined"
-                            showPhotoSaveAlert = true
-                        @unknown default:
-                            isGeneratingImage = false
-                            photoSaveError = "Unknown photo library authorization status"
-                            showPhotoSaveAlert = true
-                        }
-                    }
                 }
             }
         }

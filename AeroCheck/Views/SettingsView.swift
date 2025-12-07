@@ -97,7 +97,7 @@ struct SettingsView: View {
                             Text("App Version")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text("1.0.0 (beta)")
+                            Text("1.0.0")
                                 .foregroundColor(.secondary)
                             Image(systemName: "arrow.up.forward.square")
                                 .font(.caption)

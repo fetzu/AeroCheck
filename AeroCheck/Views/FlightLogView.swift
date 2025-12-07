@@ -1122,7 +1122,8 @@ struct AltitudeChartView: View {
                 ForEach(altitudeData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
-                        y: .value("Altitude", point.altitude)
+                        yStart: .value("Baseline", altitudeRange.lowerBound),
+                        yEnd: .value("Altitude", point.altitude)
                     )
                     .foregroundStyle(
                         LinearGradient(
@@ -1748,7 +1749,8 @@ struct ShareCardAltitudeChart: View {
                 ForEach(altitudeData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
-                        y: .value("Altitude", point.altitude)
+                        yStart: .value("Baseline", altitudeRange.lowerBound),
+                        yEnd: .value("Altitude", point.altitude)
                     )
                     .foregroundStyle(
                         LinearGradient(

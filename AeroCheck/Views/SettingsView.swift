@@ -95,23 +95,49 @@ struct SettingsView: View {
                     HStack {
                         Text("App Version")
                         Spacer()
-                        Text("1.0.0 (beta)")
-                            .foregroundColor(.secondary)
+                        Link("1.0.0 (beta)", destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!)
+                            .foregroundColor(.aviationGold)
                     }
 
                     HStack {
                         Text("Author")
                         Spacer()
-                        Text("Julien 'fetzu' Bono")
-                            .foregroundColor(.secondary)
+                        Link("Julien 'fetzu' Bono", destination: URL(string: "https://www.julienbono.ch/")!)
+                            .foregroundColor(.aviationGold)
                     }
 
                     HStack {
                         Text("Organization")
                         Spacer()
-                        Text("Aéroclub du Jura GVMP")
-                            .foregroundColor(.secondary)
+                        Link("Aéroclub du Jura (GVMP)", destination: URL(string: "https://www.gvmp.aero/")!)
+                            .foregroundColor(.aviationGold)
                     }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                                .foregroundColor(.aviationGold)
+                            Text("Open Source")
+                                .font(.headline)
+                        }
+
+                        HStack {
+                            Text("This app is open source and available on")
+                            Link("GitHub", destination: URL(string: "https://github.com/fetzu/AeroCheck")!)
+                                .foregroundColor(.aviationGold)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                        HStack {
+                            Text("Released under the")
+                            Link("MIT License", destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!)
+                                .foregroundColor(.aviationGold)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 } header: {
                     Label("About", systemImage: "info.circle.fill")
                 }

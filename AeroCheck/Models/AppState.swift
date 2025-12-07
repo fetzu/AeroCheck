@@ -435,7 +435,7 @@ extension AppState {
         currentPhase == .hangar
     }
     
-    /// Flight duration from engine start to now (or engine shutdown)
+    /// Flight duration from engine start to now
     var flightDuration: String {
         guard let start = engineStartTime else {
             // If engine not started, show session time
@@ -446,8 +446,8 @@ extension AppState {
             let seconds = Int(duration) % 60
             return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
         }
-        let end = engineShutdownTime ?? Date()
-        let duration = end.timeIntervalSince(start)
+        // Always use current time - timer should run until flight is ended
+        let duration = Date().timeIntervalSince(start)
         let hours = Int(duration) / 3600
         let minutes = (Int(duration) % 3600) / 60
         let seconds = Int(duration) % 60

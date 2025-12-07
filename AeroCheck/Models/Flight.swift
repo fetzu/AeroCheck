@@ -6,6 +6,8 @@ struct Flight: Identifiable, Codable {
     let id: UUID
     var name: String // Custom flight name
     var airplane: String
+    var aircraftType: String? // Aircraft type identifier (e.g., "WT9", "PA28")
+    var checklistVersion: String? // Checklist version used (e.g., "2.1e")
     var startTime: Date?
     var stopTime: Date?
     var engineStartTime: Date?
@@ -23,6 +25,8 @@ struct Flight: Identifiable, Codable {
         id: UUID = UUID(),
         name: String = "",
         airplane: String = "F-HVXA",
+        aircraftType: String? = nil,
+        checklistVersion: String? = nil,
         startTime: Date? = nil,
         stopTime: Date? = nil,
         engineStartTime: Date? = nil,
@@ -39,6 +43,8 @@ struct Flight: Identifiable, Codable {
         self.id = id
         self.name = name
         self.airplane = airplane
+        self.aircraftType = aircraftType
+        self.checklistVersion = checklistVersion
         self.startTime = startTime
         self.stopTime = stopTime
         self.engineStartTime = engineStartTime
@@ -201,7 +207,7 @@ extension Flight {
         }
         
         gpx += """
-        
+
           </metadata>
           <trk>
             <name>\(airplane)</name>
@@ -210,6 +216,15 @@ extension Flight {
                 <pc:name>\(name)</pc:name>
                 <pc:airplane>\(airplane)</pc:airplane>
         """
+
+        if let aircraftType = aircraftType {
+            gpx += "\n        <pc:aircraftType>\(aircraftType)</pc:aircraftType>"
+        }
+        if let checklistVersion = checklistVersion {
+            gpx += "\n        <pc:checklistVersion>\(checklistVersion)</pc:checklistVersion>"
+        }
+
+        gpx += ""
         
         if let start = startTime {
             gpx += "\n        <pc:startTime>\(dateFormatter.string(from: start))</pc:startTime>"
@@ -356,7 +371,7 @@ class GPXParser: NSObject, XMLParserDelegate {
         
         // Handle both prefixed and non-prefixed element names
         let elementKey = elementName.replacingOccurrences(of: "pc:", with: "")
-        
+
         switch elementKey {
         case "name":
             if flight != nil && flight?.airplane == "F-HVXA" {
@@ -364,6 +379,10 @@ class GPXParser: NSObject, XMLParserDelegate {
             }
         case "airplane":
             flight?.airplane = text
+        case "aircraftType":
+            flight?.aircraftType = text
+        case "checklistVersion":
+            flight?.checklistVersion = text
         case "notes":
             flight?.notes = text
         case "time":

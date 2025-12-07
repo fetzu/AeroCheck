@@ -80,7 +80,12 @@ class AppState: ObservableObject {
     }
 
     func startFlight(withAircraft aircraft: String) {
-        currentFlight = Flight(airplane: aircraft, startTime: Date())
+        currentFlight = Flight(
+            airplane: aircraft,
+            aircraftType: settings.selectedAircraft.rawValue,
+            checklistVersion: settings.selectedAircraft.checklistVersion,
+            startTime: Date()
+        )
         currentPhase = .preflight
         isFlightActive = true
         engineStartTime = nil

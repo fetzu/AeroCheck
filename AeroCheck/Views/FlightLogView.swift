@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import Charts
 import UniformTypeIdentifiers
+import Compression
 
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
@@ -81,7 +82,8 @@ struct FlightLogView: View {
             isPresented: $showImportPicker,
             allowedContentTypes: [
                 UTType(filenameExtension: "gpx") ?? .xml,
-                UTType(filenameExtension: "json") ?? .json
+                UTType(filenameExtension: "json") ?? .json,
+                .zip
             ],
             allowsMultipleSelection: false
         ) { result in
@@ -267,37 +269,155 @@ struct FlightLogView: View {
     }
     
     // MARK: - Import Handler
-    
+
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            
+
             guard url.startAccessingSecurityScopedResource() else {
                 importError = "Cannot access the selected file."
                 showImportError = true
                 return
             }
-            
+
             defer { url.stopAccessingSecurityScopedResource() }
-            
+
             do {
                 let data = try Data(contentsOf: url)
-                if appState.importFlight(from: data) {
+
+                // Check if it's a ZIP file
+                if url.pathExtension.lowercased() == "zip" {
+                    handleZipImport(data: data)
+                } else if appState.importFlight(from: data) {
                     // Success - no action needed
                 } else {
-                    importError = "Could not parse the flight file. Supported formats: GPX, JSON"
+                    importError = "Could not parse the flight file. Supported formats: GPX, JSON, ZIP"
                     showImportError = true
                 }
             } catch {
                 importError = error.localizedDescription
                 showImportError = true
             }
-            
+
         case .failure(let error):
             importError = error.localizedDescription
             showImportError = true
         }
+    }
+
+    private func handleZipImport(data: Data) {
+        do {
+            let entries = try extractZipEntries(from: data)
+            var successCount = 0
+            var failCount = 0
+
+            for entry in entries {
+                if appState.importFlight(from: entry.data) {
+                    successCount += 1
+                } else {
+                    failCount += 1
+                }
+            }
+
+            if successCount == 0 {
+                importError = "No valid flight files found in the ZIP archive."
+                showImportError = true
+            } else if failCount > 0 {
+                importError = "Imported \(successCount) flight(s). \(failCount) file(s) could not be imported."
+                showImportError = true
+            }
+            // If all succeeded, no error message needed
+        } catch {
+            importError = "Failed to extract ZIP archive: \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+
+    private func extractZipEntries(from data: Data) throws -> [(filename: String, data: Data)] {
+        var entries: [(filename: String, data: Data)] = []
+        var offset = 0
+
+        while offset < data.count {
+            // Check for local file header signature (0x04034b50)
+            guard offset + 30 <= data.count else { break }
+
+            let signature = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset, as: UInt32.self)
+            }
+
+            // 0x04034b50 = local file header
+            if signature != 0x04034b50 {
+                // Check for central directory (0x02014b50) or end (0x06054b50)
+                if signature == 0x02014b50 || signature == 0x06054b50 {
+                    break
+                }
+                offset += 1
+                continue
+            }
+
+            // Read header fields
+            let compressionMethod = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset + 8, as: UInt16.self)
+            }
+            let compressedSize = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset + 18, as: UInt32.self)
+            }
+            let uncompressedSize = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset + 22, as: UInt32.self)
+            }
+            let filenameLength = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset + 26, as: UInt16.self)
+            }
+            let extraFieldLength = data.withUnsafeBytes { bytes in
+                bytes.load(fromByteOffset: offset + 28, as: UInt16.self)
+            }
+
+            // Read filename
+            let filenameStart = offset + 30
+            let filenameEnd = filenameStart + Int(filenameLength)
+            guard filenameEnd <= data.count else { break }
+
+            let filenameData = data.subdata(in: filenameStart..<filenameEnd)
+            let filename = String(data: filenameData, encoding: .utf8) ?? ""
+
+            // Skip directories and hidden files
+            if filename.hasSuffix("/") || filename.hasPrefix("__MACOSX/") || filename.contains("/.") {
+                offset = filenameEnd + Int(extraFieldLength) + Int(compressedSize)
+                continue
+            }
+
+            // Only process .gpx and .json files
+            let ext = (filename as NSString).pathExtension.lowercased()
+            guard ext == "gpx" || ext == "json" else {
+                offset = filenameEnd + Int(extraFieldLength) + Int(compressedSize)
+                continue
+            }
+
+            // Read file data
+            let dataStart = filenameEnd + Int(extraFieldLength)
+            let dataEnd = dataStart + Int(compressedSize)
+            guard dataEnd <= data.count else { break }
+
+            var fileData = data.subdata(in: dataStart..<dataEnd)
+
+            // Handle compression (method 0 = uncompressed, method 8 = deflate)
+            if compressionMethod == 8 {
+                // Decompress using zlib
+                fileData = try decompress(fileData, uncompressedSize: Int(uncompressedSize))
+            }
+
+            entries.append((filename: filename, data: fileData))
+            offset = dataEnd
+        }
+
+        return entries
+    }
+
+    private func decompress(_ data: Data, uncompressedSize: Int) throws -> Data {
+        // Use Swift's built-in decompression with DEFLATE algorithm
+        let decompressedData = try (data as NSData).decompressed(using: .zlib) as Data
+        return decompressedData
     }
 }
 

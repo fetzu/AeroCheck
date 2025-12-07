@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import Charts
 import UniformTypeIdentifiers
+import Photos
 
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
@@ -396,6 +397,9 @@ struct FlightDetailView: View {
     @State private var showShareSheet = false
     @State private var shareImage: UIImage?
     @State private var isGeneratingImage = false
+    @State private var showShareOptions = false
+    @State private var showPhotoSaveAlert = false
+    @State private var photoSaveError: String?
 
     enum ExportType {
         case gpx
@@ -431,7 +435,7 @@ struct FlightDetailView: View {
                     Button("Close") { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: { generateAndShareImage() }) {
+                    Button(action: { showShareOptions = true }) {
                         if isGeneratingImage {
                             ProgressView()
                         } else {
@@ -452,6 +456,26 @@ struct FlightDetailView: View {
         }) {
             if let image = shareImage {
                 ImageShareSheet(image: image)
+            }
+        }
+        .confirmationDialog("Share Flight Summary", isPresented: $showShareOptions, titleVisibility: .visible) {
+            Button("Save to Photos") {
+                generateAndSaveToPhotos()
+            }
+            Button("Share...") {
+                generateAndShareImage()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Share a visual summary of your flight")
+        }
+        .alert(photoSaveError == nil ? "Saved!" : "Error", isPresented: $showPhotoSaveAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            if let error = photoSaveError {
+                Text(error)
+            } else {
+                Text("Flight summary saved to your photo library.")
             }
         }
         .confirmationDialog("Export Format", isPresented: $showExportOptions, titleVisibility: .visible) {
@@ -724,6 +748,63 @@ struct FlightDetailView: View {
         }
     }
 
+    private func generateAndSaveToPhotos() {
+        isGeneratingImage = true
+
+        Task {
+            // First, generate map snapshot if we have GPS data
+            let mapImage: UIImage? = await generateMapSnapshot()
+
+            // Then render the share card on main thread
+            await MainActor.run {
+                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage)
+                let renderer = ImageRenderer(content: shareCard)
+                renderer.scale = 3.0 // High resolution for sharing
+
+                guard let image = renderer.uiImage else {
+                    isGeneratingImage = false
+                    photoSaveError = "Failed to generate image"
+                    showPhotoSaveAlert = true
+                    return
+                }
+
+                // Request photo library access and save
+                PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                    DispatchQueue.main.async {
+                        switch status {
+                        case .authorized, .limited:
+                            PHPhotoLibrary.shared().performChanges {
+                                PHAssetCreationRequest.creationRequestForAsset(from: image)
+                            } completionHandler: { success, error in
+                                DispatchQueue.main.async {
+                                    isGeneratingImage = false
+                                    if success {
+                                        photoSaveError = nil
+                                    } else {
+                                        photoSaveError = error?.localizedDescription ?? "Failed to save image"
+                                    }
+                                    showPhotoSaveAlert = true
+                                }
+                            }
+                        case .denied, .restricted:
+                            isGeneratingImage = false
+                            photoSaveError = "Photo library access denied. Please enable it in Settings."
+                            showPhotoSaveAlert = true
+                        case .notDetermined:
+                            isGeneratingImage = false
+                            photoSaveError = "Photo library access not determined"
+                            showPhotoSaveAlert = true
+                        @unknown default:
+                            isGeneratingImage = false
+                            photoSaveError = "Unknown photo library authorization status"
+                            showPhotoSaveAlert = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func generateMapSnapshot() async -> UIImage? {
         guard flight.gpsTrack.count >= 2 else { return nil }
 
@@ -737,7 +818,8 @@ struct FlightDetailView: View {
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
-        let paddingFactor = 0.35 // 35% padding on each side for comfortable margins
+        // Use 15% padding to match the flight view's visual padding
+        let paddingFactor = 0.15
         var paddedRect = mapRect.insetBy(
             dx: -mapRect.size.width * paddingFactor,
             dy: -mapRect.size.height * paddingFactor
@@ -1347,14 +1429,14 @@ class ZIPFile: NSObject, UIActivityItemSource {
 // MARK: - Flight Share Card
 
 /// A portrait card view designed for sharing flight summaries on mobile
-/// Renders at 1080x1920 (9:16 aspect ratio, common for mobile/stories)
+/// Renders at 1080x1620 (2:3 aspect ratio, compact portrait format)
 struct FlightShareCard: View {
     let flight: Flight
     let mapImage: UIImage?
 
-    // Card dimensions (portrait format for mobile viewing)
+    // Card dimensions (compact portrait format for mobile viewing)
     private let cardWidth: CGFloat = 1080
-    private let cardHeight: CGFloat = 1920
+    private let cardHeight: CGFloat = 1620
 
     /// Display title: flight name if set, otherwise airplane
     private var displayTitle: String {
@@ -1380,34 +1462,33 @@ struct FlightShareCard: View {
             VStack(spacing: 0) {
                 // Header section
                 headerSection
-                    .padding(.top, 50)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
 
                 // Map section
                 mapSection
-                    .padding(.top, 30)
+                    .padding(.top, 24)
                     .padding(.horizontal, 40)
 
                 // Altitude graph section
                 altitudeSection
-                    .padding(.top, 25)
+                    .padding(.top, 20)
                     .padding(.horizontal, 40)
 
                 // Stats section
                 statsSection
-                    .padding(.top, 30)
+                    .padding(.top, 24)
                     .padding(.horizontal, 40)
 
                 // Timeline section
                 timelineSection
-                    .padding(.top, 30)
+                    .padding(.top, 24)
                     .padding(.horizontal, 40)
-
-                Spacer()
 
                 // Footer
                 footerSection
-                    .padding(.bottom, 40)
+                    .padding(.top, 24)
+                    .padding(.bottom, 30)
                     .padding(.horizontal, 40)
             }
         }

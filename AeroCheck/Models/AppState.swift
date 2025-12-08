@@ -17,6 +17,7 @@ struct AppSettings: Codable {
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
     var learningMode: Bool = false // Hide memorizable checks
+    var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
 
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {

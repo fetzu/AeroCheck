@@ -75,7 +75,7 @@ enum MapLayerType: String, CaseIterable, Identifiable {
     var maximumZoom: Int {
         switch self {
         case .standard, .satellite: return 20
-        case .icao: return 11  // ICAO chart max zoom is 11 (500k scale)
+        case .icao: return 14  // Extended to include Segelflugkarte range
         case .landeskarten: return 18
         case .swissimage: return 18
         }
@@ -274,7 +274,8 @@ struct NavigationMapView: View {
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: appState.currentFlight?.gpsTrack ?? [],
-                isFollowingAircraft: $isFollowingAircraft
+                isFollowingAircraft: $isFollowingAircraft,
+                forceICAOLayer: appState.settings.forceICAOChartLayer
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -381,10 +382,8 @@ struct NavigationMapView: View {
 
     private var bottomControls: some View {
         HStack(alignment: .bottom) {
-            // Scale bar on the left for Swiss layers
-            if selectedLayer.isSwissLayer {
-                SwissScaleBar(region: mapState.region)
-            }
+            // Scale bar on the left for all layers
+            SwissScaleBar(region: mapState.region)
 
             Spacer()
 
@@ -443,20 +442,43 @@ struct SwissScaleBar: View {
     let region: MKCoordinateRegion
 
     /// Calculate the appropriate scale distance based on current zoom
+    /// Uses MKMapPoint conversion for accurate distance calculation
     private var scaleInfo: (distance: Double, text: String, width: CGFloat) {
-        // Calculate meters per point based on latitude span
-        // At the equator, 1 degree latitude = ~111km
-        let metersPerDegree = 111_000.0
-        let screenWidthPoints: CGFloat = 120 // Target width for scale bar
+        // Get the center of the region
+        let centerCoordinate = region.center
 
-        // Estimate meters visible in the current span
-        let metersInSpan = region.span.latitudeDelta * metersPerDegree
+        // Calculate two points at the same latitude, separated by the longitude span
+        let leftCoordinate = CLLocationCoordinate2D(
+            latitude: centerCoordinate.latitude,
+            longitude: centerCoordinate.longitude - region.span.longitudeDelta / 2
+        )
+        let rightCoordinate = CLLocationCoordinate2D(
+            latitude: centerCoordinate.latitude,
+            longitude: centerCoordinate.longitude + region.span.longitudeDelta / 2
+        )
 
-        // Calculate a nice round number for the scale
-        let metersPerPoint = metersInSpan / 300 // Approximate screen width in points
+        // Convert to map points and calculate distance
+        let leftPoint = MKMapPoint(leftCoordinate)
+        let rightPoint = MKMapPoint(rightCoordinate)
+        let metersInSpan = leftPoint.distance(to: rightPoint)
 
-        // Choose appropriate scale
+        // Estimate visible width in points (typical iPad width ~1024, but map may not fill screen)
+        // Use a conservative estimate for the visible map width
+        let estimatedMapWidthPoints: CGFloat = 800
+
+        // Calculate meters per screen point
+        let metersPerPoint = metersInSpan / Double(estimatedMapWidthPoints)
+
+        // Target scale bar width in points
+        let targetBarWidth: CGFloat = 100
+
+        // Calculate how many meters that would represent
+        let targetMeters = metersPerPoint * Double(targetBarWidth)
+
+        // Choose appropriate scale - pick the largest round number that fits
         let scales: [(meters: Double, text: String)] = [
+            (10, "10 m"),
+            (20, "20 m"),
             (50, "50 m"),
             (100, "100 m"),
             (200, "200 m"),
@@ -472,11 +494,9 @@ struct SwissScaleBar: View {
         ]
 
         // Find the best scale that fits within our target width
-        let targetMeters = metersPerPoint * Double(screenWidthPoints)
-
         var selectedScale = scales[0]
         for scale in scales {
-            if scale.meters <= targetMeters * 1.5 {
+            if scale.meters <= targetMeters {
                 selectedScale = scale
             } else {
                 break
@@ -484,9 +504,9 @@ struct SwissScaleBar: View {
         }
 
         // Calculate actual width for this scale
-        let width = CGFloat(selectedScale.meters / metersPerPoint)
+        let actualWidth = CGFloat(selectedScale.meters / metersPerPoint)
 
-        return (selectedScale.meters, selectedScale.text, min(width, 150))
+        return (selectedScale.meters, selectedScale.text, min(max(actualWidth, 40), 150))
     }
 
     var body: some View {
@@ -509,6 +529,11 @@ struct SwissScaleBar: View {
                 Rectangle()
                     .fill(Color.white)
                     .frame(width: info.width, height: 2)
+
+                // Vertical tick on right
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
             }
         }
         .padding(8)
@@ -536,7 +561,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         mapView.showsCompass = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
-        mapView.showsScale = true
+        mapView.showsScale = false // Use our custom scale bar instead
 
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
@@ -815,6 +840,7 @@ struct SwissMapView: UIViewRepresentable {
     let currentLocation: CLLocation?
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
+    let forceICAOLayer: Bool
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -833,8 +859,12 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Update tile overlay if layer changed
-        let layerChanged = context.coordinator.updateTileOverlayIfNeeded(mapView, layerType: layerType)
+        // Update tile overlay if layer changed or force setting changed
+        let layerChanged = context.coordinator.updateTileOverlayIfNeeded(
+            mapView,
+            layerType: layerType,
+            forceICAO: forceICAOLayer
+        )
 
         // Update region from shared state
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
@@ -864,8 +894,8 @@ struct SwissMapView: UIViewRepresentable {
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
         if layerType == .icao {
-            // ICAO layer needs special handling - use ICAOTileOverlay with zoom level support
-            let overlay = ICAOTileOverlay()
+            // ICAO layer with seamless Segelflugkarte switching
+            let overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAOLayer)
             overlay.canReplaceMapContent = true
             mapView.addOverlay(overlay, level: .aboveLabels)
         } else if let layerId = layerType.swisstopoLayerIdentifier {
@@ -879,6 +909,7 @@ struct SwissMapView: UIViewRepresentable {
             mapView.addOverlay(overlay, level: .aboveLabels)
         }
         context.coordinator.currentLayerType = layerType
+        context.coordinator.currentForceICAO = forceICAOLayer
     }
 
     func makeCoordinator() -> Coordinator {
@@ -920,6 +951,7 @@ struct SwissMapView: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
         var currentLayerType: MapLayerType?
+        var currentForceICAO: Bool = false
         private var isUpdatingRegion = false
 
         init(_ parent: SwissMapView) {
@@ -934,10 +966,15 @@ struct SwissMapView: UIViewRepresentable {
                    abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
         }
 
-        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType) -> Bool {
-            // Only update if layer changed
-            guard layerType != currentLayerType else { return false }
+        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType, forceICAO: Bool) -> Bool {
+            // Check if we need to update
+            let layerChanged = layerType != currentLayerType
+            let forceChanged = (layerType == .icao && forceICAO != currentForceICAO)
+
+            guard layerChanged || forceChanged else { return false }
+
             currentLayerType = layerType
+            currentForceICAO = forceICAO
 
             // Remove existing tile overlays
             let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
@@ -945,7 +982,7 @@ struct SwissMapView: UIViewRepresentable {
 
             // Add new tile overlay
             if layerType == .icao {
-                let overlay = ICAOTileOverlay()
+                let overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAO)
                 overlay.canReplaceMapContent = true
                 mapView.addOverlay(overlay, level: .aboveLabels)
             } else if let layerId = layerType.swisstopoLayerIdentifier {
@@ -1057,29 +1094,64 @@ class AircraftAnnotation: NSObject, MKAnnotation {
     }
 }
 
-// MARK: - ICAO Tile Overlay (with multi-resolution support)
+// MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)
 
-/// Custom tile overlay for Swiss ICAO aeronautical chart
-/// Supports both available zoom levels (1:500,000 and 1:100,000 scales)
-class ICAOTileOverlay: MKTileOverlay {
-    // ICAO layer identifiers for different zoom levels
-    // ch.bazl.luftfahrtkarten-icao is available at zoom 7-11
-    private let layerIdentifier = "ch.bazl.luftfahrtkarten-icao"
+/// Custom tile overlay for Swiss ICAO aeronautical chart with seamless Segelflugkarte switching
+/// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-11, scale 1:500,000
+/// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-14, scale 1:300,000
+/// When forceICAO is true, always use ICAO layer even at higher zoom levels
+class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
+    private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
+    private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
+    private let forceICAO: Bool
 
-    init() {
+    // Zoom level where we switch from ICAO to Segelflugkarte
+    // ICAO: zoom 7-11 (1:500,000)
+    // Segelflugkarte: zoom 11-14 (1:300,000)
+    private let icaoMaxZoom = 11
+    private let segelflugkarteMinZoom = 11
+    private let segelflugkarteMaxZoom = 14
+
+    init(forceICAO: Bool = false) {
+        self.forceICAO = forceICAO
+        // Use a placeholder URL template - we override url(forTilePath:) anyway
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
-        // ICAO chart zoom range: 7 to 11
+        // Set overall zoom range to cover both layers
         self.minimumZ = 7
-        self.maximumZ = 11
+        self.maximumZ = forceICAO ? 11 : 14
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        // Clamp zoom level to valid range for ICAO chart
-        let clampedZ = min(max(path.z, minimumZ), maximumZ)
+        let z = path.z
 
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).png"
+        // Determine which layer to use based on zoom level and force setting
+        let layerIdentifier: String
+        let clampedZ: Int
+        let tileExtension: String
+
+        if forceICAO {
+            // Force ICAO at all zoom levels
+            layerIdentifier = icaoLayerIdentifier
+            clampedZ = min(max(z, 7), icaoMaxZoom)
+            tileExtension = "png"
+        } else {
+            // Seamless switching between ICAO and Segelflugkarte
+            if z <= icaoMaxZoom {
+                // Use ICAO chart for lower zoom levels
+                layerIdentifier = icaoLayerIdentifier
+                clampedZ = min(max(z, 7), icaoMaxZoom)
+                tileExtension = "png"
+            } else {
+                // Use Segelflugkarte for higher zoom levels
+                layerIdentifier = segelflugkarteLayerIdentifier
+                clampedZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
+                tileExtension = "png"
+            }
+        }
+
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
         return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }

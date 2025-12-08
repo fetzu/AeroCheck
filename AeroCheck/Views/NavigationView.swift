@@ -969,7 +969,7 @@ struct SwissMapView: UIViewRepresentable {
         func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType, forceICAO: Bool) -> Bool {
             // Check if we need to update
             let layerChanged = layerType != currentLayerType
-            let forceChanged = (layerType == .icao && forceICAO != currentForceICAO)
+            let forceChanged = forceICAO != currentForceICAO
 
             guard layerChanged || forceChanged else { return false }
 
@@ -1103,11 +1103,12 @@ class AircraftAnnotation: NSObject, MKAnnotation {
 class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
     private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
-    private let forceICAO: Bool
+    let forceICAO: Bool
 
     // Zoom level where we switch from ICAO to Segelflugkarte
     // ICAO: zoom 7-11 (1:500,000)
     // Segelflugkarte: zoom 11-14 (1:300,000)
+    private let icaoMinZoom = 7
     private let icaoMaxZoom = 11
     private let segelflugkarteMinZoom = 11
     private let segelflugkarteMaxZoom = 14
@@ -1118,9 +1119,10 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
-        // Set overall zoom range to cover both layers
-        self.minimumZ = 7
-        self.maximumZ = forceICAO ? 11 : 14
+        // Allow MapKit to request tiles at any zoom level
+        // We handle clamping in url(forTilePath:) to ensure tiles always display
+        self.minimumZ = 0
+        self.maximumZ = 22
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
@@ -1129,25 +1131,22 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
         // Determine which layer to use based on zoom level and force setting
         let layerIdentifier: String
         let clampedZ: Int
-        let tileExtension: String
+        let tileExtension = "png"
 
         if forceICAO {
-            // Force ICAO at all zoom levels
+            // Force ICAO at all zoom levels - clamp to ICAO's valid range
             layerIdentifier = icaoLayerIdentifier
-            clampedZ = min(max(z, 7), icaoMaxZoom)
-            tileExtension = "png"
+            clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
         } else {
             // Seamless switching between ICAO and Segelflugkarte
             if z <= icaoMaxZoom {
                 // Use ICAO chart for lower zoom levels
                 layerIdentifier = icaoLayerIdentifier
-                clampedZ = min(max(z, 7), icaoMaxZoom)
-                tileExtension = "png"
+                clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
             } else {
                 // Use Segelflugkarte for higher zoom levels
                 layerIdentifier = segelflugkarteLayerIdentifier
                 clampedZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
-                tileExtension = "png"
             }
         }
 
@@ -1162,10 +1161,14 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
 class SwisstopoTileOverlay: MKTileOverlay {
     let layerIdentifier: String
     let tileExtension: String
+    let validMinZoom: Int
+    let validMaxZoom: Int
 
     init(layerIdentifier: String, tileExtension: String = "png", minimumZ: Int = 7, maximumZ: Int = 18) {
         self.layerIdentifier = layerIdentifier
         self.tileExtension = tileExtension
+        self.validMinZoom = minimumZ
+        self.validMaxZoom = maximumZ
 
         // Swisstopo WMTS URL template
         // Using the EPSG:3857 (Web Mercator) projection which is compatible with MapKit
@@ -1173,13 +1176,15 @@ class SwisstopoTileOverlay: MKTileOverlay {
 
         super.init(urlTemplate: urlTemplate)
 
-        self.minimumZ = minimumZ
-        self.maximumZ = maximumZ
+        // Allow MapKit to request tiles at any zoom level
+        // We handle clamping in url(forTilePath:) to ensure tiles always display
+        self.minimumZ = 0
+        self.maximumZ = 22
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        // Clamp zoom level to valid range
-        let clampedZ = min(max(path.z, minimumZ), maximumZ)
+        // Clamp zoom level to valid range for this layer
+        let clampedZ = min(max(path.z, validMinZoom), validMaxZoom)
 
         // Construct the URL for swisstopo tiles
         let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"

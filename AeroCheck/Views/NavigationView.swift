@@ -60,6 +60,26 @@ enum MapLayerType: String, CaseIterable, Identifiable {
         case .landeskarten, .swissimage: return "jpeg"
         }
     }
+
+    /// Minimum zoom level for this layer
+    var minimumZoom: Int {
+        switch self {
+        case .standard, .satellite: return 0
+        case .icao: return 7  // ICAO chart has limited zoom range
+        case .landeskarten: return 7
+        case .swissimage: return 7
+        }
+    }
+
+    /// Maximum zoom level for this layer
+    var maximumZoom: Int {
+        switch self {
+        case .standard, .satellite: return 20
+        case .icao: return 11  // ICAO chart max zoom is 11 (500k scale)
+        case .landeskarten: return 18
+        case .swissimage: return 18
+        }
+    }
 }
 
 // MARK: - Shared Map State
@@ -76,17 +96,6 @@ class SharedMapState: ObservableObject {
             center: CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2),
             span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
         )
-    }
-
-    func updateFromCamera(_ camera: MapCamera) {
-        region = MKCoordinateRegion(
-            center: camera.centerCoordinate,
-            span: MKCoordinateSpan(
-                latitudeDelta: cameraDistance / 111000.0 * 0.9,
-                longitudeDelta: cameraDistance / 111000.0 * 0.9
-            )
-        )
-        cameraHeading = camera.heading
     }
 
     func updateFromRegion(_ newRegion: MKCoordinateRegion) {
@@ -206,7 +215,7 @@ struct NavigationMapView: View {
 
                 Spacer()
 
-                // Bottom controls
+                // Bottom controls with scale bar
                 bottomControls
             }
             .padding()
@@ -268,8 +277,8 @@ struct NavigationMapView: View {
                 isFollowingAircraft: $isFollowingAircraft
             )
         } else {
-            // Use native MapKit for standard/satellite
-            NativeMapView(
+            // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
+            NativeMapViewUIKit(
                 selectedLayer: selectedLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
@@ -372,6 +381,11 @@ struct NavigationMapView: View {
 
     private var bottomControls: some View {
         HStack(alignment: .bottom) {
+            // Scale bar on the left for Swiss layers
+            if selectedLayer.isSwissLayer {
+                SwissScaleBar(region: mapState.region)
+            }
+
             Spacer()
 
             // Right side: GPS status and center button
@@ -423,63 +437,246 @@ struct NavigationMapView: View {
     }
 }
 
-// MARK: - Native Map View (SwiftUI Map wrapper)
+// MARK: - Swiss Scale Bar (mimics SwissTopo style)
 
-struct NativeMapView: View {
+struct SwissScaleBar: View {
+    let region: MKCoordinateRegion
+
+    /// Calculate the appropriate scale distance based on current zoom
+    private var scaleInfo: (distance: Double, text: String, width: CGFloat) {
+        // Calculate meters per point based on latitude span
+        // At the equator, 1 degree latitude = ~111km
+        let metersPerDegree = 111_000.0
+        let screenWidthPoints: CGFloat = 120 // Target width for scale bar
+
+        // Estimate meters visible in the current span
+        let metersInSpan = region.span.latitudeDelta * metersPerDegree
+
+        // Calculate a nice round number for the scale
+        let metersPerPoint = metersInSpan / 300 // Approximate screen width in points
+
+        // Choose appropriate scale
+        let scales: [(meters: Double, text: String)] = [
+            (50, "50 m"),
+            (100, "100 m"),
+            (200, "200 m"),
+            (500, "500 m"),
+            (1000, "1 km"),
+            (2000, "2 km"),
+            (5000, "5 km"),
+            (10000, "10 km"),
+            (20000, "20 km"),
+            (50000, "50 km"),
+            (100000, "100 km"),
+            (200000, "200 km")
+        ]
+
+        // Find the best scale that fits within our target width
+        let targetMeters = metersPerPoint * Double(screenWidthPoints)
+
+        var selectedScale = scales[0]
+        for scale in scales {
+            if scale.meters <= targetMeters * 1.5 {
+                selectedScale = scale
+            } else {
+                break
+            }
+        }
+
+        // Calculate actual width for this scale
+        let width = CGFloat(selectedScale.meters / metersPerPoint)
+
+        return (selectedScale.meters, selectedScale.text, min(width, 150))
+    }
+
+    var body: some View {
+        let info = scaleInfo
+
+        VStack(alignment: .leading, spacing: 2) {
+            // Scale text
+            Text(info.text)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white)
+
+            // Scale bar (L-shaped like SwissTopo)
+            HStack(spacing: 0) {
+                // Vertical tick on left
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 8)
+
+                // Horizontal line
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: info.width, height: 2)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.black.opacity(0.5))
+        )
+    }
+}
+
+// MARK: - Native Map View (UIKit Wrapper for Standard/Satellite)
+
+/// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
+/// This avoids the gesture conflict issues that occur with SwiftUI Map
+struct NativeMapViewUIKit: UIViewRepresentable {
     let selectedLayer: MapLayerType
     @ObservedObject var mapState: SharedMapState
     let currentLocation: CLLocation?
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
 
-    @State private var cameraPosition: MapCameraPosition = .automatic
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.delegate = context.coordinator
+        mapView.showsCompass = true
+        mapView.isRotateEnabled = true
+        mapView.isPitchEnabled = false
+        mapView.showsScale = true
 
-    var body: some View {
-        Map(position: $cameraPosition, interactionModes: .all) {
-            // Aircraft position marker
-            if let location = currentLocation {
-                Annotation("Aircraft", coordinate: location.coordinate) {
-                    AircraftMarker(
-                        heading: location.course >= 0 ? location.course : 0,
-                        speed: location.speed * 1.94384 // Convert m/s to knots
-                    )
+        // Set map type
+        mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
+
+        // Set initial region from shared state
+        mapView.setRegion(mapState.region, animated: false)
+
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Update map type if needed
+        let expectedType: MKMapType = selectedLayer == .satellite ? .satellite : .standard
+        if mapView.mapType != expectedType {
+            mapView.mapType = expectedType
+        }
+
+        // Update region from shared state if significantly different
+        let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
+        if regionChanged && !context.coordinator.isUserInteracting {
+            mapView.setRegion(mapState.region, animated: true)
+        }
+
+        // Update aircraft annotation
+        updateAircraftAnnotation(mapView, context: context)
+
+        // Update track overlay
+        updateTrackOverlay(mapView, context: context)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
+        // Remove existing aircraft annotations
+        let existingAircraftAnnotations = mapView.annotations.compactMap { $0 as? AircraftAnnotation }
+        mapView.removeAnnotations(existingAircraftAnnotations)
+
+        // Add aircraft annotation
+        if let location = currentLocation {
+            let annotation = AircraftAnnotation(
+                coordinate: location.coordinate,
+                heading: location.course >= 0 ? location.course : 0
+            )
+            mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
+        // Remove existing polylines
+        let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
+        mapView.removeOverlays(existingPolylines)
+
+        // Add track overlay
+        if gpsTrack.count > 1 {
+            let coordinates = gpsTrack.map { $0.coordinate }
+            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+            mapView.addOverlay(polyline, level: .aboveRoads)
+        }
+    }
+
+    class Coordinator: NSObject, MKMapViewDelegate {
+        var parent: NativeMapViewUIKit
+        var isUserInteracting = false
+
+        init(_ parent: NativeMapViewUIKit) {
+            self.parent = parent
+        }
+
+        func regionsAreEqual(_ r1: MKCoordinateRegion, _ r2: MKCoordinateRegion) -> Bool {
+            let epsilon = 0.0001
+            return abs(r1.center.latitude - r2.center.latitude) < epsilon &&
+                   abs(r1.center.longitude - r2.center.longitude) < epsilon &&
+                   abs(r1.span.latitudeDelta - r2.span.latitudeDelta) < epsilon &&
+                   abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
+        }
+
+        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // Check if user is interacting
+            if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
+                for recognizer in gestureRecognizers {
+                    if recognizer.state == .began || recognizer.state == .changed {
+                        isUserInteracting = true
+                        parent.isFollowingAircraft = false
+                        return
+                    }
                 }
             }
+        }
 
-            // GPS track polyline
-            if gpsTrack.count > 1 {
-                MapPolyline(coordinates: gpsTrack.map { $0.coordinate })
-                    .stroke(Color.aviationGold, lineWidth: 3)
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            isUserInteracting = false
+            parent.mapState.updateFromRegion(mapView.region)
+        }
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+                renderer.lineWidth = 3
+                return renderer
             }
+            return MKOverlayRenderer(overlay: overlay)
         }
-        .mapStyle(selectedLayer == .satellite ? .imagery : .standard)
-        .mapControls {
-            MapScaleView(anchorEdge: .leading)
+
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
+                return nil
+            }
+
+            let identifier = "AircraftAnnotation"
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = false
+
+            // Bright yellow color for visibility
+            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
+
+            if let image = UIImage(systemName: "airplane", withConfiguration: config) {
+                annotationView.image = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
+            }
+
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+
+            // Shadow for visibility
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.8
+            annotationView.layer.shadowRadius = 4
+
+            // Glow effect
+            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
+            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
+            glowView.layer.cornerRadius = 25
+            annotationView.insertSubview(glowView, at: 0)
+            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
+
+            return annotationView
         }
-        .onAppear {
-            cameraPosition = mapState.mapCameraPosition
-        }
-        .onChange(of: mapState.region.center.latitude) { _, _ in
-            cameraPosition = mapState.mapCameraPosition
-        }
-        .onChange(of: mapState.region.center.longitude) { _, _ in
-            cameraPosition = mapState.mapCameraPosition
-        }
-        .onChange(of: mapState.region.span.latitudeDelta) { _, _ in
-            cameraPosition = mapState.mapCameraPosition
-        }
-        .onMapCameraChange(frequency: .continuous) { context in
-            // Update shared state when user interacts with map
-            mapState.updateFromRegion(context.region)
-            mapState.cameraDistance = context.camera.distance
-            mapState.cameraHeading = context.camera.heading
-        }
-        .gesture(
-            DragGesture()
-                .onChanged { _ in
-                    isFollowingAircraft = false
-                }
-        )
     }
 }
 
@@ -626,28 +823,11 @@ struct SwissMapView: UIViewRepresentable {
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
-        // Add gesture recognizer to detect user interaction
-        let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
-        panGesture.delegate = context.coordinator
-        mapView.addGestureRecognizer(panGesture)
-
-        let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
-        pinchGesture.delegate = context.coordinator
-        mapView.addGestureRecognizer(pinchGesture)
-
         // Set initial region from shared state
         mapView.setRegion(mapState.region, animated: false)
 
         // Add initial tile overlay
-        if let layerId = layerType.swisstopoLayerIdentifier {
-            let overlay = SwisstopoTileOverlay(
-                layerIdentifier: layerId,
-                tileExtension: layerType.tileExtension
-            )
-            overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
-            context.coordinator.currentLayerType = layerType
-        }
+        addTileOverlay(to: mapView, layerType: layerType, context: context)
 
         return mapView
     }
@@ -657,7 +837,7 @@ struct SwissMapView: UIViewRepresentable {
         let layerChanged = context.coordinator.updateTileOverlayIfNeeded(mapView, layerType: layerType)
 
         // Update region from shared state
-        let regionChanged = !regionsAreEqual(mapView.region, mapState.region)
+        let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged || layerChanged {
             mapView.setRegion(mapState.region, animated: !layerChanged)
 
@@ -682,12 +862,23 @@ struct SwissMapView: UIViewRepresentable {
         updateTrackOverlay(mapView, context: context)
     }
 
-    private func regionsAreEqual(_ r1: MKCoordinateRegion, _ r2: MKCoordinateRegion) -> Bool {
-        let epsilon = 0.0001
-        return abs(r1.center.latitude - r2.center.latitude) < epsilon &&
-               abs(r1.center.longitude - r2.center.longitude) < epsilon &&
-               abs(r1.span.latitudeDelta - r2.span.latitudeDelta) < epsilon &&
-               abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
+    private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
+        if layerType == .icao {
+            // ICAO layer needs special handling - use ICAOTileOverlay with zoom level support
+            let overlay = ICAOTileOverlay()
+            overlay.canReplaceMapContent = true
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        } else if let layerId = layerType.swisstopoLayerIdentifier {
+            let overlay = SwisstopoTileOverlay(
+                layerIdentifier: layerId,
+                tileExtension: layerType.tileExtension,
+                minimumZ: layerType.minimumZoom,
+                maximumZ: layerType.maximumZoom
+            )
+            overlay.canReplaceMapContent = true
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        }
+        context.coordinator.currentLayerType = layerType
     }
 
     func makeCoordinator() -> Coordinator {
@@ -735,20 +926,12 @@ struct SwissMapView: UIViewRepresentable {
             self.parent = parent
         }
 
-        @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
-            if gesture.state == .began {
-                parent.isFollowingAircraft = false
-            }
-        }
-
-        @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-            if gesture.state == .began {
-                parent.isFollowingAircraft = false
-            }
-        }
-
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            return true
+        func regionsAreEqual(_ r1: MKCoordinateRegion, _ r2: MKCoordinateRegion) -> Bool {
+            let epsilon = 0.0001
+            return abs(r1.center.latitude - r2.center.latitude) < epsilon &&
+                   abs(r1.center.longitude - r2.center.longitude) < epsilon &&
+                   abs(r1.span.latitudeDelta - r2.span.latitudeDelta) < epsilon &&
+                   abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
         }
 
         func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType) -> Bool {
@@ -761,16 +944,34 @@ struct SwissMapView: UIViewRepresentable {
             mapView.removeOverlays(existingTileOverlays)
 
             // Add new tile overlay
-            if let layerId = layerType.swisstopoLayerIdentifier {
+            if layerType == .icao {
+                let overlay = ICAOTileOverlay()
+                overlay.canReplaceMapContent = true
+                mapView.addOverlay(overlay, level: .aboveLabels)
+            } else if let layerId = layerType.swisstopoLayerIdentifier {
                 let overlay = SwisstopoTileOverlay(
                     layerIdentifier: layerId,
-                    tileExtension: layerType.tileExtension
+                    tileExtension: layerType.tileExtension,
+                    minimumZ: layerType.minimumZoom,
+                    maximumZ: layerType.maximumZoom
                 )
                 overlay.canReplaceMapContent = true
                 mapView.addOverlay(overlay, level: .aboveLabels)
             }
 
             return true
+        }
+
+        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // Check if user is interacting via gesture recognizers
+            if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
+                for recognizer in gestureRecognizers {
+                    if recognizer.state == .began || recognizer.state == .changed {
+                        parent.isFollowingAircraft = false
+                        return
+                    }
+                }
+            }
         }
 
         // Sync region changes back to shared state
@@ -856,6 +1057,33 @@ class AircraftAnnotation: NSObject, MKAnnotation {
     }
 }
 
+// MARK: - ICAO Tile Overlay (with multi-resolution support)
+
+/// Custom tile overlay for Swiss ICAO aeronautical chart
+/// Supports both available zoom levels (1:500,000 and 1:100,000 scales)
+class ICAOTileOverlay: MKTileOverlay {
+    // ICAO layer identifiers for different zoom levels
+    // ch.bazl.luftfahrtkarten-icao is available at zoom 7-11
+    private let layerIdentifier = "ch.bazl.luftfahrtkarten-icao"
+
+    init() {
+        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
+        super.init(urlTemplate: urlTemplate)
+
+        // ICAO chart zoom range: 7 to 11
+        self.minimumZ = 7
+        self.maximumZ = 11
+    }
+
+    override func url(forTilePath path: MKTileOverlayPath) -> URL {
+        // Clamp zoom level to valid range for ICAO chart
+        let clampedZ = min(max(path.z, minimumZ), maximumZ)
+
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).png"
+        return URL(string: urlString) ?? URL(string: "about:blank")!
+    }
+}
+
 // MARK: - Swisstopo Tile Overlay
 
 /// Custom tile overlay for swisstopo WMTS layers
@@ -863,7 +1091,7 @@ class SwisstopoTileOverlay: MKTileOverlay {
     let layerIdentifier: String
     let tileExtension: String
 
-    init(layerIdentifier: String, tileExtension: String = "png") {
+    init(layerIdentifier: String, tileExtension: String = "png", minimumZ: Int = 7, maximumZ: Int = 18) {
         self.layerIdentifier = layerIdentifier
         self.tileExtension = tileExtension
 
@@ -873,13 +1101,16 @@ class SwisstopoTileOverlay: MKTileOverlay {
 
         super.init(urlTemplate: urlTemplate)
 
-        self.minimumZ = 7
-        self.maximumZ = 18
+        self.minimumZ = minimumZ
+        self.maximumZ = maximumZ
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
+        // Clamp zoom level to valid range
+        let clampedZ = min(max(path.z, minimumZ), maximumZ)
+
         // Construct the URL for swisstopo tiles
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(path.z)/\(path.x)/\(path.y).\(tileExtension)"
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
         return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }

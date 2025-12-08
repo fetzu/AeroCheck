@@ -619,9 +619,10 @@ struct FlightView: View {
                     Text("NAV")
                         .font(.system(size: 16, weight: .semibold))
                 }
+                .fixedSize()
                 .foregroundColor(.primaryText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(Color.aviationBlue, lineWidth: 2)
@@ -631,6 +632,7 @@ struct FlightView: View {
                         )
                 )
             }
+            .fixedSize()
 
             // Speed reference button (compact for portrait)
             Button(action: { showSpeedReference = true }) {
@@ -640,9 +642,10 @@ struct FlightView: View {
                     Text("SPEEDS")
                         .font(.system(size: 16, weight: .semibold))
                 }
+                .fixedSize()
                 .foregroundColor(.primaryText)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(Color.aviationBlue, lineWidth: 2)
@@ -652,6 +655,7 @@ struct FlightView: View {
                         )
                 )
             }
+            .fixedSize()
 
             Spacer()
             

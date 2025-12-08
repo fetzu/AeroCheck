@@ -217,7 +217,7 @@ struct NavigationMapView: View {
             }
             .mapStyle(selectedLayer == .satellite ? .imagery : .standard)
             .mapControls {
-                MapScaleView()
+                MapScaleView(anchorEdge: .leading)
             }
             .gesture(
                 DragGesture()
@@ -229,6 +229,14 @@ struct NavigationMapView: View {
     }
 
     // MARK: - Top Bar
+
+    /// Current heading from location
+    private var currentHeading: Int {
+        guard let location = locationManager.currentLocation, location.course >= 0 else {
+            return 0
+        }
+        return Int(location.course)
+    }
 
     private var topBar: some View {
         HStack {
@@ -246,8 +254,18 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Speed and altitude display
+            // Time, Speed, Altitude, and Heading display
             HStack(spacing: 16) {
+                // Current time
+                Text(formattedTime)
+                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .foregroundColor(.primaryText)
+
+                // Divider
+                Rectangle()
+                    .fill(Color.dimText)
+                    .frame(width: 1, height: 20)
+
                 // Speed (color-coded based on target)
                 HStack(spacing: 4) {
                     Text("\(Int(locationManager.currentSpeedKnots))")
@@ -265,6 +283,15 @@ struct NavigationMapView: View {
                         .font(.system(size: 12, weight: .medium))
                 }
                 .foregroundColor(.altimeterBlue)
+
+                // Heading
+                HStack(spacing: 4) {
+                    Text(String(format: "%03d", currentHeading))
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    Text("°")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.aviationGold)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -309,22 +336,14 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Right side: Time, GPS status, and center button
+            // Right side: GPS status and center button
             VStack(alignment: .trailing, spacing: 12) {
-                // Time and GPS status
-                HStack(spacing: 12) {
-                    // GPS Status
-                    HStack(spacing: 6) {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(gpsStatusColor)
-                        StatusIndicator(gpsStatusIndicator, size: 8)
-                    }
-
-                    // Current time
-                    Text(formattedTime)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundColor(.primaryText)
+                // GPS Status
+                HStack(spacing: 6) {
+                    Text("GPS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(gpsStatusColor)
+                    StatusIndicator(gpsStatusIndicator, size: 8)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -407,20 +426,55 @@ struct LayerPickerSheet: View {
 
     var body: some View {
         NavigationView {
-            List {
-                Section("Apple Maps") {
-                    ForEach([MapLayerType.standard, .satellite]) { layer in
-                        layerRow(layer)
-                    }
-                }
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Apple Maps section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Apple Maps")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 20)
 
-                Section("Swiss Topo") {
-                    ForEach([MapLayerType.icao, .landeskarten, .swissimage]) { layer in
-                        layerRow(layer)
+                        VStack(spacing: 0) {
+                            ForEach([MapLayerType.standard, .satellite]) { layer in
+                                layerRow(layer)
+                                if layer != .satellite {
+                                    Divider()
+                                        .padding(.leading, 56)
+                                }
+                            }
+                        }
+                        .background(Color.panelBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                    }
+
+                    // Swiss Topo section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Swiss Topo")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 20)
+
+                        VStack(spacing: 0) {
+                            ForEach([MapLayerType.icao, .landeskarten, .swissimage]) { layer in
+                                layerRow(layer)
+                                if layer != .swissimage {
+                                    Divider()
+                                        .padding(.leading, 56)
+                                }
+                            }
+                        }
+                        .background(Color.panelBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
                     }
                 }
+                .padding(.vertical, 16)
             }
-            .listStyle(.insetGrouped)
+            .background(Color.cockpitBackground)
             .navigationTitle("Map Layer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -429,7 +483,7 @@ struct LayerPickerSheet: View {
                 }
             }
         }
-        .presentationDetents(horizontalSizeClass == .regular ? [.medium, .large] : [.height(400)])
+        .presentationDetents([.height(480)])
         .preferredColorScheme(.dark)
     }
 
@@ -460,6 +514,8 @@ struct LayerPickerSheet: View {
                         .foregroundColor(.aviationGold)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
     }
 }
@@ -613,38 +669,34 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             let identifier = "AircraftAnnotation"
-            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
 
-            if annotationView == nil {
-                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-                annotationView?.canShowCallout = false
-            } else {
-                annotationView?.annotation = annotation
+            // Always create fresh annotation view to avoid color issues
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = false
+
+            // Create aircraft image with aviation gold color - using explicit RGBA
+            let goldColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+
+            if let image = UIImage(systemName: "airplane", withConfiguration: config) {
+                let coloredImage = image.withTintColor(goldColor, renderingMode: .alwaysOriginal)
+                annotationView.image = coloredImage
             }
 
-            // Create aircraft image with aviation gold color
-            let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .bold)
-            let goldColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0) // aviationGold
-            let image = UIImage(systemName: "airplane", withConfiguration: config)?
-                .withTintColor(goldColor, renderingMode: .alwaysOriginal)
+            // Apply rotation for heading
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
 
-            annotationView?.image = image
-            annotationView?.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+            // Add shadow for visibility
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.7
+            annotationView.layer.shadowRadius = 3
 
-            // Add shadow
-            annotationView?.layer.shadowColor = UIColor.black.cgColor
-            annotationView?.layer.shadowOffset = CGSize(width: 0, height: 1)
-            annotationView?.layer.shadowOpacity = 0.5
-            annotationView?.layer.shadowRadius = 2
-
-            // Add background glow
-            if annotationView?.subviews.first(where: { $0.tag == 999 }) == nil {
-                let glowView = UIView(frame: CGRect(x: -8, y: -8, width: 40, height: 40))
-                glowView.backgroundColor = goldColor.withAlphaComponent(0.3)
-                glowView.layer.cornerRadius = 20
-                glowView.tag = 999
-                annotationView?.insertSubview(glowView, at: 0)
-            }
+            // Add background glow circle
+            let glowView = UIView(frame: CGRect(x: -8, y: -8, width: 44, height: 44))
+            glowView.backgroundColor = goldColor.withAlphaComponent(0.35)
+            glowView.layer.cornerRadius = 22
+            annotationView.insertSubview(glowView, at: 0)
 
             return annotationView
         }

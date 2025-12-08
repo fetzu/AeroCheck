@@ -62,6 +62,49 @@ enum MapLayerType: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Shared Map State
+
+/// Observable object to share map region state between different map views
+class SharedMapState: ObservableObject {
+    @Published var region: MKCoordinateRegion
+    @Published var cameraDistance: Double = 10000
+    @Published var cameraHeading: Double = 0
+
+    init() {
+        // Default to Switzerland center
+        self.region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2),
+            span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+        )
+    }
+
+    func updateFromCamera(_ camera: MapCamera) {
+        region = MKCoordinateRegion(
+            center: camera.centerCoordinate,
+            span: MKCoordinateSpan(
+                latitudeDelta: cameraDistance / 111000.0 * 0.9,
+                longitudeDelta: cameraDistance / 111000.0 * 0.9
+            )
+        )
+        cameraHeading = camera.heading
+    }
+
+    func updateFromRegion(_ newRegion: MKCoordinateRegion) {
+        region = newRegion
+        // Estimate camera distance from span (rough approximation)
+        cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
+    }
+
+    var mapCameraPosition: MapCameraPosition {
+        .camera(MapCamera(
+            centerCoordinate: region.center,
+            distance: cameraDistance,
+            heading: cameraHeading,
+            pitch: 0
+        ))
+    }
+}
+
 // MARK: - Navigation Map View
 
 /// Full-screen navigation map view with aircraft position tracking
@@ -71,19 +114,17 @@ struct NavigationMapView: View {
 
     @Binding var isPresented: Bool
     @State private var selectedLayer: MapLayerType = .standard
-    @State private var mapCameraPosition: MapCameraPosition = .automatic
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
-    @State private var currentTime = Date()
 
-    // Timer for updating time display
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    // Shared map state for preserving position between layers
+    @StateObject private var mapState = SharedMapState()
 
-    // Map region for manual control
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2), // Switzerland center
-        span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
-    )
+    // Timer trigger for time display - use ID to force refresh
+    @State private var timeDisplayId = UUID()
+
+    // Create a dedicated timer that fires every second
+    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     /// Current target speed from flight phase (if applicable)
     private var targetSpeed: Int? {
@@ -137,11 +178,19 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Formatted current time
+    /// Formatted current time - computed fresh each time
     private var formattedTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: currentTime)
+        return formatter.string(from: Date())
+    }
+
+    /// Current heading from location
+    private var currentHeading: Int {
+        guard let location = locationManager.currentLocation, location.course >= 0 else {
+            return 0
+        }
+        return Int(location.course)
     }
 
     var body: some View {
@@ -166,21 +215,43 @@ struct NavigationMapView: View {
         .onAppear {
             centerOnAircraft()
         }
-        .onReceive(timer) { time in
-            currentTime = time
+        .onReceive(clockTimer) { _ in
+            // Force the time display to update by changing its ID
+            timeDisplayId = UUID()
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             if isFollowingAircraft, let location = newLocation {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    mapCameraPosition = .camera(MapCamera(
-                        centerCoordinate: location.coordinate,
-                        distance: 10000, // 10km view distance
-                        heading: location.course >= 0 ? location.course : 0,
-                        pitch: 0
-                    ))
+                updateMapStateForLocation(location)
+            }
+        }
+        .onChange(of: selectedLayer) { oldLayer, newLayer in
+            // When switching layers, force a tile refresh for Swiss layers
+            if newLayer.isSwissLayer {
+                // Trigger a small region update to force tile loading
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let currentRegion = mapState.region
+                    mapState.region = MKCoordinateRegion(
+                        center: currentRegion.center,
+                        span: MKCoordinateSpan(
+                            latitudeDelta: currentRegion.span.latitudeDelta * 1.001,
+                            longitudeDelta: currentRegion.span.longitudeDelta * 1.001
+                        )
+                    )
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        mapState.region = currentRegion
+                    }
                 }
             }
         }
+    }
+
+    private func updateMapStateForLocation(_ location: CLLocation) {
+        let newRegion = MKCoordinateRegion(
+            center: location.coordinate,
+            span: mapState.region.span
+        )
+        mapState.updateFromRegion(newRegion)
+        mapState.cameraHeading = location.course >= 0 ? location.course : 0
     }
 
     // MARK: - Map Content
@@ -191,52 +262,24 @@ struct NavigationMapView: View {
             // Use custom tile overlay for Swiss layers
             SwissMapView(
                 layerType: selectedLayer,
-                region: $region,
+                mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: appState.currentFlight?.gpsTrack ?? [],
                 isFollowingAircraft: $isFollowingAircraft
             )
         } else {
             // Use native MapKit for standard/satellite
-            Map(position: $mapCameraPosition, interactionModes: .all) {
-                // Aircraft position marker
-                if let location = locationManager.currentLocation {
-                    Annotation("Aircraft", coordinate: location.coordinate) {
-                        AircraftMarker(
-                            heading: location.course >= 0 ? location.course : 0,
-                            speed: locationManager.currentSpeedKnots
-                        )
-                    }
-                }
-
-                // GPS track polyline
-                if let track = appState.currentFlight?.gpsTrack, track.count > 1 {
-                    MapPolyline(coordinates: track.map { $0.coordinate })
-                        .stroke(Color.aviationGold, lineWidth: 3)
-                }
-            }
-            .mapStyle(selectedLayer == .satellite ? .imagery : .standard)
-            .mapControls {
-                MapScaleView(anchorEdge: .leading)
-            }
-            .gesture(
-                DragGesture()
-                    .onChanged { _ in
-                        isFollowingAircraft = false
-                    }
+            NativeMapView(
+                selectedLayer: selectedLayer,
+                mapState: mapState,
+                currentLocation: locationManager.currentLocation,
+                gpsTrack: appState.currentFlight?.gpsTrack ?? [],
+                isFollowingAircraft: $isFollowingAircraft
             )
         }
     }
 
     // MARK: - Top Bar
-
-    /// Current heading from location
-    private var currentHeading: Int {
-        guard let location = locationManager.currentLocation, location.course >= 0 else {
-            return 0
-        }
-        return Int(location.course)
-    }
 
     private var topBar: some View {
         HStack {
@@ -256,10 +299,11 @@ struct NavigationMapView: View {
 
             // Time, Speed, Altitude, and Heading display
             HStack(spacing: 16) {
-                // Current time
+                // Current time - use id to force refresh
                 Text(formattedTime)
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
                     .foregroundColor(.primaryText)
+                    .id(timeDisplayId)
 
                 // Divider
                 Rectangle()
@@ -328,12 +372,6 @@ struct NavigationMapView: View {
 
     private var bottomControls: some View {
         HStack(alignment: .bottom) {
-            // Scale indicator placeholder for Swiss maps (scale is built into SwissMapView)
-            if selectedLayer.isSwissLayer {
-                Spacer()
-                    .frame(width: 100)
-            }
-
             Spacer()
 
             // Right side: GPS status and center button
@@ -374,23 +412,74 @@ struct NavigationMapView: View {
 
         isFollowingAircraft = true
 
-        if selectedLayer.isSwissLayer {
-            // Update region for Swiss map
-            region = MKCoordinateRegion(
-                center: location.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-            )
-        } else {
-            // Update camera position for MapKit
-            withAnimation(.easeInOut(duration: 0.5)) {
-                mapCameraPosition = .camera(MapCamera(
-                    centerCoordinate: location.coordinate,
-                    distance: 10000,
-                    heading: location.course >= 0 ? location.course : 0,
-                    pitch: 0
-                ))
+        // Update shared map state with current location
+        let newRegion = MKCoordinateRegion(
+            center: location.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+        )
+        mapState.updateFromRegion(newRegion)
+        mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        mapState.cameraDistance = 10000
+    }
+}
+
+// MARK: - Native Map View (SwiftUI Map wrapper)
+
+struct NativeMapView: View {
+    let selectedLayer: MapLayerType
+    @ObservedObject var mapState: SharedMapState
+    let currentLocation: CLLocation?
+    let gpsTrack: [GPSPoint]
+    @Binding var isFollowingAircraft: Bool
+
+    @State private var cameraPosition: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $cameraPosition, interactionModes: .all) {
+            // Aircraft position marker
+            if let location = currentLocation {
+                Annotation("Aircraft", coordinate: location.coordinate) {
+                    AircraftMarker(
+                        heading: location.course >= 0 ? location.course : 0,
+                        speed: location.speed * 1.94384 // Convert m/s to knots
+                    )
+                }
+            }
+
+            // GPS track polyline
+            if gpsTrack.count > 1 {
+                MapPolyline(coordinates: gpsTrack.map { $0.coordinate })
+                    .stroke(Color.aviationGold, lineWidth: 3)
             }
         }
+        .mapStyle(selectedLayer == .satellite ? .imagery : .standard)
+        .mapControls {
+            MapScaleView(anchorEdge: .leading)
+        }
+        .onAppear {
+            cameraPosition = mapState.mapCameraPosition
+        }
+        .onChange(of: mapState.region.center.latitude) { _, _ in
+            cameraPosition = mapState.mapCameraPosition
+        }
+        .onChange(of: mapState.region.center.longitude) { _, _ in
+            cameraPosition = mapState.mapCameraPosition
+        }
+        .onChange(of: mapState.region.span.latitudeDelta) { _, _ in
+            cameraPosition = mapState.mapCameraPosition
+        }
+        .onMapCameraChange(frequency: .continuous) { context in
+            // Update shared state when user interacts with map
+            mapState.updateFromRegion(context.region)
+            mapState.cameraDistance = context.camera.distance
+            mapState.cameraHeading = context.camera.heading
+        }
+        .gesture(
+            DragGesture()
+                .onChanged { _ in
+                    isFollowingAircraft = false
+                }
+        )
     }
 }
 
@@ -525,7 +614,7 @@ struct LayerPickerSheet: View {
 /// UIViewRepresentable wrapper for MKMapView with swisstopo tile overlays
 struct SwissMapView: UIViewRepresentable {
     let layerType: MapLayerType
-    @Binding var region: MKCoordinateRegion
+    @ObservedObject var mapState: SharedMapState
     let currentLocation: CLLocation?
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
@@ -537,9 +626,6 @@ struct SwissMapView: UIViewRepresentable {
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
-        // Configure scale view to always show in bottom left
-        mapView.showsScale = true
-
         // Add gesture recognizer to detect user interaction
         let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         panGesture.delegate = context.coordinator
@@ -549,16 +635,44 @@ struct SwissMapView: UIViewRepresentable {
         pinchGesture.delegate = context.coordinator
         mapView.addGestureRecognizer(pinchGesture)
 
+        // Set initial region from shared state
+        mapView.setRegion(mapState.region, animated: false)
+
+        // Add initial tile overlay
+        if let layerId = layerType.swisstopoLayerIdentifier {
+            let overlay = SwisstopoTileOverlay(
+                layerIdentifier: layerId,
+                tileExtension: layerType.tileExtension
+            )
+            overlay.canReplaceMapContent = true
+            mapView.addOverlay(overlay, level: .aboveLabels)
+            context.coordinator.currentLayerType = layerType
+        }
+
         return mapView
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Update tile overlay if layer changed
-        context.coordinator.updateTileOverlayIfNeeded(mapView, layerType: layerType)
+        let layerChanged = context.coordinator.updateTileOverlayIfNeeded(mapView, layerType: layerType)
 
-        // Update region
-        if isFollowingAircraft {
-            mapView.setRegion(region, animated: true)
+        // Update region from shared state
+        let regionChanged = !regionsAreEqual(mapView.region, mapState.region)
+        if regionChanged || layerChanged {
+            mapView.setRegion(mapState.region, animated: !layerChanged)
+
+            // Force tile reload after region change for Swiss layers
+            if layerChanged {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    // Trigger a redraw by slightly adjusting the region
+                    var adjustedRegion = mapState.region
+                    adjustedRegion.span.latitudeDelta *= 1.0001
+                    mapView.setRegion(adjustedRegion, animated: false)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        mapView.setRegion(mapState.region, animated: false)
+                    }
+                }
+            }
         }
 
         // Update aircraft annotation
@@ -566,6 +680,14 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
+    }
+
+    private func regionsAreEqual(_ r1: MKCoordinateRegion, _ r2: MKCoordinateRegion) -> Bool {
+        let epsilon = 0.0001
+        return abs(r1.center.latitude - r2.center.latitude) < epsilon &&
+               abs(r1.center.longitude - r2.center.longitude) < epsilon &&
+               abs(r1.span.latitudeDelta - r2.span.latitudeDelta) < epsilon &&
+               abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
     }
 
     func makeCoordinator() -> Coordinator {
@@ -606,7 +728,8 @@ struct SwissMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
-        private var currentLayerType: MapLayerType?
+        var currentLayerType: MapLayerType?
+        private var isUpdatingRegion = false
 
         init(_ parent: SwissMapView) {
             self.parent = parent
@@ -628,9 +751,9 @@ struct SwissMapView: UIViewRepresentable {
             return true
         }
 
-        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType) {
+        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType) -> Bool {
             // Only update if layer changed
-            guard layerType != currentLayerType else { return }
+            guard layerType != currentLayerType else { return false }
             currentLayerType = layerType
 
             // Remove existing tile overlays
@@ -646,16 +769,28 @@ struct SwissMapView: UIViewRepresentable {
                 overlay.canReplaceMapContent = true
                 mapView.addOverlay(overlay, level: .aboveLabels)
             }
+
+            return true
+        }
+
+        // Sync region changes back to shared state
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            guard !isUpdatingRegion else { return }
+            isUpdatingRegion = true
+            parent.mapState.updateFromRegion(mapView.region)
+            isUpdatingRegion = false
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tileOverlay = overlay as? MKTileOverlay {
-                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
+                return renderer
             }
 
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(Color.aviationGold)
+                // Use explicit UIColor for gold
+                renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
                 renderer.lineWidth = 3
                 return renderer
             }
@@ -670,33 +805,38 @@ struct SwissMapView: UIViewRepresentable {
 
             let identifier = "AircraftAnnotation"
 
-            // Always create fresh annotation view to avoid color issues
+            // Always create fresh annotation view to ensure correct coloring
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Create aircraft image with aviation gold color - using explicit RGBA
-            let goldColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
-            let config = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+            // Create aircraft image with explicit yellow/gold color
+            // Using a brighter yellow that's clearly visible on all backgrounds
+            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                let coloredImage = image.withTintColor(goldColor, renderingMode: .alwaysOriginal)
+                // Create a new image with the tint color applied
+                let coloredImage = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
                 annotationView.image = coloredImage
             }
 
             // Apply rotation for heading
             annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
 
-            // Add shadow for visibility
+            // Add strong shadow for visibility on all backgrounds
             annotationView.layer.shadowColor = UIColor.black.cgColor
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
-            annotationView.layer.shadowOpacity = 0.7
-            annotationView.layer.shadowRadius = 3
+            annotationView.layer.shadowOpacity = 0.8
+            annotationView.layer.shadowRadius = 4
 
-            // Add background glow circle
-            let glowView = UIView(frame: CGRect(x: -8, y: -8, width: 44, height: 44))
-            glowView.backgroundColor = goldColor.withAlphaComponent(0.35)
-            glowView.layer.cornerRadius = 22
+            // Add background glow circle with bright yellow
+            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
+            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
+            glowView.layer.cornerRadius = 25
             annotationView.insertSubview(glowView, at: 0)
+
+            // Center the glow view
+            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
 
             return annotationView
         }

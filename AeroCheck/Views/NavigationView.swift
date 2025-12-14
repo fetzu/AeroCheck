@@ -845,13 +845,22 @@ struct SwissMapView: UIViewRepresentable {
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
     private func cameraZoomRange(for layer: MapLayerType, forceICAO: Bool) -> MKMapView.CameraZoomRange {
-        // Camera zoom range uses altitude (meters from camera to ground)
-        // Lower altitude = more zoomed in, higher altitude = more zoomed out
-        // Approximate mapping from tile zoom levels to camera altitude:
-        // Zoom 7 ≈ 500,000m altitude (very zoomed out)
-        // Zoom 11 ≈ 30,000m altitude (ICAO/Segelflugkarte switch point)
-        // Zoom 14 ≈ 4,000m altitude (max Segelflugkarte)
-        // Zoom 18 ≈ 250m altitude (max Landeskarten/SWISSIMAGE)
+        // Camera zoom range uses centerCoordinateDistance (meters from camera to ground center)
+        // Lower distance = more zoomed in, higher distance = more zoomed out
+        //
+        // Empirical mapping from tile zoom levels to camera distance:
+        // Zoom 7  ≈ 500,000m (country level, very zoomed out)
+        // Zoom 8  ≈ 250,000m
+        // Zoom 9  ≈ 120,000m
+        // Zoom 10 ≈ 60,000m
+        // Zoom 11 ≈ 30,000m (ICAO max zoom / Segelflugkarte switch point)
+        // Zoom 12 ≈ 15,000m
+        // Zoom 13 ≈ 7,500m
+        // Zoom 14 ≈ 4,000m (Segelflugkarte max zoom)
+        // Zoom 15 ≈ 2,000m
+        // Zoom 16 ≈ 1,000m
+        // Zoom 17 ≈ 500m
+        // Zoom 18 ≈ 250m (Landeskarten/SWISSIMAGE max zoom)
 
         switch layer {
         case .standard, .satellite:
@@ -861,20 +870,22 @@ struct SwissMapView: UIViewRepresentable {
         case .icao:
             if forceICAO {
                 // ICAO only: zoom 7-11
-                // Lock max zoom at about zoom level 11 (where Segelflugkarte would start)
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 25_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 11 (30,000m) - this prevents zooming closer
+                // Using 35,000m to have a small buffer and ensure we stay within zoom 11
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 35_000, maxCenterCoordinateDistance: 600_000)!
             } else {
                 // ICAO + Segelflugkarte: zoom 7-14
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 3_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 14 (4,000m)
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 4_000, maxCenterCoordinateDistance: 600_000)!
             }
 
         case .landeskarten:
             // Landeskarten: zoom 7-18
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 200, maxCenterCoordinateDistance: 600_000)!
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 250, maxCenterCoordinateDistance: 600_000)!
 
         case .swissimage:
             // SWISSIMAGE: zoom 7-18
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 200, maxCenterCoordinateDistance: 600_000)!
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 250, maxCenterCoordinateDistance: 600_000)!
         }
     }
 
@@ -899,24 +910,26 @@ struct SwissMapView: UIViewRepresentable {
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         // Update tile overlay if layer changed or force setting changed
-        let layerChanged = context.coordinator.updateTileOverlayIfNeeded(
+        let overlayChanged = context.coordinator.updateTileOverlayIfNeeded(
             mapView,
             layerType: layerType,
             forceICAO: forceICAOLayer
         )
 
-        // Update zoom range if layer or force setting changed
-        if layerChanged {
-            mapView.cameraZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
+        // Always update zoom range to ensure it matches current settings
+        // This is important when forceICAOLayer changes from Settings
+        let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
+        if mapView.cameraZoomRange != newZoomRange {
+            mapView.cameraZoomRange = newZoomRange
         }
 
         // Update region from shared state
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if regionChanged || layerChanged {
-            mapView.setRegion(mapState.region, animated: !layerChanged)
+        if regionChanged || overlayChanged {
+            mapView.setRegion(mapState.region, animated: !overlayChanged)
 
             // Force tile reload after region change for Swiss layers
-            if layerChanged {
+            if overlayChanged {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     // Trigger a redraw by slightly adjusting the region
                     var adjustedRegion = mapState.region
@@ -1163,10 +1176,10 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
-        // Allow MapKit to request tiles at any zoom level
-        // We handle clamping in url(forTilePath:) to ensure tiles always display
-        self.minimumZ = 0
-        self.maximumZ = 22
+        // Set tile overlay zoom constraints to match the camera zoom range
+        // This helps MapKit understand the valid tile range
+        self.minimumZ = icaoMinZoom
+        self.maximumZ = forceICAO ? icaoMaxZoom : segelflugkarteMaxZoom
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
@@ -1220,10 +1233,9 @@ class SwisstopoTileOverlay: MKTileOverlay {
 
         super.init(urlTemplate: urlTemplate)
 
-        // Allow MapKit to request tiles at any zoom level
-        // We handle clamping in url(forTilePath:) to ensure tiles always display
-        self.minimumZ = 0
-        self.maximumZ = 22
+        // Set proper zoom constraints to match the camera zoom range
+        self.minimumZ = minimumZ
+        self.maximumZ = maximumZ
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {

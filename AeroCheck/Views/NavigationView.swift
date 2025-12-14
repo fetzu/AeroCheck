@@ -120,11 +120,17 @@ class SharedMapState: ObservableObject {
 struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
 
     @Binding var isPresented: Bool
     @State private var selectedLayer: MapLayerType = .standard
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
+
+    /// Whether offline mode is active
+    private var isOfflineMode: Bool {
+        appState.settings.offlineMode && offlineMapManager.isCacheAvailable
+    }
 
     // Shared map state for preserving position between layers
     @StateObject private var mapState = SharedMapState()
@@ -223,6 +229,10 @@ struct NavigationMapView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             centerOnAircraft()
+            // Force ICAO layer in offline mode
+            if isOfflineMode {
+                selectedLayer = .icao
+            }
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
@@ -267,15 +277,16 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private var mapContent: some View {
-        if selectedLayer.isSwissLayer {
-            // Use custom tile overlay for Swiss layers
+        if isOfflineMode || selectedLayer.isSwissLayer {
+            // Use custom tile overlay for Swiss layers (or offline mode)
             SwissMapView(
-                layerType: selectedLayer,
+                layerType: isOfflineMode ? .icao : selectedLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: appState.currentFlight?.gpsTrack ?? [],
                 isFollowingAircraft: $isFollowingAircraft,
-                forceICAOLayer: appState.settings.forceICAOChartLayer
+                forceICAOLayer: appState.settings.forceICAOChartLayer || isOfflineMode,
+                offlineMapManager: isOfflineMode ? offlineMapManager : nil
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -356,15 +367,33 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Layer picker button
+            // Offline mode indicator
+            if isOfflineMode {
+                HStack(spacing: 6) {
+                    Image(systemName: "internaldrive.fill")
+                    Text("OFFLINE")
+                }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.aviationRed.opacity(0.9))
+                )
+            }
+
+            // Layer picker button (disabled in offline mode)
             Button(action: { showLayerPicker = true }) {
                 HStack(spacing: 6) {
-                    Image(systemName: selectedLayer.icon)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10))
+                    Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
+                    if !isOfflineMode {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                    }
                 }
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.primaryText)
+                .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
@@ -372,6 +401,7 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
             }
+            .disabled(isOfflineMode)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
             }
@@ -841,6 +871,7 @@ struct SwissMapView: UIViewRepresentable {
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
     let forceICAOLayer: Bool
+    var offlineMapManager: OfflineMapManager?
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -957,8 +988,11 @@ struct SwissMapView: UIViewRepresentable {
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
         if layerType == .icao {
-            // ICAO layer with seamless Segelflugkarte switching
-            let overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAOLayer)
+            // ICAO layer with seamless Segelflugkarte switching (or offline mode)
+            let overlay = ICAOSegelflugkarteTileOverlay(
+                forceICAO: forceICAOLayer,
+                offlineMapManager: offlineMapManager
+            )
             overlay.canReplaceMapContent = true
             mapView.addOverlay(overlay, level: .aboveLabels)
         } else if let layerId = layerType.swisstopoLayerIdentifier {
@@ -973,6 +1007,7 @@ struct SwissMapView: UIViewRepresentable {
         }
         context.coordinator.currentLayerType = layerType
         context.coordinator.currentForceICAO = forceICAOLayer
+        context.coordinator.offlineMapManager = offlineMapManager
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1015,6 +1050,7 @@ struct SwissMapView: UIViewRepresentable {
         var parent: SwissMapView
         var currentLayerType: MapLayerType?
         var currentForceICAO: Bool = false
+        var offlineMapManager: OfflineMapManager?
         private var isUpdatingRegion = false
 
         init(_ parent: SwissMapView) {
@@ -1045,7 +1081,10 @@ struct SwissMapView: UIViewRepresentable {
 
             // Add new tile overlay
             if layerType == .icao {
-                let overlay = ICAOSegelflugkarteTileOverlay(forceICAO: forceICAO)
+                let overlay = ICAOSegelflugkarteTileOverlay(
+                    forceICAO: forceICAO,
+                    offlineMapManager: offlineMapManager
+                )
                 overlay.canReplaceMapContent = true
                 mapView.addOverlay(overlay, level: .aboveLabels)
             } else if let layerId = layerType.swisstopoLayerIdentifier {
@@ -1163,10 +1202,12 @@ class AircraftAnnotation: NSObject, MKAnnotation {
 /// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-11, scale 1:500,000
 /// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-14, scale 1:300,000
 /// When forceICAO is true, always use ICAO layer even at higher zoom levels
+/// When offlineMapManager is provided, use cached tiles from disk
 class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
     private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
     let forceICAO: Bool
+    weak var offlineMapManager: OfflineMapManager?
 
     // Zoom level where we switch from ICAO to Segelflugkarte
     // ICAO: zoom 7-11 (1:500,000)
@@ -1176,8 +1217,9 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     private let segelflugkarteMinZoom = 11
     private let segelflugkarteMaxZoom = 14
 
-    init(forceICAO: Bool = false) {
+    init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil) {
         self.forceICAO = forceICAO
+        self.offlineMapManager = offlineMapManager
         // Use a placeholder URL template - we override url(forTilePath:) anyway
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
@@ -1185,35 +1227,43 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
         // Set tile overlay zoom constraints to match the camera zoom range
         // This helps MapKit understand the valid tile range
         self.minimumZ = icaoMinZoom
-        self.maximumZ = forceICAO ? icaoMaxZoom : segelflugkarteMaxZoom
+        // In offline mode, only ICAO tiles are available (no Segelflugkarte)
+        self.maximumZ = (offlineMapManager != nil || forceICAO) ? icaoMaxZoom : segelflugkarteMaxZoom
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
         let z = path.z
+        let clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
 
-        // Determine which layer to use based on zoom level and force setting
+        // Check for offline cached tile first
+        if let manager = offlineMapManager,
+           let cachedURL = manager.cachedTileURL(z: clampedZ, x: path.x, y: path.y) {
+            return cachedURL
+        }
+
+        // Online mode - determine which layer to use based on zoom level and force setting
         let layerIdentifier: String
-        let clampedZ: Int
+        let finalZ: Int
         let tileExtension = "png"
 
-        if forceICAO {
+        if forceICAO || offlineMapManager != nil {
             // Force ICAO at all zoom levels - clamp to ICAO's valid range
             layerIdentifier = icaoLayerIdentifier
-            clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+            finalZ = clampedZ
         } else {
             // Seamless switching between ICAO and Segelflugkarte
             if z <= icaoMaxZoom {
                 // Use ICAO chart for lower zoom levels
                 layerIdentifier = icaoLayerIdentifier
-                clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+                finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
             } else {
                 // Use Segelflugkarte for higher zoom levels
                 layerIdentifier = segelflugkarteLayerIdentifier
-                clampedZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
+                finalZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
             }
         }
 
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).\(tileExtension)"
         return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }
@@ -1288,4 +1338,5 @@ struct NavigationModeButton: View {
     NavigationMapView(isPresented: .constant(true))
         .environmentObject(AppState())
         .environmentObject(LocationManager())
+        .environmentObject(OfflineMapManager())
 }

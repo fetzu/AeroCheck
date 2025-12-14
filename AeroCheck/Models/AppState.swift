@@ -18,6 +18,7 @@ struct AppSettings: Codable {
     var stepByStepHighlighting: Bool = true // Highlight items one by one
     var learningMode: Bool = false // Hide memorizable checks
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
+    var offlineMode: Bool = false // When true, use cached ICAO chart only
 
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {

@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
 
     @State private var selectedAircraft: AircraftType = .wt9Dynamic
@@ -12,6 +13,9 @@ struct SettingsView: View {
     @State private var stepByStepHighlighting: Bool = true
     @State private var learningMode: Bool = false
     @State private var forceICAOChartLayer: Bool = false
+    @State private var offlineMode: Bool = false
+    @State private var showDownloadModal: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
     
     var body: some View {
         NavigationView {
@@ -80,10 +84,76 @@ struct SettingsView: View {
                 // Navigation section
                 Section {
                     Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
+                        .disabled(offlineMode)
                 } header: {
                     Label("Navigation", systemImage: "map")
                 } footer: {
                     Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+                }
+
+                // Offline Maps section
+                Section {
+                    Toggle("Offline Mode", isOn: $offlineMode)
+                        .onChange(of: offlineMode) { _, newValue in
+                            if newValue && !offlineMapManager.isCacheAvailable {
+                                // Show download modal when enabling offline mode without cache
+                                showDownloadModal = true
+                            }
+                        }
+
+                    if offlineMapManager.isCacheAvailable {
+                        HStack {
+                            Text("Cache Version")
+                            Spacer()
+                            Text(offlineMapManager.cacheVersion)
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Text("Downloaded")
+                            Spacer()
+                            Text(offlineMapManager.formattedCacheDate)
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Text("Cache Size")
+                            Spacer()
+                            Text(offlineMapManager.formattedCacheSize)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Button(action: { showDownloadModal = true }) {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Update Cache")
+                            }
+                        }
+
+                        Button(role: .destructive, action: { showDeleteConfirmation = true }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("Delete Cache")
+                            }
+                        }
+                    } else {
+                        Button(action: { showDownloadModal = true }) {
+                            HStack {
+                                Image(systemName: "arrow.down.circle")
+                                Text("Download ICAO Chart")
+                            }
+                        }
+                    }
+                } header: {
+                    Label("Offline Maps", systemImage: "arrow.down.circle")
+                } footer: {
+                    if offlineMode {
+                        Text("Offline mode restricts the map to the cached ICAO Chart only. Layer switching is disabled.")
+                    } else if offlineMapManager.isCacheAvailable {
+                        Text("ICAO Chart cached for offline use. The chart is updated yearly by SwissTopo in April.")
+                    } else {
+                        Text("Download the ICAO Chart for offline navigation. Requires approximately 50-100 MB of storage.")
+                    }
                 }
 
                 // Checklist section
@@ -240,6 +310,19 @@ struct SettingsView: View {
             .onAppear {
                 loadSettings()
             }
+            .sheet(isPresented: $showDownloadModal) {
+                OfflineMapDownloadSheet(offlineMode: $offlineMode)
+                    .environmentObject(offlineMapManager)
+            }
+            .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    offlineMapManager.deleteCache()
+                    offlineMode = false
+                }
+            } message: {
+                Text("This will delete the cached ICAO chart. You will need to download it again for offline use.")
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -285,6 +368,7 @@ struct SettingsView: View {
         stepByStepHighlighting = appState.settings.stepByStepHighlighting
         learningMode = appState.settings.learningMode
         forceICAOChartLayer = appState.settings.forceICAOChartLayer
+        offlineMode = appState.settings.offlineMode
     }
 
     private func saveSettings() {
@@ -294,10 +378,170 @@ struct SettingsView: View {
         appState.settings.stepByStepHighlighting = stepByStepHighlighting
         appState.settings.learningMode = learningMode
         appState.settings.forceICAOChartLayer = forceICAOChartLayer
+        appState.settings.offlineMode = offlineMode
         appState.saveSettings()
 
         // Apply screen setting
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+    }
+}
+
+// MARK: - Offline Map Download Sheet
+
+struct OfflineMapDownloadSheet: View {
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @Environment(\.dismiss) var dismiss
+    @Binding var offlineMode: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header icon
+                Image(systemName: "map.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationGold)
+                    .padding(.top, 40)
+
+                // Title
+                Text("ICAO Chart Download")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Description
+                Text("Download the Swiss ICAO Aeronautical Chart for offline navigation. This allows you to use the chart without an internet connection.")
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                Spacer()
+
+                // Download progress or status
+                if offlineMapManager.isDownloading {
+                    VStack(spacing: 16) {
+                        ProgressView(value: offlineMapManager.downloadProgress)
+                            .progressViewStyle(LinearProgressViewStyle(tint: .aviationGold))
+                            .padding(.horizontal, 40)
+
+                        Text("Downloading tiles...")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+
+                        Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
+                } else if let error = offlineMapManager.downloadError {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.aviationRed)
+
+                        Text(error)
+                            .font(.system(size: 14))
+                            .foregroundColor(.aviationRed)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                } else if offlineMapManager.isCacheAvailable {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.aviationGreen)
+
+                        Text("ICAO Chart cached successfully!")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.aviationGreen)
+
+                        Text("Size: \(offlineMapManager.formattedCacheSize)")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        Text("Requirements")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+
+                        HStack(spacing: 20) {
+                            VStack {
+                                Image(systemName: "wifi")
+                                    .font(.system(size: 24))
+                                Text("Wi-Fi")
+                                    .font(.system(size: 12))
+                            }
+                            .foregroundColor(.secondaryText)
+
+                            VStack {
+                                Image(systemName: "internaldrive")
+                                    .font(.system(size: 24))
+                                Text("~100 MB")
+                                    .font(.system(size: 12))
+                            }
+                            .foregroundColor(.secondaryText)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Action buttons
+                VStack(spacing: 12) {
+                    if offlineMapManager.isDownloading {
+                        // No action button while downloading
+                    } else if offlineMapManager.isCacheAvailable {
+                        Button(action: { dismiss() }) {
+                            Text("Done")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.aviationGold)
+                                )
+                        }
+                        .padding(.horizontal, 24)
+                    } else {
+                        Button(action: startDownload) {
+                            Text("Download ICAO Chart")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.aviationGold)
+                                )
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if !offlineMapManager.isDownloading {
+                        Button("Cancel") {
+                            if !offlineMapManager.isCacheAvailable {
+                                offlineMode = false
+                            }
+                            dismiss()
+                        }
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .interactiveDismissDisabled(offlineMapManager.isDownloading)
+    }
+
+    private func startDownload() {
+        Task {
+            await offlineMapManager.downloadICAOChart()
+        }
     }
 }
 
@@ -307,4 +551,5 @@ struct SettingsView: View {
     SettingsView()
         .environmentObject(AppState())
         .environmentObject(LocationManager())
+        .environmentObject(OfflineMapManager())
 }

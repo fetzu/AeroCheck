@@ -844,6 +844,11 @@ struct SwissMapView: UIViewRepresentable {
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
+    ///
+    /// **IMPORTANT: This is where zoom limits are defined for each layer type.**
+    /// Adjust minCenterCoordinateDistance to change max zoom-in level.
+    /// Adjust maxCenterCoordinateDistance to change max zoom-out level.
+    ///
     private func cameraZoomRange(for layer: MapLayerType, forceICAO: Bool) -> MKMapView.CameraZoomRange {
         // Camera zoom range uses centerCoordinateDistance (meters from camera to ground center)
         // Lower distance = more zoomed in, higher distance = more zoomed out
@@ -860,7 +865,7 @@ struct SwissMapView: UIViewRepresentable {
         // Zoom 15 ≈ 2,000m
         // Zoom 16 ≈ 1,000m
         // Zoom 17 ≈ 500m
-        // Zoom 18 ≈ 250m (Landeskarten/SWISSIMAGE max zoom)
+        // Zoom 18 ≈ 300m (Landeskarten/SWISSIMAGE max zoom)
 
         switch layer {
         case .standard, .satellite:
@@ -870,22 +875,23 @@ struct SwissMapView: UIViewRepresentable {
         case .icao:
             if forceICAO {
                 // ICAO only: zoom 7-11
-                // Lock max zoom at zoom level 11 (30,000m) - this prevents zooming closer
-                // Using 35,000m to have a small buffer and ensure we stay within zoom 11
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 35_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 11 (~30,000m)
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 30_000, maxCenterCoordinateDistance: 600_000)!
             } else {
                 // ICAO + Segelflugkarte: zoom 7-14
-                // Lock max zoom at zoom level 14 (4,000m)
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 4_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 14 (~4,000m) - using 5,000m for safety margin
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 5_000, maxCenterCoordinateDistance: 600_000)!
             }
 
         case .landeskarten:
             // Landeskarten: zoom 7-18
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 250, maxCenterCoordinateDistance: 600_000)!
+            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 350, maxCenterCoordinateDistance: 600_000)!
 
         case .swissimage:
             // SWISSIMAGE: zoom 7-18
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 250, maxCenterCoordinateDistance: 600_000)!
+            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 350, maxCenterCoordinateDistance: 600_000)!
         }
     }
 

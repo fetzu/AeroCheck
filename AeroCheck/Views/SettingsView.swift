@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var keepScreenOn: Bool = true
     @State private var stepByStepHighlighting: Bool = true
     @State private var learningMode: Bool = false
+    @State private var forceICAOChartLayer: Bool = false
     
     var body: some View {
         NavigationView {
@@ -75,7 +76,16 @@ struct SettingsView: View {
                 } footer: {
                     Text("Prevents the screen from dimming during flight")
                 }
-                
+
+                // Navigation section
+                Section {
+                    Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
+                } header: {
+                    Label("Navigation", systemImage: "map")
+                } footer: {
+                    Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+                }
+
                 // Checklist section
                 Section {
                     Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
@@ -274,6 +284,7 @@ struct SettingsView: View {
         keepScreenOn = appState.settings.keepScreenOn
         stepByStepHighlighting = appState.settings.stepByStepHighlighting
         learningMode = appState.settings.learningMode
+        forceICAOChartLayer = appState.settings.forceICAOChartLayer
     }
 
     private func saveSettings() {
@@ -282,6 +293,7 @@ struct SettingsView: View {
         appState.settings.keepScreenOn = keepScreenOn
         appState.settings.stepByStepHighlighting = stepByStepHighlighting
         appState.settings.learningMode = learningMode
+        appState.settings.forceICAOChartLayer = forceICAOChartLayer
         appState.saveSettings()
 
         // Apply screen setting

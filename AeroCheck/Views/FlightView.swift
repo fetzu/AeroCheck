@@ -12,6 +12,7 @@ struct FlightView: View {
     @State private var showDepartureBriefing = false
     @State private var showApproachBriefing = false
     @State private var showFlightInfo = false
+    @State private var showNavigationMode = false
     @State private var timerTrigger = false
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
@@ -78,6 +79,9 @@ struct FlightView: View {
         }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
+        }
+        .fullScreenCover(isPresented: $showNavigationMode) {
+            NavigationMapView(isPresented: $showNavigationMode)
         }
         .alert("End Flight?", isPresented: $showEndFlightAlert) {
             Button("Cancel", role: .cancel) { }
@@ -429,6 +433,19 @@ struct FlightView: View {
             }
             .disabled(!appState.canGoToPreviousPhase)
 
+            // Navigation mode button (compact)
+            Button(action: { showNavigationMode = true }) {
+                Image(systemName: "map")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.aviationBlue, lineWidth: 2)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationBlue.opacity(0.2)))
+                    )
+            }
+
             // Speeds button
             Button(action: { showSpeedReference = true }) {
                 HStack(spacing: 4) {
@@ -593,16 +610,53 @@ struct FlightView: View {
             .disabled(!appState.canGoToPreviousPhase)
             
             Spacer()
-            
-            // Speed reference button (always centered)
-            Button(action: { showSpeedReference = true }) {
-                HStack {
-                    Image(systemName: "speedometer")
-                    Text("SPEEDS")
+
+            // Navigation mode button (compact for portrait)
+            Button(action: { showNavigationMode = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "map")
+                        .font(.system(size: 16))
+                    Text("NAV")
+                        .font(.system(size: 16, weight: .semibold))
                 }
+                .fixedSize()
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.aviationBlue, lineWidth: 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.aviationBlue.opacity(0.2))
+                        )
+                )
             }
-            .buttonStyle(SecondaryButtonStyle())
-            
+            .fixedSize()
+
+            // Speed reference button (compact for portrait)
+            Button(action: { showSpeedReference = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "speedometer")
+                        .font(.system(size: 16))
+                    Text("SPEEDS")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .fixedSize()
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.aviationBlue, lineWidth: 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.aviationBlue.opacity(0.2))
+                        )
+                )
+            }
+            .fixedSize()
+
             Spacer()
             
             // Right side: either END FLIGHT (on last phase) or NEXT button

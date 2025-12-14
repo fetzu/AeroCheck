@@ -875,23 +875,23 @@ struct SwissMapView: UIViewRepresentable {
         case .icao:
             if forceICAO {
                 // ICAO only: zoom 7-11
-                // Lock max zoom at zoom level 11 (~30,000m)
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 30_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 11 (~30,000m) - changed/corrected to 135'000m
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 135_000, maxCenterCoordinateDistance: 600_000)!
             } else {
                 // ICAO + Segelflugkarte: zoom 7-14
-                // Lock max zoom at zoom level 14 (~4,000m) - using 5,000m for safety margin
-                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 5_000, maxCenterCoordinateDistance: 600_000)!
+                // Lock max zoom at zoom level 14 (~4,000m) - using 5,000m for safety margin - changed/corrected to 65'000m
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)!
             }
 
         case .landeskarten:
             // Landeskarten: zoom 7-18
-            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 350, maxCenterCoordinateDistance: 600_000)!
+            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin - changed/corrected to 1500m
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)!
 
         case .swissimage:
             // SWISSIMAGE: zoom 7-18
-            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin
-            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 350, maxCenterCoordinateDistance: 600_000)!
+            // Lock max zoom at zoom level 18 (~300m) - using 350m for safety margin - changed/corrected to 1500m
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 1_500, maxCenterCoordinateDistance: 600_000)!
         }
     }
 

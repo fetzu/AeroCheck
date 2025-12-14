@@ -442,35 +442,35 @@ struct SwissScaleBar: View {
     let region: MKCoordinateRegion
 
     /// Calculate the appropriate scale distance based on current zoom
-    /// Uses MKMapPoint conversion for accurate distance calculation
+    /// Uses proper geodetic distance calculation for accuracy
     private var scaleInfo: (distance: Double, text: String, width: CGFloat) {
         // Get the center of the region
         let centerCoordinate = region.center
 
-        // Calculate two points at the same latitude, separated by the longitude span
-        let leftCoordinate = CLLocationCoordinate2D(
+        // Use CLLocation's distance calculation for geodetic accuracy
+        // Calculate the distance for the full longitude span at the center latitude
+        let leftLocation = CLLocation(
             latitude: centerCoordinate.latitude,
             longitude: centerCoordinate.longitude - region.span.longitudeDelta / 2
         )
-        let rightCoordinate = CLLocationCoordinate2D(
+        let rightLocation = CLLocation(
             latitude: centerCoordinate.latitude,
             longitude: centerCoordinate.longitude + region.span.longitudeDelta / 2
         )
 
-        // Convert to map points and calculate distance
-        let leftPoint = MKMapPoint(leftCoordinate)
-        let rightPoint = MKMapPoint(rightCoordinate)
-        let metersInSpan = leftPoint.distance(to: rightPoint)
+        // Get actual geodetic distance in meters
+        let metersInSpan = leftLocation.distance(from: rightLocation)
 
-        // Estimate visible width in points (typical iPad width ~1024, but map may not fill screen)
-        // Use a conservative estimate for the visible map width
-        let estimatedMapWidthPoints: CGFloat = 800
+        // iPad screen width varies, but a typical 11" iPad in landscape is ~1194 points wide
+        // The map fills most of the screen, accounting for safe areas (~1100 points effective)
+        // This is the key factor - we need to match what the map is actually showing
+        let estimatedMapWidthPoints: CGFloat = 1100
 
         // Calculate meters per screen point
         let metersPerPoint = metersInSpan / Double(estimatedMapWidthPoints)
 
-        // Target scale bar width in points
-        let targetBarWidth: CGFloat = 100
+        // Target scale bar width in points (aim for ~80-100pt)
+        let targetBarWidth: CGFloat = 80
 
         // Calculate how many meters that would represent
         let targetMeters = metersPerPoint * Double(targetBarWidth)
@@ -842,12 +842,51 @@ struct SwissMapView: UIViewRepresentable {
     @Binding var isFollowingAircraft: Bool
     let forceICAOLayer: Bool
 
+    /// Get the camera zoom range for the current layer
+    /// This locks the map view to only allow zooming within the valid tile range
+    private func cameraZoomRange(for layer: MapLayerType, forceICAO: Bool) -> MKMapView.CameraZoomRange {
+        // Camera zoom range uses altitude (meters from camera to ground)
+        // Lower altitude = more zoomed in, higher altitude = more zoomed out
+        // Approximate mapping from tile zoom levels to camera altitude:
+        // Zoom 7 ≈ 500,000m altitude (very zoomed out)
+        // Zoom 11 ≈ 30,000m altitude (ICAO/Segelflugkarte switch point)
+        // Zoom 14 ≈ 4,000m altitude (max Segelflugkarte)
+        // Zoom 18 ≈ 250m altitude (max Landeskarten/SWISSIMAGE)
+
+        switch layer {
+        case .standard, .satellite:
+            // No restrictions for Apple Maps
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 100, maxCenterCoordinateDistance: 10_000_000)!
+
+        case .icao:
+            if forceICAO {
+                // ICAO only: zoom 7-11
+                // Lock max zoom at about zoom level 11 (where Segelflugkarte would start)
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 25_000, maxCenterCoordinateDistance: 600_000)!
+            } else {
+                // ICAO + Segelflugkarte: zoom 7-14
+                return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 3_000, maxCenterCoordinateDistance: 600_000)!
+            }
+
+        case .landeskarten:
+            // Landeskarten: zoom 7-18
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 200, maxCenterCoordinateDistance: 600_000)!
+
+        case .swissimage:
+            // SWISSIMAGE: zoom 7-18
+            return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 200, maxCenterCoordinateDistance: 600_000)!
+        }
+    }
+
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.showsCompass = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
+
+        // Set zoom range based on layer type
+        mapView.cameraZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
 
         // Set initial region from shared state
         mapView.setRegion(mapState.region, animated: false)
@@ -865,6 +904,11 @@ struct SwissMapView: UIViewRepresentable {
             layerType: layerType,
             forceICAO: forceICAOLayer
         )
+
+        // Update zoom range if layer or force setting changed
+        if layerChanged {
+            mapView.cameraZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
+        }
 
         // Update region from shared state
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)

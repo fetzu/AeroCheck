@@ -93,7 +93,7 @@ struct SettingsView: View {
 
                 // Offline Maps section
                 Section {
-                    Toggle("Offline Mode", isOn: $offlineMode)
+                    Toggle("Offline Mode (ICAO Chart)", isOn: $offlineMode)
                         .onChange(of: offlineMode) { _, newValue in
                             if newValue && !offlineMapManager.isCacheAvailable {
                                 // Show download modal when enabling offline mode without cache
@@ -103,7 +103,7 @@ struct SettingsView: View {
 
                     if offlineMapManager.isCacheAvailable {
                         HStack {
-                            Text("Cache Version")
+                            Text("Cache Version (ICAO Chart)")
                             Spacer()
                             Text(offlineMapManager.cacheVersion)
                                 .foregroundColor(.secondary)
@@ -145,7 +145,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Label("Offline Maps", systemImage: "arrow.down.circle")
+                    Label("Offline Maps (ICAO Chart)", systemImage: "arrow.down.circle")
                 } footer: {
                     if offlineMode {
                         Text("Offline mode restricts the map to the cached ICAO Chart only. Layer switching is disabled.")
@@ -296,20 +296,21 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveSettings()
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
             .onAppear {
                 loadSettings()
             }
+            // Auto-save settings when they change (Apple HIG compliant)
+            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
+            .onChange(of: gpsInterval) { _, _ in saveSettings() }
+            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
+            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
+            .onChange(of: learningMode) { _, _ in saveSettings() }
+            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
+            .onChange(of: offlineMode) { _, _ in saveSettings() }
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)

@@ -126,10 +126,16 @@ struct NavigationMapView: View {
     @State private var selectedLayer: MapLayerType = .standard
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
+    @State private var showCacheInfoModal: Bool = false
 
     /// Whether offline mode is active
     private var isOfflineMode: Bool {
         appState.settings.offlineMode && offlineMapManager.isCacheAvailable
+    }
+
+    /// Whether cache is available but not in offline mode (uses cache opportunistically)
+    private var isCachedMode: Bool {
+        !appState.settings.offlineMode && offlineMapManager.isCacheAvailable && selectedLayer == .icao
     }
 
     // Shared map state for preserving position between layers
@@ -367,28 +373,21 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Offline mode indicator
-            if isOfflineMode {
-                HStack(spacing: 6) {
-                    Image(systemName: "internaldrive.fill")
-                    Text("OFFLINE")
+            // Layer picker button (shows info modal in offline mode)
+            Button(action: {
+                if isOfflineMode {
+                    showCacheInfoModal = true
+                } else {
+                    showLayerPicker = true
                 }
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.aviationRed.opacity(0.9))
-                )
-            }
-
-            // Layer picker button (disabled in offline mode)
-            Button(action: { showLayerPicker = true }) {
+            }) {
                 HStack(spacing: 6) {
                     Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
                     if !isOfflineMode {
                         Image(systemName: "chevron.down")
+                            .font(.system(size: 10))
+                    } else {
+                        Image(systemName: "info.circle")
                             .font(.system(size: 10))
                     }
                 }
@@ -401,7 +400,6 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
             }
-            .disabled(isOfflineMode)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
             }
@@ -412,8 +410,33 @@ struct NavigationMapView: View {
 
     private var bottomControls: some View {
         HStack(alignment: .bottom) {
-            // Scale bar on the left for all layers
-            SwissScaleBar(region: mapState.region)
+            // Left side: Scale bar and cache/offline indicator
+            VStack(alignment: .leading, spacing: 8) {
+                // Offline/Cached mode indicator
+                if isOfflineMode || isCachedMode {
+                    Button(action: { showCacheInfoModal = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "internaldrive.fill")
+                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                        )
+                    }
+                    .sheet(isPresented: $showCacheInfoModal) {
+                        CacheInfoSheet(isOfflineMode: isOfflineMode)
+                            .environmentObject(offlineMapManager)
+                    }
+                }
+
+                // Scale bar
+                SwissScaleBar(region: mapState.region)
+            }
 
             Spacer()
 
@@ -1329,6 +1352,119 @@ struct NavigationModeButton: View {
                     )
             )
         }
+    }
+}
+
+// MARK: - Cache Info Sheet
+
+/// Modal sheet explaining cache status and usage
+struct CacheInfoSheet: View {
+    let isOfflineMode: Bool
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Header icon
+                Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(isOfflineMode ? .aviationRed : .aviationGold)
+                    .padding(.top, 40)
+
+                // Title
+                Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Map")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Description
+                VStack(spacing: 16) {
+                    if isOfflineMode {
+                        Text("The app is currently in offline mode. Map data is being served from the locally cached ICAO Chart.")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.center)
+
+                        Text("Layer switching is disabled in offline mode. Only the ICAO Chart is available.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.dimText)
+                            .multilineTextAlignment(.center)
+
+                        Text("To enable other layers, disable Offline Mode in Settings.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.aviationGold)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text("The ICAO Chart is currently being served from your local cache for faster loading.")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.center)
+
+                        Text("The app will use cached tiles when available, and fetch from the network for tiles not in cache.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.dimText)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 32)
+
+                // Cache info
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Cache Version:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.cacheVersion)
+                            .foregroundColor(.primaryText)
+                    }
+
+                    HStack {
+                        Text("Downloaded:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.formattedCacheDate)
+                            .foregroundColor(.primaryText)
+                    }
+
+                    HStack {
+                        Text("Size:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.formattedCacheSize)
+                            .foregroundColor(.primaryText)
+                    }
+                }
+                .font(.system(size: 14))
+                .padding(.horizontal, 40)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.panelBackground)
+                )
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // Done button
+                Button(action: { dismiss() }) {
+                    Text("Done")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.aviationGold)
+                        )
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium])
+        .preferredColorScheme(.dark)
     }
 }
 

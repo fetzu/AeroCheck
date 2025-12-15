@@ -25,6 +25,7 @@
 		A1000001211111110000017 /* PA28ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000017 /* PA28ChecklistData.swift */; };
 		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
 		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
+		A1000001211111110000020 /* WindDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000020 /* WindDataService.swift */; };
 		A2000001211111110000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000001 /* WidgetKit.framework */; };
 		A2000001211111110000002 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000002 /* SwiftUI.framework */; };
 		A2000001211111110000003 /* AeroCheckWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000003 /* AeroCheckWidget.swift */; };
@@ -77,6 +78,7 @@
 		A1000001111111110000017 /* PA28ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PA28ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000018 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
+		A1000001111111110000020 /* WindDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataService.swift; sourceTree = "<group>"; };
 		A2000001111111110000000 /* AeroCheckWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AeroCheckWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000001111111110000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A2000001111111110000002 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -168,6 +170,7 @@
 			children = (
 				A1000001111111110000010 /* LocationManager.swift */,
 				A1000001111111110000019 /* OfflineMapManager.swift */,
+				A1000001111111110000020 /* WindDataService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -310,6 +313,7 @@
 				A1000001211111110000009 /* AppState.swift in Sources */,
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
+				A1000001211111110000020 /* WindDataService.swift in Sources */,
 				A1000001211111110000011 /* DesignSystem.swift in Sources */,
 				A1000001211111110000012 /* ChecklistView.swift in Sources */,
 				A1000001211111110000015 /* Aircraft.swift in Sources */,

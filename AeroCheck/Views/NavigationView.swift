@@ -1396,46 +1396,50 @@ struct CacheInfoSheet: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
                 // Header icon
                 Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")
-                    .font(.system(size: 44))
+                    .font(.system(size: 40))
                     .foregroundColor(isOfflineMode ? .aviationRed : .aviationGold)
-                    .padding(.top, 24)
+                    .padding(.top, 20)
 
                 // Title
                 Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Map")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     if isOfflineMode {
                         Text("The app is currently in offline mode. Map data is being served from the locally cached ICAO Chart.")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundColor(.secondaryText)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text("Layer switching is disabled in offline mode. Only the ICAO Chart is available.")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundColor(.dimText)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("The ICAO Chart is currently being served from your local cache for faster loading.")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundColor(.secondaryText)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text("The app will use cached tiles when available, and fetch from the network for tiles not in cache.")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundColor(.dimText)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
 
                 // Cache info
-                VStack(spacing: 5) {
+                VStack(spacing: 4) {
                     HStack {
                         Text("Cache Version:")
                             .foregroundColor(.secondaryText)
@@ -1460,32 +1464,32 @@ struct CacheInfoSheet: View {
                             .foregroundColor(.primaryText)
                     }
                 }
-                .font(.system(size: 12))
-                .padding(.horizontal, 28)
-                .padding(.vertical, 10)
+                .font(.system(size: 11))
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(Color.panelBackground)
                 )
                 .padding(.horizontal, 16)
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 // Action buttons (only for offline mode)
                 if isOfflineMode {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         // Go Online button (switches to online mode with cache still active)
                         Button(action: goOnline) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "wifi")
                                 Text("Go Online")
                             }
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 10)
                             .background(
-                                RoundedRectangle(cornerRadius: 10)
+                                RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.aviationGreen)
                             )
                         }
@@ -1493,22 +1497,22 @@ struct CacheInfoSheet: View {
 
                         // Stay Offline button (secondary)
                         Button(action: { dismiss() }) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "wifi.slash")
                                 Text("Stay Offline")
                             }
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color.aviationRed.opacity(0.7))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 10)
                             .background(
-                                RoundedRectangle(cornerRadius: 10)
+                                RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.aviationRed.opacity(0.15))
                             )
                         }
                         .padding(.horizontal, 16)
                     }
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 16)
                 }
             }
             .background(Color.cockpitBackground)
@@ -1521,7 +1525,7 @@ struct CacheInfoSheet: View {
                 }
             }
         }
-        .presentationDetents(isOfflineMode ? [.height(420)] : [.height(320)])
+        .presentationDetents(isOfflineMode ? [.height(400)] : [.height(300)])
         .interactiveDismissDisabled(false)
         .preferredColorScheme(.dark)
     }

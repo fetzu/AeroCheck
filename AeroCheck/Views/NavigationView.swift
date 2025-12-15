@@ -235,6 +235,10 @@ struct NavigationMapView: View {
     private var formattedTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
+        if appState.settings.alwaysUseUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: Date()) + " (UTC)"
+        }
         return formatter.string(from: Date())
     }
 

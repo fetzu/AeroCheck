@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var learningMode: Bool = false
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
+    @State private var alwaysUseUTC: Bool = false
     @State private var showDownloadModal: Bool = false
     @State private var showDeleteConfirmation: Bool = false
     
@@ -75,10 +76,14 @@ struct SettingsView: View {
                 // Display section
                 Section {
                     Toggle("Keep Screen On", isOn: $keepScreenOn)
+                    Toggle("Always Use UTC Times", isOn: $alwaysUseUTC)
                 } header: {
                     Label("Display", systemImage: "sun.max.fill")
                 } footer: {
-                    Text("Prevents the screen from dimming during flight")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Keep Screen On: Prevents the screen from dimming during flight.")
+                        Text("Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix.")
+                    }
                 }
 
                 // Navigation section
@@ -311,6 +316,7 @@ struct SettingsView: View {
             .onChange(of: learningMode) { _, _ in saveSettings() }
             .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
             .onChange(of: offlineMode) { _, _ in saveSettings() }
+            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)
@@ -370,6 +376,7 @@ struct SettingsView: View {
         learningMode = appState.settings.learningMode
         forceICAOChartLayer = appState.settings.forceICAOChartLayer
         offlineMode = appState.settings.offlineMode
+        alwaysUseUTC = appState.settings.alwaysUseUTC
     }
 
     private func saveSettings() {
@@ -380,6 +387,7 @@ struct SettingsView: View {
         appState.settings.learningMode = learningMode
         appState.settings.forceICAOChartLayer = forceICAOChartLayer
         appState.settings.offlineMode = offlineMode
+        appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.saveSettings()
 
         // Apply screen setting

@@ -19,6 +19,7 @@ struct AppSettings: Codable {
     var learningMode: Bool = false // Hide memorizable checks
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
+    var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
 
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {
@@ -463,29 +464,32 @@ extension AppState {
     
     var formattedEngineStartTime: String? {
         guard let time = engineStartTime else { return nil }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: time)
+        return formatTime(time)
     }
-    
+
     var formattedLineUpTime: String? {
         guard let time = lineUpTime else { return nil }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: time)
+        return formatTime(time)
     }
-    
+
     var formattedLandingTime: String? {
         guard let time = landingTime else { return nil }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: time)
+        return formatTime(time)
     }
-    
+
     var formattedEngineShutdownTime: String? {
         guard let time = engineShutdownTime else { return nil }
+        return formatTime(time)
+    }
+
+    /// Format a time according to current UTC settings
+    func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        return formatter.string(from: time)
+        if settings.alwaysUseUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date) + " (UTC)"
+        }
+        return formatter.string(from: date)
     }
 }

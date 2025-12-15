@@ -15,8 +15,11 @@ struct SettingsView: View {
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
     @State private var alwaysUseUTC: Bool = false
+    @State private var showEstimatedAirspeed: Bool = false
     @State private var showDownloadModal: Bool = false
     @State private var showDeleteConfirmation: Bool = false
+    @State private var showEstimatedAirspeedWarning: Bool = false
+    @State private var pendingEstimatedAirspeedValue: Bool = false
     
     var body: some View {
         NavigationView {
@@ -72,7 +75,47 @@ struct SettingsView: View {
                 } footer: {
                     Text("Lower intervals provide more detailed tracks but use more storage")
                 }
-                
+
+                // Experimental: Estimated Airspeed section
+                Section {
+                    Toggle("Show Estimated Airspeed", isOn: Binding(
+                        get: { showEstimatedAirspeed },
+                        set: { newValue in
+                            if newValue {
+                                // Show warning before enabling
+                                pendingEstimatedAirspeedValue = true
+                                showEstimatedAirspeedWarning = true
+                            } else {
+                                showEstimatedAirspeed = false
+                            }
+                        }
+                    ))
+                } header: {
+                    HStack {
+                        Label("Experimental", systemImage: "exclamationmark.triangle.fill")
+                        Text("BETA")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                } footer: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss.")
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.aviationAmber)
+                            Text("This feature only works in Switzerland and requires a constant cellular connection.")
+                                .foregroundColor(.aviationAmber)
+                        }
+                        .font(.caption)
+                    }
+                }
+
                 // Display section
                 Section {
                     Toggle("Keep Screen On", isOn: $keepScreenOn)
@@ -317,9 +360,16 @@ struct SettingsView: View {
             .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
             .onChange(of: offlineMode) { _, _ in saveSettings() }
             .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
+            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)
+            }
+            .sheet(isPresented: $showEstimatedAirspeedWarning) {
+                EstimatedAirspeedWarningSheet(
+                    isPresented: $showEstimatedAirspeedWarning,
+                    showEstimatedAirspeed: $showEstimatedAirspeed
+                )
             }
             .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -377,6 +427,7 @@ struct SettingsView: View {
         forceICAOChartLayer = appState.settings.forceICAOChartLayer
         offlineMode = appState.settings.offlineMode
         alwaysUseUTC = appState.settings.alwaysUseUTC
+        showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
     }
 
     private func saveSettings() {
@@ -388,10 +439,118 @@ struct SettingsView: View {
         appState.settings.forceICAOChartLayer = forceICAOChartLayer
         appState.settings.offlineMode = offlineMode
         appState.settings.alwaysUseUTC = alwaysUseUTC
+        appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
         appState.saveSettings()
 
         // Apply screen setting
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+    }
+}
+
+// MARK: - Estimated Airspeed Warning Sheet
+
+struct EstimatedAirspeedWarningSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var showEstimatedAirspeed: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Warning icon
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationAmber)
+                    .padding(.top, 40)
+
+                // Title
+                Text("Experimental Feature")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Warning message
+                VStack(alignment: .leading, spacing: 16) {
+                    WarningItem(
+                        icon: "airplane",
+                        text: "The estimated indicated airspeed (IAS) shown is calculated from GPS ground speed and wind data from MeteoSwiss weather stations."
+                    )
+
+                    WarningItem(
+                        icon: "exclamationmark.circle.fill",
+                        text: "This estimation can be highly inaccurate due to local wind variations, altitude differences, and station distance."
+                    )
+
+                    WarningItem(
+                        icon: "gauge.with.needle",
+                        text: "Always rely on your aircraft's onboard airspeed indicator for actual IAS readings."
+                    )
+
+                    WarningItem(
+                        icon: "network",
+                        text: "This feature requires a constant cellular connection and only works within Switzerland."
+                    )
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        showEstimatedAirspeed = true
+                        isPresented = false
+                    }) {
+                        Text("I Understand - Enable Feature")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+
+                    Button(action: {
+                        isPresented = false
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.secondaryText)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct WarningItem: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(.aviationAmber)
+                .frame(width: 24)
+
+            Text(text)
+                .font(.system(size: 15))
+                .foregroundColor(.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

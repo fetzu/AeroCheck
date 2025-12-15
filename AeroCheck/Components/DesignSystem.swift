@@ -288,9 +288,10 @@ struct StatusIndicator: View {
 // MARK: - Speed Indicator for Flight
 
 struct SpeedIndicatorView: View {
-    let currentSpeed: Double // in knots (from GPS, m/s converted)
+    let currentSpeed: Double // Ground speed in knots (from GPS, m/s converted)
     let targetSpeed: Int
     let gpsSignalStatus: GPSSignalStatus
+    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
 
     /// Stall speed from current aircraft type
     private var stallSpeed: Int {
@@ -299,9 +300,19 @@ struct SpeedIndicatorView: View {
 
     @State private var isFlashing = false
 
+    /// The speed value to display (estimated airspeed if available, otherwise ground speed)
+    private var displaySpeed: Double {
+        estimatedAirspeed ?? currentSpeed
+    }
+
+    /// Whether we're showing estimated airspeed
+    private var showingEstimatedAirspeed: Bool {
+        estimatedAirspeed != nil
+    }
+
     // Speed state categories
     private var speedState: SpeedState {
-        let speedInt = Int(currentSpeed)
+        let speedInt = Int(displaySpeed)
         if speedInt < stallSpeed {
             return .stall
         } else if abs(speedInt - targetSpeed) <= 5 {
@@ -312,8 +323,8 @@ struct SpeedIndicatorView: View {
     }
 
     enum SpeedState {
-        case onTarget   // Green (solid): within 5 KIAS of target
-        case offTarget  // Orange (solid): above Vs but outside 5 KIAS range
+        case onTarget   // Green (solid): within 5 kt of target
+        case offTarget  // Orange (solid): above Vs but outside 5 kt range
         case stall      // Flashing red/white: below stall speed
     }
 
@@ -329,10 +340,10 @@ struct SpeedIndicatorView: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            // Speed label
-            Text("SPEED")
+            // Speed label - shows type of speed being displayed
+            Text(showingEstimatedAirspeed ? "EST. IAS" : "GND SPD")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.secondaryText)
+                .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .secondaryText)
 
             // Current speed display
             ZStack {
@@ -343,11 +354,11 @@ struct SpeedIndicatorView: View {
                 // Speed value (hidden when GPS lost)
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 2) {
-                        Text("\(Int(currentSpeed))")
+                        Text("\(Int(displaySpeed))")
                             .font(.system(size: 36, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
 
-                        Text("KIAS")
+                        Text(showingEstimatedAirspeed ? "KIAS" : "kt")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(textColor.opacity(0.8))
                     }
@@ -407,7 +418,7 @@ struct SpeedIndicatorView: View {
     }
 
     private var targetIcon: String {
-        let speedInt = Int(currentSpeed)
+        let speedInt = Int(displaySpeed)
         if speedInt < targetSpeed - 5 {
             return "arrow.up"
         } else if speedInt > targetSpeed + 5 {
@@ -442,6 +453,7 @@ struct FlightSpeedIndicator: View {
     let gpsSpeedMetersPerSecond: Double
     let targetSpeed: Int?
     let gpsSignalStatus: GPSSignalStatus
+    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
 
     // Convert m/s to knots (1 m/s = 1.94384 knots)
     private var speedInKnots: Double {
@@ -453,7 +465,8 @@ struct FlightSpeedIndicator: View {
             SpeedIndicatorView(
                 currentSpeed: max(0, speedInKnots),
                 targetSpeed: target,
-                gpsSignalStatus: gpsSignalStatus
+                gpsSignalStatus: gpsSignalStatus,
+                estimatedAirspeed: estimatedAirspeed
             )
         }
     }

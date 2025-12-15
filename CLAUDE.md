@@ -41,7 +41,8 @@ AeroCheck/
 │   └── PA28ChecklistData.swift # PA-28-181 checklist data
 ├── Services/
 │   ├── LocationManager.swift  # GPS tracking (CLLocationManagerDelegate)
-│   └── OfflineMapManager.swift # ICAO chart caching for offline use
+│   ├── OfflineMapManager.swift # ICAO chart caching for offline use
+│   └── WindDataService.swift  # MeteoSwiss wind data for estimated airspeed
 ├── Components/
 │   ├── DesignSystem.swift     # Colors, fonts, button styles
 │   └── ChecklistView.swift    # Checklist display component
@@ -55,6 +56,7 @@ AeroCheckWidget/
 **State Management:** MVVM with `@EnvironmentObject` injection
 - `AppState`: Central state (flight lifecycle, navigation, timing, settings)
 - `LocationManager`: GPS service with background tracking
+- `WindDataService`: MeteoSwiss wind data fetching for estimated airspeed (experimental)
 - Views observe state via `@EnvironmentObject`
 
 **Data Persistence:** UserDefaults with Codable serialization
@@ -68,7 +70,8 @@ AeroCheckWidget/
 | Step-by-step highlighting | `AppState.currentHighlightedItem` |
 | Learning Mode | Hides memorizable items |
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
-| Speed/Altitude Indicators | Real-time GPS speed in knots with color coding |
+| Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
+| Estimated Airspeed | `WindDataService` + MeteoSwiss API (experimental, Switzerland only) |
 | Navigation Mode | `NavigationView` with SwissTopo layers |
 | Offline Maps | `OfflineMapManager` for ICAO chart caching |
 | Timing Events | Engine start, line up (+2min), landing, shutdown |

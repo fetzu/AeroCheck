@@ -6,6 +6,7 @@ import CoreLocation
 struct FlightView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var windDataService: WindDataService
     @State private var showPhaseSelector = false
     @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
@@ -41,6 +42,24 @@ struct FlightView: View {
     /// Determine if we're on an iPhone-sized device
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
         geometry.size.width < 600
+    }
+
+    /// Current track (direction of travel) in degrees from GPS
+    private var currentTrackDegrees: Double {
+        guard let course = locationManager.currentLocation?.course, course >= 0 else {
+            return 0 // Default to north if no course available
+        }
+        return course
+    }
+
+    /// Estimated airspeed if the feature is enabled, otherwise nil
+    private var estimatedAirspeed: Double? {
+        guard appState.settings.showEstimatedAirspeed else { return nil }
+        return windDataService.calculateEstimatedAirspeed(
+            groundSpeedKnots: locationManager.currentSpeedMPS * 1.94384,
+            trackDegrees: currentTrackDegrees,
+            coordinate: locationManager.getCurrentCoordinate()
+        )
     }
 
     var body: some View {
@@ -95,6 +114,23 @@ struct FlightView: View {
         .onReceive(timer) { _ in
             // Trigger view update for timer display
             timerTrigger.toggle()
+        }
+        .onAppear {
+            // Start wind data fetching if estimated airspeed is enabled
+            if appState.settings.showEstimatedAirspeed {
+                windDataService.startFetching(locationManager: locationManager)
+            }
+        }
+        .onDisappear {
+            // Stop wind data fetching when leaving flight view
+            windDataService.stopFetching()
+        }
+        .onChange(of: appState.settings.showEstimatedAirspeed) { _, newValue in
+            if newValue {
+                windDataService.startFetching(locationManager: locationManager)
+            } else {
+                windDataService.stopFetching()
+            }
         }
     }
     
@@ -402,7 +438,8 @@ struct FlightView: View {
                 CompactSpeedView(
                     speedKnots: locationManager.currentSpeedMPS * 1.94384,
                     targetSpeed: targetSpeed,
-                    gpsSignalStatus: locationManager.gpsSignalStatus
+                    gpsSignalStatus: locationManager.gpsSignalStatus,
+                    estimatedAirspeed: estimatedAirspeed
                 )
             }
 
@@ -692,7 +729,7 @@ struct FlightView: View {
     }
     
     // MARK: - Side Panel
-    
+
     private var sidePanel: some View {
         VStack(spacing: 0) {
             // Speed indicator (only during flight phases that need it)
@@ -700,7 +737,8 @@ struct FlightView: View {
                 FlightSpeedIndicator(
                     gpsSpeedMetersPerSecond: locationManager.currentSpeedMPS,
                     targetSpeed: appState.currentPhase.targetSpeed,
-                    gpsSignalStatus: locationManager.gpsSignalStatus
+                    gpsSignalStatus: locationManager.gpsSignalStatus,
+                    estimatedAirspeed: estimatedAirspeed
                 )
                 .padding(.vertical, 16)
 
@@ -999,16 +1037,27 @@ struct SpeedReferenceSheet: View {
 // MARK: - Compact Speed View (iPhone)
 
 struct CompactSpeedView: View {
-    let speedKnots: Double
+    let speedKnots: Double // Ground speed in knots
     let targetSpeed: Int
     let gpsSignalStatus: GPSSignalStatus
+    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
 
     private var stallSpeed: Int {
         ChecklistData.currentAircraft.stallSpeed
     }
 
+    /// The speed value to display (estimated airspeed if available, otherwise ground speed)
+    private var displaySpeed: Double {
+        estimatedAirspeed ?? speedKnots
+    }
+
+    /// Whether we're showing estimated airspeed
+    private var showingEstimatedAirspeed: Bool {
+        estimatedAirspeed != nil
+    }
+
     private var speedState: SpeedState {
-        let speedInt = Int(speedKnots)
+        let speedInt = Int(displaySpeed)
         if speedInt < stallSpeed {
             return .stall
         } else if abs(speedInt - targetSpeed) <= 5 {
@@ -1036,11 +1085,18 @@ struct CompactSpeedView: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            // Speed type label
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(showingEstimatedAirspeed ? "IAS" : "GS")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
+            }
+
             // Speed value with failure flag
             ZStack {
                 HStack(spacing: 4) {
                     if gpsSignalStatus != .lost {
-                        Text("\(Int(max(0, speedKnots)))")
+                        Text("\(Int(max(0, displaySpeed)))")
                             .font(.system(size: 24, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
                         Text("kt")
@@ -1102,7 +1158,7 @@ struct CompactSpeedView: View {
     }
 
     private var targetIcon: String {
-        let speedInt = Int(speedKnots)
+        let speedInt = Int(displaySpeed)
         if speedInt < targetSpeed - 5 { return "arrow.up" }
         else if speedInt > targetSpeed + 5 { return "arrow.down" }
         else { return "checkmark" }
@@ -1327,4 +1383,5 @@ struct FlightInfoSheet: View {
     FlightView()
         .environmentObject(AppState())
         .environmentObject(LocationManager())
+        .environmentObject(WindDataService())
 }

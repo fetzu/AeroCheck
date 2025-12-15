@@ -1,0 +1,264 @@
+import Foundation
+import CoreLocation
+import Combine
+
+/// Wind data from a MeteoSwiss weather station
+struct WindData {
+    let stationName: String
+    let speedKmh: Double // Wind speed in km/h
+    let directionDegrees: Double // Wind direction in degrees (0-359)
+    let timestamp: Date
+    let stationCoordinate: CLLocationCoordinate2D
+    let distanceMeters: Double // Distance from aircraft to station
+}
+
+/// Service for fetching wind data from MeteoSwiss Open Data API
+/// Note: This is an experimental feature that only works in Switzerland
+class WindDataService: ObservableObject {
+    // MARK: - Published Properties
+
+    @Published var currentWindData: WindData?
+    @Published var lastFetchTime: Date?
+    @Published var fetchError: String?
+    @Published var isWithinSwitzerland: Bool = false
+
+    // MARK: - Private Properties
+
+    private var fetchTimer: Timer?
+    private let minimumFetchInterval: TimeInterval = 60 // 1 minute minimum between fetches
+
+    /// Switzerland bounding box with ~5 NM margin (approximately 9.26 km)
+    /// Original: 45.82° - 47.81° N, 5.96° - 10.49° E
+    /// With margin: 45.74° - 47.89° N, 5.84° - 10.61° E
+    private let switzerlandBounds = (
+        minLat: 45.74,
+        maxLat: 47.89,
+        minLon: 5.84,
+        maxLon: 10.61
+    )
+
+    /// MeteoSwiss wind data endpoint (GeoJSON with wind gust and direction)
+    private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-wind-boeenspitze-kmh-10min/ch.meteoschweiz.messwerte-wind-boeenspitze-kmh-10min_en.json"
+
+    // MARK: - Public Methods
+
+    /// Start fetching wind data at regular intervals
+    func startFetching(locationManager: LocationManager) {
+        stopFetching()
+
+        // Initial fetch
+        Task {
+            await fetchWindData(for: locationManager.getCurrentCoordinate())
+        }
+
+        // Schedule periodic fetches (every minute)
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: minimumFetchInterval, repeats: true) { [weak self] _ in
+            Task { [weak self] in
+                await self?.fetchWindData(for: locationManager.getCurrentCoordinate())
+            }
+        }
+    }
+
+    /// Stop fetching wind data
+    func stopFetching() {
+        fetchTimer?.invalidate()
+        fetchTimer = nil
+        currentWindData = nil
+        lastFetchTime = nil
+    }
+
+    /// Check if a coordinate is within Switzerland (with margin)
+    func isInSwitzerland(_ coordinate: CLLocationCoordinate2D?) -> Bool {
+        guard let coordinate = coordinate else { return false }
+        return coordinate.latitude >= switzerlandBounds.minLat &&
+               coordinate.latitude <= switzerlandBounds.maxLat &&
+               coordinate.longitude >= switzerlandBounds.minLon &&
+               coordinate.longitude <= switzerlandBounds.maxLon
+    }
+
+    /// Calculate estimated indicated airspeed from ground speed and wind
+    /// Returns nil if wind data is not available or aircraft is outside Switzerland
+    func calculateEstimatedAirspeed(groundSpeedKnots: Double, trackDegrees: Double, coordinate: CLLocationCoordinate2D?) -> Double? {
+        guard let windData = currentWindData,
+              isInSwitzerland(coordinate) else {
+            return nil
+        }
+
+        // Convert wind speed from km/h to knots
+        let windSpeedKnots = windData.speedKmh * 0.539957
+
+        // Wind direction is where wind comes FROM, we need where it's going TO
+        let windToDirection = (windData.directionDegrees + 180).truncatingRemainder(dividingBy: 360)
+
+        // Calculate headwind/tailwind component
+        // Positive = headwind, Negative = tailwind
+        let trackRadians = trackDegrees * .pi / 180
+        let windToRadians = windToDirection * .pi / 180
+        let angleDifference = trackRadians - windToRadians
+
+        // Headwind component = wind speed * cos(angle difference)
+        let headwindComponent = windSpeedKnots * cos(angleDifference)
+
+        // Estimated airspeed = ground speed + headwind component
+        // (headwind increases airspeed relative to ground speed)
+        let estimatedAirspeed = groundSpeedKnots + headwindComponent
+
+        return max(0, estimatedAirspeed)
+    }
+
+    // MARK: - Private Methods
+
+    private func fetchWindData(for coordinate: CLLocationCoordinate2D?) async {
+        // Check if within Switzerland
+        let inSwitzerland = isInSwitzerland(coordinate)
+        await MainActor.run {
+            self.isWithinSwitzerland = inSwitzerland
+        }
+
+        guard inSwitzerland, let coordinate = coordinate else {
+            await MainActor.run {
+                self.currentWindData = nil
+                self.fetchError = coordinate == nil ? "No GPS position" : "Outside Switzerland"
+            }
+            return
+        }
+
+        do {
+            guard let url = URL(string: windDataURL) else {
+                throw WindFetchError.invalidURL
+            }
+
+            let (data, response) = try await URLSession.shared.data(from: url)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw WindFetchError.invalidResponse
+            }
+
+            let windData = try parseWindData(data, nearCoordinate: coordinate)
+
+            await MainActor.run {
+                self.currentWindData = windData
+                self.lastFetchTime = Date()
+                self.fetchError = nil
+            }
+
+        } catch {
+            await MainActor.run {
+                self.fetchError = error.localizedDescription
+            }
+        }
+    }
+
+    /// Parse GeoJSON wind data and find nearest station
+    private func parseWindData(_ data: Data, nearCoordinate: CLLocationCoordinate2D) throws -> WindData {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let features = json["features"] as? [[String: Any]] else {
+            throw WindFetchError.parseError
+        }
+
+        var nearestStation: WindData?
+        var nearestDistance: Double = .infinity
+
+        for feature in features {
+            guard let properties = feature["properties"] as? [String: Any],
+                  let geometry = feature["geometry"] as? [String: Any],
+                  let coordinates = geometry["coordinates"] as? [Double],
+                  coordinates.count >= 2 else {
+                continue
+            }
+
+            // Get wind data
+            guard let speedValue = properties["value"] as? Double,
+                  let directionDegrees = properties["wind_direction"] as? Double,
+                  let stationName = properties["station_name"] as? String,
+                  let timestampStr = properties["reference_ts"] as? String else {
+                continue
+            }
+
+            // Parse timestamp
+            let dateFormatter = ISO8601DateFormatter()
+            guard let timestamp = dateFormatter.date(from: timestampStr) else {
+                continue
+            }
+
+            // Convert Swiss coordinates (EPSG:2056) to WGS84
+            let swissCoord = (x: coordinates[0], y: coordinates[1])
+            let wgs84Coord = convertSwissToWGS84(x: swissCoord.x, y: swissCoord.y)
+
+            // Calculate distance
+            let stationLocation = CLLocation(latitude: wgs84Coord.latitude, longitude: wgs84Coord.longitude)
+            let aircraftLocation = CLLocation(latitude: nearCoordinate.latitude, longitude: nearCoordinate.longitude)
+            let distance = aircraftLocation.distance(from: stationLocation)
+
+            if distance < nearestDistance {
+                nearestDistance = distance
+                nearestStation = WindData(
+                    stationName: stationName,
+                    speedKmh: speedValue,
+                    directionDegrees: directionDegrees,
+                    timestamp: timestamp,
+                    stationCoordinate: wgs84Coord,
+                    distanceMeters: distance
+                )
+            }
+        }
+
+        guard let result = nearestStation else {
+            throw WindFetchError.noStationsFound
+        }
+
+        return result
+    }
+
+    /// Convert Swiss LV95 coordinates (EPSG:2056) to WGS84
+    /// Based on approximate transformation formulas
+    private func convertSwissToWGS84(x: Double, y: Double) -> CLLocationCoordinate2D {
+        // LV95 to LV03 (subtract false origin)
+        let y_aux = (x - 2_600_000) / 1_000_000
+        let x_aux = (y - 1_200_000) / 1_000_000
+
+        // Calculate longitude
+        let lambda = 2.6779094
+            + 4.728982 * y_aux
+            + 0.791484 * y_aux * x_aux
+            + 0.1306 * y_aux * x_aux * x_aux
+            - 0.0436 * y_aux * y_aux * y_aux
+
+        // Calculate latitude
+        let phi = 16.9023892
+            + 3.238272 * x_aux
+            - 0.270978 * y_aux * y_aux
+            - 0.002528 * x_aux * x_aux
+            - 0.0447 * y_aux * y_aux * x_aux
+            - 0.0140 * x_aux * x_aux * x_aux
+
+        // Convert to decimal degrees
+        let longitude = lambda * 100 / 36
+        let latitude = phi * 100 / 36
+
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+// MARK: - Errors
+
+enum WindFetchError: LocalizedError {
+    case invalidURL
+    case invalidResponse
+    case parseError
+    case noStationsFound
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid MeteoSwiss API URL"
+        case .invalidResponse:
+            return "Invalid response from MeteoSwiss"
+        case .parseError:
+            return "Failed to parse wind data"
+        case .noStationsFound:
+            return "No weather stations found"
+        }
+    }
+}

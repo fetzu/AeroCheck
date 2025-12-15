@@ -450,8 +450,9 @@ struct FlightLogView: View {
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
+    @EnvironmentObject var appState: AppState
     let flight: Flight
-    
+
     var body: some View {
         HStack(spacing: 16) {
             // Date indicator
@@ -521,6 +522,10 @@ struct FlightRowView: View {
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
+        if appState.settings.alwaysUseUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date) + " (UTC)"
+        }
         return formatter.string(from: date)
     }
 }
@@ -843,6 +848,10 @@ struct FlightDetailView: View {
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
+        if appState.settings.alwaysUseUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date) + " (UTC)"
+        }
         return formatter.string(from: date)
     }
 
@@ -855,7 +864,7 @@ struct FlightDetailView: View {
 
             // Then render the share card on main thread
             await MainActor.run {
-                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage)
+                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage, useUTC: appState.settings.alwaysUseUTC)
                 let renderer = ImageRenderer(content: shareCard)
                 renderer.scale = 3.0 // High resolution for sharing
 
@@ -1516,6 +1525,7 @@ class ZIPFile: NSObject, UIActivityItemSource {
 struct FlightShareCard: View {
     let flight: Flight
     let mapImage: UIImage?
+    let useUTC: Bool
 
     // Card dimensions (9:16 aspect ratio for mobile viewing and stories)
     private let cardWidth: CGFloat = 1080
@@ -1858,6 +1868,10 @@ struct FlightShareCard: View {
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
+        if useUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date) + " (UTC)"
+        }
         return formatter.string(from: date)
     }
 }

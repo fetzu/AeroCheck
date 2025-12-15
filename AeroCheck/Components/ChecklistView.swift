@@ -756,7 +756,7 @@ struct SpeedReferenceView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with aircraft info
             HStack {
-                Text("SPEEDS (according to AFM)")
+                Text("AIRSPEEDS (AFM)")
                     .headerStyle()
                 Spacer()
                 Text(aircraft.registration)
@@ -858,12 +858,12 @@ struct DepartureBriefingView: View {
                         BriefingItem(label: "Outbound", value: "for circuits")
                     }
                     
-                    // Speeds
-                    BriefingSection(title: "SPEEDS") {
-                        BriefingItem(label: "Rotation", value: "40 KIAS")
-                        BriefingItem(label: "Vx", value: "55 KIAS")
-                        BriefingItem(label: "Vy", value: "70 KIAS")
-                        BriefingItem(label: "Vbest glide", value: "70 KIAS")
+                    // Speeds (indicated airspeed from AFM)
+                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                        BriefingItem(label: "Rotation", value: "40 kt")
+                        BriefingItem(label: "Vx", value: "55 kt")
+                        BriefingItem(label: "Vy", value: "70 kt")
+                        BriefingItem(label: "Vbest glide", value: "70 kt")
                     }
                     
                     // Emergency
@@ -907,11 +907,11 @@ struct ApproachBriefingView: View {
                         BriefingItem(label: "Downwind", value: "Join downwind runway 07/25 @ 2900 ft")
                     }
                     
-                    // Speeds
-                    BriefingSection(title: "SPEEDS") {
-                        BriefingItem(label: "Initial", value: "70 KIAS - FLAPS 1")
-                        BriefingItem(label: "Intermediate", value: "65 KIAS - FLAPS 2")
-                        BriefingItem(label: "Final", value: "60 KIAS - FLAPS 3")
+                    // Speeds (indicated airspeed from AFM)
+                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                        BriefingItem(label: "Initial", value: "70 kt - FLAPS 1")
+                        BriefingItem(label: "Intermediate", value: "65 kt - FLAPS 2")
+                        BriefingItem(label: "Final", value: "60 kt - FLAPS 3")
                     }
                     
                     // Missed approach

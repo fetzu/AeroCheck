@@ -1396,134 +1396,133 @@ struct CacheInfoSheet: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header icon
-                    Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(isOfflineMode ? .aviationRed : .aviationGold)
-                        .padding(.top, 32)
+            VStack(spacing: 16) {
+                // Header icon
+                Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(isOfflineMode ? .aviationRed : .aviationGold)
+                    .padding(.top, 24)
 
-                    // Title
-                    Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Map")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.primaryText)
+                // Title
+                Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Map")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primaryText)
 
-                    // Description
-                    VStack(spacing: 12) {
-                        if isOfflineMode {
-                            Text("The app is currently in offline mode. Map data is being served from the locally cached ICAO Chart.")
-                                .font(.system(size: 15))
-                                .foregroundColor(.secondaryText)
-                                .multilineTextAlignment(.center)
+                // Description
+                VStack(spacing: 10) {
+                    if isOfflineMode {
+                        Text("The app is currently in offline mode. Map data is being served from the locally cached ICAO Chart.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.center)
 
-                            Text("Layer switching is disabled in offline mode. Only the ICAO Chart is available.")
-                                .font(.system(size: 13))
-                                .foregroundColor(.dimText)
-                                .multilineTextAlignment(.center)
-                        } else {
-                            Text("The ICAO Chart is currently being served from your local cache for faster loading.")
-                                .font(.system(size: 15))
-                                .foregroundColor(.secondaryText)
-                                .multilineTextAlignment(.center)
+                        Text("Layer switching is disabled in offline mode. Only the ICAO Chart is available.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.dimText)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text("The ICAO Chart is currently being served from your local cache for faster loading.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.center)
 
-                            Text("The app will use cached tiles when available, and fetch from the network for tiles not in cache.")
-                                .font(.system(size: 13))
-                                .foregroundColor(.dimText)
-                                .multilineTextAlignment(.center)
-                        }
+                        Text("The app will use cached tiles when available, and fetch from the network for tiles not in cache.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.dimText)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(.horizontal, 24)
+                }
+                .padding(.horizontal, 20)
 
-                    // Cache info
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text("Cache Version:")
-                                .foregroundColor(.secondaryText)
-                            Spacer()
-                            Text(offlineMapManager.cacheVersion)
-                                .foregroundColor(.primaryText)
-                        }
-
-                        HStack {
-                            Text("Downloaded:")
-                                .foregroundColor(.secondaryText)
-                            Spacer()
-                            Text(offlineMapManager.formattedCacheDate)
-                                .foregroundColor(.primaryText)
-                        }
-
-                        HStack {
-                            Text("Size:")
-                                .foregroundColor(.secondaryText)
-                            Spacer()
-                            Text(offlineMapManager.formattedCacheSize)
-                                .foregroundColor(.primaryText)
-                        }
+                // Cache info
+                VStack(spacing: 5) {
+                    HStack {
+                        Text("Cache Version:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.cacheVersion)
+                            .foregroundColor(.primaryText)
                     }
-                    .font(.system(size: 13))
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.panelBackground)
-                    )
-                    .padding(.horizontal, 20)
 
-                    Spacer(minLength: 20)
+                    HStack {
+                        Text("Downloaded:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.formattedCacheDate)
+                            .foregroundColor(.primaryText)
+                    }
 
-                    // Action buttons
-                    VStack(spacing: 10) {
-                        if isOfflineMode {
-                            // Go Online button (switches to online mode with cache still active)
-                            Button(action: goOnline) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "wifi")
-                                    Text("Go Online")
-                                }
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color.aviationGreen)
-                                )
+                    HStack {
+                        Text("Size:")
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(offlineMapManager.formattedCacheSize)
+                            .foregroundColor(.primaryText)
+                    }
+                }
+                .font(.system(size: 12))
+                .padding(.horizontal, 28)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.panelBackground)
+                )
+                .padding(.horizontal, 16)
+
+                Spacer()
+
+                // Action buttons (only for offline mode)
+                if isOfflineMode {
+                    VStack(spacing: 8) {
+                        // Go Online button (switches to online mode with cache still active)
+                        Button(action: goOnline) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "wifi")
+                                Text("Go Online")
                             }
-                            .padding(.horizontal, 20)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.aviationGreen)
+                            )
+                        }
+                        .padding(.horizontal, 16)
 
-                            // Done button (secondary)
-                            Button(action: { dismiss() }) {
+                        // Stay Offline button (secondary)
+                        Button(action: { dismiss() }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "wifi.slash")
                                 Text("Stay Offline")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.secondaryText)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
                             }
-                            .padding(.horizontal, 20)
-                        } else {
-                            // Done button
-                            Button(action: { dismiss() }) {
-                                Text("Done")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.aviationGold)
-                                    )
-                            }
-                            .padding(.horizontal, 20)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Color.aviationRed.opacity(0.7))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.aviationRed.opacity(0.15))
+                            )
                         }
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 20)
                 }
             }
             .background(Color.cockpitBackground)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if !isOfflineMode {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+            }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(isOfflineMode ? [.height(420)] : [.height(320)])
+        .interactiveDismissDisabled(false)
         .preferredColorScheme(.dark)
     }
 

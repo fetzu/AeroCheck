@@ -80,7 +80,6 @@ class OfflineMapManager: ObservableObject {
         let calendar = Calendar.current
         let now = Date()
         let currentYear = calendar.component(.year, from: now)
-        let cacheYear = calendar.component(.year, from: cacheDate)
 
         // Get April 1st of current year
         var aprilComponents = DateComponents()
@@ -259,16 +258,17 @@ class OfflineMapManager: ObservableObject {
     }
 
     private func updateCacheSize() {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self = self else { return }
-            let size = self.calculateDirectorySize(url: self.cacheDirectory)
-            DispatchQueue.main.async {
+        // Capture cacheDirectory on the main actor
+        let directory = self.cacheDirectory
+        Task.detached(priority: .utility) { [directory] in
+            let size = self.calculateDirectorySize(url: directory)
+            await MainActor.run {
                 self.cacheSizeBytes = size
             }
         }
     }
 
-    private func calculateDirectorySize(url: URL) -> Int64 {
+    private nonisolated func calculateDirectorySize(url: URL) -> Int64 {
         let fileManager = FileManager.default
         var size: Int64 = 0
 
@@ -350,3 +350,4 @@ class OfflineMapManager: ObservableObject {
         }
     }
 }
+

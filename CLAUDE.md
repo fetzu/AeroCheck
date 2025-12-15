@@ -2,10 +2,10 @@
 
 ## Project Overview
 
-iPad app for pilot students flying the WT9 Dynamic aircraft. Guides pilots through flight checklists while recording GPS tracks and flight data.
+iPhone/iPad app for pilot students at Aéroclub du Jura GVMP. Guides pilots through flight checklists while recording GPS tracks and flight data. Supports multiple aircraft (WT9 Dynamic, PA-28-181).
 
-- **Target:** iPadOS 17.0+ (iPad Air 11" and larger)
-- **Tech:** Swift 5.9+, SwiftUI, CoreLocation, MapKit
+- **Target:** iOS/iPadOS 17.0+ (iPhone and iPad, optimized for iPad Air 11" and larger)
+- **Tech:** Swift 5.9+, SwiftUI, CoreLocation, MapKit, WidgetKit
 - **Theme:** Dark cockpit-optimized UI with aviation colors
 
 ## Build & Run
@@ -30,17 +30,24 @@ AeroCheck/
 │   ├── HomeView.swift         # Start screen
 │   ├── FlightView.swift       # Main checklist UI during flight
 │   ├── FlightLogView.swift    # Flight history, export/import
+│   ├── NavigationView.swift   # Full-screen map with Swiss layers
 │   └── SettingsView.swift     # App configuration
 ├── Models/
 │   ├── AppState.swift         # Central state manager (@MainActor ObservableObject)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
-│   └── Checklist.swift        # 16 flight phases with items
+│   ├── Checklist.swift        # 16 flight phases with items
+│   ├── Aircraft.swift         # Aircraft types and metadata
+│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data
+│   └── PA28ChecklistData.swift # PA-28-181 checklist data
 ├── Services/
-│   └── LocationManager.swift  # GPS tracking (CLLocationManagerDelegate)
+│   ├── LocationManager.swift  # GPS tracking (CLLocationManagerDelegate)
+│   └── OfflineMapManager.swift # ICAO chart caching for offline use
 ├── Components/
 │   ├── DesignSystem.swift     # Colors, fonts, button styles
 │   └── ChecklistView.swift    # Checklist display component
 └── Assets.xcassets/           # App icon, colors
+AeroCheckWidget/
+└── AeroCheckWidget.swift      # Home screen widgets
 ```
 
 ## Architecture
@@ -57,12 +64,16 @@ AeroCheck/
 | Feature | Implementation |
 |---------|----------------|
 | 16 Flight Phases | `ChecklistPhase` enum in `Checklist.swift` |
+| Multi-Aircraft Support | `AircraftType` enum, `WT9ChecklistData`, `PA28ChecklistData` |
 | Step-by-step highlighting | `AppState.currentHighlightedItem` |
 | Learning Mode | Hides memorizable items |
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
-| Speed Indicator | Real-time GPS speed in knots with color coding |
+| Speed/Altitude Indicators | Real-time GPS speed in knots with color coding |
+| Navigation Mode | `NavigationView` with SwissTopo layers |
+| Offline Maps | `OfflineMapManager` for ICAO chart caching |
 | Timing Events | Engine start, line up (+2min), landing, shutdown |
 | Export | GPX 1.1 (with `pc:` extensions), JSON, ZIP |
+| Home Screen Widgets | `AeroCheckWidget` for quick flight start |
 
 ## Code Patterns
 
@@ -96,12 +107,17 @@ appState.addGPSPoint(point)    // Add GPS data
 
 **Typography**: Monospaced fonts for checklist items, large touch targets
 
+## Supported Aircraft
+
+- **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025)
+- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020)
+
 ## Checklist Phases
 
 1. Preflight → 2. Before Engine Start → 3. Engine Start → 4. After Engine Start →
-5. Taxi → 6. Run Up → 7. Before Departure → 8. Takeoff → 9. Climb →
-10. Cruise → 11. Descent → 12. Approach → 13. After Landing →
-14. Parking → 15. Engine Shutdown → 16. At the Hangar
+5. Taxi → 6. Run Up → 7. Before Departure → 8. Line Up → 9. Climb →
+10. Cruise → 11. Descent → 12. Approach → 13. Landing →
+14. After Landing → 15. Engine Shutdown → 16. At the Hangar
 
 ## Export Formats
 

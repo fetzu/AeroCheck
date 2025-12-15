@@ -30,11 +30,25 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - **Smart completion**: When all items are checked, the NEXT button pulses to draw attention
 - **Learning Mode**: Toggle to show all checks for studying, or hide memorizable checks to test memory
 
+### 🗺️ Navigation Mode
+- Full-screen map with real-time aircraft position and track
+- **Multiple map layers**:
+  - Apple Maps (Standard and Satellite)
+  - Swiss ICAO Chart (1:500,000) from SwissTopo
+  - Segelflugkarte (1:300,000) - seamless switch at higher zoom
+  - Swiss Landeskarten (national map)
+  - SWISSIMAGE (aerial imagery)
+- Live speed, altitude, heading, and time display overlay
+- GPS status indicator
+- Scale bar with accurate distance measurement
+- **Offline maps**: Download Swiss ICAO Chart (~100 MB) for offline navigation
+
 ### 📍 GPS Flight Tracking
 - Automatic GPS recording during flights
 - Configurable recording interval (1-30 seconds)
 - Background location tracking support
 - Track visualization on map
+- **GPS failure flags** on speed and altitude indicators when signal is lost or degraded
 
 ### 🎯 Live Speed Indicator
 - Real-time GPS speed display during flight phases
@@ -65,7 +79,9 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
   6. Session End
 - GPS track visualization on map
 - **Altitude profile graph**: Time-based altitude chart with flight event markers (Engine Start, Take-off, Landing, Shutdown)
+- **Go-arounds and touch-and-goes**: Detected and displayed on altitude profile
 - Notes for each flight
+- **Flight sharing**: Generate shareable image cards with flight summary and map
 
 ### 💾 Data Export/Import
 - Export flights to GPX format (standard GPS track format)
@@ -73,6 +89,7 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - **Export all flights**: Export entire flight log as a ZIP archive
 - All timing data included (start, engine, takeoff, landing, shutdown, stop)
 - Distance calculation included in exports
+- **Bulk import**: Import multiple flights from ZIP archives
 - Import GPX or JSON files from other sources
 - Compatible with most flight tracking software
 - Share flights via any iOS sharing method
@@ -93,6 +110,11 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 ### 📋 Interactive Briefings
 - Departure briefing modal with runway, routing, speeds, and emergency procedures
 - Approach briefing modal with approach info, speeds, and missed approach
+
+### 📱 Home Screen Widgets
+- **Small widget**: Quick aircraft selection buttons for F-HVXA and HB-PFA
+- **Medium widget**: Aircraft selection plus Flight Log shortcut
+- Deep links to start flights directly from home screen
 
 ## Checklist Phases
 
@@ -119,22 +141,22 @@ The app includes all 16 phases from the official checklists (same structure for 
 
 ### For iPad
 - iPad Air (11-inch) or larger recommended
-- iPadOS 26.0 or later
+- iPadOS 17.0 or later
 
 ### For iPhone
-- Any iPhone running iOS 26.0 or later
+- Any iPhone running iOS 17.0 or later
 - Compact UI adapts to smaller screens
 
 ### General
 - Location services enabled
-- Xcode 16.0+ for building
+- Xcode 15.0+ for building
 
 ## Installation
 
 ### From Xcode
 
 1. Clone or download this repository
-2. Open `AeroCheck.xcodeproj` in Xcode 16+
+2. Open `AeroCheck.xcodeproj` in Xcode 15+
 3. Select your development team in Signing & Capabilities
 4. Connect your iPhone/iPad or select a simulator
 5. Build and run (⌘R)
@@ -213,12 +235,16 @@ AeroCheck/
 │   │   ├── HomeView.swift           # Home screen
 │   │   ├── FlightView.swift         # Active flight view
 │   │   ├── FlightLogView.swift      # Flight history
+│   │   ├── NavigationView.swift     # Full-screen navigation map
 │   │   └── SettingsView.swift       # Configuration
 │   ├── Components/
 │   │   ├── DesignSystem.swift       # Colors, fonts, styles
 │   │   └── ChecklistView.swift      # Checklist display
 │   └── Services/
-│       └── LocationManager.swift     # GPS tracking
+│       ├── LocationManager.swift     # GPS tracking
+│       └── OfflineMapManager.swift   # Offline ICAO chart caching
+├── AeroCheckWidget/
+│   └── AeroCheckWidget.swift        # Home screen widgets
 └── README.md
 ```
 
@@ -292,6 +318,9 @@ In Settings:
 - **Aircraft in use**: Select between F-HVXA (WT9 Dynamic) and HB-PFA (PA-28-181) - this changes checklists, speeds, and stall warnings
 - **GPS Recording Interval**: 1-30 seconds between points
 - **Keep Screen On**: Prevents display sleep during use
+- **Always Use UTC Times**: Display all times in UTC with a (UTC) suffix
+- **Force ICAO Chart Layer**: Keep ICAO Chart (1:500,000) at all zoom levels instead of switching to Segelflugkarte
+- **Offline Mode**: Use only cached ICAO Chart for navigation (requires download)
 - **Step-by-Step Highlighting**: Highlights checklist items one at a time; tap anywhere to advance to the next item (auto-scrolls if needed)
 - **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases vary by aircraft
 

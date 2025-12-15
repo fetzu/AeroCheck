@@ -51,14 +51,26 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - **GPS failure flags** on speed and altitude indicators when signal is lost or degraded
 
 ### 🎯 Live Speed Indicator
-- Real-time GPS speed display during flight phases
+- Real-time GPS ground speed display during flight phases
+- Displays "GND SPD" (ground speed) with "kt" (knots) unit
 - Color-coded feedback:
-  - **Green**: Speed within 5 KIAS of target
-  - **Orange**: Speed outside ±5 KIAS range
-  - **Flashing Red/White**: Below stall speed (aircraft-specific: 42 KIAS for WT9, 53 KIAS for PA-28)
+  - **Green**: Speed within 5 kt of target
+  - **Orange**: Speed outside ±5 kt range
+  - **Flashing Red/White**: Below stall speed (aircraft-specific: 42 kt for WT9, 53 kt for PA-28)
 - Target speed guidance based on current flight phase and aircraft type
 - Arrow indicators showing speed trend (up/down/on target)
 - Automatically hidden during ground operations (taxi, parking)
+
+### 🌬️ Experimental: Estimated Airspeed (Switzerland only)
+- **Optional feature** to display estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data
+- Uses real-time wind data from MeteoSwiss automatic weather stations
+- Finds nearest weather station and applies wind correction to ground speed
+- Displays "EST. IAS" with amber highlighting when active
+- **Important limitations**:
+  - Only works within Switzerland (with ~5 NM margin at borders)
+  - Requires constant cellular connection
+  - Can be highly inaccurate - always rely on aircraft's onboard airspeed indicator
+- Disabled by default; enable in Settings with mandatory safety warning acknowledgment
 
 ### 📏 Live Altimeter
 - Real-time GPS altitude display (feet MSL)
@@ -317,6 +329,7 @@ In Settings:
 
 - **Aircraft in use**: Select between F-HVXA (WT9 Dynamic) and HB-PFA (PA-28-181) - this changes checklists, speeds, and stall warnings
 - **GPS Recording Interval**: 1-30 seconds between points
+- **Show Estimated Airspeed** *(Experimental)*: Display estimated IAS calculated from GPS ground speed and MeteoSwiss wind data. Only works in Switzerland with cellular connection. Shows safety warning before enabling.
 - **Keep Screen On**: Prevents display sleep during use
 - **Always Use UTC Times**: Display all times in UTC with a (UTC) suffix
 - **Force ICAO Chart Layer**: Keep ICAO Chart (1:500,000) at all zoom levels instead of switching to Segelflugkarte

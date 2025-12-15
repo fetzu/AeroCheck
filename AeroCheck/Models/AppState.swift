@@ -20,6 +20,7 @@ struct AppSettings: Codable {
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
+    var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
 
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {

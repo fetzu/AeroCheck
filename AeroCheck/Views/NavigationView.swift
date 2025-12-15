@@ -99,9 +99,12 @@ class SharedMapState: ObservableObject {
     }
 
     func updateFromRegion(_ newRegion: MKCoordinateRegion) {
-        region = newRegion
-        // Estimate camera distance from span (rough approximation)
-        cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
+        // Defer state updates to avoid "Publishing changes from within view updates" warning
+        DispatchQueue.main.async { [weak self] in
+            self?.region = newRegion
+            // Estimate camera distance from span (rough approximation)
+            self?.cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
+        }
     }
 
     var mapCameraPosition: MapCameraPosition {

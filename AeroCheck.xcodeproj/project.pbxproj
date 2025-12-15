@@ -13,7 +13,6 @@
 		A1000001211111110000004 /* FlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000004 /* FlightView.swift */; };
 		A1000001211111110000005 /* FlightLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000005 /* FlightLogView.swift */; };
 		A1000001211111110000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000006 /* SettingsView.swift */; };
-		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
 		A1000001211111110000007 /* Flight.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000007 /* Flight.swift */; };
 		A1000001211111110000008 /* Checklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000008 /* Checklist.swift */; };
 		A1000001211111110000009 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000009 /* AppState.swift */; };
@@ -24,6 +23,8 @@
 		A1000001211111110000015 /* Aircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000015 /* Aircraft.swift */; };
 		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
 		A1000001211111110000017 /* PA28ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000017 /* PA28ChecklistData.swift */; };
+		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
+		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
 		A2000001211111110000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000001 /* WidgetKit.framework */; };
 		A2000001211111110000002 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000002 /* SwiftUI.framework */; };
 		A2000001211111110000003 /* AeroCheckWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000003 /* AeroCheckWidget.swift */; };
@@ -75,6 +76,7 @@
 		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000017 /* PA28ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PA28ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000018 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
+		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
 		A2000001111111110000000 /* AeroCheckWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AeroCheckWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000001111111110000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A2000001111111110000002 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -165,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000001111111110000010 /* LocationManager.swift */,
+				A1000001111111110000019 /* OfflineMapManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -306,6 +309,7 @@
 				A1000001211111110000008 /* Checklist.swift in Sources */,
 				A1000001211111110000009 /* AppState.swift in Sources */,
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
+				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
 				A1000001211111110000011 /* DesignSystem.swift in Sources */,
 				A1000001211111110000012 /* ChecklistView.swift in Sources */,
 				A1000001211111110000015 /* Aircraft.swift in Sources */,
@@ -463,7 +467,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2025121501;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
@@ -479,7 +483,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -497,7 +501,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2025121501;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
@@ -513,7 +517,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -531,7 +535,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2025121501;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
@@ -541,7 +545,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -559,7 +563,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2025121501;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
@@ -569,7 +573,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gvmp.aerocheck.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

@@ -4,9 +4,11 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var offlineMapManager: OfflineMapManager
     @State private var showSettings = false
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
+    @State private var showNavigation = false
     
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -37,6 +39,10 @@ struct HomeView: View {
 
                     Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
 
+                    // GPS status indicator
+                    gpsStatusIndicator(isCompact: isCompact)
+                        .padding(.bottom, isCompact ? 8 : 12)
+
                     // Quick access buttons
                     bottomBar(isLandscape: isLandscape, isCompact: isCompact)
                         .padding(.horizontal, isCompact ? 12 : 24)
@@ -55,6 +61,12 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
+        }
+        .fullScreenCover(isPresented: $showNavigation) {
+            NavigationMapView(isPresented: $showNavigation)
+                .environmentObject(appState)
+                .environmentObject(locationManager)
+                .environmentObject(offlineMapManager)
         }
     }
     
@@ -192,7 +204,7 @@ struct HomeView: View {
 
     private func bottomBar(isLandscape: Bool, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 8 : 16) {
-            // Flight log button - consistent size
+            // Flight log button
             Button(action: { showFlightLog = true }) {
                 HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "clock.arrow.circlepath")
@@ -212,19 +224,22 @@ struct HomeView: View {
 
             Spacer()
 
-            // Location status
-            HStack(spacing: isCompact ? 4 : 6) {
-                Image(systemName: locationStatusIcon)
-                    .font(.system(size: isCompact ? 11 : 13))
-                    .foregroundColor(locationStatusColor)
-                Text(isCompact ? "" : locationStatusText)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
+            // Navigation button (centered)
+            Button(action: { showNavigation = true }) {
+                HStack(spacing: isCompact ? 4 : 8) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: isCompact ? 14 : 18))
+                    if !isCompact {
+                        Text("NAV")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
             }
+            .buttonStyle(SecondaryButtonStyle())
 
             Spacer()
 
-            // Speed reference button - consistent size
+            // Speed reference button
             Button(action: { showSpeedReference = true }) {
                 HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "speedometer")
@@ -236,6 +251,19 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
+        }
+    }
+
+    // MARK: - GPS Status Indicator
+
+    private func gpsStatusIndicator(isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 4 : 6) {
+            Image(systemName: locationStatusIcon)
+                .font(.system(size: isCompact ? 11 : 13))
+                .foregroundColor(locationStatusColor)
+            Text(locationStatusText)
+                .font(.system(size: 12))
+                .foregroundColor(.secondaryText)
         }
     }
     
@@ -316,5 +344,6 @@ struct QuickStatView: View {
     HomeView()
         .environmentObject(AppState())
         .environmentObject(LocationManager())
+        .environmentObject(OfflineMapManager())
 }
 

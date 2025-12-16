@@ -39,10 +39,6 @@ struct HomeView: View {
 
                     Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
 
-                    // GPS status indicator
-                    gpsStatusIndicator(isCompact: isCompact)
-                        .padding(.bottom, isCompact ? 8 : 12)
-
                     // Quick access buttons
                     bottomBar(isLandscape: isLandscape, isCompact: isCompact)
                         .padding(.horizontal, isCompact ? 12 : 24)
@@ -122,13 +118,18 @@ struct HomeView: View {
             .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
             .padding(.horizontal, isCompact ? 20 : 40)
 
-            // Info text - hide in landscape and compact to save space
-            if !isLandscape && !isCompact {
-                Text("Starting a flight will begin GPS tracking and guide you through all checklists.")
-                    .font(.system(size: 15))
-                    .foregroundColor(.dimText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+            // Info text and GPS status - hide only on compact devices (iPhone)
+            if !isCompact {
+                VStack(spacing: isLandscape ? 8 : 12) {
+                    Text("Starting a flight will begin GPS tracking and guide you through all checklists.")
+                        .font(.system(size: isLandscape ? 13 : 15))
+                        .foregroundColor(.dimText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, isLandscape ? 20 : 40)
+
+                    // GPS status indicator
+                    gpsStatusIndicator(isCompact: isCompact)
+                }
             }
         }
         .padding(isLandscape ? 12 : (isCompact ? 16 : 32))

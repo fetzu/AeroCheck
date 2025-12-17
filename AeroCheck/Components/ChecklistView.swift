@@ -738,9 +738,15 @@ struct DotLeader: View {
 // MARK: - Speed Reference View
 
 struct SpeedReferenceView: View {
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+
     /// Current aircraft type from ChecklistData
     private var aircraft: AircraftType {
         ChecklistData.currentAircraft
+    }
+
+    private var isCompact: Bool {
+        horizontalSizeClass == .compact
     }
 
     /// Get speeds split into two columns
@@ -768,19 +774,25 @@ struct SpeedReferenceView: View {
             AviationDivider()
                 .padding(.bottom, 4)
 
-            // Use two columns for compact display
-            HStack(alignment: .top, spacing: 24) {
-                // Left column
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(speedColumns.left) { speed in
-                        CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+            // Use two columns on iPad, grid layout on iPhone
+            if isCompact {
+                // Two-column grid layout for iPhone - keeps related info close together
+                iPhoneSpeedGrid
+            } else {
+                // Two columns for iPad
+                HStack(alignment: .top, spacing: 24) {
+                    // Left column
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(speedColumns.left) { speed in
+                            CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+                        }
                     }
-                }
 
-                // Right column
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(speedColumns.right) { speed in
-                        CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+                    // Right column
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(speedColumns.right) { speed in
+                            CompactSpeedRow(name: speed.name, description: speed.description, value: speed.value)
+                        }
                     }
                 }
             }
@@ -803,13 +815,58 @@ struct SpeedReferenceView: View {
             .padding(.bottom, 12)
         }
     }
+
+    /// iPhone-optimized grid layout with two columns
+    /// Each cell shows: Name + Value on one line, description below
+    private var iPhoneSpeedGrid: some View {
+        let columns = [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12)
+        ]
+
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(aircraft.speeds) { speed in
+                iPhoneSpeedCell(speed: speed)
+            }
+        }
+    }
+
+    /// Individual speed cell for iPhone grid
+    private func iPhoneSpeedCell(speed: SpeedReference) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            // Name (e.g., "Vso")
+            Text(speed.name)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(.aviationGold)
+
+            Spacer(minLength: 4)
+
+            // Value + unit (e.g., "33 kt")
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(speed.value)
+                    .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                Text("kt")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            // Description below the name
+            Text(speed.description)
+                .font(.system(size: 11))
+                .foregroundColor(.dimText)
+                .offset(y: 14)
+        }
+        .padding(.bottom, 12)
+    }
 }
 
 struct CompactSpeedRow: View {
     let name: String
     let description: String
     let value: String
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Text(name)
@@ -818,23 +875,26 @@ struct CompactSpeedRow: View {
                 .frame(width: 55, alignment: .leading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            
+
             Text(description)
                 .font(.system(size: 12))
                 .foregroundColor(.dimText)
-                .frame(width: 75, alignment: .leading)
+                .frame(minWidth: 75, alignment: .leading)
                 .lineLimit(1)
-            
+
             Spacer()
-            
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-            
-            Text("kt")
-                .font(.system(size: 11))
-                .foregroundColor(.dimText)
+
+            HStack(spacing: 2) {
+                Text(value)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+
+                Text("kt")
+                    .font(.system(size: 11))
+                    .foregroundColor(.dimText)
+            }
+            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 1)
     }

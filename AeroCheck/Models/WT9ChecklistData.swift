@@ -4,6 +4,14 @@ import Foundation
 /// Version 2.1e - March 2025 - GVMP
 struct WT9ChecklistData {
 
+    // MARK: - Version Information (Single Source of Truth)
+
+    /// Checklist version string
+    static let version = "2.1e"
+
+    /// Last updated date
+    static let lastUpdated = "March 2025"
+
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
         switch phase {
         case .preflight:

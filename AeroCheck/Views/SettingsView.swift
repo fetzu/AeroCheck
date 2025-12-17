@@ -226,7 +226,7 @@ struct SettingsView: View {
                                 .foregroundColor(.primary)
                             Spacer()
                             HStack(spacing: 4) {
-                                Text("1.0.0")
+                                Text(appVersion)
                                 Image(systemName: "arrow.up.forward.square")
                                     .font(.caption)
                             }
@@ -390,7 +390,12 @@ struct SettingsView: View {
     }
     
     // MARK: - Computed Properties
-    
+
+    /// App version from Info.plist (single source of truth via Xcode project settings)
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
     private var gpsStatusText: String {
         switch locationManager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:

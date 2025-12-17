@@ -4,6 +4,14 @@ import Foundation
 /// Version 1.6e - July 2020 - GVMP
 struct PA28ChecklistData {
 
+    // MARK: - Version Information (Single Source of Truth)
+
+    /// Checklist version string
+    static let version = "1.6e"
+
+    /// Last updated date
+    static let lastUpdated = "July 2020"
+
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
         switch phase {
         case .preflight:

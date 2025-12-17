@@ -31,19 +31,19 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Checklist version
+    /// Checklist version (sourced from checklist data files)
     var checklistVersion: String {
         switch self {
-        case .wt9Dynamic: return "2.1e"
-        case .pa28Archer: return "1.6e"
+        case .wt9Dynamic: return WT9ChecklistData.version
+        case .pa28Archer: return PA28ChecklistData.version
         }
     }
 
-    /// Last updated date
+    /// Last updated date (sourced from checklist data files)
     var lastUpdated: String {
         switch self {
-        case .wt9Dynamic: return "March 2025"
-        case .pa28Archer: return "July 2020"
+        case .wt9Dynamic: return WT9ChecklistData.lastUpdated
+        case .pa28Archer: return PA28ChecklistData.lastUpdated
         }
     }
 

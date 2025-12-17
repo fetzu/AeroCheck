@@ -225,11 +225,12 @@ struct SettingsView: View {
                             Text("App Version")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text("1.0.0")
-                                .foregroundColor(.secondary)
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                Text("1.0.0")
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
                         }
                     }
 
@@ -238,11 +239,12 @@ struct SettingsView: View {
                             Text("Author")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text("Julien 'fetzu' Bono")
-                                .foregroundColor(.secondary)
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                Text("Julien 'fetzu' Bono")
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
                         }
                     }
 
@@ -251,11 +253,14 @@ struct SettingsView: View {
                             Text("Organization")
                                 .foregroundColor(.primary)
                             Spacer()
-                            Text("Aéroclub du Jura (GVMP)")
-                                .foregroundColor(.secondary)
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                Text("Aéroclub du Jura (GVMP)")
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                Image(systemName: "arrow.up.forward.square")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
                         }
                     }
 
@@ -268,23 +273,23 @@ struct SettingsView: View {
                         }
 
                         Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                            HStack(spacing: 4) {
-                                Text("This app is open source and available on GitHub.")
-                                Image(systemName: "arrow.up.forward.square")
-                                    .font(.caption)
-                            }
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            Text("This app is open source and available on GitHub. ")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            + Text(Image(systemName: "arrow.up.forward.square"))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .baselineOffset(4)
                         }
 
                         Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                            HStack(spacing: 4) {
-                                Text("Released under the MIT License.")
-                                Image(systemName: "arrow.up.forward.square")
-                                    .font(.caption)
-                            }
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            Text("Released under the MIT License. ")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            + Text(Image(systemName: "arrow.up.forward.square"))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .baselineOffset(4)
                         }
                     }
                     .padding(.vertical, 4)

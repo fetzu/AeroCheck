@@ -344,6 +344,12 @@ struct NavigationMapView: View {
 
     // MARK: - Top Bar
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompactWidth: Bool {
+        horizontalSizeClass == .compact
+    }
+
     private var topBar: some View {
         HStack {
             // Close button
@@ -361,51 +367,100 @@ struct NavigationMapView: View {
             Spacer()
 
             // Time, Speed, Altitude, and Heading display
-            HStack(spacing: 16) {
-                // Current time - use id to force refresh
-                Text(formattedTime)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(.primaryText)
-                    .id(timeDisplayId)
+            // On iPhone (compact), use stacked layout; on iPad, use horizontal
+            if isCompactWidth {
+                // Stacked layout for iPhone
+                VStack(spacing: 4) {
+                    // Time on first row
+                    Text(formattedTime)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .id(timeDisplayId)
 
-                // Divider
-                Rectangle()
-                    .fill(Color.dimText)
-                    .frame(width: 1, height: 20)
+                    // Speed, Altitude, Heading on second row
+                    HStack(spacing: 10) {
+                        // Speed (color-coded based on target)
+                        HStack(spacing: 2) {
+                            Text("\(Int(locationManager.currentSpeedKnots))")
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            Text("kt")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(speedColor)
 
-                // Speed (color-coded based on target)
-                HStack(spacing: 4) {
-                    Text("\(Int(locationManager.currentSpeedKnots))")
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    Text("kt")
-                        .font(.system(size: 12, weight: .medium))
+                        // Altitude
+                        HStack(spacing: 2) {
+                            Text("\(Int(locationManager.currentAltitudeFeet))")
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            Text("ft")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.altimeterBlue)
+
+                        // Heading
+                        HStack(spacing: 2) {
+                            Text(String(format: "%03d", currentHeading))
+                                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            Text("°")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.aviationGold)
+                    }
                 }
-                .foregroundColor(speedColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+            } else {
+                // Horizontal layout for iPad
+                HStack(spacing: 16) {
+                    // Current time - use id to force refresh
+                    Text(formattedTime)
+                        .font(.system(size: 16, weight: .medium, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .id(timeDisplayId)
 
-                // Altitude
-                HStack(spacing: 4) {
-                    Text("\(Int(locationManager.currentAltitudeFeet))")
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    Text("ft")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundColor(.altimeterBlue)
+                    // Divider
+                    Rectangle()
+                        .fill(Color.dimText)
+                        .frame(width: 1, height: 20)
 
-                // Heading
-                HStack(spacing: 4) {
-                    Text(String(format: "%03d", currentHeading))
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    Text("°")
-                        .font(.system(size: 12, weight: .medium))
+                    // Speed (color-coded based on target)
+                    HStack(spacing: 4) {
+                        Text("\(Int(locationManager.currentSpeedKnots))")
+                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        Text("kt")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(speedColor)
+
+                    // Altitude
+                    HStack(spacing: 4) {
+                        Text("\(Int(locationManager.currentAltitudeFeet))")
+                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        Text("ft")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.altimeterBlue)
+
+                    // Heading
+                    HStack(spacing: 4) {
+                        Text(String(format: "%03d", currentHeading))
+                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        Text("°")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.aviationGold)
                 }
-                .foregroundColor(.aviationGold)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.panelBackground.opacity(0.9))
-            )
 
             Spacer()
 

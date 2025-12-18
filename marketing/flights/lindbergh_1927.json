@@ -1,0 +1,218 @@
+{
+  "id": "33333333-1927-0521-0000-000000000001",
+  "name": "Spirit of St. Louis - Transatlantic",
+  "airplane": "N-X-211 Spirit of St. Louis",
+  "aircraftType": "RYAN-NYP",
+  "checklistVersion": "1.0",
+  "startTime": "1927-05-20T07:00:00Z",
+  "stopTime": "1927-05-21T22:25:00Z",
+  "engineStartTime": "1927-05-20T07:40:00Z",
+  "lineUpTime": "1927-05-20T07:52:00Z",
+  "landingTime": "1927-05-21T22:22:00Z",
+  "engineShutdownTime": "1927-05-21T22:25:00Z",
+  "notes": "Charles Lindbergh completes the first solo non-stop transatlantic flight from Roosevelt Field, Long Island, New York to Le Bourget Aerodrome, Paris. Total flight time: 33 hours 30 minutes. Distance: 3,600 miles (5,800 km). Average ground speed: 107.5 mph.",
+  "goAroundCount": 0,
+  "touchAndGoCount": 0,
+  "goAroundTimes": [],
+  "touchAndGoTimes": [],
+  "gpsTrack": [
+    {
+      "id": "00000003-1927-0521-0001-000000000001",
+      "latitude": 40.7282,
+      "longitude": -73.6146,
+      "altitude": 10.0,
+      "timestamp": "1927-05-20T07:52:00Z",
+      "speed": 0.0,
+      "course": 90.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000002",
+      "latitude": 40.7350,
+      "longitude": -73.5000,
+      "altitude": 50.0,
+      "timestamp": "1927-05-20T08:00:00Z",
+      "speed": 46.30,
+      "course": 75.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000003",
+      "latitude": 40.8500,
+      "longitude": -73.0000,
+      "altitude": 150.0,
+      "timestamp": "1927-05-20T08:30:00Z",
+      "speed": 48.15,
+      "course": 65.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000004",
+      "latitude": 41.2000,
+      "longitude": -71.5000,
+      "altitude": 300.0,
+      "timestamp": "1927-05-20T09:30:00Z",
+      "speed": 48.15,
+      "course": 55.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000005",
+      "latitude": 41.8000,
+      "longitude": -69.5000,
+      "altitude": 500.0,
+      "timestamp": "1927-05-20T11:00:00Z",
+      "speed": 48.15,
+      "course": 50.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000006",
+      "latitude": 43.0000,
+      "longitude": -66.0000,
+      "altitude": 600.0,
+      "timestamp": "1927-05-20T13:00:00Z",
+      "speed": 49.38,
+      "course": 55.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000007",
+      "latitude": 44.5000,
+      "longitude": -62.0000,
+      "altitude": 750.0,
+      "timestamp": "1927-05-20T15:30:00Z",
+      "speed": 49.38,
+      "course": 60.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000008",
+      "latitude": 46.0000,
+      "longitude": -55.0000,
+      "altitude": 800.0,
+      "timestamp": "1927-05-20T19:00:00Z",
+      "speed": 48.15,
+      "course": 65.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000009",
+      "latitude": 48.0000,
+      "longitude": -45.0000,
+      "altitude": 900.0,
+      "timestamp": "1927-05-20T23:00:00Z",
+      "speed": 48.15,
+      "course": 70.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000010",
+      "latitude": 49.5000,
+      "longitude": -35.0000,
+      "altitude": 1000.0,
+      "timestamp": "1927-05-21T03:00:00Z",
+      "speed": 49.38,
+      "course": 75.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000011",
+      "latitude": 50.5000,
+      "longitude": -25.0000,
+      "altitude": 1100.0,
+      "timestamp": "1927-05-21T07:00:00Z",
+      "speed": 49.38,
+      "course": 80.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000012",
+      "latitude": 51.0000,
+      "longitude": -15.0000,
+      "altitude": 1000.0,
+      "timestamp": "1927-05-21T11:00:00Z",
+      "speed": 48.15,
+      "course": 85.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000013",
+      "latitude": 51.2000,
+      "longitude": -10.0000,
+      "altitude": 900.0,
+      "timestamp": "1927-05-21T13:30:00Z",
+      "speed": 48.15,
+      "course": 90.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000014",
+      "latitude": 51.0000,
+      "longitude": -5.0000,
+      "altitude": 800.0,
+      "timestamp": "1927-05-21T16:00:00Z",
+      "speed": 49.38,
+      "course": 100.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000015",
+      "latitude": 50.5000,
+      "longitude": 0.0000,
+      "altitude": 600.0,
+      "timestamp": "1927-05-21T18:30:00Z",
+      "speed": 48.15,
+      "course": 110.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000016",
+      "latitude": 49.5000,
+      "longitude": 1.5000,
+      "altitude": 450.0,
+      "timestamp": "1927-05-21T20:00:00Z",
+      "speed": 48.15,
+      "course": 120.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000017",
+      "latitude": 49.1000,
+      "longitude": 2.2000,
+      "altitude": 300.0,
+      "timestamp": "1927-05-21T21:30:00Z",
+      "speed": 46.30,
+      "course": 125.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000018",
+      "latitude": 48.9800,
+      "longitude": 2.4200,
+      "altitude": 150.0,
+      "timestamp": "1927-05-21T22:10:00Z",
+      "speed": 38.58,
+      "course": 130.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000019",
+      "latitude": 48.9700,
+      "longitude": 2.4350,
+      "altitude": 80.0,
+      "timestamp": "1927-05-21T22:18:00Z",
+      "speed": 30.87,
+      "course": 135.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000020",
+      "latitude": 48.9650,
+      "longitude": 2.4400,
+      "altitude": 30.0,
+      "timestamp": "1927-05-21T22:20:00Z",
+      "speed": 20.58,
+      "course": 140.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000021",
+      "latitude": 48.9600,
+      "longitude": 2.4450,
+      "altitude": 5.0,
+      "timestamp": "1927-05-21T22:21:30Z",
+      "speed": 10.29,
+      "course": 145.0
+    },
+    {
+      "id": "00000003-1927-0521-0001-000000000022",
+      "latitude": 48.9580,
+      "longitude": 2.4470,
+      "altitude": 0.0,
+      "timestamp": "1927-05-21T22:22:00Z",
+      "speed": 0.0,
+      "course": 145.0
+    }
+  ]
+}

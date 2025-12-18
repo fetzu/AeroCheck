@@ -1,0 +1,146 @@
+{
+  "id": "22222222-1912-0416-0000-000000000001",
+  "name": "First American Woman to Cross English Channel",
+  "airplane": "Blériot XI",
+  "aircraftType": "BLERIOT-XI",
+  "checklistVersion": "1.0",
+  "startTime": "1912-04-16T05:00:00Z",
+  "stopTime": "1912-04-16T06:00:00Z",
+  "engineStartTime": "1912-04-16T05:25:00Z",
+  "lineUpTime": "1912-04-16T05:30:00Z",
+  "landingTime": "1912-04-16T05:59:00Z",
+  "engineShutdownTime": "1912-04-16T06:00:00Z",
+  "notes": "Harriet Quimby becomes the first American woman to fly solo across the English Channel. Departed from Dover, England and landed at Hardelot, France (about 25 miles south of Calais due to fog). Flight time: approximately 59 minutes. Distance: approximately 35 miles (56 km).",
+  "goAroundCount": 0,
+  "touchAndGoCount": 0,
+  "goAroundTimes": [],
+  "touchAndGoTimes": [],
+  "gpsTrack": [
+    {
+      "id": "00000002-1912-0416-0001-000000000001",
+      "latitude": 51.1295,
+      "longitude": 1.3095,
+      "altitude": 50.0,
+      "timestamp": "1912-04-16T05:30:00Z",
+      "speed": 0.0,
+      "course": 135.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000002",
+      "latitude": 51.1245,
+      "longitude": 1.3195,
+      "altitude": 150.0,
+      "timestamp": "1912-04-16T05:32:00Z",
+      "speed": 20.58,
+      "course": 140.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000003",
+      "latitude": 51.1100,
+      "longitude": 1.3400,
+      "altitude": 300.0,
+      "timestamp": "1912-04-16T05:35:00Z",
+      "speed": 22.35,
+      "course": 145.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000004",
+      "latitude": 51.0800,
+      "longitude": 1.3700,
+      "altitude": 450.0,
+      "timestamp": "1912-04-16T05:38:00Z",
+      "speed": 23.15,
+      "course": 150.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000005",
+      "latitude": 51.0400,
+      "longitude": 1.4100,
+      "altitude": 550.0,
+      "timestamp": "1912-04-16T05:42:00Z",
+      "speed": 23.15,
+      "course": 155.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000006",
+      "latitude": 50.9900,
+      "longitude": 1.4500,
+      "altitude": 600.0,
+      "timestamp": "1912-04-16T05:46:00Z",
+      "speed": 22.35,
+      "course": 160.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000007",
+      "latitude": 50.9300,
+      "longitude": 1.5000,
+      "altitude": 580.0,
+      "timestamp": "1912-04-16T05:50:00Z",
+      "speed": 22.35,
+      "course": 165.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000008",
+      "latitude": 50.8600,
+      "longitude": 1.5400,
+      "altitude": 520.0,
+      "timestamp": "1912-04-16T05:54:00Z",
+      "speed": 21.61,
+      "course": 170.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000009",
+      "latitude": 50.7800,
+      "longitude": 1.5700,
+      "altitude": 400.0,
+      "timestamp": "1912-04-16T05:57:00Z",
+      "speed": 20.58,
+      "course": 175.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000010",
+      "latitude": 50.7200,
+      "longitude": 1.5850,
+      "altitude": 250.0,
+      "timestamp": "1912-04-16T05:58:30Z",
+      "speed": 18.52,
+      "course": 178.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000011",
+      "latitude": 50.6800,
+      "longitude": 1.5900,
+      "altitude": 100.0,
+      "timestamp": "1912-04-16T05:59:00Z",
+      "speed": 15.43,
+      "course": 180.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000012",
+      "latitude": 50.6450,
+      "longitude": 1.5920,
+      "altitude": 20.0,
+      "timestamp": "1912-04-16T05:59:30Z",
+      "speed": 10.29,
+      "course": 180.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000013",
+      "latitude": 50.6285,
+      "longitude": 1.5930,
+      "altitude": 5.0,
+      "timestamp": "1912-04-16T05:59:45Z",
+      "speed": 5.14,
+      "course": 180.0
+    },
+    {
+      "id": "00000002-1912-0416-0001-000000000014",
+      "latitude": 50.6200,
+      "longitude": 1.5935,
+      "altitude": 0.0,
+      "timestamp": "1912-04-16T06:00:00Z",
+      "speed": 0.0,
+      "course": 180.0
+    }
+  ]
+}

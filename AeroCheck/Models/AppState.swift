@@ -21,6 +21,7 @@ struct AppSettings: Codable {
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
+    var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {

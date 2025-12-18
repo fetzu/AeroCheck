@@ -1,0 +1,137 @@
+{
+  "id": "11111111-1903-1217-0000-000000000001",
+  "name": "First Powered Flight",
+  "airplane": "Wright Flyer I",
+  "aircraftType": "WRIGHT-1903",
+  "checklistVersion": "1.0",
+  "startTime": "1903-12-17T10:30:00Z",
+  "stopTime": "1903-12-17T10:31:00Z",
+  "engineStartTime": "1903-12-17T10:34:00Z",
+  "lineUpTime": "1903-12-17T10:35:00Z",
+  "landingTime": "1903-12-17T10:35:12Z",
+  "engineShutdownTime": "1903-12-17T10:35:30Z",
+  "notes": "Historic first powered flight at Kill Devil Hills, Kitty Hawk, North Carolina. Duration: 12 seconds, Distance: 120 feet (37 meters). Pilot: Orville Wright. Wind: 27 mph headwind.",
+  "goAroundCount": 0,
+  "touchAndGoCount": 0,
+  "goAroundTimes": [],
+  "touchAndGoTimes": [],
+  "gpsTrack": [
+    {
+      "id": "00000001-1903-1217-0001-000000000001",
+      "latitude": 36.01437,
+      "longitude": -75.66723,
+      "altitude": 3.0,
+      "timestamp": "1903-12-17T10:35:00Z",
+      "speed": 0.0,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000002",
+      "latitude": 36.01438,
+      "longitude": -75.66723,
+      "altitude": 3.0,
+      "timestamp": "1903-12-17T10:35:01Z",
+      "speed": 5.36,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000003",
+      "latitude": 36.01440,
+      "longitude": -75.66723,
+      "altitude": 3.3,
+      "timestamp": "1903-12-17T10:35:02Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000004",
+      "latitude": 36.01442,
+      "longitude": -75.66723,
+      "altitude": 3.6,
+      "timestamp": "1903-12-17T10:35:03Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000005",
+      "latitude": 36.01444,
+      "longitude": -75.66723,
+      "altitude": 3.9,
+      "timestamp": "1903-12-17T10:35:04Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000006",
+      "latitude": 36.01446,
+      "longitude": -75.66723,
+      "altitude": 3.6,
+      "timestamp": "1903-12-17T10:35:05Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000007",
+      "latitude": 36.01448,
+      "longitude": -75.66723,
+      "altitude": 3.3,
+      "timestamp": "1903-12-17T10:35:06Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000008",
+      "latitude": 36.01450,
+      "longitude": -75.66723,
+      "altitude": 3.0,
+      "timestamp": "1903-12-17T10:35:07Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000009",
+      "latitude": 36.01452,
+      "longitude": -75.66723,
+      "altitude": 2.7,
+      "timestamp": "1903-12-17T10:35:08Z",
+      "speed": 6.26,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000010",
+      "latitude": 36.01454,
+      "longitude": -75.66723,
+      "altitude": 2.4,
+      "timestamp": "1903-12-17T10:35:09Z",
+      "speed": 5.80,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000011",
+      "latitude": 36.01456,
+      "longitude": -75.66723,
+      "altitude": 1.8,
+      "timestamp": "1903-12-17T10:35:10Z",
+      "speed": 5.36,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000012",
+      "latitude": 36.01458,
+      "longitude": -75.66723,
+      "altitude": 0.6,
+      "timestamp": "1903-12-17T10:35:11Z",
+      "speed": 4.47,
+      "course": 0.0
+    },
+    {
+      "id": "00000001-1903-1217-0001-000000000013",
+      "latitude": 36.01460,
+      "longitude": -75.66723,
+      "altitude": 0.0,
+      "timestamp": "1903-12-17T10:35:12Z",
+      "speed": 0.0,
+      "course": 0.0
+    }
+  ]
+}

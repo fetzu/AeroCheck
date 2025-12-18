@@ -1,0 +1,470 @@
+{
+  "id": "55555555-2025-0615-0917-000000000001",
+  "name": "Alpine Tour - Chasseral, Sion, Samedan",
+  "airplane": "F-HVXA",
+  "aircraftType": "WT9",
+  "checklistVersion": "2.1e",
+  "startTime": "2025-06-15T07:00:00Z",
+  "stopTime": "2025-06-15T11:45:00Z",
+  "engineStartTime": "2025-06-15T07:17:00Z",
+  "lineUpTime": "2025-06-15T07:27:00Z",
+  "landingTime": "2025-06-15T11:42:00Z",
+  "engineShutdownTime": "2025-06-15T11:45:00Z",
+  "notes": "Scenic alpine tour from LSZQ Bressaucourt. Route: LSZQ → Chasseral → LSGS Sion (touch-and-go) → LSZS Samedan (touch-and-go) → LSZQ. Total flight time: 4h25m. Distance: ~380 km.",
+  "goAroundCount": 0,
+  "touchAndGoCount": 2,
+  "goAroundTimes": [],
+  "touchAndGoTimes": ["2025-06-15T08:32:00Z", "2025-06-15T09:55:00Z"],
+  "gpsTrack": [
+    {
+      "id": "00000005-2025-0615-0001-000000000001",
+      "latitude": 47.3497,
+      "longitude": 7.0278,
+      "altitude": 567,
+      "timestamp": "2025-06-15T07:27:00Z",
+      "speed": 0.0,
+      "course": 250.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000002",
+      "latitude": 47.3450,
+      "longitude": 7.0150,
+      "altitude": 650,
+      "timestamp": "2025-06-15T07:28:00Z",
+      "speed": 60.0,
+      "course": 245.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000003",
+      "latitude": 47.3350,
+      "longitude": 6.9900,
+      "altitude": 900,
+      "timestamp": "2025-06-15T07:30:00Z",
+      "speed": 95.0,
+      "course": 240.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000004",
+      "latitude": 47.3100,
+      "longitude": 6.9500,
+      "altitude": 1200,
+      "timestamp": "2025-06-15T07:33:00Z",
+      "speed": 110.0,
+      "course": 230.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000005",
+      "latitude": 47.2700,
+      "longitude": 6.9000,
+      "altitude": 1500,
+      "timestamp": "2025-06-15T07:37:00Z",
+      "speed": 115.0,
+      "course": 220.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000006",
+      "latitude": 47.2200,
+      "longitude": 6.8600,
+      "altitude": 1800,
+      "timestamp": "2025-06-15T07:42:00Z",
+      "speed": 118.0,
+      "course": 210.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000007",
+      "latitude": 47.1700,
+      "longitude": 6.8400,
+      "altitude": 2000,
+      "timestamp": "2025-06-15T07:47:00Z",
+      "speed": 115.0,
+      "course": 200.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000008",
+      "latitude": 47.1350,
+      "longitude": 7.0500,
+      "altitude": 2200,
+      "timestamp": "2025-06-15T07:55:00Z",
+      "speed": 112.0,
+      "course": 160.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000009",
+      "latitude": 47.1322,
+      "longitude": 7.0625,
+      "altitude": 2300,
+      "timestamp": "2025-06-15T07:57:00Z",
+      "speed": 108.0,
+      "course": 155.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000010",
+      "latitude": 47.0800,
+      "longitude": 7.1500,
+      "altitude": 2500,
+      "timestamp": "2025-06-15T08:02:00Z",
+      "speed": 115.0,
+      "course": 170.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000011",
+      "latitude": 47.0000,
+      "longitude": 7.2500,
+      "altitude": 2800,
+      "timestamp": "2025-06-15T08:08:00Z",
+      "speed": 118.0,
+      "course": 175.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000012",
+      "latitude": 46.9000,
+      "longitude": 7.3500,
+      "altitude": 3000,
+      "timestamp": "2025-06-15T08:14:00Z",
+      "speed": 120.0,
+      "course": 180.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000013",
+      "latitude": 46.7500,
+      "longitude": 7.4000,
+      "altitude": 3200,
+      "timestamp": "2025-06-15T08:20:00Z",
+      "speed": 122.0,
+      "course": 190.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000014",
+      "latitude": 46.5500,
+      "longitude": 7.4500,
+      "altitude": 2800,
+      "timestamp": "2025-06-15T08:26:00Z",
+      "speed": 118.0,
+      "course": 200.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000015",
+      "latitude": 46.3500,
+      "longitude": 7.4200,
+      "altitude": 2200,
+      "timestamp": "2025-06-15T08:29:00Z",
+      "speed": 110.0,
+      "course": 210.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000016",
+      "latitude": 46.2500,
+      "longitude": 7.3800,
+      "altitude": 1500,
+      "timestamp": "2025-06-15T08:31:00Z",
+      "speed": 95.0,
+      "course": 220.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000017",
+      "latitude": 46.2196,
+      "longitude": 7.3300,
+      "altitude": 700,
+      "timestamp": "2025-06-15T08:32:00Z",
+      "speed": 70.0,
+      "course": 250.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000018",
+      "latitude": 46.2186,
+      "longitude": 7.3267,
+      "altitude": 482,
+      "timestamp": "2025-06-15T08:32:30Z",
+      "speed": 55.0,
+      "course": 250.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000019",
+      "latitude": 46.2180,
+      "longitude": 7.3220,
+      "altitude": 490,
+      "timestamp": "2025-06-15T08:33:00Z",
+      "speed": 65.0,
+      "course": 250.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000020",
+      "latitude": 46.2150,
+      "longitude": 7.3050,
+      "altitude": 700,
+      "timestamp": "2025-06-15T08:34:00Z",
+      "speed": 85.0,
+      "course": 250.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000021",
+      "latitude": 46.2100,
+      "longitude": 7.2700,
+      "altitude": 1200,
+      "timestamp": "2025-06-15T08:36:00Z",
+      "speed": 100.0,
+      "course": 255.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000022",
+      "latitude": 46.2200,
+      "longitude": 7.2000,
+      "altitude": 1800,
+      "timestamp": "2025-06-15T08:40:00Z",
+      "speed": 110.0,
+      "course": 280.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000023",
+      "latitude": 46.2800,
+      "longitude": 7.1500,
+      "altitude": 2400,
+      "timestamp": "2025-06-15T08:45:00Z",
+      "speed": 115.0,
+      "course": 330.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000024",
+      "latitude": 46.3500,
+      "longitude": 7.2500,
+      "altitude": 3000,
+      "timestamp": "2025-06-15T08:52:00Z",
+      "speed": 118.0,
+      "course": 50.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000025",
+      "latitude": 46.4500,
+      "longitude": 7.5000,
+      "altitude": 3500,
+      "timestamp": "2025-06-15T09:00:00Z",
+      "speed": 120.0,
+      "course": 65.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000026",
+      "latitude": 46.5000,
+      "longitude": 7.8000,
+      "altitude": 3800,
+      "timestamp": "2025-06-15T09:08:00Z",
+      "speed": 122.0,
+      "course": 70.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000027",
+      "latitude": 46.5200,
+      "longitude": 8.2000,
+      "altitude": 4000,
+      "timestamp": "2025-06-15T09:18:00Z",
+      "speed": 120.0,
+      "course": 75.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000028",
+      "latitude": 46.5300,
+      "longitude": 8.6000,
+      "altitude": 4200,
+      "timestamp": "2025-06-15T09:28:00Z",
+      "speed": 118.0,
+      "course": 80.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000029",
+      "latitude": 46.5200,
+      "longitude": 9.0000,
+      "altitude": 4000,
+      "timestamp": "2025-06-15T09:38:00Z",
+      "speed": 115.0,
+      "course": 85.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000030",
+      "latitude": 46.5100,
+      "longitude": 9.4000,
+      "altitude": 3500,
+      "timestamp": "2025-06-15T09:48:00Z",
+      "speed": 110.0,
+      "course": 90.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000031",
+      "latitude": 46.5050,
+      "longitude": 9.7500,
+      "altitude": 2500,
+      "timestamp": "2025-06-15T09:53:00Z",
+      "speed": 95.0,
+      "course": 95.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000032",
+      "latitude": 46.5300,
+      "longitude": 9.8500,
+      "altitude": 1900,
+      "timestamp": "2025-06-15T09:55:00Z",
+      "speed": 75.0,
+      "course": 60.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000033",
+      "latitude": 46.5342,
+      "longitude": 9.8842,
+      "altitude": 1707,
+      "timestamp": "2025-06-15T09:55:30Z",
+      "speed": 55.0,
+      "course": 55.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000034",
+      "latitude": 46.5360,
+      "longitude": 9.8880,
+      "altitude": 1720,
+      "timestamp": "2025-06-15T09:56:00Z",
+      "speed": 65.0,
+      "course": 55.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000035",
+      "latitude": 46.5450,
+      "longitude": 9.9100,
+      "altitude": 2000,
+      "timestamp": "2025-06-15T09:58:00Z",
+      "speed": 90.0,
+      "course": 50.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000036",
+      "latitude": 46.5800,
+      "longitude": 9.9500,
+      "altitude": 2800,
+      "timestamp": "2025-06-15T10:02:00Z",
+      "speed": 105.0,
+      "course": 30.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000037",
+      "latitude": 46.6500,
+      "longitude": 9.9000,
+      "altitude": 3500,
+      "timestamp": "2025-06-15T10:08:00Z",
+      "speed": 115.0,
+      "course": 340.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000038",
+      "latitude": 46.7500,
+      "longitude": 9.7000,
+      "altitude": 4000,
+      "timestamp": "2025-06-15T10:16:00Z",
+      "speed": 120.0,
+      "course": 300.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000039",
+      "latitude": 46.8500,
+      "longitude": 9.4000,
+      "altitude": 4200,
+      "timestamp": "2025-06-15T10:26:00Z",
+      "speed": 122.0,
+      "course": 290.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000040",
+      "latitude": 46.9200,
+      "longitude": 9.0000,
+      "altitude": 4000,
+      "timestamp": "2025-06-15T10:36:00Z",
+      "speed": 120.0,
+      "course": 285.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000041",
+      "latitude": 46.9800,
+      "longitude": 8.5000,
+      "altitude": 3800,
+      "timestamp": "2025-06-15T10:48:00Z",
+      "speed": 118.0,
+      "course": 280.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000042",
+      "latitude": 47.0200,
+      "longitude": 8.0000,
+      "altitude": 3500,
+      "timestamp": "2025-06-15T11:00:00Z",
+      "speed": 115.0,
+      "course": 275.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000043",
+      "latitude": 47.0800,
+      "longitude": 7.5000,
+      "altitude": 3000,
+      "timestamp": "2025-06-15T11:12:00Z",
+      "speed": 112.0,
+      "course": 270.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000044",
+      "latitude": 47.1500,
+      "longitude": 7.2000,
+      "altitude": 2500,
+      "timestamp": "2025-06-15T11:22:00Z",
+      "speed": 108.0,
+      "course": 290.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000045",
+      "latitude": 47.2200,
+      "longitude": 7.0800,
+      "altitude": 2000,
+      "timestamp": "2025-06-15T11:30:00Z",
+      "speed": 105.0,
+      "course": 310.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000046",
+      "latitude": 47.2800,
+      "longitude": 7.0300,
+      "altitude": 1500,
+      "timestamp": "2025-06-15T11:35:00Z",
+      "speed": 100.0,
+      "course": 330.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000047",
+      "latitude": 47.3200,
+      "longitude": 7.0100,
+      "altitude": 1000,
+      "timestamp": "2025-06-15T11:39:00Z",
+      "speed": 90.0,
+      "course": 350.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000048",
+      "latitude": 47.3400,
+      "longitude": 7.0200,
+      "altitude": 750,
+      "timestamp": "2025-06-15T11:41:00Z",
+      "speed": 75.0,
+      "course": 30.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000049",
+      "latitude": 47.3480,
+      "longitude": 7.0260,
+      "altitude": 600,
+      "timestamp": "2025-06-15T11:42:00Z",
+      "speed": 60.0,
+      "course": 60.0
+    },
+    {
+      "id": "00000005-2025-0615-0001-000000000050",
+      "latitude": 47.3497,
+      "longitude": 7.0278,
+      "altitude": 567,
+      "timestamp": "2025-06-15T11:42:30Z",
+      "speed": 0.0,
+      "course": 70.0
+    }
+  ]
+}

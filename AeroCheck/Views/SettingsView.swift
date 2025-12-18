@@ -403,7 +403,10 @@ struct SettingsView: View {
             .onChange(of: offlineMode) { _, _ in saveSettings() }
             .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
             .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
-            .onChange(of: marketingMode) { _, _ in saveSettings() }
+            .onChange(of: marketingMode) { _, newValue in
+                // Only update in-memory setting, don't persist to disk
+                appState.settings.marketingMode = newValue
+            }
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)
@@ -476,9 +479,10 @@ struct SettingsView: View {
         offlineMode = appState.settings.offlineMode
         alwaysUseUTC = appState.settings.alwaysUseUTC
         showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
-        marketingMode = appState.settings.marketingMode
-        // Show developer options if marketing mode was previously enabled
-        showDeveloperOptions = appState.settings.marketingMode
+        // Marketing mode is NOT loaded from settings - it always starts as false
+        // Developer options are hidden by default and require 5 taps to reveal each session
+        marketingMode = false
+        showDeveloperOptions = false
     }
 
     private func saveSettings() {
@@ -491,7 +495,7 @@ struct SettingsView: View {
         appState.settings.offlineMode = offlineMode
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
-        appState.settings.marketingMode = marketingMode
+        // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
         // Apply screen setting

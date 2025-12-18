@@ -823,28 +823,24 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Bright yellow color for visibility
-            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
-            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
+            // Create aircraft marker using modern SF Symbols approach
+            // Using smaller, cleaner icon following Apple's HIG for map annotations
+            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                annotationView.image = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
+                annotationView.image = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
             }
 
+            // Apply rotation for heading - SF Symbol airplane points up by default,
+            // so we rotate directly by heading (0° = North)
             annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
 
-            // Shadow for visibility
+            // Subtle shadow for depth without overwhelming the map
             annotationView.layer.shadowColor = UIColor.black.cgColor
-            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
-            annotationView.layer.shadowOpacity = 0.8
-            annotationView.layer.shadowRadius = 4
-
-            // Glow effect
-            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
-            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
-            glowView.layer.cornerRadius = 25
-            annotationView.insertSubview(glowView, at: 0)
-            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 1)
+            annotationView.layer.shadowOpacity = 0.6
+            annotationView.layer.shadowRadius = 2
 
             return annotationView
         }
@@ -858,19 +854,12 @@ struct AircraftMarker: View {
     let speed: Double
 
     var body: some View {
-        ZStack {
-            // Outer glow
-            Circle()
-                .fill(Color.aviationGold.opacity(0.3))
-                .frame(width: 40, height: 40)
-
-            // Aircraft icon
-            Image(systemName: "airplane")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.aviationGold)
-                .rotationEffect(.degrees(heading))
-                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
-        }
+        // Clean, minimal aircraft marker following Apple's HIG
+        Image(systemName: "airplane")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(.aviationGold)
+            .rotationEffect(.degrees(heading))
+            .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
     }
 }
 
@@ -1265,34 +1254,25 @@ struct SwissMapView: UIViewRepresentable {
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Create aircraft image with explicit yellow/gold color
-            // Using a brighter yellow that's clearly visible on all backgrounds
-            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
-            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
+            // Create aircraft marker using modern SF Symbols approach
+            // Using smaller, cleaner icon following Apple's HIG for map annotations
+            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                // Create a new image with the tint color applied
-                let coloredImage = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
+                let coloredImage = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
                 annotationView.image = coloredImage
             }
 
-            // Apply rotation for heading
+            // Apply rotation for heading - SF Symbol airplane points up by default,
+            // so we rotate directly by heading (0° = North)
             annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
 
-            // Add strong shadow for visibility on all backgrounds
+            // Subtle shadow for depth without overwhelming the map
             annotationView.layer.shadowColor = UIColor.black.cgColor
-            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
-            annotationView.layer.shadowOpacity = 0.8
-            annotationView.layer.shadowRadius = 4
-
-            // Add background glow circle with bright yellow
-            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
-            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
-            glowView.layer.cornerRadius = 25
-            annotationView.insertSubview(glowView, at: 0)
-
-            // Center the glow view
-            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 1)
+            annotationView.layer.shadowOpacity = 0.6
+            annotationView.layer.shadowRadius = 2
 
             return annotationView
         }

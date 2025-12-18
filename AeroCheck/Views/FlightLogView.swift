@@ -464,6 +464,20 @@ struct FlightLogView: View {
     }
 }
 
+// MARK: - Custom Label Style
+
+/// A custom label style with configurable spacing between icon and text
+struct CustomLabelStyle: LabelStyle {
+    var spacing: CGFloat = 4
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: spacing) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
@@ -501,20 +515,38 @@ struct FlightRowView: View {
                         .foregroundColor(.aviationGreen)
                 }
                 
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     if let startTime = flight.startTime {
-                        Label(timeString(from: startTime), systemImage: "clock")
-                            .font(.captionText)
-                            .foregroundColor(.secondaryText)
+                        Label {
+                            Text(timeString(from: startTime))
+                        } icon: {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10))
+                        }
+                        .font(.captionText)
+                        .foregroundColor(.secondaryText)
+                        .labelStyle(CustomLabelStyle(spacing: 4))
                     }
 
-                    Label(flight.formattedDistance, systemImage: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
+                    Label {
+                        Text(flight.formattedDistance)
+                    } icon: {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
+                            .font(.system(size: 10))
+                    }
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .labelStyle(CustomLabelStyle(spacing: 4))
 
-                    Label("\(flight.gpsTrack.count) pts", systemImage: "location.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
+                    Label {
+                        Text("\(flight.gpsTrack.count) pts")
+                    } icon: {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 10))
+                    }
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .labelStyle(CustomLabelStyle(spacing: 4))
                 }
             }
             

@@ -501,20 +501,20 @@ struct FlightRowView: View {
                         .foregroundColor(.aviationGreen)
                 }
                 
-                HStack(spacing: 16) {
-                    Label(flight.formattedDistance, systemImage: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                    
-                    Label("\(flight.gpsTrack.count) pts", systemImage: "location.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                    
+                HStack(spacing: 12) {
                     if let startTime = flight.startTime {
-                        Text(timeString(from: startTime))
+                        Label(timeString(from: startTime), systemImage: "clock")
                             .font(.captionText)
                             .foregroundColor(.secondaryText)
                     }
+
+                    Label(flight.formattedDistance, systemImage: "point.topleft.down.to.point.bottomright.curvepath.fill")
+                        .font(.captionText)
+                        .foregroundColor(.secondaryText)
+
+                    Label("\(flight.gpsTrack.count) pts", systemImage: "location.fill")
+                        .font(.captionText)
+                        .foregroundColor(.secondaryText)
                 }
             }
             

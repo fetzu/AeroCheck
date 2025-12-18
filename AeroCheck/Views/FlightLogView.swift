@@ -249,10 +249,19 @@ struct FlightLogView: View {
     }
     
     // MARK: - Flight List
-    
+
+    /// Flights sorted counter-chronologically (most recent first)
+    private var sortedFlights: [Flight] {
+        appState.flights.sorted { flight1, flight2 in
+            let date1 = flight1.startTime ?? Date.distantPast
+            let date2 = flight2.startTime ?? Date.distantPast
+            return date1 > date2
+        }
+    }
+
     private var flightList: some View {
         List {
-            ForEach(appState.flights) { flight in
+            ForEach(sortedFlights) { flight in
                 FlightRowView(flight: flight)
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -261,11 +270,19 @@ struct FlightLogView: View {
                     .listRowBackground(Color.cardBackground)
             }
             .onDelete { indexSet in
-                appState.deleteFlight(at: indexSet)
+                deleteFlights(at: indexSet)
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Delete flights from the sorted list by mapping indices back to the original array
+    private func deleteFlights(at indexSet: IndexSet) {
+        let flightsToDelete = indexSet.map { sortedFlights[$0] }
+        for flight in flightsToDelete {
+            appState.deleteFlight(flight)
+        }
     }
     
     // MARK: - Import Handler
@@ -447,6 +464,20 @@ struct FlightLogView: View {
     }
 }
 
+// MARK: - Custom Label Style
+
+/// A custom label style with configurable spacing between icon and text
+struct CustomLabelStyle: LabelStyle {
+    var spacing: CGFloat = 4
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: spacing) {
+            configuration.icon
+            configuration.title
+        }
+    }
+}
+
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
@@ -456,7 +487,7 @@ struct FlightRowView: View {
     var body: some View {
         HStack(spacing: 16) {
             // Date indicator
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Text(dayString)
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.aviationGold)
@@ -464,6 +495,9 @@ struct FlightRowView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondaryText)
                     .textCase(.uppercase)
+                Text(yearString)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(.aviationGold)
             }
             .frame(width: 50)
             
@@ -481,20 +515,38 @@ struct FlightRowView: View {
                         .foregroundColor(.aviationGreen)
                 }
                 
-                HStack(spacing: 16) {
-                    Label(flight.formattedDistance, systemImage: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                    
-                    Label("\(flight.gpsTrack.count) pts", systemImage: "location.fill")
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                    
+                HStack(spacing: 14) {
                     if let startTime = flight.startTime {
-                        Text(timeString(from: startTime))
-                            .font(.captionText)
-                            .foregroundColor(.secondaryText)
+                        Label {
+                            Text(timeString(from: startTime))
+                        } icon: {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10))
+                        }
+                        .font(.captionText)
+                        .foregroundColor(.secondaryText)
+                        .labelStyle(CustomLabelStyle(spacing: 4))
                     }
+
+                    Label {
+                        Text(flight.formattedDistance)
+                    } icon: {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
+                            .font(.system(size: 10))
+                    }
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .labelStyle(CustomLabelStyle(spacing: 4))
+
+                    Label {
+                        Text("\(flight.gpsTrack.count) pts")
+                    } icon: {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 10))
+                    }
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .labelStyle(CustomLabelStyle(spacing: 4))
                 }
             }
             
@@ -518,7 +570,14 @@ struct FlightRowView: View {
         formatter.dateFormat = "MMM"
         return formatter.string(from: date)
     }
-    
+
+    private var yearString: String {
+        guard let date = flight.startTime else { return "----" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter.string(from: date)
+    }
+
     private func timeString(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short

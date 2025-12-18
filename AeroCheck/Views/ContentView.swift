@@ -5,6 +5,8 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @State private var showMarketingControls: Bool = false
+    @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     var body: some View {
         GeometryReader { geometry in
@@ -25,9 +27,24 @@ struct ContentView: View {
                     RotateToPortraitView()
                         .transition(.opacity)
                 }
+
+                // Marketing controls overlay (shown when shaking with marketing mode enabled)
+                if showMarketingControls && appState.settings.marketingMode {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            MarketingControlsView()
+                                .padding(.top, 50)
+                                .padding(.trailing, 16)
+                        }
+                        Spacer()
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
+            .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
         }
         .onAppear {
             // Request location permission on app launch
@@ -36,10 +53,68 @@ struct ContentView: View {
             // Apply screen setting
             UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn
         }
+        .onShake {
+            // Toggle marketing controls when shaking (only if marketing mode is enabled)
+            if appState.settings.marketingMode {
+                showMarketingControls.toggle()
+            }
+        }
+        .onChange(of: marketingProvider.currentLocation) { _, newLocation in
+            // Inject marketing location into LocationManager when active
+            if appState.settings.marketingMode && marketingProvider.isActive {
+                if let location = newLocation {
+                    locationManager.currentLocation = location
+                    // Also override GPS status to show as good
+                    locationManager.overrideGPSStatus(.good)
+                }
+            }
+        }
+        .onChange(of: marketingProvider.isActive) { _, isActive in
+            // When marketing mode stops, clear the GPS status override
+            if !isActive {
+                locationManager.clearGPSStatusOverride()
+            }
+        }
         .sheet(isPresented: $appState.showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
         }
+    }
+}
+
+// MARK: - Shake Gesture Detection
+
+/// Notification name for shake gesture
+extension NSNotification.Name {
+    static let deviceDidShake = NSNotification.Name("deviceDidShake")
+}
+
+/// UIWindow extension to detect shake gestures
+extension UIWindow {
+    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        super.motionEnded(motion, with: event)
+        if motion == .motionShake {
+            NotificationCenter.default.post(name: .deviceDidShake, object: nil)
+        }
+    }
+}
+
+/// View modifier to handle shake gestures
+struct ShakeGestureModifier: ViewModifier {
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in
+                action()
+            }
+    }
+}
+
+extension View {
+    /// Adds an action to perform when the device is shaken
+    func onShake(perform action: @escaping () -> Void) -> some View {
+        modifier(ShakeGestureModifier(action: action))
     }
 }
 

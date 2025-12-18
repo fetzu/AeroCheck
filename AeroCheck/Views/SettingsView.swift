@@ -20,6 +20,9 @@ struct SettingsView: View {
     @State private var showDeleteConfirmation: Bool = false
     @State private var showEstimatedAirspeedWarning: Bool = false
     @State private var pendingEstimatedAirspeedValue: Bool = false
+    @State private var marketingMode: Bool = false
+    @State private var showDeveloperOptions: Bool = false
+    @State private var versionTapCount: Int = 0
     
     var body: some View {
         NavigationView {
@@ -220,17 +223,29 @@ struct SettingsView: View {
                 
                 // About section
                 Section {
-                    Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
-                        HStack {
-                            Text("App Version")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Text(appVersion)
-                                Image(systemName: "arrow.up.forward.square")
-                                    .font(.caption)
+                    // Version row with hidden tap gesture to reveal developer options
+                    HStack {
+                        Text("App Version")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text(appVersion)
+                            if !showDeveloperOptions {
+                                Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
+                                    Image(systemName: "arrow.up.forward.square")
+                                        .font(.caption)
+                                }
                             }
-                            .foregroundColor(.secondary)
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        versionTapCount += 1
+                        if versionTapCount >= 5 {
+                            withAnimation {
+                                showDeveloperOptions = true
+                            }
                         }
                     }
 
@@ -335,7 +350,7 @@ struct SettingsView: View {
                         Text("\(appState.flights.count)")
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
                         Text("Total GPS Points")
                         Spacer()
@@ -344,6 +359,28 @@ struct SettingsView: View {
                     }
                 } header: {
                     Label("Data", systemImage: "externaldrive.fill")
+                }
+
+                // Developer Options section (hidden until revealed)
+                if showDeveloperOptions {
+                    Section {
+                        Toggle("Marketing Mode", isOn: $marketingMode)
+                    } header: {
+                        HStack {
+                            Label("Developer Options", systemImage: "hammer.fill")
+                            Text("DEV")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.purple)
+                                )
+                        }
+                    } footer: {
+                        Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -366,6 +403,10 @@ struct SettingsView: View {
             .onChange(of: offlineMode) { _, _ in saveSettings() }
             .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
             .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
+            .onChange(of: marketingMode) { _, newValue in
+                // Only update in-memory setting, don't persist to disk
+                appState.settings.marketingMode = newValue
+            }
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)
@@ -438,6 +479,10 @@ struct SettingsView: View {
         offlineMode = appState.settings.offlineMode
         alwaysUseUTC = appState.settings.alwaysUseUTC
         showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
+        // Marketing mode is NOT loaded from settings - it always starts as false
+        // Developer options are hidden by default and require 5 taps to reveal each session
+        marketingMode = false
+        showDeveloperOptions = false
     }
 
     private func saveSettings() {
@@ -450,6 +495,7 @@ struct SettingsView: View {
         appState.settings.offlineMode = offlineMode
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
+        // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
         // Apply screen setting

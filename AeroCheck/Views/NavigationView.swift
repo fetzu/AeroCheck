@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+
 // MARK: - Map Layer Types
 
 /// Available map layer types for navigation

@@ -41,6 +41,12 @@ class LocationManager: NSObject, ObservableObject {
     private let signalLostThreshold: TimeInterval = 10.0  // 10 seconds without update = lost
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 50.0  // 50 meters
     private var signalCheckTimer: Timer?
+
+    // GPS status override (for marketing mode)
+    private var gpsStatusOverride: GPSSignalStatus?
+
+    // Marketing mode flag - when true, ignores real GPS updates
+    private var marketingModeActive: Bool = false
     
     // MARK: - Initialization
     
@@ -109,6 +115,12 @@ class LocationManager: NSObject, ObservableObject {
     private func checkSignalStatus() {
         guard isTracking else { return }
 
+        // If GPS status is overridden (marketing mode), don't check real signal
+        if let override = gpsStatusOverride {
+            gpsSignalStatus = override
+            return
+        }
+
         let now = Date()
 
         // Check time since last location update
@@ -131,6 +143,11 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     private func updateSignalQuality(from location: CLLocation) {
+        // If GPS status is overridden (marketing mode), don't update from real signal
+        if gpsStatusOverride != nil {
+            return
+        }
+
         let now = Date()
         let accuracy = location.horizontalAccuracy
 
@@ -182,6 +199,22 @@ class LocationManager: NSObject, ObservableObject {
     var currentAltitudeFeet: Double {
         currentAltitudeMeters * 3.28084 // meters to feet
     }
+
+    // MARK: - GPS Status Override (for Marketing Mode)
+
+    /// Override the GPS signal status (used by marketing mode to show stable GPS)
+    /// Also activates marketing mode which ignores real GPS updates
+    func overrideGPSStatus(_ status: GPSSignalStatus) {
+        gpsStatusOverride = status
+        gpsSignalStatus = status
+        marketingModeActive = true
+    }
+
+    /// Clear the GPS status override and return to normal signal checking
+    func clearGPSStatusOverride() {
+        gpsStatusOverride = nil
+        marketingModeActive = false
+    }
 }
 
 // MARK: - CLLocationManagerDelegate
@@ -189,6 +222,10 @@ class LocationManager: NSObject, ObservableObject {
 extension LocationManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
+
+        // When marketing mode is active, ignore real GPS updates
+        // (marketing location is injected directly via currentLocation property)
+        guard !marketingModeActive else { return }
 
         // Update current location
         currentLocation = location

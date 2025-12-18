@@ -22,9 +22,27 @@ struct AppSettings: Codable {
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
 
+    // Marketing mode is NOT persisted - it resets to false on app restart
+    var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
+
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {
         selectedAircraft.registration
+    }
+
+    // Custom coding keys to exclude marketingMode from persistence
+    enum CodingKeys: String, CodingKey {
+        case selectedAircraft
+        case keepScreenOn
+        case gpsRecordingInterval
+        case showSpeedReference
+        case stepByStepHighlighting
+        case learningMode
+        case forceICAOChartLayer
+        case offlineMode
+        case alwaysUseUTC
+        case showEstimatedAirspeed
+        // marketingMode is intentionally excluded
     }
 }
 

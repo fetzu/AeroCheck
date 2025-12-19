@@ -125,6 +125,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
     @State private var selectedLayer: MapLayerType = .standard
@@ -179,6 +180,25 @@ struct NavigationMapView: View {
 
     // Create a dedicated timer that fires every second
     private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    /// GPS track to display - uses marketing path when in marketing mode, otherwise flight track
+    private var displayGpsTrack: [GPSPoint] {
+        // In marketing mode, convert the marketing path to GPSPoints
+        if appState.settings.marketingMode && marketingProvider.isActive {
+            return marketingProvider.previousPath.map { coord in
+                GPSPoint(
+                    latitude: coord.latitude,
+                    longitude: coord.longitude,
+                    altitude: 0,
+                    timestamp: Date(),
+                    speed: 0,
+                    course: 0
+                )
+            }
+        }
+        // Otherwise use the current flight's GPS track
+        return appState.currentFlight?.gpsTrack ?? []
+    }
 
     /// Current target speed from flight phase (if applicable)
     private var targetSpeed: Int? {
@@ -326,7 +346,7 @@ struct NavigationMapView: View {
                 layerType: isOfflineMode ? .icao : selectedLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
-                gpsTrack: appState.currentFlight?.gpsTrack ?? [],
+                gpsTrack: displayGpsTrack,
                 isFollowingAircraft: $isFollowingAircraft,
                 forceICAOLayer: appState.settings.forceICAOChartLayer || isOfflineMode,
                 offlineMapManager: isOfflineMode ? offlineMapManager : nil
@@ -337,7 +357,7 @@ struct NavigationMapView: View {
                 selectedLayer: selectedLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
-                gpsTrack: appState.currentFlight?.gpsTrack ?? [],
+                gpsTrack: displayGpsTrack,
                 isFollowingAircraft: $isFollowingAircraft
             )
         }
@@ -743,30 +763,58 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
-        // Remove existing aircraft annotations
-        let existingAircraftAnnotations = mapView.annotations.compactMap { $0 as? AircraftAnnotation }
-        mapView.removeAnnotations(existingAircraftAnnotations)
+        let existingAnnotation = mapView.annotations.compactMap { $0 as? AircraftAnnotation }.first
 
-        // Add aircraft annotation
         if let location = currentLocation {
-            let annotation = AircraftAnnotation(
-                coordinate: location.coordinate,
-                heading: location.course >= 0 ? location.course : 0
-            )
-            mapView.addAnnotation(annotation)
+            let newHeading = location.course >= 0 ? location.course : 0
+
+            if let existing = existingAnnotation {
+                // Update existing annotation in place to avoid blinking
+                let coordChanged = abs(existing.coordinate.latitude - location.coordinate.latitude) > 0.00001 ||
+                                   abs(existing.coordinate.longitude - location.coordinate.longitude) > 0.00001
+                let headingChanged = abs(existing.heading - newHeading) > 0.5
+
+                if coordChanged || headingChanged {
+                    existing.coordinate = location.coordinate
+                    existing.heading = newHeading
+
+                    // Update the annotation view's transform for new heading
+                    if let view = mapView.view(for: existing) {
+                        let headingRadians = (newHeading - 90.0) * .pi / 180.0
+                        UIView.animate(withDuration: 0.1) {
+                            view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
+                        }
+                    }
+                }
+            } else {
+                // No existing annotation, add new one
+                let annotation = AircraftAnnotation(
+                    coordinate: location.coordinate,
+                    heading: newHeading
+                )
+                mapView.addAnnotation(annotation)
+            }
+        } else if let existing = existingAnnotation {
+            // No location, remove annotation
+            mapView.removeAnnotation(existing)
         }
     }
 
     private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing polylines
+        // Only update if track has changed
         let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
-        mapView.removeOverlays(existingPolylines)
 
-        // Add track overlay
-        if gpsTrack.count > 1 {
-            let coordinates = gpsTrack.map { $0.coordinate }
-            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-            mapView.addOverlay(polyline, level: .aboveRoads)
+        // Check if we need to update (different point count)
+        let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
+
+        if needsUpdate {
+            mapView.removeOverlays(existingPolylines)
+
+            if gpsTrack.count > 1 {
+                let coordinates = gpsTrack.map { $0.coordinate }
+                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                mapView.addOverlay(polyline, level: .aboveRoads)
+            }
         }
     }
 
@@ -823,28 +871,58 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Bright yellow color for visibility
-            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
-            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
+            // Create aircraft marker with outline for visibility on all map backgrounds
+            // Following aviation UI/UX best practices: high contrast with dark outline
+            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                annotationView.image = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
+                // Create image with stroke outline for better visibility
+                let strokeColor = UIColor.black
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw stroke (multiple offset copies create outline effect)
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth),
+                    CGPoint(x: -strokeWidth * 0.7, y: -strokeWidth * 0.7),
+                    CGPoint(x: strokeWidth * 0.7, y: -strokeWidth * 0.7),
+                    CGPoint(x: -strokeWidth * 0.7, y: strokeWidth * 0.7),
+                    CGPoint(x: strokeWidth * 0.7, y: strokeWidth * 0.7)
+                ]
+
+                let tintedStroke = image.withTintColor(strokeColor, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    tintedStroke.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main icon on top
+                let tintedImage = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
             }
 
-            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+            // Apply rotation for heading
+            // SF Symbol "airplane" points to the right (90°/East) by default
+            // Subtract 90° so that heading 0° (North) shows plane pointing up
+            let headingRadians = (aircraftAnnotation.heading - 90.0) * .pi / 180.0
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
-            // Shadow for visibility
+            // Additional shadow for depth
             annotationView.layer.shadowColor = UIColor.black.cgColor
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
-            annotationView.layer.shadowOpacity = 0.8
-            annotationView.layer.shadowRadius = 4
-
-            // Glow effect
-            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
-            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
-            glowView.layer.cornerRadius = 25
-            annotationView.insertSubview(glowView, at: 0)
-            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 3
 
             return annotationView
         }
@@ -858,19 +936,26 @@ struct AircraftMarker: View {
     let speed: Double
 
     var body: some View {
+        // Aircraft marker with outline for visibility on all map backgrounds
+        // SF Symbol "airplane" points to the right (90°/East) by default
+        // Subtract 90° so that heading 0° (North) shows plane pointing up
         ZStack {
-            // Outer glow
-            Circle()
-                .fill(Color.aviationGold.opacity(0.3))
-                .frame(width: 40, height: 40)
-
-            // Aircraft icon
+            // Black outline (drawn multiple times offset to create stroke effect)
+            ForEach(0..<8, id: \.self) { i in
+                let angle = Double(i) * .pi / 4
+                let offset: CGFloat = 1.5
+                Image(systemName: "airplane")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.black)
+                    .offset(x: cos(angle) * offset, y: sin(angle) * offset)
+            }
+            // Main gold icon
             Image(systemName: "airplane")
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.aviationGold)
-                .rotationEffect(.degrees(heading))
-                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
         }
+        .rotationEffect(.degrees(heading - 90.0))
+        .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
     }
 }
 
@@ -1133,30 +1218,58 @@ struct SwissMapView: UIViewRepresentable {
     // MARK: - Update Methods
 
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
-        // Remove existing aircraft annotations
-        let existingAircraftAnnotations = mapView.annotations.compactMap { $0 as? AircraftAnnotation }
-        mapView.removeAnnotations(existingAircraftAnnotations)
+        let existingAnnotation = mapView.annotations.compactMap { $0 as? AircraftAnnotation }.first
 
-        // Add aircraft annotation
         if let location = currentLocation {
-            let annotation = AircraftAnnotation(
-                coordinate: location.coordinate,
-                heading: location.course >= 0 ? location.course : 0
-            )
-            mapView.addAnnotation(annotation)
+            let newHeading = location.course >= 0 ? location.course : 0
+
+            if let existing = existingAnnotation {
+                // Update existing annotation in place to avoid blinking
+                let coordChanged = abs(existing.coordinate.latitude - location.coordinate.latitude) > 0.00001 ||
+                                   abs(existing.coordinate.longitude - location.coordinate.longitude) > 0.00001
+                let headingChanged = abs(existing.heading - newHeading) > 0.5
+
+                if coordChanged || headingChanged {
+                    existing.coordinate = location.coordinate
+                    existing.heading = newHeading
+
+                    // Update the annotation view's transform for new heading
+                    if let view = mapView.view(for: existing) {
+                        let headingRadians = (newHeading - 90.0) * .pi / 180.0
+                        UIView.animate(withDuration: 0.1) {
+                            view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
+                        }
+                    }
+                }
+            } else {
+                // No existing annotation, add new one
+                let annotation = AircraftAnnotation(
+                    coordinate: location.coordinate,
+                    heading: newHeading
+                )
+                mapView.addAnnotation(annotation)
+            }
+        } else if let existing = existingAnnotation {
+            // No location, remove annotation
+            mapView.removeAnnotation(existing)
         }
     }
 
     private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing track overlays (polylines only, not tile overlays)
+        // Only update if track has changed
         let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
-        mapView.removeOverlays(existingPolylines)
 
-        // Add track overlay
-        if gpsTrack.count > 1 {
-            let coordinates = gpsTrack.map { $0.coordinate }
-            let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-            mapView.addOverlay(polyline, level: .aboveRoads)
+        // Check if we need to update (different point count)
+        let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
+
+        if needsUpdate {
+            mapView.removeOverlays(existingPolylines)
+
+            if gpsTrack.count > 1 {
+                let coordinates = gpsTrack.map { $0.coordinate }
+                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                mapView.addOverlay(polyline, level: .aboveRoads)
+            }
         }
     }
 
@@ -1265,34 +1378,58 @@ struct SwissMapView: UIViewRepresentable {
             let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView.canShowCallout = false
 
-            // Create aircraft image with explicit yellow/gold color
-            // Using a brighter yellow that's clearly visible on all backgrounds
-            let yellowColor = UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
-            let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .bold)
+            // Create aircraft marker with outline for visibility on all map backgrounds
+            // Following aviation UI/UX best practices: high contrast with dark outline
+            let aviationGold = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
 
             if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                // Create a new image with the tint color applied
-                let coloredImage = image.withTintColor(yellowColor, renderingMode: .alwaysOriginal)
-                annotationView.image = coloredImage
+                // Create image with stroke outline for better visibility
+                let strokeColor = UIColor.black
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw stroke (multiple offset copies create outline effect)
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth),
+                    CGPoint(x: -strokeWidth * 0.7, y: -strokeWidth * 0.7),
+                    CGPoint(x: strokeWidth * 0.7, y: -strokeWidth * 0.7),
+                    CGPoint(x: -strokeWidth * 0.7, y: strokeWidth * 0.7),
+                    CGPoint(x: strokeWidth * 0.7, y: strokeWidth * 0.7)
+                ]
+
+                let tintedStroke = image.withTintColor(strokeColor, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    tintedStroke.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main icon on top
+                let tintedImage = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
             }
 
             // Apply rotation for heading
-            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+            // SF Symbol "airplane" points to the right (90°/East) by default
+            // Subtract 90° so that heading 0° (North) shows plane pointing up
+            let headingRadians = (aircraftAnnotation.heading - 90.0) * .pi / 180.0
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
-            // Add strong shadow for visibility on all backgrounds
+            // Additional shadow for depth
             annotationView.layer.shadowColor = UIColor.black.cgColor
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
-            annotationView.layer.shadowOpacity = 0.8
-            annotationView.layer.shadowRadius = 4
-
-            // Add background glow circle with bright yellow
-            let glowView = UIView(frame: CGRect(x: -10, y: -10, width: 50, height: 50))
-            glowView.backgroundColor = yellowColor.withAlphaComponent(0.4)
-            glowView.layer.cornerRadius = 25
-            annotationView.insertSubview(glowView, at: 0)
-
-            // Center the glow view
-            glowView.center = CGPoint(x: annotationView.bounds.midX, y: annotationView.bounds.midY)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 3
 
             return annotationView
         }

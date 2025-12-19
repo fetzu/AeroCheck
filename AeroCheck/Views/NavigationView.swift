@@ -133,9 +133,14 @@ struct NavigationMapView: View {
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
 
-    /// Whether offline mode is active
+    /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
         appState.settings.offlineMode && offlineMapManager.isCacheAvailable
+    }
+
+    /// Whether both ICAO and Segelflug are cached for full offline support
+    private var hasFullOfflineSupport: Bool {
+        offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable
     }
 
     /// Whether cache is available but not in offline mode (uses cache opportunistically)
@@ -342,14 +347,19 @@ struct NavigationMapView: View {
     private var mapContent: some View {
         if isOfflineMode || selectedLayer.isSwissLayer {
             // Use custom tile overlay for Swiss layers (or offline mode)
+            // Always pass offlineMapManager so cache can be used opportunistically
+            // In offline mode, only force ICAO if Segelflug cache is not available
+            let effectiveForceICAO = appState.settings.forceICAOChartLayer || (isOfflineMode && !hasFullOfflineSupport)
             SwissMapView(
                 layerType: isOfflineMode ? .icao : selectedLayer,
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
                 isFollowingAircraft: $isFollowingAircraft,
-                forceICAOLayer: appState.settings.forceICAOChartLayer || isOfflineMode,
-                offlineMapManager: isOfflineMode ? offlineMapManager : nil
+                forceICAOLayer: effectiveForceICAO,
+                offlineMapManager: offlineMapManager,
+                isStrictOfflineMode: isOfflineMode,
+                hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -992,12 +1002,11 @@ struct LayerPickerSheet: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // Swiss Topo section
+                    // swisstopo section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Swiss Topo")
+                        Text("swisstopo")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.secondaryText)
-                            .textCase(.uppercase)
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
@@ -1073,6 +1082,8 @@ struct SwissMapView: UIViewRepresentable {
     @Binding var isFollowingAircraft: Bool
     let forceICAOLayer: Bool
     var offlineMapManager: OfflineMapManager?
+    var isStrictOfflineMode: Bool = false
+    var hasSegelflugCache: Bool = false
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -1151,7 +1162,9 @@ struct SwissMapView: UIViewRepresentable {
         let overlayChanged = context.coordinator.updateTileOverlayIfNeeded(
             mapView,
             layerType: layerType,
-            forceICAO: forceICAOLayer
+            forceICAO: forceICAOLayer,
+            strictOffline: isStrictOfflineMode,
+            segelflugCache: hasSegelflugCache
         )
 
         // Always update zoom range to ensure it matches current settings
@@ -1192,7 +1205,9 @@ struct SwissMapView: UIViewRepresentable {
             // ICAO layer with seamless Segelflugkarte switching (or offline mode)
             let overlay = ICAOSegelflugkarteTileOverlay(
                 forceICAO: forceICAOLayer,
-                offlineMapManager: offlineMapManager
+                offlineMapManager: offlineMapManager,
+                isStrictOfflineMode: isStrictOfflineMode,
+                hasSegelflugCache: hasSegelflugCache
             )
             overlay.canReplaceMapContent = true
             mapView.addOverlay(overlay, level: .aboveLabels)
@@ -1209,6 +1224,8 @@ struct SwissMapView: UIViewRepresentable {
         context.coordinator.currentLayerType = layerType
         context.coordinator.currentForceICAO = forceICAOLayer
         context.coordinator.offlineMapManager = offlineMapManager
+        context.coordinator.isStrictOfflineMode = isStrictOfflineMode
+        context.coordinator.hasSegelflugCache = hasSegelflugCache
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1280,6 +1297,8 @@ struct SwissMapView: UIViewRepresentable {
         var currentLayerType: MapLayerType?
         var currentForceICAO: Bool = false
         var offlineMapManager: OfflineMapManager?
+        var isStrictOfflineMode: Bool = false
+        var hasSegelflugCache: Bool = false
         private var isUpdatingRegion = false
 
         init(_ parent: SwissMapView) {
@@ -1294,15 +1313,19 @@ struct SwissMapView: UIViewRepresentable {
                    abs(r1.span.longitudeDelta - r2.span.longitudeDelta) < epsilon
         }
 
-        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType, forceICAO: Bool) -> Bool {
+        func updateTileOverlayIfNeeded(_ mapView: MKMapView, layerType: MapLayerType, forceICAO: Bool, strictOffline: Bool, segelflugCache: Bool) -> Bool {
             // Check if we need to update
             let layerChanged = layerType != currentLayerType
             let forceChanged = forceICAO != currentForceICAO
+            let offlineChanged = strictOffline != isStrictOfflineMode
+            let segelflugCacheChanged = segelflugCache != hasSegelflugCache
 
-            guard layerChanged || forceChanged else { return false }
+            guard layerChanged || forceChanged || offlineChanged || segelflugCacheChanged else { return false }
 
             currentLayerType = layerType
             currentForceICAO = forceICAO
+            isStrictOfflineMode = strictOffline
+            hasSegelflugCache = segelflugCache
 
             // Remove existing tile overlays
             let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
@@ -1312,7 +1335,9 @@ struct SwissMapView: UIViewRepresentable {
             if layerType == .icao {
                 let overlay = ICAOSegelflugkarteTileOverlay(
                     forceICAO: forceICAO,
-                    offlineMapManager: offlineMapManager
+                    offlineMapManager: offlineMapManager,
+                    isStrictOfflineMode: strictOffline,
+                    hasSegelflugCache: segelflugCache
                 )
                 overlay.canReplaceMapContent = true
                 mapView.addOverlay(overlay, level: .aboveLabels)
@@ -1455,12 +1480,15 @@ class AircraftAnnotation: NSObject, MKAnnotation {
 /// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-11, scale 1:500,000
 /// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-14, scale 1:300,000
 /// When forceICAO is true, always use ICAO layer even at higher zoom levels
-/// When offlineMapManager is provided, use cached tiles from disk
+/// When offlineMapManager is provided, use cached tiles from disk (cache-first in online mode)
+/// When isStrictOfflineMode is true, only use cached tiles (no network requests)
 class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
     private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
     let forceICAO: Bool
     weak var offlineMapManager: OfflineMapManager?
+    let isStrictOfflineMode: Bool
+    let hasSegelflugCache: Bool
 
     // Zoom level where we switch from ICAO to Segelflugkarte
     // ICAO: zoom 7-11 (1:500,000)
@@ -1470,54 +1498,127 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     private let segelflugkarteMinZoom = 11
     private let segelflugkarteMaxZoom = 14
 
-    init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil) {
+    init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil, isStrictOfflineMode: Bool = false, hasSegelflugCache: Bool = false) {
         self.forceICAO = forceICAO
         self.offlineMapManager = offlineMapManager
-        // Use a placeholder URL template - we override url(forTilePath:) anyway
+        self.isStrictOfflineMode = isStrictOfflineMode
+        self.hasSegelflugCache = hasSegelflugCache
+        // Use a placeholder URL template - we override loadTile(at:result:) for cache-first loading
         let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
         // Set tile overlay zoom constraints to match the camera zoom range
         // This helps MapKit understand the valid tile range
         self.minimumZ = icaoMinZoom
-        // In offline mode, only ICAO tiles are available (no Segelflugkarte)
-        self.maximumZ = (offlineMapManager != nil || forceICAO) ? icaoMaxZoom : segelflugkarteMaxZoom
+
+        // In strict offline mode with only ICAO cache, limit to ICAO range
+        // In strict offline mode with both caches (or forceICAO off), allow Segelflug range
+        if forceICAO {
+            self.maximumZ = icaoMaxZoom
+        } else if isStrictOfflineMode {
+            self.maximumZ = hasSegelflugCache ? segelflugkarteMaxZoom : icaoMaxZoom
+        } else {
+            self.maximumZ = segelflugkarteMaxZoom
+        }
     }
 
     override func url(forTilePath path: MKTileOverlayPath) -> URL {
+        // This is called as fallback - loadTile handles cache-first logic
+        let (layerIdentifier, finalZ) = layerInfo(for: path)
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"
+        return URL(string: urlString) ?? URL(string: "about:blank")!
+    }
+
+    /// Override loadTile to implement cache-first loading strategy
+    /// This provides instant loading from cache while falling back to network when needed
+    override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
         let z = path.z
-        let clampedZ = min(max(z, icaoMinZoom), icaoMaxZoom)
 
-        // Check for offline cached tile first
-        if let manager = offlineMapManager,
-           let cachedURL = manager.cachedTileURL(z: clampedZ, x: path.x, y: path.y) {
-            return cachedURL
-        }
+        // Determine which layer to use based on zoom and settings
+        let (layerIdentifier, finalZ) = layerInfo(for: path)
 
-        // Online mode - determine which layer to use based on zoom level and force setting
-        let layerIdentifier: String
-        let finalZ: Int
-        let tileExtension = "png"
+        // Determine if this tile should come from ICAO or Segelflug based on the layer
+        let isICAOTile = layerIdentifier == icaoLayerIdentifier
 
-        if forceICAO || offlineMapManager != nil {
-            // Force ICAO at all zoom levels - clamp to ICAO's valid range
-            layerIdentifier = icaoLayerIdentifier
-            finalZ = clampedZ
-        } else {
-            // Seamless switching between ICAO and Segelflugkarte
-            if z <= icaoMaxZoom {
-                // Use ICAO chart for lower zoom levels
-                layerIdentifier = icaoLayerIdentifier
-                finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+        // Try cache first when we have a cache manager
+        if let manager = offlineMapManager {
+            if isICAOTile {
+                // Check for cached ICAO tile
+                if let cachedURL = manager.cachedTileURL(z: finalZ, x: path.x, y: path.y, layer: .icao),
+                   let data = try? Data(contentsOf: cachedURL) {
+                    // Cache hit - return immediately (this is why offline mode is fast!)
+                    result(data, nil)
+                    return
+                }
             } else {
-                // Use Segelflugkarte for higher zoom levels
-                layerIdentifier = segelflugkarteLayerIdentifier
-                finalZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
+                // Check for cached Segelflug tile
+                if let cachedURL = manager.cachedTileURL(z: finalZ, x: path.x, y: path.y, layer: .segelflug),
+                   let data = try? Data(contentsOf: cachedURL) {
+                    result(data, nil)
+                    return
+                }
             }
         }
 
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).\(tileExtension)"
-        return URL(string: urlString) ?? URL(string: "about:blank")!
+        // In strict offline mode, don't make network requests
+        if isStrictOfflineMode {
+            // Return empty data for tiles not in cache
+            result(nil, nil)
+            return
+        }
+
+        // Cache miss - fetch from network
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"
+
+        guard let url = URL(string: urlString) else {
+            result(nil, nil)
+            return
+        }
+
+        // Use URLSession for network requests
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                result(nil, error)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200,
+                  let data = data else {
+                result(nil, nil)
+                return
+            }
+
+            result(data, nil)
+        }
+        task.resume()
+    }
+
+    /// Determine which layer and zoom to use for a given tile path
+    private func layerInfo(for path: MKTileOverlayPath) -> (layerIdentifier: String, finalZ: Int) {
+        let z = path.z
+
+        if forceICAO {
+            // Force ICAO at all zoom levels - clamp to ICAO's valid range
+            let finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+            return (icaoLayerIdentifier, finalZ)
+        } else if isStrictOfflineMode && !hasSegelflugCache {
+            // Offline mode with only ICAO cache - force ICAO
+            let finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+            return (icaoLayerIdentifier, finalZ)
+        } else {
+            // Seamless switching between ICAO and Segelflugkarte
+            // Works in both online mode and offline mode with both caches
+            if z <= icaoMaxZoom {
+                // Use ICAO chart for lower zoom levels
+                let finalZ = min(max(z, icaoMinZoom), icaoMaxZoom)
+                return (icaoLayerIdentifier, finalZ)
+            } else {
+                // Use Segelflugkarte for higher zoom levels
+                let finalZ = min(max(z, segelflugkarteMinZoom), segelflugkarteMaxZoom)
+                return (segelflugkarteLayerIdentifier, finalZ)
+            }
+        }
     }
 }
 
@@ -1594,6 +1695,10 @@ struct CacheInfoSheet: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
 
+    private var hasFullOfflineSupport: Bool {
+        offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable
+    }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 14) {
@@ -1604,32 +1709,40 @@ struct CacheInfoSheet: View {
                     .padding(.top, 20)
 
                 // Title
-                Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Map")
+                Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Charts")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
                 VStack(spacing: 8) {
                     if isOfflineMode {
-                        Text("The app is currently in offline mode. Map data is being served from the locally cached ICAO Chart.")
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondaryText)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
+                        if hasFullOfflineSupport {
+                            Text("The app is in offline mode. Both ICAO Chart and Segelflugkarte are available from cache with seamless zoom switching.")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondaryText)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text("The app is in offline mode. Only the ICAO Chart is cached.")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondaryText)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Layer switching is disabled in offline mode. Only the ICAO Chart is available.")
-                            .font(.system(size: 11))
-                            .foregroundColor(.dimText)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
+                            Text("Download Segelflugkarte for seamless zoom transitions in offline mode.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.aviationAmber)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     } else {
-                        Text("The ICAO Chart is currently being served from your local cache for faster loading.")
+                        Text("Charts are being served from your local cache for faster loading.")
                             .font(.system(size: 13))
                             .foregroundColor(.secondaryText)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text("The app will use cached tiles when available, and fetch from the network for tiles not in cache.")
+                        Text("Tiles load instantly from cache; uncached tiles fetch from the network.")
                             .font(.system(size: 11))
                             .foregroundColor(.dimText)
                             .multilineTextAlignment(.center)
@@ -1639,25 +1752,34 @@ struct CacheInfoSheet: View {
                 .padding(.horizontal, 16)
 
                 // Cache info
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
+                    // ICAO Cache
+                    if offlineMapManager.isCacheAvailable {
+                        HStack {
+                            Text("ICAO Chart:")
+                                .foregroundColor(.secondaryText)
+                            Spacer()
+                            Text(offlineMapManager.cacheVersion)
+                                .foregroundColor(.aviationGreen)
+                        }
+                    }
+
+                    // Segelflug Cache
                     HStack {
-                        Text("Cache Version:")
+                        Text("Segelflugkarte:")
                             .foregroundColor(.secondaryText)
                         Spacer()
-                        Text(offlineMapManager.cacheVersion)
-                            .foregroundColor(.primaryText)
+                        if offlineMapManager.isSegelflugCacheAvailable {
+                            Text(offlineMapManager.segelflugCacheVersion)
+                                .foregroundColor(.aviationGreen)
+                        } else {
+                            Text("Not cached")
+                                .foregroundColor(.dimText)
+                        }
                     }
 
                     HStack {
-                        Text("Downloaded:")
-                            .foregroundColor(.secondaryText)
-                        Spacer()
-                        Text(offlineMapManager.formattedCacheDate)
-                            .foregroundColor(.primaryText)
-                    }
-
-                    HStack {
-                        Text("Size:")
+                        Text("Total Size:")
                             .foregroundColor(.secondaryText)
                         Spacer()
                         Text(offlineMapManager.formattedCacheSize)
@@ -1725,7 +1847,7 @@ struct CacheInfoSheet: View {
                 }
             }
         }
-        .presentationDetents(isOfflineMode ? [.height(400)] : [.height(300)])
+        .presentationDetents(isOfflineMode ? [.height(420)] : [.height(320)])
         .interactiveDismissDisabled(false)
         .preferredColorScheme(.dark)
     }

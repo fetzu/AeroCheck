@@ -832,9 +832,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 annotationView.image = image.withTintColor(aviationGold, renderingMode: .alwaysOriginal)
             }
 
-            // Apply rotation for heading - SF Symbol airplane points up by default,
-            // so we rotate directly by heading (0° = North)
-            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+            // Apply rotation for heading
+            // SF Symbol "airplane" points to upper-right (~45°) by default
+            // Subtract 45° so that heading 0° (North) shows plane pointing up
+            let headingRadians = (aircraftAnnotation.heading - 45.0) * .pi / 180.0
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
             // Subtle shadow for depth without overwhelming the map
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -855,10 +857,12 @@ struct AircraftMarker: View {
 
     var body: some View {
         // Clean, minimal aircraft marker following Apple's HIG
+        // SF Symbol "airplane" points to upper-right (~45°) by default
+        // Subtract 45° so that heading 0° (North) shows plane pointing up
         Image(systemName: "airplane")
             .font(.system(size: 18, weight: .semibold))
             .foregroundColor(.aviationGold)
-            .rotationEffect(.degrees(heading))
+            .rotationEffect(.degrees(heading - 45.0))
             .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
     }
 }
@@ -1264,9 +1268,11 @@ struct SwissMapView: UIViewRepresentable {
                 annotationView.image = coloredImage
             }
 
-            // Apply rotation for heading - SF Symbol airplane points up by default,
-            // so we rotate directly by heading (0° = North)
-            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(aircraftAnnotation.heading * .pi / 180))
+            // Apply rotation for heading
+            // SF Symbol "airplane" points to upper-right (~45°) by default
+            // Subtract 45° so that heading 0° (North) shows plane pointing up
+            let headingRadians = (aircraftAnnotation.heading - 45.0) * .pi / 180.0
+            annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
             // Subtle shadow for depth without overwhelming the map
             annotationView.layer.shadowColor = UIColor.black.cgColor

@@ -128,7 +128,7 @@ struct NavigationMapView: View {
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
-    @State private var selectedLayer: MapLayerType = .standard
+    @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
@@ -297,10 +297,6 @@ struct NavigationMapView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             centerOnAircraft()
-            // Force ICAO layer in offline mode
-            if isOfflineMode {
-                selectedLayer = .icao
-            }
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
@@ -1146,13 +1142,24 @@ struct SwissMapView: UIViewRepresentable {
         mapView.isPitchEnabled = false
 
         // Set zoom range based on layer type - must be set before adding overlays
-        mapView.cameraZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
+        let zoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
+        mapView.cameraZoomRange = zoomRange
 
         // Add tile overlay BEFORE setting region to ensure tiles are ready
         addTileOverlay(to: mapView, layerType: layerType, context: context)
 
+        // Clamp the initial region to ensure it's within the allowed zoom range
+        // This prevents the grey grid from appearing when switching from Apple Maps
+        // which may have been at a zoom level beyond what Swiss tiles support
+        var clampedRegion = mapState.region
+        let minSpan = zoomRange.minCenterCoordinateDistance / 111_000.0 * 0.9  // Approximate degrees
+        if clampedRegion.span.latitudeDelta < minSpan {
+            clampedRegion.span.latitudeDelta = minSpan
+            clampedRegion.span.longitudeDelta = minSpan
+        }
+
         // Set initial region from shared state - after overlay is configured
-        mapView.setRegion(mapState.region, animated: false)
+        mapView.setRegion(clampedRegion, animated: false)
 
         return mapView
     }

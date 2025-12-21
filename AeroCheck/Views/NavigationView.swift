@@ -1532,8 +1532,6 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
     /// Override loadTile to implement cache-first loading strategy
     /// This provides instant loading from cache while falling back to network when needed
     override func loadTile(at path: MKTileOverlayPath, result: @escaping (Data?, Error?) -> Void) {
-        let z = path.z
-
         // Determine which layer to use based on zoom and settings
         let (layerIdentifier, finalZ) = layerInfo(for: path)
 

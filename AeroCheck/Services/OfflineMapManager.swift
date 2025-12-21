@@ -74,6 +74,8 @@ class OfflineMapManager: ObservableObject {
     @Published var segelflugCacheDate: Date?
     @Published var cacheSizeBytes: Int64 = 0
     @Published var currentDownloadingLayer: CacheableLayer?
+    @Published var downloadStartTime: Date?
+    @Published var estimatedTimeRemaining: TimeInterval?
 
     // MARK: - Constants
 
@@ -221,6 +223,8 @@ class OfflineMapManager: ObservableObject {
         downloadProgress = 0.0
         downloadedTileCount = 0
         downloadError = nil
+        downloadStartTime = Date()
+        estimatedTimeRemaining = nil
 
         // Calculate total tiles for all layers
         var allTiles: [(layer: CacheableLayer, z: Int, x: Int, y: Int)] = []
@@ -237,12 +241,20 @@ class OfflineMapManager: ObservableObject {
             } catch {
                 downloadError = "Failed to create cache directory: \(error.localizedDescription)"
                 isDownloading = false
+                downloadStartTime = nil
                 return
             }
         }
 
-        // Download tiles
-        let session = URLSession.shared
+        // Create a custom URLSession with optimized configuration for bulk downloads
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 6  // Increase concurrent connections
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        config.urlCache = nil  // Disable URL cache since we're caching to disk
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let session = URLSession(configuration: config)
+
         var successCount = 0
         var failCount = 0
         var layerSuccessCounts: [CacheableLayer: Int] = [:]
@@ -253,8 +265,8 @@ class OfflineMapManager: ObservableObject {
             layerFailCounts[layer] = 0
         }
 
-        // Download in batches to avoid overwhelming the network
-        let batchSize = 20
+        // Download in batches - larger batches for better throughput
+        let batchSize = 50  // Increased from 20 for better parallelism
         for batchStart in stride(from: 0, to: allTiles.count, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, allTiles.count)
             let batch = Array(allTiles[batchStart..<batchEnd])
@@ -290,6 +302,16 @@ class OfflineMapManager: ObservableObject {
                     await MainActor.run {
                         downloadedTileCount = successCount + failCount
                         downloadProgress = Double(downloadedTileCount) / Double(totalTileCount)
+
+                        // Calculate estimated time remaining
+                        if let startTime = downloadStartTime, downloadedTileCount > 0 {
+                            let elapsed = Date().timeIntervalSince(startTime)
+                            let tilesPerSecond = Double(downloadedTileCount) / elapsed
+                            if tilesPerSecond > 0 {
+                                let remainingTiles = totalTileCount - downloadedTileCount
+                                estimatedTimeRemaining = Double(remainingTiles) / tilesPerSecond
+                            }
+                        }
                     }
                 }
             }
@@ -299,6 +321,8 @@ class OfflineMapManager: ObservableObject {
                 downloadError = "Download cancelled"
                 isDownloading = false
                 currentDownloadingLayer = nil
+                downloadStartTime = nil
+                estimatedTimeRemaining = nil
                 return
             }
         }

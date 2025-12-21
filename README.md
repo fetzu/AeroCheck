@@ -41,7 +41,7 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - Live speed, altitude, heading, and time display overlay
 - GPS status indicator
 - Scale bar with accurate distance measurement
-- **Offline maps**: Download Swiss ICAO Chart (~100 MB) for offline navigation
+- **Offline maps**: Download Swiss ICAO Chart (~100 MB) and/or Segelflugkarte (~150 MB) for offline navigation
 
 ### 📍 GPS Flight Tracking
 - Automatic GPS recording during flights
@@ -254,7 +254,8 @@ AeroCheck/
 │   │   └── ChecklistView.swift      # Checklist display
 │   └── Services/
 │       ├── LocationManager.swift     # GPS tracking
-│       └── OfflineMapManager.swift   # Offline ICAO chart caching
+│       ├── OfflineMapManager.swift   # Offline ICAO/Segelflug chart caching
+│       └── WindDataService.swift     # MeteoSwiss wind data (experimental)
 ├── AeroCheckWidget/
 │   └── AeroCheckWidget.swift        # Home screen widgets
 └── README.md
@@ -333,7 +334,7 @@ In Settings:
 - **Keep Screen On**: Prevents display sleep during use
 - **Always Use UTC Times**: Display all times in UTC with a (UTC) suffix
 - **Force ICAO Chart Layer**: Keep ICAO Chart (1:500,000) at all zoom levels instead of switching to Segelflugkarte
-- **Offline Mode**: Use only cached ICAO Chart for navigation (requires download)
+- **Offline Mode**: Use only cached charts for navigation (requires download)
 - **Step-by-Step Highlighting**: Highlights checklist items one at a time; tap anywhere to advance to the next item (auto-scrolls if needed)
 - **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases vary by aircraft
 

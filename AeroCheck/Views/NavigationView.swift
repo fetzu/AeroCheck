@@ -89,7 +89,10 @@ enum MapLayerType: String, CaseIterable, Identifiable {
 class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
     @Published var cameraDistance: Double = 10000
-    @Published var cameraHeading: Double = 0
+    // Note: cameraHeading is NOT @Published to avoid triggering SwiftUI view updates
+    // which would cause an infinite loop when syncing heading from the map delegate.
+    // The heading is only read when creating a new map view (on layer switch).
+    var cameraHeading: Double = 0
 
     init() {
         // Default to Switzerland center

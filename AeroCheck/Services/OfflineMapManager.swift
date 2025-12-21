@@ -351,8 +351,17 @@ class OfflineMapManager: ObservableObject {
 
         if failCount == 0 {
             updateReminderDismissed = false // Reset reminder for next year
+            downloadError = nil
         } else if successCount > 0 {
-            downloadError = "Completed with \(failCount) failed tiles"
+            // Only report as error if failure rate is significant (> 1%)
+            let failureRate = Double(failCount) / Double(totalTileCount)
+            if failureRate > 0.01 {
+                downloadError = "Completed with \(failCount) failed tiles (\(Int(failureRate * 100))%)"
+            } else {
+                // Minor failures are normal (edge tiles, transient network issues)
+                downloadError = nil
+            }
+            updateReminderDismissed = false // Reset reminder for next year
         } else {
             downloadError = "Download failed"
         }

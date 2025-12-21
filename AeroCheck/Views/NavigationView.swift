@@ -1141,25 +1141,66 @@ struct SwissMapView: UIViewRepresentable {
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
-        // Set zoom range based on layer type - must be set before adding overlays
+        // Set zoom range based on layer type
         let zoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
         mapView.cameraZoomRange = zoomRange
 
-        // Add tile overlay BEFORE setting region to ensure tiles are ready
+        // Add tile overlay
         addTileOverlay(to: mapView, layerType: layerType, context: context)
 
-        // Clamp the initial region to ensure it's within the allowed zoom range
-        // This prevents the grey grid from appearing when switching from Apple Maps
-        // which may have been at a zoom level beyond what Swiss tiles support
-        var clampedRegion = mapState.region
-        let minSpan = zoomRange.minCenterCoordinateDistance / 111_000.0 * 0.9  // Approximate degrees
-        if clampedRegion.span.latitudeDelta < minSpan {
-            clampedRegion.span.latitudeDelta = minSpan
-            clampedRegion.span.longitudeDelta = minSpan
-        }
+        // Set initial region from shared state
+        mapView.setRegion(mapState.region, animated: false)
 
-        // Set initial region from shared state - after overlay is configured
-        mapView.setRegion(clampedRegion, animated: false)
+        // WORKAROUND for iPad-specific bug: Force a complete layer cycle after initial setup.
+        // On iPad, the initial tile overlay doesn't properly respect zoom constraints until
+        // a layer switch occurs. We simulate this by briefly switching to a different layer
+        // configuration and back.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Remove existing overlay
+            let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
+            mapView.removeOverlays(existingTileOverlays)
+
+            // Briefly set a different zoom range (like switching to Landeskarten)
+            mapView.cameraZoomRange = MKMapView.CameraZoomRange(
+                minCenterCoordinateDistance: 1_500,
+                maxCenterCoordinateDistance: 600_000
+            )
+
+            // Now switch back to ICAO configuration
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                // Set correct zoom range
+                mapView.cameraZoomRange = zoomRange
+
+                // Re-add the overlay
+                if self.layerType == .icao {
+                    let overlay = ICAOSegelflugkarteTileOverlay(
+                        forceICAO: self.forceICAOLayer,
+                        offlineMapManager: self.offlineMapManager,
+                        isStrictOfflineMode: self.isStrictOfflineMode,
+                        hasSegelflugCache: self.hasSegelflugCache
+                    )
+                    overlay.canReplaceMapContent = true
+                    mapView.addOverlay(overlay, level: .aboveLabels)
+                } else if let layerId = self.layerType.swisstopoLayerIdentifier {
+                    let overlay = SwisstopoTileOverlay(
+                        layerIdentifier: layerId,
+                        tileExtension: self.layerType.tileExtension,
+                        minimumZ: self.layerType.minimumZoom,
+                        maximumZ: self.layerType.maximumZoom
+                    )
+                    overlay.canReplaceMapContent = true
+                    mapView.addOverlay(overlay, level: .aboveLabels)
+                }
+
+                // Force region update like updateUIView does after overlay change
+                var adjustedRegion = self.mapState.region
+                adjustedRegion.span.latitudeDelta *= 1.0001
+                mapView.setRegion(adjustedRegion, animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    mapView.setRegion(self.mapState.region, animated: false)
+                }
+            }
+        }
 
         return mapView
     }

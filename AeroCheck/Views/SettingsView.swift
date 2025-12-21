@@ -144,7 +144,7 @@ struct SettingsView: View {
 
                 // Offline Maps section
                 Section {
-                    Toggle("Offline Mode (ICAO Chart)", isOn: $offlineMode)
+                    Toggle("Offline Mode", isOn: $offlineMode)
                         .onChange(of: offlineMode) { _, newValue in
                             if newValue && !offlineMapManager.isCacheAvailable {
                                 // Show download modal when enabling offline mode without cache
@@ -152,23 +152,29 @@ struct SettingsView: View {
                             }
                         }
 
-                    if offlineMapManager.isCacheAvailable {
-                        HStack {
-                            Text("Cache Version (ICAO Chart)")
-                            Spacer()
-                            Text(offlineMapManager.cacheVersion)
-                                .foregroundColor(.secondary)
+                    if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
+                        // ICAO Cache status
+                        if offlineMapManager.isCacheAvailable {
+                            HStack {
+                                Text("ICAO Chart")
+                                Spacer()
+                                Text(offlineMapManager.cacheVersion)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        // Segelflug Cache status
+                        if offlineMapManager.isSegelflugCacheAvailable {
+                            HStack {
+                                Text("Segelflugkarte")
+                                Spacer()
+                                Text(offlineMapManager.segelflugCacheVersion)
+                                    .foregroundColor(.secondary)
+                            }
                         }
 
                         HStack {
-                            Text("Downloaded")
-                            Spacer()
-                            Text(offlineMapManager.formattedCacheDate)
-                                .foregroundColor(.secondary)
-                        }
-
-                        HStack {
-                            Text("Cache Size")
+                            Text("Total Cache Size")
                             Spacer()
                             Text(offlineMapManager.formattedCacheSize)
                                 .foregroundColor(.secondary)
@@ -177,33 +183,37 @@ struct SettingsView: View {
                         Button(action: { showDownloadModal = true }) {
                             HStack {
                                 Image(systemName: "arrow.clockwise")
-                                Text("Update Cache")
+                                Text("Update/Add Charts")
                             }
                         }
 
                         Button(role: .destructive, action: { showDeleteConfirmation = true }) {
                             HStack {
                                 Image(systemName: "trash")
-                                Text("Delete Cache")
+                                Text("Delete All Cached Charts")
                             }
                         }
                     } else {
                         Button(action: { showDownloadModal = true }) {
                             HStack {
                                 Image(systemName: "arrow.down.circle")
-                                Text("Download ICAO Chart")
+                                Text("Download Charts")
                             }
                         }
                     }
                 } header: {
-                    Label("Offline Maps (ICAO Chart)", systemImage: "arrow.down.circle")
+                    Label("Offline Maps", systemImage: "arrow.down.circle")
                 } footer: {
                     if offlineMode {
-                        Text("Offline mode restricts the map to the cached ICAO Chart only. Layer switching is disabled.")
+                        if offlineMapManager.isSegelflugCacheAvailable {
+                            Text("Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache.")
+                        } else {
+                            Text("Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode.")
+                        }
                     } else if offlineMapManager.isCacheAvailable {
-                        Text("ICAO Chart cached for offline use. The chart is updated yearly by SwissTopo in April.")
+                        Text("Charts cached for faster loading. Updated yearly by swisstopo in April.")
                     } else {
-                        Text("Download the ICAO Chart for offline navigation. Requires approximately 50-100 MB of storage.")
+                        Text("Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming.")
                     }
                 }
 
@@ -616,94 +626,116 @@ struct OfflineMapDownloadSheet: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
     @Binding var offlineMode: Bool
+    @State private var selectedCacheOption: CacheOption = .icaoOnly
+
+    /// Storage estimate for each option
+    private func storageEstimate(for option: CacheOption) -> String {
+        switch option {
+        case .icaoOnly: return "~100 MB"
+        case .icaoAndSegelflug: return "~250 MB"
+        }
+    }
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // Header icon
                 Image(systemName: "map.fill")
-                    .font(.system(size: 60))
+                    .font(.system(size: 50))
                     .foregroundColor(.aviationGold)
-                    .padding(.top, 40)
+                    .padding(.top, 24)
 
                 // Title
-                Text("ICAO Chart Download")
-                    .font(.system(size: 24, weight: .bold))
+                Text("Download Charts")
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
-                Text("Download the Swiss ICAO Aeronautical Chart for offline navigation. This allows you to use the chart without an internet connection.")
-                    .font(.system(size: 16))
+                Text("Download Swiss aeronautical charts for offline navigation and faster loading.")
+                    .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 24)
+
+                // Cache option picker (only show when not downloading and no complete cache)
+                if !offlineMapManager.isDownloading {
+                    VStack(spacing: 12) {
+                        Text("Select Charts to Download")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+
+                        ForEach(CacheOption.allCases) { option in
+                            CacheOptionRow(
+                                option: option,
+                                storageEstimate: storageEstimate(for: option),
+                                isSelected: selectedCacheOption == option,
+                                isAlreadyCached: isCached(option)
+                            ) {
+                                selectedCacheOption = option
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
 
                 Spacer()
 
                 // Download progress or status
                 if offlineMapManager.isDownloading {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 12) {
                         ProgressView(value: offlineMapManager.downloadProgress)
                             .progressViewStyle(LinearProgressViewStyle(tint: .aviationGold))
                             .padding(.horizontal, 40)
 
-                        Text("Downloading tiles...")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondaryText)
+                        if let layer = offlineMapManager.currentDownloadingLayer {
+                            Text("Downloading \(layer.displayName)...")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondaryText)
+                        } else {
+                            Text("Downloading tiles...")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondaryText)
+                        }
 
                         Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondaryText)
+
+                        // Estimated time remaining
+                        if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
+                            Text("Estimated time remaining: \(formattedTimeRemaining(eta))")
+                                .font(.system(size: 13))
+                                .foregroundColor(.dimText)
+                        }
                     }
                 } else if let error = offlineMapManager.downloadError {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 40))
+                            .font(.system(size: 36))
                             .foregroundColor(.aviationRed)
 
                         Text(error)
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundColor(.aviationRed)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
+                            .padding(.horizontal, 24)
                     }
-                } else if offlineMapManager.isCacheAvailable {
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.aviationGreen)
+                }
 
-                        Text("ICAO Chart cached successfully!")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.aviationGreen)
-
-                        Text("Size: \(offlineMapManager.formattedCacheSize)")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondaryText)
-                    }
-                } else {
-                    VStack(spacing: 12) {
-                        Text("Requirements")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.secondaryText)
-
-                        HStack(spacing: 20) {
-                            VStack {
-                                Image(systemName: "wifi")
-                                    .font(.system(size: 24))
-                                Text("Wi-Fi")
-                                    .font(.system(size: 12))
+                // Current cache status
+                if !offlineMapManager.isDownloading && (offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable) {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 16) {
+                            if offlineMapManager.isCacheAvailable {
+                                CacheStatusBadge(name: "ICAO", isAvailable: true)
                             }
-                            .foregroundColor(.secondaryText)
-
-                            VStack {
-                                Image(systemName: "internaldrive")
-                                    .font(.system(size: 24))
-                                Text("~100 MB")
-                                    .font(.system(size: 12))
+                            if offlineMapManager.isSegelflugCacheAvailable {
+                                CacheStatusBadge(name: "Segelflug", isAvailable: true)
                             }
-                            .foregroundColor(.secondaryText)
                         }
+                        Text("Total: \(offlineMapManager.formattedCacheSize)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.dimText)
                     }
                 }
 
@@ -713,35 +745,30 @@ struct OfflineMapDownloadSheet: View {
                 VStack(spacing: 12) {
                     if offlineMapManager.isDownloading {
                         // No action button while downloading
-                    } else if offlineMapManager.isCacheAvailable {
-                        Button(action: { dismiss() }) {
-                            Text("Done")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.aviationGold)
-                                )
-                        }
-                        .padding(.horizontal, 24)
                     } else {
                         Button(action: startDownload) {
-                            Text("Download ICAO Chart")
+                            Text(downloadButtonText)
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
+                                .padding(.vertical, 14)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12)
                                         .fill(Color.aviationGold)
                                 )
                         }
                         .padding(.horizontal, 24)
+
+                        if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
+                            Button(action: { dismiss() }) {
+                                Text("Done")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(.secondaryText)
+                            }
+                        }
                     }
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 24)
             }
             .background(Color.cockpitBackground)
             .navigationBarTitleDisplayMode(.inline)
@@ -760,12 +787,127 @@ struct OfflineMapDownloadSheet: View {
         }
         .preferredColorScheme(.dark)
         .interactiveDismissDisabled(offlineMapManager.isDownloading)
+        .onAppear {
+            // Default to ICAO + Segelflug if ICAO is already cached but Segelflug isn't
+            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
+                selectedCacheOption = .icaoAndSegelflug
+            }
+        }
+    }
+
+    private var downloadButtonText: String {
+        if offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable {
+            return "Re-download Charts"
+        } else if offlineMapManager.isCacheAvailable && selectedCacheOption == .icaoAndSegelflug {
+            return "Download Segelflugkarte"
+        } else {
+            return "Download \(selectedCacheOption.displayName)"
+        }
+    }
+
+    private func isCached(_ option: CacheOption) -> Bool {
+        switch option {
+        case .icaoOnly:
+            return offlineMapManager.isCacheAvailable
+        case .icaoAndSegelflug:
+            return offlineMapManager.isCacheAvailable && offlineMapManager.isSegelflugCacheAvailable
+        }
     }
 
     private func startDownload() {
         Task {
-            await offlineMapManager.downloadICAOChart()
+            await offlineMapManager.downloadCharts(option: selectedCacheOption)
         }
+    }
+
+    /// Format time interval as human-readable string (e.g., "2m 30s" or "45s")
+    private func formattedTimeRemaining(_ interval: TimeInterval) -> String {
+        let totalSeconds = Int(interval)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+}
+
+// MARK: - Cache Option Row
+
+struct CacheOptionRow: View {
+    let option: CacheOption
+    let storageEstimate: String
+    let isSelected: Bool
+    let isAlreadyCached: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(option.displayName)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.primaryText)
+                        if isAlreadyCached {
+                            Text("CACHED")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.aviationGreen)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.aviationGreen.opacity(0.2))
+                                )
+                        }
+                    }
+                    Text(storageEstimate)
+                        .font(.system(size: 12))
+                        .foregroundColor(.dimText)
+                }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(isSelected ? .aviationGold : .dimText)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? Color.aviationGold.opacity(0.1) : Color.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isSelected ? Color.aviationGold : Color.clear, lineWidth: 1)
+                    )
+            )
+        }
+    }
+}
+
+// MARK: - Cache Status Badge
+
+struct CacheStatusBadge: View {
+    let name: String
+    let isAvailable: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: isAvailable ? "checkmark.circle.fill" : "xmark.circle")
+                .font(.system(size: 12))
+            Text(name)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(isAvailable ? .aviationGreen : .dimText)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isAvailable ? Color.aviationGreen.opacity(0.15) : Color.panelBackground)
+        )
     }
 }
 

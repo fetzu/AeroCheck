@@ -1,7 +1,63 @@
 import Foundation
 import MapKit
 
-/// Manager for offline ICAO chart tile caching
+/// Layer types that can be cached
+enum CacheableLayer: String, CaseIterable {
+    case icao = "ICAO"
+    case segelflug = "Segelflug"
+
+    var swisstopoIdentifier: String {
+        switch self {
+        case .icao: return "ch.bazl.luftfahrtkarten-icao"
+        case .segelflug: return "ch.bazl.segelflugkarte"
+        }
+    }
+
+    var minZoom: Int {
+        switch self {
+        case .icao: return 7
+        case .segelflug: return 11
+        }
+    }
+
+    var maxZoom: Int {
+        switch self {
+        case .icao: return 11
+        case .segelflug: return 14
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .icao: return "ICAO Chart"
+        case .segelflug: return "Segelflugkarte"
+        }
+    }
+}
+
+/// Cache options for offline maps
+enum CacheOption: String, CaseIterable, Identifiable {
+    case icaoOnly = "icaoOnly"
+    case icaoAndSegelflug = "icaoAndSegelflug"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .icaoOnly: return "ICAO Chart only"
+        case .icaoAndSegelflug: return "ICAO + Segelflugkarte"
+        }
+    }
+
+    var layers: [CacheableLayer] {
+        switch self {
+        case .icaoOnly: return [.icao]
+        case .icaoAndSegelflug: return [.icao, .segelflug]
+        }
+    }
+}
+
+/// Manager for offline ICAO/Segelflug chart tile caching
 /// Handles downloading, storing, and serving cached tiles for offline use
 @MainActor
 class OfflineMapManager: ObservableObject {
@@ -13,13 +69,15 @@ class OfflineMapManager: ObservableObject {
     @Published var totalTileCount: Int = 0
     @Published var downloadError: String?
     @Published var isCacheAvailable: Bool = false
+    @Published var isSegelflugCacheAvailable: Bool = false
     @Published var cacheDate: Date?
+    @Published var segelflugCacheDate: Date?
     @Published var cacheSizeBytes: Int64 = 0
+    @Published var currentDownloadingLayer: CacheableLayer?
+    @Published var downloadStartTime: Date?
+    @Published var estimatedTimeRemaining: TimeInterval?
 
     // MARK: - Constants
-
-    /// ICAO layer identifier for SwissTopo WMTS
-    private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
 
     /// Switzerland bounding box (approximate)
     private let switzerlandBounds = (
@@ -29,24 +87,38 @@ class OfflineMapManager: ObservableObject {
         maxLon: 10.49   // Eastern border
     )
 
-    /// Zoom levels to cache for ICAO chart (7-11)
-    private let minZoom = 7
-    private let maxZoom = 11
-
-    /// Base URL for SwissTopo WMTS
+    /// Base URL for swisstopo WMTS
     private let baseURL = "https://wmts.geo.admin.ch/1.0.0"
 
     /// UserDefaults keys
-    private let cacheDateKey = "offlineMapCacheDate"
-    private let lastUpdateCheckKey = "offlineMapLastUpdateCheck"
+    private let icaoCacheDateKey = "offlineMapCacheDate"
+    private let segelflugCacheDateKey = "offlineMapSegelflugCacheDate"
     private let updateReminderDismissedKey = "offlineMapUpdateReminderDismissed"
 
     // MARK: - Computed Properties
 
-    /// Directory for storing cached tiles
-    var cacheDirectory: URL {
+    /// Base directory for storing cached tiles
+    private var baseCacheDirectory: URL {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsPath.appendingPathComponent("AeroCheck/OfflineMaps/ICAO", isDirectory: true)
+        return documentsPath.appendingPathComponent("AeroCheck/OfflineMaps", isDirectory: true)
+    }
+
+    /// Directory for ICAO cache (legacy compatible path)
+    var cacheDirectory: URL {
+        return baseCacheDirectory.appendingPathComponent("ICAO", isDirectory: true)
+    }
+
+    /// Directory for Segelflug cache
+    var segelflugCacheDirectory: URL {
+        return baseCacheDirectory.appendingPathComponent("Segelflug", isDirectory: true)
+    }
+
+    /// Get cache directory for a specific layer
+    func cacheDirectory(for layer: CacheableLayer) -> URL {
+        switch layer {
+        case .icao: return cacheDirectory
+        case .segelflug: return segelflugCacheDirectory
+        }
     }
 
     /// Formatted cache size string
@@ -65,9 +137,26 @@ class OfflineMapManager: ObservableObject {
         return formatter.string(from: date)
     }
 
+    /// Formatted Segelflug cache date string
+    var formattedSegelflugCacheDate: String {
+        guard let date = segelflugCacheDate else { return "Not downloaded" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
     /// Cache version string (based on download date)
     var cacheVersion: String {
         guard let date = cacheDate else { return "N/A" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM"
+        return formatter.string(from: date)
+    }
+
+    /// Segelflug cache version string
+    var segelflugCacheVersion: String {
+        guard let date = segelflugCacheDate else { return "N/A" }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy.MM"
         return formatter.string(from: date)
@@ -128,54 +217,101 @@ class OfflineMapManager: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Download all ICAO chart tiles for offline use
-    func downloadICAOChart() async {
+    /// Download charts for offline use with the specified cache option
+    func downloadCharts(option: CacheOption) async {
         isDownloading = true
         downloadProgress = 0.0
         downloadedTileCount = 0
         downloadError = nil
+        downloadStartTime = Date()
+        estimatedTimeRemaining = nil
 
-        // Calculate total tiles to download
-        let tiles = calculateTilesToDownload()
-        totalTileCount = tiles.count
+        // Calculate total tiles for all layers
+        var allTiles: [(layer: CacheableLayer, z: Int, x: Int, y: Int)] = []
+        for layer in option.layers {
+            let tiles = calculateTilesToDownload(for: layer)
+            allTiles.append(contentsOf: tiles.map { (layer, $0.z, $0.x, $0.y) })
+        }
+        totalTileCount = allTiles.count
 
-        // Create cache directory if needed
-        do {
-            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        } catch {
-            downloadError = "Failed to create cache directory: \(error.localizedDescription)"
-            isDownloading = false
-            return
+        // Create cache directories
+        for layer in option.layers {
+            do {
+                try FileManager.default.createDirectory(at: cacheDirectory(for: layer), withIntermediateDirectories: true)
+            } catch {
+                downloadError = "Failed to create cache directory: \(error.localizedDescription)"
+                isDownloading = false
+                downloadStartTime = nil
+                return
+            }
         }
 
-        // Download tiles
-        let session = URLSession.shared
+        // Create a custom URLSession with optimized configuration for bulk downloads
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 6  // Increase concurrent connections
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        config.urlCache = nil  // Disable URL cache since we're caching to disk
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let session = URLSession(configuration: config)
+
         var successCount = 0
         var failCount = 0
+        var layerSuccessCounts: [CacheableLayer: Int] = [:]
+        var layerFailCounts: [CacheableLayer: Int] = [:]
 
-        // Download in batches to avoid overwhelming the network
-        let batchSize = 20
-        for batchStart in stride(from: 0, to: tiles.count, by: batchSize) {
-            let batchEnd = min(batchStart + batchSize, tiles.count)
-            let batch = Array(tiles[batchStart..<batchEnd])
+        for layer in option.layers {
+            layerSuccessCounts[layer] = 0
+            layerFailCounts[layer] = 0
+        }
 
-            await withTaskGroup(of: Bool.self) { group in
+        // Download in batches - larger batches for better throughput
+        let batchSize = 50  // Increased from 20 for better parallelism
+        for batchStart in stride(from: 0, to: allTiles.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, allTiles.count)
+            let batch = Array(allTiles[batchStart..<batchEnd])
+
+            // Update current layer being downloaded
+            if let firstTile = batch.first {
+                currentDownloadingLayer = firstTile.layer
+            }
+
+            await withTaskGroup(of: (CacheableLayer, Bool).self) { group in
                 for tile in batch {
                     group.addTask { [weak self] in
-                        guard let self = self else { return false }
-                        return await self.downloadTile(tile: tile, session: session)
+                        guard let self = self else { return (tile.layer, false) }
+                        let success = await self.downloadTile(
+                            layer: tile.layer,
+                            z: tile.z,
+                            x: tile.x,
+                            y: tile.y,
+                            session: session
+                        )
+                        return (tile.layer, success)
                     }
                 }
 
-                for await success in group {
+                for await (layer, success) in group {
                     if success {
                         successCount += 1
+                        layerSuccessCounts[layer, default: 0] += 1
                     } else {
                         failCount += 1
+                        layerFailCounts[layer, default: 0] += 1
                     }
                     await MainActor.run {
                         downloadedTileCount = successCount + failCount
                         downloadProgress = Double(downloadedTileCount) / Double(totalTileCount)
+
+                        // Calculate estimated time remaining
+                        if let startTime = downloadStartTime, downloadedTileCount > 0 {
+                            let elapsed = Date().timeIntervalSince(startTime)
+                            let tilesPerSecond = Double(downloadedTileCount) / elapsed
+                            if tilesPerSecond > 0 {
+                                let remainingTiles = totalTileCount - downloadedTileCount
+                                estimatedTimeRemaining = Double(remainingTiles) / tilesPerSecond
+                            }
+                        }
                     }
                 }
             }
@@ -184,51 +320,117 @@ class OfflineMapManager: ObservableObject {
             if Task.isCancelled {
                 downloadError = "Download cancelled"
                 isDownloading = false
+                currentDownloadingLayer = nil
+                downloadStartTime = nil
+                estimatedTimeRemaining = nil
                 return
             }
         }
 
-        // Save metadata
+        // Save metadata for each layer
+        let now = Date()
+        for layer in option.layers {
+            let layerSuccess = layerSuccessCounts[layer, default: 0]
+            let layerFail = layerFailCounts[layer, default: 0]
+
+            if layerFail == 0 || layerSuccess > 0 {
+                switch layer {
+                case .icao:
+                    cacheDate = now
+                    UserDefaults.standard.set(cacheDate, forKey: icaoCacheDateKey)
+                    isCacheAvailable = true
+                case .segelflug:
+                    segelflugCacheDate = now
+                    UserDefaults.standard.set(segelflugCacheDate, forKey: segelflugCacheDateKey)
+                    isSegelflugCacheAvailable = true
+                }
+            }
+        }
+
+        updateCacheSize()
+
         if failCount == 0 {
-            cacheDate = Date()
-            UserDefaults.standard.set(cacheDate, forKey: cacheDateKey)
-            updateCacheSize()
-            isCacheAvailable = true
             updateReminderDismissed = false // Reset reminder for next year
         } else if successCount > 0 {
             downloadError = "Completed with \(failCount) failed tiles"
-            cacheDate = Date()
-            UserDefaults.standard.set(cacheDate, forKey: cacheDateKey)
-            updateCacheSize()
-            isCacheAvailable = true
         } else {
             downloadError = "Download failed"
         }
 
         isDownloading = false
+        currentDownloadingLayer = nil
     }
 
-    /// Delete cached tiles
+    /// Download all ICAO chart tiles for offline use (legacy compatibility)
+    func downloadICAOChart() async {
+        await downloadCharts(option: .icaoOnly)
+    }
+
+    /// Delete all cached tiles
     func deleteCache() {
         do {
+            // Delete ICAO cache
             if FileManager.default.fileExists(atPath: cacheDirectory.path) {
                 try FileManager.default.removeItem(at: cacheDirectory)
             }
+            // Delete Segelflug cache
+            if FileManager.default.fileExists(atPath: segelflugCacheDirectory.path) {
+                try FileManager.default.removeItem(at: segelflugCacheDirectory)
+            }
+
             cacheDate = nil
+            segelflugCacheDate = nil
             cacheSizeBytes = 0
             isCacheAvailable = false
-            UserDefaults.standard.removeObject(forKey: cacheDateKey)
+            isSegelflugCacheAvailable = false
+            UserDefaults.standard.removeObject(forKey: icaoCacheDateKey)
+            UserDefaults.standard.removeObject(forKey: segelflugCacheDateKey)
         } catch {
             downloadError = "Failed to delete cache: \(error.localizedDescription)"
         }
     }
 
-    /// Get cached tile URL if available
-    /// This method is nonisolated because it only performs file system operations
-    /// and needs to be called from the tile overlay's url(forTilePath:) method
+    /// Delete cache for a specific layer
+    func deleteCache(for layer: CacheableLayer) {
+        do {
+            let dir = cacheDirectory(for: layer)
+            if FileManager.default.fileExists(atPath: dir.path) {
+                try FileManager.default.removeItem(at: dir)
+            }
+
+            switch layer {
+            case .icao:
+                cacheDate = nil
+                isCacheAvailable = false
+                UserDefaults.standard.removeObject(forKey: icaoCacheDateKey)
+            case .segelflug:
+                segelflugCacheDate = nil
+                isSegelflugCacheAvailable = false
+                UserDefaults.standard.removeObject(forKey: segelflugCacheDateKey)
+            }
+
+            updateCacheSize()
+        } catch {
+            downloadError = "Failed to delete \(layer.displayName) cache: \(error.localizedDescription)"
+        }
+    }
+
+    /// Get cached tile URL if available (legacy method for backwards compatibility)
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int) -> URL? {
+        return cachedTileURL(z: z, x: x, y: y, layer: .icao)
+    }
+
+    /// Get cached tile URL if available for a specific layer
+    /// This method is nonisolated because it only performs file system operations
+    /// and needs to be called from the tile overlay's loadTile method
+    nonisolated func cachedTileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL? {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let cacheDir = documentsPath.appendingPathComponent("AeroCheck/OfflineMaps/ICAO", isDirectory: true)
+        let layerDir: String
+        switch layer {
+        case .icao: layerDir = "ICAO"
+        case .segelflug: layerDir = "Segelflug"
+        }
+        let cacheDir = documentsPath.appendingPathComponent("AeroCheck/OfflineMaps/\(layerDir)", isDirectory: true)
         let tilePath = cacheDir.appendingPathComponent("\(z)/\(x)/\(y).png")
         if FileManager.default.fileExists(atPath: tilePath.path) {
             return tilePath
@@ -249,21 +451,27 @@ class OfflineMapManager: ObservableObject {
     // MARK: - Private Methods
 
     private func loadCacheMetadata() {
-        cacheDate = UserDefaults.standard.object(forKey: cacheDateKey) as? Date
+        // Load ICAO cache metadata
+        cacheDate = UserDefaults.standard.object(forKey: icaoCacheDateKey) as? Date
         isCacheAvailable = FileManager.default.fileExists(atPath: cacheDirectory.path) && cacheDate != nil
 
-        if isCacheAvailable {
+        // Load Segelflug cache metadata
+        segelflugCacheDate = UserDefaults.standard.object(forKey: segelflugCacheDateKey) as? Date
+        isSegelflugCacheAvailable = FileManager.default.fileExists(atPath: segelflugCacheDirectory.path) && segelflugCacheDate != nil
+
+        if isCacheAvailable || isSegelflugCacheAvailable {
             updateCacheSize()
         }
     }
 
     private func updateCacheSize() {
-        // Capture cacheDirectory on the main actor
-        let directory = self.cacheDirectory
-        Task.detached(priority: .utility) { [directory] in
-            let size = self.calculateDirectorySize(url: directory)
+        let icaoDir = self.cacheDirectory
+        let segelflugDir = self.segelflugCacheDirectory
+        Task.detached(priority: .utility) { [icaoDir, segelflugDir] in
+            let icaoSize = self.calculateDirectorySize(url: icaoDir)
+            let segelflugSize = self.calculateDirectorySize(url: segelflugDir)
             await MainActor.run {
-                self.cacheSizeBytes = size
+                self.cacheSizeBytes = icaoSize + segelflugSize
             }
         }
     }
@@ -288,10 +496,10 @@ class OfflineMapManager: ObservableObject {
         return size
     }
 
-    private func calculateTilesToDownload() -> [(z: Int, x: Int, y: Int)] {
+    private func calculateTilesToDownload(for layer: CacheableLayer) -> [(z: Int, x: Int, y: Int)] {
         var tiles: [(z: Int, x: Int, y: Int)] = []
 
-        for z in minZoom...maxZoom {
+        for z in layer.minZoom...layer.maxZoom {
             let tileRange = calculateTileRange(zoom: z)
             for x in tileRange.minX...tileRange.maxX {
                 for y in tileRange.minY...tileRange.maxY {
@@ -321,8 +529,8 @@ class OfflineMapManager: ObservableObject {
         return (minX: minX, maxX: maxX, minY: minY, maxY: maxY)
     }
 
-    private func downloadTile(tile: (z: Int, x: Int, y: Int), session: URLSession) async -> Bool {
-        let urlString = "\(baseURL)/\(icaoLayerIdentifier)/default/current/3857/\(tile.z)/\(tile.x)/\(tile.y).png"
+    private func downloadTile(layer: CacheableLayer, z: Int, x: Int, y: Int, session: URLSession) async -> Bool {
+        let urlString = "\(baseURL)/\(layer.swisstopoIdentifier)/default/current/3857/\(z)/\(x)/\(y).png"
 
         guard let url = URL(string: urlString) else { return false }
 
@@ -335,13 +543,13 @@ class OfflineMapManager: ObservableObject {
             }
 
             // Save tile to disk
-            let tilePath = cacheDirectory
-                .appendingPathComponent("\(tile.z)", isDirectory: true)
-                .appendingPathComponent("\(tile.x)", isDirectory: true)
+            let tilePath = cacheDirectory(for: layer)
+                .appendingPathComponent("\(z)", isDirectory: true)
+                .appendingPathComponent("\(x)", isDirectory: true)
 
             try FileManager.default.createDirectory(at: tilePath, withIntermediateDirectories: true)
 
-            let fileURL = tilePath.appendingPathComponent("\(tile.y).png")
+            let fileURL = tilePath.appendingPathComponent("\(y).png")
             try data.write(to: fileURL)
 
             return true

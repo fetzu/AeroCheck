@@ -777,10 +777,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             mapView.mapType = expectedType
         }
 
-        // Update region from shared state if significantly different
+        // Update camera from shared state if significantly different (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged && !context.coordinator.isUserInteracting {
-            mapView.setRegion(mapState.region, animated: true)
+            let camera = MKMapCamera(
+                lookingAtCenter: mapState.region.center,
+                fromDistance: mapState.cameraDistance,
+                pitch: 0,
+                heading: mapState.cameraHeading
+            )
+            mapView.setCamera(camera, animated: true)
         }
 
         // Update aircraft annotation
@@ -1226,12 +1232,22 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.addOverlay(overlay, level: .aboveLabels)
                 }
 
-                // Force region update like updateUIView does after overlay change
-                var adjustedRegion = self.mapState.region
-                adjustedRegion.span.latitudeDelta *= 1.0001
-                mapView.setRegion(adjustedRegion, animated: false)
+                // Force camera update like updateUIView does after overlay change (preserves heading)
+                let adjustedCamera = MKMapCamera(
+                    lookingAtCenter: self.mapState.region.center,
+                    fromDistance: self.mapState.cameraDistance * 1.0001,
+                    pitch: 0,
+                    heading: self.mapState.cameraHeading
+                )
+                mapView.setCamera(adjustedCamera, animated: false)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    mapView.setRegion(self.mapState.region, animated: false)
+                    let camera = MKMapCamera(
+                        lookingAtCenter: self.mapState.region.center,
+                        fromDistance: self.mapState.cameraDistance,
+                        pitch: 0,
+                        heading: self.mapState.cameraHeading
+                    )
+                    mapView.setCamera(camera, animated: false)
                 }
             }
         }
@@ -1256,20 +1272,30 @@ struct SwissMapView: UIViewRepresentable {
             mapView.cameraZoomRange = newZoomRange
         }
 
-        // Update region from shared state
+        // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged || overlayChanged {
-            mapView.setRegion(mapState.region, animated: !overlayChanged)
+            let camera = MKMapCamera(
+                lookingAtCenter: mapState.region.center,
+                fromDistance: mapState.cameraDistance,
+                pitch: 0,
+                heading: mapState.cameraHeading
+            )
+            mapView.setCamera(camera, animated: !overlayChanged)
 
-            // Force tile reload after region change for Swiss layers
+            // Force tile reload after overlay change for Swiss layers
             if overlayChanged {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    // Trigger a redraw by slightly adjusting the region
-                    var adjustedRegion = mapState.region
-                    adjustedRegion.span.latitudeDelta *= 1.0001
-                    mapView.setRegion(adjustedRegion, animated: false)
+                    // Trigger a redraw by slightly adjusting the camera distance
+                    let adjustedCamera = MKMapCamera(
+                        lookingAtCenter: mapState.region.center,
+                        fromDistance: mapState.cameraDistance * 1.0001,
+                        pitch: 0,
+                        heading: mapState.cameraHeading
+                    )
+                    mapView.setCamera(adjustedCamera, animated: false)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        mapView.setRegion(mapState.region, animated: false)
+                        mapView.setCamera(camera, animated: false)
                     }
                 }
             }

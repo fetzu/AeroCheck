@@ -91,9 +91,6 @@ class SharedMapState: ObservableObject {
     @Published var cameraDistance: Double = 10000
     @Published var cameraHeading: Double = 0
 
-    /// Flag to indicate a heading reset was requested (to north)
-    var pendingHeadingReset: Bool = false
-
     init() {
         // Default to Switzerland center
         self.region = MKCoordinateRegion(
@@ -108,14 +105,6 @@ class SharedMapState: ObservableObject {
             self?.region = newRegion
             // Estimate camera distance from span (rough approximation)
             self?.cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
-        }
-    }
-
-    /// Update heading without triggering view updates (used by map delegate)
-    func updateHeadingSilently(_ heading: Double) {
-        // Only update if significantly different to avoid unnecessary refreshes
-        if abs(cameraHeading - heading) > 0.5 {
-            cameraHeading = heading
         }
     }
 
@@ -581,7 +570,7 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Right side: GPS status, compass, and center button
+            // Right side: GPS status and center button
             VStack(alignment: .trailing, spacing: 12) {
                 // GPS Status
                 HStack(spacing: 6) {
@@ -597,26 +586,16 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
-                // Compass and center button row
-                HStack(spacing: 12) {
-                    // Compass button (only visible when map is rotated)
-                    if abs(mapState.cameraHeading) > 1 {
-                        Button(action: resetHeadingToNorth) {
-                            CompassView(heading: mapState.cameraHeading)
-                        }
-                    }
-
-                    // Center on aircraft button
-                    Button(action: centerOnAircraft) {
-                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                            .frame(width: 50, height: 50)
-                            .background(
-                                Circle()
-                                    .fill(Color.panelBackground.opacity(0.9))
-                            )
-                    }
+                // Center on aircraft button
+                Button(action: centerOnAircraft) {
+                    Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                        .frame(width: 50, height: 50)
+                        .background(
+                            Circle()
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
                 }
             }
         }
@@ -637,12 +616,6 @@ struct NavigationMapView: View {
         mapState.updateFromRegion(newRegion)
         mapState.cameraHeading = location.course >= 0 ? location.course : 0
         mapState.cameraDistance = 10000
-    }
-
-    private func resetHeadingToNorth() {
-        // Request heading reset - the map views will handle it
-        mapState.pendingHeadingReset = true
-        mapState.cameraHeading = 0
     }
 }
 
@@ -760,143 +733,6 @@ struct SwissScaleBar: View {
     }
 }
 
-// MARK: - Compass View (Apple-style compass)
-
-/// A compass view similar to Apple Maps compass, showing cardinal directions and a north indicator
-struct CompassView: View {
-    let heading: Double
-    let size: CGFloat = 50
-
-    var body: some View {
-        ZStack {
-            // Background circle
-            Circle()
-                .fill(Color.panelBackground.opacity(0.9))
-                .frame(width: size, height: size)
-
-            // Compass ring with tick marks
-            CompassRing(heading: heading, size: size)
-
-            // Cardinal direction that's currently at top (rotates with map)
-            // Show the direction that corresponds to where North currently points
-            cardinalDirectionLabel
-        }
-        .frame(width: size, height: size)
-    }
-
-    /// Shows the cardinal direction letter based on current heading
-    private var cardinalDirectionLabel: some View {
-        ZStack {
-            // North arrow (red triangle pointing up, rotates with heading)
-            VStack(spacing: 0) {
-                // Red north indicator triangle
-                Triangle()
-                    .fill(Color.red)
-                    .frame(width: 8, height: 10)
-                    .offset(y: -12)
-
-                Spacer()
-            }
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(-heading))
-
-            // White south indicator (opposite side)
-            VStack(spacing: 0) {
-                Spacer()
-
-                Triangle()
-                    .fill(Color.white.opacity(0.8))
-                    .frame(width: 6, height: 8)
-                    .rotationEffect(.degrees(180))
-                    .offset(y: 12)
-            }
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(-heading))
-        }
-    }
-}
-
-/// Custom triangle shape for compass arrows
-struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.closeSubpath()
-        return path
-    }
-}
-
-/// The compass ring with tick marks and cardinal directions
-struct CompassRing: View {
-    let heading: Double
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            // Outer ring
-            Circle()
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                .frame(width: size - 4, height: size - 4)
-
-            // Tick marks and cardinal directions (rotate with heading)
-            ForEach(0..<36, id: \.self) { index in
-                let angle = Double(index) * 10.0
-                let isCardinal = index % 9 == 0  // N, E, S, W at 0, 90, 180, 270
-                let isMajor = index % 3 == 0     // Every 30 degrees
-
-                Group {
-                    if isCardinal {
-                        // Cardinal direction letters
-                        cardinalLabel(for: index)
-                            .rotationEffect(.degrees(-angle + heading))  // Counter-rotate text to keep upright
-                            .offset(y: -(size / 2 - 12))
-                            .rotationEffect(.degrees(angle - heading))
-                    } else if isMajor {
-                        // Major tick marks (every 30°)
-                        Rectangle()
-                            .fill(Color.white.opacity(0.6))
-                            .frame(width: 1.5, height: 6)
-                            .offset(y: -(size / 2 - 6))
-                    } else {
-                        // Minor tick marks (every 10°)
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 1, height: 4)
-                            .offset(y: -(size / 2 - 5))
-                    }
-                }
-                .rotationEffect(.degrees(angle - heading))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func cardinalLabel(for index: Int) -> some View {
-        switch index {
-        case 0:
-            Text("N")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.red)
-        case 9:
-            Text("E")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white)
-        case 18:
-            Text("S")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white)
-        case 27:
-            Text("W")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.white)
-        default:
-            EmptyView()
-        }
-    }
-}
-
 // MARK: - Native Map View (UIKit Wrapper for Standard/Satellite)
 
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
@@ -911,7 +747,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = false // Disabled - we use a custom positioned compass
+        mapView.showsCompass = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.showsScale = false // Use our custom scale bar instead
@@ -932,20 +768,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             mapView.mapType = expectedType
         }
 
-        // Handle pending heading reset (compass button was tapped)
-        if mapState.pendingHeadingReset {
-            mapState.pendingHeadingReset = false
-            let camera = MKMapCamera(
-                lookingAtCenter: mapView.camera.centerCoordinate,
-                fromDistance: mapView.camera.centerCoordinateDistance,
-                pitch: 0,
-                heading: 0
-            )
-            mapView.setCamera(camera, animated: true)
-        }
-
         // Update region from shared state if significantly different
-        // But only update center/span, not heading (user controls heading via gestures)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged && !context.coordinator.isUserInteracting {
             mapView.setRegion(mapState.region, animated: true)
@@ -1050,8 +873,6 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
             parent.mapState.updateFromRegion(mapView.region)
-            // Sync camera heading for compass display (silently to avoid feedback loop)
-            parent.mapState.updateHeadingSilently(mapView.camera.heading)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -1333,7 +1154,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = false // Disabled - we use a custom positioned compass
+        mapView.showsCompass = true
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
@@ -1416,18 +1237,6 @@ struct SwissMapView: UIViewRepresentable {
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
         if mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
-        }
-
-        // Handle pending heading reset (compass button was tapped)
-        if mapState.pendingHeadingReset {
-            mapState.pendingHeadingReset = false
-            let camera = MKMapCamera(
-                lookingAtCenter: mapView.camera.centerCoordinate,
-                fromDistance: mapView.camera.centerCoordinateDistance,
-                pitch: 0,
-                heading: 0
-            )
-            mapView.setCamera(camera, animated: true)
         }
 
         // Update region from shared state
@@ -1628,8 +1437,6 @@ struct SwissMapView: UIViewRepresentable {
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
-            // Sync camera heading for compass display (silently to avoid feedback loop)
-            parent.mapState.updateHeadingSilently(mapView.camera.heading)
             isUpdatingRegion = false
         }
 

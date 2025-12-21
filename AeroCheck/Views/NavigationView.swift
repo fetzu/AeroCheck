@@ -747,7 +747,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.showsScale = false // Use our custom scale bar instead
@@ -755,8 +755,14 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
 
-        // Set initial region from shared state
-        mapView.setRegion(mapState.region, animated: false)
+        // Set initial camera from shared state (preserves heading)
+        let camera = MKMapCamera(
+            lookingAtCenter: mapState.region.center,
+            fromDistance: mapState.cameraDistance,
+            pitch: 0,
+            heading: mapState.cameraHeading
+        )
+        mapView.setCamera(camera, animated: false)
 
         return mapView
     }
@@ -873,6 +879,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera heading so it's preserved when switching layers
+            parent.mapState.cameraHeading = mapView.camera.heading
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -1154,7 +1162,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
@@ -1165,8 +1173,14 @@ struct SwissMapView: UIViewRepresentable {
         // Add tile overlay
         addTileOverlay(to: mapView, layerType: layerType, context: context)
 
-        // Set initial region from shared state
-        mapView.setRegion(mapState.region, animated: false)
+        // Set initial camera from shared state (preserves heading)
+        let camera = MKMapCamera(
+            lookingAtCenter: mapState.region.center,
+            fromDistance: mapState.cameraDistance,
+            pitch: 0,
+            heading: mapState.cameraHeading
+        )
+        mapView.setCamera(camera, animated: false)
 
         // WORKAROUND for iPad-specific bug: Force a complete layer cycle after initial setup.
         // On iPad, the initial tile overlay doesn't properly respect zoom constraints until
@@ -1437,6 +1451,8 @@ struct SwissMapView: UIViewRepresentable {
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera heading so it's preserved when switching layers
+            parent.mapState.cameraHeading = mapView.camera.heading
             isUpdatingRegion = false
         }
 

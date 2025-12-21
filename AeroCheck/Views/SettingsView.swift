@@ -700,6 +700,13 @@ struct OfflineMapDownloadSheet: View {
                         Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondaryText)
+
+                        // Estimated time remaining
+                        if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
+                            Text("Estimated time remaining: \(formattedTimeRemaining(eta))")
+                                .font(.system(size: 13))
+                                .foregroundColor(.dimText)
+                        }
                     }
                 } else if let error = offlineMapManager.downloadError {
                     VStack(spacing: 12) {
@@ -810,6 +817,19 @@ struct OfflineMapDownloadSheet: View {
     private func startDownload() {
         Task {
             await offlineMapManager.downloadCharts(option: selectedCacheOption)
+        }
+    }
+
+    /// Format time interval as human-readable string (e.g., "2m 30s" or "45s")
+    private func formattedTimeRemaining(_ interval: TimeInterval) -> String {
+        let totalSeconds = Int(interval)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
         }
     }
 }

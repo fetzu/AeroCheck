@@ -88,10 +88,10 @@ enum MapLayerType: String, CaseIterable, Identifiable {
 /// Observable object to share map region state between different map views
 class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
-    @Published var cameraDistance: Double = 10000
-    // Note: cameraHeading is NOT @Published to avoid triggering SwiftUI view updates
-    // which would cause an infinite loop when syncing heading from the map delegate.
-    // The heading is only read when creating a new map view (on layer switch).
+    // Note: cameraDistance and cameraHeading are NOT @Published to avoid triggering
+    // SwiftUI view updates which would cause an infinite loop when syncing from the
+    // map delegate. These values are only read when creating a new map view (on layer switch).
+    var cameraDistance: Double = 10000
     var cameraHeading: Double = 0
 
     init() {
@@ -106,9 +106,14 @@ class SharedMapState: ObservableObject {
         // Defer state updates to avoid "Publishing changes from within view updates" warning
         DispatchQueue.main.async { [weak self] in
             self?.region = newRegion
-            // Estimate camera distance from span (rough approximation)
-            self?.cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
         }
+    }
+
+    /// Update camera state from an MKMapView's camera
+    /// Call this from map delegate to sync distance and heading without triggering view updates
+    func updateFromCamera(_ camera: MKMapCamera) {
+        cameraDistance = camera.centerCoordinateDistance
+        cameraHeading = camera.heading
     }
 
     var mapCameraPosition: MapCameraPosition {
@@ -888,8 +893,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
             parent.mapState.updateFromRegion(mapView.region)
-            // Sync camera heading so it's preserved when switching layers
-            parent.mapState.cameraHeading = mapView.camera.heading
+            // Sync camera distance and heading so they're preserved when switching layers
+            parent.mapState.updateFromCamera(mapView.camera)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -1480,8 +1485,8 @@ struct SwissMapView: UIViewRepresentable {
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
-            // Sync camera heading so it's preserved when switching layers
-            parent.mapState.cameraHeading = mapView.camera.heading
+            // Sync camera distance and heading so they're preserved when switching layers
+            parent.mapState.updateFromCamera(mapView.camera)
             isUpdatingRegion = false
         }
 

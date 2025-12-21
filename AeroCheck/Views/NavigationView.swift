@@ -88,8 +88,13 @@ enum MapLayerType: String, CaseIterable, Identifiable {
 /// Observable object to share map region state between different map views
 class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
-    @Published var cameraDistance: Double = 10000
+    // cameraDistance is not @Published - only read when creating a new map view
+    var cameraDistance: Double = 10000
+    // cameraHeading IS @Published so the compass UI updates in real-time
+    // The infinite loop is prevented by checking if the value actually changed
     @Published var cameraHeading: Double = 0
+    // Flag to indicate a heading reset was requested (user tapped compass)
+    var pendingHeadingReset: Bool = false
 
     init() {
         // Default to Switzerland center
@@ -103,9 +108,25 @@ class SharedMapState: ObservableObject {
         // Defer state updates to avoid "Publishing changes from within view updates" warning
         DispatchQueue.main.async { [weak self] in
             self?.region = newRegion
-            // Estimate camera distance from span (rough approximation)
-            self?.cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
         }
+    }
+
+    /// Update camera state from an MKMapView's camera
+    /// Call this from map delegate to sync distance and heading
+    func updateFromCamera(_ camera: MKMapCamera) {
+        cameraDistance = camera.centerCoordinateDistance
+        // Only update heading if it changed significantly to avoid unnecessary redraws
+        if abs(cameraHeading - camera.heading) > 0.1 {
+            DispatchQueue.main.async { [weak self] in
+                self?.cameraHeading = camera.heading
+            }
+        }
+    }
+
+    /// Request the map to reset heading to north
+    func requestHeadingReset() {
+        pendingHeadingReset = true
+        cameraHeading = 0
     }
 
     var mapCameraPosition: MapCameraPosition {
@@ -185,6 +206,9 @@ struct NavigationMapView: View {
 
     // Create a dedicated timer that fires every second
     private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    // Track actual map width for accurate scale bar
+    @State private var mapWidth: CGFloat = 0
 
     /// GPS track to display - uses marketing path when in marketing mode, otherwise flight track
     private var displayGpsTrack: [GPSPoint] {
@@ -277,22 +301,30 @@ struct NavigationMapView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Map content
-            mapContent
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // Map content
+                mapContent
+                    .ignoresSafeArea()
 
-            // Overlay controls
-            VStack {
-                // Top bar with close button and layer picker
-                topBar
+                // Overlay controls
+                VStack {
+                    // Top bar with close button and layer picker
+                    topBar
 
-                Spacer()
+                    Spacer()
 
-                // Bottom controls with scale bar
-                bottomControls
+                    // Bottom controls with scale bar
+                    bottomControls
+                }
+                .padding()
             }
-            .padding()
+            .onAppear {
+                mapWidth = geometry.size.width
+            }
+            .onChange(of: geometry.size) { _, newSize in
+                mapWidth = newSize.width
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -554,12 +586,12 @@ struct NavigationMapView: View {
                 }
 
                 // Scale bar
-                SwissScaleBar(region: mapState.region)
+                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
             }
 
             Spacer()
 
-            // Right side: GPS status and center button
+            // Right side: GPS status, compass and center button
             VStack(alignment: .trailing, spacing: 12) {
                 // GPS Status
                 HStack(spacing: 6) {
@@ -575,17 +607,29 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
-                // Center on aircraft button
-                Button(action: centerOnAircraft) {
-                    Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                        .frame(width: 50, height: 50)
-                        .background(
-                            Circle()
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                // Compass and center button row
+                HStack(spacing: 12) {
+                    // Compass button - only show when map is rotated
+                    if abs(mapState.cameraHeading) > 0.5 {
+                        Button(action: resetToNorth) {
+                            CompassView(heading: mapState.cameraHeading)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Center on aircraft button
+                    Button(action: centerOnAircraft) {
+                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                            .frame(width: 50, height: 50)
+                            .background(
+                                Circle()
+                                    .fill(Color.panelBackground.opacity(0.9))
+                            )
+                    }
                 }
+                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
             }
         }
     }
@@ -606,16 +650,58 @@ struct NavigationMapView: View {
         mapState.cameraHeading = location.course >= 0 ? location.course : 0
         mapState.cameraDistance = 10000
     }
+
+    private func resetToNorth() {
+        // Request the map to reset heading to north
+        mapState.requestHeadingReset()
+    }
+}
+
+// MARK: - Compass View
+
+/// Custom compass button that shows current heading with N indicator and arrow pointing north
+struct CompassView: View {
+    let heading: Double
+
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(Color.panelBackground.opacity(0.9))
+                .frame(width: 50, height: 50)
+
+            // Rotating compass content (N and arrow)
+            // Negative rotation so N points to geographic north
+            ZStack {
+                // Arrow pointing up (to north)
+                VStack(spacing: 0) {
+                    // Arrow head
+                    Image(systemName: "triangle.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.aviationRed)
+                    Spacer()
+                }
+                .frame(height: 32)
+
+                // N label
+                Text("N")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.primaryText)
+            }
+            .rotationEffect(.degrees(-heading))
+        }
+    }
 }
 
 // MARK: - Swiss Scale Bar (mimics SwissTopo style)
 
 struct SwissScaleBar: View {
     let region: MKCoordinateRegion
+    var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
 
     /// Calculate the appropriate scale distance based on current zoom
     /// Uses proper geodetic distance calculation for accuracy
-    private var scaleInfo: (distance: Double, text: String, width: CGFloat) {
+    private func scaleInfo(mapWidthPoints: CGFloat) -> (distance: Double, text: String, width: CGFloat) {
         // Get the center of the region
         let centerCoordinate = region.center
 
@@ -633,13 +719,12 @@ struct SwissScaleBar: View {
         // Get actual geodetic distance in meters
         let metersInSpan = leftLocation.distance(from: rightLocation)
 
-        // iPad screen width varies, but a typical 11" iPad in landscape is ~1194 points wide
-        // The map fills most of the screen, accounting for safe areas (~1100 points effective)
-        // This is the key factor - we need to match what the map is actually showing
-        let estimatedMapWidthPoints: CGFloat = 1100
+        // Use actual map width if provided, otherwise estimate based on typical values
+        // The map width should be passed from the parent view using GeometryReader
+        let effectiveMapWidth: CGFloat = mapWidthPoints > 0 ? mapWidthPoints : 1100
 
         // Calculate meters per screen point
-        let metersPerPoint = metersInSpan / Double(estimatedMapWidthPoints)
+        let metersPerPoint = metersInSpan / Double(effectiveMapWidth)
 
         // Target scale bar width in points (aim for ~80-100pt)
         let targetBarWidth: CGFloat = 80
@@ -682,37 +767,43 @@ struct SwissScaleBar: View {
     }
 
     var body: some View {
-        let info = scaleInfo
+        GeometryReader { geometry in
+            // Get the actual screen width to estimate map width
+            // The scale bar is in the bottom left, so we use the full container width
+            let mapWidthEstimate = mapWidth > 0 ? mapWidth : geometry.size.width
+            let info = scaleInfo(mapWidthPoints: mapWidthEstimate)
 
-        VStack(alignment: .leading, spacing: 2) {
-            // Scale text
-            Text(info.text)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                // Scale text
+                Text(info.text)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white)
 
-            // Scale bar (L-shaped like SwissTopo)
-            HStack(spacing: 0) {
-                // Vertical tick on left
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 2, height: 8)
+                // Scale bar (L-shaped like SwissTopo)
+                HStack(spacing: 0) {
+                    // Vertical tick on left
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 2, height: 8)
 
-                // Horizontal line
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: info.width, height: 2)
+                    // Horizontal line
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: info.width, height: 2)
 
-                // Vertical tick on right
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 2, height: 8)
+                    // Vertical tick on right
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 2, height: 8)
+                }
             }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.black.opacity(0.5))
+            )
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.black.opacity(0.5))
-        )
+        .frame(height: 50)  // Fixed height for the scale bar container
     }
 }
 
@@ -730,7 +821,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.showsScale = false // Use our custom scale bar instead
@@ -738,8 +829,14 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
 
-        // Set initial region from shared state
-        mapView.setRegion(mapState.region, animated: false)
+        // Set initial camera from shared state (preserves heading)
+        let camera = MKMapCamera(
+            lookingAtCenter: mapState.region.center,
+            fromDistance: mapState.cameraDistance,
+            pitch: 0,
+            heading: mapState.cameraHeading
+        )
+        mapView.setCamera(camera, animated: false)
 
         return mapView
     }
@@ -751,10 +848,29 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             mapView.mapType = expectedType
         }
 
-        // Update region from shared state if significantly different
+        // Handle heading reset request (user tapped compass)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
+            return
+        }
+
+        // Update camera from shared state if significantly different (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged && !context.coordinator.isUserInteracting {
-            mapView.setRegion(mapState.region, animated: true)
+            let camera = MKMapCamera(
+                lookingAtCenter: mapState.region.center,
+                fromDistance: mapState.cameraDistance,
+                pitch: 0,
+                heading: mapState.cameraHeading
+            )
+            mapView.setCamera(camera, animated: true)
         }
 
         // Update aircraft annotation
@@ -856,6 +972,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera distance and heading so they're preserved when switching layers
+            parent.mapState.updateFromCamera(mapView.camera)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -1137,7 +1255,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false  // Disabled - compass was appearing in wrong position
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
@@ -1148,8 +1266,14 @@ struct SwissMapView: UIViewRepresentable {
         // Add tile overlay
         addTileOverlay(to: mapView, layerType: layerType, context: context)
 
-        // Set initial region from shared state
-        mapView.setRegion(mapState.region, animated: false)
+        // Set initial camera from shared state (preserves heading)
+        let camera = MKMapCamera(
+            lookingAtCenter: mapState.region.center,
+            fromDistance: mapState.cameraDistance,
+            pitch: 0,
+            heading: mapState.cameraHeading
+        )
+        mapView.setCamera(camera, animated: false)
 
         // WORKAROUND for iPad-specific bug: Force a complete layer cycle after initial setup.
         // On iPad, the initial tile overlay doesn't properly respect zoom constraints until
@@ -1192,12 +1316,22 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.addOverlay(overlay, level: .aboveLabels)
                 }
 
-                // Force region update like updateUIView does after overlay change
-                var adjustedRegion = self.mapState.region
-                adjustedRegion.span.latitudeDelta *= 1.0001
-                mapView.setRegion(adjustedRegion, animated: false)
+                // Force camera update like updateUIView does after overlay change (preserves heading)
+                let adjustedCamera = MKMapCamera(
+                    lookingAtCenter: self.mapState.region.center,
+                    fromDistance: self.mapState.cameraDistance * 1.0001,
+                    pitch: 0,
+                    heading: self.mapState.cameraHeading
+                )
+                mapView.setCamera(adjustedCamera, animated: false)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    mapView.setRegion(self.mapState.region, animated: false)
+                    let camera = MKMapCamera(
+                        lookingAtCenter: self.mapState.region.center,
+                        fromDistance: self.mapState.cameraDistance,
+                        pitch: 0,
+                        heading: self.mapState.cameraHeading
+                    )
+                    mapView.setCamera(camera, animated: false)
                 }
             }
         }
@@ -1206,6 +1340,19 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Handle heading reset request (user tapped compass)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
+            return
+        }
+
         // Update tile overlay if layer changed or force setting changed
         let overlayChanged = context.coordinator.updateTileOverlayIfNeeded(
             mapView,
@@ -1222,20 +1369,30 @@ struct SwissMapView: UIViewRepresentable {
             mapView.cameraZoomRange = newZoomRange
         }
 
-        // Update region from shared state
+        // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged || overlayChanged {
-            mapView.setRegion(mapState.region, animated: !overlayChanged)
+            let camera = MKMapCamera(
+                lookingAtCenter: mapState.region.center,
+                fromDistance: mapState.cameraDistance,
+                pitch: 0,
+                heading: mapState.cameraHeading
+            )
+            mapView.setCamera(camera, animated: !overlayChanged)
 
-            // Force tile reload after region change for Swiss layers
+            // Force tile reload after overlay change for Swiss layers
             if overlayChanged {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    // Trigger a redraw by slightly adjusting the region
-                    var adjustedRegion = mapState.region
-                    adjustedRegion.span.latitudeDelta *= 1.0001
-                    mapView.setRegion(adjustedRegion, animated: false)
+                    // Trigger a redraw by slightly adjusting the camera distance
+                    let adjustedCamera = MKMapCamera(
+                        lookingAtCenter: mapState.region.center,
+                        fromDistance: mapState.cameraDistance * 1.0001,
+                        pitch: 0,
+                        heading: mapState.cameraHeading
+                    )
+                    mapView.setCamera(adjustedCamera, animated: false)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        mapView.setRegion(mapState.region, animated: false)
+                        mapView.setCamera(camera, animated: false)
                     }
                 }
             }
@@ -1420,6 +1577,8 @@ struct SwissMapView: UIViewRepresentable {
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera distance and heading so they're preserved when switching layers
+            parent.mapState.updateFromCamera(mapView.camera)
             isUpdatingRegion = false
         }
 

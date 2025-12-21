@@ -88,11 +88,13 @@ enum MapLayerType: String, CaseIterable, Identifiable {
 /// Observable object to share map region state between different map views
 class SharedMapState: ObservableObject {
     @Published var region: MKCoordinateRegion
-    // Note: cameraDistance and cameraHeading are NOT @Published to avoid triggering
-    // SwiftUI view updates which would cause an infinite loop when syncing from the
-    // map delegate. These values are only read when creating a new map view (on layer switch).
+    // cameraDistance is not @Published - only read when creating a new map view
     var cameraDistance: Double = 10000
-    var cameraHeading: Double = 0
+    // cameraHeading IS @Published so the compass UI updates in real-time
+    // The infinite loop is prevented by checking if the value actually changed
+    @Published var cameraHeading: Double = 0
+    // Flag to indicate a heading reset was requested (user tapped compass)
+    var pendingHeadingReset: Bool = false
 
     init() {
         // Default to Switzerland center
@@ -110,10 +112,21 @@ class SharedMapState: ObservableObject {
     }
 
     /// Update camera state from an MKMapView's camera
-    /// Call this from map delegate to sync distance and heading without triggering view updates
+    /// Call this from map delegate to sync distance and heading
     func updateFromCamera(_ camera: MKMapCamera) {
         cameraDistance = camera.centerCoordinateDistance
-        cameraHeading = camera.heading
+        // Only update heading if it changed significantly to avoid unnecessary redraws
+        if abs(cameraHeading - camera.heading) > 0.1 {
+            DispatchQueue.main.async { [weak self] in
+                self?.cameraHeading = camera.heading
+            }
+        }
+    }
+
+    /// Request the map to reset heading to north
+    func requestHeadingReset() {
+        pendingHeadingReset = true
+        cameraHeading = 0
     }
 
     var mapCameraPosition: MapCameraPosition {
@@ -578,7 +591,7 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Right side: GPS status and center button
+            // Right side: GPS status, compass and center button
             VStack(alignment: .trailing, spacing: 12) {
                 // GPS Status
                 HStack(spacing: 6) {
@@ -594,17 +607,29 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
-                // Center on aircraft button
-                Button(action: centerOnAircraft) {
-                    Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                        .frame(width: 50, height: 50)
-                        .background(
-                            Circle()
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                // Compass and center button row
+                HStack(spacing: 12) {
+                    // Compass button - only show when map is rotated
+                    if abs(mapState.cameraHeading) > 0.5 {
+                        Button(action: resetToNorth) {
+                            CompassView(heading: mapState.cameraHeading)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Center on aircraft button
+                    Button(action: centerOnAircraft) {
+                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                            .frame(width: 50, height: 50)
+                            .background(
+                                Circle()
+                                    .fill(Color.panelBackground.opacity(0.9))
+                            )
+                    }
                 }
+                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
             }
         }
     }
@@ -624,6 +649,47 @@ struct NavigationMapView: View {
         mapState.updateFromRegion(newRegion)
         mapState.cameraHeading = location.course >= 0 ? location.course : 0
         mapState.cameraDistance = 10000
+    }
+
+    private func resetToNorth() {
+        // Request the map to reset heading to north
+        mapState.requestHeadingReset()
+    }
+}
+
+// MARK: - Compass View
+
+/// Custom compass button that shows current heading with N indicator and arrow pointing north
+struct CompassView: View {
+    let heading: Double
+
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(Color.panelBackground.opacity(0.9))
+                .frame(width: 50, height: 50)
+
+            // Rotating compass content (N and arrow)
+            // Negative rotation so N points to geographic north
+            ZStack {
+                // Arrow pointing up (to north)
+                VStack(spacing: 0) {
+                    // Arrow head
+                    Image(systemName: "triangle.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.aviationRed)
+                    Spacer()
+                }
+                .frame(height: 32)
+
+                // N label
+                Text("N")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.primaryText)
+            }
+            .rotationEffect(.degrees(-heading))
+        }
     }
 }
 
@@ -780,6 +846,19 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let expectedType: MKMapType = selectedLayer == .satellite ? .satellite : .standard
         if mapView.mapType != expectedType {
             mapView.mapType = expectedType
+        }
+
+        // Handle heading reset request (user tapped compass)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
+            return
         }
 
         // Update camera from shared state if significantly different (preserves heading)
@@ -1261,6 +1340,19 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Handle heading reset request (user tapped compass)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
+            return
+        }
+
         // Update tile overlay if layer changed or force setting changed
         let overlayChanged = context.coordinator.updateTileOverlayIfNeeded(
             mapView,

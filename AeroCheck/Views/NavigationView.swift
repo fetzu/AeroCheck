@@ -91,6 +91,9 @@ class SharedMapState: ObservableObject {
     @Published var cameraDistance: Double = 10000
     @Published var cameraHeading: Double = 0
 
+    /// Flag to indicate a heading reset was requested (to north)
+    var pendingHeadingReset: Bool = false
+
     init() {
         // Default to Switzerland center
         self.region = MKCoordinateRegion(
@@ -105,6 +108,14 @@ class SharedMapState: ObservableObject {
             self?.region = newRegion
             // Estimate camera distance from span (rough approximation)
             self?.cameraDistance = newRegion.span.latitudeDelta * 111000.0 / 0.9
+        }
+    }
+
+    /// Update heading without triggering view updates (used by map delegate)
+    func updateHeadingSilently(_ heading: Double) {
+        // Only update if significantly different to avoid unnecessary refreshes
+        if abs(cameraHeading - heading) > 0.5 {
+            cameraHeading = heading
         }
     }
 
@@ -185,6 +196,9 @@ struct NavigationMapView: View {
 
     // Create a dedicated timer that fires every second
     private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    // Track actual map width for accurate scale bar
+    @State private var mapWidth: CGFloat = 0
 
     /// GPS track to display - uses marketing path when in marketing mode, otherwise flight track
     private var displayGpsTrack: [GPSPoint] {
@@ -277,22 +291,30 @@ struct NavigationMapView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Map content
-            mapContent
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack {
+                // Map content
+                mapContent
+                    .ignoresSafeArea()
 
-            // Overlay controls
-            VStack {
-                // Top bar with close button and layer picker
-                topBar
+                // Overlay controls
+                VStack {
+                    // Top bar with close button and layer picker
+                    topBar
 
-                Spacer()
+                    Spacer()
 
-                // Bottom controls with scale bar
-                bottomControls
+                    // Bottom controls with scale bar
+                    bottomControls
+                }
+                .padding()
             }
-            .padding()
+            .onAppear {
+                mapWidth = geometry.size.width
+            }
+            .onChange(of: geometry.size) { _, newSize in
+                mapWidth = newSize.width
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -554,12 +576,12 @@ struct NavigationMapView: View {
                 }
 
                 // Scale bar
-                SwissScaleBar(region: mapState.region)
+                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
             }
 
             Spacer()
 
-            // Right side: GPS status and center button
+            // Right side: GPS status, compass, and center button
             VStack(alignment: .trailing, spacing: 12) {
                 // GPS Status
                 HStack(spacing: 6) {
@@ -575,16 +597,26 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
-                // Center on aircraft button
-                Button(action: centerOnAircraft) {
-                    Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                        .frame(width: 50, height: 50)
-                        .background(
-                            Circle()
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                // Compass and center button row
+                HStack(spacing: 12) {
+                    // Compass button (only visible when map is rotated)
+                    if abs(mapState.cameraHeading) > 1 {
+                        Button(action: resetHeadingToNorth) {
+                            CompassView(heading: mapState.cameraHeading)
+                        }
+                    }
+
+                    // Center on aircraft button
+                    Button(action: centerOnAircraft) {
+                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                            .frame(width: 50, height: 50)
+                            .background(
+                                Circle()
+                                    .fill(Color.panelBackground.opacity(0.9))
+                            )
+                    }
                 }
             }
         }
@@ -606,16 +638,23 @@ struct NavigationMapView: View {
         mapState.cameraHeading = location.course >= 0 ? location.course : 0
         mapState.cameraDistance = 10000
     }
+
+    private func resetHeadingToNorth() {
+        // Request heading reset - the map views will handle it
+        mapState.pendingHeadingReset = true
+        mapState.cameraHeading = 0
+    }
 }
 
 // MARK: - Swiss Scale Bar (mimics SwissTopo style)
 
 struct SwissScaleBar: View {
     let region: MKCoordinateRegion
+    var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
 
     /// Calculate the appropriate scale distance based on current zoom
     /// Uses proper geodetic distance calculation for accuracy
-    private var scaleInfo: (distance: Double, text: String, width: CGFloat) {
+    private func scaleInfo(mapWidthPoints: CGFloat) -> (distance: Double, text: String, width: CGFloat) {
         // Get the center of the region
         let centerCoordinate = region.center
 
@@ -633,13 +672,12 @@ struct SwissScaleBar: View {
         // Get actual geodetic distance in meters
         let metersInSpan = leftLocation.distance(from: rightLocation)
 
-        // iPad screen width varies, but a typical 11" iPad in landscape is ~1194 points wide
-        // The map fills most of the screen, accounting for safe areas (~1100 points effective)
-        // This is the key factor - we need to match what the map is actually showing
-        let estimatedMapWidthPoints: CGFloat = 1100
+        // Use actual map width if provided, otherwise estimate based on typical values
+        // The map width should be passed from the parent view using GeometryReader
+        let effectiveMapWidth: CGFloat = mapWidthPoints > 0 ? mapWidthPoints : 1100
 
         // Calculate meters per screen point
-        let metersPerPoint = metersInSpan / Double(estimatedMapWidthPoints)
+        let metersPerPoint = metersInSpan / Double(effectiveMapWidth)
 
         // Target scale bar width in points (aim for ~80-100pt)
         let targetBarWidth: CGFloat = 80
@@ -682,37 +720,180 @@ struct SwissScaleBar: View {
     }
 
     var body: some View {
-        let info = scaleInfo
+        GeometryReader { geometry in
+            // Get the actual screen width to estimate map width
+            // The scale bar is in the bottom left, so we use the full container width
+            let mapWidthEstimate = mapWidth > 0 ? mapWidth : geometry.size.width
+            let info = scaleInfo(mapWidthPoints: mapWidthEstimate)
 
-        VStack(alignment: .leading, spacing: 2) {
-            // Scale text
-            Text(info.text)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                // Scale text
+                Text(info.text)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white)
 
-            // Scale bar (L-shaped like SwissTopo)
-            HStack(spacing: 0) {
-                // Vertical tick on left
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 2, height: 8)
+                // Scale bar (L-shaped like SwissTopo)
+                HStack(spacing: 0) {
+                    // Vertical tick on left
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 2, height: 8)
 
-                // Horizontal line
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: info.width, height: 2)
+                    // Horizontal line
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: info.width, height: 2)
 
-                // Vertical tick on right
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 2, height: 8)
+                    // Vertical tick on right
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 2, height: 8)
+                }
+            }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.black.opacity(0.5))
+            )
+        }
+        .frame(height: 50)  // Fixed height for the scale bar container
+    }
+}
+
+// MARK: - Compass View (Apple-style compass)
+
+/// A compass view similar to Apple Maps compass, showing cardinal directions and a north indicator
+struct CompassView: View {
+    let heading: Double
+    let size: CGFloat = 50
+
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(Color.panelBackground.opacity(0.9))
+                .frame(width: size, height: size)
+
+            // Compass ring with tick marks
+            CompassRing(heading: heading, size: size)
+
+            // Cardinal direction that's currently at top (rotates with map)
+            // Show the direction that corresponds to where North currently points
+            cardinalDirectionLabel
+        }
+        .frame(width: size, height: size)
+    }
+
+    /// Shows the cardinal direction letter based on current heading
+    private var cardinalDirectionLabel: some View {
+        ZStack {
+            // North arrow (red triangle pointing up, rotates with heading)
+            VStack(spacing: 0) {
+                // Red north indicator triangle
+                Triangle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 10)
+                    .offset(y: -12)
+
+                Spacer()
+            }
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(-heading))
+
+            // White south indicator (opposite side)
+            VStack(spacing: 0) {
+                Spacer()
+
+                Triangle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 6, height: 8)
+                    .rotationEffect(.degrees(180))
+                    .offset(y: 12)
+            }
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(-heading))
+        }
+    }
+}
+
+/// Custom triangle shape for compass arrows
+struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// The compass ring with tick marks and cardinal directions
+struct CompassRing: View {
+    let heading: Double
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            // Outer ring
+            Circle()
+                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                .frame(width: size - 4, height: size - 4)
+
+            // Tick marks and cardinal directions (rotate with heading)
+            ForEach(0..<36, id: \.self) { index in
+                let angle = Double(index) * 10.0
+                let isCardinal = index % 9 == 0  // N, E, S, W at 0, 90, 180, 270
+                let isMajor = index % 3 == 0     // Every 30 degrees
+
+                Group {
+                    if isCardinal {
+                        // Cardinal direction letters
+                        cardinalLabel(for: index)
+                            .rotationEffect(.degrees(-angle + heading))  // Counter-rotate text to keep upright
+                            .offset(y: -(size / 2 - 12))
+                            .rotationEffect(.degrees(angle - heading))
+                    } else if isMajor {
+                        // Major tick marks (every 30°)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.6))
+                            .frame(width: 1.5, height: 6)
+                            .offset(y: -(size / 2 - 6))
+                    } else {
+                        // Minor tick marks (every 10°)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 1, height: 4)
+                            .offset(y: -(size / 2 - 5))
+                    }
+                }
+                .rotationEffect(.degrees(angle - heading))
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.black.opacity(0.5))
-        )
+    }
+
+    @ViewBuilder
+    private func cardinalLabel(for index: Int) -> some View {
+        switch index {
+        case 0:
+            Text("N")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.red)
+        case 9:
+            Text("E")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+        case 18:
+            Text("S")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+        case 27:
+            Text("W")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+        default:
+            EmptyView()
+        }
     }
 }
 
@@ -730,7 +911,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false // Disabled - we use a custom positioned compass
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
         mapView.showsScale = false // Use our custom scale bar instead
@@ -751,7 +932,20 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             mapView.mapType = expectedType
         }
 
+        // Handle pending heading reset (compass button was tapped)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
+        }
+
         // Update region from shared state if significantly different
+        // But only update center/span, not heading (user controls heading via gestures)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
         if regionChanged && !context.coordinator.isUserInteracting {
             mapView.setRegion(mapState.region, animated: true)
@@ -856,6 +1050,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             isUserInteracting = false
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera heading for compass display (silently to avoid feedback loop)
+            parent.mapState.updateHeadingSilently(mapView.camera.heading)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -1137,7 +1333,7 @@ struct SwissMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
-        mapView.showsCompass = true
+        mapView.showsCompass = false // Disabled - we use a custom positioned compass
         mapView.isRotateEnabled = true
         mapView.isPitchEnabled = false
 
@@ -1220,6 +1416,18 @@ struct SwissMapView: UIViewRepresentable {
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
         if mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
+        }
+
+        // Handle pending heading reset (compass button was tapped)
+        if mapState.pendingHeadingReset {
+            mapState.pendingHeadingReset = false
+            let camera = MKMapCamera(
+                lookingAtCenter: mapView.camera.centerCoordinate,
+                fromDistance: mapView.camera.centerCoordinateDistance,
+                pitch: 0,
+                heading: 0
+            )
+            mapView.setCamera(camera, animated: true)
         }
 
         // Update region from shared state
@@ -1420,6 +1628,8 @@ struct SwissMapView: UIViewRepresentable {
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)
+            // Sync camera heading for compass display (silently to avoid feedback loop)
+            parent.mapState.updateHeadingSilently(mapView.camera.heading)
             isUpdatingRegion = false
         }
 

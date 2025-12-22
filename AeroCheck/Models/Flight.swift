@@ -321,16 +321,41 @@ extension Flight {
         }
     }
 
+    /// Errors that can occur during flight import
+    enum ImportError: Error, LocalizedError {
+        case invalidJSON(underlying: Error)
+        case invalidGPX
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidJSON(let underlying):
+                return "Invalid JSON format: \(underlying.localizedDescription)"
+            case .invalidGPX:
+                return "Invalid GPX format"
+            }
+        }
+    }
+
     /// Import flight from JSON data
-    static func fromJSON(_ data: Data) -> Flight? {
+    /// - Parameter data: JSON data to decode
+    /// - Returns: Decoded Flight object
+    /// - Throws: ImportError.invalidJSON if decoding fails
+    static func fromJSON(_ data: Data) throws -> Flight {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         do {
             return try decoder.decode(Flight.self, from: data)
         } catch {
-            print("[AeroCheck] Failed to decode flight from JSON: \(error.localizedDescription)")
-            return nil
+            print("[AeroCheck] Failed to decode flight from JSON: \(error)")
+            throw ImportError.invalidJSON(underlying: error)
         }
+    }
+
+    /// Import flight from JSON data (non-throwing version for backward compatibility)
+    /// - Parameter data: JSON data to decode
+    /// - Returns: Decoded Flight object, or nil if decoding fails
+    static func fromJSON(_ data: Data) -> Flight? {
+        try? fromJSON(data) as Flight
     }
     
     /// Import flight from GPX data

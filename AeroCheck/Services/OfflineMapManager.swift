@@ -476,11 +476,13 @@ class OfflineMapManager: ObservableObject {
     private func updateCacheSize() {
         let icaoDir = self.cacheDirectory
         let segelflugDir = self.segelflugCacheDirectory
-        Task.detached(priority: .utility) { [icaoDir, segelflugDir] in
+        // Capture self weakly to avoid retain cycle in detached task
+        Task.detached(priority: .utility) { [weak self, icaoDir, segelflugDir] in
+            guard let self = self else { return }
             let icaoSize = self.calculateDirectorySize(url: icaoDir)
             let segelflugSize = self.calculateDirectorySize(url: segelflugDir)
-            await MainActor.run {
-                self.cacheSizeBytes = icaoSize + segelflugSize
+            await MainActor.run { [weak self] in
+                self?.cacheSizeBytes = icaoSize + segelflugSize
             }
         }
     }

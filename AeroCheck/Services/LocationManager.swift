@@ -60,9 +60,18 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 10 // meters
         locationManager.activityType = .airborne
+
+        // Background location configuration:
+        // - allowsBackgroundLocationUpdates: Required for continuous GPS tracking during flight
+        // - pausesLocationUpdatesAutomatically: Disabled to prevent iOS from pausing updates
+        // - showsBackgroundLocationIndicator: Shows blue bar when tracking in background
+        // Note: If the app is terminated by the system during background tracking,
+        // iOS will not automatically restart it. The user must manually restart the app.
+        // This is acceptable for aviation use where the app should remain in foreground.
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
-        
+        locationManager.showsBackgroundLocationIndicator = true
+
         // Check current authorization
         authorizationStatus = locationManager.authorizationStatus
     }

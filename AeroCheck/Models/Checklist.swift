@@ -176,9 +176,17 @@ struct ChecklistItem: Identifiable {
 
 /// Bridge to checklist data - delegates to appropriate aircraft type
 /// This maintains backward compatibility with existing code
+///
+/// Thread Safety: The currentAircraft property uses nonisolated(unsafe) to allow
+/// access from non-main-actor contexts (like ChecklistPhase computed properties).
+/// This is safe because:
+/// 1. Writes only happen from AppState.syncAircraftType() on the main actor
+/// 2. The value is an enum (value type) so reads are atomic
+/// 3. A stale read during aircraft switch is acceptable (UI will update immediately)
 struct ChecklistData {
-    /// Current aircraft type (should be set from AppState)
-    static var currentAircraft: AircraftType = .wt9Dynamic
+    /// Current aircraft type (synced from AppState.settings.selectedAircraft)
+    /// Only mutate this from AppState.syncAircraftType()
+    nonisolated(unsafe) static var currentAircraft: AircraftType = .wt9Dynamic
 
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
         currentAircraft.items(for: phase)

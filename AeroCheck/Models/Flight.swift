@@ -313,14 +313,24 @@ extension Flight {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try? encoder.encode(self)
+        do {
+            return try encoder.encode(self)
+        } catch {
+            print("[AeroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
+            return nil
+        }
     }
-    
+
     /// Import flight from JSON data
     static func fromJSON(_ data: Data) -> Flight? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(Flight.self, from: data)
+        do {
+            return try decoder.decode(Flight.self, from: data)
+        } catch {
+            print("[AeroCheck] Failed to decode flight from JSON: \(error.localizedDescription)")
+            return nil
+        }
     }
     
     /// Import flight from GPX data

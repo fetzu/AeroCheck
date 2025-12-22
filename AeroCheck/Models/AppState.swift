@@ -420,29 +420,39 @@ class AppState: ObservableObject {
     // MARK: - Persistence
     
     private func saveFlights() {
-        if let encoded = try? JSONEncoder().encode(flights) {
+        do {
+            let encoded = try JSONEncoder().encode(flights)
             UserDefaults.standard.set(encoded, forKey: flightsKey)
+        } catch {
+            print("[AeroCheck] Failed to save flights: \(error.localizedDescription)")
         }
     }
-    
+
     private func loadFlights() {
-        if let data = UserDefaults.standard.data(forKey: flightsKey),
-           let decoded = try? JSONDecoder().decode([Flight].self, from: data) {
-            flights = decoded
+        guard let data = UserDefaults.standard.data(forKey: flightsKey) else { return }
+        do {
+            flights = try JSONDecoder().decode([Flight].self, from: data)
+        } catch {
+            print("[AeroCheck] Failed to load flights: \(error.localizedDescription)")
         }
     }
-    
+
     func saveSettings() {
-        if let encoded = try? JSONEncoder().encode(settings) {
+        do {
+            let encoded = try JSONEncoder().encode(settings)
             UserDefaults.standard.set(encoded, forKey: settingsKey)
+        } catch {
+            print("[AeroCheck] Failed to save settings: \(error.localizedDescription)")
         }
         syncAircraftType()
     }
-    
+
     private func loadSettings() {
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
-           let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
-            settings = decoded
+        guard let data = UserDefaults.standard.data(forKey: settingsKey) else { return }
+        do {
+            settings = try JSONDecoder().decode(AppSettings.self, from: data)
+        } catch {
+            print("[AeroCheck] Failed to load settings: \(error.localizedDescription)")
         }
     }
 }

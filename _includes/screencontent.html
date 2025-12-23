@@ -2,7 +2,7 @@
 
 {% for file in site.static_files %}
     {% assign path_parts = file.path | split: '/' %}
-    {% if file.path contains 'assets/screenshot/' and path_parts.size == 3 %}
+    {% if file.path contains 'assets/screenshot/' and path_parts.size == 4 %}
         <script>
             $(function() {
                 $(".iphoneScreen").attr('src', '{{ site.github.baseurl }}{{ file.path }}');
@@ -10,7 +10,7 @@
                 console.log("{{ file.path }}");
             });
         </script>
-    {% elsif file.path contains 'assets/videos/' and path_parts.size == 3 %}
+    {% elsif file.path contains 'assets/videos/' and path_parts.size == 4 %}
         <script>
             $(function() {
                 $(".iphoneScreen").addClass("hidden");

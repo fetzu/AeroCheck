@@ -1,0 +1,139 @@
+# Page Title
+page_title                                : AeroCheck - Flight Checklist App for Pilots
+
+# App Info
+ios_app_id                                :                                           # Not on App Store yet
+ios_app_country                           : ch                                        # Switzerland
+
+appstore_link                             :                                           # Not available yet
+playstore_link                            :                                           # iOS only
+presskit_download_link                    :                                           # No press kit yet
+
+app_icon                                  : assets/appicon.png
+app_name                                  : AeroCheck
+app_price                                 : Free (Open Source)
+app_description                           : Your digital co-pilot for flight checklists. Designed for pilot students at Aeroclub du Jura GVMP.
+
+enable_smart_app_banner                   : false                                     # Not on App Store yet
+
+
+
+# Information About Yourself
+your_name                                 : fetzu
+your_link                                 : https://github.com/fetzu
+your_city                                 :
+email_address                             :
+linkedin_username                         :
+linkedin_company                          :
+facebook_username                         :
+instagram_username                        :
+twitter_username                          :
+github_username                           : fetzu
+youtube_username                          :
+mastodon_link                             :
+
+
+
+# Feature List - Based on AeroCheck capabilities
+features                                  :
+
+  - title                                 : 16 Flight Phases
+    description                           : Complete coverage from Preflight to Hangar. Navigate through all phases with step-by-step checklist guidance.
+    fontawesome_icon_name                 : list-check
+
+  - title                                 : Multi-Aircraft Support
+    description                           : Supports WT9 Dynamic and PA-28-181 Archer II with aircraft-specific checklists and procedures.
+    fontawesome_icon_name                 : plane
+
+  - title                                 : GPS Tracking
+    description                           : Records your flight path with real-time ground speed and altitude display. Export to GPX for analysis.
+    fontawesome_icon_name                 : location-arrow
+
+  - title                                 : Interactive Navigation
+    description                           : Full-screen map view with Swiss ICAO charts, swisstopo maps, and offline caching for areas without signal.
+    fontawesome_icon_name                 : map
+
+  - title                                 : Learning Mode
+    description                           : Hide memorizable checklist items to test your knowledge. Perfect for pilot students preparing for checkrides.
+    fontawesome_icon_name                 : graduation-cap
+
+  - title                                 : Flight Logging
+    description                           : Automatic timing of engine start, line-up, landing, and shutdown. Export flights as GPX, JSON, or ZIP.
+    fontawesome_icon_name                 : clock
+
+  - title                                 : Dark Cockpit UI
+    description                           : Designed for readability in the cockpit with large touch targets and aviation-inspired colors.
+    fontawesome_icon_name                 : moon
+
+  - title                                 : Offline Ready
+    description                           : Cache Swiss ICAO charts for offline use. Essential for flights over areas with limited cellular coverage.
+    fontawesome_icon_name                 : wifi-slash
+
+  - title                                 : Open Source
+    description                           : Built with Swift and SwiftUI. Contribute on GitHub or adapt it for your own aeroclub.
+    fontawesome_icon_name                 : code-branch
+
+
+
+# Theme Settings - Aviation Dark Theme
+topbar_color                              : "#141419"
+topbar_transparency                       : 0.95
+topbar_title_color                        : "#D9A633"
+
+cover_image                               : assets/headerimage.png
+cover_overlay_color                       : "#141419"
+cover_overlay_transparency                : 0.85
+
+device_color                              : black
+
+body_background_color                     : "#1F1F26"
+
+link_color                                : "#D9A633"
+
+app_title_color                           : "#D9A633"
+app_price_color                           : "#33B34D"
+app_description_color                     : "#ffffff"
+
+feature_title_color                       : "#D9A633"
+feature_text_color                        : "#cccccc"
+
+feature_icons_foreground_color            : "#D9A633"
+feature_icons_background_color            : "#1A3366"
+
+social_icons_foreground_color             : "#D9A633"
+social_icons_background_color             : "#1A3366"
+
+footer_text_color                         : "#888888"
+
+
+
+
+
+
+
+
+
+
+####################################################
+### Jekyll Configuration. No need to touch this. ###
+####################################################
+
+# Set the Sass partials directory, as we're using @imports
+sass:
+  style: :compressed # You might prefer to minify using :compressed
+
+# Exclude these files from your production _site
+exclude:
+  - LICENSE
+  - README.md
+  - CNAME
+  - Gemfile
+  - Gemfile.lock
+
+collections:
+  pages:
+    output: true
+    permalink: /:path/
+
+# Markdown rendering
+markdown: kramdown

@@ -7,6 +7,7 @@ ios_app_country                           : ch                                  
 
 appstore_link                             :                                           # Not available yet
 playstore_link                            :                                           # iOS only
+github_download_link                      : https://github.com/fetzu/AeroCheck/releases  # Download from GitHub
 presskit_download_link                    :                                           # No press kit yet
 
 app_icon                                  : assets/appicon.png

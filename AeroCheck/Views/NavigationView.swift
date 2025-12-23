@@ -146,6 +146,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -153,6 +154,7 @@ struct NavigationMapView: View {
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
+    @State private var showFlightPlanning: Bool = false
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -318,6 +320,13 @@ struct NavigationMapView: View {
                     bottomControls
                 }
                 .padding()
+
+                // Flight Plan Overlay (when active)
+                if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
+                    FlightPlanOverlayView(containerSize: geometry.size)
+                        .environmentObject(flightPlanManager)
+                        .environmentObject(locationManager)
+                }
             }
             .onAppear {
                 mapWidth = geometry.size.width
@@ -337,6 +346,15 @@ struct NavigationMapView: View {
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             if isFollowingAircraft, let location = newLocation {
                 updateMapStateForLocation(location)
+            }
+            // Auto-advance waypoint when within proximity threshold
+            if appState.settings.enableFlightPlanning,
+               let location = newLocation {
+                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                flightPlanManager.autoAdvanceWaypointIfNeeded(
+                    currentLocation: clLocation,
+                    threshold: appState.settings.waypointProximityThreshold
+                )
             }
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
@@ -421,6 +439,32 @@ struct NavigationMapView: View {
                         Circle()
                             .fill(Color.panelBackground.opacity(0.9))
                     )
+            }
+
+            // Flight Plan button (when enabled)
+            if appState.settings.enableFlightPlanning {
+                Button(action: { showFlightPlanning = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "map.fill")
+                        if flightPlanManager.activeFlightPlan != nil {
+                            Circle()
+                                .fill(Color.aviationGreen)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+                }
+                .sheet(isPresented: $showFlightPlanning) {
+                    FlightPlanningView()
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
+                }
             }
 
             Spacer()

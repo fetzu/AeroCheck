@@ -7,6 +7,7 @@ struct AeroCheckApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager = OfflineMapManager()
     @StateObject private var windDataService = WindDataService()
+    @StateObject private var flightPlanManager = FlightPlanManager()
     @State private var showUpdateReminder = false
 
     var body: some Scene {
@@ -16,6 +17,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(flightPlanManager)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -39,6 +41,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(flightPlanManager)
                 .preferredColorScheme(.dark)
         }
         #endif

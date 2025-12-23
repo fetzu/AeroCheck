@@ -21,7 +21,7 @@ enable_smart_app_banner                   : false                               
 
 # Information About Yourself
 your_name                                 : fetzu
-your_link                                 : https://github.com/fetzu
+your_link                                 : https://fetzu.ch
 your_city                                 :
 email_address                             :
 linkedin_username                         :
@@ -29,9 +29,13 @@ linkedin_company                          :
 facebook_username                         :
 instagram_username                        :
 twitter_username                          :
-github_username                           : fetzu
+github_username                           : fetzu/AeroCheck
 youtube_username                          :
 mastodon_link                             :
+
+# Custom Links
+website_link                              : https://fetzu.ch
+aeroclub_link                             : https://www.gvmp.aero
 
 
 
@@ -40,7 +44,7 @@ features                                  :
 
   - title                                 : 16 Flight Phases
     description                           : Complete coverage from Preflight to Hangar. Navigate through all phases with step-by-step checklist guidance.
-    fontawesome_icon_name                 : list-check
+    fontawesome_icon_name                 : clipboard-check
 
   - title                                 : Multi-Aircraft Support
     description                           : Supports WT9 Dynamic and PA-28-181 Archer II with aircraft-specific checklists and procedures.
@@ -68,7 +72,7 @@ features                                  :
 
   - title                                 : Offline Ready
     description                           : Cache Swiss ICAO charts for offline use. Essential for flights over areas with limited cellular coverage.
-    fontawesome_icon_name                 : wifi-slash
+    fontawesome_icon_name                 : database
 
   - title                                 : Open Source
     description                           : Built with Swift and SwiftUI. Contribute on GitHub or adapt it for your own aeroclub.

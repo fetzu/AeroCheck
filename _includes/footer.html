@@ -67,6 +67,24 @@
 			</a>
 		{% endif %}
 
+		{% if site.website_link %}
+			<a href="{{ site.website_link }}">
+				<span class="fa-stack fa-1x">
+					<i class="socialIconBack fas fa-circle fa-stack-2x"></i>
+					<i class="socialIconTop fas fa-globe fa-stack-1x"></i>
+				</span>
+			</a>
+		{% endif %}
+
+		{% if site.aeroclub_link %}
+			<a href="{{ site.aeroclub_link }}">
+				<span class="fa-stack fa-1x">
+					<i class="socialIconBack fas fa-circle fa-stack-2x"></i>
+					<i class="socialIconTop fas fa-plane fa-stack-1x"></i>
+				</span>
+			</a>
+		{% endif %}
+
 		{% if site.email_address %}
 			<a href="mailto:{{ site.email_address }}">
 				<span class="fa-stack fa-1x">

@@ -185,7 +185,7 @@ struct TerrainProfileView: View {
         let maxElevation = (terrainData.map { $0.elevation }.max() ?? 0) * 1.2 // 20% headroom
         let minElevation = max(0, (terrainData.map { $0.elevation }.min() ?? 0) - 100)
         let maxDistance = terrainData.last?.distance ?? 1
-        let elevationRange = max(maxElevation - minElevation, 100)
+        _ = max(maxElevation - minElevation, 100)
 
         // Also consider planned altitudes
         let maxPlannedAlt = waypoints.compactMap { $0.altitude }.max().map { $0 * 0.3048 } ?? maxElevation
@@ -399,7 +399,7 @@ struct TerrainProfileView: View {
         var distances: [Double] = []
         var cumulative: Double = 0
 
-        for (index, waypoint) in waypoints.enumerated() {
+        for waypoint in waypoints {
             distances.append(cumulative)
             if let distance = waypoint.distance {
                 cumulative += distance

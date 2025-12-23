@@ -74,7 +74,7 @@ struct FlightPlanEditorView: View {
             }
             .sheet(isPresented: $showingMapPicker) {
                 MapWaypointPickerView { coordinate, name in
-                    var waypoint = FlightPlanWaypoint(
+                    let waypoint = FlightPlanWaypoint(
                         name: name,
                         coordinate: coordinate,
                         plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftType)
@@ -846,7 +846,7 @@ struct AddWaypointSheet: View {
         guard let lat = Double(latitude),
               let lon = Double(longitude) else { return }
 
-        var waypoint = FlightPlanWaypoint(
+        let waypoint = FlightPlanWaypoint(
             name: name.isEmpty ? "WPT" : name,
             coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
             altitude: Double(altitude),
@@ -871,18 +871,22 @@ struct MapWaypointPickerView: View {
         center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Default to Swiss Jura
         span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
     )
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
+        span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
+    ))
     @State private var selectedCoordinate: CLLocationCoordinate2D?
     @State private var waypointName: String = ""
 
     var body: some View {
         NavigationView {
             ZStack {
-                Map(coordinateRegion: $region, interactionModes: .all)
-                    .ignoresSafeArea()
-                    .onTapGesture { location in
-                        // Note: This is a simplified tap handler
-                        // In production, you'd use a UIViewRepresentable for accurate coordinate conversion
-                    }
+                Map(position: $cameraPosition, interactionModes: .all) {
+                }
+                .ignoresSafeArea()
+                .onMapCameraChange { context in
+                    region = context.region
+                }
 
                 // Crosshair at center
                 Image(systemName: "plus")

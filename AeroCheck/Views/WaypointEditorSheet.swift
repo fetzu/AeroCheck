@@ -300,18 +300,13 @@ struct MiniMapPreview: View {
     let coordinate: CLLocationCoordinate2D
 
     var body: some View {
-        Map(coordinateRegion: .constant(MKCoordinateRegion(
+        Map(position: .constant(.region(MKCoordinateRegion(
             center: coordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-        )), annotationItems: [MapPin(coordinate: coordinate)]) { pin in
-            MapMarker(coordinate: pin.coordinate, tint: .aviationGold)
+        ))), interactionModes: []) {
+            Marker("", coordinate: coordinate)
+                .tint(Color.aviationGold)
         }
-        .disabled(true)
-    }
-
-    struct MapPin: Identifiable {
-        let id = UUID()
-        let coordinate: CLLocationCoordinate2D
     }
 }
 
@@ -324,21 +319,28 @@ struct CoordinatePickerView: View {
     let onSelect: (CLLocationCoordinate2D) -> Void
 
     @State private var region: MKCoordinateRegion
+    @State private var cameraPosition: MapCameraPosition
 
     init(initialCoordinate: CLLocationCoordinate2D, onSelect: @escaping (CLLocationCoordinate2D) -> Void) {
         self.initialCoordinate = initialCoordinate
         self.onSelect = onSelect
-        _region = State(initialValue: MKCoordinateRegion(
+        let initialRegion = MKCoordinateRegion(
             center: initialCoordinate,
             span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)
-        ))
+        )
+        _region = State(initialValue: initialRegion)
+        _cameraPosition = State(initialValue: .region(initialRegion))
     }
 
     var body: some View {
         NavigationView {
             ZStack {
-                Map(coordinateRegion: $region, interactionModes: .all)
-                    .ignoresSafeArea()
+                Map(position: $cameraPosition, interactionModes: .all) {
+                }
+                .ignoresSafeArea()
+                .onMapCameraChange { context in
+                    region = context.region
+                }
 
                 // Crosshair
                 VStack {

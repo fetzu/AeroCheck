@@ -23,6 +23,12 @@ struct SettingsView: View {
     @State private var marketingMode: Bool = false
     @State private var showDeveloperOptions: Bool = false
     @State private var versionTapCount: Int = 0
+
+    // Flight Planning settings
+    @State private var enableFlightPlanning: Bool = false
+    @State private var waypointProximityThreshold: Double = 500
+    @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
+    @State private var showFlightPlanningWarning: Bool = false
     
     var body: some View {
         NavigationView {
@@ -31,13 +37,9 @@ struct SettingsView: View {
                 Section {
                     Picker("Aircraft in use", selection: $selectedAircraft) {
                         ForEach(AircraftType.allCases) { aircraft in
-                            HStack {
-                                Text(aircraft.registration)
-                                    .font(.system(.body, design: .monospaced))
-                                Text("(\(aircraft.shortModelName))")
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(aircraft)
+                            Text("\(aircraft.registration) (\(aircraft.shortModelName))")
+                                .font(.system(.body, design: .monospaced))
+                                .tag(aircraft)
                         }
                     }
                     .pickerStyle(.menu)
@@ -50,10 +52,11 @@ struct SettingsView: View {
                 // GPS section
                 Section {
                     VStack(alignment: .leading, spacing: 12) {
+                        let intervalText = "\(Int(gpsInterval)) seconds"
                         HStack {
                             Text("Recording Interval")
                             Spacer()
-                            Text("\(Int(gpsInterval)) seconds")
+                            Text(intervalText)
                                 .foregroundColor(.secondary)
                         }
                         
@@ -116,6 +119,64 @@ struct SettingsView: View {
                                 .foregroundColor(.aviationAmber)
                         }
                         .font(.caption)
+                    }
+                }
+
+                // Flight Planning (Beta) section
+                Section {
+                    Toggle("Enable Flight Planning", isOn: Binding(
+                        get: { enableFlightPlanning },
+                        set: { newValue in
+                            if newValue {
+                                showFlightPlanningWarning = true
+                            } else {
+                                enableFlightPlanning = false
+                            }
+                        }
+                    ))
+
+                    if enableFlightPlanning {
+                        // Waypoint proximity threshold
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Waypoint Proximity")
+                                Spacer()
+                                Text("\(Int(waypointProximityThreshold)) m")
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
+                                .tint(.aviationGold)
+                        }
+
+                        // Terrain altitude unit picker
+                        Picker("Terrain Altitude Unit", selection: $terrainAltitudeUnit) {
+                            ForEach(TerrainAltitudeUnit.allCases) { unit in
+                                Text(unit.rawValue).tag(unit)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                } header: {
+                    HStack {
+                        Label("Flight Planning", systemImage: "map.fill")
+                        Text("BETA")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                } footer: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Plan flight routes with waypoints, time/distance calculations, and terrain visualization.")
+                        if enableFlightPlanning {
+                            Text("Waypoint Proximity: Distance at which waypoints auto-advance during flight.")
+                            Text("Terrain Altitude Unit: Unit for displaying terrain profile elevation.")
+                        }
                     }
                 }
 
@@ -413,6 +474,9 @@ struct SettingsView: View {
             .onChange(of: offlineMode) { _, _ in saveSettings() }
             .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
             .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
+            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
+            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
+            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in
                 // Only update in-memory setting, don't persist to disk
                 appState.settings.marketingMode = newValue
@@ -425,6 +489,12 @@ struct SettingsView: View {
                 EstimatedAirspeedWarningSheet(
                     isPresented: $showEstimatedAirspeedWarning,
                     showEstimatedAirspeed: $showEstimatedAirspeed
+                )
+            }
+            .sheet(isPresented: $showFlightPlanningWarning) {
+                FlightPlanningWarningSheet(
+                    isPresented: $showFlightPlanningWarning,
+                    enableFlightPlanning: $enableFlightPlanning
                 )
             }
             .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
@@ -489,6 +559,10 @@ struct SettingsView: View {
         offlineMode = appState.settings.offlineMode
         alwaysUseUTC = appState.settings.alwaysUseUTC
         showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
+        // Flight Planning settings
+        enableFlightPlanning = appState.settings.enableFlightPlanning
+        waypointProximityThreshold = appState.settings.waypointProximityThreshold
+        terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         // Marketing mode is NOT loaded from settings - it always starts as false
         // Developer options are hidden by default and require 5 taps to reveal each session
         marketingMode = false
@@ -505,11 +579,103 @@ struct SettingsView: View {
         appState.settings.offlineMode = offlineMode
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
+        // Flight Planning settings
+        appState.settings.enableFlightPlanning = enableFlightPlanning
+        appState.settings.waypointProximityThreshold = waypointProximityThreshold
+        appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
         // Apply screen setting
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+    }
+}
+
+// MARK: - Flight Planning Warning Sheet
+
+struct FlightPlanningWarningSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var enableFlightPlanning: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Warning icon
+                Image(systemName: "map.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationAmber)
+                    .padding(.top, 40)
+
+                // Title
+                Text("Beta Feature")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Warning message
+                VStack(alignment: .leading, spacing: 16) {
+                    WarningItem(
+                        icon: "exclamationmark.triangle.fill",
+                        text: "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
+                    )
+
+                    WarningItem(
+                        icon: "map",
+                        text: "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
+                    )
+
+                    WarningItem(
+                        icon: "location.fill",
+                        text: "During flight, the app can automatically advance waypoints based on your GPS position."
+                    )
+
+                    WarningItem(
+                        icon: "mountain.2.fill",
+                        text: "Terrain visualization is only available within Switzerland using swisstopo data."
+                    )
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        enableFlightPlanning = true
+                        isPresented = false
+                    }) {
+                        Text("I Understand - Enable Feature")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+
+                    Button(action: {
+                        isPresented = false
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.secondaryText)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -919,3 +1085,4 @@ struct CacheStatusBadge: View {
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
 }
+

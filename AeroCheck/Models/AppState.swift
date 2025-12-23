@@ -22,6 +22,11 @@ struct AppSettings: Codable {
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
 
+    // Flight Planning (Beta)
+    var enableFlightPlanning: Bool = false // Beta feature toggle
+    var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
+    var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -42,8 +47,20 @@ struct AppSettings: Codable {
         case offlineMode
         case alwaysUseUTC
         case showEstimatedAirspeed
+        case enableFlightPlanning
+        case waypointProximityThreshold
+        case terrainAltitudeUnit
         // marketingMode is intentionally excluded
     }
+}
+
+/// Unit for displaying terrain profile altitude
+enum TerrainAltitudeUnit: String, Codable, CaseIterable, Identifiable {
+    case feet = "Feet"
+    case meters = "Meters"
+    case dual = "Both"
+
+    var id: String { rawValue }
 }
 
 /// Main application state manager

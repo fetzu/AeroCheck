@@ -395,7 +395,7 @@ nav > ul li a:active {
 	width: 349px;
 	height: 755px;
 	margin-left: 26px;
-	margin-top: 23px;
+	margin-top: 28px;
 	overflow: hidden;
 	-webkit-clip-path: url(#screenMask);
 	clip-path: url(#screenMask);
@@ -434,7 +434,7 @@ nav > ul li a:active {
 	-webkit-clip-path: url(#screenMask);
 	clip-path: url(#screenMask);
 	margin-left: 26px;
-	margin-top: 23px;
+	margin-top: 28px;
 }
 
 .videoContainer {
@@ -461,13 +461,13 @@ nav > ul li a:active {
 		width: 322px;
 		height: 698px;
 		margin-left: 24px;
-		margin-top: 22px;
+		margin-top: 26px;
 	}
 
 	.iphoneScreen {
 		width: 322px;
 		margin-left: 24px;
-		margin-top: 22px;
+		margin-top: 26px;
 	}
 
 	.videoContainer {
@@ -502,7 +502,7 @@ nav > ul li a:active {
 		width: 226px;
 		height: 488px;
 		margin: 0px;
-		margin-top: 17px;
+		margin-top: 18px;
 	}
 
 	.iphoneScreen {
@@ -511,7 +511,7 @@ nav > ul li a:active {
 		-webkit-clip-path: url(#screenMask);
 		clip-path: url(#screenMask);
 		margin: 0px;
-		margin-top: 17px;
+		margin-top: 18px;
 	}
 
 	.videoContainer {
@@ -750,6 +750,8 @@ footer {
 .deviceToggleContainer {
 	padding-left: 0 !important;
 	padding-right: 30px;
+	display: flex;
+	align-items: center;
 }
 
 .deviceToggle {
@@ -826,23 +828,36 @@ footer {
 // iPad frame is 514x673px. Screen area starts at ~4.7% from left, ~4.6% from top
 // Screen area is ~90.7% width, ~92.3% height of frame
 .ipadPreview {
+	position: relative;
+	margin-top: 68px;
+	width: 400px;
+	height: 524px;
+}
+
+.ipadFrame {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 400px;
+	height: 524px;
 	background-image: url("../assets/ipad-frame-transparent.png");
 	background-size: 400px auto;
 	background-repeat: no-repeat;
-	margin-top: 68px;
-	min-height: 524px;
+	pointer-events: none;
+	z-index: 2;
 }
 
 .ipadPreview .carouselContainerIpad {
-	position: relative;
+	position: absolute;
 	width: 363px;
 	height: 483px;
-	margin-left: 19px;
-	margin-top: 21px;
+	left: 19px;
+	top: 21px;
 	overflow: hidden;
 	border-radius: 12px;
 	-webkit-clip-path: none;
 	clip-path: none;
+	z-index: 1;
 }
 
 .ipadPreview .carouselContainerIpad .ipadScreen {
@@ -874,33 +889,43 @@ footer {
 
 @media only screen and (max-width: 1070px) {
 	.ipadPreview {
+		width: 370px;
+		height: 485px;
+	}
+
+	.ipadFrame {
+		width: 370px;
+		height: 485px;
 		background-size: 370px auto;
-		min-height: 485px;
 	}
 
 	.ipadPreview .carouselContainerIpad {
 		width: 336px;
 		height: 447px;
-		margin-left: 17px;
-		margin-top: 19px;
+		left: 17px;
+		top: 19px;
 	}
 }
 
 @media only screen and (max-width: 992px) {
 	.ipadPreview {
-		background-size: 260px auto;
-		background-position: center 0;
+		width: 260px;
+		height: 340px;
 		margin-top: 47px;
-		justify-content: center;
 		padding-bottom: 75px;
-		min-height: auto;
+	}
+
+	.ipadFrame {
+		width: 260px;
+		height: 340px;
+		background-size: 260px auto;
 	}
 
 	.ipadPreview .carouselContainerIpad {
 		width: 236px;
 		height: 314px;
-		margin: 0;
-		margin-top: 14px;
+		left: 12px;
+		top: 13px;
 	}
 }
 
@@ -908,5 +933,6 @@ footer {
 @media only screen and (max-width: 992px) {
 	.ipadPreview.active {
 		display: flex;
+		justify-content: center;
 	}
 }

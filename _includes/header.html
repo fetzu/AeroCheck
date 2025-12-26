@@ -27,6 +27,13 @@
 			{% if site.presskit_download_link %}
 				<li><a href="{{ site.presskit_download_link }}">Press Kit</a></li>
 			{% endif %}
+			<li class="deviceToggleContainer">
+				<div class="deviceToggle" role="tablist" aria-label="Device preview">
+					<button class="deviceToggleOption active" data-device="iphone" role="tab" aria-selected="true">iPhone</button>
+					<button class="deviceToggleOption" data-device="ipad" role="tab" aria-selected="false">iPad</button>
+					<div class="deviceToggleSlider"></div>
+				</div>
+			</li>
 		</ul>
 	</nav>
 </header>

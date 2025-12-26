@@ -9,62 +9,140 @@
         {% endif %}
     {% endfor %}
 
+    // Collect iPad screenshots for the carousel
+    var ipadScreenshots = [];
+    {% for file in site.static_files %}
+        {% if file.path contains 'assets/screenshot/iPad/' %}
+            ipadScreenshots.push('{{ site.github.baseurl }}{{ file.path }}');
+        {% endif %}
+    {% endfor %}
+
     // Sort screenshots by filename
     iphoneScreenshots.sort();
+    ipadScreenshots.sort();
+
+    // Carousel state
+    var carouselIntervals = {
+        iphone: null,
+        ipad: null
+    };
+    var carouselIndices = {
+        iphone: 0,
+        ipad: 0
+    };
+    var carouselAnimating = {
+        iphone: false,
+        ipad: false
+    };
+
+    function initCarousel(device, screenshots, containerClass) {
+        if (screenshots.length === 0) return;
+
+        var $container = $(containerClass);
+        var $current = $container.find(".carouselCurrent");
+        var $next = $container.find(".carouselNext");
+
+        // Preload images
+        screenshots.forEach(function(src) {
+            var img = new Image();
+            img.src = src;
+        });
+
+        // Show the carousel container and first image
+        $current.attr('src', screenshots[0]);
+        $container.removeClass("hidden");
+
+        // Auto-advance carousel every 2 seconds
+        carouselIntervals[device] = setInterval(function() {
+            if (carouselAnimating[device]) return;
+            carouselAnimating[device] = true;
+
+            // Prepare next image
+            var nextIndex = (carouselIndices[device] + 1) % screenshots.length;
+            $next.attr('src', screenshots[nextIndex]);
+
+            // Trigger slide animation
+            $container.addClass("sliding");
+
+            // After animation completes, reset positions
+            setTimeout(function() {
+                // Remove transition temporarily
+                $current.css('transition', 'none');
+                $next.css('transition', 'none');
+
+                // Swap the images: make next become current
+                $current.attr('src', screenshots[nextIndex]);
+
+                // Remove sliding class and reset positions instantly
+                $container.removeClass("sliding");
+
+                // Force reflow to apply instant position change
+                $container[0].offsetHeight;
+
+                // Re-enable transitions
+                $current.css('transition', '');
+                $next.css('transition', '');
+
+                carouselIndices[device] = nextIndex;
+                carouselAnimating[device] = false;
+            }, 400);
+        }, 2000);
+    }
+
+    function stopCarousel(device) {
+        if (carouselIntervals[device]) {
+            clearInterval(carouselIntervals[device]);
+            carouselIntervals[device] = null;
+        }
+    }
+
+    function switchDevice(device) {
+        // Update toggle buttons
+        $('.deviceToggleOption').removeClass('active').attr('aria-selected', 'false');
+        $('.deviceToggleOption[data-device="' + device + '"]').addClass('active').attr('aria-selected', 'true');
+
+        // Update device previews
+        $('.devicePreview').removeClass('active');
+        $('.devicePreview[data-device="' + device + '"]').addClass('active');
+
+        // Move slider
+        var $slider = $('.deviceToggleSlider');
+        var $activeBtn = $('.deviceToggleOption.active');
+        if ($activeBtn.length && $slider.length) {
+            var btnIndex = $activeBtn.index();
+            $slider.css('transform', 'translateX(' + (btnIndex * 100) + '%)');
+        }
+
+        // Manage carousels
+        if (device === 'iphone') {
+            stopCarousel('ipad');
+            if (!carouselIntervals.iphone && iphoneScreenshots.length > 0) {
+                initCarousel('iphone', iphoneScreenshots, '.carouselContainerIphone');
+            }
+        } else {
+            stopCarousel('iphone');
+            if (!carouselIntervals.ipad && ipadScreenshots.length > 0) {
+                initCarousel('ipad', ipadScreenshots, '.carouselContainerIpad');
+            }
+        }
+    }
 
     $(function() {
+        // Initialize iPhone carousel by default
         if (iphoneScreenshots.length > 0) {
-            var currentIndex = 0;
-            var $container = $(".carouselContainer");
-            var $current = $(".carouselCurrent");
-            var $next = $(".carouselNext");
-            var isAnimating = false;
+            initCarousel('iphone', iphoneScreenshots, '.carouselContainerIphone');
+        }
 
-            // Preload images
-            iphoneScreenshots.forEach(function(src) {
-                var img = new Image();
-                img.src = src;
-            });
+        // Set up toggle click handlers
+        $('.deviceToggleOption').on('click', function() {
+            var device = $(this).data('device');
+            switchDevice(device);
+        });
 
-            // Show the carousel container and first image
-            $current.attr('src', iphoneScreenshots[0]);
-            $container.removeClass("hidden");
-
-            // Auto-advance carousel every 2 seconds
-            setInterval(function() {
-                if (isAnimating) return;
-                isAnimating = true;
-
-                // Prepare next image
-                var nextIndex = (currentIndex + 1) % iphoneScreenshots.length;
-                $next.attr('src', iphoneScreenshots[nextIndex]);
-
-                // Trigger slide animation
-                $container.addClass("sliding");
-
-                // After animation completes, reset positions
-                setTimeout(function() {
-                    // Remove transition temporarily
-                    $current.css('transition', 'none');
-                    $next.css('transition', 'none');
-
-                    // Swap the images: make next become current
-                    $current.attr('src', iphoneScreenshots[nextIndex]);
-
-                    // Remove sliding class and reset positions instantly
-                    $container.removeClass("sliding");
-
-                    // Force reflow to apply instant position change
-                    $container[0].offsetHeight;
-
-                    // Re-enable transitions
-                    $current.css('transition', '');
-                    $next.css('transition', '');
-
-                    currentIndex = nextIndex;
-                    isAnimating = false;
-                }, 400);
-            }, 2000);
+        // Initialize slider position
+        var $slider = $('.deviceToggleSlider');
+        if ($slider.length) {
+            $slider.css('transform', 'translateX(0)');
         }
     });
 </script>
@@ -74,7 +152,7 @@
     {% if file.path contains 'assets/videos/' and path_parts.size == 4 %}
         <script>
             $(function() {
-                $(".carouselContainer").addClass("hidden");
+                $(".carouselContainerIphone").addClass("hidden");
                 console.log("remove screenshot");
             });
         </script>

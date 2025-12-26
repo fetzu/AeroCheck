@@ -8,42 +8,66 @@
             <div class="headerBackground">
                 <div class="container">
                     {% include header.html %}
-                    <div class="iphonePreview">
+                    <div class="devicePreviewWrapper">
+                        <div class="iphonePreview devicePreview active" data-device="iphone">
 
-                        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 0 0" style="position: absolute;">
-                            <clipPath id="screenMask" clipPathUnits="objectBoundingBox">
-                                <!-- Screen with rounded corners and Dynamic Island pill cutout -->
-                                <path d="M 0.13 0
-                                         Q 0 0, 0 0.055
-                                         L 0 0.945
-                                         Q 0 1, 0.13 1
-                                         L 0.87 1
-                                         Q 1 1, 1 0.945
-                                         L 1 0.055
-                                         Q 1 0, 0.87 0
-                                         L 0.65 0
-                                         L 0.65 0.008
-                                         Q 0.65 0.022, 0.635 0.022
-                                         L 0.365 0.022
-                                         Q 0.35 0.022, 0.35 0.008
-                                         L 0.35 0
-                                         Z"/>
-                            </clipPath>
-                        </svg>
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 0 0" style="position: absolute;">
+                                <clipPath id="screenMask" clipPathUnits="objectBoundingBox">
+                                    <!-- Screen with rounded corners and Dynamic Island pill cutout -->
+                                    <path d="M 0.13 0
+                                             Q 0 0, 0 0.055
+                                             L 0 0.945
+                                             Q 0 1, 0.13 1
+                                             L 0.87 1
+                                             Q 1 1, 1 0.945
+                                             L 1 0.055
+                                             Q 1 0, 0.87 0
+                                             L 0.65 0
+                                             L 0.65 0.008
+                                             Q 0.65 0.022, 0.635 0.022
+                                             L 0.365 0.022
+                                             Q 0.35 0.022, 0.35 0.008
+                                             L 0.35 0
+                                             Z"/>
+                                </clipPath>
+                            </svg>
 
-                        <div class="videoContainer hidden">
-                            <video class="screenvideo" autoplay="autoplay" controls="controls">
-                            </video>
+                            <div class="videoContainer hidden">
+                                <video class="screenvideo" autoplay="autoplay" controls="controls">
+                                </video>
+                            </div>
+
+                            <div class="carouselContainer carouselContainerIphone hidden">
+                                <img class="iphoneScreen carouselCurrent" src="" alt="">
+                                <img class="iphoneScreen carouselNext" src="" alt="">
+                            </div>
+
                         </div>
 
-                        <div class="carouselContainer hidden">
-                            <img class="iphoneScreen carouselCurrent" src="" alt="">
-                            <img class="iphoneScreen carouselNext" src="" alt="">
+                        <div class="ipadPreview devicePreview" data-device="ipad">
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 0 0" style="position: absolute;">
+                                <clipPath id="ipadScreenMask" clipPathUnits="objectBoundingBox">
+                                    <!-- iPad screen with rounded corners -->
+                                    <path d="M 0.04 0
+                                             Q 0 0, 0 0.03
+                                             L 0 0.97
+                                             Q 0 1, 0.04 1
+                                             L 0.96 1
+                                             Q 1 1, 1 0.97
+                                             L 1 0.03
+                                             Q 1 0, 0.96 0
+                                             Z"/>
+                                </clipPath>
+                            </svg>
+
+                            <div class="carouselContainer carouselContainerIpad hidden">
+                                <img class="ipadScreen carouselCurrent" src="" alt="">
+                                <img class="ipadScreen carouselNext" src="" alt="">
+                            </div>
                         </div>
-
-                        {% include screencontent.html %}
-
                     </div>
+
+                    {% include screencontent.html %}
                     <div class="appInfo">
                         <div class="appIconShadow">
                             <svg width="0" height="0">

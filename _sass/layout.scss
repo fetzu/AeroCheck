@@ -827,14 +827,16 @@ footer {
 }
 
 // iPad Preview Styling
-// iPad frame is 514x673px. Screen area starts at ~4.7% from left, ~4.6% from top
-// Screen area is ~90.7% width, ~92.3% height of frame
+// iPad frame is 515x674px. Screen area starts at ~5% from left, ~4% from top
+// Screen area is ~89% width, ~92% height of frame
+//
+// Unlike iPhone which uses background-image for the frame, iPad overlays the frame
+// using absolute positioning. We use a wrapper approach to maintain natural flow.
 .ipadPreview {
 	grid-area: p;
 	position: relative;
 	margin-top: 68px;
 	width: 400px;
-	height: 524px;
 	display: none;
 }
 
@@ -842,19 +844,17 @@ footer {
 	display: block;
 }
 
+// The ipadFrame uses background-image like iPhone does
 .ipadFrame {
-	position: absolute;
-	top: 0;
-	left: 0;
 	width: 400px;
 	height: 524px;
 	background-image: url("assets/ipad-frame-transparent.png");
 	background-size: 400px auto;
 	background-repeat: no-repeat;
 	pointer-events: none;
-	z-index: 2;
 }
 
+// Carousel positioned absolutely over the frame
 .ipadPreview .carouselContainerIpad {
 	position: absolute;
 	width: 357px;
@@ -866,7 +866,6 @@ footer {
 	border-radius: 4px;
 	-webkit-clip-path: none;
 	clip-path: none;
-	z-index: 1;
 }
 
 .ipadPreview .carouselContainerIpad .ipadScreen {
@@ -899,7 +898,6 @@ footer {
 @media only screen and (max-width: 1070px) {
 	.ipadPreview {
 		width: 370px;
-		height: 485px;
 	}
 
 	.ipadFrame {
@@ -921,7 +919,6 @@ footer {
 	.ipadPreview {
 		display: none;
 		width: 260px;
-		height: 340px;
 		margin-top: 47px;
 		margin-left: auto;
 		margin-right: auto;

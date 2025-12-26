@@ -748,14 +748,15 @@ footer {
 
 // Device Toggle (Apple-style segmented control)
 .deviceToggleContainer {
-	padding-left: 20px !important;
+	padding-left: 0 !important;
+	padding-right: 30px;
 }
 
 .deviceToggle {
 	display: inline-flex;
 	position: relative;
-	background: rgba(255, 255, 255, 0.1);
-	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 6px;
 	padding: 2px;
 	gap: 0;
 }
@@ -763,13 +764,13 @@ footer {
 .deviceToggleOption {
 	position: relative;
 	z-index: 1;
-	padding: 6px 14px;
-	font-size: 13px;
+	padding: 4px 12px;
+	font-size: 1.4rem;
 	font-weight: 500;
-	color: rgba(255, 255, 255, 0.6);
+	color: rgba($header-title-color, 0.6);
 	background: transparent;
 	border: none;
-	border-radius: 6px;
+	border-radius: 4px;
 	cursor: pointer;
 	transition: color 0.2s ease;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -777,11 +778,11 @@ footer {
 }
 
 .deviceToggleOption:hover {
-	color: rgba(255, 255, 255, 0.8);
+	color: rgba($header-title-color, 0.9);
 }
 
 .deviceToggleOption.active {
-	color: #000;
+	color: #141419;
 }
 
 .deviceToggleSlider {
@@ -790,20 +791,20 @@ footer {
 	left: 2px;
 	width: calc(50% - 2px);
 	height: calc(100% - 4px);
-	background: #fff;
-	border-radius: 6px;
+	background: $header-title-color;
+	border-radius: 4px;
 	transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 @media only screen and (max-width: 768px) {
 	.deviceToggleContainer {
-		padding-left: 15px !important;
+		padding-right: 20px;
 	}
 
 	.deviceToggleOption {
-		padding: 5px 10px;
-		font-size: 12px;
+		padding: 3px 8px;
+		font-size: 1.2rem;
 	}
 }
 
@@ -822,22 +823,26 @@ footer {
 }
 
 // iPad Preview Styling
+// iPad frame is 514x673px. Screen area starts at ~4.7% from left, ~4.6% from top
+// Screen area is ~90.7% width, ~92.3% height of frame
 .ipadPreview {
 	background-image: url("../assets/ipad-frame-transparent.png");
-	background-size: 330px auto;
+	background-size: 400px auto;
 	background-repeat: no-repeat;
 	margin-top: 68px;
-	min-height: 432px;
+	min-height: 524px;
 }
 
 .ipadPreview .carouselContainerIpad {
 	position: relative;
-	width: 282px;
-	height: 370px;
-	margin-left: 24px;
-	margin-top: 31px;
+	width: 363px;
+	height: 483px;
+	margin-left: 19px;
+	margin-top: 21px;
 	overflow: hidden;
-	border-radius: 8px;
+	border-radius: 12px;
+	-webkit-clip-path: none;
+	clip-path: none;
 }
 
 .ipadPreview .carouselContainerIpad .ipadScreen {
@@ -869,21 +874,21 @@ footer {
 
 @media only screen and (max-width: 1070px) {
 	.ipadPreview {
-		background-size: 305px auto;
+		background-size: 370px auto;
+		min-height: 485px;
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 260px;
-		height: 341px;
-		margin-left: 22px;
-		margin-top: 29px;
+		width: 336px;
+		height: 447px;
+		margin-left: 17px;
+		margin-top: 19px;
 	}
 }
 
 @media only screen and (max-width: 992px) {
 	.ipadPreview {
-		display: flex;
-		background-size: 220px auto;
+		background-size: 260px auto;
 		background-position: center 0;
 		margin-top: 47px;
 		justify-content: center;
@@ -892,10 +897,10 @@ footer {
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 188px;
-		height: 246px;
+		width: 236px;
+		height: 314px;
 		margin: 0;
-		margin-top: 21px;
+		margin-top: 14px;
 	}
 }
 

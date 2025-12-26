@@ -117,7 +117,7 @@
         if (device === 'iphone') {
             stopCarousel('ipad');
             if (!carouselIntervals.iphone && iphoneScreenshots.length > 0) {
-                initCarousel('iphone', iphoneScreenshots, '.carouselContainerIphone');
+                initCarousel('iphone', iphoneScreenshots, '.iphonePreview .carouselContainer');
             }
         } else {
             stopCarousel('iphone');
@@ -130,7 +130,7 @@
     $(function() {
         // Initialize iPhone carousel by default
         if (iphoneScreenshots.length > 0) {
-            initCarousel('iphone', iphoneScreenshots, '.carouselContainerIphone');
+            initCarousel('iphone', iphoneScreenshots, '.iphonePreview .carouselContainer');
         }
 
         // Set up toggle click handlers
@@ -152,7 +152,7 @@
     {% if file.path contains 'assets/videos/' and path_parts.size == 4 %}
         <script>
             $(function() {
-                $(".carouselContainerIphone").addClass("hidden");
+                $(".iphonePreview .carouselContainer").addClass("hidden");
                 console.log("remove screenshot");
             });
         </script>

@@ -15,22 +15,55 @@
     $(function() {
         if (iphoneScreenshots.length > 0) {
             var currentIndex = 0;
-            var $screen = $(".iphoneScreen");
+            var $container = $(".carouselContainer");
+            var $current = $(".carouselCurrent");
+            var $next = $(".carouselNext");
+            var isAnimating = false;
 
-            // Show the first image
-            $screen.attr('src', iphoneScreenshots[0]);
-            $screen.removeClass("hidden");
+            // Preload images
+            iphoneScreenshots.forEach(function(src) {
+                var img = new Image();
+                img.src = src;
+            });
+
+            // Show the carousel container and first image
+            $current.attr('src', iphoneScreenshots[0]);
+            $container.removeClass("hidden");
 
             // Auto-advance carousel every 2 seconds
             setInterval(function() {
-                // Fade out, change image, fade in
-                $screen.addClass("carousel-fade-out");
+                if (isAnimating) return;
+                isAnimating = true;
 
+                // Prepare next image
+                var nextIndex = (currentIndex + 1) % iphoneScreenshots.length;
+                $next.attr('src', iphoneScreenshots[nextIndex]);
+
+                // Trigger slide animation
+                $container.addClass("sliding");
+
+                // After animation completes, reset positions
                 setTimeout(function() {
-                    currentIndex = (currentIndex + 1) % iphoneScreenshots.length;
-                    $screen.attr('src', iphoneScreenshots[currentIndex]);
-                    $screen.removeClass("carousel-fade-out");
-                }, 300);
+                    // Remove transition temporarily
+                    $current.css('transition', 'none');
+                    $next.css('transition', 'none');
+
+                    // Swap the images: make next become current
+                    $current.attr('src', iphoneScreenshots[nextIndex]);
+
+                    // Remove sliding class and reset positions instantly
+                    $container.removeClass("sliding");
+
+                    // Force reflow to apply instant position change
+                    $container[0].offsetHeight;
+
+                    // Re-enable transitions
+                    $current.css('transition', '');
+                    $next.css('transition', '');
+
+                    currentIndex = nextIndex;
+                    isAnimating = false;
+                }, 400);
             }, 2000);
         }
     });
@@ -41,7 +74,7 @@
     {% if file.path contains 'assets/videos/' and path_parts.size == 4 %}
         <script>
             $(function() {
-                $(".iphoneScreen").addClass("hidden");
+                $(".carouselContainer").addClass("hidden");
                 console.log("remove screenshot");
             });
         </script>

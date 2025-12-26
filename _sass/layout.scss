@@ -849,10 +849,10 @@ footer {
 
 .ipadPreview .carouselContainerIpad {
 	position: absolute;
-	width: 359px;
-	height: 480px;
-	left: 19px;
-	top: 22px;
+	width: 352px;
+	height: 461px;
+	left: 24px;
+	top: 24px;
 	overflow: hidden;
 	border-radius: 8px;
 	-webkit-clip-path: none;
@@ -900,10 +900,10 @@ footer {
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 332px;
-		height: 444px;
-		left: 17px;
-		top: 20px;
+		width: 325px;
+		height: 427px;
+		left: 22px;
+		top: 22px;
 	}
 }
 
@@ -913,13 +913,13 @@ footer {
 		width: 260px;
 		height: 340px;
 		margin-top: 47px;
+		margin-left: auto;
+		margin-right: auto;
 		padding-bottom: 75px;
-		justify-content: center;
-		align-items: flex-start;
 	}
 
 	.ipadPreview.active {
-		display: flex;
+		display: block;
 	}
 
 	.ipadFrame {
@@ -929,9 +929,9 @@ footer {
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 233px;
-		height: 312px;
-		left: 12px;
-		top: 14px;
+		width: 228px;
+		height: 299px;
+		left: 16px;
+		top: 16px;
 	}
 }

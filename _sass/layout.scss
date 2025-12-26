@@ -392,6 +392,11 @@ nav > ul li a:active {
 	clip-path: url(#screenMask);
 	margin-left: 26px;
 	margin-top: 23px;
+	transition: opacity 0.3s ease-in-out;
+}
+
+.carousel-fade-out {
+	opacity: 0;
 }
 
 .videoContainer {

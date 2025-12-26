@@ -1,16 +1,44 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
 
+<script>
+    // Collect iPhone screenshots for the carousel
+    var iphoneScreenshots = [];
+    {% for file in site.static_files %}
+        {% if file.path contains 'assets/screenshot/iPhone/' %}
+            iphoneScreenshots.push('{{ site.github.baseurl }}{{ file.path }}');
+        {% endif %}
+    {% endfor %}
+
+    // Sort screenshots by filename
+    iphoneScreenshots.sort();
+
+    $(function() {
+        if (iphoneScreenshots.length > 0) {
+            var currentIndex = 0;
+            var $screen = $(".iphoneScreen");
+
+            // Show the first image
+            $screen.attr('src', iphoneScreenshots[0]);
+            $screen.removeClass("hidden");
+
+            // Auto-advance carousel every 2 seconds
+            setInterval(function() {
+                // Fade out, change image, fade in
+                $screen.addClass("carousel-fade-out");
+
+                setTimeout(function() {
+                    currentIndex = (currentIndex + 1) % iphoneScreenshots.length;
+                    $screen.attr('src', iphoneScreenshots[currentIndex]);
+                    $screen.removeClass("carousel-fade-out");
+                }, 300);
+            }, 2000);
+        }
+    });
+</script>
+
 {% for file in site.static_files %}
     {% assign path_parts = file.path | split: '/' %}
-    {% if file.path contains 'assets/screenshot/' and path_parts.size == 4 %}
-        <script>
-            $(function() {
-                $(".iphoneScreen").attr('src', '{{ site.github.baseurl }}{{ file.path }}');
-                $(".iphoneScreen").removeClass("hidden");
-                console.log("{{ file.path }}");
-            });
-        </script>
-    {% elsif file.path contains 'assets/videos/' and path_parts.size == 4 %}
+    {% if file.path contains 'assets/videos/' and path_parts.size == 4 %}
         <script>
             $(function() {
                 $(".iphoneScreen").addClass("hidden");

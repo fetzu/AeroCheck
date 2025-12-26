@@ -101,9 +101,13 @@
         $('.deviceToggleOption').removeClass('active').attr('aria-selected', 'false');
         $('.deviceToggleOption[data-device="' + device + '"]').addClass('active').attr('aria-selected', 'true');
 
-        // Update device previews
-        $('.devicePreview').removeClass('active');
-        $('.devicePreview[data-device="' + device + '"]').addClass('active');
+        // Update device previews - toggle between iPhone and iPad
+        $('.iphonePreview, .ipadPreview').removeClass('active');
+        if (device === 'iphone') {
+            $('.iphonePreview').addClass('active');
+        } else {
+            $('.ipadPreview').addClass('active');
+        }
 
         // Move slider
         var $slider = $('.deviceToggleSlider');

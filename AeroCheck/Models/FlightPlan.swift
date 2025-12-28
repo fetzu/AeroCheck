@@ -20,7 +20,9 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     var plannedGroundSpeed: Int?             // User-editable GS for this leg (knots)
     var windDirection: Double?               // Wind direction (degrees, from)
     var windSpeed: Double?                   // Wind speed (knots)
-    var estimatedElapsedTime: TimeInterval?  // EET to this point from departure
+    var estimatedElapsedTime: TimeInterval?  // EET - leg time to next waypoint (minutes)
+    var legEETExtra: TimeInterval?           // Extra time to add (+5 min for first/last waypoint)
+    var cumulativeEET: TimeInterval?         // Cumulative EET from departure to this waypoint
     var estimatedTimeOver: Date?             // ETO - estimated time over this waypoint
     var actualTimeOver: Date?                // ATO - actual time over (recorded during flight)
 
@@ -38,6 +40,8 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         windDirection: Double? = nil,
         windSpeed: Double? = nil,
         estimatedElapsedTime: TimeInterval? = nil,
+        legEETExtra: TimeInterval? = nil,
+        cumulativeEET: TimeInterval? = nil,
         estimatedTimeOver: Date? = nil,
         actualTimeOver: Date? = nil
     ) {
@@ -55,6 +59,8 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
         self.windDirection = windDirection
         self.windSpeed = windSpeed
         self.estimatedElapsedTime = estimatedElapsedTime
+        self.legEETExtra = legEETExtra
+        self.cumulativeEET = cumulativeEET
         self.estimatedTimeOver = estimatedTimeOver
         self.actualTimeOver = actualTimeOver
     }
@@ -84,15 +90,34 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
                      lonDegrees, lonMinutes, lonDirection)
     }
 
-    /// Formatted EET string (e.g., "0:15" for 15 minutes)
+    /// Formatted EET string (e.g., "15" for 15 minutes, "15 + 5" for first/last waypoints)
     var formattedEET: String? {
-        guard let eet = estimatedElapsedTime else { return nil }
-        let hours = Int(eet) / 3600
-        let minutes = (Int(eet) % 3600) / 60
-        if hours > 0 {
-            return String(format: "%d:%02d", hours, minutes)
+        let hasLegEET = estimatedElapsedTime != nil && estimatedElapsedTime! > 0
+        let hasExtra = legEETExtra != nil && legEETExtra! > 0
+
+        if !hasLegEET && !hasExtra {
+            return nil
         }
-        return String(format: "0:%02d", minutes)
+
+        let minutes = hasLegEET ? Int(estimatedElapsedTime! / 60) : 0
+
+        // Check if there's extra time (+5 min for first/last waypoint)
+        if hasExtra {
+            let extraMinutes = Int(legEETExtra! / 60)
+            if hasLegEET {
+                return "\(minutes) + \(extraMinutes)"
+            } else {
+                // Last waypoint - only show +5
+                return "+ \(extraMinutes)"
+            }
+        }
+
+        return "\(minutes)"
+    }
+
+    /// Total EET including extra time (for calculations)
+    var totalLegEET: TimeInterval {
+        return (estimatedElapsedTime ?? 0) + (legEETExtra ?? 0)
     }
 
     /// Formatted ETO string (e.g., "14:35")
@@ -252,13 +277,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         waypoints.compactMap { $0.distance }.reduce(0, +)
     }
 
-    /// Total estimated elapsed time (sum of all leg EETs)
+    /// Total estimated elapsed time (cumulative EET to final waypoint)
     var totalEET: TimeInterval {
         guard let lastWaypoint = waypoints.last,
-              let eet = lastWaypoint.estimatedElapsedTime else {
+              let cumulativeEET = lastWaypoint.cumulativeEET else {
             return 0
         }
-        return eet
+        return cumulativeEET
     }
 
     /// Formatted total EET
@@ -339,7 +364,10 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         // Magnetic declination for Switzerland (approximately 2° East as of 2024)
         let magneticDeclination = 2.0
 
-        var cumulativeEET: TimeInterval = 0
+        // Extra time to add to first and last waypoint (5 minutes = 300 seconds)
+        let extraTimeForTerminalWaypoints: TimeInterval = 300
+
+        var cumulativeEETTotal: TimeInterval = 0
 
         for i in 0..<waypoints.count {
             if i < waypoints.count - 1 {
@@ -360,29 +388,44 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 let magneticCourse = (trueCourse - magneticDeclination + 360).truncatingRemainder(dividingBy: 360)
                 waypoints[i].magneticCourse = magneticCourse
 
-                // Calculate EET for this leg
+                // Calculate EET for this leg (time to next waypoint only)
                 let groundSpeed = waypoints[i].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftType)
+                var legEET: TimeInterval = 0
                 if groundSpeed > 0 {
                     let legTimeHours = distanceNM / Double(groundSpeed)
-                    let legTimeSeconds = legTimeHours * 3600
-                    cumulativeEET += legTimeSeconds
+                    legEET = legTimeHours * 3600
                 }
+                waypoints[i].estimatedElapsedTime = legEET
+
+                // Add +5 minutes to first waypoint (departure)
+                if i == 0 {
+                    waypoints[i].legEETExtra = extraTimeForTerminalWaypoints
+                } else {
+                    waypoints[i].legEETExtra = nil
+                }
+
+                // Calculate cumulative EET
+                cumulativeEETTotal += legEET + (waypoints[i].legEETExtra ?? 0)
+                waypoints[i].cumulativeEET = cumulativeEETTotal
             } else {
                 // Last waypoint - no distance/course to next
                 waypoints[i].distance = nil
                 waypoints[i].magneticCourse = nil
+                waypoints[i].estimatedElapsedTime = nil
+
+                // Add +5 minutes to last waypoint (arrival)
+                waypoints[i].legEETExtra = extraTimeForTerminalWaypoints
+                cumulativeEETTotal += extraTimeForTerminalWaypoints
+                waypoints[i].cumulativeEET = cumulativeEETTotal
             }
 
-            // Set cumulative EET
-            waypoints[i].estimatedElapsedTime = cumulativeEET
-
-            // Calculate ETO if departure time is set
+            // Calculate ETO if departure time is set (based on cumulative EET)
             if let departureTime = plannedDepartureTime {
-                waypoints[i].estimatedTimeOver = departureTime.addingTimeInterval(cumulativeEET)
+                waypoints[i].estimatedTimeOver = departureTime.addingTimeInterval(waypoints[i].cumulativeEET ?? 0)
             }
         }
 
-        // Calculate trip fuel
+        // Calculate trip fuel based on total time
         if let flow = fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftType) as Double? {
             let tripTimeHours = totalEET / 3600
             tripFuel = tripTimeHours * flow

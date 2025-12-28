@@ -128,16 +128,10 @@ struct FlightPlanEditorView: View {
                     get: { flightPlan.plannedDepartureTime ?? Date() },
                     set: { flightPlan.plannedDepartureTime = $0 }
                 ))
-                FormField(label: "Runway", text: Binding(
-                    get: { flightPlan.runwayInUse ?? "" },
-                    set: { flightPlan.runwayInUse = $0.isEmpty ? nil : $0 }
-                ))
+                OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse)
 
                 // Row 2
-                FormField(label: "Instructor", text: Binding(
-                    get: { flightPlan.instructor ?? "" },
-                    set: { flightPlan.instructor = $0.isEmpty ? nil : $0 }
-                ))
+                OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
                 FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
                 FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
                 FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
@@ -657,6 +651,42 @@ struct FormField: View {
                     .background(Color.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
+        }
+    }
+}
+
+/// Form field for optional string values
+struct OptionalFormField: View {
+    let label: String
+    @Binding var text: String?
+
+    @State private var localText: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.secondaryText)
+
+            TextField("", text: $localText)
+                .font(.system(size: 14))
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .onAppear {
+                    localText = text ?? ""
+                }
+                .onChange(of: localText) { _, newValue in
+                    text = newValue.isEmpty ? nil : newValue
+                }
+                .onChange(of: text) { _, newValue in
+                    let newText = newValue ?? ""
+                    if newText != localText {
+                        localText = newText
+                    }
+                }
         }
     }
 }

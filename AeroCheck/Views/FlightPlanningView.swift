@@ -166,6 +166,7 @@ struct FlightPlanningView: View {
                         plan: plan,
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id
                     )
+                    .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedPlan = plan

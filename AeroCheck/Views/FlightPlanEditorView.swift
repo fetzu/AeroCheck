@@ -1,5 +1,29 @@
 import SwiftUI
 import MapKit
+import UniformTypeIdentifiers
+
+/// Export format options
+enum FlightPlanExportFormat {
+    case json
+    case xlsx
+    case pdf
+
+    var fileExtension: String {
+        switch self {
+        case .json: return "json"
+        case .xlsx: return "xml" // Excel XML format
+        case .pdf: return "pdf"
+        }
+    }
+
+    var contentType: UTType {
+        switch self {
+        case .json: return .json
+        case .xlsx: return .xml
+        case .pdf: return .pdf
+        }
+    }
+}
 
 /// Flight plan editor view - tabular format similar to "AVIS DE VOL" form
 struct FlightPlanEditorView: View {
@@ -12,6 +36,9 @@ struct FlightPlanEditorView: View {
     @State private var showingAddWaypoint = false
     @State private var showingTerrainProfile = false
     @State private var showingMapPicker = false
+    @State private var showingExportSheet = false
+    @State private var exportData: Data?
+    @State private var exportFormat: FlightPlanExportFormat = .json
 
     init(flightPlan: FlightPlan) {
         _flightPlan = State(initialValue: flightPlan)
@@ -80,6 +107,15 @@ struct FlightPlanEditorView: View {
                         plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftType)
                     )
                     addWaypoint(waypoint)
+                }
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                if let data = exportData {
+                    FlightPlanExportSheet(
+                        data: data,
+                        filename: flightPlan.exportFilename,
+                        format: exportFormat
+                    )
                 }
             }
         }
@@ -484,8 +520,62 @@ struct FlightPlanEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+
+            Divider()
+                .padding(.vertical, 8)
+
+            // Export section
+            exportSection
         }
         .padding()
+    }
+
+    // MARK: - Export Section
+
+    private var exportSection: some View {
+        VStack(spacing: 8) {
+            Text("Export Flight Plan")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondaryText)
+
+            HStack(spacing: 12) {
+                Button(action: { exportFlightPlan(format: .json) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 20))
+                        Text("JSON")
+                            .font(.system(size: 10))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: { exportFlightPlan(format: .xlsx) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "tablecells")
+                            .font(.system(size: 20))
+                        Text("Excel")
+                            .font(.system(size: 10))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: { exportFlightPlan(format: .pdf) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "doc.richtext")
+                            .font(.system(size: 20))
+                        Text("PDF")
+                            .font(.system(size: 10))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
     }
 
     // MARK: - Actions
@@ -494,6 +584,23 @@ struct FlightPlanEditorView: View {
         flightPlan.calculateRouteData()
         flightPlanManager.updateFlightPlan(flightPlan)
         dismiss()
+    }
+
+    private func exportFlightPlan(format: FlightPlanExportFormat) {
+        exportFormat = format
+
+        switch format {
+        case .json:
+            exportData = FlightPlanExportService.exportToJSON(flightPlan)
+        case .xlsx:
+            exportData = FlightPlanExportService.exportToXLSX(flightPlan)
+        case .pdf:
+            exportData = FlightPlanExportService.exportToPDF(flightPlan)
+        }
+
+        if exportData != nil {
+            showingExportSheet = true
+        }
     }
 
     private func addWaypoint(_ waypoint: FlightPlanWaypoint) {
@@ -1145,6 +1252,93 @@ class WaypointPickerSwisstopoTileOverlay: MKTileOverlay {
         let clampedZ = min(max(path.z, 7), 18)
         let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
         return URL(string: urlString) ?? URL(string: "about:blank")!
+    }
+}
+
+// MARK: - Export Sheet
+
+struct FlightPlanExportSheet: View {
+    @Environment(\.dismiss) var dismiss
+
+    let data: Data
+    let filename: String
+    let format: FlightPlanExportFormat
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Image(systemName: iconName)
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationGold)
+
+                Text("Export Ready")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                Text("\(fullFilename)")
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+
+                Text(formattedSize)
+                    .font(.system(size: 12))
+                    .foregroundColor(.dimText)
+
+                ShareLink(item: exportFile, preview: SharePreview(filename, icon: iconName)) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.aviationGold)
+                .padding(.horizontal, 40)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.cockpitBackground)
+            .navigationTitle("Export Flight Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var iconName: String {
+        switch format {
+        case .json: return "doc.text"
+        case .xlsx: return "tablecells"
+        case .pdf: return "doc.richtext"
+        }
+    }
+
+    private var fullFilename: String {
+        "\(filename).\(format.fileExtension)"
+    }
+
+    private var formattedSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(data.count))
+    }
+
+    private var exportFile: ExportFile {
+        ExportFile(data: data, filename: fullFilename, contentType: format.contentType)
+    }
+}
+
+/// Transferable file for sharing
+struct ExportFile: Transferable {
+    let data: Data
+    let filename: String
+    let contentType: UTType
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .data) { file in
+            file.data
+        }
+        .suggestedFileName { $0.filename }
     }
 }
 

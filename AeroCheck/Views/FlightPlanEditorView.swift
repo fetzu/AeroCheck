@@ -258,7 +258,8 @@ struct FlightPlanEditorView: View {
                 tableHeaderCell("Alt", width: 60)
                 tableHeaderCell("GS", width: 50)
                 tableHeaderCell("EET", width: 50)
-                tableHeaderCell("ETO", width: 60)
+                tableHeaderCell("ETO", width: 55)
+                tableHeaderCell("ATO", width: 55)
             }
             .background(Color.aviationDarkBlue)
 
@@ -709,7 +710,13 @@ struct WaypointTableRow: View {
             Text(waypoint.formattedETO ?? "-")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
-                .frame(width: 60)
+                .frame(width: 55)
+
+            // ATO
+            Text(waypoint.formattedATO ?? "-")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(waypoint.actualTimeOver != nil ? .aviationGreen : .dimText)
+                .frame(width: 55)
         }
         .frame(height: 40)
         .background(index % 2 == 0 ? Color.cardBackground : Color.panelBackground)

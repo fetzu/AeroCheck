@@ -252,6 +252,7 @@ struct FlightPlanEditorView: View {
             HStack(spacing: 0) {
                 tableHeaderCell("#", width: 30)
                 tableHeaderCell("Waypoint", width: nil, alignment: .leading)
+                tableHeaderCell("Freq", width: 55)
                 tableHeaderCell("MC", width: 50)
                 tableHeaderCell("Dist", width: 50)
                 tableHeaderCell("Alt", width: 60)
@@ -665,6 +666,13 @@ struct WaypointTableRow: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.primaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+
+            // Frequency
+            Text(waypoint.frequency ?? "-")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.aviationBlue)
+                .frame(width: 55)
                 .lineLimit(1)
 
             // MC (Magnetic Course)

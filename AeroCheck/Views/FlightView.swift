@@ -1014,12 +1014,19 @@ struct PhaseSelectorView: View {
 
 struct SpeedReferenceSheet: View {
     @Environment(\.dismiss) var dismiss
-    
+
+    private var isIPad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
     var body: some View {
-        NavigationView {
-            SpeedReferenceView()
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+        NavigationStack {
+            ScrollView {
+                SpeedReferenceView()
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+            }
+            .scrollDisabled(isIPad)
             .background(Color.cockpitBackground)
             .navigationTitle("Speed Reference")
             .navigationBarTitleDisplayMode(.inline)
@@ -1029,7 +1036,7 @@ struct SpeedReferenceSheet: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.6)])
+        .presentationDetents(isIPad ? [.height(480)] : [.fraction(0.6)])
         .preferredColorScheme(.dark)
     }
 }

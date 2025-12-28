@@ -155,6 +155,7 @@ struct NavigationMapView: View {
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
+    @State private var showRadioFrequencyWindow: Bool = false
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -327,6 +328,16 @@ struct NavigationMapView: View {
                         .environmentObject(flightPlanManager)
                         .environmentObject(locationManager)
                 }
+
+                // Radio Frequency Floating Window
+                if showRadioFrequencyWindow {
+                    RadioFrequencyOverlayView(
+                        isPresented: $showRadioFrequencyWindow,
+                        containerSize: geometry.size
+                    )
+                    .environmentObject(flightPlanManager)
+                    .transition(.opacity.combined(with: .scale))
+                }
             }
             .onAppear {
                 mapWidth = geometry.size.width
@@ -405,7 +416,8 @@ struct NavigationMapView: View {
                 forceICAOLayer: effectiveForceICAO,
                 offlineMapManager: offlineMapManager,
                 isStrictOfflineMode: isOfflineMode,
-                hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable
+                hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
+                activeFlightPlan: flightPlanManager.activeFlightPlan
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -414,7 +426,8 @@ struct NavigationMapView: View {
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
-                isFollowingAircraft: $isFollowingAircraft
+                isFollowingAircraft: $isFollowingAircraft,
+                activeFlightPlan: flightPlanManager.activeFlightPlan
             )
         }
     }
@@ -651,6 +664,25 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
+                // Radio Frequency button (when flight plan is active)
+                if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
+                    Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("FREQ")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(showRadioFrequencyWindow ? .aviationGold : .primaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
+                    }
+                }
+
                 // Compass and center button row
                 HStack(spacing: 12) {
                     // Compass button - only show when map is rotated
@@ -733,6 +765,189 @@ struct CompassView: View {
                     .foregroundColor(.primaryText)
             }
             .rotationEffect(.degrees(-heading))
+        }
+    }
+}
+
+// MARK: - Radio Frequency Overlay View
+
+/// Floating window showing radio frequencies from the active flight plan
+struct RadioFrequencyOverlayView: View {
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @Binding var isPresented: Bool
+    let containerSize: CGSize
+
+    @State private var position: CGPoint = CGPoint(x: 150, y: 150)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 12))
+                Text("RADIO FREQUENCIES")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1)
+                Spacer()
+                Button(action: { withAnimation { isPresented = false } }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .foregroundColor(.aviationGold)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.aviationDarkBlue)
+
+            // Frequency list
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
+
+                        if frequenciesWithWaypoints.isEmpty {
+                            Text("No frequencies in flight plan")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondaryText)
+                                .padding()
+                        } else {
+                            ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
+                                frequencyRow(waypoint: waypoint, isCurrent: plan.currentWaypointIndex == index)
+
+                                if index < frequenciesWithWaypoints.count - 1 {
+                                    Divider()
+                                        .background(Color.dimText)
+                                }
+                            }
+                        }
+
+                        // Common Swiss frequencies section
+                        Divider()
+                            .background(Color.dimText)
+                            .padding(.vertical, 4)
+
+                        Text("COMMON SWISS FREQUENCIES")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+
+                        ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                            commonFrequencyRow(freq)
+                            if freq != SwissCommonFrequency.allCases.last {
+                                Divider()
+                                    .background(Color.dimText.opacity(0.5))
+                            }
+                        }
+                    } else {
+                        Text("No active flight plan")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondaryText)
+                            .padding()
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+        }
+        .frame(width: 200)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground.opacity(0.95))
+                .shadow(color: .black.opacity(0.5), radius: 8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
+        )
+        .position(constrainedPosition(in: containerSize))
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    position = CGPoint(
+                        x: position.x + value.translation.width,
+                        y: position.y + value.translation.height
+                    )
+                }
+        )
+        .onAppear {
+            // Position in top-right area by default
+            position = CGPoint(x: containerSize.width - 120, y: 200)
+        }
+    }
+
+    private func frequencyRow(waypoint: FlightPlanWaypoint, isCurrent: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(waypoint.name.isEmpty ? "Waypoint" : waypoint.name)
+                    .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
+                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                    .lineLimit(1)
+                if let callSign = waypoint.callSign, !callSign.isEmpty {
+                    Text(callSign)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            Spacer()
+            Text(waypoint.frequency ?? "")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(isCurrent ? .aviationGreen : .aviationGold)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func commonFrequencyRow(_ freq: SwissCommonFrequency) -> some View {
+        HStack {
+            Text(freq.name)
+                .font(.system(size: 11))
+                .foregroundColor(.secondaryText)
+            Spacer()
+            Text(freq.frequency)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundColor(.dimText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private func constrainedPosition(in size: CGSize) -> CGPoint {
+        let overlayWidth: CGFloat = 200
+        let overlayHeight: CGFloat = 350
+        let padding: CGFloat = 10
+
+        let x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, position.x))
+        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, position.y))
+
+        return CGPoint(x: x, y: y)
+    }
+}
+
+/// Common Swiss aviation frequencies
+enum SwissCommonFrequency: CaseIterable {
+    case zurichInfo
+    case genevaInfo
+    case fis
+    case emergency
+
+    var name: String {
+        switch self {
+        case .zurichInfo: return "Zurich Info"
+        case .genevaInfo: return "Geneva Info"
+        case .fis: return "FIS (East/West)"
+        case .emergency: return "Emergency"
+        }
+    }
+
+    var frequency: String {
+        switch self {
+        case .zurichInfo: return "124.700"
+        case .genevaInfo: return "126.350"
+        case .fis: return "125.225 / 119.175"
+        case .emergency: return "121.500"
         }
     }
 }
@@ -861,6 +1076,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     let currentLocation: CLLocation?
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
+    var activeFlightPlan: FlightPlan?
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -922,10 +1138,56 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
+
+        // Update flight plan overlay
+        updateFlightPlanOverlay(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Remove existing flight plan overlays and annotations
+        let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
+        mapView.removeOverlays(existingFlightPlanPolylines)
+
+        let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
+        mapView.removeAnnotations(existingWaypointAnnotations)
+
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+
+        let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Draw route segments
+        let coordinates = flightPlan.waypoints.map { $0.coordinate }
+
+        // Draw completed segments (dimmed)
+        if currentWaypointIndex > 0 {
+            let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
+            let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
+            completedPolyline.isCompletedSegment = true
+            mapView.addOverlay(completedPolyline, level: .aboveRoads)
+        }
+
+        // Draw remaining segments (bright)
+        if currentWaypointIndex < flightPlan.waypoints.count {
+            let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
+            let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
+            remainingPolyline.isCompletedSegment = false
+            mapView.addOverlay(remainingPolyline, level: .aboveRoads)
+        }
+
+        // Add waypoint annotations
+        for (index, waypoint) in flightPlan.waypoints.enumerated() {
+            let annotation = FlightPlanWaypointAnnotation(
+                coordinate: waypoint.coordinate,
+                name: waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name,
+                index: index,
+                currentIndex: currentWaypointIndex
+            )
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
@@ -1021,6 +1283,23 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // Flight plan route (magenta - high visibility on aviation charts)
+            if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
+                let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isCompletedSegment {
+                    // Completed segments - dimmed magenta
+                    renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
+                    renderer.lineWidth = 4
+                } else {
+                    // Active/remaining segments - bright magenta with black outline effect
+                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                    renderer.lineWidth = 5
+                }
+                renderer.lineDashPattern = nil // Solid line
+                return renderer
+            }
+
+            // GPS track (gold)
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
@@ -1031,6 +1310,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Handle flight plan waypoint annotations
+            if let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation {
+                return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
+            }
+
+            // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
             }
@@ -1091,6 +1376,73 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 3
+
+            return annotationView
+        }
+
+        /// Create annotation view for flight plan waypoints
+        private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
+            let identifier = "FlightPlanWaypoint"
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = true
+
+            // Waypoint appearance based on state
+            let size: CGFloat = 24
+            let markerColor: UIColor
+            let iconName: String
+
+            if annotation.isCurrentWaypoint {
+                // Current/next waypoint - bright magenta with target icon
+                markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                iconName = "target"
+            } else if annotation.isCompletedWaypoint {
+                // Completed waypoint - dimmed with checkmark
+                markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
+                iconName = "checkmark.circle.fill"
+            } else {
+                // Future waypoint - medium brightness
+                markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
+                iconName = "circle.fill"
+            }
+
+            // Create the waypoint marker image
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                // Create image with black outline for visibility
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw black outline
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth)
+                ]
+
+                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main colored icon
+                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
+            }
+
+            // Add shadow
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 2
 
             return annotationView
         }
@@ -1242,6 +1594,7 @@ struct SwissMapView: UIViewRepresentable {
     var offlineMapManager: OfflineMapManager?
     var isStrictOfflineMode: Bool = false
     var hasSegelflugCache: Bool = false
+    var activeFlightPlan: FlightPlan?
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -1447,6 +1800,52 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
+
+        // Update flight plan overlay
+        updateFlightPlanOverlay(mapView, context: context)
+    }
+
+    private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Remove existing flight plan overlays and annotations
+        let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
+        mapView.removeOverlays(existingFlightPlanPolylines)
+
+        let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
+        mapView.removeAnnotations(existingWaypointAnnotations)
+
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+
+        let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Draw route segments
+        let coordinates = flightPlan.waypoints.map { $0.coordinate }
+
+        // Draw completed segments (dimmed)
+        if currentWaypointIndex > 0 {
+            let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
+            let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
+            completedPolyline.isCompletedSegment = true
+            mapView.addOverlay(completedPolyline, level: .aboveRoads)
+        }
+
+        // Draw remaining segments (bright)
+        if currentWaypointIndex < flightPlan.waypoints.count {
+            let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
+            let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
+            remainingPolyline.isCompletedSegment = false
+            mapView.addOverlay(remainingPolyline, level: .aboveRoads)
+        }
+
+        // Add waypoint annotations
+        for (index, waypoint) in flightPlan.waypoints.enumerated() {
+            let annotation = FlightPlanWaypointAnnotation(
+                coordinate: waypoint.coordinate,
+                name: waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name,
+                index: index,
+                currentIndex: currentWaypointIndex
+            )
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
@@ -1632,6 +2031,23 @@ struct SwissMapView: UIViewRepresentable {
                 return renderer
             }
 
+            // Flight plan route (magenta - high visibility on aviation charts)
+            if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
+                let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isCompletedSegment {
+                    // Completed segments - dimmed magenta
+                    renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
+                    renderer.lineWidth = 4
+                } else {
+                    // Active/remaining segments - bright magenta with black outline effect
+                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                    renderer.lineWidth = 5
+                }
+                renderer.lineDashPattern = nil // Solid line
+                return renderer
+            }
+
+            // GPS track (gold)
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 // Use explicit UIColor for gold
@@ -1644,6 +2060,12 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Handle flight plan waypoint annotations
+            if let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation {
+                return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
+            }
+
+            // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
             }
@@ -1709,6 +2131,73 @@ struct SwissMapView: UIViewRepresentable {
 
             return annotationView
         }
+
+        /// Create annotation view for flight plan waypoints
+        private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
+            let identifier = "FlightPlanWaypoint"
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = true
+
+            // Waypoint appearance based on state
+            let size: CGFloat = 24
+            let markerColor: UIColor
+            let iconName: String
+
+            if annotation.isCurrentWaypoint {
+                // Current/next waypoint - bright magenta with target icon
+                markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                iconName = "target"
+            } else if annotation.isCompletedWaypoint {
+                // Completed waypoint - dimmed with checkmark
+                markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
+                iconName = "checkmark.circle.fill"
+            } else {
+                // Future waypoint - medium brightness
+                markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
+                iconName = "circle.fill"
+            }
+
+            // Create the waypoint marker image
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                // Create image with black outline for visibility
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw black outline
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth)
+                ]
+
+                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main colored icon
+                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
+            }
+
+            // Add shadow
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 2
+
+            return annotationView
+        }
     }
 }
 
@@ -1723,6 +2212,33 @@ class AircraftAnnotation: NSObject, MKAnnotation {
         self.heading = heading
         super.init()
     }
+}
+
+// MARK: - Flight Plan Waypoint Annotation
+
+class FlightPlanWaypointAnnotation: NSObject, MKAnnotation {
+    var coordinate: CLLocationCoordinate2D
+    var title: String?
+    var subtitle: String?
+    var waypointIndex: Int
+    var isCurrentWaypoint: Bool
+    var isCompletedWaypoint: Bool
+
+    init(coordinate: CLLocationCoordinate2D, name: String, index: Int, currentIndex: Int) {
+        self.coordinate = coordinate
+        self.title = name
+        self.waypointIndex = index
+        self.isCurrentWaypoint = index == currentIndex
+        self.isCompletedWaypoint = index < currentIndex
+        super.init()
+    }
+}
+
+// MARK: - Flight Plan Route Polyline
+
+/// Custom polyline class to distinguish flight plan route from GPS track
+class FlightPlanRoutePolyline: MKPolyline {
+    var isCompletedSegment: Bool = false
 }
 
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)

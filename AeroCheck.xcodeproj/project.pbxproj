@@ -11,6 +11,7 @@
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
 		04F1C6F32EF9CD5A00192A14 /* FlightPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */; };
 		04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */; };
+		04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */; };
 		04F1C6FB2EF9CD9D00192A14 /* FlightPlanningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */; };
 		04F1C6FC2EF9CD9D00192A14 /* TerrainProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */; };
 		04F1C6FD2EF9CD9D00192A14 /* WaypointEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */; };
@@ -71,6 +72,7 @@
 		04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlan.swift; sourceTree = "<group>"; };
 		04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanManager.swift; sourceTree = "<group>"; };
 		04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationService.swift; sourceTree = "<group>"; };
+		04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanExportService.swift; sourceTree = "<group>"; };
 		04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanEditorView.swift; sourceTree = "<group>"; };
 		04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningView.swift; sourceTree = "<group>"; };
 		04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanOverlayView.swift; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 				047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */,
 				A1000001111111110000020 /* WindDataService.swift */,
 				04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */,
+				04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -336,6 +339,7 @@
 				04F1C6FD2EF9CD9D00192A14 /* WaypointEditorSheet.swift in Sources */,
 				04F1C6FE2EF9CD9D00192A14 /* FlightPlanEditorView.swift in Sources */,
 				04F1C6FF2EF9CD9D00192A14 /* FlightPlanOverlayView.swift in Sources */,
+				04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */,
 				A1000001211111110000002 /* ContentView.swift in Sources */,
 				A1000001211111110000003 /* HomeView.swift in Sources */,
 				A1000001211111110000004 /* FlightView.swift in Sources */,

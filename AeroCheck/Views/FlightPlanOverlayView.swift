@@ -1,24 +1,55 @@
 import SwiftUI
 import CoreLocation
 
+/// Preset positions for the flight plan overlay
+enum FlightPlanOverlayPosition: Int, CaseIterable {
+    case middleLeft = 0
+    case bottomMiddle = 1
+    case middleRight = 2
+
+    var icon: String {
+        switch self {
+        case .middleLeft: return "rectangle.lefthalf.inset.filled"
+        case .bottomMiddle: return "rectangle.bottomhalf.inset.filled"
+        case .middleRight: return "rectangle.righthalf.inset.filled"
+        }
+    }
+
+    func position(in size: CGSize, overlayWidth: CGFloat, overlayHeight: CGFloat) -> CGPoint {
+        let padding: CGFloat = 20
+        switch self {
+        case .middleLeft:
+            return CGPoint(x: padding + overlayWidth / 2, y: size.height / 2)
+        case .bottomMiddle:
+            return CGPoint(x: size.width / 2, y: size.height - padding - overlayHeight / 2)
+        case .middleRight:
+            return CGPoint(x: size.width - padding - overlayWidth / 2, y: size.height / 2)
+        }
+    }
+}
+
 /// Overlay HUD showing flight plan progress during navigation
 /// Movable and resizable, displays next waypoint, distance, bearing, ETA, and chronometer
 struct FlightPlanOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var locationManager: LocationManager
 
-    @State private var position: CGPoint = CGPoint(x: 100, y: 100)
+    @State private var currentPresetPosition: FlightPlanOverlayPosition = .middleLeft
+    @State private var customPosition: CGPoint? = nil
     @State private var isDragging = false
     @State private var isExpanded = true
     @State private var showingDepartureTimePicker = false
 
     let containerSize: CGSize
 
+    private var overlayWidth: CGFloat { isExpanded ? 220 : 280 }
+    private var overlayHeight: CGFloat { isExpanded ? 350 : 50 }
+
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 if isExpanded {
-                    expandedContent
+                    expandedContent(geometry: geometry)
                 } else {
                     compactContent
                 }
@@ -32,8 +63,9 @@ struct FlightPlanOverlayView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
             )
-            .position(constrainedPosition(in: geometry.size))
-            .gesture(dragGesture)
+            .position(currentPosition(in: geometry.size))
+            .gesture(dragGesture(in: geometry.size))
+            .animation(.easeInOut(duration: 0.3), value: currentPresetPosition)
         }
         .sheet(isPresented: $showingDepartureTimePicker) {
             DepartureTimePickerSheet()
@@ -41,11 +73,27 @@ struct FlightPlanOverlayView: View {
         }
     }
 
+    /// Calculate the current position based on preset or custom drag
+    private func currentPosition(in size: CGSize) -> CGPoint {
+        if let custom = customPosition {
+            return constrainedPosition(custom, in: size)
+        }
+        return currentPresetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
+    }
+
+    /// Constrain a position within bounds
+    private func constrainedPosition(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        let padding: CGFloat = 10
+        let x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, point.x))
+        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, point.y))
+        return CGPoint(x: x, y: y)
+    }
+
     // MARK: - Expanded Content
 
-    private var expandedContent: some View {
+    private func expandedContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            // Header with collapse button
+            // Header with position selector and collapse button
             HStack {
                 Text("FLIGHT PLAN")
                     .font(.system(size: 10, weight: .bold))
@@ -53,6 +101,26 @@ struct FlightPlanOverlayView: View {
                     .tracking(1)
 
                 Spacer()
+
+                // Position selector buttons
+                HStack(spacing: 4) {
+                    ForEach(FlightPlanOverlayPosition.allCases, id: \.rawValue) { position in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                customPosition = nil
+                                currentPresetPosition = position
+                            }
+                        }) {
+                            Image(systemName: position.icon)
+                                .font(.system(size: 10))
+                                .foregroundColor(currentPresetPosition == position && customPosition == nil ? .aviationGold : .secondaryText)
+                        }
+                    }
+                }
+
+                Divider()
+                    .frame(height: 12)
+                    .padding(.horizontal, 4)
 
                 Button(action: { withAnimation { isExpanded = false } }) {
                     Image(systemName: "chevron.up")
@@ -119,27 +187,58 @@ struct FlightPlanOverlayView: View {
                         .lineLimit(1)
                 }
 
-                // Distance & bearing
+                // Distance, bearing & EET
                 if let location = locationManager.currentLocation {
                     let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
                     if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation),
                        let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(String(format: "%.1f NM", distance))
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .foregroundColor(.aviationGold)
-                            Text(String(format: "%03d°", Int(bearing)))
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundColor(.secondaryText)
+                        VStack(alignment: .center, spacing: 2) {
+                            HStack(spacing: 8) {
+                                // Distance
+                                Text(String(format: "%.1f", distance))
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                + Text(" NM")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondaryText)
+
+                                // Heading
+                                Text(String(format: "%03d°", Int(bearing)))
+                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .foregroundColor(.primaryText)
+                            }
+
+                            // EET to waypoint
+                            let groundSpeedKnots = max((locationManager.currentLocation?.speed ?? 0) * 1.94384, 1)
+                            if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
+                                let minutes = Int(eta / 60)
+                                let seconds = Int(eta) % 60
+                                HStack(spacing: 4) {
+                                    Text("EET")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(.dimText)
+                                    Text(String(format: "%d:%02d", minutes, seconds))
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                        .foregroundColor(.secondaryText)
+                                }
+                            }
                         }
                     }
                 }
+
+                Divider()
+                    .frame(height: 30)
             }
 
-            // Chronometer
-            Text(flightPlanManager.formattedChronometer)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(.aviationGreen)
+            // Chronometer with label
+            VStack(spacing: 2) {
+                Text("CHRONO")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.dimText)
+                Text(flightPlanManager.formattedChronometer)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGreen)
+            }
 
             // Expand button
             Button(action: { withAnimation { isExpanded = true } }) {
@@ -382,29 +481,43 @@ struct FlightPlanOverlayView: View {
 
     // MARK: - Drag Gesture
 
-    private var dragGesture: some Gesture {
+    private func dragGesture(in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 isDragging = true
-                position = CGPoint(
-                    x: position.x + value.translation.width,
-                    y: position.y + value.translation.height
+                let startPosition = customPosition ?? currentPresetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
+                customPosition = CGPoint(
+                    x: startPosition.x + value.translation.width,
+                    y: startPosition.y + value.translation.height
                 )
             }
             .onEnded { _ in
                 isDragging = false
+                // Snap to nearest preset position
+                guard let current = customPosition else { return }
+                let nearestPreset = findNearestPresetPosition(to: current, in: size)
+                withAnimation(.easeOut(duration: 0.2)) {
+                    customPosition = nil
+                    currentPresetPosition = nearestPreset
+                }
             }
     }
 
-    private func constrainedPosition(in size: CGSize) -> CGPoint {
-        let overlayWidth: CGFloat = isExpanded ? 220 : 280
-        let overlayHeight: CGFloat = isExpanded ? 350 : 50
-        let padding: CGFloat = 10
+    /// Find the nearest preset position to a given point
+    private func findNearestPresetPosition(to point: CGPoint, in size: CGSize) -> FlightPlanOverlayPosition {
+        var nearestPosition = currentPresetPosition
+        var nearestDistance = CGFloat.infinity
 
-        let x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, position.x))
-        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, position.y))
+        for position in FlightPlanOverlayPosition.allCases {
+            let presetPoint = position.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
+            let distance = hypot(point.x - presetPoint.x, point.y - presetPoint.y)
+            if distance < nearestDistance {
+                nearestDistance = distance
+                nearestPosition = position
+            }
+        }
 
-        return CGPoint(x: x, y: y)
+        return nearestPosition
     }
 }
 

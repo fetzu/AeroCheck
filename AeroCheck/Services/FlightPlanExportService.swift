@@ -323,8 +323,9 @@ class FlightPlanExportService {
 
         let headers = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
         var xPos = tableX
+        let cellAttributes: [NSAttributedString.Key: Any] = [.font: smallFont, .foregroundColor: UIColor.black]
         for (index, header) in headers.enumerated() {
-            header.draw(at: CGPoint(x: xPos + 2, y: yPosition + 3), withAttributes: [.font: smallFont, .foregroundColor: UIColor.black])
+            header.draw(at: CGPoint(x: xPos + 2, y: yPosition + 3), withAttributes: cellAttributes)
             xPos += columnWidths[index]
         }
         yPosition += rowHeight
@@ -339,24 +340,23 @@ class FlightPlanExportService {
             let waypoint = plan.waypoints[i]
             xPos = tableX
 
-            let values = [
-                waypoint.frequency ?? "",
-                waypoint.callSign ?? "",
-                waypoint.name,
-                waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "",
-                waypoint.distance.map { String(format: "%.1f", $0) } ?? "",
-                waypoint.altitude.map { String(format: "%.0f", $0) } ?? "",
-                "", // Wind
-                waypoint.plannedGroundSpeed.map { "\($0)" } ?? "",
-                waypoint.formattedEET ?? "",
-                waypoint.formattedETO ?? "",
-                waypoint.formattedATO ?? "",
-                waypoint.remarks
-            ]
+            var values: [String] = []
+            values.append(waypoint.frequency ?? "")
+            values.append(waypoint.callSign ?? "")
+            values.append(waypoint.name)
+            values.append(waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
+            values.append(waypoint.distance.map { String(format: "%.1f", $0) } ?? "")
+            values.append(waypoint.altitude.map { String(format: "%.0f", $0) } ?? "")
+            values.append("") // Wind
+            values.append(waypoint.plannedGroundSpeed.map { "\($0)" } ?? "")
+            values.append(waypoint.formattedEET ?? "")
+            values.append(waypoint.formattedETO ?? "")
+            values.append(waypoint.formattedATO ?? "")
+            values.append(waypoint.remarks)
 
             for (index, value) in values.enumerated() {
                 let truncatedValue = String(value.prefix(Int(columnWidths[index] / 5)))
-                truncatedValue.draw(at: CGPoint(x: xPos + 2, y: yPosition + 3), withAttributes: [.font: smallFont, .foregroundColor: UIColor.black])
+                truncatedValue.draw(at: CGPoint(x: xPos + 2, y: yPosition + 3), withAttributes: cellAttributes)
                 xPos += columnWidths[index]
             }
 
@@ -405,14 +405,19 @@ class FlightPlanExportService {
         "Timing".draw(at: CGPoint(x: timingX, y: timingY), withAttributes: headerAttributes)
         timingY += 15
 
-        let timingData = [
-            ("Compteur START", plan.counterStart.map { String(format: "%.1f", $0) } ?? ""),
-            ("Block OFF", plan.blockOff.map { timeFormatter.string(from: $0) } ?? ""),
-            ("Time OFF", plan.timeOff.map { timeFormatter.string(from: $0) } ?? ""),
-            ("Time ON", plan.timeOn.map { timeFormatter.string(from: $0) } ?? ""),
-            ("Block ON", plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""),
-            ("Compteur STOP", plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
-        ]
+        var timingData: [(String, String)] = []
+        let counterStartStr = plan.counterStart.map { String(format: "%.1f", $0) } ?? ""
+        let blockOffStr = plan.blockOff.map { timeFormatter.string(from: $0) } ?? ""
+        let timeOffStr = plan.timeOff.map { timeFormatter.string(from: $0) } ?? ""
+        let timeOnStr = plan.timeOn.map { timeFormatter.string(from: $0) } ?? ""
+        let blockOnStr = plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""
+        let counterStopStr = plan.counterStop.map { String(format: "%.1f", $0) } ?? ""
+        timingData.append(("Compteur START", counterStartStr))
+        timingData.append(("Block OFF", blockOffStr))
+        timingData.append(("Time OFF", timeOffStr))
+        timingData.append(("Time ON", timeOnStr))
+        timingData.append(("Block ON", blockOnStr))
+        timingData.append(("Compteur STOP", counterStopStr))
 
         for (label, value) in timingData {
             drawLabelValue(label, value, at: CGPoint(x: timingX, y: timingY), labelFont: bodyFont, valueFont: bodyFont)
@@ -425,12 +430,13 @@ class FlightPlanExportService {
         yPosition += 20
 
         // Notes
+        let smallTextAttributes: [NSAttributedString.Key: Any] = [.font: smallFont, .foregroundColor: UIColor.black]
         "Notes:".draw(at: CGPoint(x: margin, y: yPosition), withAttributes: headerAttributes)
         yPosition += 12
 
         let notesRect = CGRect(x: margin, y: yPosition, width: rect.width - 2 * margin, height: 50)
         context.stroke(notesRect)
-        plan.remarks.draw(in: notesRect.insetBy(dx: 5, dy: 3), withAttributes: [.font: smallFont, .foregroundColor: UIColor.black])
+        plan.remarks.draw(in: notesRect.insetBy(dx: 5, dy: 3), withAttributes: smallTextAttributes)
         yPosition += 55
 
         // Debriefing
@@ -439,7 +445,7 @@ class FlightPlanExportService {
 
         let debriefRect = CGRect(x: margin, y: yPosition, width: rect.width - 2 * margin, height: 50)
         context.stroke(debriefRect)
-        plan.debriefing.draw(in: debriefRect.insetBy(dx: 5, dy: 3), withAttributes: [.font: smallFont, .foregroundColor: UIColor.black])
+        plan.debriefing.draw(in: debriefRect.insetBy(dx: 5, dy: 3), withAttributes: smallTextAttributes)
     }
 
     private static func drawLabelValue(_ label: String, _ value: String, at point: CGPoint, labelFont: UIFont, valueFont: UIFont) {

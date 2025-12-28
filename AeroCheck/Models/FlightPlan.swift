@@ -272,7 +272,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var fuelRequired: Double? {
         guard let trip = tripFuel else { return nil }
         let reserve = reserveFuel ?? 0
-        let additional = additionalFuel ?? 0
+        // Use 45-minute fuel reserve (0.75 hours of fuel flow) as default if not set
+        let additional = additionalFuel ?? (fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftType)) * 0.75
         let extra = extraFuel ?? 0
         return trip + reserve + additional + extra
     }

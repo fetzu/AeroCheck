@@ -305,7 +305,14 @@ struct FlightPlanEditorView: View {
                 NumberFormField(
                     label: "Additional 45' (L)",
                     value: Binding(
-                        get: { flightPlan.additionalFuel ?? 0 },
+                        get: {
+                            // Auto-populate with 45 minutes of fuel if not set
+                            if let additional = flightPlan.additionalFuel, additional > 0 {
+                                return additional
+                            }
+                            let fuelFlow = flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftType)
+                            return fuelFlow * 0.75 // 45 minutes = 0.75 hours
+                        },
                         set: { flightPlan.additionalFuel = $0 }
                     ),
                     format: "%.1f"
@@ -324,15 +331,6 @@ struct FlightPlanEditorView: View {
                     label: "Required (L)",
                     text: .constant(flightPlan.fuelRequired.map { String(format: "%.1f", $0) } ?? "--"),
                     isReadOnly: true
-                )
-
-                NumberFormField(
-                    label: "FOB (L)",
-                    value: Binding(
-                        get: { flightPlan.fuelOnBoard ?? 0 },
-                        set: { flightPlan.fuelOnBoard = $0 }
-                    ),
-                    format: "%.0f"
                 )
             }
         }

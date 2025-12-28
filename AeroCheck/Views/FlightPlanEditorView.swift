@@ -900,6 +900,24 @@ struct AddWaypointSheet: View {
     }
 }
 
+// MARK: - Map Layer Type for Waypoint Picker
+
+enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
+    case apple = "Apple Maps"
+    case icao = "ICAO / Segelflug"
+    case swissimage = "SwissImage"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .apple: return "map"
+        case .icao: return "airplane"
+        case .swissimage: return "photo"
+        }
+    }
+}
+
 // MARK: - Map Waypoint Picker
 
 struct MapWaypointPickerView: View {
@@ -911,27 +929,55 @@ struct MapWaypointPickerView: View {
         center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Default to Swiss Jura
         span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
     )
-    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
-        span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
-    ))
-    @State private var selectedCoordinate: CLLocationCoordinate2D?
     @State private var waypointName: String = ""
+    @State private var selectedLayer: WaypointPickerMapLayer = .apple
 
     var body: some View {
         NavigationView {
             ZStack {
-                Map(position: $cameraPosition, interactionModes: .all) {
-                }
+                // Map view based on selected layer
+                WaypointPickerMapViewRepresentable(
+                    region: $region,
+                    mapLayer: selectedLayer
+                )
                 .ignoresSafeArea()
-                .onMapCameraChange { context in
-                    region = context.region
-                }
 
                 // Crosshair at center
-                Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .light))
-                    .foregroundColor(.aviationGold)
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.aviationGold)
+                        .frame(width: 2, height: 20)
+                    Rectangle()
+                        .fill(Color.aviationGold)
+                        .frame(width: 2, height: 20)
+                }
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.aviationGold)
+                        .frame(width: 20, height: 2)
+                    Rectangle()
+                        .fill(Color.aviationGold)
+                        .frame(width: 20, height: 2)
+                }
+
+                // Layer selector at top
+                VStack {
+                    HStack {
+                        Spacer()
+                        Picker("Layer", selection: $selectedLayer) {
+                            ForEach(WaypointPickerMapLayer.allCases) { layer in
+                                Label(layer.rawValue, systemImage: layer.icon)
+                                    .tag(layer)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .padding(8)
+                        .background(Color.panelBackground.opacity(0.9))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding()
+                    }
+                    Spacer()
+                }
 
                 // Bottom panel
                 VStack {
@@ -968,6 +1014,139 @@ struct MapWaypointPickerView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Waypoint Picker Map View Representable
+
+struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
+    @Binding var region: MKCoordinateRegion
+    let mapLayer: WaypointPickerMapLayer
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.delegate = context.coordinator
+        mapView.setRegion(region, animated: false)
+        mapView.showsUserLocation = true
+        mapView.showsCompass = true
+        mapView.showsScale = true
+        configureMapLayer(mapView)
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Update layer if changed
+        context.coordinator.currentLayer = mapLayer
+        configureMapLayer(mapView)
+    }
+
+    private func configureMapLayer(_ mapView: MKMapView) {
+        // Remove existing tile overlays
+        let existingTileOverlays = mapView.overlays.compactMap { $0 as? MKTileOverlay }
+        mapView.removeOverlays(existingTileOverlays)
+
+        switch mapLayer {
+        case .apple:
+            mapView.mapType = .standard
+
+        case .icao:
+            mapView.mapType = .standard
+            let overlay = WaypointPickerICAOTileOverlay()
+            overlay.canReplaceMapContent = true
+            mapView.addOverlay(overlay, level: .aboveLabels)
+
+        case .swissimage:
+            mapView.mapType = .standard
+            let overlay = WaypointPickerSwisstopoTileOverlay(
+                layerIdentifier: "ch.swisstopo.swissimage",
+                tileExtension: "jpeg"
+            )
+            overlay.canReplaceMapContent = true
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, MKMapViewDelegate {
+        var parent: WaypointPickerMapViewRepresentable
+        var currentLayer: WaypointPickerMapLayer
+
+        init(_ parent: WaypointPickerMapViewRepresentable) {
+            self.parent = parent
+            self.currentLayer = parent.mapLayer
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            parent.region = mapView.region
+        }
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let tileOverlay = overlay as? MKTileOverlay {
+                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+    }
+}
+
+// MARK: - Waypoint Picker Tile Overlays
+
+/// ICAO/Segelflugkarte tile overlay for waypoint picker
+class WaypointPickerICAOTileOverlay: MKTileOverlay {
+    private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
+    private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
+
+    override init(urlTemplate URLTemplate: String?) {
+        super.init(urlTemplate: "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png")
+        self.minimumZ = 7
+        self.maximumZ = 14
+    }
+
+    convenience init() {
+        self.init(urlTemplate: nil)
+    }
+
+    override func url(forTilePath path: MKTileOverlayPath) -> URL {
+        let layerIdentifier: String
+        let finalZ: Int
+
+        // ICAO for zoom 7-11, Segelflugkarte for zoom 11-14
+        if path.z <= 11 {
+            layerIdentifier = icaoLayerIdentifier
+            finalZ = min(max(path.z, 7), 11)
+        } else {
+            layerIdentifier = segelflugkarteLayerIdentifier
+            finalZ = min(max(path.z, 11), 14)
+        }
+
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"
+        return URL(string: urlString) ?? URL(string: "about:blank")!
+    }
+}
+
+/// SwissImage tile overlay for waypoint picker
+class WaypointPickerSwisstopoTileOverlay: MKTileOverlay {
+    let layerIdentifier: String
+    let tileExtension: String
+
+    init(layerIdentifier: String, tileExtension: String = "png") {
+        self.layerIdentifier = layerIdentifier
+        self.tileExtension = tileExtension
+
+        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/{z}/{x}/{y}.\(tileExtension)"
+        super.init(urlTemplate: urlTemplate)
+
+        self.minimumZ = 7
+        self.maximumZ = 18
+    }
+
+    override func url(forTilePath path: MKTileOverlayPath) -> URL {
+        let clampedZ = min(max(path.z, 7), 18)
+        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
+        return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }
 

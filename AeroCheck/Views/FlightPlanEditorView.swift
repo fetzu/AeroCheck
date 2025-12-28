@@ -499,30 +499,40 @@ struct FlightPlanEditorView: View {
     }
 
     private func addWaypoint(_ waypoint: FlightPlanWaypoint) {
-        flightPlan.waypoints.append(waypoint)
-        flightPlan.calculateRouteData()
+        var updatedPlan = flightPlan
+        updatedPlan.waypoints.append(waypoint)
+        updatedPlan.calculateRouteData()
+        flightPlan = updatedPlan
     }
 
     private func updateWaypoint(_ waypoint: FlightPlanWaypoint) {
         if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
-            flightPlan.waypoints[index] = waypoint
-            flightPlan.calculateRouteData()
+            var updatedPlan = flightPlan
+            updatedPlan.waypoints[index] = waypoint
+            updatedPlan.calculateRouteData()
+            flightPlan = updatedPlan
         }
     }
 
     private func deleteWaypoint(at index: Int) {
-        flightPlan.waypoints.remove(at: index)
-        flightPlan.calculateRouteData()
+        var updatedPlan = flightPlan
+        updatedPlan.waypoints.remove(at: index)
+        updatedPlan.calculateRouteData()
+        flightPlan = updatedPlan
     }
 
     private func moveWaypoint(from source: Int, to destination: Int) {
-        let waypoint = flightPlan.waypoints.remove(at: source)
-        flightPlan.waypoints.insert(waypoint, at: destination)
-        flightPlan.calculateRouteData()
+        var updatedPlan = flightPlan
+        let waypoint = updatedPlan.waypoints.remove(at: source)
+        updatedPlan.waypoints.insert(waypoint, at: destination)
+        updatedPlan.calculateRouteData()
+        flightPlan = updatedPlan
     }
 
     private func recalculateRoute() {
-        flightPlan.calculateRouteData()
+        var updatedPlan = flightPlan
+        updatedPlan.calculateRouteData()
+        flightPlan = updatedPlan
     }
 }
 

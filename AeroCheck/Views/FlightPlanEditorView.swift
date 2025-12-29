@@ -11,7 +11,7 @@ enum FlightPlanExportFormat {
     var fileExtension: String {
         switch self {
         case .json: return "json"
-        case .xlsx: return "xml" // Excel XML format
+        case .xlsx: return "xlsx"
         case .pdf: return "pdf"
         }
     }
@@ -19,7 +19,7 @@ enum FlightPlanExportFormat {
     var contentType: UTType {
         switch self {
         case .json: return .json
-        case .xlsx: return .xml
+        case .xlsx: return .spreadsheet
         case .pdf: return .pdf
         }
     }
@@ -654,6 +654,9 @@ struct WaypointTableRow: View {
     let onMoveUp: (() -> Void)?
     let onMoveDown: (() -> Void)?
 
+    /// Whether this is the first waypoint (departure point - no leg data to display)
+    private var isFirstWaypoint: Bool { index == 0 }
+
     var body: some View {
         HStack(spacing: 0) {
             // Index
@@ -672,41 +675,41 @@ struct WaypointTableRow: View {
             // Frequency
             Text(waypoint.frequency ?? "-")
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.aviationBlue)
+                .foregroundColor(.aviationGold)
                 .frame(width: 55)
                 .lineLimit(1)
 
-            // MC (Magnetic Course)
-            Text(waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "-")
+            // MC (Magnetic Course) - not shown for first waypoint
+            Text(isFirstWaypoint ? "-" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "-"))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
-            // Distance
-            Text(waypoint.distance.map { String(format: "%.1f", $0) } ?? "-")
+            // Distance - not shown for first waypoint
+            Text(isFirstWaypoint ? "-" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? "-"))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
-            // Altitude
+            // Altitude - shown for all waypoints (it's the planned altitude AT this waypoint)
             Text(waypoint.altitude.map { String(format: "%.0f", $0) } ?? "-")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .frame(width: 60)
 
-            // Ground Speed
-            Text(waypoint.plannedGroundSpeed.map { "\($0)" } ?? "-")
+            // Ground Speed - not shown for first waypoint
+            Text(isFirstWaypoint ? "-" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "-"))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
-            // EET
-            Text(waypoint.formattedEET ?? "-")
+            // EET - not shown for first waypoint
+            Text(isFirstWaypoint ? "-" : (waypoint.formattedEET ?? "-"))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
-            // ETO
+            // ETO - shown for all waypoints (time at which we should arrive AT this waypoint)
             Text(waypoint.formattedETO ?? "-")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.primaryText)

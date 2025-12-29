@@ -405,6 +405,10 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private var mapContent: some View {
+        // Track the current waypoint index to force map updates when it changes
+        // This ensures waypoint checkmarks are refreshed immediately
+        let currentWaypointIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0
+
         if isOfflineMode || selectedLayer.isSwissLayer {
             // Use custom tile overlay for Swiss layers (or offline mode)
             // Always pass offlineMapManager so cache can be used opportunistically
@@ -420,7 +424,8 @@ struct NavigationMapView: View {
                 offlineMapManager: offlineMapManager,
                 isStrictOfflineMode: isOfflineMode,
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
-                activeFlightPlan: flightPlanManager.activeFlightPlan
+                activeFlightPlan: flightPlanManager.activeFlightPlan,
+                currentWaypointIndex: currentWaypointIndex
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -430,7 +435,8 @@ struct NavigationMapView: View {
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
                 isFollowingAircraft: $isFollowingAircraft,
-                activeFlightPlan: flightPlanManager.activeFlightPlan
+                activeFlightPlan: flightPlanManager.activeFlightPlan,
+                currentWaypointIndex: currentWaypointIndex
             )
         }
     }
@@ -1141,6 +1147,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
     var activeFlightPlan: FlightPlan?
+    var currentWaypointIndex: Int = 0  // Track separately to force updates
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -1660,6 +1667,7 @@ struct SwissMapView: UIViewRepresentable {
     var isStrictOfflineMode: Bool = false
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
+    var currentWaypointIndex: Int = 0  // Track separately to force updates
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range

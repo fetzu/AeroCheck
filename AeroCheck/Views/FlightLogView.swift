@@ -689,7 +689,12 @@ struct FlightDetailView: View {
                     ])
                 }
             case .json:
-                if let jsonData = flight.toJSON() {
+                // Include flight plan data if available
+                let flightPlan: FlightPlan? = {
+                    guard let flightPlanId = flight.flightPlanId else { return nil }
+                    return flightPlanManager.flightPlans.first { $0.id == flightPlanId }
+                }()
+                if let jsonData = flight.toJSON(withFlightPlan: flightPlan) {
                     ShareSheet(activityItems: [
                         JSONFile(data: jsonData, filename: "\(flight.exportFilename).json")
                     ])

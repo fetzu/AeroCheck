@@ -41,9 +41,24 @@ struct FlightPlanOverlayView: View {
     @State private var showingDepartureTimePicker = false
 
     let containerSize: CGSize
+    /// Whether the radio frequency window is currently open (affects position constraints)
+    var radioFrequencyWindowOpen: Bool = false
 
     private var overlayWidth: CGFloat { isExpanded ? 220 : 280 }
     private var overlayHeight: CGFloat { isExpanded ? 350 : 50 }
+
+    /// The exclusion zone for the radio frequency window (bottom-right area)
+    private var radioFrequencyExclusionZone: CGRect {
+        let radioWidth: CGFloat = 220
+        let radioHeight: CGFloat = 400
+        let padding: CGFloat = 20
+        return CGRect(
+            x: containerSize.width - radioWidth - padding - 20,
+            y: containerSize.height - radioHeight - padding - 80,
+            width: radioWidth + 40,
+            height: radioHeight + 40
+        )
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -75,17 +90,55 @@ struct FlightPlanOverlayView: View {
 
     /// Calculate the current position based on preset or custom drag
     private func currentPosition(in size: CGSize) -> CGPoint {
+        var position: CGPoint
         if let custom = customPosition {
-            return constrainedPosition(custom, in: size)
+            position = constrainedPosition(custom, in: size)
+        } else {
+            position = currentPresetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
         }
-        return currentPresetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
+
+        // If radio frequency window is open and position overlaps with exclusion zone, move to left side
+        if radioFrequencyWindowOpen {
+            let overlayRect = CGRect(
+                x: position.x - overlayWidth / 2,
+                y: position.y - overlayHeight / 2,
+                width: overlayWidth,
+                height: overlayHeight
+            )
+            if overlayRect.intersects(radioFrequencyExclusionZone) {
+                // Move to middle-left position
+                position = FlightPlanOverlayPosition.middleLeft.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
+                // Clear custom position so it stays at preset
+                DispatchQueue.main.async {
+                    self.customPosition = nil
+                    self.currentPresetPosition = .middleLeft
+                }
+            }
+        }
+
+        return position
     }
 
-    /// Constrain a position within bounds
+    /// Constrain a position within bounds, respecting radio frequency exclusion zone
     private func constrainedPosition(_ point: CGPoint, in size: CGSize) -> CGPoint {
         let padding: CGFloat = 10
-        let x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, point.x))
-        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, point.y))
+        var x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, point.x))
+        var y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, point.y))
+
+        // If radio frequency window is open, prevent dragging into exclusion zone
+        if radioFrequencyWindowOpen {
+            let proposedRect = CGRect(
+                x: x - overlayWidth / 2,
+                y: y - overlayHeight / 2,
+                width: overlayWidth,
+                height: overlayHeight
+            )
+            if proposedRect.intersects(radioFrequencyExclusionZone) {
+                // Push to the left of the exclusion zone
+                x = min(x, radioFrequencyExclusionZone.minX - overlayWidth / 2 - padding)
+            }
+        }
+
         return CGPoint(x: x, y: y)
     }
 
@@ -274,79 +327,80 @@ struct FlightPlanOverlayView: View {
                     .foregroundColor(.secondaryText)
             }
 
-            // Navigation data grid
+            // Navigation data - Heading and Distance to next waypoint
+            // Displayed prominently with real-time updates
             if let location = locationManager.currentLocation {
                 let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
 
-                HStack(spacing: 16) {
-                    // Distance
+                // Heading and Distance row - more prominent display
+                HStack(spacing: 20) {
+                    // Heading TO waypoint
                     VStack(spacing: 2) {
-                        Text("DIST")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                        if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
-                            Text(String(format: "%.1f", distance))
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundColor(.aviationGold)
-                            Text("NM")
-                                .font(.system(size: 9))
-                                .foregroundColor(.secondaryText)
-                        } else {
-                            Text("--")
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundColor(.dimText)
-                        }
-                    }
-
-                    // Bearing
-                    VStack(spacing: 2) {
-                        Text("BRG")
+                        Text("HDG TO")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                         if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
-                            Text(String(format: "%03d", Int(bearing)))
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                            Text("°M")
-                                .font(.system(size: 9))
-                                .foregroundColor(.secondaryText)
+                            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                                Text(String(format: "%03d", Int(bearing)))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                Text("°")
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                            }
                         } else {
-                            Text("---")
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                            Text("---°")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
                                 .foregroundColor(.dimText)
                         }
                     }
 
-                    // ETA
+                    // Distance TO waypoint
                     VStack(spacing: 2) {
-                        Text("ETA")
+                        Text("DIST TO")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-
-                        let groundSpeedKnots = (locationManager.currentLocation?.speed ?? 0) * 1.94384
-                        if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: max(groundSpeedKnots, 1)) {
-                            let minutes = Int(eta / 60)
-                            let seconds = Int(eta) % 60
-                            if minutes > 60 {
-                                Text(String(format: "%d:%02d", minutes / 60, minutes % 60))
-                                    .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                                Text("h:mm")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.secondaryText)
-                            } else {
-                                Text(String(format: "%d:%02d", minutes, seconds))
-                                    .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                                Text("m:ss")
-                                    .font(.system(size: 9))
+                        if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text(String(format: "%.1f", distance))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                Text("NM")
+                                    .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(.secondaryText)
                             }
                         } else {
-                            Text("--:--")
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                            Text("-- NM")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
                                 .foregroundColor(.dimText)
                         }
+                    }
+                }
+                .padding(.vertical, 4)
+
+                // EET row - smaller
+                HStack(spacing: 12) {
+                    Text("EET:")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.dimText)
+
+                    let groundSpeedKnots = (locationManager.currentLocation?.speed ?? 0) * 1.94384
+                    if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: max(groundSpeedKnots, 1)) {
+                        let minutes = Int(eta / 60)
+                        let seconds = Int(eta) % 60
+                        if minutes > 60 {
+                            Text(String(format: "%dh %02dm", minutes / 60, minutes % 60))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                        } else {
+                            Text(String(format: "%d:%02d", minutes, seconds))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                        }
+                    } else {
+                        Text("--:--")
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.dimText)
                     }
                 }
             }

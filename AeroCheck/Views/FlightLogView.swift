@@ -7,6 +7,7 @@ import Compression
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.dismiss) var dismiss
     @State private var selectedFlight: Flight?
     @State private var showImportPicker = false
@@ -593,6 +594,7 @@ struct FlightRowView: View {
 
 struct FlightDetailView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.dismiss) var dismiss
     let flight: Flight
 
@@ -606,6 +608,7 @@ struct FlightDetailView: View {
     @State private var showShareSheet = false
     @State private var shareImage: UIImage?
     @State private var isGeneratingImage = false
+    @State private var showFlightPlan = false
 
     enum ExportType {
         case gpx
@@ -879,9 +882,27 @@ struct FlightDetailView: View {
     }
     
     // MARK: - Actions Section
-    
+
     private var actionsSection: some View {
         HStack(spacing: 16) {
+            // Flight Plan button (only shown if flight has an associated flight plan)
+            if let flightPlanId = flight.flightPlanId,
+               let flightPlan = flightPlanManager.flightPlans.first(where: { $0.id == flightPlanId }) {
+                Button(action: { showFlightPlan = true }) {
+                    HStack {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                        Text("Nav Plan")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .sheet(isPresented: $showFlightPlan) {
+                    FlightPlanEditorView(flightPlan: flightPlan)
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
+                }
+            }
+
             Button(action: { showExportOptions = true }) {
                 HStack {
                     Image(systemName: "square.and.arrow.up")
@@ -890,7 +911,7 @@ struct FlightDetailView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(SecondaryButtonStyle())
-            
+
             Button(action: { showDeleteAlert = true }) {
                 HStack {
                     Image(systemName: "trash")

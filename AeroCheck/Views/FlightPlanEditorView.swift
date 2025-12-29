@@ -589,19 +589,27 @@ struct FlightPlanEditorView: View {
     }
 
     private func exportFlightPlan(format: FlightPlanExportFormat) {
-        exportFormat = format
-
+        // Generate the data first, before updating any state
+        let generatedData: Data?
         switch format {
         case .json:
-            exportData = FlightPlanExportService.exportToJSON(flightPlan)
+            generatedData = FlightPlanExportService.exportToJSON(flightPlan)
         case .xlsx:
-            exportData = FlightPlanExportService.exportToXLSX(flightPlan)
+            generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
         case .pdf:
-            exportData = FlightPlanExportService.exportToPDF(flightPlan)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan)
         }
 
-        if exportData != nil {
-            showingExportSheet = true
+        // Only proceed if data was generated successfully
+        guard let data = generatedData else { return }
+
+        // Update state synchronously in the correct order
+        exportFormat = format
+        exportData = data
+
+        // Use a small delay to ensure state updates have propagated before showing sheet
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.showingExportSheet = true
         }
     }
 

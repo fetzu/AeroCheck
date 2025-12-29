@@ -397,10 +397,10 @@ struct FlightPlanEditorView: View {
                 GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 12) {
-                OptionalTimeFormField(label: "Block OFF", time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: "Time OFF", time: $flightPlan.timeOff)
-                OptionalTimeFormField(label: "Time ON", time: $flightPlan.timeOn)
                 OptionalTimeFormField(label: "Block ON", time: $flightPlan.blockOn)
+                OptionalTimeFormField(label: "Time ON", time: $flightPlan.timeOn)
+                OptionalTimeFormField(label: "Time OFF", time: $flightPlan.timeOff)
+                OptionalTimeFormField(label: "Block OFF", time: $flightPlan.blockOff)
 
                 NumberFormField(
                     label: "Counter Start",
@@ -889,12 +889,14 @@ struct OptionalTimeFormField: View {
                         Text("Set")
                             .font(.system(size: 12))
                             .foregroundColor(.aviationGold)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(Color.cardBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .buttonStyle(.plain)
                 }
             }
         }

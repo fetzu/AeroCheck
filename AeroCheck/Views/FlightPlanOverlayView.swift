@@ -123,7 +123,7 @@ struct FlightPlanOverlayView: View {
     private func constrainedPosition(_ point: CGPoint, in size: CGSize) -> CGPoint {
         let padding: CGFloat = 10
         var x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, point.x))
-        var y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, point.y))
+        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, point.y))
 
         // If radio frequency window is open, prevent dragging into exclusion zone
         if radioFrequencyWindowOpen {

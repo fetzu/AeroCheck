@@ -782,14 +782,14 @@ struct RadioFrequencyOverlayView: View {
     @Binding var isPresented: Bool
     let containerSize: CGSize
 
-    /// Fixed position at bottom-right
+    /// Fixed position at middle-right (same area as the flight plan overlay)
     private var fixedPosition: CGPoint {
         let overlayWidth: CGFloat = 220
         let overlayHeight: CGFloat = 400
         let padding: CGFloat = 20
         return CGPoint(
             x: containerSize.width - overlayWidth / 2 - padding,
-            y: containerSize.height - overlayHeight / 2 - padding - 60 // Extra space for bottom controls
+            y: containerSize.height / 2 // Center vertically (middle-right)
         )
     }
 
@@ -941,28 +941,28 @@ struct RadioFrequencyOverlayView: View {
 
 /// Common Swiss aviation frequencies
 enum SwissCommonFrequency: CaseIterable {
-    case zurichInfo
     case genevaInfo
-    case fisEast
     case fisWest
+    case zurichInfo
+    case fisEast
     case emergency
 
     var name: String {
         switch self {
-        case .zurichInfo: return "Zurich Info"
         case .genevaInfo: return "Geneva Info"
-        case .fisEast: return "FIS East"
         case .fisWest: return "FIS West"
+        case .zurichInfo: return "Zurich Info"
+        case .fisEast: return "FIS East"
         case .emergency: return "Emergency"
         }
     }
 
     var frequency: String {
         switch self {
-        case .zurichInfo: return "124.700"
         case .genevaInfo: return "126.350"
-        case .fisEast: return "125.225"
         case .fisWest: return "119.175"
+        case .zurichInfo: return "124.700"
+        case .fisEast: return "125.225"
         case .emergency: return "121.500"
         }
     }

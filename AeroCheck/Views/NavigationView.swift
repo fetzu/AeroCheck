@@ -791,7 +791,6 @@ struct RadioFrequencyOverlayView: View {
     /// Fixed position at middle-right (same area as the flight plan overlay)
     private var fixedPosition: CGPoint {
         let overlayWidth: CGFloat = 220
-        let overlayHeight: CGFloat = 400
         let padding: CGFloat = 20
         return CGPoint(
             x: containerSize.width - overlayWidth / 2 - padding,

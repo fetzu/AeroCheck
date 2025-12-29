@@ -413,7 +413,7 @@ class AppState: ObservableObject {
             saveFlights()
             return true
         }
-        if let flight = Flight.fromJSON(data) {
+        if let flight = Flight.fromJSONOptional(data) {
             flights.insert(flight, at: 0)
             saveFlights()
             return true

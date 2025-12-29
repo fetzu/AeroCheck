@@ -1001,12 +1001,16 @@ struct AddWaypointSheet: View {
     let aircraftType: AircraftType
     let onAdd: (FlightPlanWaypoint) -> Void
 
+    private let elevationService = ElevationService()
+
     @State private var name: String = ""
     @State private var latitude: String = ""
     @State private var longitude: String = ""
     @State private var altitude: String = ""
     @State private var frequency: String = ""
     @State private var remarks: String = ""
+    @State private var groundElevationMeters: Double?
+    @State private var isLoadingElevation = false
 
     var body: some View {
         NavigationView {
@@ -1023,8 +1027,28 @@ struct AddWaypointSheet: View {
 
                     TextField("Altitude (ft)", text: $altitude)
                         .keyboardType(.numberPad)
+
+                    // Ground level display
+                    HStack {
+                        if isLoadingElevation {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Loading elevation...")
+                                .foregroundColor(.secondaryText)
+                                .font(.system(size: 12))
+                        } else if let groundElevation = groundElevationMeters {
+                            let groundFeet = groundElevation * 3.28084
+                            Text("Ground level: \(Int(groundFeet)) ft")
+                                .foregroundColor(.dimText)
+                                .font(.system(size: 12))
+                        }
+                    }
                 } header: {
                     Label("Location", systemImage: "mappin")
+                } footer: {
+                    if groundElevationMeters != nil {
+                        Text("Default: 3000 ft AGL (above ground level)")
+                    }
                 }
 
                 Section {
@@ -1050,8 +1074,46 @@ struct AddWaypointSheet: View {
                     .disabled(latitude.isEmpty || longitude.isEmpty)
                 }
             }
+            .onChange(of: latitude) { _, _ in
+                Task { await fetchGroundElevation() }
+            }
+            .onChange(of: longitude) { _, _ in
+                Task { await fetchGroundElevation() }
+            }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func fetchGroundElevation() async {
+        guard let lat = Double(latitude),
+              let lon = Double(longitude) else {
+            groundElevationMeters = nil
+            return
+        }
+
+        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+
+        // Only fetch if within Switzerland
+        guard await elevationService.isInSwitzerland(coordinate) else {
+            groundElevationMeters = nil
+            return
+        }
+
+        isLoadingElevation = true
+
+        if let elevation = await elevationService.fetchElevation(at: coordinate) {
+            groundElevationMeters = elevation
+
+            // If altitude is not set, default to ground level + 3000 ft AGL
+            if altitude.isEmpty {
+                let defaultAltitude = (elevation * 3.28084) + 3000
+                altitude = String(format: "%.0f", defaultAltitude)
+            }
+        } else {
+            groundElevationMeters = nil
+        }
+
+        isLoadingElevation = false
     }
 
     private func addWaypoint() {

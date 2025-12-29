@@ -469,6 +469,22 @@ struct FlightPlanOverlayView: View {
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.aviationGreen)
 
+            // ETO to next waypoint
+            if let plan = flightPlanManager.activeFlightPlan,
+               plan.currentWaypointIndex < plan.waypoints.count {
+                let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
+                if let etoString = nextWaypoint.formattedETO {
+                    HStack(spacing: 4) {
+                        Text("ETO")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        Text(etoString)
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                    }
+                }
+            }
+
             // Start/Stop button
             if flightPlanManager.activeFlightPlan?.chronometerStartTime == nil {
                 Button(action: {

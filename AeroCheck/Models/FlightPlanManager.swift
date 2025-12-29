@@ -178,6 +178,11 @@ class FlightPlanManager: ObservableObject {
         activePlan.currentWaypointIndex = 0
         activePlan.chronometerStartTime = nil
 
+        // Reset ATO values for all waypoints (fresh start for new flight)
+        for i in 0..<activePlan.waypoints.count {
+            activePlan.waypoints[i].actualTimeOver = nil
+        }
+
         // Update in the plans list
         if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
             flightPlans[index] = activePlan

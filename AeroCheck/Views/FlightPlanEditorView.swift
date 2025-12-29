@@ -414,7 +414,7 @@ struct FlightPlanEditorView: View {
                 NumberFormField(
                     label: "Counter Stop",
                     value: Binding(
-                        get: { flightPlan.counterStop ?? 0 },
+                        get: { calculatedCounterStop },
                         set: { flightPlan.counterStop = $0 }
                     ),
                     format: "%.1f"
@@ -431,7 +431,7 @@ struct FlightPlanEditorView: View {
                 IntFormField(
                     label: "Total Ldgs",
                     value: Binding(
-                        get: { flightPlan.totalLandings ?? 0 },
+                        get: { calculatedTotalLandings },
                         set: { flightPlan.totalLandings = $0 }
                     )
                 )
@@ -578,6 +578,45 @@ struct FlightPlanEditorView: View {
                 .buttonStyle(.bordered)
             }
         }
+    }
+
+    // MARK: - Computed Properties for Auto-Population
+
+    /// Calculate Counter Stop based on Counter Start + Engine Time
+    /// Engine Time = Block OFF - Block ON (when both are set)
+    private var calculatedCounterStop: Double {
+        // If explicitly set, use that value
+        if let counterStop = flightPlan.counterStop, counterStop > 0 {
+            return counterStop
+        }
+
+        // Otherwise, try to calculate from counter start + engine time
+        guard let counterStart = flightPlan.counterStart,
+              let blockOn = flightPlan.blockOn,
+              let blockOff = flightPlan.blockOff else {
+            return flightPlan.counterStop ?? 0
+        }
+
+        // Engine time in hours (Hobbs meter is in decimal hours)
+        let engineTimeSeconds = blockOff.timeIntervalSince(blockOn)
+        let engineTimeHours = engineTimeSeconds / 3600.0
+
+        return counterStart + engineTimeHours
+    }
+
+    /// Calculate Total Landings from current flight if available
+    private var calculatedTotalLandings: Int {
+        // If explicitly set, use that value
+        if let totalLandings = flightPlan.totalLandings, totalLandings > 0 {
+            return totalLandings
+        }
+
+        // Try to get from current flight
+        if let currentFlight = appState.currentFlight {
+            return currentFlight.totalLandings
+        }
+
+        return flightPlan.totalLandings ?? 0
     }
 
     // MARK: - Actions

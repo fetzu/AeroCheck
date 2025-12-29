@@ -55,7 +55,9 @@ struct AeroCheckApp: App {
             // Parse aircraft from query parameters
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let aircraft = components.queryItems?.first(where: { $0.name == "aircraft" })?.value {
-                appState.startFlight(withAircraft: aircraft)
+                // Pass active flight plan ID if one exists
+                let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
+                appState.startFlight(withAircraft: aircraft, flightPlanId: activeFlightPlanId)
             }
         case "flight-log":
             appState.showFlightLog = true

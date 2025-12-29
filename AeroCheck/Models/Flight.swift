@@ -8,6 +8,7 @@ struct Flight: Identifiable, Codable {
     var airplane: String
     var aircraftType: String? // Aircraft type identifier (e.g., "WT9", "PA28")
     var checklistVersion: String? // Checklist version used (e.g., "2.1e")
+    var flightPlanId: UUID? // Associated flight plan ID (if using navigation planning)
     var startTime: Date?
     var stopTime: Date?
     var engineStartTime: Date?
@@ -27,6 +28,7 @@ struct Flight: Identifiable, Codable {
         airplane: String = "F-HVXA",
         aircraftType: String? = nil,
         checklistVersion: String? = nil,
+        flightPlanId: UUID? = nil,
         startTime: Date? = nil,
         stopTime: Date? = nil,
         engineStartTime: Date? = nil,
@@ -45,6 +47,7 @@ struct Flight: Identifiable, Codable {
         self.airplane = airplane
         self.aircraftType = aircraftType
         self.checklistVersion = checklistVersion
+        self.flightPlanId = flightPlanId
         self.startTime = startTime
         self.stopTime = stopTime
         self.engineStartTime = engineStartTime
@@ -57,6 +60,16 @@ struct Flight: Identifiable, Codable {
         self.touchAndGoCount = touchAndGoCount
         self.goAroundTimes = goAroundTimes
         self.touchAndGoTimes = touchAndGoTimes
+    }
+
+    /// Total landings (touch and go + final landing)
+    var totalLandings: Int {
+        // If flight has ended (has landing time), count 1 for final landing + all touch and gos
+        if landingTime != nil {
+            return touchAndGoCount + 1
+        }
+        // If flight is still in progress, just count touch and gos
+        return touchAndGoCount
     }
     
     /// Display name: "Custom Name (Airplane)" or just "Airplane" if no name

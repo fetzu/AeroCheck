@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @State private var showSettings = false
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
@@ -306,7 +307,9 @@ struct HomeView: View {
     }
     
     private func startFlight() {
-        appState.startFlight()
+        // Pass the active flight plan ID to the flight if one is active
+        let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId)
         locationManager.startTracking(
             appState: appState,
             interval: appState.settings.gpsRecordingInterval

@@ -48,10 +48,11 @@ class FlightPlanExportService {
                 </Borders>
             </Style>
             <Style ss:ID="Title">
-                <Font ss:Bold="1" ss:Size="12"/>
+                <Font ss:Bold="1" ss:Size="11"/>
             </Style>
             <Style ss:ID="Label">
-                <Font ss:Bold="1" ss:Size="9"/>
+                <Font ss:Size="9"/>
+                <Alignment ss:Vertical="Center"/>
                 <Borders>
                     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
                     <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
@@ -70,25 +71,6 @@ class FlightPlanExportService {
                 </Borders>
             </Style>
             <Style ss:ID="Header">
-                <Font ss:Bold="1" ss:Size="9"/>
-                <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-                <Borders>
-                    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
-                </Borders>
-            </Style>
-            <Style ss:ID="FuelLabel">
-                <Font ss:Size="9"/>
-                <Borders>
-                    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
-                    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
-                </Borders>
-            </Style>
-            <Style ss:ID="FuelHeader">
                 <Font ss:Size="9"/>
                 <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
                 <Borders>
@@ -98,73 +80,89 @@ class FlightPlanExportService {
                     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
                 </Borders>
             </Style>
-            <Style ss:ID="NoBorder">
+            <Style ss:ID="DottedRight">
                 <Font ss:Size="9"/>
+                <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+                <Borders>
+                    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+                    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+                    <Border ss:Position="Right" ss:LineStyle="Dot" ss:Weight="1"/>
+                    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+                </Borders>
+            </Style>
+            <Style ss:ID="DottedLeft">
+                <Font ss:Size="9"/>
+                <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+                <Borders>
+                    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+                    <Border ss:Position="Left" ss:LineStyle="Dot" ss:Weight="1"/>
+                    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+                    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+                </Borders>
             </Style>
         </Styles>
         <Worksheet ss:Name="Plan de Vol">
-        <Table ss:DefaultColumnWidth="60">
-            <Column ss:Index="1" ss:Width="50"/>
-            <Column ss:Index="2" ss:Width="40"/>
-            <Column ss:Index="3" ss:Width="90"/>
-            <Column ss:Index="4" ss:Width="35"/>
-            <Column ss:Index="5" ss:Width="35"/>
-            <Column ss:Index="6" ss:Width="40"/>
-            <Column ss:Index="7" ss:Width="40"/>
-            <Column ss:Index="8" ss:Width="35"/>
-            <Column ss:Index="9" ss:Width="40"/>
-            <Column ss:Index="10" ss:Width="40"/>
-            <Column ss:Index="11" ss:Width="40"/>
-            <Column ss:Index="12" ss:Width="100"/>
+        <Table ss:DefaultColumnWidth="54">
+            <Column ss:Index="1" ss:Width="54"/>
+            <Column ss:Index="2" ss:Width="36"/>
+            <Column ss:Index="3" ss:Width="72"/>
+            <Column ss:Index="4" ss:Width="36"/>
+            <Column ss:Index="5" ss:Width="36"/>
+            <Column ss:Index="6" ss:Width="36"/>
+            <Column ss:Index="7" ss:Width="36"/>
+            <Column ss:Index="8" ss:Width="36"/>
+            <Column ss:Index="9" ss:Width="36"/>
+            <Column ss:Index="10" ss:Width="36"/>
+            <Column ss:Index="11" ss:Width="36"/>
+            <Column ss:Index="12" ss:Width="72"/>
         """
 
         // Title row
         xml += """
-        <Row ss:Height="20">
+        <Row ss:Height="18">
             <Cell ss:StyleID="Title" ss:MergeAcross="11"><Data ss:Type="String">AVIS DE VOL - PLAN DE VOL DE NAVIGATION</Data></Cell>
         </Row>
         """
 
-        // Header section - Row 1: Pilote | Avion | Date
+        // Header section - Row 1: Pilote | [value] | Avion | [value] | Date | [value]
         xml += """
-        <Row>
+        <Row ss:Height="20">
             <Cell ss:StyleID="Label"><Data ss:Type="String">Pilote</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(escapeXML(plan.pilot))</Data></Cell>
-            <Cell ss:StyleID="Label"><Data ss:Type="String">Avion</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Avion</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(escapeXML(plan.aircraftRegistration))</Data></Cell>
-            <Cell ss:StyleID="Label"><Data ss:Type="String">Date</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String">\(dateStr)</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Date</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(dateStr)</Data></Cell>
         </Row>
         """
 
-        // Header section - Row 2: Durée totale EET | Autonomie | Piste en service
+        // Header section - Row 2: Durée totale EET | [value] | Autonomie | [value] | Piste en service | [value]
         xml += """
-        <Row>
+        <Row ss:Height="20">
             <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Durée totale EET</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(plan.formattedTotalEET)</Data></Cell>
-            <Cell ss:StyleID="Label"><Data ss:Type="String">Autonomie</Data></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Autonomie</Data></Cell>
             <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(plan.formattedEndurance ?? "--:--")</Data></Cell>
             <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Piste en service</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(escapeXML(plan.runwayInUse ?? ""))</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(escapeXML(plan.runwayInUse ?? ""))</Data></Cell>
         </Row>
         """
 
-        // Header section - Row 3: Instructeur | Date de l'annonce | Heure de l'annonce
+        // Header section - Row 3: Instructeur | [value] | Date de l'annonce | [value] | Heure de l'annonce | [value]
         xml += """
-        <Row>
-            <Cell ss:StyleID="Label"><Data ss:Type="String">Instructeur</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(escapeXML(plan.instructor ?? ""))</Data></Cell>
+        <Row ss:Height="20">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Instructeur</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(escapeXML(plan.instructor ?? ""))</Data></Cell>
             <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Date de l'annonce</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(announceDateStr)</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(announceDateStr)</Data></Cell>
             <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Heure de l'annonce</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(announceTimeStr)</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="String">\(announceTimeStr)</Data></Cell>
         </Row>
         """
 
-        // Route table header - Two rows as per template
-        // First header row
+        // Route table header - Row 1 with merged cells for Freq, C/S, Waypoint, Wind, Remarks
         xml += """
-        <Row>
+        <Row ss:Height="16">
             <Cell ss:StyleID="Header" ss:MergeDown="1"><Data ss:Type="String">Freq</Data></Cell>
             <Cell ss:StyleID="Header" ss:MergeDown="1"><Data ss:Type="String">C/S</Data></Cell>
             <Cell ss:StyleID="Header" ss:MergeDown="1"><Data ss:Type="String">Waypoint</Data></Cell>
@@ -178,7 +176,7 @@ class FlightPlanExportService {
             <Cell ss:StyleID="Header"><Data ss:Type="String">ATO</Data></Cell>
             <Cell ss:StyleID="Header" ss:MergeDown="1"><Data ss:Type="String">Remarks</Data></Cell>
         </Row>
-        <Row>
+        <Row ss:Height="16">
             <Cell ss:Index="4" ss:StyleID="Header"><Data ss:Type="String">-</Data></Cell>
             <Cell ss:StyleID="Header"><Data ss:Type="String">-</Data></Cell>
             <Cell ss:StyleID="Header"><Data ss:Type="String">-</Data></Cell>
@@ -205,7 +203,7 @@ class FlightPlanExportService {
                 let ato = waypoint.formattedATO ?? ""
 
                 xml += """
-                <Row>
+                <Row ss:Height="16">
                     <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.frequency ?? ""))</Data></Cell>
                     <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.callSign ?? ""))</Data></Cell>
                     <Cell ss:StyleID="Data"><Data ss:Type="String">\(escapeXML(waypoint.name))</Data></Cell>
@@ -222,7 +220,7 @@ class FlightPlanExportService {
                 """
             } else {
                 xml += """
-                <Row>
+                <Row ss:Height="16">
                     <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
                     <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
                     <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
@@ -240,7 +238,7 @@ class FlightPlanExportService {
             }
         }
 
-        // Fuel calculation section - matching template layout
+        // Fuel calculation section - matching template layout exactly
         let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftType)
         let tripFuel = plan.tripFuel ?? 0
         let reserveFuel = plan.reserveFuel ?? 0
@@ -248,103 +246,123 @@ class FlightPlanExportService {
         let extraFuel = plan.extraFuel ?? 0
         let fuelRequired = tripFuel + reserveFuel + additionalFuel + extraFuel
 
-        // Fuel header row
+        let counterStartStr = plan.counterStart.map { String(format: "%.1f", $0) } ?? ""
+        let blockOffStr = plan.blockOff.map { timeFormatter.string(from: $0) } ?? ""
+        let timeOffStr = plan.timeOff.map { timeFormatter.string(from: $0) } ?? ""
+        let timeOnStr = plan.timeOn.map { timeFormatter.string(from: $0) } ?? ""
+        let blockOnStr = plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""
+        let counterStopStr = plan.counterStop.map { String(format: "%.1f", $0) } ?? ""
+
+        // Fuel header row: Fuel calculation | Fuel flow l/h | Time hh | mm | Fuel liters | (gap) | Compteur START | [value]
         xml += """
-        <Row>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Fuel calculation</Data></Cell>
-            <Cell ss:StyleID="FuelHeader"><Data ss:Type="String">Fuel flow l/h</Data></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Time</Data></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Fuel liters</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="2"><Data ss:Type="String">Compteur START</Data></Cell>
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Fuel calculation</Data></Cell>
+            <Cell ss:StyleID="Header"><Data ss:Type="String">Fuel flow</Data></Cell>
+            <Cell ss:StyleID="Header" ss:MergeAcross="1"><Data ss:Type="String">Time</Data></Cell>
+            <Cell ss:StyleID="Header"><Data ss:Type="String">Fuel</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Compteur START</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(counterStartStr)</Data></Cell>
         </Row>
         """
 
-        // Sub-header for time columns
+        // Trip fuel row
         xml += """
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Trip fuel</Data></Cell>
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Trip fuel</Data></Cell>
             <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.0f", fuelFlow))</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="Number">\(String(format: "%.1f", tripFuel))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Block OFF</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(plan.counterStart.map { String(format: "%.1f", $0) } ?? "")</Data></Cell>
-        </Row>
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Reserve fuel (alt)</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="Number">\(String(format: "%.1f", reserveFuel))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Time OFF</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(plan.blockOff.map { timeFormatter.string(from: $0) } ?? "")</Data></Cell>
-        </Row>
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Additional (45')</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">0</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">45</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="Number">\(String(format: "%.1f", additionalFuel))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Time ON</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(plan.timeOff.map { timeFormatter.string(from: $0) } ?? "")</Data></Cell>
-        </Row>
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Extra fuel</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="Number">\(String(format: "%.1f", extraFuel))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Block ON</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(plan.timeOn.map { timeFormatter.string(from: $0) } ?? "")</Data></Cell>
-        </Row>
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Fuel required</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="1"><Data ss:Type="Number">\(String(format: "%.1f", fuelRequired))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader" ss:MergeAcross="1"><Data ss:Type="String">Compteur STOP</Data></Cell>
-            <Cell ss:StyleID="Data"><Data ss:Type="String">\(plan.counterStop.map { String(format: "%.1f", $0) } ?? "")</Data></Cell>
+            <Cell ss:StyleID="DottedRight"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", tripFuel))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Block OFF</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(blockOffStr)</Data></Cell>
         </Row>
         """
 
-        // Notes section with Atterrissages on the right
+        // Reserve fuel row
         xml += """
-        <Row>
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Notes</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="5"><Data ss:Type="String">\(escapeXML(plan.remarks))</Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader"><Data ss:Type="String">Atterrissages</Data></Cell>
-            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)</Data></Cell>
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Reserve fuel (alt)</Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedRight"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", reserveFuel))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Time OFF</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(timeOffStr)</Data></Cell>
         </Row>
-        <Row>
-            <Cell ss:StyleID="Data" ss:MergeAcross="6"><Data ss:Type="String"></Data></Cell>
-            <Cell ss:StyleID="NoBorder"></Cell>
-            <Cell ss:StyleID="FuelHeader"><Data ss:Type="String">LSZQ / total</Data></Cell>
-            <Cell ss:StyleID="NoBorder" ss:MergeAcross="2"></Cell>
+        """
+
+        // Additional fuel row
+        xml += """
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Additional (45')</Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedRight"><Data ss:Type="String">0</Data></Cell>
+            <Cell ss:StyleID="DottedLeft"><Data ss:Type="String">45</Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", additionalFuel))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Time ON</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(timeOnStr)</Data></Cell>
+        </Row>
+        """
+
+        // Extra fuel row
+        xml += """
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Extra fuel</Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedRight"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", extraFuel))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Block ON</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(blockOnStr)</Data></Cell>
+        </Row>
+        """
+
+        // Fuel required row
+        xml += """
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Fuel required</Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedRight"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="DottedLeft"><Data ss:Type="String"></Data></Cell>
+            <Cell ss:StyleID="Data"><Data ss:Type="Number">\(String(format: "%.1f", fuelRequired))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label" ss:MergeAcross="1"><Data ss:Type="String">Compteur STOP</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="2"><Data ss:Type="String">\(counterStopStr)</Data></Cell>
+        </Row>
+        """
+
+        // Notes row with Atterrissages on the right
+        xml += """
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeDown="2"><Data ss:Type="String">Notes</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="4" ss:MergeDown="2"><Data ss:Type="String">\(escapeXML(plan.remarks))</Data></Cell>
+            <Cell ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label"><Data ss:Type="String">Atterrissages</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String">\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)</Data></Cell>
+        </Row>
+        <Row ss:Height="16">
+            <Cell ss:Index="7" ss:StyleID="Data"></Cell>
+            <Cell ss:StyleID="Label"><Data ss:Type="String">LSZQ / total</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="3"><Data ss:Type="String"></Data></Cell>
+        </Row>
+        <Row ss:Height="16">
+            <Cell ss:Index="7" ss:StyleID="Data" ss:MergeAcross="5"></Cell>
         </Row>
         """
 
         // Debriefing section
         xml += """
-        <Row ss:Height="15">
-            <Cell ss:StyleID="FuelLabel"><Data ss:Type="String">Debriefing</Data></Cell>
-            <Cell ss:StyleID="NoBorder" ss:MergeAcross="10"></Cell>
+        <Row ss:Height="16">
+            <Cell ss:StyleID="Label" ss:MergeDown="2"><Data ss:Type="String">Debriefing</Data></Cell>
+            <Cell ss:StyleID="Data" ss:MergeAcross="10" ss:MergeDown="2"><Data ss:Type="String">\(escapeXML(plan.debriefing))</Data></Cell>
         </Row>
-        <Row ss:Height="60">
-            <Cell ss:StyleID="Data" ss:MergeAcross="11"><Data ss:Type="String">\(escapeXML(plan.debriefing))</Data></Cell>
-        </Row>
+        <Row ss:Height="16"></Row>
+        <Row ss:Height="16"></Row>
         """
 
         xml += """
@@ -395,77 +413,77 @@ class FlightPlanExportService {
         // Title
         let titleAttributes: [NSAttributedString.Key: Any] = [.font: titleFont, .foregroundColor: UIColor.black]
         "AVIS DE VOL - PLAN DE VOL DE NAVIGATION".draw(at: CGPoint(x: margin, y: yPosition), withAttributes: titleAttributes)
-        yPosition += 18
+        yPosition += 16
 
-        // Header section - 3 rows with cells matching template
-        let headerRowHeight: CGFloat = 24
-        let col1Width: CGFloat = 90   // Pilote / Durée totale EET / Instructeur
-        let col2Width: CGFloat = 120  // Value
-        let col3Width: CGFloat = 80   // Avion / Autonomie / Date de l'annonce
-        let col4Width: CGFloat = 80   // Value
-        let col5Width: CGFloat = 80   // Date / Piste en service / Heure de l'annonce
-        let col6Width: CGFloat = tableWidth - col1Width - col2Width - col3Width - col4Width - col5Width // Remaining
+        // Header section - 3 rows matching the MODEL layout
+        // Column widths proportional to MODEL (6 columns total)
+        let headerRowHeight: CGFloat = 20
+        let hCol1: CGFloat = 70    // Label (Pilote, Durée totale EET, Instructeur)
+        let hCol2: CGFloat = 110   // Value
+        let hCol3: CGFloat = 80    // Label (Avion, Autonomie, Date de l'annonce)
+        let hCol4: CGFloat = 80    // Value
+        let hCol5: CGFloat = 80    // Label (Date, Piste en service, Heure de l'annonce)
+        let hCol6: CGFloat = tableWidth - hCol1 - hCol2 - hCol3 - hCol4 - hCol5 // Value
 
         let labelAttributes: [NSAttributedString.Key: Any] = [.font: labelFont, .foregroundColor: UIColor.black]
         let dataAttributes: [NSAttributedString.Key: Any] = [.font: dataFont, .foregroundColor: UIColor.black]
 
         // Row 1: Pilote | [value] | Avion | [value] | Date | [value]
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: col1Width, height: headerRowHeight),
-                 text: "Pilote", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width, y: yPosition, width: col2Width, height: headerRowHeight),
-                 text: plan.pilot, attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width, y: yPosition, width: col3Width, height: headerRowHeight),
-                 text: "Avion", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width, y: yPosition, width: col4Width, height: headerRowHeight),
-                 text: plan.aircraftRegistration, attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width, y: yPosition, width: col5Width, height: headerRowHeight),
-                 text: "Date", attributes: labelAttributes)
+        var xOff: CGFloat = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Pilote", attributes: labelAttributes)
+        xOff += hCol1
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.pilot, attributes: dataAttributes)
+        xOff += hCol2
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Avion", attributes: labelAttributes)
+        xOff += hCol3
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: plan.aircraftRegistration, attributes: dataAttributes)
+        xOff += hCol4
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Date", attributes: labelAttributes)
+        xOff += hCol5
         let dateStr = plan.plannedDepartureTime.map { dateFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width + col5Width, y: yPosition, width: col6Width, height: headerRowHeight),
-                 text: dateStr, attributes: dataAttributes)
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: dateStr, attributes: dataAttributes)
         yPosition += headerRowHeight
 
         // Row 2: Durée totale EET | [value] | Autonomie | [value] | Piste en service | [value]
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: col1Width, height: headerRowHeight),
-                 text: "Durée totale\nEET", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width, y: yPosition, width: col2Width, height: headerRowHeight),
-                 text: plan.formattedTotalEET, attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width, y: yPosition, width: col3Width, height: headerRowHeight),
-                 text: "Autonomie", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width, y: yPosition, width: col4Width, height: headerRowHeight),
-                 text: plan.formattedEndurance ?? "--:--", attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width, y: yPosition, width: col5Width, height: headerRowHeight),
-                 text: "Piste\nen service", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width + col5Width, y: yPosition, width: col6Width, height: headerRowHeight),
-                 text: plan.runwayInUse ?? "", attributes: dataAttributes)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Durée totale\nEET", attributes: labelAttributes)
+        xOff += hCol1
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.formattedTotalEET, attributes: dataAttributes)
+        xOff += hCol2
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Autonomie", attributes: labelAttributes)
+        xOff += hCol3
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: plan.formattedEndurance ?? "--:--", attributes: dataAttributes)
+        xOff += hCol4
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Piste\nen service", attributes: labelAttributes)
+        xOff += hCol5
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: plan.runwayInUse ?? "", attributes: dataAttributes)
         yPosition += headerRowHeight
 
         // Row 3: Instructeur | [value] | Date de l'annonce | [value] | Heure de l'annonce | [value]
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: col1Width, height: headerRowHeight),
-                 text: "Instructeur", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width, y: yPosition, width: col2Width, height: headerRowHeight),
-                 text: plan.instructor ?? "", attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width, y: yPosition, width: col3Width, height: headerRowHeight),
-                 text: "Date de\nl'annonce", attributes: labelAttributes)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Instructeur", attributes: labelAttributes)
+        xOff += hCol1
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.instructor ?? "", attributes: dataAttributes)
+        xOff += hCol2
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Date de\nl'annonce", attributes: labelAttributes)
+        xOff += hCol3
         let announceDateStr = plan.announcementDate.map { dateFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width, y: yPosition, width: col4Width, height: headerRowHeight),
-                 text: announceDateStr, attributes: dataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width, y: yPosition, width: col5Width, height: headerRowHeight),
-                 text: "Heure de\nl'annonce", attributes: labelAttributes)
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: announceDateStr, attributes: dataAttributes)
+        xOff += hCol4
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Heure de\nl'annonce", attributes: labelAttributes)
+        xOff += hCol5
         let announceTimeStr = plan.announcementTime.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: tableX + col1Width + col2Width + col3Width + col4Width + col5Width, y: yPosition, width: col6Width, height: headerRowHeight),
-                 text: announceTimeStr, attributes: dataAttributes)
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: announceTimeStr, attributes: dataAttributes)
         yPosition += headerRowHeight
 
-        // Route table - columns matching template
-        let routeColWidths: [CGFloat] = [40, 30, 70, 30, 30, 30, 35, 28, 32, 35, 35, tableWidth - 395] // Freq, C/S, Waypoint, MC, Dist, Alt, Wind, GS, EET, ETO, ATO, Remarks
+        // Route table - 12 columns: Freq, C/S, Waypoint, MC, Dist, Alt, Wind, GS, EET, ETO, ATO, Remarks
+        let routeColWidths: [CGFloat] = [45, 32, 75, 32, 32, 32, 32, 32, 32, 38, 38, tableWidth - 420]
         let routeRowHeight: CGFloat = 16
 
-        // Route header - two rows as per template
-        let headerSmallFont = UIFont.boldSystemFont(ofSize: 7)
+        let headerSmallFont = UIFont.systemFont(ofSize: 8)
         let headerAttributes: [NSAttributedString.Key: Any] = [.font: headerSmallFont, .foregroundColor: UIColor.black]
 
-        // First header row
+        // Route header row 1
         let routeHeaders = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
         var xPos = tableX
         for (index, header) in routeHeaders.enumerated() {
@@ -475,7 +493,7 @@ class FlightPlanExportService {
         }
         yPosition += routeRowHeight
 
-        // Second header row with dashes
+        // Route header row 2 with dashes
         let dashHeaders = ["", "", "", "-", "-", "-", "", "-", "-", "-", "-", ""]
         xPos = tableX
         for (index, header) in dashHeaders.enumerated() {
@@ -526,7 +544,7 @@ class FlightPlanExportService {
             yPosition += routeRowHeight
         }
 
-        // Fuel calculation section - side by side with timing section
+        // Fuel calculation section - matching MODEL layout exactly
         let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftType)
         let tripFuel = plan.tripFuel ?? 0
         let reserveFuel = plan.reserveFuel ?? 0
@@ -535,158 +553,157 @@ class FlightPlanExportService {
         let fuelRequired = tripFuel + reserveFuel + additionalFuel + extraFuel
 
         let fuelRowHeight: CGFloat = 16
-        let fuelLabelWidth: CGFloat = 95
-        let fuelFlowWidth: CGFloat = 50
-        let fuelTimeHHWidth: CGFloat = 30
-        let fuelTimeMMWidth: CGFloat = 30
-        let fuelLitersWidth: CGFloat = 50
-        let fuelSectionWidth = fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth + fuelLitersWidth
 
-        // Timing section widths (on the right)
-        let timingGap: CGFloat = 15
-        let timingLabelWidth: CGFloat = 70
-        let timingValueWidth: CGFloat = 50
-        let timingX = tableX + fuelSectionWidth + timingGap
+        // Fuel section columns (left side)
+        let fuelLabelW: CGFloat = 90
+        let fuelFlowW: CGFloat = 50
+        let fuelTimeHHW: CGFloat = 32
+        let fuelTimeMMW: CGFloat = 32
+        let fuelLitersW: CGFloat = 50
+        let fuelTotalW = fuelLabelW + fuelFlowW + fuelTimeHHW + fuelTimeMMW + fuelLitersW
+
+        // Timing section columns (right side)
+        let gapW: CGFloat = 8
+        let timingLabelW: CGFloat = 75
+        let timingValueW: CGFloat = 60
+        let timingX = tableX + fuelTotalW + gapW
 
         // Fuel header row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Fuel calculation", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: "Fuel flow\nl/h", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "Time\nhh", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "mm", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: "Fuel\nliters", attributes: labelAttributes, centered: true)
-
-        // Timing header - Compteur START
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Compteur\nSTART", attributes: labelAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Fuel calculation", attributes: labelAttributes, centered: true)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "Fuel flow", attributes: labelAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW + fuelTimeMMW, height: fuelRowHeight), text: "Time", attributes: labelAttributes, centered: true)
+        xOff += fuelTimeHHW + fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: "Fuel", attributes: labelAttributes, centered: true)
+        // Empty gap cell
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
+        // Timing: Compteur START
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Compteur START", attributes: labelAttributes, centered: true)
         let counterStartStr = plan.counterStart.map { String(format: "%.1f", $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: counterStartStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: counterStartStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
         // Trip fuel row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Trip fuel", attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: String(format: "%.0f", fuelFlow), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: String(format: "%.1f", tripFuel), attributes: smallDataAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Trip fuel", attributes: smallDataAttributes)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: String(format: "%.0f", fuelFlow), attributes: smallDataAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
+        xOff += fuelTimeHHW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", tripFuel), attributes: smallDataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         // Block OFF
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Block\nOFF", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Block OFF", attributes: labelAttributes, centered: true)
         let blockOffStr = plan.blockOff.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: blockOffStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: blockOffStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
         // Reserve fuel row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Reserve fuel (alt)", attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: String(format: "%.1f", reserveFuel), attributes: smallDataAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Reserve fuel (alt)", attributes: smallDataAttributes)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
+        xOff += fuelTimeHHW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", reserveFuel), attributes: smallDataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         // Time OFF
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Time\nOFF", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Time OFF", attributes: labelAttributes, centered: true)
         let timeOffStr = plan.timeOff.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: timeOffStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: timeOffStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
         // Additional fuel row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Additional (45')", attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "0", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "45", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: String(format: "%.1f", additionalFuel), attributes: smallDataAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Additional (45')", attributes: smallDataAttributes)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "0", attributes: smallDataAttributes)
+        xOff += fuelTimeHHW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "45", attributes: smallDataAttributes, centered: true)
+        xOff += fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", additionalFuel), attributes: smallDataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         // Time ON
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Time\nON", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Time ON", attributes: labelAttributes, centered: true)
         let timeOnStr = plan.timeOn.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: timeOnStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: timeOnStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
         // Extra fuel row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Extra fuel", attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: String(format: "%.1f", extraFuel), attributes: smallDataAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Extra fuel", attributes: smallDataAttributes)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
+        xOff += fuelTimeHHW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", extraFuel), attributes: smallDataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         // Block ON
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Block\nON", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Block ON", attributes: labelAttributes, centered: true)
         let blockOnStr = plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: blockOnStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: blockOnStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
         // Fuel required row
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: fuelLabelWidth, height: fuelRowHeight),
-                 text: "Fuel required", attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth, y: yPosition, width: fuelFlowWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth, y: yPosition, width: fuelTimeHHWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth, y: yPosition, width: fuelTimeMMWidth, height: fuelRowHeight),
-                 text: "", attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelLabelWidth + fuelFlowWidth + fuelTimeHHWidth + fuelTimeMMWidth, y: yPosition, width: fuelLitersWidth, height: fuelRowHeight),
-                 text: String(format: "%.1f", fuelRequired), attributes: smallDataAttributes, centered: true)
+        xOff = tableX
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Fuel required", attributes: smallDataAttributes)
+        xOff += fuelLabelW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelFlowW
+        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
+        xOff += fuelTimeHHW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
+        xOff += fuelTimeMMW
+        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", fuelRequired), attributes: smallDataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         // Compteur STOP
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Compteur\nSTOP", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Compteur STOP", attributes: labelAttributes, centered: true)
         let counterStopStr = plan.counterStop.map { String(format: "%.1f", $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: counterStopStr, attributes: dataAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: counterStopStr, attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
-        // Notes row with Atterrissages on the right
-        let notesWidth = fuelSectionWidth
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: 40, height: fuelRowHeight * 2),
-                 text: "Notes", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + 40, y: yPosition, width: notesWidth - 40, height: fuelRowHeight * 2),
-                 text: plan.remarks, attributes: smallDataAttributes)
-        // Atterrissages
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "Atterrissages", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: timingX + timingLabelWidth, y: yPosition, width: timingValueWidth, height: fuelRowHeight),
-                 text: "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)", attributes: dataAttributes, centered: true)
+        // Notes section (3 rows tall) with Atterrissages on the right
+        let notesHeight = fuelRowHeight * 3
+        let notesLabelW: CGFloat = 40
+        let notesValueW = fuelTotalW - notesLabelW
+
+        // Notes (spans 3 rows on left)
+        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: notesLabelW, height: notesHeight), text: "Notes", attributes: labelAttributes)
+        drawCell(context, rect: CGRect(x: tableX + notesLabelW, y: yPosition, width: notesValueW, height: notesHeight), text: plan.remarks, attributes: smallDataAttributes)
+        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: notesHeight), text: "", attributes: labelAttributes)
+
+        // Atterrissages row
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Atterrissages", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)", attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
-        // LSZQ / total label
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelWidth, height: fuelRowHeight),
-                 text: "LSZQ / total", attributes: labelAttributes, centered: true)
+        // LSZQ / total row
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "LSZQ / total", attributes: labelAttributes, centered: true)
+        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: "", attributes: dataAttributes, centered: true)
         yPosition += fuelRowHeight
 
-        // Debriefing section
-        let debriefHeight: CGFloat = 50
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: 60, height: debriefHeight),
-                 text: "Debriefing", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + 60, y: yPosition, width: tableWidth - 60, height: debriefHeight),
-                 text: plan.debriefing, attributes: smallDataAttributes)
+        // Empty row on right to complete Notes section height
+        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW + timingValueW, height: fuelRowHeight), text: "", attributes: labelAttributes)
+        yPosition += fuelRowHeight
+
+        // Debriefing section (3 rows tall)
+        let debriefHeight = fuelRowHeight * 3
+        let debriefLabelW: CGFloat = 60
+        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: debriefLabelW, height: debriefHeight), text: "Debriefing", attributes: labelAttributes)
+        drawCell(context, rect: CGRect(x: tableX + debriefLabelW, y: yPosition, width: tableWidth - debriefLabelW, height: debriefHeight), text: plan.debriefing, attributes: smallDataAttributes)
     }
 
     /// Draw a cell with border and text
@@ -703,6 +720,36 @@ class FlightPlanExportService {
         } else {
             text.draw(in: textRect, withAttributes: attributes)
         }
+    }
+
+    /// Draw a cell with dotted right border (for Time hh column)
+    private static func drawCellWithDottedRight(_ context: CGContext, rect: CGRect, text: String, attributes: [NSAttributedString.Key: Any]) {
+        // Draw solid borders on top, bottom, left
+        context.setLineDash(phase: 0, lengths: [])
+        context.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY)) // Top
+        context.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)) // Bottom
+        context.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        context.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)) // Left
+        context.strokePath()
+
+        // Draw dotted right border
+        context.setLineDash(phase: 0, lengths: [2, 2])
+        context.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+        context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        context.strokePath()
+
+        // Reset dash pattern
+        context.setLineDash(phase: 0, lengths: [])
+
+        // Draw text centered
+        let textRect = rect.insetBy(dx: 2, dy: 2)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        var centeredAttributes = attributes
+        centeredAttributes[.paragraphStyle] = paragraphStyle
+        text.draw(in: textRect, withAttributes: centeredAttributes)
     }
 
     private static func escapeXML(_ string: String) -> String {

@@ -172,6 +172,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var flightType: FlightType
     var runwayInUse: String?
     var plannedDepartureTime: Date?
+    var announcementDate: Date?              // Date de l'annonce
+    var announcementTime: Date?              // Heure de l'annonce
 
     // Fuel planning
     var fuelFlow: Double?                    // L/h
@@ -215,6 +217,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         flightType: FlightType = .vfr,
         runwayInUse: String? = nil,
         plannedDepartureTime: Date? = nil,
+        announcementDate: Date? = nil,
+        announcementTime: Date? = nil,
         fuelFlow: Double? = nil,
         tripFuel: Double? = nil,
         reserveFuel: Double? = nil,
@@ -247,6 +251,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.flightType = flightType
         self.runwayInUse = runwayInUse
         self.plannedDepartureTime = plannedDepartureTime
+        self.announcementDate = announcementDate
+        self.announcementTime = announcementTime
         self.fuelFlow = fuelFlow
         self.tripFuel = tripFuel
         self.reserveFuel = reserveFuel

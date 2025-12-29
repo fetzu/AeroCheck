@@ -118,13 +118,15 @@ class FlightPlanExportService {
         """
 
         // Route waypoints
-        for waypoint in plan.waypoints {
-            let mc = waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""
-            let dist = waypoint.distance.map { String(format: "%.1f", $0) } ?? ""
+        for (index, waypoint) in plan.waypoints.enumerated() {
+            // First waypoint (departure) doesn't have leg data
+            let isFirstWaypoint = index == 0
+            let mc = isFirstWaypoint ? "" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
+            let dist = isFirstWaypoint ? "" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? "")
             let alt = waypoint.altitude.map { String(format: "%.0f", $0) } ?? ""
             let wind = ""
-            let gs = waypoint.plannedGroundSpeed.map { "\($0)" } ?? ""
-            let eet = waypoint.formattedEET ?? ""
+            let gs = isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "")
+            let eet = isFirstWaypoint ? "" : (waypoint.formattedEET ?? "")
             let eto = waypoint.formattedETO ?? ""
             let ato = waypoint.formattedATO ?? ""
 
@@ -339,17 +341,19 @@ class FlightPlanExportService {
         for i in 0..<maxRows {
             let waypoint = plan.waypoints[i]
             xPos = tableX
+            // First waypoint (departure) doesn't have leg data
+            let isFirstWaypoint = i == 0
 
             var values: [String] = []
             values.append(waypoint.frequency ?? "")
             values.append(waypoint.callSign ?? "")
             values.append(waypoint.name)
-            values.append(waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
-            values.append(waypoint.distance.map { String(format: "%.1f", $0) } ?? "")
+            values.append(isFirstWaypoint ? "" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""))
+            values.append(isFirstWaypoint ? "" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? ""))
             values.append(waypoint.altitude.map { String(format: "%.0f", $0) } ?? "")
             values.append("") // Wind
-            values.append(waypoint.plannedGroundSpeed.map { "\($0)" } ?? "")
-            values.append(waypoint.formattedEET ?? "")
+            values.append(isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? ""))
+            values.append(isFirstWaypoint ? "" : (waypoint.formattedEET ?? ""))
             values.append(waypoint.formattedETO ?? "")
             values.append(waypoint.formattedATO ?? "")
             values.append(waypoint.remarks)

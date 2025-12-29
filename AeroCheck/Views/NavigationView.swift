@@ -324,7 +324,10 @@ struct NavigationMapView: View {
 
                 // Flight Plan Overlay (when active)
                 if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
-                    FlightPlanOverlayView(containerSize: geometry.size)
+                    FlightPlanOverlayView(
+                        containerSize: geometry.size,
+                        radioFrequencyWindowOpen: showRadioFrequencyWindow
+                    )
                         .environmentObject(flightPlanManager)
                         .environmentObject(locationManager)
                 }
@@ -772,12 +775,23 @@ struct CompassView: View {
 // MARK: - Radio Frequency Overlay View
 
 /// Floating window showing radio frequencies from the active flight plan
+/// Fixed position at bottom-right of the screen
 struct RadioFrequencyOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var locationManager: LocationManager
     @Binding var isPresented: Bool
     let containerSize: CGSize
 
-    @State private var position: CGPoint = CGPoint(x: 150, y: 150)
+    /// Fixed position at bottom-right
+    private var fixedPosition: CGPoint {
+        let overlayWidth: CGFloat = 220
+        let overlayHeight: CGFloat = 400
+        let padding: CGFloat = 20
+        return CGPoint(
+            x: containerSize.width - overlayWidth / 2 - padding,
+            y: containerSize.height - overlayHeight / 2 - padding - 60 // Extra space for bottom controls
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -835,7 +849,7 @@ struct RadioFrequencyOverlayView: View {
                             .padding(.vertical, 4)
 
                         ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
-                            commonFrequencyRow(freq)
+                            commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
                             if freq != SwissCommonFrequency.allCases.last {
                                 Divider()
                                     .background(Color.dimText.opacity(0.5))
@@ -849,9 +863,9 @@ struct RadioFrequencyOverlayView: View {
                     }
                 }
             }
-            .frame(maxHeight: 300)
+            .frame(maxHeight: 340)
         }
-        .frame(width: 200)
+        .frame(width: 220)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.panelBackground.opacity(0.95))
@@ -861,19 +875,28 @@ struct RadioFrequencyOverlayView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
         )
-        .position(constrainedPosition(in: containerSize))
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    position = CGPoint(
-                        x: position.x + value.translation.width,
-                        y: position.y + value.translation.height
-                    )
-                }
-        )
-        .onAppear {
-            // Position in top-right area by default
-            position = CGPoint(x: containerSize.width - 120, y: 200)
+        .position(fixedPosition)
+    }
+
+    /// Determine if a common frequency should be highlighted based on aircraft position
+    private func shouldHighlightFrequency(_ freq: SwissCommonFrequency) -> Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        let coord = location.coordinate
+
+        // Use SwissAirspaceSectors to determine which sector the aircraft is in
+        let sector = SwissAirspaceSectors.getSector(for: coord)
+
+        switch freq {
+        case .zurichInfo:
+            return sector == .zurich
+        case .genevaInfo:
+            return sector == .geneva
+        case .fisEast:
+            return sector == .zurich || sector == .east
+        case .fisWest:
+            return sector == .geneva || sector == .west
+        case .emergency:
+            return false // Emergency frequency is never auto-highlighted
         }
     }
 
@@ -900,29 +923,19 @@ struct RadioFrequencyOverlayView: View {
         .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 
-    private func commonFrequencyRow(_ freq: SwissCommonFrequency) -> some View {
+    private func commonFrequencyRow(_ freq: SwissCommonFrequency, isHighlighted: Bool) -> some View {
         HStack {
             Text(freq.name)
-                .font(.system(size: 11))
-                .foregroundColor(.secondaryText)
+                .font(.system(size: 11, weight: isHighlighted ? .semibold : .regular))
+                .foregroundColor(isHighlighted ? .primaryText : .secondaryText)
             Spacer()
             Text(freq.frequency)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundColor(.dimText)
+                .font(.system(size: 12, weight: isHighlighted ? .bold : .medium, design: .monospaced))
+                .foregroundColor(isHighlighted ? .aviationGold : .secondaryText)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-    }
-
-    private func constrainedPosition(in size: CGSize) -> CGPoint {
-        let overlayWidth: CGFloat = 200
-        let overlayHeight: CGFloat = 350
-        let padding: CGFloat = 10
-
-        let x = max(overlayWidth / 2 + padding, min(size.width - overlayWidth / 2 - padding, position.x))
-        let y = max(overlayHeight / 2 + padding, min(size.height - overlayHeight / 2 - padding, position.y))
-
-        return CGPoint(x: x, y: y)
+        .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 }
 
@@ -930,14 +943,16 @@ struct RadioFrequencyOverlayView: View {
 enum SwissCommonFrequency: CaseIterable {
     case zurichInfo
     case genevaInfo
-    case fis
+    case fisEast
+    case fisWest
     case emergency
 
     var name: String {
         switch self {
         case .zurichInfo: return "Zurich Info"
         case .genevaInfo: return "Geneva Info"
-        case .fis: return "FIS (East/West)"
+        case .fisEast: return "FIS East"
+        case .fisWest: return "FIS West"
         case .emergency: return "Emergency"
         }
     }
@@ -946,8 +961,57 @@ enum SwissCommonFrequency: CaseIterable {
         switch self {
         case .zurichInfo: return "124.700"
         case .genevaInfo: return "126.350"
-        case .fis: return "125.225 / 119.175"
+        case .fisEast: return "125.225"
+        case .fisWest: return "119.175"
         case .emergency: return "121.500"
+        }
+    }
+}
+
+/// Swiss airspace sectors for Info/FIS frequency selection
+/// Based on the CTA zones from geocat.ch
+enum SwissAirspaceSector {
+    case zurich  // Eastern Switzerland - Zurich Info / FIS East
+    case geneva  // Western Switzerland - Geneva Info / FIS West
+    case east    // Far east - FIS East only (no Info)
+    case west    // Far west - FIS West only (no Info)
+}
+
+/// Rough polygons for Swiss airspace sectors
+/// Based on CTA zones from https://www.geocat.ch/geonetwork/srv/eng/catalog.search#/metadata/5fd1a95b-8f2c-4fff-8038-a7b2922488ad
+struct SwissAirspaceSectors {
+    /// Get the airspace sector for a given coordinate
+    static func getSector(for coordinate: CLLocationCoordinate2D) -> SwissAirspaceSector {
+        let lon = coordinate.longitude
+        let lat = coordinate.latitude
+
+        // Switzerland approximate bounds
+        guard lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6 else {
+            // Outside Switzerland - default to nearest sector
+            if lon < 7.5 {
+                return .west
+            } else {
+                return .east
+            }
+        }
+
+        // The dividing line between Zurich and Geneva sectors is approximately at 7.5°E longitude
+        // This is a simplified approximation of the actual CTA boundaries
+        // The actual boundary follows a more complex path through the Alps
+
+        // Main dividing longitude (approximate - based on CTA boundary through Fribourg/Bern area)
+        let divisionLongitude: Double = 7.45
+
+        // Zurich Info covers:
+        // - East of the dividing line
+        // - Includes most of central and eastern Switzerland
+        if lon >= divisionLongitude {
+            return .zurich
+        } else {
+            // Geneva Info covers:
+            // - West of the dividing line
+            // - Includes western Switzerland and parts of the Alps
+            return .geneva
         }
     }
 }
@@ -1162,20 +1226,20 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
 
-        // Draw completed segments (dimmed)
+        // Draw completed segments (dimmed) - use .aboveLabels to ensure visibility over tile overlays
         if currentWaypointIndex > 0 {
             let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
             let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
             completedPolyline.isCompletedSegment = true
-            mapView.addOverlay(completedPolyline, level: .aboveRoads)
+            mapView.addOverlay(completedPolyline, level: .aboveLabels)
         }
 
-        // Draw remaining segments (bright)
+        // Draw remaining segments (bright) - use .aboveLabels to ensure visibility over tile overlays
         if currentWaypointIndex < flightPlan.waypoints.count {
             let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
             let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
             remainingPolyline.isCompletedSegment = false
-            mapView.addOverlay(remainingPolyline, level: .aboveRoads)
+            mapView.addOverlay(remainingPolyline, level: .aboveLabels)
         }
 
         // Add waypoint annotations
@@ -1241,7 +1305,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
                 let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                mapView.addOverlay(polyline, level: .aboveRoads)
+                // Use .aboveLabels for GPS track to ensure visibility over tile overlays
+                mapView.addOverlay(polyline, level: .aboveLabels)
             }
         }
     }
@@ -1820,20 +1885,20 @@ struct SwissMapView: UIViewRepresentable {
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
 
-        // Draw completed segments (dimmed)
+        // Draw completed segments (dimmed) - use .aboveLabels to ensure visibility over tile overlays
         if currentWaypointIndex > 0 {
             let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
             let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
             completedPolyline.isCompletedSegment = true
-            mapView.addOverlay(completedPolyline, level: .aboveRoads)
+            mapView.addOverlay(completedPolyline, level: .aboveLabels)
         }
 
-        // Draw remaining segments (bright)
+        // Draw remaining segments (bright) - use .aboveLabels to ensure visibility over tile overlays
         if currentWaypointIndex < flightPlan.waypoints.count {
             let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
             let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
             remainingPolyline.isCompletedSegment = false
-            mapView.addOverlay(remainingPolyline, level: .aboveRoads)
+            mapView.addOverlay(remainingPolyline, level: .aboveLabels)
         }
 
         // Add waypoint annotations
@@ -1933,7 +1998,8 @@ struct SwissMapView: UIViewRepresentable {
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
                 let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                mapView.addOverlay(polyline, level: .aboveRoads)
+                // Use .aboveLabels for GPS track to ensure visibility over tile overlays
+                mapView.addOverlay(polyline, level: .aboveLabels)
             }
         }
     }

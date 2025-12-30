@@ -956,6 +956,13 @@ struct OptionalTimeFormField: View {
 
     @State private var isSet: Bool = false
     @State private var selectedTime: Date = Date()
+    @State private var showingPicker: Bool = false
+
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -963,42 +970,31 @@ struct OptionalTimeFormField: View {
                 .font(.system(size: 11))
                 .foregroundColor(.secondaryText)
 
-            HStack {
-                if isSet {
-                    DatePicker("", selection: $selectedTime, displayedComponents: [.hourAndMinute])
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                        .tint(.aviationGold)
-                        .onChange(of: selectedTime) { _, newValue in
-                            time = newValue
-                        }
-
-                    Button(action: {
-                        isSet = false
-                        time = nil
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.dimText)
-                    }
-                } else {
-                    Button(action: {
-                        selectedTime = Date()
-                        time = selectedTime
-                        isSet = true
-                    }) {
-                        Text("Set")
-                            .font(.system(size: 12))
-                            .foregroundColor(.aviationGold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .background(Color.cardBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+            Button(action: {
+                if !isSet {
+                    selectedTime = Date()
+                    time = selectedTime
+                    isSet = true
                 }
+                showingPicker = true
+            }) {
+                Text(isSet ? timeFormatter.string(from: selectedTime) : "Set")
+                    .font(.system(size: 14, weight: isSet ? .medium : .regular, design: .monospaced))
+                    .foregroundColor(isSet ? .primaryText : .aviationGold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showingPicker) {
+            TimePickerSheet(selectedTime: $selectedTime, isPresented: $showingPicker)
+                .onChange(of: selectedTime) { _, newValue in
+                    time = newValue
+                }
         }
         .onAppear {
             if let existingTime = time {
@@ -1006,6 +1002,36 @@ struct OptionalTimeFormField: View {
                 isSet = true
             }
         }
+    }
+}
+
+/// Sheet for picking time in a modal
+struct TimePickerSheet: View {
+    @Binding var selectedTime: Date
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                DatePicker("", selection: $selectedTime, displayedComponents: [.hourAndMinute])
+                    .labelsHidden()
+                    .datePickerStyle(.wheel)
+
+                Spacer()
+            }
+            .padding()
+            .background(Color.cockpitBackground)
+            .navigationTitle("Select Time")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

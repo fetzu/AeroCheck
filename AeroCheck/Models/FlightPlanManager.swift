@@ -212,6 +212,15 @@ class FlightPlanManager: ObservableObject {
         clearActiveFlightPlan()
     }
 
+    /// Update the departure time for the active flight plan
+    /// Called when the Line Up time is recorded from the checklist
+    func updateDepartureTimeFromLineUp(_ lineUpTime: Date) {
+        guard var plan = activeFlightPlan else { return }
+        plan.plannedDepartureTime = lineUpTime
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Populate flight plan timing fields from a completed flight's data
     /// - Parameters:
     ///   - planId: The ID of the flight plan to update

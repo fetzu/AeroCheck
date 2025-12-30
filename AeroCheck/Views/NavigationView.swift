@@ -351,7 +351,13 @@ struct NavigationMapView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            // Start GPS updates when navigation view opens
+            locationManager.startLocationUpdates()
             centerOnAircraft()
+        }
+        .onDisappear {
+            // Stop GPS updates when navigation view closes (if not in a flight)
+            locationManager.stopLocationUpdates()
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
@@ -966,10 +972,11 @@ struct RadioFrequencyOverlayView: View {
     }
 
     /// Get nearby CTRs based on current location
+    /// Major airports show up to 15nm, minor airports up to 10nm
     private var nearbyCTRs: [(ctr: SwissCTR, distanceNM: Double)] {
         guard let location = locationManager.currentLocation else { return [] }
-        // Get CTRs within 25nm, limited to closest 5
-        return Array(SwissCTRProximity.getNearbyCTRs(from: location, withinNM: 25.0).prefix(5))
+        // Get CTRs within display radius, limited to closest 5
+        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
     }
 
     private func ctrFrequencyRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
@@ -1092,11 +1099,12 @@ struct SwissAirspaceSectors {
 
 /// Swiss CTR zones with coordinates and frequencies
 /// Data from swisstopo / Swiss AIP and IVAO Switzerland
-/// FIS Zurich: LSZH, LSZA, LSZB, LSZC, LSZG, LSZR, LSZS, EDNY
+/// FIS Zurich: LSZH, LSZA, LSZB, LSZC, LSZG, LSZR, LSZS, EDNY, LFSB
 /// FIS Geneva: LSGG, LSGS, LSGC, LSMP
 enum SwissCTR: CaseIterable, Identifiable {
     // FIS Zurich airports
     case zurich           // LSZH - Zurich Airport
+    case basel            // LFSB - EuroAirport Basel-Mulhouse-Freiburg
     case lugano           // LSZA - Lugano-Agno
     case bern             // LSZB - Bern-Belp
     case buochs           // LSZC - Buochs (military)
@@ -1117,6 +1125,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var icaoCode: String {
         switch self {
         case .zurich: return "LSZH"
+        case .basel: return "LFSB"
         case .lugano: return "LSZA"
         case .bern: return "LSZB"
         case .buochs: return "LSZC"
@@ -1134,6 +1143,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var name: String {
         switch self {
         case .zurich: return "Zurich"
+        case .basel: return "Basel"
         case .lugano: return "Lugano"
         case .bern: return "Bern"
         case .buochs: return "Buochs"
@@ -1152,6 +1162,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var frequency: String {
         switch self {
         case .zurich: return "118.100"          // Zurich Tower
+        case .basel: return "118.300"           // Basel Tower
         case .lugano: return "118.550"          // Lugano Tower
         case .bern: return "126.075"            // Bern Tower
         case .buochs: return "120.425"          // Buochs Tower (military)
@@ -1170,6 +1181,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var callSign: String {
         switch self {
         case .zurich: return "ZURICH TOWER"
+        case .basel: return "BASEL TOWER"
         case .lugano: return "LUGANO TOWER"
         case .bern: return "BERN TOWER"
         case .buochs: return "BUOCHS TOWER"
@@ -1188,6 +1200,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var center: CLLocationCoordinate2D {
         switch self {
         case .zurich: return CLLocationCoordinate2D(latitude: 47.4647, longitude: 8.5492)
+        case .basel: return CLLocationCoordinate2D(latitude: 47.5896, longitude: 7.5299)
         case .lugano: return CLLocationCoordinate2D(latitude: 46.0040, longitude: 8.9106)
         case .bern: return CLLocationCoordinate2D(latitude: 46.9141, longitude: 7.4975)
         case .buochs: return CLLocationCoordinate2D(latitude: 46.9744, longitude: 8.3969)
@@ -1206,6 +1219,7 @@ enum SwissCTR: CaseIterable, Identifiable {
     var radiusNM: Double {
         switch self {
         case .zurich: return 12.0
+        case .basel: return 10.0
         case .lugano: return 5.0
         case .bern: return 5.0
         case .buochs: return 3.0
@@ -1220,6 +1234,15 @@ enum SwissCTR: CaseIterable, Identifiable {
         }
     }
 
+    /// Whether this is a major airport (for display radius filtering)
+    /// Major airports show up to 15nm, minor airports up to 10nm
+    var isMajor: Bool {
+        switch self {
+        case .zurich, .basel, .geneva: return true
+        default: return false
+        }
+    }
+
     /// Whether this is a military CTR
     var isMilitary: Bool {
         switch self {
@@ -1231,9 +1254,11 @@ enum SwissCTR: CaseIterable, Identifiable {
 
 /// Helper to find nearby CTRs
 struct SwissCTRProximity {
-    /// Get CTRs within a certain distance from a location
+    /// Get CTRs within display distance from a location
+    /// Major airports (LSZH, LFSB, LSGG) show up to 15nm
+    /// Minor airports show up to 10nm
     /// Returns list sorted by distance, closest first
-    static func getNearbyCTRs(from location: CLLocation, withinNM: Double = 20.0) -> [(ctr: SwissCTR, distanceNM: Double)] {
+    static func getNearbyCTRs(from location: CLLocation) -> [(ctr: SwissCTR, distanceNM: Double)] {
         var nearby: [(ctr: SwissCTR, distanceNM: Double)] = []
 
         for ctr in SwissCTR.allCases {
@@ -1241,7 +1266,9 @@ struct SwissCTRProximity {
             let distanceMeters = location.distance(from: ctrLocation)
             let distanceNM = distanceMeters / 1852.0
 
-            if distanceNM <= withinNM {
+            // Major airports show up to 15nm, minor airports up to 10nm
+            let displayRadius = ctr.isMajor ? 15.0 : 10.0
+            if distanceNM <= displayRadius {
                 nearby.append((ctr: ctr, distanceNM: distanceNM))
             }
         }
@@ -1255,8 +1282,8 @@ struct SwissCTRProximity {
         let distanceMeters = location.distance(from: ctrLocation)
         let distanceNM = distanceMeters / 1852.0
 
-        // Consider "near" if within CTR radius + 5nm buffer
-        return distanceNM <= (ctr.radiusNM + 5.0)
+        // Consider "near" if within CTR radius + 3nm buffer
+        return distanceNM <= (ctr.radiusNM + 3.0)
     }
 }
 

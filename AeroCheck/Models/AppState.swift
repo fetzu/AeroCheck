@@ -63,6 +63,99 @@ enum TerrainAltitudeUnit: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Saved state for an active flight session
+/// Used to restore flight state when app is closed and reopened
+struct ActiveFlightState: Codable {
+    let flight: Flight
+    let currentPhaseRawValue: Int
+    let engineStartTime: Date?
+    let lineUpTime: Date?
+    let landingTime: Date?
+    let engineShutdownTime: Date?
+    let phaseCompletionStatus: [Int: String] // Phase raw value -> status string
+    let highestCompletedPhaseRawValue: Int
+    let currentHighlightedItem: [Int: Int] // Phase raw value -> highlighted item index
+    let hasLandingBeenDetected: Bool
+    let savedAt: Date
+
+    @MainActor
+    init(from appState: AppState) {
+        self.flight = appState.currentFlight!
+        self.currentPhaseRawValue = appState.currentPhase.rawValue
+        self.engineStartTime = appState.engineStartTime
+        self.lineUpTime = appState.lineUpTime
+        self.landingTime = appState.landingTime
+        self.engineShutdownTime = appState.engineShutdownTime
+
+        // Convert phase completion status to codable format
+        var statusDict: [Int: String] = [:]
+        for (phase, status) in appState.phaseCompletionStatus {
+            let statusString: String
+            switch status {
+            case .notStarted: statusString = "notStarted"
+            case .completed: statusString = "completed"
+            case .skipped: statusString = "skipped"
+            case .missingAction: statusString = "missingAction"
+            }
+            statusDict[phase.rawValue] = statusString
+        }
+        self.phaseCompletionStatus = statusDict
+
+        self.highestCompletedPhaseRawValue = appState.highestCompletedPhase.rawValue
+
+        // Convert highlighted items
+        var highlightedDict: [Int: Int] = [:]
+        for (phase, index) in appState.currentHighlightedItem {
+            highlightedDict[phase.rawValue] = index
+        }
+        self.currentHighlightedItem = highlightedDict
+
+        self.hasLandingBeenDetected = appState.hasLandingBeenDetected
+        self.savedAt = Date()
+    }
+
+    /// Restore state to AppState
+    @MainActor
+    func restore(to appState: AppState) {
+        appState.currentFlight = flight
+        appState.isFlightActive = true
+        appState.currentPhase = ChecklistPhase(rawValue: currentPhaseRawValue) ?? .preflight
+        appState.engineStartTime = engineStartTime
+        appState.lineUpTime = lineUpTime
+        appState.landingTime = landingTime
+        appState.engineShutdownTime = engineShutdownTime
+
+        // Restore phase completion status
+        var statusDict: [ChecklistPhase: PhaseCompletionStatus] = [:]
+        for (rawValue, statusString) in phaseCompletionStatus {
+            if let phase = ChecklistPhase(rawValue: rawValue) {
+                let status: PhaseCompletionStatus
+                switch statusString {
+                case "completed": status = .completed
+                case "skipped": status = .skipped
+                case "missingAction": status = .missingAction
+                default: status = .notStarted
+                }
+                statusDict[phase] = status
+            }
+        }
+        appState.phaseCompletionStatus = statusDict
+
+        appState.highestCompletedPhase = ChecklistPhase(rawValue: highestCompletedPhaseRawValue) ?? .preflight
+
+        // Restore highlighted items
+        var highlightedDict: [ChecklistPhase: Int] = [:]
+        for (rawValue, index) in currentHighlightedItem {
+            if let phase = ChecklistPhase(rawValue: rawValue) {
+                highlightedDict[phase] = index
+            }
+        }
+        appState.currentHighlightedItem = highlightedDict
+
+        appState.hasLandingBeenDetected = hasLandingBeenDetected
+    }
+}
+
 /// Main application state manager
 @MainActor
 class AppState: ObservableObject {
@@ -95,9 +188,10 @@ class AppState: ObservableObject {
     private let requiredLowSpeedReadings: Int = 3
     
     // MARK: - Private Properties
-    
+
     private let flightsKey = "savedFlights"
     private let settingsKey = "appSettings"
+    private let activeFlightStateKey = "activeFlightState"
     
     // MARK: - Initialization
 
@@ -105,6 +199,8 @@ class AppState: ObservableObject {
         loadFlights()
         loadSettings()
         syncAircraftType()
+        // Try to restore active flight state if app was closed during a flight
+        restoreActiveFlightState()
     }
 
     /// Sync the current aircraft type to ChecklistData
@@ -141,16 +237,16 @@ class AppState: ObservableObject {
     
     func endFlight() {
         guard var flight = currentFlight else { return }
-        
+
         flight.stopTime = Date()
         flight.engineStartTime = engineStartTime
         flight.lineUpTime = lineUpTime
         flight.landingTime = landingTime
         flight.engineShutdownTime = engineShutdownTime
-        
+
         flights.insert(flight, at: 0)
         saveFlights()
-        
+
         currentFlight = nil
         isFlightActive = false
         engineStartTime = nil
@@ -160,6 +256,9 @@ class AppState: ObservableObject {
         phaseCompletionStatus = [:]
         currentPhase = .preflight
         hasLandingBeenDetected = false
+
+        // Clear saved flight state since flight ended normally
+        clearActiveFlightState()
     }
     
     func cancelFlight() {
@@ -173,6 +272,9 @@ class AppState: ObservableObject {
         currentPhase = .preflight
         hasLandingBeenDetected = false
         currentHighlightedItem = [:]
+
+        // Clear saved flight state since flight was cancelled
+        clearActiveFlightState()
     }
     
     // MARK: - Step-by-Step Highlighting
@@ -472,6 +574,67 @@ class AppState: ObservableObject {
         } catch {
             print("[AeroCheck] Failed to load settings: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Active Flight State Persistence
+
+    /// Save the current active flight state for restoration on app restart
+    func saveActiveFlightState() {
+        guard currentFlight != nil else {
+            clearActiveFlightState()
+            return
+        }
+
+        do {
+            let state = ActiveFlightState(from: self)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(state)
+            UserDefaults.standard.set(data, forKey: activeFlightStateKey)
+        } catch {
+            print("[AeroCheck] Failed to save active flight state: \(error.localizedDescription)")
+        }
+    }
+
+    /// Restore the active flight state if one was saved
+    /// Returns true if a flight state was restored
+    @discardableResult
+    func restoreActiveFlightState() -> Bool {
+        guard let data = UserDefaults.standard.data(forKey: activeFlightStateKey) else {
+            return false
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let state = try decoder.decode(ActiveFlightState.self, from: data)
+
+            // Check if the saved state is recent (within 24 hours)
+            // Old sessions shouldn't be restored
+            let maxAge: TimeInterval = 24 * 60 * 60 // 24 hours
+            if Date().timeIntervalSince(state.savedAt) > maxAge {
+                clearActiveFlightState()
+                return false
+            }
+
+            state.restore(to: self)
+            print("[AeroCheck] Restored active flight state from \(state.savedAt)")
+            return true
+        } catch {
+            print("[AeroCheck] Failed to restore active flight state: \(error.localizedDescription)")
+            clearActiveFlightState()
+            return false
+        }
+    }
+
+    /// Clear the saved active flight state
+    func clearActiveFlightState() {
+        UserDefaults.standard.removeObject(forKey: activeFlightStateKey)
+    }
+
+    /// Check if there is a saved active flight state
+    var hasActiveFlightState: Bool {
+        UserDefaults.standard.data(forKey: activeFlightStateKey) != nil
     }
 }
 

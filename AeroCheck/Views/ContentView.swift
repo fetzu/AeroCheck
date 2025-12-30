@@ -4,7 +4,9 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
@@ -78,6 +80,24 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .background, .inactive:
+                // Save flight state when app goes to background or becomes inactive
+                if appState.isFlightActive {
+                    appState.saveActiveFlightState()
+                }
+            case .active:
+                // On app start, deactivate flight plan if no flight is in progress
+                // This is handled after flight state restoration, so if a flight was
+                // restored, isFlightActive will be true and we keep the flight plan
+                if !appState.isFlightActive {
+                    flightPlanManager.deactivateFlightPlan()
+                }
+            @unknown default:
+                break
+            }
         }
     }
 }
@@ -179,4 +199,5 @@ struct RotateToPortraitView: View {
     ContentView()
         .environmentObject(AppState())
         .environmentObject(LocationManager())
+        .environmentObject(FlightPlanManager())
 }

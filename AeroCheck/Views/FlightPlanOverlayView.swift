@@ -34,11 +34,14 @@ struct FlightPlanOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var locationManager: LocationManager
 
+    @EnvironmentObject var appState: AppState
+
     @State private var currentPresetPosition: FlightPlanOverlayPosition = .middleLeft
     @State private var customPosition: CGPoint? = nil
     @State private var isDragging = false
     @State private var isExpanded = true
     @State private var showingDepartureTimePicker = false
+    @State private var showingFlightPlanDetail = false
 
     let containerSize: CGSize
     /// Whether the radio frequency window is currently open (affects position constraints)
@@ -85,6 +88,13 @@ struct FlightPlanOverlayView: View {
         .sheet(isPresented: $showingDepartureTimePicker) {
             DepartureTimePickerSheet()
                 .environmentObject(flightPlanManager)
+        }
+        .sheet(isPresented: $showingFlightPlanDetail) {
+            if let plan = flightPlanManager.activeFlightPlan {
+                FlightPlanEditorView(flightPlan: plan)
+                    .environmentObject(appState)
+                    .environmentObject(flightPlanManager)
+            }
         }
     }
 
@@ -187,10 +197,13 @@ struct FlightPlanOverlayView: View {
 
             // Main content
             VStack(spacing: 12) {
-                // Next waypoint info
+                // Next waypoint info - tappable to open flight plan detail
                 if let plan = flightPlanManager.activeFlightPlan,
                    let nextWaypoint = plan.nextWaypoint {
-                    nextWaypointSection(plan: plan, waypoint: nextWaypoint)
+                    Button(action: { showingFlightPlanDetail = true }) {
+                        nextWaypointSection(plan: plan, waypoint: nextWaypoint)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 } else {
                     Text("No active flight plan")
                         .font(.system(size: 12))
@@ -201,9 +214,12 @@ struct FlightPlanOverlayView: View {
                 Divider()
                     .background(Color.dimText)
 
-                // Progress bar
+                // Progress bar - tappable to open flight plan detail
                 if let plan = flightPlanManager.activeFlightPlan {
-                    progressSection(plan: plan)
+                    Button(action: { showingFlightPlanDetail = true }) {
+                        progressSection(plan: plan)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
 
                 Divider()
@@ -378,31 +394,11 @@ struct FlightPlanOverlayView: View {
                 }
                 .padding(.vertical, 4)
 
-                // EET row - smaller
-                HStack(spacing: 12) {
-                    Text("EET:")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.dimText)
+                // ETO row (Estimated Time Over = current time + EET)
+                etoRow(clLocation: clLocation)
 
-                    let groundSpeedKnots = (locationManager.currentLocation?.speed ?? 0) * 1.94384
-                    if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: max(groundSpeedKnots, 1)) {
-                        let minutes = Int(eta / 60)
-                        let seconds = Int(eta) % 60
-                        if minutes > 60 {
-                            Text(String(format: "%dh %02dm", minutes / 60, minutes % 60))
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                        } else {
-                            Text(String(format: "%d:%02d", minutes, seconds))
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                        }
-                    } else {
-                        Text("--:--")
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundColor(.dimText)
-                    }
-                }
+                // Total flight time (from takeoff)
+                flightTimeRow
             }
 
             // Planned altitude if set
@@ -415,6 +411,51 @@ struct FlightPlanOverlayView: View {
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundColor(.primaryText)
                 }
+            }
+        }
+    }
+
+    /// ETO display row
+    private func etoRow(clLocation: CLLocation) -> some View {
+        let groundSpeedKnots = max((locationManager.currentLocation?.speed ?? 0) * 1.94384, 1)
+        let eet = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots)
+        let etoString = eet.map { eet -> String in
+            let etoDate = Date().addingTimeInterval(eet)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: etoDate)
+        }
+
+        return HStack(spacing: 12) {
+            Text("ETO:")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.dimText)
+
+            Text(etoString ?? "--:--")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(etoString != nil ? .primaryText : .dimText)
+        }
+    }
+
+    /// Flight time display row
+    private var flightTimeRow: some View {
+        HStack(spacing: 12) {
+            Text("FLT TIME:")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+
+            if let takeoffTime = appState.lineUpTime {
+                let elapsed = Date().timeIntervalSince(takeoffTime)
+                let hours = Int(elapsed) / 3600
+                let minutes = (Int(elapsed) % 3600) / 60
+                let seconds = Int(elapsed) % 60
+                Text(String(format: "%02d:%02d:%02d", hours, minutes, seconds))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+            } else {
+                Text("--:--:--")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.dimText)
             }
         }
     }
@@ -469,18 +510,22 @@ struct FlightPlanOverlayView: View {
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.aviationGreen)
 
-            // ETO to next waypoint
-            if let plan = flightPlanManager.activeFlightPlan,
-               plan.currentWaypointIndex < plan.waypoints.count {
-                let nextWaypoint = plan.waypoints[plan.currentWaypointIndex]
-                if let etoString = nextWaypoint.formattedETO {
+            // EET to next waypoint (in MM format)
+            if let location = locationManager.currentLocation {
+                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                let groundSpeedKnots = max((location.speed) * 1.94384, 1)
+                if let eet = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
+                    let minutes = Int(eet / 60)
                     HStack(spacing: 4) {
-                        Text("ETO")
+                        Text("EET")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        Text(etoString)
+                        Text(String(format: "%d", minutes))
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
+                        Text("min")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
                     }
                 }
             }
@@ -537,14 +582,16 @@ struct FlightPlanOverlayView: View {
                 .disabled(flightPlanManager.activeFlightPlan?.currentWaypointIndex == (flightPlanManager.activeFlightPlan?.waypoints.count ?? 0))
             }
 
-            // Departure time adjustment
-            Button(action: { showingDepartureTimePicker = true }) {
-                HStack {
-                    Image(systemName: "clock")
-                    Text("Adjust Departure Time")
+            // Departure time adjustment - only show on first waypoint
+            if flightPlanManager.activeFlightPlan?.currentWaypointIndex == 0 {
+                Button(action: { showingDepartureTimePicker = true }) {
+                    HStack {
+                        Image(systemName: "clock")
+                        Text("Adjust Departure Time")
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(.aviationGold)
                 }
-                .font(.system(size: 11))
-                .foregroundColor(.aviationGold)
             }
         }
     }
@@ -627,6 +674,21 @@ struct DepartureTimePickerSheet: View {
                 }
                 .padding(.horizontal)
 
+                Button(action: {
+                    setDepartureTimeToNow()
+                }) {
+                    Text("Set Departure Time To Now")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.aviationGold, lineWidth: 1)
+                        )
+                }
+                .padding(.horizontal)
+
                 Spacer()
             }
             .padding(.top)
@@ -654,6 +716,14 @@ struct DepartureTimePickerSheet: View {
         flightPlanManager.updateFlightPlan(plan)
         dismiss()
     }
+
+    private func setDepartureTimeToNow() {
+        guard var plan = flightPlanManager.activeFlightPlan else { return }
+        plan.plannedDepartureTime = Date()
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        dismiss()
+    }
 }
 
 // MARK: - Preview
@@ -665,5 +735,6 @@ struct DepartureTimePickerSheet: View {
         FlightPlanOverlayView(containerSize: CGSize(width: 400, height: 800))
             .environmentObject(FlightPlanManager())
             .environmentObject(LocationManager())
+            .environmentObject(AppState())
     }
 }

@@ -108,6 +108,30 @@ class LocationManager: NSObject, ObservableObject {
         appState = nil
     }
 
+    /// Start location updates without recording (for navigation view)
+    /// This enables GPS for real-time position display without storing track points
+    func startLocationUpdates() {
+        guard authorizationStatus == .authorizedWhenInUse ||
+              authorizationStatus == .authorizedAlways else {
+            requestAuthorization()
+            return
+        }
+
+        locationManager.startUpdatingLocation()
+        lastLocationUpdateTime = Date()
+        gpsSignalStatus = .good
+        startSignalCheckTimer()
+    }
+
+    /// Stop location updates when navigation view is closed
+    /// Only stops if not currently tracking a flight
+    func stopLocationUpdates() {
+        if !isTracking {
+            locationManager.stopUpdatingLocation()
+            stopSignalCheckTimer()
+        }
+    }
+
     // MARK: - Signal Quality Monitoring
 
     private func startSignalCheckTimer() {

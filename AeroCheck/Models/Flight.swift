@@ -9,6 +9,7 @@ struct Flight: Identifiable, Codable {
     var aircraftType: String? // Aircraft type identifier (e.g., "WT9", "PA28")
     var checklistVersion: String? // Checklist version used (e.g., "2.1e")
     var flightPlanId: UUID? // Associated flight plan ID (if using navigation planning)
+    var flightPlan: FlightPlan? // Full flight plan data (saved with the flight)
     var startTime: Date?
     var stopTime: Date?
     var engineStartTime: Date?
@@ -29,6 +30,7 @@ struct Flight: Identifiable, Codable {
         aircraftType: String? = nil,
         checklistVersion: String? = nil,
         flightPlanId: UUID? = nil,
+        flightPlan: FlightPlan? = nil,
         startTime: Date? = nil,
         stopTime: Date? = nil,
         engineStartTime: Date? = nil,
@@ -48,6 +50,7 @@ struct Flight: Identifiable, Codable {
         self.aircraftType = aircraftType
         self.checklistVersion = checklistVersion
         self.flightPlanId = flightPlanId
+        self.flightPlan = flightPlan
         self.startTime = startTime
         self.stopTime = stopTime
         self.engineStartTime = engineStartTime

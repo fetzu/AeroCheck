@@ -266,7 +266,7 @@ struct NavigationMapView: View {
 
     /// GPS status color
     private var gpsStatusColor: Color {
-        guard locationManager.isTracking else { return .dimText }
+        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .dimText }
         switch locationManager.gpsSignalStatus {
         case .good: return .aviationGreen
         case .degraded: return .orange
@@ -276,7 +276,7 @@ struct NavigationMapView: View {
 
     /// GPS status indicator
     private var gpsStatusIndicator: StatusIndicator.Status {
-        guard locationManager.isTracking else { return .inactive }
+        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .inactive }
         switch locationManager.gpsSignalStatus {
         case .good: return .active
         case .degraded: return .warning
@@ -679,8 +679,8 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
-                // Radio Frequency button (when flight plan is active)
-                if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
+                // Radio Frequency button (always shown when flight planning is enabled)
+                if appState.settings.enableFlightPlanning {
                     Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
                         HStack(spacing: 4) {
                             Image(systemName: "antenna.radiowaves.left.and.right")

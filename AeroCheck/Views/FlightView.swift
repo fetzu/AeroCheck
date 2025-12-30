@@ -110,7 +110,8 @@ struct FlightView: View {
             Button("Cancel", role: .cancel) { }
             Button("End Flight", role: .destructive) {
                 locationManager.stopTracking()
-                appState.endFlight()
+                appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
+                flightPlanManager.deactivateFlightPlan()
             }
         } message: {
             Text("This will save the flight to your log and stop GPS recording.")
@@ -416,12 +417,7 @@ struct FlightView: View {
     private var compactHeaderBar: some View {
         HStack(spacing: 8) {
             // Aircraft identifier with long-press to abandon
-            HStack(spacing: 4) {
-                abandonableAirplaneIcon(size: 14, isCompact: true)
-                Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primaryText)
-            }
+            abandonableAircraftIdentifier(iconSize: 14, isCompact: true)
 
             Spacer()
 
@@ -623,7 +619,7 @@ struct FlightView: View {
     private func startAbandonFlightTimer() {
         abandonFlightProgress = 0
         abandonFlightTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            abandonFlightProgress += 0.05 / 5.0 // 5 seconds total
+            abandonFlightProgress += 0.05 / 2.5 // 2.5 seconds total
             if abandonFlightProgress >= 1.0 {
                 timer.invalidate()
                 abandonFlightTimer = nil
@@ -644,26 +640,34 @@ struct FlightView: View {
         }
     }
 
-    /// Creates an airplane icon with long press to abandon gesture
-    private func abandonableAirplaneIcon(size: CGFloat, isCompact: Bool) -> some View {
-        ZStack {
+    /// Creates an airplane identifier section with long press to abandon gesture
+    /// Both the airplane icon and the call sign are tappable
+    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 4 : 8) {
             // Progress ring behind the icon
-            if abandonFlightProgress > 0 {
-                Circle()
-                    .stroke(Color.aviationRed.opacity(0.3), lineWidth: isCompact ? 2 : 3)
-                    .frame(width: size + (isCompact ? 8 : 12), height: size + (isCompact ? 8 : 12))
+            ZStack {
+                if abandonFlightProgress > 0 {
+                    Circle()
+                        .stroke(Color.aviationRed.opacity(0.3), lineWidth: isCompact ? 2 : 3)
+                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
-                Circle()
-                    .trim(from: 0, to: abandonFlightProgress)
-                    .stroke(Color.aviationRed, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
-                    .frame(width: size + (isCompact ? 8 : 12), height: size + (isCompact ? 8 : 12))
-                    .rotationEffect(.degrees(-90))
+                    Circle()
+                        .trim(from: 0, to: abandonFlightProgress)
+                        .stroke(Color.aviationRed, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
+                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
+                        .rotationEffect(.degrees(-90))
+                }
+
+                Image(systemName: "airplane")
+                    .font(.system(size: iconSize))
+                    .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
             }
 
-            Image(systemName: "airplane")
-                .font(.system(size: size))
-                .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
+            Text(appState.currentFlight?.airplane ?? "F-HVXA")
+                .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
+                .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
         }
+        .contentShape(Rectangle()) // Make entire area tappable
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -682,12 +686,7 @@ struct FlightView: View {
     private var headerBar: some View {
         HStack {
             // Aircraft identifier with long-press to abandon
-            HStack(spacing: 8) {
-                abandonableAirplaneIcon(size: 20, isCompact: false)
-                Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                    .font(.headerText)
-                    .foregroundColor(.primaryText)
-            }
+            abandonableAircraftIdentifier(iconSize: 20, isCompact: false)
             
             Spacer()
             

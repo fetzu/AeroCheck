@@ -33,7 +33,6 @@ enum FlightPlanOverlayPosition: Int, CaseIterable {
 struct FlightPlanOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var locationManager: LocationManager
-
     @EnvironmentObject var appState: AppState
 
     @State private var currentPresetPosition: FlightPlanOverlayPosition = .middleLeft
@@ -42,6 +41,10 @@ struct FlightPlanOverlayView: View {
     @State private var isExpanded = true
     @State private var showingDepartureTimePicker = false
     @State private var showingFlightPlanDetail = false
+    @State private var refreshTrigger = false // Triggers view refresh
+
+    // Timer for refreshing values every second
+    let refreshTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     let containerSize: CGSize
     /// Whether the radio frequency window is currently open (affects position constraints)
@@ -95,6 +98,10 @@ struct FlightPlanOverlayView: View {
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
             }
+        }
+        .onReceive(refreshTimer) { _ in
+            // Trigger view refresh every second for real-time values
+            refreshTrigger.toggle()
         }
     }
 
@@ -307,6 +314,7 @@ struct FlightPlanOverlayView: View {
                 Text(flightPlanManager.formattedChronometer)
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationGreen)
+                    .id(refreshTrigger) // Force refresh every second
             }
 
             // Expand button
@@ -452,6 +460,7 @@ struct FlightPlanOverlayView: View {
                 Text(String(format: "%02d:%02d:%02d", hours, minutes, seconds))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundColor(.secondaryText)
+                    .id(refreshTrigger) // Force refresh every second
             } else {
                 Text("--:--:--")
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
@@ -509,6 +518,7 @@ struct FlightPlanOverlayView: View {
             Text(flightPlanManager.formattedChronometer)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.aviationGreen)
+                .id(refreshTrigger) // Force refresh every second
 
             // EET to next waypoint (in MM format)
             if let location = locationManager.currentLocation {

@@ -151,6 +151,12 @@ struct FlightPlanEditorView: View {
                     }
                     .pickerStyle(.menu)
                     .tint(.aviationGold)
+                    .onChange(of: flightPlan.flightType) { _, _ in
+                        // Force refresh by saving and recalculating
+                        var updatedPlan = flightPlan
+                        updatedPlan.calculateRouteData()
+                        flightPlan = updatedPlan
+                    }
                 }
             }
 
@@ -168,7 +174,7 @@ struct FlightPlanEditorView: View {
                     get: { flightPlan.plannedDepartureTime ?? Date() },
                     set: { flightPlan.plannedDepartureTime = $0 }
                 ))
-                OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse)
+                OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
 
                 // Row 2
                 OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
@@ -900,6 +906,7 @@ struct FormField: View {
 struct OptionalFormField: View {
     let label: String
     @Binding var text: String?
+    var keyboardType: UIKeyboardType = .default
 
     @State private var localText: String = ""
 
@@ -912,6 +919,7 @@ struct OptionalFormField: View {
             TextField("", text: $localText)
                 .font(.system(size: 14))
                 .textFieldStyle(.plain)
+                .keyboardType(keyboardType)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .background(Color.cardBackground)
@@ -1005,32 +1013,44 @@ struct OptionalTimeFormField: View {
     }
 }
 
-/// Sheet for picking time in a modal
+/// Compact sheet for picking time (popover-style)
 struct TimePickerSheet: View {
     @Binding var selectedTime: Date
     @Binding var isPresented: Bool
 
     var body: some View {
-        NavigationView {
-            VStack {
-                DatePicker("", selection: $selectedTime, displayedComponents: [.hourAndMinute])
-                    .labelsHidden()
-                    .datePickerStyle(.wheel)
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Text("Select Time")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primaryText)
 
                 Spacer()
-            }
-            .padding()
-            .background(Color.cockpitBackground)
-            .navigationTitle("Select Time")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        isPresented = false
-                    }
+
+                Button("Done") {
+                    isPresented = false
                 }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.aviationGold)
             }
+            .padding(.horizontal)
+            .padding(.top, 16)
+
+            // Compact time picker
+            DatePicker("", selection: $selectedTime, displayedComponents: [.hourAndMinute])
+                .labelsHidden()
+                .datePickerStyle(.wheel)
+                .frame(height: 150)
+                .clipped()
+
+            Spacer()
         }
+        .frame(maxHeight: 280)
+        .background(Color.panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .presentationDetents([.height(280)])
+        .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
     }
 }

@@ -235,7 +235,7 @@ class AppState: ObservableObject {
         currentHighlightedItem = [:] // Reset highlighting
     }
     
-    func endFlight() {
+    func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
         guard var flight = currentFlight else { return }
 
         flight.stopTime = Date()
@@ -243,6 +243,7 @@ class AppState: ObservableObject {
         flight.lineUpTime = lineUpTime
         flight.landingTime = landingTime
         flight.engineShutdownTime = engineShutdownTime
+        flight.flightPlan = flightPlan
 
         flights.insert(flight, at: 0)
         saveFlights()

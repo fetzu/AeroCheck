@@ -220,6 +220,13 @@ struct FlightView: View {
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
+                            onFullStop: {
+                                appState.recordFullStop()
+                                // Reset UI state since we're jumping to a new phase
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
                             onLanded: {
                                 appState.recordLanding()
                                 pulseActionButton = false
@@ -251,6 +258,7 @@ struct FlightView: View {
                             engineShutdownTime: appState.formattedEngineShutdownTime,
                             goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
                             touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
+                            fullStopCount: appState.currentFlight?.fullStopCount ?? 0,
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
@@ -352,6 +360,12 @@ struct FlightView: View {
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
+                            onFullStop: {
+                                appState.recordFullStop()
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
                             onLanded: {
                                 appState.recordLanding()
                                 pulseActionButton = false
@@ -372,6 +386,7 @@ struct FlightView: View {
                             engineShutdownTime: appState.formattedEngineShutdownTime,
                             goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
                             touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
+                            fullStopCount: appState.currentFlight?.fullStopCount ?? 0,
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
@@ -663,9 +678,18 @@ struct FlightView: View {
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
             }
 
-            Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
-                .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+            HStack(spacing: 4) {
+                Text(appState.currentFlight?.airplane ?? "F-HVXA")
+                    .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
+                    .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+
+                // Circuit mode indicator
+                if appState.isCircuitMode {
+                    Text("(for circuits)")
+                        .font(isCompact ? .system(size: 11, weight: .medium) : .system(size: 13, weight: .medium))
+                        .foregroundColor(.aviationAmber)
+                }
+            }
         }
         .contentShape(Rectangle()) // Make entire area tappable
         .gesture(
@@ -848,7 +872,13 @@ struct FlightView: View {
             // Phase list
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(ChecklistPhase.allCases) { phase in
+                    ForEach(ChecklistPhase.allCases.filter { phase in
+                        // Hide CRUISE and DESCENT in circuit mode
+                        if appState.isCircuitMode && (phase == .cruise || phase == .descent) {
+                            return false
+                        }
+                        return true
+                    }) { phase in
                         PhaseRowButton(
                             phase: phase,
                             isActive: phase == appState.currentPhase,

@@ -773,6 +773,7 @@ struct FlightDetailView: View {
                     engineShutdownTime: flight.engineShutdownTime,
                     goAroundTimes: flight.goAroundTimes,
                     touchAndGoTimes: flight.touchAndGoTimes,
+                    fullStopTimes: flight.fullStopTimes,
                     selectedTime: $selectedTime
                 )
                 .frame(height: 200)
@@ -804,6 +805,9 @@ struct FlightDetailView: View {
                 }
                 if flight.touchAndGoCount > 0 {
                     DetailRow(label: "Touch-and-goes", value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
+                }
+                if flight.fullStopCount > 0 {
+                    DetailRow(label: "Full Stops", value: "\(flight.fullStopCount)", icon: "stop.circle.fill")
                 }
             }
             .cardStyle()
@@ -1284,6 +1288,7 @@ struct AltitudeChartView: View {
     let engineShutdownTime: Date?
     let goAroundTimes: [Date]
     let touchAndGoTimes: [Date]
+    let fullStopTimes: [Date]
     @Binding var selectedTime: Date?
 
     /// Altitude data points for the chart
@@ -1322,6 +1327,11 @@ struct AltitudeChartView: View {
         // Add touch-and-go events
         for touchAndGoTime in touchAndGoTimes {
             annotations.append((time: touchAndGoTime, icon: "arrow.triangle.2.circlepath", color: .aviationBlue))
+        }
+
+        // Add full stop events
+        for fullStopTime in fullStopTimes {
+            annotations.append((time: fullStopTime, icon: "stop.circle.fill", color: .aviationAmber))
         }
 
         if let landing = landingTime {

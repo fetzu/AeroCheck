@@ -872,7 +872,13 @@ struct FlightView: View {
             // Phase list
             ScrollView {
                 VStack(spacing: 2) {
-                    ForEach(ChecklistPhase.allCases) { phase in
+                    ForEach(ChecklistPhase.allCases.filter { phase in
+                        // Hide CRUISE and DESCENT in circuit mode
+                        if appState.isCircuitMode && (phase == .cruise || phase == .descent) {
+                            return false
+                        }
+                        return true
+                    }) { phase in
                         PhaseRowButton(
                             phase: phase,
                             isActive: phase == appState.currentPhase,

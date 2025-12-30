@@ -7,6 +7,7 @@ struct AeroCheckApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager = OfflineMapManager()
     @StateObject private var windDataService = WindDataService()
+    @StateObject private var flightPlanManager = FlightPlanManager()
     @State private var showUpdateReminder = false
 
     var body: some Scene {
@@ -16,6 +17,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(flightPlanManager)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -39,6 +41,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(flightPlanManager)
                 .preferredColorScheme(.dark)
         }
         #endif
@@ -52,7 +55,9 @@ struct AeroCheckApp: App {
             // Parse aircraft from query parameters
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let aircraft = components.queryItems?.first(where: { $0.name == "aircraft" })?.value {
-                appState.startFlight(withAircraft: aircraft)
+                // Pass active flight plan ID if one exists
+                let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
+                appState.startFlight(withAircraft: aircraft, flightPlanId: activeFlightPlanId)
             }
         case "flight-log":
             appState.showFlightLog = true

@@ -31,10 +31,17 @@ AeroCheck/
 │   ├── FlightView.swift       # Main checklist UI during flight
 │   ├── FlightLogView.swift    # Flight history, export/import
 │   ├── NavigationView.swift   # Full-screen map with Swiss layers
-│   └── SettingsView.swift     # App configuration
+│   ├── SettingsView.swift     # App configuration
+│   ├── FlightPlanningView.swift    # Flight plan list (Beta)
+│   ├── FlightPlanEditorView.swift  # Tabular flight plan editor (Beta)
+│   ├── WaypointEditorSheet.swift   # Waypoint editing sheet (Beta)
+│   ├── FlightPlanOverlayView.swift # In-flight HUD overlay (Beta)
+│   └── TerrainProfileView.swift    # Terrain elevation display (Beta)
 ├── Models/
 │   ├── AppState.swift         # Central state manager (@MainActor ObservableObject)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
+│   ├── FlightPlan.swift       # Flight plan models and export (Beta)
+│   ├── FlightPlanManager.swift # Flight plan state management (Beta)
 │   ├── Checklist.swift        # 16 flight phases with items
 │   ├── Aircraft.swift         # Aircraft types and metadata
 │   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data
@@ -42,7 +49,8 @@ AeroCheck/
 ├── Services/
 │   ├── LocationManager.swift  # GPS tracking (CLLocationManagerDelegate)
 │   ├── OfflineMapManager.swift # ICAO chart caching for offline use
-│   └── WindDataService.swift  # MeteoSwiss wind data for estimated airspeed
+│   ├── WindDataService.swift  # MeteoSwiss wind data for estimated airspeed
+│   └── ElevationService.swift # Terrain elevation from swisstopo (Beta)
 ├── Components/
 │   ├── DesignSystem.swift     # Colors, fonts, button styles
 │   └── ChecklistView.swift    # Checklist display component
@@ -57,6 +65,7 @@ AeroCheckWidget/
 - `AppState`: Central state (flight lifecycle, navigation, timing, settings)
 - `LocationManager`: GPS service with background tracking
 - `WindDataService`: MeteoSwiss wind data fetching for estimated airspeed (experimental)
+- `FlightPlanManager`: Flight plan CRUD, waypoint management, and in-flight tracking (Beta)
 - Views observe state via `@EnvironmentObject`
 
 **Data Persistence:** UserDefaults with Codable serialization
@@ -77,6 +86,7 @@ AeroCheckWidget/
 | Timing Events | Engine start, line up (+2min), landing, shutdown |
 | Export | GPX 1.1 (with `pc:` extensions), JSON, ZIP |
 | Home Screen Widgets | `AeroCheckWidget` for quick flight start |
+| Flight Planning (Beta) | `FlightPlanManager` + waypoint routes, terrain profile, in-flight overlay |
 
 ## Code Patterns
 

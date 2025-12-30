@@ -24,6 +24,7 @@ class LocationManager: NSObject, ObservableObject {
     @Published var currentLocation: CLLocation?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var isTracking: Bool = false
+    @Published var isLocationUpdatesActive: Bool = false // True when GPS is active (even without flight tracking)
     @Published var locationError: String?
     @Published var gpsSignalStatus: GPSSignalStatus = .good
 
@@ -108,6 +109,32 @@ class LocationManager: NSObject, ObservableObject {
         appState = nil
     }
 
+    /// Start location updates without recording (for navigation view)
+    /// This enables GPS for real-time position display without storing track points
+    func startLocationUpdates() {
+        guard authorizationStatus == .authorizedWhenInUse ||
+              authorizationStatus == .authorizedAlways else {
+            requestAuthorization()
+            return
+        }
+
+        locationManager.startUpdatingLocation()
+        lastLocationUpdateTime = Date()
+        gpsSignalStatus = .good
+        isLocationUpdatesActive = true
+        startSignalCheckTimer()
+    }
+
+    /// Stop location updates when navigation view is closed
+    /// Only stops if not currently tracking a flight
+    func stopLocationUpdates() {
+        if !isTracking {
+            locationManager.stopUpdatingLocation()
+            stopSignalCheckTimer()
+            isLocationUpdatesActive = false
+        }
+    }
+
     // MARK: - Signal Quality Monitoring
 
     private func startSignalCheckTimer() {
@@ -122,7 +149,7 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     private func checkSignalStatus() {
-        guard isTracking else { return }
+        guard isTracking || isLocationUpdatesActive else { return }
 
         // If GPS status is overridden (marketing mode), don't check real signal
         if let override = gpsStatusOverride {

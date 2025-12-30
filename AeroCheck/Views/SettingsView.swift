@@ -23,400 +23,43 @@ struct SettingsView: View {
     @State private var marketingMode: Bool = false
     @State private var showDeveloperOptions: Bool = false
     @State private var versionTapCount: Int = 0
+
+    // Flight Planning settings
+    @State private var enableFlightPlanning: Bool = false
+    @State private var waypointProximityThreshold: Double = 500
+    @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
+    @State private var showFlightPlanningWarning: Bool = false
     
     var body: some View {
         NavigationView {
-            Form {
-                // Aircraft section
-                Section {
-                    Picker("Aircraft in use", selection: $selectedAircraft) {
-                        ForEach(AircraftType.allCases) { aircraft in
-                            HStack {
-                                Text(aircraft.registration)
-                                    .font(.system(.body, design: .monospaced))
-                                Text("(\(aircraft.shortModelName))")
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(aircraft)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                } header: {
-                    Label("Aircraft", systemImage: "airplane")
-                } footer: {
-                    Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
-                }
-                
-                // GPS section
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Recording Interval")
-                            Spacer()
-                            Text("\(Int(gpsInterval)) seconds")
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Slider(value: $gpsInterval, in: 1...30, step: 1)
-                            .tint(.aviationGold)
-                    }
-                    
-                    HStack {
-                        Text("GPS Status")
-                        Spacer()
-                        Text(gpsStatusText)
-                            .foregroundColor(gpsStatusColor)
-                    }
-                    
-                    if locationManager.authorizationStatus == .notDetermined {
-                        Button("Request GPS Permission") {
-                            locationManager.requestAuthorization()
-                        }
-                    }
-                } header: {
-                    Label("GPS Tracking", systemImage: "location.fill")
-                } footer: {
-                    Text("Lower intervals provide more detailed tracks but use more storage")
-                }
+            settingsForm
+        }
+        .preferredColorScheme(.dark)
+    }
 
-                // Experimental: Estimated Airspeed section
-                Section {
-                    Toggle("Show Estimated Airspeed", isOn: Binding(
-                        get: { showEstimatedAirspeed },
-                        set: { newValue in
-                            if newValue {
-                                // Show warning before enabling
-                                pendingEstimatedAirspeedValue = true
-                                showEstimatedAirspeedWarning = true
-                            } else {
-                                showEstimatedAirspeed = false
-                            }
-                        }
-                    ))
-                } header: {
-                    HStack {
-                        Label("Experimental", systemImage: "exclamationmark.triangle.fill")
-                        Text("BETA")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.aviationAmber)
-                            )
-                    }
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss.")
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.aviationAmber)
-                            Text("This feature only works in Switzerland and requires a constant cellular connection.")
-                                .foregroundColor(.aviationAmber)
-                        }
-                        .font(.caption)
-                    }
-                }
-
-                // Display section
-                Section {
-                    Toggle("Keep Screen On", isOn: $keepScreenOn)
-                    Toggle("Always Use UTC Times", isOn: $alwaysUseUTC)
-                } header: {
-                    Label("Display", systemImage: "sun.max.fill")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Keep Screen On: Prevents the screen from dimming during flight.")
-                        Text("Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix.")
-                    }
-                }
-
-                // Navigation section
-                Section {
-                    Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
-                        .disabled(offlineMode)
-                } header: {
-                    Label("Navigation", systemImage: "map")
-                } footer: {
-                    Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
-                }
-
-                // Offline Maps section
-                Section {
-                    Toggle("Offline Mode", isOn: $offlineMode)
-                        .onChange(of: offlineMode) { _, newValue in
-                            if newValue && !offlineMapManager.isCacheAvailable {
-                                // Show download modal when enabling offline mode without cache
-                                showDownloadModal = true
-                            }
-                        }
-
-                    if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
-                        // ICAO Cache status
-                        if offlineMapManager.isCacheAvailable {
-                            HStack {
-                                Text("ICAO Chart")
-                                Spacer()
-                                Text(offlineMapManager.cacheVersion)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-
-                        // Segelflug Cache status
-                        if offlineMapManager.isSegelflugCacheAvailable {
-                            HStack {
-                                Text("Segelflugkarte")
-                                Spacer()
-                                Text(offlineMapManager.segelflugCacheVersion)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-
-                        HStack {
-                            Text("Total Cache Size")
-                            Spacer()
-                            Text(offlineMapManager.formattedCacheSize)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Button(action: { showDownloadModal = true }) {
-                            HStack {
-                                Image(systemName: "arrow.clockwise")
-                                Text("Update/Add Charts")
-                            }
-                        }
-
-                        Button(role: .destructive, action: { showDeleteConfirmation = true }) {
-                            HStack {
-                                Image(systemName: "trash")
-                                Text("Delete All Cached Charts")
-                            }
-                        }
-                    } else {
-                        Button(action: { showDownloadModal = true }) {
-                            HStack {
-                                Image(systemName: "arrow.down.circle")
-                                Text("Download Charts")
-                            }
-                        }
-                    }
-                } header: {
-                    Label("Offline Maps", systemImage: "arrow.down.circle")
-                } footer: {
-                    if offlineMode {
-                        if offlineMapManager.isSegelflugCacheAvailable {
-                            Text("Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache.")
-                        } else {
-                            Text("Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode.")
-                        }
-                    } else if offlineMapManager.isCacheAvailable {
-                        Text("Charts cached for faster loading. Updated yearly by swisstopo in April.")
-                    } else {
-                        Text("Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming.")
-                    }
-                }
-
-                // Checklist section
-                Section {
-                    Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
-                    
-                    Toggle("Learning Mode (show all checks)", isOn: $learningMode)
-                } header: {
-                    Label("Checklist", systemImage: "checklist")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Step-by-Step: Highlights items one at a time. Tap anywhere to advance.")
-                        Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
-                    }
-                }
-                
-                // About section
-                Section {
-                    // Version row with hidden tap gesture to reveal developer options
-                    HStack {
-                        Text("App Version")
-                            .foregroundColor(.primary)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text(appVersion)
-                            if !showDeveloperOptions {
-                                Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
-                                    Image(systemName: "arrow.up.forward.square")
-                                        .font(.caption)
-                                }
-                            }
-                        }
-                        .foregroundColor(.secondary)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        versionTapCount += 1
-                        if versionTapCount >= 5 {
-                            withAnimation {
-                                showDeveloperOptions = true
-                            }
-                        }
-                    }
-
-                    Link(destination: URL(string: "https://www.julienbono.ch/")!) {
-                        HStack {
-                            Text("Author")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Text("Julien 'fetzu' Bono")
-                                Image(systemName: "arrow.up.forward.square")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Link(destination: URL(string: "https://www.gvmp.aero/")!) {
-                        HStack {
-                            Text("Organization")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            HStack(spacing: 4) {
-                                Text("Aéroclub du Jura (GVMP)")
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                Image(systemName: "arrow.up.forward.square")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "chevron.left.forwardslash.chevron.right")
-                                .foregroundColor(.primary)
-                            Text("Open Source")
-                                .font(.headline)
-                        }
-
-                        Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                            Text("This app is open source and available on GitHub. ")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            + Text(Image(systemName: "arrow.up.forward.square"))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .baselineOffset(4)
-                        }
-
-                        Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                            Text("Released under the MIT License. ")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            + Text(Image(systemName: "arrow.up.forward.square"))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .baselineOffset(4)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Label("About", systemImage: "info.circle.fill")
-                }
-
-                // Available Checklists section
-                Section {
-                    ForEach(AircraftType.allCases) { aircraft in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(aircraft.registration)
-                                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                                Text(aircraft.shortModelName)
-                                    .foregroundColor(.secondary)
-                            }
-                            HStack {
-                                Text("Version \(aircraft.checklistVersion)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("•")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text(aircraft.lastUpdated)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                } header: {
-                    Label("Available Checklists", systemImage: "checklist")
-                } footer: {
-                    Text("Checklist data provided by GVMP")
-                }
-                
-                // Data section
-                Section {
-                    HStack {
-                        Text("Recorded Flights")
-                        Spacer()
-                        Text("\(appState.flights.count)")
-                            .foregroundColor(.secondary)
-                    }
-
-                    HStack {
-                        Text("Total GPS Points")
-                        Spacer()
-                        Text("\(totalGPSPoints)")
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Label("Data", systemImage: "externaldrive.fill")
-                }
-
-                // Developer Options section (hidden until revealed)
-                if showDeveloperOptions {
-                    Section {
-                        Toggle("Marketing Mode", isOn: $marketingMode)
-                    } header: {
-                        HStack {
-                            Label("Developer Options", systemImage: "hammer.fill")
-                            Text("DEV")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color.purple)
-                                )
-                        }
-                    } footer: {
-                        Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
-                    }
-                }
-            }
+    private var settingsForm: some View {
+        formContent
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .onAppear {
-                loadSettings()
-            }
-            // Auto-save settings when they change (Apple HIG compliant)
-            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
-            .onChange(of: gpsInterval) { _, _ in saveSettings() }
-            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
-            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
-            .onChange(of: learningMode) { _, _ in saveSettings() }
-            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
-            .onChange(of: offlineMode) { _, _ in saveSettings() }
-            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
-            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
-            .onChange(of: marketingMode) { _, newValue in
-                // Only update in-memory setting, don't persist to disk
-                appState.settings.marketingMode = newValue
-            }
+            .toolbar { toolbarContent }
+            .onAppear { loadSettings() }
+            .modifier(SettingsChangeModifier(
+                selectedAircraft: selectedAircraft,
+                gpsInterval: gpsInterval,
+                keepScreenOn: keepScreenOn,
+                stepByStepHighlighting: stepByStepHighlighting,
+                learningMode: learningMode,
+                forceICAOChartLayer: forceICAOChartLayer,
+                offlineMode: offlineMode,
+                alwaysUseUTC: alwaysUseUTC,
+                showEstimatedAirspeed: showEstimatedAirspeed,
+                enableFlightPlanning: enableFlightPlanning,
+                waypointProximityThreshold: waypointProximityThreshold,
+                terrainAltitudeUnit: terrainAltitudeUnit,
+                marketingMode: marketingMode,
+                saveSettings: saveSettings,
+                updateMarketingMode: { appState.settings.marketingMode = $0 }
+            ))
             .sheet(isPresented: $showDownloadModal) {
                 OfflineMapDownloadSheet(offlineMode: $offlineMode)
                     .environmentObject(offlineMapManager)
@@ -425,6 +68,12 @@ struct SettingsView: View {
                 EstimatedAirspeedWarningSheet(
                     isPresented: $showEstimatedAirspeedWarning,
                     showEstimatedAirspeed: $showEstimatedAirspeed
+                )
+            }
+            .sheet(isPresented: $showFlightPlanningWarning) {
+                FlightPlanningWarningSheet(
+                    isPresented: $showFlightPlanningWarning,
+                    enableFlightPlanning: $enableFlightPlanning
                 )
             }
             .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
@@ -436,8 +85,472 @@ struct SettingsView: View {
             } message: {
                 Text("This will delete the cached ICAO chart. You will need to download it again for offline use.")
             }
+    }
+
+    private var formContent: some View {
+        Form {
+            Group {
+                aircraftSection
+                gpsSection
+                experimentalAirspeedSection
+            }
+            Group {
+                flightPlanningSection
+                displaySection
+                navigationSection
+            }
+            Group {
+                offlineMapsSection
+                checklistSection
+            }
+            Group {
+                aboutSection
+                availableChecklistsSection
+                dataSection
+                developerOptionsSection
+            }
         }
-        .preferredColorScheme(.dark)
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { dismiss() }
+        }
+    }
+
+    // MARK: - Form Sections
+
+    private var aircraftSection: some View {
+        Section {
+            Picker("Aircraft in use", selection: $selectedAircraft) {
+                ForEach(AircraftType.allCases) { aircraft in
+                    Text("\(aircraft.registration) (\(aircraft.shortModelName))")
+                        .font(.system(.body, design: .monospaced))
+                        .tag(aircraft)
+                }
+            }
+            .pickerStyle(.menu)
+        } header: {
+            Label("Aircraft", systemImage: "airplane")
+        } footer: {
+            Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
+        }
+    }
+
+    private var gpsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                let intervalText = "\(Int(gpsInterval)) seconds"
+                HStack {
+                    Text("Recording Interval")
+                    Spacer()
+                    Text(intervalText)
+                        .foregroundColor(.secondary)
+                }
+
+                Slider(value: $gpsInterval, in: 1...30, step: 1)
+                    .tint(.aviationGold)
+            }
+
+            HStack {
+                Text("GPS Status")
+                Spacer()
+                Text(gpsStatusText)
+                    .foregroundColor(gpsStatusColor)
+            }
+
+            if locationManager.authorizationStatus == .notDetermined {
+                Button("Request GPS Permission") {
+                    locationManager.requestAuthorization()
+                }
+            }
+        } header: {
+            Label("GPS Tracking", systemImage: "location.fill")
+        } footer: {
+            Text("Lower intervals provide more detailed tracks but use more storage")
+        }
+    }
+
+    private var experimentalAirspeedSection: some View {
+        Section {
+            Toggle("Show Estimated Airspeed", isOn: Binding(
+                get: { showEstimatedAirspeed },
+                set: { newValue in
+                    if newValue {
+                        pendingEstimatedAirspeedValue = true
+                        showEstimatedAirspeedWarning = true
+                    } else {
+                        showEstimatedAirspeed = false
+                    }
+                }
+            ))
+        } header: {
+            HStack {
+                Label("Experimental", systemImage: "exclamationmark.triangle.fill")
+                Text("BETA")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.aviationAmber)
+                    )
+            }
+        } footer: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss.")
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.aviationAmber)
+                    Text("This feature only works in Switzerland and requires a constant cellular connection.")
+                        .foregroundColor(.aviationAmber)
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    private var flightPlanningSection: some View {
+        Section {
+            Toggle("Enable Flight Planning", isOn: Binding(
+                get: { enableFlightPlanning },
+                set: { newValue in
+                    if newValue {
+                        showFlightPlanningWarning = true
+                    } else {
+                        enableFlightPlanning = false
+                    }
+                }
+            ))
+
+            if enableFlightPlanning {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Waypoint Proximity")
+                        Spacer()
+                        Text("\(Int(waypointProximityThreshold)) m")
+                            .foregroundColor(.secondary)
+                    }
+
+                    Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
+                        .tint(.aviationGold)
+                }
+
+                Picker("Terrain Altitude Unit", selection: $terrainAltitudeUnit) {
+                    ForEach(TerrainAltitudeUnit.allCases) { unit in
+                        Text(unit.rawValue).tag(unit)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+        } header: {
+            HStack {
+                Label("Flight Planning", systemImage: "map.fill")
+                Text("BETA")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.aviationAmber)
+                    )
+            }
+        } footer: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Plan flight routes with waypoints, time/distance calculations, and terrain visualization.")
+                if enableFlightPlanning {
+                    Text("Waypoint Proximity: Distance at which waypoints auto-advance during flight.")
+                    Text("Terrain Altitude Unit: Unit for displaying terrain profile elevation.")
+                }
+            }
+        }
+    }
+
+    private var displaySection: some View {
+        Section {
+            Toggle("Keep Screen On", isOn: $keepScreenOn)
+            Toggle("Always Use UTC Times", isOn: $alwaysUseUTC)
+        } header: {
+            Label("Display", systemImage: "sun.max.fill")
+        } footer: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Keep Screen On: Prevents the screen from dimming during flight.")
+                Text("Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix.")
+            }
+        }
+    }
+
+    private var navigationSection: some View {
+        Section {
+            Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
+                .disabled(offlineMode)
+        } header: {
+            Label("Navigation", systemImage: "map")
+        } footer: {
+            Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+        }
+    }
+
+    private var offlineMapsSection: some View {
+        Section {
+            Toggle("Offline Mode", isOn: $offlineMode)
+                .onChange(of: offlineMode) { _, newValue in
+                    if newValue && !offlineMapManager.isCacheAvailable {
+                        showDownloadModal = true
+                    }
+                }
+
+            if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
+                if offlineMapManager.isCacheAvailable {
+                    HStack {
+                        Text("ICAO Chart")
+                        Spacer()
+                        Text(offlineMapManager.cacheVersion)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if offlineMapManager.isSegelflugCacheAvailable {
+                    HStack {
+                        Text("Segelflugkarte")
+                        Spacer()
+                        Text(offlineMapManager.segelflugCacheVersion)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                HStack {
+                    Text("Total Cache Size")
+                    Spacer()
+                    Text(offlineMapManager.formattedCacheSize)
+                        .foregroundColor(.secondary)
+                }
+
+                Button(action: { showDownloadModal = true }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Update/Add Charts")
+                    }
+                }
+
+                Button(role: .destructive, action: { showDeleteConfirmation = true }) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete All Cached Charts")
+                    }
+                }
+            } else {
+                Button(action: { showDownloadModal = true }) {
+                    HStack {
+                        Image(systemName: "arrow.down.circle")
+                        Text("Download Charts")
+                    }
+                }
+            }
+        } header: {
+            Label("Offline Maps", systemImage: "arrow.down.circle")
+        } footer: {
+            offlineMapsFooter
+        }
+    }
+
+    @ViewBuilder
+    private var offlineMapsFooter: some View {
+        if offlineMode {
+            if offlineMapManager.isSegelflugCacheAvailable {
+                Text("Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache.")
+            } else {
+                Text("Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode.")
+            }
+        } else if offlineMapManager.isCacheAvailable {
+            Text("Charts cached for faster loading. Updated yearly by swisstopo in April.")
+        } else {
+            Text("Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming.")
+        }
+    }
+
+    private var checklistSection: some View {
+        Section {
+            Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
+
+            Toggle("Learning Mode (show all checks)", isOn: $learningMode)
+        } header: {
+            Label("Checklist", systemImage: "checklist")
+        } footer: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Step-by-Step: Highlights items one at a time. Tap anywhere to advance.")
+                Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
+            }
+        }
+    }
+
+    private var aboutSection: some View {
+        Section {
+            HStack {
+                Text("App Version")
+                    .foregroundColor(.primary)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text(appVersion)
+                    if !showDeveloperOptions {
+                        Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.caption)
+                        }
+                    }
+                }
+                .foregroundColor(.secondary)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                versionTapCount += 1
+                if versionTapCount >= 5 {
+                    withAnimation {
+                        showDeveloperOptions = true
+                    }
+                }
+            }
+
+            Link(destination: URL(string: "https://www.julienbono.ch/")!) {
+                HStack {
+                    Text("Author")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("Julien 'fetzu' Bono")
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+
+            Link(destination: URL(string: "https://www.gvmp.aero/")!) {
+                HStack {
+                    Text("Organization")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("Aéroclub du Jura (GVMP)")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .foregroundColor(.primary)
+                    Text("Open Source")
+                        .font(.headline)
+                }
+
+                Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
+                    Text("This app is open source and available on GitHub. ")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    + Text(Image(systemName: "arrow.up.forward.square"))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .baselineOffset(4)
+                }
+
+                Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
+                    Text("Released under the MIT License. ")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    + Text(Image(systemName: "arrow.up.forward.square"))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .baselineOffset(4)
+                }
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Label("About", systemImage: "info.circle.fill")
+        }
+    }
+
+    private var availableChecklistsSection: some View {
+        Section {
+            ForEach(AircraftType.allCases) { aircraft in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(aircraft.registration)
+                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        Text(aircraft.shortModelName)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Version \(aircraft.checklistVersion)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(aircraft.lastUpdated)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        } header: {
+            Label("Available Checklists", systemImage: "checklist")
+        } footer: {
+            Text("Checklist data provided by GVMP")
+        }
+    }
+
+    private var dataSection: some View {
+        Section {
+            HStack {
+                Text("Recorded Flights")
+                Spacer()
+                Text("\(appState.flights.count)")
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Text("Total GPS Points")
+                Spacer()
+                Text("\(totalGPSPoints)")
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            Label("Data", systemImage: "externaldrive.fill")
+        }
+    }
+
+    @ViewBuilder
+    private var developerOptionsSection: some View {
+        if showDeveloperOptions {
+            Section {
+                Toggle("Marketing Mode", isOn: $marketingMode)
+            } header: {
+                HStack {
+                    Label("Developer Options", systemImage: "hammer.fill")
+                    Text("DEV")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.purple)
+                        )
+                }
+            } footer: {
+                Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+            }
+        }
     }
     
     // MARK: - Computed Properties
@@ -489,6 +602,10 @@ struct SettingsView: View {
         offlineMode = appState.settings.offlineMode
         alwaysUseUTC = appState.settings.alwaysUseUTC
         showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
+        // Flight Planning settings
+        enableFlightPlanning = appState.settings.enableFlightPlanning
+        waypointProximityThreshold = appState.settings.waypointProximityThreshold
+        terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         // Marketing mode is NOT loaded from settings - it always starts as false
         // Developer options are hidden by default and require 5 taps to reveal each session
         marketingMode = false
@@ -505,11 +622,103 @@ struct SettingsView: View {
         appState.settings.offlineMode = offlineMode
         appState.settings.alwaysUseUTC = alwaysUseUTC
         appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
+        // Flight Planning settings
+        appState.settings.enableFlightPlanning = enableFlightPlanning
+        appState.settings.waypointProximityThreshold = waypointProximityThreshold
+        appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
         // Apply screen setting
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+    }
+}
+
+// MARK: - Flight Planning Warning Sheet
+
+struct FlightPlanningWarningSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var enableFlightPlanning: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Warning icon
+                Image(systemName: "map.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationAmber)
+                    .padding(.top, 40)
+
+                // Title
+                Text("Beta Feature")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Warning message
+                VStack(alignment: .leading, spacing: 16) {
+                    WarningItem(
+                        icon: "exclamationmark.triangle.fill",
+                        text: "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
+                    )
+
+                    WarningItem(
+                        icon: "map",
+                        text: "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
+                    )
+
+                    WarningItem(
+                        icon: "location.fill",
+                        text: "During flight, the app can automatically advance waypoints based on your GPS position."
+                    )
+
+                    WarningItem(
+                        icon: "mountain.2.fill",
+                        text: "Terrain visualization is only available within Switzerland using swisstopo data."
+                    )
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        enableFlightPlanning = true
+                        isPresented = false
+                    }) {
+                        Text("I Understand - Enable Feature")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+
+                    Button(action: {
+                        isPresented = false
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.secondaryText)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -911,6 +1120,43 @@ struct CacheStatusBadge: View {
     }
 }
 
+// MARK: - Settings Change Modifier
+
+struct SettingsChangeModifier: ViewModifier {
+    let selectedAircraft: AircraftType
+    let gpsInterval: Double
+    let keepScreenOn: Bool
+    let stepByStepHighlighting: Bool
+    let learningMode: Bool
+    let forceICAOChartLayer: Bool
+    let offlineMode: Bool
+    let alwaysUseUTC: Bool
+    let showEstimatedAirspeed: Bool
+    let enableFlightPlanning: Bool
+    let waypointProximityThreshold: Double
+    let terrainAltitudeUnit: TerrainAltitudeUnit
+    let marketingMode: Bool
+    let saveSettings: () -> Void
+    let updateMarketingMode: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
+            .onChange(of: gpsInterval) { _, _ in saveSettings() }
+            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
+            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
+            .onChange(of: learningMode) { _, _ in saveSettings() }
+            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
+            .onChange(of: offlineMode) { _, _ in saveSettings() }
+            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
+            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
+            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
+            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
+            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
+            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -919,3 +1165,4 @@ struct CacheStatusBadge: View {
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
 }
+

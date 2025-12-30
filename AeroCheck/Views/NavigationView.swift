@@ -141,11 +141,18 @@ class SharedMapState: ObservableObject {
 
 // MARK: - Navigation Map View
 
+/// Tab selection for compact navigation panel
+enum CompactNavigationTab: String, CaseIterable {
+    case plan = "PLAN"
+    case freq = "FREQ"
+}
+
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -153,6 +160,13 @@ struct NavigationMapView: View {
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
+    @State private var showFlightPlanning: Bool = false
+    @State private var showRadioFrequencyWindow: Bool = false
+
+    // Compact layout state (for small devices)
+    @State private var showCompactPanel: Bool = true
+    @State private var selectedCompactTab: CompactNavigationTab = .plan
+    @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -263,7 +277,7 @@ struct NavigationMapView: View {
 
     /// GPS status color
     private var gpsStatusColor: Color {
-        guard locationManager.isTracking else { return .dimText }
+        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .dimText }
         switch locationManager.gpsSignalStatus {
         case .good: return .aviationGreen
         case .degraded: return .orange
@@ -273,7 +287,7 @@ struct NavigationMapView: View {
 
     /// GPS status indicator
     private var gpsStatusIndicator: StatusIndicator.Status {
-        guard locationManager.isTracking else { return .inactive }
+        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .inactive }
         switch locationManager.gpsSignalStatus {
         case .good: return .active
         case .degraded: return .warning
@@ -300,43 +314,50 @@ struct NavigationMapView: View {
         return Int(location.course)
     }
 
+    /// Determine if we should use compact layout for small devices
+    /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
+    private var shouldUseCompactLayout: Bool {
+        isCompactWidth && appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                // Map content
-                mapContent
-                    .ignoresSafeArea()
-
-                // Overlay controls
-                VStack {
-                    // Top bar with close button and layer picker
-                    topBar
-
-                    Spacer()
-
-                    // Bottom controls with scale bar
-                    bottomControls
-                }
-                .padding()
-            }
-            .onAppear {
-                mapWidth = geometry.size.width
-            }
-            .onChange(of: geometry.size) { _, newSize in
-                mapWidth = newSize.width
+            if shouldUseCompactLayout {
+                // Compact layout for small devices with flight plan active
+                compactLayoutBody(geometry: geometry)
+            } else {
+                // Standard layout for large devices or when no flight plan
+                standardLayoutBody(geometry: geometry)
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            // Start GPS updates when navigation view opens
+            locationManager.startLocationUpdates()
             centerOnAircraft()
+        }
+        .onDisappear {
+            // Stop GPS updates when navigation view closes (if not in a flight)
+            locationManager.stopLocationUpdates()
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
             timeDisplayId = UUID()
+            // Also trigger refresh for compact layout chronometer
+            refreshTrigger.toggle()
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             if isFollowingAircraft, let location = newLocation {
                 updateMapStateForLocation(location)
+            }
+            // Auto-advance waypoint when within proximity threshold
+            if appState.settings.enableFlightPlanning,
+               let location = newLocation {
+                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                flightPlanManager.autoAdvanceWaypointIfNeeded(
+                    currentLocation: clLocation,
+                    threshold: appState.settings.waypointProximityThreshold
+                )
             }
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
@@ -360,19 +381,757 @@ struct NavigationMapView: View {
         }
     }
 
+    // MARK: - Standard Layout (iPad and iPhone without active flight plan)
+
+    private func standardLayoutBody(geometry: GeometryProxy) -> some View {
+        ZStack {
+            // Map content
+            mapContent
+                .ignoresSafeArea()
+
+            // Overlay controls
+            VStack {
+                // Top bar with close button and layer picker
+                topBar
+
+                Spacer()
+
+                // Bottom controls with scale bar
+                bottomControls
+            }
+            .padding()
+
+            // Flight Plan Overlay (when active)
+            if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
+                FlightPlanOverlayView(
+                    containerSize: geometry.size,
+                    radioFrequencyWindowOpen: showRadioFrequencyWindow
+                )
+                    .environmentObject(flightPlanManager)
+                    .environmentObject(locationManager)
+            }
+
+            // Radio Frequency Floating Window
+            if showRadioFrequencyWindow {
+                RadioFrequencyOverlayView(
+                    isPresented: $showRadioFrequencyWindow,
+                    containerSize: geometry.size
+                )
+                .environmentObject(flightPlanManager)
+                .transition(.opacity.combined(with: .scale))
+            }
+        }
+        .onAppear {
+            mapWidth = geometry.size.width
+        }
+        .onChange(of: geometry.size) { _, newSize in
+            mapWidth = newSize.width
+        }
+    }
+
+    // MARK: - Compact Layout (iPhone with active flight plan)
+
+    @ViewBuilder
+    private func compactLayoutBody(geometry: GeometryProxy) -> some View {
+        let topHalfHeight = geometry.size.height / 2
+
+        VStack(spacing: 0) {
+            // Top half: Map with controls
+            ZStack {
+                // Map content (clipped to top half)
+                mapContent
+
+                // Overlay controls for compact layout
+                VStack {
+                    // Top bar
+                    compactTopBar
+
+                    Spacer()
+
+                    // Bottom controls (scale, GPS, center button)
+                    compactMapControls
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .frame(height: topHalfHeight)
+            .clipped()
+
+            // Bottom half: Flight Plan or Radio Frequencies panel
+            if showCompactPanel {
+                compactBottomPanel(geometry: geometry)
+                    .frame(height: topHalfHeight)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .background(Color.cockpitBackground)
+        .onAppear {
+            mapWidth = geometry.size.width
+        }
+        .onChange(of: geometry.size) { _, newSize in
+            mapWidth = newSize.width
+        }
+    }
+
+    // MARK: - Compact Top Bar
+
+    private var compactTopBar: some View {
+        HStack(spacing: 8) {
+            // Close button
+            Button(action: { isPresented = false }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+            }
+
+            // Flight Plan button (toggles bottom panel)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCompactPanel.toggle()
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 12))
+                    if showCompactPanel {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                    } else {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                }
+                .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
+                .frame(width: 50, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+            }
+
+            Spacer()
+
+            // Compact time/speed/altitude/heading display
+            HStack(spacing: 6) {
+                // Time
+                Text(formattedTime)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .id(timeDisplayId)
+
+                Rectangle()
+                    .fill(Color.dimText)
+                    .frame(width: 1, height: 16)
+
+                // Speed
+                HStack(spacing: 1) {
+                    Text("\(Int(locationManager.currentSpeedKnots))")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("kt")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(speedColor)
+
+                // Altitude
+                HStack(spacing: 1) {
+                    Text("\(Int(locationManager.currentAltitudeFeet))")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("ft")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(.altimeterBlue)
+
+                // Heading
+                HStack(spacing: 1) {
+                    Text(String(format: "%03d", currentHeading))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("°")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(.aviationGold)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.panelBackground.opacity(0.9))
+            )
+
+            Spacer()
+
+            // Layer picker button
+            Button(action: {
+                if isOfflineMode {
+                    showCacheInfoModal = true
+                } else {
+                    showLayerPicker = true
+                }
+            }) {
+                Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+            }
+            .sheet(isPresented: $showLayerPicker) {
+                LayerPickerSheet(selectedLayer: $selectedLayer)
+            }
+        }
+    }
+
+    // MARK: - Compact Map Controls
+
+    private var compactMapControls: some View {
+        HStack(alignment: .bottom) {
+            // Left side: Scale bar and cache/offline indicator
+            VStack(alignment: .leading, spacing: 6) {
+                // Offline/Cached mode indicator
+                if isOfflineMode || isCachedMode {
+                    Button(action: { showCacheInfoModal = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "internaldrive.fill")
+                                .font(.system(size: 10))
+                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                        )
+                    }
+                    .sheet(isPresented: $showCacheInfoModal) {
+                        CacheInfoSheet(isOfflineMode: isOfflineMode)
+                            .environmentObject(appState)
+                            .environmentObject(offlineMapManager)
+                    }
+                }
+
+                // Scale bar
+                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+            }
+
+            Spacer()
+
+            // Right side: GPS status and center button
+            VStack(alignment: .trailing, spacing: 8) {
+                // GPS Status
+                HStack(spacing: 4) {
+                    Text("GPS")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(gpsStatusColor)
+                    StatusIndicator(gpsStatusIndicator, size: 6)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+
+                // Compass and center button row
+                HStack(spacing: 8) {
+                    // Compass button - only show when map is rotated
+                    if abs(mapState.cameraHeading) > 0.5 {
+                        Button(action: resetToNorth) {
+                            CompassView(heading: mapState.cameraHeading)
+                                .scaleEffect(0.8)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Center on aircraft button
+                    Button(action: centerOnAircraft) {
+                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.panelBackground.opacity(0.9))
+                            )
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+            }
+        }
+    }
+
+    // MARK: - Compact Bottom Panel
+
+    private func compactBottomPanel(geometry: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            // Tab switcher header
+            HStack(spacing: 0) {
+                ForEach(CompactNavigationTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCompactTab = tab
+                        }
+                    }) {
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(selectedCompactTab == tab ? .aviationGold : .secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                selectedCompactTab == tab ?
+                                    Color.aviationGold.opacity(0.15) : Color.clear
+                            )
+                    }
+                }
+            }
+            .background(Color.aviationDarkBlue)
+
+            // Tab content
+            ScrollView {
+                switch selectedCompactTab {
+                case .plan:
+                    compactFlightPlanContent
+                case .freq:
+                    compactFrequencyContent
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.panelBackground.opacity(0.95))
+        }
+    }
+
+    // MARK: - Compact Flight Plan Content
+
+    private var compactFlightPlanContent: some View {
+        VStack(spacing: 12) {
+            if let plan = flightPlanManager.activeFlightPlan,
+               let nextWaypoint = plan.nextWaypoint {
+                // Next waypoint header
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("NEXT WAYPOINT")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Text("\(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                // Navigation data
+                if let location = locationManager.currentLocation {
+                    let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+
+                    HStack(spacing: 24) {
+                        // Heading TO waypoint
+                        VStack(spacing: 2) {
+                            Text("HDG TO")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
+                                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                                    Text(String(format: "%03d", Int(bearing)))
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("°")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.aviationGold)
+                                }
+                            } else {
+                                Text("---°")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+
+                        // Distance TO waypoint
+                        VStack(spacing: 2) {
+                            Text("DIST TO")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
+                                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                    Text(String(format: "%.1f", distance))
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("NM")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondaryText)
+                                }
+                            } else {
+                                Text("-- NM")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+
+                        // EET
+                        VStack(spacing: 2) {
+                            Text("EET")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let eet = nextWaypoint.estimatedElapsedTime {
+                                let minutes = Int(eet / 60)
+                                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                    Text("\(minutes)")
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("min")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondaryText)
+                                }
+                            } else {
+                                Text("--")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Progress bar
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("Progress")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(String(format: "%.0f%%", plan.progress * 100))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
+
+                    ProgressView(value: plan.progress)
+                        .progressViewStyle(LinearProgressViewStyle(tint: .aviationGreen))
+
+                    // Waypoint dots
+                    HStack(spacing: 4) {
+                        ForEach(0..<plan.waypoints.count, id: \.self) { index in
+                            Circle()
+                                .fill(index < plan.currentWaypointIndex ? Color.aviationGreen :
+                                      index == plan.currentWaypointIndex ? Color.aviationGold : Color.dimText)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Chronometer
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("CHRONOMETER")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+
+                        Spacer()
+
+                        Button(action: {
+                            flightPlanManager.resetChronometer()
+                        }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondaryText)
+                        }
+                    }
+
+                    Text(flightPlanManager.formattedChronometer)
+                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGreen)
+                        .id(refreshTrigger)
+
+                    if flightPlanManager.activeFlightPlan?.chronometerStartTime == nil {
+                        Button(action: {
+                            flightPlanManager.startChronometer()
+                        }) {
+                            Text("START")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.aviationGreen)
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Waypoint navigation
+                HStack(spacing: 16) {
+                    Button(action: {
+                        flightPlanManager.goToPreviousWaypoint()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 44, height: 36)
+                            .background(Color.aviationBlue)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .disabled(plan.currentWaypointIndex == 0)
+
+                    Text("WPT")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondaryText)
+
+                    Button(action: {
+                        flightPlanManager.advanceToNextWaypoint()
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 44, height: 36)
+                            .background(Color.aviationGreen)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .disabled(plan.currentWaypointIndex == plan.waypoints.count)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+
+            } else {
+                Text("No active flight plan")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondaryText)
+                    .padding()
+            }
+        }
+    }
+
+    // MARK: - Compact Frequency Content
+
+    private var compactFrequencyContent: some View {
+        VStack(spacing: 0) {
+            if let plan = flightPlanManager.activeFlightPlan {
+                let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
+
+                // Waypoint frequencies
+                if !frequenciesWithWaypoints.isEmpty {
+                    ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
+                        compactFrequencyRow(
+                            name: waypoint.name.isEmpty ? "Waypoint" : waypoint.name,
+                            callSign: waypoint.callSign,
+                            frequency: waypoint.frequency ?? "",
+                            isCurrent: plan.currentWaypointIndex == index
+                        )
+
+                        if index < frequenciesWithWaypoints.count - 1 {
+                            Divider()
+                                .background(Color.dimText)
+                        }
+                    }
+                } else {
+                    Text("No frequencies in flight plan")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondaryText)
+                        .padding()
+                }
+
+                // Common Swiss frequencies section
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.vertical, 4)
+
+                Text("COMMON SWISS FREQUENCIES")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.dimText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+
+                ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                    let isHighlighted = shouldHighlightCommonFrequency(freq)
+                    compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
+                    if freq != SwissCommonFrequency.allCases.last {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+
+                // Nearby CTRs
+                let nearbyCTRs = getNearbyCTRsForCompact()
+                if !nearbyCTRs.isEmpty {
+                    Divider()
+                        .background(Color.dimText)
+                        .padding(.vertical, 4)
+
+                    Text("NEARBY CONTROLLED AIRSPACE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+
+                    ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                        compactCTRRow(item.ctr, distanceNM: item.distanceNM)
+                        if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                            Divider()
+                                .background(Color.dimText.opacity(0.5))
+                        }
+                    }
+                }
+            } else {
+                Text("No active flight plan")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .padding()
+            }
+        }
+        .padding(.bottom, 16)
+    }
+
+    // Helper to check if common frequency should be highlighted
+    private func shouldHighlightCommonFrequency(_ freq: SwissCommonFrequency) -> Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        let coord = location.coordinate
+        let sector = SwissAirspaceSectors.getSector(for: coord)
+
+        switch freq {
+        case .zurichInfo:
+            return sector == .zurich
+        case .genevaInfo:
+            return sector == .geneva
+        case .fisEast:
+            return sector == .zurich || sector == .east
+        case .fisWest:
+            return sector == .geneva || sector == .west
+        case .emergency:
+            return false
+        }
+    }
+
+    // Helper to get nearby CTRs
+    private func getNearbyCTRsForCompact() -> [(ctr: SwissCTR, distanceNM: Double)] {
+        guard let location = locationManager.currentLocation else { return [] }
+        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
+    }
+
+    private func compactFrequencyRow(name: String, callSign: String?, frequency: String, isCurrent: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 13, weight: isCurrent ? .bold : .medium))
+                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                    .lineLimit(1)
+                if let callSign = callSign, !callSign.isEmpty {
+                    Text(callSign)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            Spacer()
+            Text(frequency)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(isCurrent ? .aviationGreen : .aviationGold)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func compactCommonFrequencyRow(_ freq: SwissCommonFrequency, isHighlighted: Bool) -> some View {
+        HStack {
+            Text(freq.name)
+                .font(.system(size: 12, weight: isHighlighted ? .semibold : .regular))
+                .foregroundColor(isHighlighted ? .primaryText : .secondaryText)
+            Spacer()
+            Text(freq.frequency)
+                .font(.system(size: 14, weight: isHighlighted ? .bold : .medium, design: .monospaced))
+                .foregroundColor(isHighlighted ? .aviationGold : .secondaryText)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func compactCTRRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= ctr.radiusNM + 3.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(ctr.name)
+                        .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
+                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                    if ctr.isMilitary {
+                        Text("MIL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(ctr.callSign)
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ctr.frequency)
+                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    // MARK: - State Update Helper
+
     private func updateMapStateForLocation(_ location: CLLocation) {
         let newRegion = MKCoordinateRegion(
             center: location.coordinate,
             span: mapState.region.span
         )
         mapState.updateFromRegion(newRegion)
-        mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        // Note: Do NOT update cameraHeading here - the map should always stay North-up
+        // unless the user manually rotates it. Only user interaction should change heading.
     }
 
     // MARK: - Map Content
 
     @ViewBuilder
     private var mapContent: some View {
+        // Track the current waypoint index to force map updates when it changes
+        // This ensures waypoint checkmarks are refreshed immediately
+        let currentWaypointIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0
+
         if isOfflineMode || selectedLayer.isSwissLayer {
             // Use custom tile overlay for Swiss layers (or offline mode)
             // Always pass offlineMapManager so cache can be used opportunistically
@@ -387,7 +1146,9 @@ struct NavigationMapView: View {
                 forceICAOLayer: effectiveForceICAO,
                 offlineMapManager: offlineMapManager,
                 isStrictOfflineMode: isOfflineMode,
-                hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable
+                hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
+                activeFlightPlan: flightPlanManager.activeFlightPlan,
+                currentWaypointIndex: currentWaypointIndex
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -396,7 +1157,9 @@ struct NavigationMapView: View {
                 mapState: mapState,
                 currentLocation: locationManager.currentLocation,
                 gpsTrack: displayGpsTrack,
-                isFollowingAircraft: $isFollowingAircraft
+                isFollowingAircraft: $isFollowingAircraft,
+                activeFlightPlan: flightPlanManager.activeFlightPlan,
+                currentWaypointIndex: currentWaypointIndex
             )
         }
     }
@@ -421,6 +1184,32 @@ struct NavigationMapView: View {
                         Circle()
                             .fill(Color.panelBackground.opacity(0.9))
                     )
+            }
+
+            // Flight Plan button (when enabled)
+            if appState.settings.enableFlightPlanning {
+                Button(action: { showFlightPlanning = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "map.fill")
+                        if flightPlanManager.activeFlightPlan != nil {
+                            Circle()
+                                .fill(Color.aviationGreen)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+                }
+                .sheet(isPresented: $showFlightPlanning) {
+                    FlightPlanningView()
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
+                }
             }
 
             Spacer()
@@ -607,6 +1396,25 @@ struct NavigationMapView: View {
                         .fill(Color.panelBackground.opacity(0.9))
                 )
 
+                // Radio Frequency button (always shown when flight planning is enabled)
+                if appState.settings.enableFlightPlanning {
+                    Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("FREQ")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(showRadioFrequencyWindow ? .aviationGold : .primaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
+                    }
+                }
+
                 // Compass and center button row
                 HStack(spacing: 12) {
                     // Compass button - only show when map is rotated
@@ -690,6 +1498,509 @@ struct CompassView: View {
             }
             .rotationEffect(.degrees(-heading))
         }
+    }
+}
+
+// MARK: - Radio Frequency Overlay View
+
+/// Floating window showing radio frequencies from the active flight plan
+/// Fixed position at bottom-right of the screen
+struct RadioFrequencyOverlayView: View {
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var locationManager: LocationManager
+    @Binding var isPresented: Bool
+    let containerSize: CGSize
+
+    /// Fixed position at middle-right (same area as the flight plan overlay)
+    private var fixedPosition: CGPoint {
+        let overlayWidth: CGFloat = 220
+        let padding: CGFloat = 20
+        return CGPoint(
+            x: containerSize.width - overlayWidth / 2 - padding,
+            y: containerSize.height / 2 // Center vertically (middle-right)
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 12))
+                Text("RADIO FREQUENCIES")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1)
+                Spacer()
+                Button(action: { withAnimation { isPresented = false } }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .foregroundColor(.aviationGold)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.aviationDarkBlue)
+
+            // Frequency list
+            ScrollView {
+                VStack(spacing: 0) {
+                    if let plan = flightPlanManager.activeFlightPlan {
+                        let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
+
+                        if frequenciesWithWaypoints.isEmpty {
+                            Text("No frequencies in flight plan")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondaryText)
+                                .padding()
+                        } else {
+                            ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
+                                frequencyRow(waypoint: waypoint, isCurrent: plan.currentWaypointIndex == index)
+
+                                if index < frequenciesWithWaypoints.count - 1 {
+                                    Divider()
+                                        .background(Color.dimText)
+                                }
+                            }
+                        }
+
+                        // Common Swiss frequencies section
+                        Divider()
+                            .background(Color.dimText)
+                            .padding(.vertical, 4)
+
+                        Text("COMMON SWISS FREQUENCIES")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+
+                        ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                            commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
+                            if freq != SwissCommonFrequency.allCases.last {
+                                Divider()
+                                    .background(Color.dimText.opacity(0.5))
+                            }
+                        }
+
+                        // Nearby Controlled Airspace section
+                        if !nearbyCTRs.isEmpty {
+                            Divider()
+                                .background(Color.dimText)
+                                .padding(.vertical, 4)
+
+                            Text("NEARBY CONTROLLED AIRSPACE")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+
+                            ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                                ctrFrequencyRow(item.ctr, distanceNM: item.distanceNM)
+                                if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                                    Divider()
+                                        .background(Color.dimText.opacity(0.5))
+                                }
+                            }
+                        }
+                    } else {
+                        Text("No active flight plan")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondaryText)
+                            .padding()
+                    }
+                }
+            }
+            .frame(maxHeight: 400)
+        }
+        .frame(width: 220)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground.opacity(0.95))
+                .shadow(color: .black.opacity(0.5), radius: 8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
+        )
+        .position(fixedPosition)
+    }
+
+    /// Determine if a common frequency should be highlighted based on aircraft position
+    private func shouldHighlightFrequency(_ freq: SwissCommonFrequency) -> Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        let coord = location.coordinate
+
+        // Use SwissAirspaceSectors to determine which sector the aircraft is in
+        let sector = SwissAirspaceSectors.getSector(for: coord)
+
+        switch freq {
+        case .zurichInfo:
+            return sector == .zurich
+        case .genevaInfo:
+            return sector == .geneva
+        case .fisEast:
+            return sector == .zurich || sector == .east
+        case .fisWest:
+            return sector == .geneva || sector == .west
+        case .emergency:
+            return false // Emergency frequency is never auto-highlighted
+        }
+    }
+
+    private func frequencyRow(waypoint: FlightPlanWaypoint, isCurrent: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(waypoint.name.isEmpty ? "Waypoint" : waypoint.name)
+                    .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
+                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                    .lineLimit(1)
+                if let callSign = waypoint.callSign, !callSign.isEmpty {
+                    Text(callSign)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            Spacer()
+            Text(waypoint.frequency ?? "")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(isCurrent ? .aviationGreen : .aviationGold)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func commonFrequencyRow(_ freq: SwissCommonFrequency, isHighlighted: Bool) -> some View {
+        HStack {
+            Text(freq.name)
+                .font(.system(size: 11, weight: isHighlighted ? .semibold : .regular))
+                .foregroundColor(isHighlighted ? .primaryText : .secondaryText)
+            Spacer()
+            Text(freq.frequency)
+                .font(.system(size: 12, weight: isHighlighted ? .bold : .medium, design: .monospaced))
+                .foregroundColor(isHighlighted ? .aviationGold : .secondaryText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    /// Get nearby CTRs based on current location
+    /// Major airports show up to 15nm, minor airports up to 10nm
+    private var nearbyCTRs: [(ctr: SwissCTR, distanceNM: Double)] {
+        guard let location = locationManager.currentLocation else { return [] }
+        // Get CTRs within display radius, limited to closest 5
+        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
+    }
+
+    private func ctrFrequencyRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= ctr.radiusNM + 3.0 // Highlight if within CTR + 3nm buffer
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(ctr.name)
+                        .font(.system(size: 11, weight: isNearby ? .semibold : .regular))
+                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                    if ctr.isMilitary {
+                        Text("MIL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(ctr.callSign)
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ctr.frequency)
+                    .font(.system(size: 12, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+}
+
+/// Common Swiss aviation frequencies
+enum SwissCommonFrequency: CaseIterable {
+    case genevaInfo
+    case fisWest
+    case zurichInfo
+    case fisEast
+    case emergency
+
+    var name: String {
+        switch self {
+        case .genevaInfo: return "Geneva Info"
+        case .fisWest: return "FIS West"
+        case .zurichInfo: return "Zurich Info"
+        case .fisEast: return "FIS East"
+        case .emergency: return "Emergency"
+        }
+    }
+
+    var frequency: String {
+        switch self {
+        case .genevaInfo: return "126.350"
+        case .fisWest: return "119.175"
+        case .zurichInfo: return "124.700"
+        case .fisEast: return "125.225"
+        case .emergency: return "121.500"
+        }
+    }
+}
+
+/// Swiss airspace sectors for Info/FIS frequency selection
+/// Based on the CTA zones from geocat.ch
+enum SwissAirspaceSector {
+    case zurich  // Eastern Switzerland - Zurich Info / FIS East
+    case geneva  // Western Switzerland - Geneva Info / FIS West
+    case east    // Far east - FIS East only (no Info)
+    case west    // Far west - FIS West only (no Info)
+}
+
+/// Rough polygons for Swiss airspace sectors
+/// Based on CTA zones from https://www.geocat.ch/geonetwork/srv/eng/catalog.search#/metadata/5fd1a95b-8f2c-4fff-8038-a7b2922488ad
+struct SwissAirspaceSectors {
+    /// Get the airspace sector for a given coordinate
+    static func getSector(for coordinate: CLLocationCoordinate2D) -> SwissAirspaceSector {
+        let lon = coordinate.longitude
+        let lat = coordinate.latitude
+
+        // Switzerland approximate bounds
+        guard lat >= 45.8 && lat <= 47.9 && lon >= 5.9 && lon <= 10.6 else {
+            // Outside Switzerland - default to nearest sector
+            if lon < 7.5 {
+                return .west
+            } else {
+                return .east
+            }
+        }
+
+        // The dividing line between Zurich and Geneva sectors is approximately at 7.5°E longitude
+        // This is a simplified approximation of the actual CTA boundaries
+        // The actual boundary follows a more complex path through the Alps
+
+        // Main dividing longitude (approximate - based on CTA boundary through Fribourg/Bern area)
+        let divisionLongitude: Double = 7.45
+
+        // Zurich Info covers:
+        // - East of the dividing line
+        // - Includes most of central and eastern Switzerland
+        if lon >= divisionLongitude {
+            return .zurich
+        } else {
+            // Geneva Info covers:
+            // - West of the dividing line
+            // - Includes western Switzerland and parts of the Alps
+            return .geneva
+        }
+    }
+}
+
+// MARK: - Swiss CTR (Control Zones) Data
+
+/// Swiss CTR zones with coordinates and frequencies
+/// Data from swisstopo / Swiss AIP and IVAO Switzerland
+/// FIS Zurich: LSZH, LSZA, LSZB, LSZC, LSZG, LSZR, LSZS, EDNY, LFSB
+/// FIS Geneva: LSGG, LSGS, LSGC, LSMP
+enum SwissCTR: CaseIterable, Identifiable {
+    // FIS Zurich airports
+    case zurich           // LSZH - Zurich Airport
+    case basel            // LFSB - EuroAirport Basel-Mulhouse-Freiburg
+    case lugano           // LSZA - Lugano-Agno
+    case bern             // LSZB - Bern-Belp
+    case buochs           // LSZC - Buochs (military)
+    case grenchen         // LSZG - Grenchen
+    case stGallen         // LSZR - St. Gallen-Altenrhein
+    case samedan          // LSZS - Samedan/Engadin
+    case friedrichshafen  // EDNY - Friedrichshafen (Germany)
+
+    // FIS Geneva airports
+    case geneva           // LSGG - Geneva-Cointrin
+    case sion             // LSGS - Sion
+    case lesEplatures     // LSGC - Les Eplatures (La Chaux-de-Fonds)
+    case payerne          // LSMP - Payerne (military)
+
+    var id: String { icaoCode }
+
+    /// ICAO airport code
+    var icaoCode: String {
+        switch self {
+        case .zurich: return "LSZH"
+        case .basel: return "LFSB"
+        case .lugano: return "LSZA"
+        case .bern: return "LSZB"
+        case .buochs: return "LSZC"
+        case .grenchen: return "LSZG"
+        case .stGallen: return "LSZR"
+        case .samedan: return "LSZS"
+        case .friedrichshafen: return "EDNY"
+        case .geneva: return "LSGG"
+        case .sion: return "LSGS"
+        case .lesEplatures: return "LSGC"
+        case .payerne: return "LSMP"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .zurich: return "Zurich"
+        case .basel: return "Basel"
+        case .lugano: return "Lugano"
+        case .bern: return "Bern"
+        case .buochs: return "Buochs"
+        case .grenchen: return "Grenchen"
+        case .stGallen: return "St. Gallen"
+        case .samedan: return "Samedan"
+        case .friedrichshafen: return "Friedrichshafen"
+        case .geneva: return "Geneva"
+        case .sion: return "Sion"
+        case .lesEplatures: return "Les Eplatures"
+        case .payerne: return "Payerne"
+        }
+    }
+
+    /// Primary frequency (Tower or Info)
+    var frequency: String {
+        switch self {
+        case .zurich: return "118.100"          // Zurich Tower
+        case .basel: return "118.300"           // Basel Tower
+        case .lugano: return "118.550"          // Lugano Tower
+        case .bern: return "126.075"            // Bern Tower
+        case .buochs: return "120.425"          // Buochs Tower (military)
+        case .grenchen: return "128.525"        // Grenchen Tower
+        case .stGallen: return "119.900"        // Altenrhein Tower
+        case .samedan: return "135.325"         // Samedan Info
+        case .friedrichshafen: return "120.080" // Friedrichshafen Tower
+        case .geneva: return "118.700"          // Geneva Tower
+        case .sion: return "118.275"            // Sion Tower
+        case .lesEplatures: return "118.125"    // Les Eplatures Tower
+        case .payerne: return "131.225"         // Payerne Tower (military)
+        }
+    }
+
+    /// Callsign for the frequency
+    var callSign: String {
+        switch self {
+        case .zurich: return "ZURICH TOWER"
+        case .basel: return "BASEL TOWER"
+        case .lugano: return "LUGANO TOWER"
+        case .bern: return "BERN TOWER"
+        case .buochs: return "BUOCHS TOWER"
+        case .grenchen: return "GRENCHEN TOWER"
+        case .stGallen: return "ALTENRHEIN TOWER"
+        case .samedan: return "SAMEDAN INFO"
+        case .friedrichshafen: return "FRIEDRICHSHAFEN TWR"
+        case .geneva: return "GENEVA TOWER"
+        case .sion: return "SION TOWER"
+        case .lesEplatures: return "LES EPLATURES TWR"
+        case .payerne: return "PAYERNE TOWER"
+        }
+    }
+
+    /// Center coordinate of the CTR
+    var center: CLLocationCoordinate2D {
+        switch self {
+        case .zurich: return CLLocationCoordinate2D(latitude: 47.4647, longitude: 8.5492)
+        case .basel: return CLLocationCoordinate2D(latitude: 47.5896, longitude: 7.5299)
+        case .lugano: return CLLocationCoordinate2D(latitude: 46.0040, longitude: 8.9106)
+        case .bern: return CLLocationCoordinate2D(latitude: 46.9141, longitude: 7.4975)
+        case .buochs: return CLLocationCoordinate2D(latitude: 46.9744, longitude: 8.3969)
+        case .grenchen: return CLLocationCoordinate2D(latitude: 47.1815, longitude: 7.4171)
+        case .stGallen: return CLLocationCoordinate2D(latitude: 47.4850, longitude: 9.5608)
+        case .samedan: return CLLocationCoordinate2D(latitude: 46.5340, longitude: 9.8841)
+        case .friedrichshafen: return CLLocationCoordinate2D(latitude: 47.6713, longitude: 9.5115)
+        case .geneva: return CLLocationCoordinate2D(latitude: 46.2381, longitude: 6.1089)
+        case .sion: return CLLocationCoordinate2D(latitude: 46.2196, longitude: 7.3270)
+        case .lesEplatures: return CLLocationCoordinate2D(latitude: 47.0839, longitude: 6.7936)
+        case .payerne: return CLLocationCoordinate2D(latitude: 46.8430, longitude: 6.9156)
+        }
+    }
+
+    /// Approximate radius of the CTR in nautical miles (for proximity detection)
+    var radiusNM: Double {
+        switch self {
+        case .zurich: return 12.0
+        case .basel: return 10.0
+        case .lugano: return 5.0
+        case .bern: return 5.0
+        case .buochs: return 3.0
+        case .grenchen: return 3.0
+        case .stGallen: return 4.0
+        case .samedan: return 5.0
+        case .friedrichshafen: return 5.0
+        case .geneva: return 10.0
+        case .sion: return 4.0
+        case .lesEplatures: return 3.0
+        case .payerne: return 5.0
+        }
+    }
+
+    /// Whether this is a major airport (for display radius filtering)
+    /// Major airports show up to 15nm, minor airports up to 10nm
+    var isMajor: Bool {
+        switch self {
+        case .zurich, .basel, .geneva: return true
+        default: return false
+        }
+    }
+
+    /// Whether this is a military CTR
+    var isMilitary: Bool {
+        switch self {
+        case .buochs, .payerne: return true
+        default: return false
+        }
+    }
+}
+
+/// Helper to find nearby CTRs
+struct SwissCTRProximity {
+    /// Get CTRs within display distance from a location
+    /// Major airports (LSZH, LFSB, LSGG) show up to 15nm
+    /// Minor airports show up to 10nm
+    /// Returns list sorted by distance, closest first
+    static func getNearbyCTRs(from location: CLLocation) -> [(ctr: SwissCTR, distanceNM: Double)] {
+        var nearby: [(ctr: SwissCTR, distanceNM: Double)] = []
+
+        for ctr in SwissCTR.allCases {
+            let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
+            let distanceMeters = location.distance(from: ctrLocation)
+            let distanceNM = distanceMeters / 1852.0
+
+            // Major airports show up to 15nm, minor airports up to 10nm
+            let displayRadius = ctr.isMajor ? 15.0 : 10.0
+            if distanceNM <= displayRadius {
+                nearby.append((ctr: ctr, distanceNM: distanceNM))
+            }
+        }
+
+        return nearby.sorted { $0.distanceNM < $1.distanceNM }
+    }
+
+    /// Check if location is inside or very close to a CTR
+    static func isNearCTR(_ ctr: SwissCTR, from location: CLLocation) -> Bool {
+        let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
+        let distanceMeters = location.distance(from: ctrLocation)
+        let distanceNM = distanceMeters / 1852.0
+
+        // Consider "near" if within CTR radius + 3nm buffer
+        return distanceNM <= (ctr.radiusNM + 3.0)
     }
 }
 
@@ -817,6 +2128,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     let currentLocation: CLLocation?
     let gpsTrack: [GPSPoint]
     @Binding var isFollowingAircraft: Bool
+    var activeFlightPlan: FlightPlan?
+    var currentWaypointIndex: Int = 0  // Track separately to force updates
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -878,10 +2191,56 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
+
+        // Update flight plan overlay
+        updateFlightPlanOverlay(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Remove existing flight plan overlays and annotations
+        let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
+        mapView.removeOverlays(existingFlightPlanPolylines)
+
+        let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
+        mapView.removeAnnotations(existingWaypointAnnotations)
+
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+
+        let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Draw route segments
+        let coordinates = flightPlan.waypoints.map { $0.coordinate }
+
+        // Draw completed segments (dimmed) - use .aboveLabels to ensure visibility over tile overlays
+        if currentWaypointIndex > 0 {
+            let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
+            let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
+            completedPolyline.isCompletedSegment = true
+            mapView.addOverlay(completedPolyline, level: .aboveLabels)
+        }
+
+        // Draw remaining segments (bright) - use .aboveLabels to ensure visibility over tile overlays
+        if currentWaypointIndex < flightPlan.waypoints.count {
+            let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
+            let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
+            remainingPolyline.isCompletedSegment = false
+            mapView.addOverlay(remainingPolyline, level: .aboveLabels)
+        }
+
+        // Add waypoint annotations
+        for (index, waypoint) in flightPlan.waypoints.enumerated() {
+            let annotation = FlightPlanWaypointAnnotation(
+                coordinate: waypoint.coordinate,
+                name: waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name,
+                index: index,
+                currentIndex: currentWaypointIndex
+            )
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func updateAircraftAnnotation(_ mapView: MKMapView, context: Context) {
@@ -935,7 +2294,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
                 let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                mapView.addOverlay(polyline, level: .aboveRoads)
+                // Use .aboveLabels for GPS track to ensure visibility over tile overlays
+                mapView.addOverlay(polyline, level: .aboveLabels)
             }
         }
     }
@@ -977,6 +2337,23 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // Flight plan route (magenta - high visibility on aviation charts)
+            if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
+                let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isCompletedSegment {
+                    // Completed segments - dimmed magenta
+                    renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
+                    renderer.lineWidth = 4
+                } else {
+                    // Active/remaining segments - bright magenta with black outline effect
+                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                    renderer.lineWidth = 5
+                }
+                renderer.lineDashPattern = nil // Solid line
+                return renderer
+            }
+
+            // GPS track (gold)
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
@@ -987,6 +2364,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Handle flight plan waypoint annotations
+            if let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation {
+                return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
+            }
+
+            // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
             }
@@ -1047,6 +2430,73 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 3
+
+            return annotationView
+        }
+
+        /// Create annotation view for flight plan waypoints
+        private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
+            let identifier = "FlightPlanWaypoint"
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = true
+
+            // Waypoint appearance based on state
+            let size: CGFloat = 24
+            let markerColor: UIColor
+            let iconName: String
+
+            if annotation.isCurrentWaypoint {
+                // Current/next waypoint - bright magenta with target icon
+                markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                iconName = "target"
+            } else if annotation.isCompletedWaypoint {
+                // Completed waypoint - dimmed with checkmark
+                markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
+                iconName = "checkmark.circle.fill"
+            } else {
+                // Future waypoint - medium brightness
+                markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
+                iconName = "circle.fill"
+            }
+
+            // Create the waypoint marker image
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                // Create image with black outline for visibility
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw black outline
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth)
+                ]
+
+                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main colored icon
+                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
+            }
+
+            // Add shadow
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 2
 
             return annotationView
         }
@@ -1198,6 +2648,8 @@ struct SwissMapView: UIViewRepresentable {
     var offlineMapManager: OfflineMapManager?
     var isStrictOfflineMode: Bool = false
     var hasSegelflugCache: Bool = false
+    var activeFlightPlan: FlightPlan?
+    var currentWaypointIndex: Int = 0  // Track separately to force updates
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -1403,6 +2855,52 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
+
+        // Update flight plan overlay
+        updateFlightPlanOverlay(mapView, context: context)
+    }
+
+    private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
+        // Remove existing flight plan overlays and annotations
+        let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
+        mapView.removeOverlays(existingFlightPlanPolylines)
+
+        let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
+        mapView.removeAnnotations(existingWaypointAnnotations)
+
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+
+        let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Draw route segments
+        let coordinates = flightPlan.waypoints.map { $0.coordinate }
+
+        // Draw completed segments (dimmed) - use .aboveLabels to ensure visibility over tile overlays
+        if currentWaypointIndex > 0 {
+            let completedCoords = Array(coordinates.prefix(currentWaypointIndex + 1))
+            let completedPolyline = FlightPlanRoutePolyline(coordinates: completedCoords, count: completedCoords.count)
+            completedPolyline.isCompletedSegment = true
+            mapView.addOverlay(completedPolyline, level: .aboveLabels)
+        }
+
+        // Draw remaining segments (bright) - use .aboveLabels to ensure visibility over tile overlays
+        if currentWaypointIndex < flightPlan.waypoints.count {
+            let remainingCoords = Array(coordinates.suffix(from: currentWaypointIndex))
+            let remainingPolyline = FlightPlanRoutePolyline(coordinates: remainingCoords, count: remainingCoords.count)
+            remainingPolyline.isCompletedSegment = false
+            mapView.addOverlay(remainingPolyline, level: .aboveLabels)
+        }
+
+        // Add waypoint annotations
+        for (index, waypoint) in flightPlan.waypoints.enumerated() {
+            let annotation = FlightPlanWaypointAnnotation(
+                coordinate: waypoint.coordinate,
+                name: waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name,
+                index: index,
+                currentIndex: currentWaypointIndex
+            )
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func addTileOverlay(to mapView: MKMapView, layerType: MapLayerType, context: Context) {
@@ -1490,7 +2988,8 @@ struct SwissMapView: UIViewRepresentable {
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
                 let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-                mapView.addOverlay(polyline, level: .aboveRoads)
+                // Use .aboveLabels for GPS track to ensure visibility over tile overlays
+                mapView.addOverlay(polyline, level: .aboveLabels)
             }
         }
     }
@@ -1588,6 +3087,23 @@ struct SwissMapView: UIViewRepresentable {
                 return renderer
             }
 
+            // Flight plan route (magenta - high visibility on aviation charts)
+            if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
+                let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
+                if flightPlanPolyline.isCompletedSegment {
+                    // Completed segments - dimmed magenta
+                    renderer.strokeColor = UIColor(red: 0.8, green: 0.2, blue: 0.6, alpha: 0.5)
+                    renderer.lineWidth = 4
+                } else {
+                    // Active/remaining segments - bright magenta with black outline effect
+                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                    renderer.lineWidth = 5
+                }
+                renderer.lineDashPattern = nil // Solid line
+                return renderer
+            }
+
+            // GPS track (gold)
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 // Use explicit UIColor for gold
@@ -1600,6 +3116,12 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Handle flight plan waypoint annotations
+            if let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation {
+                return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
+            }
+
+            // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
             }
@@ -1665,6 +3187,73 @@ struct SwissMapView: UIViewRepresentable {
 
             return annotationView
         }
+
+        /// Create annotation view for flight plan waypoints
+        private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
+            let identifier = "FlightPlanWaypoint"
+            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.canShowCallout = true
+
+            // Waypoint appearance based on state
+            let size: CGFloat = 24
+            let markerColor: UIColor
+            let iconName: String
+
+            if annotation.isCurrentWaypoint {
+                // Current/next waypoint - bright magenta with target icon
+                markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                iconName = "target"
+            } else if annotation.isCompletedWaypoint {
+                // Completed waypoint - dimmed with checkmark
+                markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
+                iconName = "checkmark.circle.fill"
+            } else {
+                // Future waypoint - medium brightness
+                markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
+                iconName = "circle.fill"
+            }
+
+            // Create the waypoint marker image
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                // Create image with black outline for visibility
+                let strokeWidth: CGFloat = 2.0
+                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                                       height: image.size.height + strokeWidth * 2)
+
+                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+
+                // Draw black outline
+                let offsets: [CGPoint] = [
+                    CGPoint(x: -strokeWidth, y: 0),
+                    CGPoint(x: strokeWidth, y: 0),
+                    CGPoint(x: 0, y: -strokeWidth),
+                    CGPoint(x: 0, y: strokeWidth)
+                ]
+
+                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+                for offset in offsets {
+                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+                }
+
+                // Draw main colored icon
+                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
+                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                    annotationView.image = finalImage
+                }
+            }
+
+            // Add shadow
+            annotationView.layer.shadowColor = UIColor.black.cgColor
+            annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
+            annotationView.layer.shadowOpacity = 0.5
+            annotationView.layer.shadowRadius = 2
+
+            return annotationView
+        }
     }
 }
 
@@ -1679,6 +3268,33 @@ class AircraftAnnotation: NSObject, MKAnnotation {
         self.heading = heading
         super.init()
     }
+}
+
+// MARK: - Flight Plan Waypoint Annotation
+
+class FlightPlanWaypointAnnotation: NSObject, MKAnnotation {
+    var coordinate: CLLocationCoordinate2D
+    var title: String?
+    var subtitle: String?
+    var waypointIndex: Int
+    var isCurrentWaypoint: Bool
+    var isCompletedWaypoint: Bool
+
+    init(coordinate: CLLocationCoordinate2D, name: String, index: Int, currentIndex: Int) {
+        self.coordinate = coordinate
+        self.title = name
+        self.waypointIndex = index
+        self.isCurrentWaypoint = index == currentIndex
+        self.isCompletedWaypoint = index < currentIndex
+        super.init()
+    }
+}
+
+// MARK: - Flight Plan Route Polyline
+
+/// Custom polyline class to distinguish flight plan route from GPS track
+class FlightPlanRoutePolyline: MKPolyline {
+    var isCompletedSegment: Bool = false
 }
 
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)

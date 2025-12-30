@@ -7,9 +7,13 @@ struct FlightView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windDataService: WindDataService
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
     @State private var showPhaseSelector = false
     @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
+    @State private var showAbandonFlightAlert = false
+    @State private var abandonFlightProgress: CGFloat = 0
+    @State private var abandonFlightTimer: Timer?
     @State private var showDepartureBriefing = false
     @State private var showApproachBriefing = false
     @State private var showFlightInfo = false
@@ -106,10 +110,21 @@ struct FlightView: View {
             Button("Cancel", role: .cancel) { }
             Button("End Flight", role: .destructive) {
                 locationManager.stopTracking()
-                appState.endFlight()
+                appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
+                flightPlanManager.deactivateFlightPlan()
             }
         } message: {
             Text("This will save the flight to your log and stop GPS recording.")
+        }
+        .alert("Abandon Flight?", isPresented: $showAbandonFlightAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Abandon Flight", role: .destructive) {
+                locationManager.stopTracking()
+                appState.cancelFlight()
+                flightPlanManager.deactivateFlightPlan()
+            }
+        } message: {
+            Text("This will discard the current flight without saving. GPS data will be lost.")
         }
         .onReceive(timer) { _ in
             // Trigger view update for timer display
@@ -163,6 +178,10 @@ struct FlightView: View {
                             },
                             onLineUp: {
                                 appState.recordLineUpTime()
+                                // Update flight plan departure time to now
+                                if let lineUpTime = appState.lineUpTime {
+                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+                                }
                                 pulseActionButton = false
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {
@@ -171,6 +190,10 @@ struct FlightView: View {
                             },
                             onLineUpUpdate: {
                                 appState.recordLineUpTime()
+                                // Update flight plan departure time
+                                if let lineUpTime = appState.lineUpTime {
+                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+                                }
                             },
                             onEngineShutdown: {
                                 appState.recordEngineShutdown()
@@ -299,10 +322,18 @@ struct FlightView: View {
                             onEngineStartUpdate: { appState.recordEngineStart() },
                             onLineUp: {
                                 appState.recordLineUpTime()
+                                if let lineUpTime = appState.lineUpTime {
+                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+                                }
                                 pulseActionButton = false
                                 if allItemsChecked { triggerNextButtonPulse() }
                             },
-                            onLineUpUpdate: { appState.recordLineUpTime() },
+                            onLineUpUpdate: {
+                                appState.recordLineUpTime()
+                                if let lineUpTime = appState.lineUpTime {
+                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+                                }
+                            },
                             onEngineShutdown: {
                                 appState.recordEngineShutdown()
                                 pulseActionButton = false
@@ -385,15 +416,8 @@ struct FlightView: View {
 
     private var compactHeaderBar: some View {
         HStack(spacing: 8) {
-            // Aircraft identifier
-            HStack(spacing: 4) {
-                Image(systemName: "airplane")
-                    .font(.system(size: 14))
-                    .foregroundColor(.aviationGold)
-                Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primaryText)
-            }
+            // Aircraft identifier with long-press to abandon
+            abandonableAircraftIdentifier(iconSize: 14, isCompact: true)
 
             Spacer()
 
@@ -589,20 +613,80 @@ struct FlightView: View {
             pulseNextButton = false
         }
     }
-    
+
+    // MARK: - Abandon Flight Long Press
+
+    private func startAbandonFlightTimer() {
+        abandonFlightProgress = 0
+        abandonFlightTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            abandonFlightProgress += 0.05 / 2.5 // 2.5 seconds total
+            if abandonFlightProgress >= 1.0 {
+                timer.invalidate()
+                abandonFlightTimer = nil
+                abandonFlightProgress = 0
+                // Haptic feedback
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.warning)
+                showAbandonFlightAlert = true
+            }
+        }
+    }
+
+    private func cancelAbandonFlightTimer() {
+        abandonFlightTimer?.invalidate()
+        abandonFlightTimer = nil
+        withAnimation(.easeOut(duration: 0.2)) {
+            abandonFlightProgress = 0
+        }
+    }
+
+    /// Creates an airplane identifier section with long press to abandon gesture
+    /// Both the airplane icon and the call sign are tappable
+    private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 4 : 8) {
+            // Progress ring behind the icon
+            ZStack {
+                if abandonFlightProgress > 0 {
+                    Circle()
+                        .stroke(Color.aviationRed.opacity(0.3), lineWidth: isCompact ? 2 : 3)
+                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
+
+                    Circle()
+                        .trim(from: 0, to: abandonFlightProgress)
+                        .stroke(Color.aviationRed, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
+                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
+                        .rotationEffect(.degrees(-90))
+                }
+
+                Image(systemName: "airplane")
+                    .font(.system(size: iconSize))
+                    .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
+            }
+
+            Text(appState.currentFlight?.airplane ?? "F-HVXA")
+                .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
+                .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+        }
+        .contentShape(Rectangle()) // Make entire area tappable
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if abandonFlightTimer == nil {
+                        startAbandonFlightTimer()
+                    }
+                }
+                .onEnded { _ in
+                    cancelAbandonFlightTimer()
+                }
+        )
+    }
+
     // MARK: - Header Bar
-    
+
     private var headerBar: some View {
         HStack {
-            // Aircraft identifier
-            HStack(spacing: 8) {
-                Image(systemName: "airplane")
-                    .font(.system(size: 20))
-                    .foregroundColor(.aviationGold)
-                Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                    .font(.headerText)
-                    .foregroundColor(.primaryText)
-            }
+            // Aircraft identifier with long-press to abandon
+            abandonableAircraftIdentifier(iconSize: 20, isCompact: false)
             
             Spacer()
             
@@ -1391,4 +1475,5 @@ struct FlightInfoSheet: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(WindDataService())
+        .environmentObject(FlightPlanManager())
 }

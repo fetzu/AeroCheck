@@ -29,6 +29,9 @@ struct SettingsView: View {
     @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
     @State private var showFlightPlanningWarning: Bool = false
+
+    // Circuit mode
+    @State private var enableCircuitMode: Bool = false
     
     var body: some View {
         NavigationView {
@@ -56,6 +59,7 @@ struct SettingsView: View {
                 enableFlightPlanning: enableFlightPlanning,
                 waypointProximityThreshold: waypointProximityThreshold,
                 terrainAltitudeUnit: terrainAltitudeUnit,
+                enableCircuitMode: enableCircuitMode,
                 marketingMode: marketingMode,
                 saveSettings: saveSettings,
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
@@ -377,12 +381,15 @@ struct SettingsView: View {
             Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
 
             Toggle("Learning Mode (show all checks)", isOn: $learningMode)
+
+            Toggle("Enable Circuit Mode", isOn: $enableCircuitMode)
         } header: {
             Label("Checklist", systemImage: "checklist")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Step-by-Step: Highlights items one at a time. Tap anywhere to advance.")
                 Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
+                Text("Circuit Mode: When ON, shows a START CIRCUITS button on the home screen. Circuit flights skip CRUISE and DESCENT checklists.")
             }
         }
     }
@@ -606,6 +613,8 @@ struct SettingsView: View {
         enableFlightPlanning = appState.settings.enableFlightPlanning
         waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
+        // Circuit mode
+        enableCircuitMode = appState.settings.enableCircuitMode
         // Marketing mode is NOT loaded from settings - it always starts as false
         // Developer options are hidden by default and require 5 taps to reveal each session
         marketingMode = false
@@ -626,6 +635,8 @@ struct SettingsView: View {
         appState.settings.enableFlightPlanning = enableFlightPlanning
         appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
+        // Circuit mode
+        appState.settings.enableCircuitMode = enableCircuitMode
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -1135,6 +1146,7 @@ struct SettingsChangeModifier: ViewModifier {
     let enableFlightPlanning: Bool
     let waypointProximityThreshold: Double
     let terrainAltitudeUnit: TerrainAltitudeUnit
+    let enableCircuitMode: Bool
     let marketingMode: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
@@ -1153,6 +1165,7 @@ struct SettingsChangeModifier: ViewModifier {
             .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
             .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
             .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
+            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
     }
 }

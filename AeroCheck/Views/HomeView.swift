@@ -105,18 +105,38 @@ struct HomeView: View {
             // Aircraft card
             aircraftCard(isLandscape: isLandscape, isCompact: isCompact)
 
-            // Start flight button - keep consistent size
-            Button(action: startFlight) {
-                HStack(spacing: isCompact ? 10 : 14) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: isCompact ? 18 : 22))
-                    Text("START FLIGHT")
-                        .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+            // Start flight button(s) - keep consistent size
+            HStack(spacing: isCompact ? 8 : 12) {
+                Button(action: startFlight) {
+                    HStack(spacing: isCompact ? 10 : 14) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: isCompact ? 18 : 22))
+                        Text("START FLIGHT")
+                            .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
+                .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+
+                // START CIRCUITS button - only shown when circuit mode is enabled
+                if appState.settings.enableCircuitMode {
+                    Button(action: startCircuits) {
+                        VStack(spacing: isCompact ? 2 : 4) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: isCompact ? 16 : 20))
+                            Text("CIRCUITS")
+                                .font(.system(size: isCompact ? 12 : 14, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
+                    }
+                    .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
+                    .frame(maxWidth: appState.settings.enableCircuitMode ? .infinity : 0)
+                    .frame(width: appState.settings.enableCircuitMode ? nil : 0)
+                    .layoutPriority(appState.settings.enableCircuitMode ? 0.33 : 0) // ~25% width
+                }
             }
-            .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
             .padding(.horizontal, isCompact ? 20 : 40)
 
             // Info text and GPS status - hide only on compact devices (iPhone)
@@ -309,7 +329,16 @@ struct HomeView: View {
     private func startFlight() {
         // Pass the active flight plan ID to the flight if one is active
         let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
-        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId)
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId, circuitMode: false)
+        locationManager.startTracking(
+            appState: appState,
+            interval: appState.settings.gpsRecordingInterval
+        )
+    }
+
+    private func startCircuits() {
+        // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
+        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: nil, circuitMode: true)
         locationManager.startTracking(
             appState: appState,
             interval: appState.settings.gpsRecordingInterval

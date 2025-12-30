@@ -27,6 +27,9 @@ struct AppSettings: Codable {
     var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
+    // Circuit mode
+    var enableCircuitMode: Bool = false // When true, shows START CIRCUITS button
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -50,6 +53,7 @@ struct AppSettings: Codable {
         case enableFlightPlanning
         case waypointProximityThreshold
         case terrainAltitudeUnit
+        case enableCircuitMode
         // marketingMode is intentionally excluded
     }
 }
@@ -76,6 +80,7 @@ struct ActiveFlightState: Codable {
     let highestCompletedPhaseRawValue: Int
     let currentHighlightedItem: [Int: Int] // Phase raw value -> highlighted item index
     let hasLandingBeenDetected: Bool
+    let isCircuitMode: Bool
     let savedAt: Date
 
     @MainActor
@@ -111,6 +116,7 @@ struct ActiveFlightState: Codable {
         self.currentHighlightedItem = highlightedDict
 
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
+        self.isCircuitMode = appState.isCircuitMode
         self.savedAt = Date()
     }
 
@@ -153,6 +159,7 @@ struct ActiveFlightState: Codable {
         appState.currentHighlightedItem = highlightedDict
 
         appState.hasLandingBeenDetected = hasLandingBeenDetected
+        appState.isCircuitMode = isCircuitMode
     }
 }
 
@@ -186,7 +193,10 @@ class AppState: ObservableObject {
     private var consecutiveLowSpeedReadings: Int = 0
     private let lowSpeedThreshold: Double = 2.0 // m/s (about 4 knots)
     private let requiredLowSpeedReadings: Int = 3
-    
+
+    // Circuit mode - skips CRUISE and DESCENT phases
+    @Published var isCircuitMode: Bool = false
+
     // MARK: - Private Properties
 
     private let flightsKey = "savedFlights"
@@ -209,12 +219,12 @@ class AppState: ObservableObject {
     }
     
     // MARK: - Flight Management
-    
+
     func startFlight() {
-        startFlight(withAircraft: settings.defaultAirplane, flightPlanId: nil)
+        startFlight(withAircraft: settings.defaultAirplane, flightPlanId: nil, circuitMode: false)
     }
 
-    func startFlight(withAircraft aircraft: String, flightPlanId: UUID? = nil) {
+    func startFlight(withAircraft aircraft: String, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
         currentFlight = Flight(
             airplane: aircraft,
             aircraftType: settings.selectedAircraft.rawValue,
@@ -224,6 +234,7 @@ class AppState: ObservableObject {
         )
         currentPhase = .preflight
         isFlightActive = true
+        isCircuitMode = circuitMode
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -250,6 +261,7 @@ class AppState: ObservableObject {
 
         currentFlight = nil
         isFlightActive = false
+        isCircuitMode = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -261,10 +273,11 @@ class AppState: ObservableObject {
         // Clear saved flight state since flight ended normally
         clearActiveFlightState()
     }
-    
+
     func cancelFlight() {
         currentFlight = nil
         isFlightActive = false
+        isCircuitMode = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -444,21 +457,55 @@ class AppState: ObservableObject {
         if currentPhase.rawValue >= highestCompletedPhase.rawValue {
             highestCompletedPhase = currentPhase
         }
-        
-        currentPhase = ChecklistPhase.allCases[currentIndex + 1]
+
+        // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode
+        var nextIndex = currentIndex + 1
+        while nextIndex < ChecklistPhase.allCases.count {
+            let nextPhase = ChecklistPhase.allCases[nextIndex]
+            if isCircuitMode && (nextPhase == .cruise || nextPhase == .descent) {
+                // Skip this phase in circuit mode
+                phaseCompletionStatus[nextPhase] = .skipped
+                nextIndex += 1
+            } else {
+                break
+            }
+        }
+
+        if nextIndex < ChecklistPhase.allCases.count {
+            currentPhase = ChecklistPhase.allCases[nextIndex]
+        }
     }
-    
+
     func previousPhase() {
         guard let prevIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase)?.advanced(by: -1),
               prevIndex >= 0 else { return }
-        currentPhase = ChecklistPhase.allCases[prevIndex]
+
+        // In circuit mode, skip CRUISE and DESCENT when going backward
+        var targetIndex = prevIndex
+        while targetIndex >= 0 {
+            let prevPhase = ChecklistPhase.allCases[targetIndex]
+            if isCircuitMode && (prevPhase == .cruise || prevPhase == .descent) {
+                targetIndex -= 1
+            } else {
+                break
+            }
+        }
+
+        if targetIndex >= 0 {
+            currentPhase = ChecklistPhase.allCases[targetIndex]
+        }
     }
     
     func goToPhase(_ phase: ChecklistPhase) {
+        // In circuit mode, don't allow navigation to CRUISE or DESCENT
+        if isCircuitMode && (phase == .cruise || phase == .descent) {
+            return
+        }
+
         // When jumping to a phase, mark any skipped phases appropriately
         if let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
            let targetIndex = ChecklistPhase.allCases.firstIndex(of: phase) {
-            
+
             if targetIndex > currentIndex {
                 // Jumping forward - mark skipped phases
                 for i in currentIndex..<targetIndex {

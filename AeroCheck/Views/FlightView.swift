@@ -678,9 +678,18 @@ struct FlightView: View {
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
             }
 
-            Text(appState.currentFlight?.airplane ?? "F-HVXA")
-                .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
-                .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+            HStack(spacing: 4) {
+                Text(appState.currentFlight?.airplane ?? "F-HVXA")
+                    .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
+                    .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+
+                // Circuit mode indicator
+                if appState.isCircuitMode {
+                    Text("(for circuits)")
+                        .font(isCompact ? .system(size: 11, weight: .medium) : .system(size: 13, weight: .medium))
+                        .foregroundColor(.aviationAmber)
+                }
+            }
         }
         .contentShape(Rectangle()) // Make entire area tappable
         .gesture(

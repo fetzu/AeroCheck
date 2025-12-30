@@ -20,8 +20,10 @@ struct Flight: Identifiable, Codable {
     var notes: String
     var goAroundCount: Int
     var touchAndGoCount: Int
+    var fullStopCount: Int
     var goAroundTimes: [Date]
     var touchAndGoTimes: [Date]
+    var fullStopTimes: [Date]
 
     init(
         id: UUID = UUID(),
@@ -41,8 +43,10 @@ struct Flight: Identifiable, Codable {
         notes: String = "",
         goAroundCount: Int = 0,
         touchAndGoCount: Int = 0,
+        fullStopCount: Int = 0,
         goAroundTimes: [Date] = [],
-        touchAndGoTimes: [Date] = []
+        touchAndGoTimes: [Date] = [],
+        fullStopTimes: [Date] = []
     ) {
         self.id = id
         self.name = name
@@ -61,18 +65,20 @@ struct Flight: Identifiable, Codable {
         self.notes = notes
         self.goAroundCount = goAroundCount
         self.touchAndGoCount = touchAndGoCount
+        self.fullStopCount = fullStopCount
         self.goAroundTimes = goAroundTimes
         self.touchAndGoTimes = touchAndGoTimes
+        self.fullStopTimes = fullStopTimes
     }
 
-    /// Total landings (touch and go + final landing)
+    /// Total landings (touch and go + full stops + final landing)
     var totalLandings: Int {
-        // If flight has ended (has landing time), count 1 for final landing + all touch and gos
+        // If flight has ended (has landing time), count 1 for final landing + all touch and gos + full stops
         if landingTime != nil {
-            return touchAndGoCount + 1
+            return touchAndGoCount + fullStopCount + 1
         }
-        // If flight is still in progress, just count touch and gos
-        return touchAndGoCount
+        // If flight is still in progress, just count touch and gos + full stops
+        return touchAndGoCount + fullStopCount
     }
     
     /// Display name: "Custom Name (Airplane)" or just "Airplane" if no name
@@ -289,6 +295,13 @@ extension Flight {
             }
         }
 
+        if fullStopCount > 0 {
+            gpx += "\n        <pc:fullStopCount>\(fullStopCount)</pc:fullStopCount>"
+            for fullStopTime in fullStopTimes {
+                gpx += "\n        <pc:fullStopTime>\(dateFormatter.string(from: fullStopTime))</pc:fullStopTime>"
+            }
+        }
+
         if !notes.isEmpty {
             gpx += "\n        <pc:notes><![CDATA[\(notes)]]></pc:notes>"
         }
@@ -418,6 +431,7 @@ class GPXParser: NSObject, XMLParserDelegate {
     private var attributes: [String: String] = [:]
     private var goAroundTimes: [Date] = []
     private var touchAndGoTimes: [Date] = []
+    private var fullStopTimes: [Date] = []
 
     private let dateFormatter = ISO8601DateFormatter()
     
@@ -514,6 +528,12 @@ class GPXParser: NSObject, XMLParserDelegate {
             if let date = dateFormatter.date(from: text) {
                 touchAndGoTimes.append(date)
             }
+        case "fullStopCount":
+            flight?.fullStopCount = Int(text) ?? 0
+        case "fullStopTime":
+            if let date = dateFormatter.date(from: text) {
+                fullStopTimes.append(date)
+            }
         case "ele":
             if let point = currentPoint, let alt = Double(text) {
                 currentPoint = GPSPoint(
@@ -559,6 +579,7 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.gpsTrack = points
             flight?.goAroundTimes = goAroundTimes
             flight?.touchAndGoTimes = touchAndGoTimes
+            flight?.fullStopTimes = fullStopTimes
             if flight?.stopTime == nil, let lastPoint = points.last {
                 flight?.stopTime = lastPoint.timestamp
             }

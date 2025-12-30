@@ -185,6 +185,7 @@ struct ChecklistView: View {
     var onEngineShutdownUpdate: (() -> Void)?
     var onGoAround: (() -> Void)?
     var onTouchAndGo: (() -> Void)?
+    var onFullStop: (() -> Void)?
     var onLanded: (() -> Void)?
     var onLandedUpdate: (() -> Void)?
     var onBriefingTap: ((BriefingType) -> Void)?
@@ -196,6 +197,7 @@ struct ChecklistView: View {
     var engineShutdownTime: String?
     var goAroundCount: Int = 0
     var touchAndGoCount: Int = 0
+    var fullStopCount: Int = 0
 
     // Settings
     var stepByStepEnabled: Bool = true
@@ -241,6 +243,7 @@ struct ChecklistView: View {
          onEngineShutdownUpdate: (() -> Void)? = nil,
          onGoAround: (() -> Void)? = nil,
          onTouchAndGo: (() -> Void)? = nil,
+         onFullStop: (() -> Void)? = nil,
          onLanded: (() -> Void)? = nil,
          onLandedUpdate: (() -> Void)? = nil,
          onBriefingTap: ((BriefingType) -> Void)? = nil,
@@ -252,6 +255,7 @@ struct ChecklistView: View {
          engineShutdownTime: String? = nil,
          goAroundCount: Int = 0,
          touchAndGoCount: Int = 0,
+         fullStopCount: Int = 0,
          stepByStepEnabled: Bool = true,
          learningModeEnabled: Bool = false,
          highlightedItemIndex: Int = 0,
@@ -266,6 +270,7 @@ struct ChecklistView: View {
         self.onEngineShutdownUpdate = onEngineShutdownUpdate
         self.onGoAround = onGoAround
         self.onTouchAndGo = onTouchAndGo
+        self.onFullStop = onFullStop
         self.onLanded = onLanded
         self.onLandedUpdate = onLandedUpdate
         self.onBriefingTap = onBriefingTap
@@ -277,6 +282,7 @@ struct ChecklistView: View {
         self.engineShutdownTime = engineShutdownTime
         self.goAroundCount = goAroundCount
         self.touchAndGoCount = touchAndGoCount
+        self.fullStopCount = fullStopCount
         self.stepByStepEnabled = stepByStepEnabled
         self.learningModeEnabled = learningModeEnabled
         self.highlightedItemIndex = highlightedItemIndex
@@ -481,12 +487,23 @@ struct ChecklistView: View {
                 }
             }
 
-            // Landed button
+            // Full Stop and Landed buttons
             if phase.showsLandedButton {
                 Spacer().frame(height: 24)
 
-                HStack {
+                HStack(spacing: 16) {
                     Spacer()
+
+                    // Full Stop button (for circuit landings)
+                    CounterActionButton(
+                        title: "FULL STOP",
+                        icon: "stop.circle.fill",
+                        color: .aviationAmber,
+                        count: fullStopCount,
+                        countLabel: "Full Stops",
+                        onPress: { onFullStop?() }
+                    )
+                    .id("fullStopButton")
 
                     TimestampActionButton(
                         title: "LANDED",

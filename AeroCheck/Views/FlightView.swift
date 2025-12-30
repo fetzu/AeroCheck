@@ -220,6 +220,13 @@ struct FlightView: View {
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
+                            onFullStop: {
+                                appState.recordFullStop()
+                                // Reset UI state since we're jumping to a new phase
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
                             onLanded: {
                                 appState.recordLanding()
                                 pulseActionButton = false
@@ -251,6 +258,7 @@ struct FlightView: View {
                             engineShutdownTime: appState.formattedEngineShutdownTime,
                             goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
                             touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
+                            fullStopCount: appState.currentFlight?.fullStopCount ?? 0,
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
@@ -352,6 +360,12 @@ struct FlightView: View {
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
+                            onFullStop: {
+                                appState.recordFullStop()
+                                pulseActionButton = false
+                                pulseNextButton = false
+                                allItemsChecked = false
+                            },
                             onLanded: {
                                 appState.recordLanding()
                                 pulseActionButton = false
@@ -372,6 +386,7 @@ struct FlightView: View {
                             engineShutdownTime: appState.formattedEngineShutdownTime,
                             goAroundCount: appState.currentFlight?.goAroundCount ?? 0,
                             touchAndGoCount: appState.currentFlight?.touchAndGoCount ?? 0,
+                            fullStopCount: appState.currentFlight?.fullStopCount ?? 0,
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),

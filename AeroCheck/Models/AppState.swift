@@ -380,7 +380,25 @@ class AppState: ObservableObject {
         // Go to climb phase
         currentPhase = .climb
     }
-    
+
+    /// Record a full stop landing and return to taxi phase, resetting subsequent phases
+    func recordFullStop() {
+        let fullStopTime = Date().addingTimeInterval(-60) // Remove 1 minute like landing
+        currentFlight?.fullStopCount += 1
+        currentFlight?.fullStopTimes.append(fullStopTime)
+
+        // Reset phases from taxi onwards (taxi through afterLanding)
+        for phase in ChecklistPhase.allCases {
+            if phase.rawValue >= ChecklistPhase.taxi.rawValue && phase.rawValue <= ChecklistPhase.afterLanding.rawValue {
+                phaseCompletionStatus[phase] = nil
+                currentHighlightedItem[phase] = 0
+            }
+        }
+
+        // Go to taxi phase
+        currentPhase = .taxi
+    }
+
     func addGPSPoint(_ point: GPSPoint) {
         currentFlight?.gpsTrack.append(point)
         

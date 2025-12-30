@@ -40,8 +40,12 @@ struct FlightPlanEditorView: View {
     @State private var exportData: Data?
     @State private var exportFormat: FlightPlanExportFormat = .json
 
-    init(flightPlan: FlightPlan) {
+    /// When true, hides Deactivate/Recalculate buttons (viewing from Flight Log)
+    let isViewingFromFlightLog: Bool
+
+    init(flightPlan: FlightPlan, isViewingFromFlightLog: Bool = false) {
         _flightPlan = State(initialValue: flightPlan)
+        self.isViewingFromFlightLog = isViewingFromFlightLog
     }
 
     var body: some View {
@@ -391,17 +395,15 @@ struct FlightPlanEditorView: View {
                 Spacer()
             }
 
+            // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop
             LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 12) {
-                OptionalTimeFormField(label: "Block ON", time: $flightPlan.blockOn)
-                OptionalTimeFormField(label: "Time ON", time: $flightPlan.timeOn)
-                OptionalTimeFormField(label: "Time OFF", time: $flightPlan.timeOff)
-                OptionalTimeFormField(label: "Block OFF", time: $flightPlan.blockOff)
-
                 NumberFormField(
                     label: "Counter Start",
                     value: Binding(
@@ -411,6 +413,11 @@ struct FlightPlanEditorView: View {
                     format: "%.1f"
                 )
 
+                OptionalTimeFormField(label: "Block OFF", time: $flightPlan.blockOff)
+                OptionalTimeFormField(label: "Time OFF", time: $flightPlan.timeOff)
+                OptionalTimeFormField(label: "Time ON", time: $flightPlan.timeOn)
+                OptionalTimeFormField(label: "Block ON", time: $flightPlan.blockOn)
+
                 NumberFormField(
                     label: "Counter Stop",
                     value: Binding(
@@ -419,7 +426,17 @@ struct FlightPlanEditorView: View {
                     ),
                     format: "%.1f"
                 )
+            }
 
+            // Second row: Landings and Engine Time
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
                 IntFormField(
                     label: "Ldgs at Base",
                     value: Binding(
@@ -435,6 +452,25 @@ struct FlightPlanEditorView: View {
                         set: { flightPlan.totalLandings = $0 }
                     )
                 )
+
+                // Engine Time display (MMMMM.ZZ format)
+                VStack(spacing: 4) {
+                    Text("Engine Time")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondaryText)
+                    Text(formattedEngineTime)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .frame(height: 32)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black.opacity(0.2))
+                        .cornerRadius(6)
+                }
+
+                // Empty cells to maintain grid alignment
+                Spacer()
+                Spacer()
+                Spacer()
             }
         }
         .padding()
@@ -493,38 +529,41 @@ struct FlightPlanEditorView: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
-            if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
+            // Hide Activate/Deactivate and Recalculate buttons when viewing from Flight Log
+            if !isViewingFromFlightLog {
+                if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
+                    Button(action: {
+                        flightPlanManager.deactivateFlightPlan()
+                    }) {
+                        Label("Deactivate Flight Plan", systemImage: "airplane.arrival")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                } else {
+                    Button(action: {
+                        flightPlanManager.updateFlightPlan(flightPlan)
+                        flightPlanManager.activateFlightPlan(flightPlan)
+                        dismiss()
+                    }) {
+                        Label("Activate Flight Plan", systemImage: "airplane.departure")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.aviationGreen)
+                }
+
                 Button(action: {
-                    flightPlanManager.deactivateFlightPlan()
+                    recalculateRoute()
                 }) {
-                    Label("Deactivate Flight Plan", systemImage: "airplane.arrival")
+                    Label("Recalculate Route", systemImage: "arrow.triangle.2.circlepath")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-            } else {
-                Button(action: {
-                    flightPlanManager.updateFlightPlan(flightPlan)
-                    flightPlanManager.activateFlightPlan(flightPlan)
-                    dismiss()
-                }) {
-                    Label("Activate Flight Plan", systemImage: "airplane.departure")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.aviationGreen)
-            }
+                .buttonStyle(.bordered)
 
-            Button(action: {
-                recalculateRoute()
-            }) {
-                Label("Recalculate Route", systemImage: "arrow.triangle.2.circlepath")
-                    .frame(maxWidth: .infinity)
+                Divider()
+                    .padding(.vertical, 8)
             }
-            .buttonStyle(.bordered)
-
-            Divider()
-                .padding(.vertical, 8)
 
             // Export section
             exportSection
@@ -583,7 +622,9 @@ struct FlightPlanEditorView: View {
     // MARK: - Computed Properties for Auto-Population
 
     /// Calculate Counter Stop based on Counter Start + Engine Time
-    /// Engine Time = Block OFF - Block ON (when both are set)
+    /// Engine Time = Block ON - Block OFF (when both are set)
+    /// Block OFF = when plane starts moving (after engine start)
+    /// Block ON = when plane stops moving (before engine shutdown)
     private var calculatedCounterStop: Double {
         // If explicitly set, use that value
         if let counterStop = flightPlan.counterStop, counterStop > 0 {
@@ -592,16 +633,36 @@ struct FlightPlanEditorView: View {
 
         // Otherwise, try to calculate from counter start + engine time
         guard let counterStart = flightPlan.counterStart,
-              let blockOn = flightPlan.blockOn,
-              let blockOff = flightPlan.blockOff else {
+              let blockOff = flightPlan.blockOff,
+              let blockOn = flightPlan.blockOn else {
             return flightPlan.counterStop ?? 0
         }
 
         // Engine time in hours (Hobbs meter is in decimal hours)
-        let engineTimeSeconds = blockOff.timeIntervalSince(blockOn)
+        // Block ON happens after Block OFF, so this gives positive time
+        let engineTimeSeconds = blockOn.timeIntervalSince(blockOff)
         let engineTimeHours = engineTimeSeconds / 3600.0
 
         return counterStart + engineTimeHours
+    }
+
+    /// Format engine time as MMMMM.ZZ (minutes with decimal 60ths)
+    /// Example: 90.50 = 90 minutes and 30 seconds
+    private var formattedEngineTime: String {
+        guard let blockOff = flightPlan.blockOff,
+              let blockOn = flightPlan.blockOn else {
+            return "--"
+        }
+
+        let engineTimeSeconds = blockOn.timeIntervalSince(blockOff)
+        if engineTimeSeconds < 0 { return "--" }
+
+        let totalMinutes = Int(engineTimeSeconds / 60)
+        let remainingSeconds = Int(engineTimeSeconds) % 60
+        // Convert seconds to decimal 60ths (0-59 -> 0.00-0.98)
+        let decimalSeconds = Double(remainingSeconds) / 60.0 * 100.0
+
+        return String(format: "%d.%02d", totalMinutes, Int(decimalSeconds))
     }
 
     /// Calculate Total Landings from current flight if available

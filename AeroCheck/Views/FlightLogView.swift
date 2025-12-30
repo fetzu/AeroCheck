@@ -893,7 +893,11 @@ struct FlightDetailView: View {
             // Flight Plan button (only shown if flight has an associated flight plan)
             if let flightPlanId = flight.flightPlanId,
                let flightPlan = flightPlanManager.flightPlans.first(where: { $0.id == flightPlanId }) {
-                Button(action: { showFlightPlan = true }) {
+                Button(action: {
+                    // Auto-populate timing fields from flight data before showing
+                    flightPlanManager.populateTimingFromFlight(flightPlanId, flight: flight)
+                    showFlightPlan = true
+                }) {
                     HStack {
                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                         Text("Nav Plan")
@@ -902,7 +906,7 @@ struct FlightDetailView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .sheet(isPresented: $showFlightPlan) {
-                    FlightPlanEditorView(flightPlan: flightPlan)
+                    FlightPlanEditorView(flightPlan: flightPlan, isViewingFromFlightLog: true)
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
                 }

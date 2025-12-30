@@ -212,6 +212,52 @@ class FlightPlanManager: ObservableObject {
         clearActiveFlightPlan()
     }
 
+    /// Populate flight plan timing fields from a completed flight's data
+    /// - Parameters:
+    ///   - planId: The ID of the flight plan to update
+    ///   - flight: The completed flight with timing data
+    func populateTimingFromFlight(_ planId: UUID, flight: Flight) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
+
+        // Time OFF = Line up time (expected takeoff time)
+        if plan.timeOff == nil, let lineUpTime = flight.lineUpTime {
+            plan.timeOff = lineUpTime
+        }
+
+        // Time ON = Landing time
+        if plan.timeOn == nil, let landingTime = flight.landingTime {
+            plan.timeOn = landingTime
+        }
+
+        // Block OFF = First GPS point with movement after engine start
+        // Looking for speed > 2 knots (about 1 m/s) to detect taxi start
+        if plan.blockOff == nil, let engineStart = flight.engineStartTime {
+            let movementThreshold: Double = 1.0 // m/s (about 2 knots)
+            if let firstMovement = flight.gpsTrack.first(where: {
+                $0.timestamp > engineStart && $0.speed > movementThreshold
+            }) {
+                plan.blockOff = firstMovement.timestamp
+            }
+        }
+
+        // Block ON = Engine shutdown time (when plane stops moving)
+        // If we have GPS data, use last point with movement before shutdown
+        if plan.blockOn == nil {
+            if let engineShutdown = flight.engineShutdownTime {
+                plan.blockOn = engineShutdown
+            } else if let stopTime = flight.stopTime {
+                plan.blockOn = stopTime
+            }
+        }
+
+        // Total landings from flight
+        if plan.totalLandings == nil || plan.totalLandings == 0 {
+            plan.totalLandings = flight.totalLandings
+        }
+
+        updateFlightPlan(plan)
+    }
+
     /// Advance to the next waypoint
     func advanceToNextWaypoint() {
         guard var plan = activeFlightPlan else { return }

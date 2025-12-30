@@ -860,6 +860,28 @@ struct RadioFrequencyOverlayView: View {
                                     .background(Color.dimText.opacity(0.5))
                             }
                         }
+
+                        // Nearby Controlled Airspace section
+                        if !nearbyCTRs.isEmpty {
+                            Divider()
+                                .background(Color.dimText)
+                                .padding(.vertical, 4)
+
+                            Text("NEARBY CONTROLLED AIRSPACE")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+
+                            ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                                ctrFrequencyRow(item.ctr, distanceNM: item.distanceNM)
+                                if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                                    Divider()
+                                        .background(Color.dimText.opacity(0.5))
+                                }
+                            }
+                        }
                     } else {
                         Text("No active flight plan")
                             .font(.system(size: 12))
@@ -868,7 +890,7 @@ struct RadioFrequencyOverlayView: View {
                     }
                 }
             }
-            .frame(maxHeight: 340)
+            .frame(maxHeight: 400)
         }
         .frame(width: 220)
         .background(
@@ -941,6 +963,51 @@ struct RadioFrequencyOverlayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    /// Get nearby CTRs based on current location
+    private var nearbyCTRs: [(ctr: SwissCTR, distanceNM: Double)] {
+        guard let location = locationManager.currentLocation else { return [] }
+        // Get CTRs within 25nm, limited to closest 5
+        return Array(SwissCTRProximity.getNearbyCTRs(from: location, withinNM: 25.0).prefix(5))
+    }
+
+    private func ctrFrequencyRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= ctr.radiusNM + 3.0 // Highlight if within CTR + 3nm buffer
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(ctr.name)
+                        .font(.system(size: 11, weight: isNearby ? .semibold : .regular))
+                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                    if ctr.isMilitary {
+                        Text("MIL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(ctr.callSign)
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ctr.frequency)
+                    .font(.system(size: 12, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 }
 
@@ -1018,6 +1085,178 @@ struct SwissAirspaceSectors {
             // - Includes western Switzerland and parts of the Alps
             return .geneva
         }
+    }
+}
+
+// MARK: - Swiss CTR (Control Zones) Data
+
+/// Swiss CTR zones with coordinates and frequencies
+/// Data from swisstopo / Swiss AIP and IVAO Switzerland
+/// FIS Zurich: LSZH, LSZA, LSZB, LSZC, LSZG, LSZR, LSZS, EDNY
+/// FIS Geneva: LSGG, LSGS, LSGC, LSMP
+enum SwissCTR: CaseIterable, Identifiable {
+    // FIS Zurich airports
+    case zurich           // LSZH - Zurich Airport
+    case lugano           // LSZA - Lugano-Agno
+    case bern             // LSZB - Bern-Belp
+    case buochs           // LSZC - Buochs (military)
+    case grenchen         // LSZG - Grenchen
+    case stGallen         // LSZR - St. Gallen-Altenrhein
+    case samedan          // LSZS - Samedan/Engadin
+    case friedrichshafen  // EDNY - Friedrichshafen (Germany)
+
+    // FIS Geneva airports
+    case geneva           // LSGG - Geneva-Cointrin
+    case sion             // LSGS - Sion
+    case lesEplatures     // LSGC - Les Eplatures (La Chaux-de-Fonds)
+    case payerne          // LSMP - Payerne (military)
+
+    var id: String { icaoCode }
+
+    /// ICAO airport code
+    var icaoCode: String {
+        switch self {
+        case .zurich: return "LSZH"
+        case .lugano: return "LSZA"
+        case .bern: return "LSZB"
+        case .buochs: return "LSZC"
+        case .grenchen: return "LSZG"
+        case .stGallen: return "LSZR"
+        case .samedan: return "LSZS"
+        case .friedrichshafen: return "EDNY"
+        case .geneva: return "LSGG"
+        case .sion: return "LSGS"
+        case .lesEplatures: return "LSGC"
+        case .payerne: return "LSMP"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .zurich: return "Zurich"
+        case .lugano: return "Lugano"
+        case .bern: return "Bern"
+        case .buochs: return "Buochs"
+        case .grenchen: return "Grenchen"
+        case .stGallen: return "St. Gallen"
+        case .samedan: return "Samedan"
+        case .friedrichshafen: return "Friedrichshafen"
+        case .geneva: return "Geneva"
+        case .sion: return "Sion"
+        case .lesEplatures: return "Les Eplatures"
+        case .payerne: return "Payerne"
+        }
+    }
+
+    /// Primary frequency (Tower or Info)
+    var frequency: String {
+        switch self {
+        case .zurich: return "118.100"          // Zurich Tower
+        case .lugano: return "118.550"          // Lugano Tower
+        case .bern: return "126.075"            // Bern Tower
+        case .buochs: return "120.425"          // Buochs Tower (military)
+        case .grenchen: return "128.525"        // Grenchen Tower
+        case .stGallen: return "119.900"        // Altenrhein Tower
+        case .samedan: return "135.325"         // Samedan Info
+        case .friedrichshafen: return "120.080" // Friedrichshafen Tower
+        case .geneva: return "118.700"          // Geneva Tower
+        case .sion: return "118.275"            // Sion Tower
+        case .lesEplatures: return "118.125"    // Les Eplatures Tower
+        case .payerne: return "131.225"         // Payerne Tower (military)
+        }
+    }
+
+    /// Callsign for the frequency
+    var callSign: String {
+        switch self {
+        case .zurich: return "ZURICH TOWER"
+        case .lugano: return "LUGANO TOWER"
+        case .bern: return "BERN TOWER"
+        case .buochs: return "BUOCHS TOWER"
+        case .grenchen: return "GRENCHEN TOWER"
+        case .stGallen: return "ALTENRHEIN TOWER"
+        case .samedan: return "SAMEDAN INFO"
+        case .friedrichshafen: return "FRIEDRICHSHAFEN TWR"
+        case .geneva: return "GENEVA TOWER"
+        case .sion: return "SION TOWER"
+        case .lesEplatures: return "LES EPLATURES TWR"
+        case .payerne: return "PAYERNE TOWER"
+        }
+    }
+
+    /// Center coordinate of the CTR
+    var center: CLLocationCoordinate2D {
+        switch self {
+        case .zurich: return CLLocationCoordinate2D(latitude: 47.4647, longitude: 8.5492)
+        case .lugano: return CLLocationCoordinate2D(latitude: 46.0040, longitude: 8.9106)
+        case .bern: return CLLocationCoordinate2D(latitude: 46.9141, longitude: 7.4975)
+        case .buochs: return CLLocationCoordinate2D(latitude: 46.9744, longitude: 8.3969)
+        case .grenchen: return CLLocationCoordinate2D(latitude: 47.1815, longitude: 7.4171)
+        case .stGallen: return CLLocationCoordinate2D(latitude: 47.4850, longitude: 9.5608)
+        case .samedan: return CLLocationCoordinate2D(latitude: 46.5340, longitude: 9.8841)
+        case .friedrichshafen: return CLLocationCoordinate2D(latitude: 47.6713, longitude: 9.5115)
+        case .geneva: return CLLocationCoordinate2D(latitude: 46.2381, longitude: 6.1089)
+        case .sion: return CLLocationCoordinate2D(latitude: 46.2196, longitude: 7.3270)
+        case .lesEplatures: return CLLocationCoordinate2D(latitude: 47.0839, longitude: 6.7936)
+        case .payerne: return CLLocationCoordinate2D(latitude: 46.8430, longitude: 6.9156)
+        }
+    }
+
+    /// Approximate radius of the CTR in nautical miles (for proximity detection)
+    var radiusNM: Double {
+        switch self {
+        case .zurich: return 12.0
+        case .lugano: return 5.0
+        case .bern: return 5.0
+        case .buochs: return 3.0
+        case .grenchen: return 3.0
+        case .stGallen: return 4.0
+        case .samedan: return 5.0
+        case .friedrichshafen: return 5.0
+        case .geneva: return 10.0
+        case .sion: return 4.0
+        case .lesEplatures: return 3.0
+        case .payerne: return 5.0
+        }
+    }
+
+    /// Whether this is a military CTR
+    var isMilitary: Bool {
+        switch self {
+        case .buochs, .payerne: return true
+        default: return false
+        }
+    }
+}
+
+/// Helper to find nearby CTRs
+struct SwissCTRProximity {
+    /// Get CTRs within a certain distance from a location
+    /// Returns list sorted by distance, closest first
+    static func getNearbyCTRs(from location: CLLocation, withinNM: Double = 20.0) -> [(ctr: SwissCTR, distanceNM: Double)] {
+        var nearby: [(ctr: SwissCTR, distanceNM: Double)] = []
+
+        for ctr in SwissCTR.allCases {
+            let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
+            let distanceMeters = location.distance(from: ctrLocation)
+            let distanceNM = distanceMeters / 1852.0
+
+            if distanceNM <= withinNM {
+                nearby.append((ctr: ctr, distanceNM: distanceNM))
+            }
+        }
+
+        return nearby.sorted { $0.distanceNM < $1.distanceNM }
+    }
+
+    /// Check if location is inside or very close to a CTR
+    static func isNearCTR(_ ctr: SwissCTR, from location: CLLocation) -> Bool {
+        let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
+        let distanceMeters = location.distance(from: ctrLocation)
+        let distanceNM = distanceMeters / 1852.0
+
+        // Consider "near" if within CTR radius + 5nm buffer
+        return distanceNM <= (ctr.radiusNM + 5.0)
     }
 }
 

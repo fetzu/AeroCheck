@@ -404,7 +404,8 @@ struct NavigationMapView: View {
             span: mapState.region.span
         )
         mapState.updateFromRegion(newRegion)
-        mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        // Note: Do NOT update cameraHeading here - the map should always stay North-up
+        // unless the user manually rotates it. Only user interaction should change heading.
     }
 
     // MARK: - Map Content

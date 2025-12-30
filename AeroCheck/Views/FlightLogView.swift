@@ -890,12 +890,9 @@ struct FlightDetailView: View {
 
     private var actionsSection: some View {
         HStack(spacing: 16) {
-            // Flight Plan button (only shown if flight has an associated flight plan)
-            if let flightPlanId = flight.flightPlanId,
-               let flightPlan = flightPlanManager.flightPlans.first(where: { $0.id == flightPlanId }) {
+            // Flight Plan button (only shown if flight has saved flight plan data)
+            if let savedFlightPlan = flight.flightPlan {
                 Button(action: {
-                    // Auto-populate timing fields from flight data before showing
-                    flightPlanManager.populateTimingFromFlight(flightPlanId, flight: flight)
                     showFlightPlan = true
                 }) {
                     HStack {
@@ -906,7 +903,7 @@ struct FlightDetailView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .sheet(isPresented: $showFlightPlan) {
-                    FlightPlanEditorView(flightPlan: flightPlan, isViewingFromFlightLog: true)
+                    FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
                 }

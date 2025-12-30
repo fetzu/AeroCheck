@@ -69,9 +69,14 @@ struct FlightPlanEditorView: View {
 
                     // Actions section
                     actionsSection
+
+                    // Extra padding at bottom to ensure keyboard doesn't cover content
+                    Spacer()
+                        .frame(height: 350)
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
             .navigationTitle(flightPlan.name.isEmpty ? "Flight Plan" : flightPlan.name)
             .navigationBarTitleDisplayMode(.inline)

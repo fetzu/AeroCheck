@@ -520,23 +520,29 @@ struct FlightPlanOverlayView: View {
                 .foregroundColor(.aviationGreen)
                 .id(refreshTrigger) // Force refresh every second
 
-            // EET to next waypoint (in MM format)
-            if let location = locationManager.currentLocation {
-                let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-                let groundSpeedKnots = max((location.speed) * 1.94384, 1)
-                if let eet = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
-                    let minutes = Int(eet / 60)
-                    HStack(spacing: 4) {
-                        Text("EET")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
+            // EET to next waypoint (planned EET from flight plan, in MM format)
+            // This shows the same value as in the Route table
+            if let plan = flightPlanManager.activeFlightPlan,
+               let nextWaypoint = plan.nextWaypoint,
+               let eet = nextWaypoint.estimatedElapsedTime {
+                let minutes = Int(eet / 60)
+                let extra = nextWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
+                HStack(spacing: 4) {
+                    Text("EET")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.dimText)
+                    if extra > 0 {
+                        Text(String(format: "%d + %d", minutes, extra))
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                    } else {
                         Text(String(format: "%d", minutes))
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
-                        Text("min")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondaryText)
                     }
+                    Text("min")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondaryText)
                 }
             }
 

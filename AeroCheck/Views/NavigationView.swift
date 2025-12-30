@@ -141,6 +141,12 @@ class SharedMapState: ObservableObject {
 
 // MARK: - Navigation Map View
 
+/// Tab selection for compact navigation panel
+enum CompactNavigationTab: String, CaseIterable {
+    case plan = "PLAN"
+    case freq = "FREQ"
+}
+
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
@@ -156,6 +162,11 @@ struct NavigationMapView: View {
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
     @State private var showRadioFrequencyWindow: Bool = false
+
+    // Compact layout state (for small devices)
+    @State private var showCompactPanel: Bool = true
+    @State private var selectedCompactTab: CompactNavigationTab = .plan
+    @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -303,50 +314,20 @@ struct NavigationMapView: View {
         return Int(location.course)
     }
 
+    /// Determine if we should use compact layout for small devices
+    /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
+    private var shouldUseCompactLayout: Bool {
+        isCompactWidth && appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                // Map content
-                mapContent
-                    .ignoresSafeArea()
-
-                // Overlay controls
-                VStack {
-                    // Top bar with close button and layer picker
-                    topBar
-
-                    Spacer()
-
-                    // Bottom controls with scale bar
-                    bottomControls
-                }
-                .padding()
-
-                // Flight Plan Overlay (when active)
-                if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
-                    FlightPlanOverlayView(
-                        containerSize: geometry.size,
-                        radioFrequencyWindowOpen: showRadioFrequencyWindow
-                    )
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(locationManager)
-                }
-
-                // Radio Frequency Floating Window
-                if showRadioFrequencyWindow {
-                    RadioFrequencyOverlayView(
-                        isPresented: $showRadioFrequencyWindow,
-                        containerSize: geometry.size
-                    )
-                    .environmentObject(flightPlanManager)
-                    .transition(.opacity.combined(with: .scale))
-                }
-            }
-            .onAppear {
-                mapWidth = geometry.size.width
-            }
-            .onChange(of: geometry.size) { _, newSize in
-                mapWidth = newSize.width
+            if shouldUseCompactLayout {
+                // Compact layout for small devices with flight plan active
+                compactLayoutBody(geometry: geometry)
+            } else {
+                // Standard layout for large devices or when no flight plan
+                standardLayoutBody(geometry: geometry)
             }
         }
         .preferredColorScheme(.dark)
@@ -362,6 +343,8 @@ struct NavigationMapView: View {
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
             timeDisplayId = UUID()
+            // Also trigger refresh for compact layout chronometer
+            refreshTrigger.toggle()
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             if isFollowingAircraft, let location = newLocation {
@@ -397,6 +380,739 @@ struct NavigationMapView: View {
             }
         }
     }
+
+    // MARK: - Standard Layout (iPad and iPhone without active flight plan)
+
+    private func standardLayoutBody(geometry: GeometryProxy) -> some View {
+        ZStack {
+            // Map content
+            mapContent
+                .ignoresSafeArea()
+
+            // Overlay controls
+            VStack {
+                // Top bar with close button and layer picker
+                topBar
+
+                Spacer()
+
+                // Bottom controls with scale bar
+                bottomControls
+            }
+            .padding()
+
+            // Flight Plan Overlay (when active)
+            if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
+                FlightPlanOverlayView(
+                    containerSize: geometry.size,
+                    radioFrequencyWindowOpen: showRadioFrequencyWindow
+                )
+                    .environmentObject(flightPlanManager)
+                    .environmentObject(locationManager)
+            }
+
+            // Radio Frequency Floating Window
+            if showRadioFrequencyWindow {
+                RadioFrequencyOverlayView(
+                    isPresented: $showRadioFrequencyWindow,
+                    containerSize: geometry.size
+                )
+                .environmentObject(flightPlanManager)
+                .transition(.opacity.combined(with: .scale))
+            }
+        }
+        .onAppear {
+            mapWidth = geometry.size.width
+        }
+        .onChange(of: geometry.size) { _, newSize in
+            mapWidth = newSize.width
+        }
+    }
+
+    // MARK: - Compact Layout (iPhone with active flight plan)
+
+    @ViewBuilder
+    private func compactLayoutBody(geometry: GeometryProxy) -> some View {
+        let topHalfHeight = geometry.size.height / 2
+
+        VStack(spacing: 0) {
+            // Top half: Map with controls
+            ZStack {
+                // Map content (clipped to top half)
+                mapContent
+
+                // Overlay controls for compact layout
+                VStack {
+                    // Top bar
+                    compactTopBar
+
+                    Spacer()
+
+                    // Bottom controls (scale, GPS, center button)
+                    compactMapControls
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .frame(height: topHalfHeight)
+            .clipped()
+
+            // Bottom half: Flight Plan or Radio Frequencies panel
+            if showCompactPanel {
+                compactBottomPanel(geometry: geometry)
+                    .frame(height: topHalfHeight)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .background(Color.cockpitBackground)
+        .onAppear {
+            mapWidth = geometry.size.width
+        }
+        .onChange(of: geometry.size) { _, newSize in
+            mapWidth = newSize.width
+        }
+    }
+
+    // MARK: - Compact Top Bar
+
+    private var compactTopBar: some View {
+        HStack(spacing: 8) {
+            // Close button
+            Button(action: { isPresented = false }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+            }
+
+            // Flight Plan button (toggles bottom panel)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showCompactPanel.toggle()
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 12))
+                    if showCompactPanel {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                    } else {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                }
+                .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
+                .frame(width: 50, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+            }
+
+            Spacer()
+
+            // Compact time/speed/altitude/heading display
+            HStack(spacing: 6) {
+                // Time
+                Text(formattedTime)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .id(timeDisplayId)
+
+                Rectangle()
+                    .fill(Color.dimText)
+                    .frame(width: 1, height: 16)
+
+                // Speed
+                HStack(spacing: 1) {
+                    Text("\(Int(locationManager.currentSpeedKnots))")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("kt")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(speedColor)
+
+                // Altitude
+                HStack(spacing: 1) {
+                    Text("\(Int(locationManager.currentAltitudeFeet))")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("ft")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(.altimeterBlue)
+
+                // Heading
+                HStack(spacing: 1) {
+                    Text(String(format: "%03d", currentHeading))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Text("°")
+                        .font(.system(size: 8))
+                }
+                .foregroundColor(.aviationGold)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.panelBackground.opacity(0.9))
+            )
+
+            Spacer()
+
+            // Layer picker button
+            Button(action: {
+                if isOfflineMode {
+                    showCacheInfoModal = true
+                } else {
+                    showLayerPicker = true
+                }
+            }) {
+                Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+            }
+            .sheet(isPresented: $showLayerPicker) {
+                LayerPickerSheet(selectedLayer: $selectedLayer)
+            }
+        }
+    }
+
+    // MARK: - Compact Map Controls
+
+    private var compactMapControls: some View {
+        HStack(alignment: .bottom) {
+            // Left side: Scale bar and cache/offline indicator
+            VStack(alignment: .leading, spacing: 6) {
+                // Offline/Cached mode indicator
+                if isOfflineMode || isCachedMode {
+                    Button(action: { showCacheInfoModal = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "internaldrive.fill")
+                                .font(.system(size: 10))
+                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                        )
+                    }
+                    .sheet(isPresented: $showCacheInfoModal) {
+                        CacheInfoSheet(isOfflineMode: isOfflineMode)
+                            .environmentObject(appState)
+                            .environmentObject(offlineMapManager)
+                    }
+                }
+
+                // Scale bar
+                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+            }
+
+            Spacer()
+
+            // Right side: GPS status and center button
+            VStack(alignment: .trailing, spacing: 8) {
+                // GPS Status
+                HStack(spacing: 4) {
+                    Text("GPS")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(gpsStatusColor)
+                    StatusIndicator(gpsStatusIndicator, size: 6)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.panelBackground.opacity(0.9))
+                )
+
+                // Compass and center button row
+                HStack(spacing: 8) {
+                    // Compass button - only show when map is rotated
+                    if abs(mapState.cameraHeading) > 0.5 {
+                        Button(action: resetToNorth) {
+                            CompassView(heading: mapState.cameraHeading)
+                                .scaleEffect(0.8)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Center on aircraft button
+                    Button(action: centerOnAircraft) {
+                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.panelBackground.opacity(0.9))
+                            )
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+            }
+        }
+    }
+
+    // MARK: - Compact Bottom Panel
+
+    private func compactBottomPanel(geometry: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            // Tab switcher header
+            HStack(spacing: 0) {
+                ForEach(CompactNavigationTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCompactTab = tab
+                        }
+                    }) {
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(selectedCompactTab == tab ? .aviationGold : .secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                selectedCompactTab == tab ?
+                                    Color.aviationGold.opacity(0.15) : Color.clear
+                            )
+                    }
+                }
+            }
+            .background(Color.aviationDarkBlue)
+
+            // Tab content
+            ScrollView {
+                switch selectedCompactTab {
+                case .plan:
+                    compactFlightPlanContent
+                case .freq:
+                    compactFrequencyContent
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.panelBackground.opacity(0.95))
+        }
+    }
+
+    // MARK: - Compact Flight Plan Content
+
+    private var compactFlightPlanContent: some View {
+        VStack(spacing: 12) {
+            if let plan = flightPlanManager.activeFlightPlan,
+               let nextWaypoint = plan.nextWaypoint {
+                // Next waypoint header
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("NEXT WAYPOINT")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Text("\(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                // Navigation data
+                if let location = locationManager.currentLocation {
+                    let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+
+                    HStack(spacing: 24) {
+                        // Heading TO waypoint
+                        VStack(spacing: 2) {
+                            Text("HDG TO")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
+                                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                                    Text(String(format: "%03d", Int(bearing)))
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("°")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.aviationGold)
+                                }
+                            } else {
+                                Text("---°")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+
+                        // Distance TO waypoint
+                        VStack(spacing: 2) {
+                            Text("DIST TO")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
+                                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                    Text(String(format: "%.1f", distance))
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("NM")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondaryText)
+                                }
+                            } else {
+                                Text("-- NM")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+
+                        // EET
+                        VStack(spacing: 2) {
+                            Text("EET")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if let eet = nextWaypoint.estimatedElapsedTime {
+                                let minutes = Int(eet / 60)
+                                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                    Text("\(minutes)")
+                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.aviationGold)
+                                    Text("min")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.secondaryText)
+                                }
+                            } else {
+                                Text("--")
+                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.dimText)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Progress bar
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("Progress")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        Text(String(format: "%.0f%%", plan.progress * 100))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
+
+                    ProgressView(value: plan.progress)
+                        .progressViewStyle(LinearProgressViewStyle(tint: .aviationGreen))
+
+                    // Waypoint dots
+                    HStack(spacing: 4) {
+                        ForEach(0..<plan.waypoints.count, id: \.self) { index in
+                            Circle()
+                                .fill(index < plan.currentWaypointIndex ? Color.aviationGreen :
+                                      index == plan.currentWaypointIndex ? Color.aviationGold : Color.dimText)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Chronometer
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("CHRONOMETER")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+
+                        Spacer()
+
+                        Button(action: {
+                            flightPlanManager.resetChronometer()
+                        }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondaryText)
+                        }
+                    }
+
+                    Text(flightPlanManager.formattedChronometer)
+                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGreen)
+                        .id(refreshTrigger)
+
+                    if flightPlanManager.activeFlightPlan?.chronometerStartTime == nil {
+                        Button(action: {
+                            flightPlanManager.startChronometer()
+                        }) {
+                            Text("START")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.aviationGreen)
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.horizontal, 16)
+
+                // Waypoint navigation
+                HStack(spacing: 16) {
+                    Button(action: {
+                        flightPlanManager.goToPreviousWaypoint()
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 44, height: 36)
+                            .background(Color.aviationBlue)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .disabled(plan.currentWaypointIndex == 0)
+
+                    Text("WPT")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondaryText)
+
+                    Button(action: {
+                        flightPlanManager.advanceToNextWaypoint()
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 44, height: 36)
+                            .background(Color.aviationGreen)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .disabled(plan.currentWaypointIndex == plan.waypoints.count)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+
+            } else {
+                Text("No active flight plan")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondaryText)
+                    .padding()
+            }
+        }
+    }
+
+    // MARK: - Compact Frequency Content
+
+    private var compactFrequencyContent: some View {
+        VStack(spacing: 0) {
+            if let plan = flightPlanManager.activeFlightPlan {
+                let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
+
+                // Waypoint frequencies
+                if !frequenciesWithWaypoints.isEmpty {
+                    ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
+                        compactFrequencyRow(
+                            name: waypoint.name.isEmpty ? "Waypoint" : waypoint.name,
+                            callSign: waypoint.callSign,
+                            frequency: waypoint.frequency ?? "",
+                            isCurrent: plan.currentWaypointIndex == index
+                        )
+
+                        if index < frequenciesWithWaypoints.count - 1 {
+                            Divider()
+                                .background(Color.dimText)
+                        }
+                    }
+                } else {
+                    Text("No frequencies in flight plan")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondaryText)
+                        .padding()
+                }
+
+                // Common Swiss frequencies section
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.vertical, 4)
+
+                Text("COMMON SWISS FREQUENCIES")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.dimText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+
+                ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                    let isHighlighted = shouldHighlightCommonFrequency(freq)
+                    compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
+                    if freq != SwissCommonFrequency.allCases.last {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+
+                // Nearby CTRs
+                let nearbyCTRs = getNearbyCTRsForCompact()
+                if !nearbyCTRs.isEmpty {
+                    Divider()
+                        .background(Color.dimText)
+                        .padding(.vertical, 4)
+
+                    Text("NEARBY CONTROLLED AIRSPACE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+
+                    ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                        compactCTRRow(item.ctr, distanceNM: item.distanceNM)
+                        if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                            Divider()
+                                .background(Color.dimText.opacity(0.5))
+                        }
+                    }
+                }
+            } else {
+                Text("No active flight plan")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .padding()
+            }
+        }
+        .padding(.bottom, 16)
+    }
+
+    // Helper to check if common frequency should be highlighted
+    private func shouldHighlightCommonFrequency(_ freq: SwissCommonFrequency) -> Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        let coord = location.coordinate
+        let sector = SwissAirspaceSectors.getSector(for: coord)
+
+        switch freq {
+        case .zurichInfo:
+            return sector == .zurich
+        case .genevaInfo:
+            return sector == .geneva
+        case .fisEast:
+            return sector == .zurich || sector == .east
+        case .fisWest:
+            return sector == .geneva || sector == .west
+        case .emergency:
+            return false
+        }
+    }
+
+    // Helper to get nearby CTRs
+    private func getNearbyCTRsForCompact() -> [(ctr: SwissCTR, distanceNM: Double)] {
+        guard let location = locationManager.currentLocation else { return [] }
+        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
+    }
+
+    private func compactFrequencyRow(name: String, callSign: String?, frequency: String, isCurrent: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 13, weight: isCurrent ? .bold : .medium))
+                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                    .lineLimit(1)
+                if let callSign = callSign, !callSign.isEmpty {
+                    Text(callSign)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            Spacer()
+            Text(frequency)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(isCurrent ? .aviationGreen : .aviationGold)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func compactCommonFrequencyRow(_ freq: SwissCommonFrequency, isHighlighted: Bool) -> some View {
+        HStack {
+            Text(freq.name)
+                .font(.system(size: 12, weight: isHighlighted ? .semibold : .regular))
+                .foregroundColor(isHighlighted ? .primaryText : .secondaryText)
+            Spacer()
+            Text(freq.frequency)
+                .font(.system(size: 14, weight: isHighlighted ? .bold : .medium, design: .monospaced))
+                .foregroundColor(isHighlighted ? .aviationGold : .secondaryText)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    private func compactCTRRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= ctr.radiusNM + 3.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(ctr.name)
+                        .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
+                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                    if ctr.isMilitary {
+                        Text("MIL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.orange.opacity(0.2))
+                            .cornerRadius(3)
+                    }
+                }
+                Text(ctr.callSign)
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(ctr.frequency)
+                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    // MARK: - State Update Helper
 
     private func updateMapStateForLocation(_ location: CLLocation) {
         let newRegion = MKCoordinateRegion(

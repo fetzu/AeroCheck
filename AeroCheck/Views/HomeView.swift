@@ -106,41 +106,38 @@ struct HomeView: View {
             aircraftCard(isLandscape: isLandscape, isCompact: isCompact)
 
             // Start flight button(s) - keep consistent size
-            GeometryReader { buttonGeometry in
-                HStack(spacing: isCompact ? 8 : 12) {
-                    Button(action: startFlight) {
-                        HStack(spacing: isCompact ? 10 : 14) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: isCompact ? 18 : 22))
-                            Text("START FLIGHT")
-                                .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+            HStack(spacing: isCompact ? 8 : 12) {
+                Button(action: startFlight) {
+                    HStack(spacing: isCompact ? 10 : 14) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: isCompact ? 18 : 22))
+                        Text("START FLIGHT")
+                            .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
+                }
+                .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+
+                // START CIRCUITS button - only shown when circuit mode is enabled
+                // Ratio: 60%/40% on iPhone, 70%/30% on iPad
+                if appState.settings.enableCircuitMode {
+                    Button(action: startCircuits) {
+                        VStack(spacing: isCompact ? 2 : 4) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: isCompact ? 18 : 20))
+                            Text("CIRCUITS")
+                                .font(.system(size: isCompact ? 14 : 14, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
+                        .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
                     }
-                    .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-                    .frame(width: appState.settings.enableCircuitMode
-                           ? buttonGeometry.size.width * 0.75 - (isCompact ? 4 : 6)
-                           : buttonGeometry.size.width)
-
-                    // START CIRCUITS button - only shown when circuit mode is enabled
-                    if appState.settings.enableCircuitMode {
-                        Button(action: startCircuits) {
-                            VStack(spacing: isCompact ? 2 : 4) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: isCompact ? 16 : 20))
-                                Text("CIRCUITS")
-                                    .font(.system(size: isCompact ? 12 : 14, weight: .bold))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, isLandscape ? 14 : (isCompact ? 14 : 22))
-                        }
-                        .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
-                        .frame(width: buttonGeometry.size.width * 0.25 - (isCompact ? 4 : 6))
-                    }
+                    .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
+                    .frame(minWidth: isLandscape ? 100 : (isCompact ? 120 : 140), maxWidth: isLandscape ? 120 : (isCompact ? 150 : 160))
                 }
             }
-            .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
             .padding(.horizontal, isCompact ? 20 : 40)
 
             // Info text and GPS status - hide only on compact devices (iPhone)

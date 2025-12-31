@@ -634,7 +634,7 @@ struct FlightView: View {
     private func startAbandonFlightTimer() {
         abandonFlightProgress = 0
         abandonFlightTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            abandonFlightProgress += 0.05 / 2.5 // 2.5 seconds total
+            abandonFlightProgress += 0.05 / 1.5 // 1.5 seconds total
             if abandonFlightProgress >= 1.0 {
                 timer.invalidate()
                 abandonFlightTimer = nil

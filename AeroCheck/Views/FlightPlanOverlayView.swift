@@ -85,8 +85,7 @@ struct FlightPlanOverlayView: View {
                     .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
             )
             .position(currentPosition(in: geometry.size))
-            .gesture(dragGesture(in: geometry.size))
-            .animation(.easeInOut(duration: 0.3), value: currentPresetPosition)
+            .animation(.easeInOut(duration: 0.3), value: isExpanded)
         }
         .sheet(isPresented: $showingDepartureTimePicker) {
             DepartureTimePickerSheet()
@@ -105,35 +104,12 @@ struct FlightPlanOverlayView: View {
         }
     }
 
-    /// Calculate the current position based on preset or custom drag
+    /// Calculate the current position based on expanded/collapsed state
+    /// Expanded = middle-left, Collapsed = bottom-middle
     private func currentPosition(in size: CGSize) -> CGPoint {
-        var position: CGPoint
-        if let custom = customPosition {
-            position = constrainedPosition(custom, in: size)
-        } else {
-            position = currentPresetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
-        }
-
-        // If radio frequency window is open and position overlaps with exclusion zone, move to left side
-        if radioFrequencyWindowOpen {
-            let overlayRect = CGRect(
-                x: position.x - overlayWidth / 2,
-                y: position.y - overlayHeight / 2,
-                width: overlayWidth,
-                height: overlayHeight
-            )
-            if overlayRect.intersects(radioFrequencyExclusionZone) {
-                // Move to middle-left position
-                position = FlightPlanOverlayPosition.middleLeft.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
-                // Clear custom position so it stays at preset
-                DispatchQueue.main.async {
-                    self.customPosition = nil
-                    self.currentPresetPosition = .middleLeft
-                }
-            }
-        }
-
-        return position
+        // Use fixed positions based on expanded state
+        let targetPosition: FlightPlanOverlayPosition = isExpanded ? .middleLeft : .bottomMiddle
+        return targetPosition.position(in: size, overlayWidth: overlayWidth, overlayHeight: overlayHeight)
     }
 
     /// Constrain a position within bounds, respecting radio frequency exclusion zone
@@ -163,7 +139,7 @@ struct FlightPlanOverlayView: View {
 
     private func expandedContent(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            // Header with position selector and collapse button
+            // Header with collapse button (expanded is always middle-left)
             HStack {
                 Text("FLIGHT PLAN")
                     .font(.system(size: 10, weight: .bold))
@@ -172,27 +148,7 @@ struct FlightPlanOverlayView: View {
 
                 Spacer()
 
-                // Position selector buttons
-                HStack(spacing: 4) {
-                    ForEach(FlightPlanOverlayPosition.allCases, id: \.rawValue) { position in
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                customPosition = nil
-                                currentPresetPosition = position
-                            }
-                        }) {
-                            Image(systemName: position.icon)
-                                .font(.system(size: 10))
-                                .foregroundColor(currentPresetPosition == position && customPosition == nil ? .aviationGold : .secondaryText)
-                        }
-                    }
-                }
-
-                Divider()
-                    .frame(height: 12)
-                    .padding(.horizontal, 4)
-
-                Button(action: { withAnimation { isExpanded = false } }) {
+                Button(action: { withAnimation(.easeInOut(duration: 0.3)) { isExpanded = false } }) {
                     Image(systemName: "chevron.up")
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)

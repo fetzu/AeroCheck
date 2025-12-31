@@ -433,12 +433,13 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        let topHalfHeight = geometry.size.height / 2
+        let panelHeight = geometry.size.height / 2
+        let mapHeight = showCompactPanel ? panelHeight : geometry.size.height
 
         VStack(spacing: 0) {
-            // Top half: Map with controls
+            // Top portion: Map with controls (expands to full height when panel hidden)
             ZStack {
-                // Map content (clipped to top half)
+                // Map content
                 mapContent
 
                 // Overlay controls for compact layout
@@ -454,13 +455,14 @@ struct NavigationMapView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .frame(height: topHalfHeight)
+            .frame(height: mapHeight)
             .clipped()
+            .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
 
             // Bottom half: Flight Plan or Radio Frequencies panel
             if showCompactPanel {
                 compactBottomPanel(geometry: geometry)
-                    .frame(height: topHalfHeight)
+                    .frame(height: panelHeight)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }

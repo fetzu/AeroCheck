@@ -40,6 +40,13 @@ struct FlightPlanEditorView: View {
     @State private var exportData: Data?
     @State private var exportFormat: FlightPlanExportFormat = .json
 
+    /// Whether we're on a compact width device (iPhone)
+    /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
+    /// report compact size class even though the device has plenty of space
+    private var isCompactWidth: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
     /// When true, hides Deactivate/Recalculate buttons (viewing from Flight Log)
     let isViewingFromFlightLog: Bool
 
@@ -69,12 +76,10 @@ struct FlightPlanEditorView: View {
 
                     // Actions section
                     actionsSection
-
-                    // Extra padding at bottom to ensure keyboard doesn't cover content
-                    Spacer()
-                        .frame(height: 350)
                 }
                 .padding()
+                // Add keyboard padding only when needed (handled by system)
+                .padding(.bottom, 20)
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
@@ -138,7 +143,7 @@ struct FlightPlanEditorView: View {
             // Title bar
             HStack {
                 Text("NAVIGATION FLIGHT PLAN")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: isCompactWidth ? 12 : 14, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .tracking(1)
 
@@ -146,7 +151,7 @@ struct FlightPlanEditorView: View {
 
                 HStack(spacing: 8) {
                     Text("Flight Type")
-                        .font(.system(size: 12))
+                        .font(.system(size: isCompactWidth ? 10 : 12))
                         .foregroundColor(.secondaryText)
 
                     Picker("", selection: $flightPlan.flightType) {
@@ -165,27 +170,48 @@ struct FlightPlanEditorView: View {
                 }
             }
 
-            // Main header grid
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                // Row 1
-                FormField(label: "Pilot", text: $flightPlan.pilot)
-                FormField(label: "Aircraft", text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                DateFormField(label: "Date", date: Binding(
-                    get: { flightPlan.plannedDepartureTime ?? Date() },
-                    set: { flightPlan.plannedDepartureTime = $0 }
-                ))
-                OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+            // Main header grid - adaptive columns for compact devices
+            if isCompactWidth {
+                // 2 columns for iPhone
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    FormField(label: "Pilot", text: $flightPlan.pilot)
+                    FormField(label: "Aircraft", text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                    DateFormField(label: "Date", date: Binding(
+                        get: { flightPlan.plannedDepartureTime ?? Date() },
+                        set: { flightPlan.plannedDepartureTime = $0 }
+                    ))
+                    OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                    OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
+                    FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                    FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                    FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
+                }
+            } else {
+                // 4 columns for iPad
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    // Row 1
+                    FormField(label: "Pilot", text: $flightPlan.pilot)
+                    FormField(label: "Aircraft", text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                    DateFormField(label: "Date", date: Binding(
+                        get: { flightPlan.plannedDepartureTime ?? Date() },
+                        set: { flightPlan.plannedDepartureTime = $0 }
+                    ))
+                    OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
 
-                // Row 2
-                OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
-                FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
+                    // Row 2
+                    OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
+                    FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                    FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                    FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
+                }
             }
         }
         .padding()
@@ -262,11 +288,70 @@ struct FlightPlanEditorView: View {
     }
 
     private var routeTable: some View {
+        Group {
+            if isCompactWidth {
+                // iPhone: Wrap in horizontal ScrollView with fixed-width content
+                ScrollView(.horizontal, showsIndicators: true) {
+                    compactRouteTableContent
+                        .frame(minWidth: 600)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.aviationDarkBlue.opacity(0.5), lineWidth: 1)
+                )
+            } else {
+                // iPad: Original implementation - flexible waypoint column, standard styling
+                VStack(spacing: 0) {
+                    // Table header
+                    HStack(spacing: 0) {
+                        tableHeaderCell("#", width: 30)
+                        tableHeaderCell("Waypoint", width: nil, alignment: .leading)
+                        tableHeaderCell("Freq", width: 55)
+                        tableHeaderCell("MC", width: 50)
+                        tableHeaderCell("Dist", width: 50)
+                        tableHeaderCell("Alt", width: 60)
+                        tableHeaderCell("GS", width: 50)
+                        tableHeaderCell("EET", width: 50)
+                        tableHeaderCell("ETO", width: 55)
+                        tableHeaderCell("ATO", width: 55)
+                    }
+                    .background(Color.aviationDarkBlue)
+
+                    // Table rows
+                    ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
+                        WaypointTableRow(
+                            index: index,
+                            waypoint: waypoint,
+                            isLast: index == flightPlan.waypoints.count - 1,
+                            isCompact: false,
+                            onTap: {
+                                showingWaypointEditor = waypoint
+                            },
+                            onDelete: {
+                                deleteWaypoint(at: index)
+                            },
+                            onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
+                            onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
+                        )
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.aviationDarkBlue, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    /// Compact route table content for iPhone - uses fixed column widths
+    private var compactRouteTableContent: some View {
         VStack(spacing: 0) {
-            // Table header
+            // Table header with fixed widths
             HStack(spacing: 0) {
                 tableHeaderCell("#", width: 30)
-                tableHeaderCell("Waypoint", width: nil, alignment: .leading)
+                tableHeaderCell("Waypoint", width: 100, alignment: .leading)
                 tableHeaderCell("Freq", width: 55)
                 tableHeaderCell("MC", width: 50)
                 tableHeaderCell("Dist", width: 50)
@@ -284,6 +369,7 @@ struct FlightPlanEditorView: View {
                     index: index,
                     waypoint: waypoint,
                     isLast: index == flightPlan.waypoints.count - 1,
+                    isCompact: true,
                     onTap: {
                         showingWaypointEditor = waypoint
                     },
@@ -295,11 +381,6 @@ struct FlightPlanEditorView: View {
                 )
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.aviationDarkBlue, lineWidth: 1)
-        )
     }
 
     private func tableHeaderCell(_ text: String, width: CGFloat?, alignment: Alignment = .center) -> some View {
@@ -323,11 +404,7 @@ struct FlightPlanEditorView: View {
                 Spacer()
             }
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 3), spacing: 12) {
                 NumberFormField(
                     label: "Fuel Flow (L/h)",
                     value: Binding(
@@ -407,14 +484,7 @@ struct FlightPlanEditorView: View {
             }
 
             // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
                     label: "Counter Start",
                     value: Binding(
@@ -440,14 +510,7 @@ struct FlightPlanEditorView: View {
             }
 
             // Second row: Landings and Engine Time
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 IntFormField(
                     label: "Ldgs at Base",
                     value: Binding(
@@ -465,17 +528,18 @@ struct FlightPlanEditorView: View {
                 )
 
                 // Engine Time display (MMMMM.ZZ format)
-                VStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Engine Time")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundColor(.secondaryText)
                     Text(formattedEngineTime)
                         .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .foregroundColor(.primaryText)
-                        .frame(height: 32)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.black.opacity(0.2))
-                        .cornerRadius(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color.cardBackground.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
 
                 // Empty cells to maintain grid alignment
@@ -768,6 +832,7 @@ struct WaypointTableRow: View {
     let index: Int
     let waypoint: FlightPlanWaypoint
     let isLast: Bool
+    var isCompact: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
     let onMoveUp: (() -> Void)?
@@ -778,20 +843,28 @@ struct WaypointTableRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Index
+            // Index - fixed width
             Text("\(index + 1)")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundColor(.dimText)
                 .frame(width: 30)
 
-            // Waypoint name
-            Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(1)
+            // Waypoint name - flexible on iPad, fixed on iPhone
+            if isCompact {
+                Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .frame(width: 100, alignment: .leading)
+            } else {
+                Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
-            // Frequency
+            // Frequency - fixed width
             Text(waypoint.frequency ?? "-")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.aviationGold)
@@ -834,7 +907,7 @@ struct WaypointTableRow: View {
                 .foregroundColor(.primaryText)
                 .frame(width: 55)
 
-            // ATO
+            // ATO - fixed width
             Text(waypoint.formattedATO ?? "-")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(waypoint.actualTimeOver != nil ? .aviationGreen : .dimText)
@@ -949,17 +1022,77 @@ struct DateFormField: View {
     let label: String
     @Binding var date: Date
 
+    @State private var showingDatePicker = false
+
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd MMM yyyy"
+        return formatter
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 11))
                 .foregroundColor(.secondaryText)
 
-            DatePicker("", selection: $date, displayedComponents: [.date])
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .tint(.aviationGold)
+            // Display date as styled text, tap to edit
+            Button(action: { showingDatePicker = true }) {
+                Text(dateFormatter.string(from: date))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
+        .sheet(isPresented: $showingDatePicker) {
+            DatePickerSheet(selectedDate: $date, isPresented: $showingDatePicker)
+        }
+    }
+}
+
+/// Compact sheet for picking date (popover-style)
+struct DatePickerSheet: View {
+    @Binding var selectedDate: Date
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Text("Select Date")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primaryText)
+
+                Spacer()
+
+                Button("Done") {
+                    isPresented = false
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.aviationGold)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+
+            // Date picker
+            DatePicker("", selection: $selectedDate, displayedComponents: [.date])
+                .labelsHidden()
+                .datePickerStyle(.graphical)
+                .tint(.aviationGold)
+
+            Spacer()
+        }
+        .background(Color.panelBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
     }
 }
 

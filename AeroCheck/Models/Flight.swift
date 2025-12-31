@@ -1,6 +1,11 @@
 import Foundation
 import CoreLocation
 
+/// Current export format version
+/// - v1: Original format (no fullStopCount, fullStopTimes, flightPlanId, flightPlan)
+/// - v2: Added fullStopCount, fullStopTimes, flightPlanId, flightPlan, export metadata
+let currentExportFormatVersion = 2
+
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
     let id: UUID
@@ -24,6 +29,53 @@ struct Flight: Identifiable, Codable {
     var goAroundTimes: [Date]
     var touchAndGoTimes: [Date]
     var fullStopTimes: [Date]
+
+    // MARK: - Coding Keys
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, airplane, aircraftType, checklistVersion
+        case flightPlanId, flightPlan
+        case startTime, stopTime, engineStartTime, lineUpTime, landingTime, engineShutdownTime
+        case gpsTrack, notes
+        case goAroundCount, touchAndGoCount, fullStopCount
+        case goAroundTimes, touchAndGoTimes, fullStopTimes
+    }
+
+    // MARK: - Custom Decodable for backward compatibility
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        airplane = try container.decode(String.self, forKey: .airplane)
+        aircraftType = try container.decodeIfPresent(String.self, forKey: .aircraftType)
+        checklistVersion = try container.decodeIfPresent(String.self, forKey: .checklistVersion)
+
+        // New fields in v2 - provide defaults for backward compatibility
+        flightPlanId = try container.decodeIfPresent(UUID.self, forKey: .flightPlanId)
+        flightPlan = try container.decodeIfPresent(FlightPlan.self, forKey: .flightPlan)
+
+        startTime = try container.decodeIfPresent(Date.self, forKey: .startTime)
+        stopTime = try container.decodeIfPresent(Date.self, forKey: .stopTime)
+        engineStartTime = try container.decodeIfPresent(Date.self, forKey: .engineStartTime)
+        lineUpTime = try container.decodeIfPresent(Date.self, forKey: .lineUpTime)
+        landingTime = try container.decodeIfPresent(Date.self, forKey: .landingTime)
+        engineShutdownTime = try container.decodeIfPresent(Date.self, forKey: .engineShutdownTime)
+
+        gpsTrack = try container.decodeIfPresent([GPSPoint].self, forKey: .gpsTrack) ?? []
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+
+        goAroundCount = try container.decodeIfPresent(Int.self, forKey: .goAroundCount) ?? 0
+        touchAndGoCount = try container.decodeIfPresent(Int.self, forKey: .touchAndGoCount) ?? 0
+        // New in v2 - default to 0 for backward compatibility
+        fullStopCount = try container.decodeIfPresent(Int.self, forKey: .fullStopCount) ?? 0
+
+        goAroundTimes = try container.decodeIfPresent([Date].self, forKey: .goAroundTimes) ?? []
+        touchAndGoTimes = try container.decodeIfPresent([Date].self, forKey: .touchAndGoTimes) ?? []
+        // New in v2 - default to empty for backward compatibility
+        fullStopTimes = try container.decodeIfPresent([Date].self, forKey: .fullStopTimes) ?? []
+    }
 
     init(
         id: UUID = UUID(),
@@ -223,10 +275,11 @@ extension Flight {
     /// Export flight to GPX format with all timing data in extensions
     func toGPX() -> String {
         let dateFormatter = ISO8601DateFormatter()
-        
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+
         var gpx = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <gpx version="1.1" creator="AeroCheck"
+        <gpx version="1.1" creator="AeroCheck v\(appVersion)"
              xmlns="http://www.topografix.com/GPX/1/1"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:pc="http://aerocheck.app/gpx/1"
@@ -235,11 +288,11 @@ extension Flight {
             <name>\(displayName) - \(formattedDate)</name>
             <desc>Flight recorded with AéroCheck app</desc>
         """
-        
+
         if let start = startTime {
             gpx += "\n    <time>\(dateFormatter.string(from: start))</time>"
         }
-        
+
         gpx += """
 
           </metadata>
@@ -247,6 +300,8 @@ extension Flight {
             <name>\(airplane)</name>
             <extensions>
               <pc:flightData>
+                <pc:formatVersion>\(currentExportFormatVersion)</pc:formatVersion>
+                <pc:appVersion>\(appVersion)</pc:appVersion>
                 <pc:name>\(name)</pc:name>
                 <pc:airplane>\(airplane)</pc:airplane>
         """
@@ -337,13 +392,14 @@ extension Flight {
         return gpx
     }
     
-    /// Export flight to JSON format (includes all data)
+    /// Export flight to JSON format (includes all data with metadata)
     func toJSON() -> Data? {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         do {
-            return try encoder.encode(self)
+            let exportWrapper = FlightExportWrapper(flight: self, flightPlan: nil)
+            return try encoder.encode(exportWrapper)
         } catch {
             print("[AeroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
             return nil
@@ -358,8 +414,8 @@ extension Flight {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         do {
-            let exportData = FlightWithNavigationExport(flight: self, flightPlan: flightPlan)
-            return try encoder.encode(exportData)
+            let exportWrapper = FlightExportWrapper(flight: self, flightPlan: flightPlan)
+            return try encoder.encode(exportWrapper)
         } catch {
             print("[AeroCheck] Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
             return nil
@@ -367,7 +423,38 @@ extension Flight {
     }
 }
 
-/// Combined export structure for flight with navigation data
+/// Export metadata structure
+struct FlightExportMetadata: Codable {
+    let appName: String
+    let appVersion: String
+    let formatVersion: Int
+    let exportDate: Date
+
+    static var current: FlightExportMetadata {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        return FlightExportMetadata(
+            appName: "AeroCheck",
+            appVersion: appVersion,
+            formatVersion: currentExportFormatVersion,
+            exportDate: Date()
+        )
+    }
+}
+
+/// Wrapper structure for JSON exports with metadata (v2 format)
+struct FlightExportWrapper: Codable {
+    let metadata: FlightExportMetadata
+    let flight: Flight
+    let flightPlan: FlightPlan?
+
+    init(flight: Flight, flightPlan: FlightPlan?) {
+        self.metadata = .current
+        self.flight = flight
+        self.flightPlan = flightPlan
+    }
+}
+
+/// Combined export structure for flight with navigation data (legacy, kept for compatibility)
 struct FlightWithNavigationExport: Codable {
     let flight: Flight
     let flightPlan: FlightPlan?
@@ -391,15 +478,35 @@ extension Flight {
         }
     }
 
-    /// Import flight from JSON data
+    /// Import flight from JSON data, supporting multiple format versions:
+    /// - v2: FlightExportWrapper with metadata, flight, and optional flightPlan
+    /// - v1: Direct Flight object (backward compatibility)
+    /// - Legacy: FlightWithNavigationExport with flight and flightPlan (no metadata)
+    ///
     /// - Parameter data: JSON data to decode
     /// - Returns: Decoded Flight object
     /// - Throws: ImportError.invalidJSON if decoding fails
     static func fromJSON(_ data: Data) throws -> Flight {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+
+        // Try v2 format first (FlightExportWrapper with metadata)
+        if let wrapper = try? decoder.decode(FlightExportWrapper.self, from: data) {
+            print("[AeroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
+            return wrapper.flight
+        }
+
+        // Try legacy FlightWithNavigationExport format (no metadata)
+        if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
+            print("[AeroCheck] Imported flight from legacy FlightWithNavigationExport format")
+            return legacyExport.flight
+        }
+
+        // Try v1 format (direct Flight object - oldest format)
         do {
-            return try decoder.decode(Flight.self, from: data)
+            let flight = try decoder.decode(Flight.self, from: data)
+            print("[AeroCheck] Imported flight from v1 format (direct Flight object)")
+            return flight
         } catch {
             print("[AeroCheck] Failed to decode flight from JSON: \(error)")
             throw ImportError.invalidJSON(underlying: error)

@@ -9,7 +9,7 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-MIT-red)
 
-A native iPad application for pilot students at Aéroclub du Jura GVMP. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+An iPad-first application for pilot students at Aéroclub du Jura GVMP. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
 ## Supported Aircraft
 
@@ -29,6 +29,7 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - **Step-by-Step Highlighting**: Items highlighted one at a time; tap anywhere in the checklist area to advance
 - **Smart completion**: When all items are checked, the NEXT button pulses to draw attention
 - **Learning Mode**: Toggle to show all checks for studying, or hide memorizable checks to test memory
+- **Circuit Mode**: Streamlined workflow for pattern training - skips irrelevant phases (Cruise, Descent) and tracks full-stop landings
 
 ### 🗺️ Navigation Mode
 - Full-screen map with real-time aircraft position and track
@@ -42,6 +43,9 @@ A native iPad application for pilot students at Aéroclub du Jura GVMP. This app
 - GPS status indicator
 - Scale bar with accurate distance measurement
 - **Offline maps**: Download Swiss ICAO Chart (~100 MB) and/or Segelflugkarte (~150 MB) for offline navigation
+- **Flight Planning** (Beta): Create waypoint routes with terrain profiles and export to PDF
+- **Radio Frequencies** (Switzerland): Quick access to common frequencies (Geneva/Zurich Info, FIS), with nearby CTR frequencies based on your position
+- **ETO Display**: Estimated time of arrival to next waypoint shown on chronometer
 
 ### 📍 GPS Flight Tracking
 - Automatic GPS recording during flights
@@ -238,6 +242,8 @@ AeroCheck/
 │   ├── Models/
 │   │   ├── Aircraft.swift           # Aircraft types & metadata
 │   │   ├── Flight.swift             # Flight data model & GPX
+│   │   ├── FlightPlan.swift         # Flight plan models (Beta)
+│   │   ├── FlightPlanManager.swift  # Flight plan state (Beta)
 │   │   ├── Checklist.swift          # Checklist phases & items
 │   │   ├── WT9ChecklistData.swift   # WT9 Dynamic checklist data
 │   │   ├── PA28ChecklistData.swift  # PA-28-181 checklist data
@@ -247,7 +253,10 @@ AeroCheck/
 │   │   ├── HomeView.swift           # Home screen
 │   │   ├── FlightView.swift         # Active flight view
 │   │   ├── FlightLogView.swift      # Flight history
-│   │   ├── NavigationView.swift     # Full-screen navigation map
+│   │   ├── NavigationView.swift     # Full-screen navigation map + radio frequencies
+│   │   ├── FlightPlanningView.swift # Flight plan list (Beta)
+│   │   ├── FlightPlanEditorView.swift # Waypoint editor (Beta)
+│   │   ├── TerrainProfileView.swift # Terrain elevation display (Beta)
 │   │   └── SettingsView.swift       # Configuration
 │   ├── Components/
 │   │   ├── DesignSystem.swift       # Colors, fonts, styles
@@ -255,6 +264,7 @@ AeroCheck/
 │   └── Services/
 │       ├── LocationManager.swift     # GPS tracking
 │       ├── OfflineMapManager.swift   # Offline ICAO/Segelflug chart caching
+│       ├── ElevationService.swift    # Terrain elevation from swisstopo (Beta)
 │       └── WindDataService.swift     # MeteoSwiss wind data (experimental)
 ├── AeroCheckWidget/
 │   └── AeroCheckWidget.swift        # Home screen widgets
@@ -337,6 +347,7 @@ In Settings:
 - **Offline Mode**: Use only cached charts for navigation (requires download)
 - **Step-by-Step Highlighting**: Highlights checklist items one at a time; tap anywhere to advance to the next item (auto-scrolls if needed)
 - **Learning Mode (show all checks)**: When OFF (default), memorizable checks are hidden to test your memory. When ON, all checks are visible for studying. Hidden phases vary by aircraft
+- **Circuit Mode**: Enable for pattern training - skips Cruise and Descent phases, adds FULL STOP button for tracking landings
 
 ## Speed Reference
 

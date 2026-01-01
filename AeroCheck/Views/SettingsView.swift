@@ -5,8 +5,11 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
 
+    @State private var showSubscriptionView = false
     @State private var selectedAircraft: AircraftType = .wt9Dynamic
     @State private var gpsInterval: Double = 5.0
     @State private var keepScreenOn: Bool = true
@@ -94,6 +97,7 @@ struct SettingsView: View {
     private var formContent: some View {
         Form {
             Group {
+                subscriptionSection
                 aircraftSection
                 gpsSection
                 experimentalAirspeedSection
@@ -124,6 +128,46 @@ struct SettingsView: View {
     }
 
     // MARK: - Form Sections
+
+    private var subscriptionSection: some View {
+        Section {
+            Button(action: { showSubscriptionView = true }) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AeroCheck Pro")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+
+                        Text(subscriptionManager.subscriptionStatus.displayText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    if subscriptionManager.subscriptionStatus.isSubscribed {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.aviationGreen)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .sheet(isPresented: $showSubscriptionView) {
+                SubscriptionView()
+                    .environmentObject(subscriptionManager)
+            }
+        } header: {
+            Label("Subscription", systemImage: "star.fill")
+        } footer: {
+            if subscriptionManager.subscriptionStatus.isSubscribed {
+                Text("You have access to all premium aircraft checklists.")
+            } else {
+                Text("Subscribe to unlock additional aircraft checklists.")
+            }
+        }
+    }
 
     private var aircraftSection: some View {
         Section {

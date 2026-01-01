@@ -8,7 +8,16 @@ struct AeroCheckApp: App {
     @StateObject private var offlineMapManager = OfflineMapManager()
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
+    @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var aircraftDataService: AircraftDataService
     @State private var showUpdateReminder = false
+
+    init() {
+        // Initialize subscription manager first, then aircraft data service
+        let subManager = SubscriptionManager()
+        _subscriptionManager = StateObject(wrappedValue: subManager)
+        _aircraftDataService = StateObject(wrappedValue: AircraftDataService(subscriptionManager: subManager))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -18,6 +27,8 @@ struct AeroCheckApp: App {
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(subscriptionManager)
+                .environmentObject(aircraftDataService)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -42,6 +53,8 @@ struct AeroCheckApp: App {
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(subscriptionManager)
+                .environmentObject(aircraftDataService)
                 .preferredColorScheme(.dark)
         }
         #endif

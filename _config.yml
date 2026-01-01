@@ -55,11 +55,11 @@ features                                  :
     fontawesome_icon_name                 : location-arrow
 
   - title                                 : Interactive Navigation
-    description                           : Full-screen map view with Swiss ICAO charts, swisstopo maps, and offline caching for areas without signal.
+    description                           : Full-screen map with Swiss ICAO charts, flight planning, terrain profiles, and nearby CTR frequencies. Cache maps for offline use.
     fontawesome_icon_name                 : map
 
   - title                                 : Learning Mode
-    description                           : Hide memorizable checklist items to test your knowledge. Perfect for pilot students preparing for checkrides.
+    description                           : Hide memorizable items to test your knowledge. Circuit mode streamlines pattern work with full-stop tracking.
     fontawesome_icon_name                 : graduation-cap
 
   - title                                 : Flight Logging

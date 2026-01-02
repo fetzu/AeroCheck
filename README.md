@@ -4,7 +4,7 @@ This is the landing page for [AeroCheck](https://github.com/fetzu/AeroCheck), an
 
 ## Viewing the Site
 
-The landing page is deployed at: `https://fetzu.github.io/AeroCheck/`
+The landing page is deployed at: `https://aerocheck.app`
 
 ## Development
 

@@ -76,7 +76,7 @@ enum MapLayerType: String, CaseIterable, Identifiable {
     var maximumZoom: Int {
         switch self {
         case .standard, .satellite: return 20
-        case .icao: return 14  // Extended to include Segelflugkarte range
+        case .icao: return 12  // Extended to include Segelflugkarte range (max zoom 12)
         case .landeskarten: return 18
         case .swissimage: return 18
         }
@@ -2670,9 +2670,9 @@ struct SwissMapView: UIViewRepresentable {
         // Zoom 9  ≈ 120,000m
         // Zoom 10 ≈ 60,000m
         // Zoom 11 ≈ 30,000m (ICAO max zoom / Segelflugkarte switch point)
-        // Zoom 12 ≈ 15,000m
+        // Zoom 12 ≈ 15,000m (Segelflugkarte max zoom)
         // Zoom 13 ≈ 7,500m
-        // Zoom 14 ≈ 4,000m (Segelflugkarte max zoom)
+        // Zoom 14 ≈ 4,000m
         // Zoom 15 ≈ 2,000m
         // Zoom 16 ≈ 1,000m
         // Zoom 17 ≈ 500m
@@ -2689,7 +2689,7 @@ struct SwissMapView: UIViewRepresentable {
                 // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
                 return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 135_000, maxCenterCoordinateDistance: 600_000)!
             } else {
-                // ICAO + Segelflugkarte: zoom 7-14
+                // ICAO + Segelflugkarte: zoom 7-12
                 // minCenterCoordinateDistance empirically tuned to prevent zooming past available tiles
                 return MKMapView.CameraZoomRange(minCenterCoordinateDistance: 65_000, maxCenterCoordinateDistance: 600_000)!
             }
@@ -3303,7 +3303,7 @@ class FlightPlanRoutePolyline: MKPolyline {
 
 /// Custom tile overlay for Swiss ICAO aeronautical chart with seamless Segelflugkarte switching
 /// - ICAO Chart (ch.bazl.luftfahrtkarten-icao): zoom 7-11, scale 1:500,000
-/// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-14, scale 1:300,000
+/// - Segelflugkarte (ch.bazl.segelflugkarte): zoom 11-12, scale 1:300,000
 /// When forceICAO is true, always use ICAO layer even at higher zoom levels
 /// When offlineMapManager is provided, use cached tiles from disk (cache-first in online mode)
 /// When isStrictOfflineMode is true, only use cached tiles (no network requests)
@@ -3317,11 +3317,11 @@ class ICAOSegelflugkarteTileOverlay: MKTileOverlay {
 
     // Zoom level where we switch from ICAO to Segelflugkarte
     // ICAO: zoom 7-11 (1:500,000)
-    // Segelflugkarte: zoom 11-14 (1:300,000) - swisstopo only provides up to zoom 14
+    // Segelflugkarte: zoom 11-12 (1:300,000) - swisstopo only provides up to zoom 12
     private let icaoMinZoom = 7
     private let icaoMaxZoom = 11
     private let segelflugkarteMinZoom = 11
-    private let segelflugkarteMaxZoom = 14
+    private let segelflugkarteMaxZoom = 12
 
     init(forceICAO: Bool = false, offlineMapManager: OfflineMapManager? = nil, isStrictOfflineMode: Bool = false, hasSegelflugCache: Bool = false) {
         self.forceICAO = forceICAO

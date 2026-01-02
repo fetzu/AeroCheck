@@ -23,7 +23,7 @@ enum CacheableLayer: String, CaseIterable {
     var maxZoom: Int {
         switch self {
         case .icao: return 11
-        case .segelflug: return 14
+        case .segelflug: return 12  // Swisstopo only provides Segelflugkarte up to zoom 12
         }
     }
 

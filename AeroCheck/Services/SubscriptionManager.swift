@@ -42,7 +42,7 @@ class SubscriptionManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(apiBaseURL: String = "https://aerocheck-api.workers.dev") {
+    init(apiBaseURL: String = "https://api.aerocheck.app") {
         self.apiBaseURL = apiBaseURL
 
         // Start listening for transactions

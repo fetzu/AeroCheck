@@ -28,7 +28,7 @@ class AircraftDataService: ObservableObject {
     // MARK: - Initialization
 
     init(
-        apiBaseURL: String = "https://aerocheck-api.workers.dev",
+        apiBaseURL: String = "https://api.aerocheck.app",
         subscriptionManager: SubscriptionManager
     ) {
         self.apiBaseURL = apiBaseURL

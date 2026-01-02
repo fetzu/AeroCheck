@@ -286,7 +286,7 @@ extension Flight {
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
             <name>\(displayName) - \(formattedDate)</name>
-            <desc>Flight recorded with AéroCheck app</desc>
+            <desc>Flight recorded with AeroCheck app</desc>
         """
 
         if let start = startTime {

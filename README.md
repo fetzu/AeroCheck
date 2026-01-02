@@ -2,14 +2,14 @@ __IMPORTANT CAVEAT: This application is provided solely for training and pedagog
 
 _NOTE: This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
-# AéroCheck
+# AeroCheck
 
 ![Platform](https://img.shields.io/badge/Platform-i(Pad)OS%2017%2B-blue)
 ![Devices](https://img.shields.io/badge/Devices-iPhone%20%7C%20iPad-green)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-MIT-red)
 
-An iPad-first application for pilot students at Aéroclub du Jura GVMP. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
+An iPad-first application for pilot students at Aeroclub du Jura GVMP. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
 ## Supported Aircraft
 
@@ -401,7 +401,7 @@ Target speeds vary by aircraft. Examples for WT9:
 
 - WT9 F-HVXA Checklist Version 2.1e (March 2025)
 - PA-28-181 HB-PFA Checklist Version 1.6e (July 2020)
-- Aéroclub du Jura GVMP
+- Aeroclub du Jura GVMP
 - SPHAIR Bases et procédures
 
 ## Privacy

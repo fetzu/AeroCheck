@@ -77,13 +77,13 @@ struct HomeView: View {
                         .font(.system(size: isCompact ? 22 : (isLandscape ? 26 : 32)))
                         .foregroundColor(.aviationGold)
 
-                    Text("AéroCheck")
+                    Text("AeroCheck")
                         .font(.system(size: isCompact ? 20 : (isLandscape ? 24 : 28), weight: .bold, design: .default))
                         .foregroundColor(.primaryText)
                         .tracking(isCompact ? 1 : 2)
                 }
 
-                Text("Aéroclub du Jura • GVMP")
+                Text("Aeroclub du Jura • GVMP")
                     .font(.system(size: isCompact ? 10 : 12))
                     .foregroundColor(.secondaryText)
             }

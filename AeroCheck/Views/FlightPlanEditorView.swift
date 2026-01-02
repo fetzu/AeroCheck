@@ -1581,7 +1581,7 @@ class WaypointPickerICAOTileOverlay: MKTileOverlay {
     override init(urlTemplate URLTemplate: String?) {
         super.init(urlTemplate: "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png")
         self.minimumZ = 7
-        self.maximumZ = 14
+        self.maximumZ = 12  // Segelflugkarte max zoom is 12
     }
 
     convenience init() {
@@ -1592,13 +1592,13 @@ class WaypointPickerICAOTileOverlay: MKTileOverlay {
         let layerIdentifier: String
         let finalZ: Int
 
-        // ICAO for zoom 7-11, Segelflugkarte for zoom 11-14
+        // ICAO for zoom 7-11, Segelflugkarte for zoom 11-12
         if path.z <= 11 {
             layerIdentifier = icaoLayerIdentifier
             finalZ = min(max(path.z, 7), 11)
         } else {
             layerIdentifier = segelflugkarteLayerIdentifier
-            finalZ = min(max(path.z, 11), 14)
+            finalZ = min(max(path.z, 11), 12)
         }
 
         let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"

@@ -206,7 +206,7 @@ class SubscriptionManager: ObservableObject {
 
                     // Update status on main actor
                     await MainActor.run {
-                        Task {
+                        _ = Task {
                             await self.updateSubscriptionStatus()
                         }
                     }
@@ -218,7 +218,7 @@ class SubscriptionManager: ObservableObject {
     }
 
     /// Verifies a transaction result
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    nonisolated private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified:
             throw SubscriptionError.verificationFailed

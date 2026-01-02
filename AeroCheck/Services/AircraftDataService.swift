@@ -152,7 +152,7 @@ class AircraftDataService: ObservableObject {
     // MARK: - Private Methods
 
     private func fetchAircraftList() async throws -> [RemoteAircraftMetadata] {
-        var url = URL(string: "\(apiBaseURL)/api/v1/aircraft/available")!
+        let url = URL(string: "\(apiBaseURL)/api/v1/aircraft/available")!
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")

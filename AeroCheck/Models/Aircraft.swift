@@ -1,9 +1,10 @@
 import Foundation
 
-/// Represents an aircraft type with its associated checklist and metadata
+/// Represents a bundled aircraft type with its associated checklist and metadata.
+/// Only the WT9 Dynamic is bundled with the app. Other aircraft (like PA-28-181)
+/// are available through the AeroCheck Pro subscription and delivered via the API.
 enum AircraftType: String, CaseIterable, Identifiable, Codable {
     case wt9Dynamic = "WT9"
-    case pa28Archer = "PA28"
 
     var id: String { rawValue }
 
@@ -11,7 +12,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var registration: String {
         switch self {
         case .wt9Dynamic: return "F-HVXA"
-        case .pa28Archer: return "HB-PFA"
         }
     }
 
@@ -19,7 +19,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var modelName: String {
         switch self {
         case .wt9Dynamic: return "WT9 Dynamic"
-        case .pa28Archer: return "Piper Archer II PA-28-181"
         }
     }
 
@@ -27,7 +26,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var shortModelName: String {
         switch self {
         case .wt9Dynamic: return "WT9 Dynamic"
-        case .pa28Archer: return "PA-28-181"
         }
     }
 
@@ -35,7 +33,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var checklistVersion: String {
         switch self {
         case .wt9Dynamic: return WT9ChecklistData.version
-        case .pa28Archer: return PA28ChecklistData.version
         }
     }
 
@@ -43,7 +40,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var lastUpdated: String {
         switch self {
         case .wt9Dynamic: return WT9ChecklistData.lastUpdated
-        case .pa28Archer: return PA28ChecklistData.lastUpdated
         }
     }
 
@@ -51,7 +47,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var stallSpeed: Int {
         switch self {
         case .wt9Dynamic: return 42
-        case .pa28Archer: return 53
         }
     }
 
@@ -59,7 +54,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var pageCount: Int {
         switch self {
         case .wt9Dynamic: return 4
-        case .pa28Archer: return 4
         }
     }
 
@@ -68,8 +62,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wt9Dynamic:
             return WT9ChecklistData.items(for: phase)
-        case .pa28Archer:
-            return PA28ChecklistData.items(for: phase)
         }
     }
 
@@ -78,8 +70,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wt9Dynamic:
             return WT9ChecklistData.learningModeVisibleCount(for: phase)
-        case .pa28Archer:
-            return PA28ChecklistData.learningModeVisibleCount(for: phase)
         }
     }
 
@@ -129,8 +119,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wt9Dynamic:
             return WT9ChecklistData.targetSpeed(for: phase)
-        case .pa28Archer:
-            return PA28ChecklistData.targetSpeed(for: phase)
         }
     }
 
@@ -139,8 +127,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wt9Dynamic:
             return WT9ChecklistData.speeds
-        case .pa28Archer:
-            return PA28ChecklistData.speeds
         }
     }
 
@@ -149,8 +135,6 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .wt9Dynamic:
             return ("14 kt", "16 kt")
-        case .pa28Archer:
-            return ("17 kt", "17 kt")
         }
     }
 

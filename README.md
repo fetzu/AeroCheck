@@ -17,9 +17,9 @@ AéroCheck is open source under the MIT License. The app includes:
 
 - **Free aircraft** (bundled with the app):
   - WT9 Dynamic (F-HVXA)
-  - Piper Archer II PA-28-181 (HB-PFA)
 
 - **Premium aircraft** (requires AeroCheck Pro subscription):
+  - Piper Archer II PA-28-181 (HB-PFA)
   - Additional aircraft checklists delivered via the AeroCheck API
   - Automatic updates when checklists change
   - Offline access after initial download
@@ -34,12 +34,12 @@ All subscription payments are handled securely through the Apple App Store. See 
 ## Supported Aircraft
 
 - **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025) - Free
-- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020) - Free
+- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020) - Premium
 
 ## Features
 
 ### ✈️ Multi-Aircraft Checklist System
-- **Two aircraft supported**: WT9 Dynamic (F-HVXA) and PA-28-181 (HB-PFA)
+- **WT9 Dynamic bundled free**, additional aircraft via AeroCheck Pro subscription
 - All 16 flight phases from official checklists
 - Aircraft selection in Settings - checklists, speeds, and limits adapt automatically
 - Checklists displayed exactly as in the official documentation

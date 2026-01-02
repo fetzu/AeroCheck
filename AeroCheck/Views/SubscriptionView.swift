@@ -35,7 +35,7 @@ struct SubscriptionView: View {
                 }
                 .padding()
             }
-            .background(DesignSystem.Colors.cockpitBackground)
+            .background(Color.cockpitBackground)
             .navigationTitle("AeroCheck Pro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -43,7 +43,7 @@ struct SubscriptionView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(DesignSystem.Colors.aviationGold)
+                    .foregroundColor(Color.aviationGold)
                 }
             }
         }
@@ -66,16 +66,16 @@ struct SubscriptionView: View {
         VStack(spacing: 12) {
             Image(systemName: "airplane.circle.fill")
                 .font(.system(size: 60))
-                .foregroundColor(DesignSystem.Colors.aviationGold)
+                .foregroundColor(Color.aviationGold)
 
             Text("Unlock Premium Aircraft")
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(DesignSystem.Colors.primaryText)
+                .foregroundColor(Color.primaryText)
 
             Text("Access additional aircraft checklists with an AeroCheck Pro subscription")
                 .font(.subheadline)
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(Color.secondaryText)
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical)
@@ -86,7 +86,7 @@ struct SubscriptionView: View {
             Text("BENEFITS")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(Color.secondaryText)
 
             benefitRow(icon: "airplane", text: "Access to all premium aircraft checklists")
             benefitRow(icon: "arrow.triangle.2.circlepath", text: "Automatic updates when checklists change")
@@ -94,7 +94,7 @@ struct SubscriptionView: View {
             benefitRow(icon: "star.fill", text: "Support continued development")
         }
         .padding()
-        .background(DesignSystem.Colors.panelBackground)
+        .background(Color.panelBackground)
         .cornerRadius(12)
     }
 
@@ -102,12 +102,12 @@ struct SubscriptionView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(DesignSystem.Colors.aviationGold)
+                .foregroundColor(Color.aviationGold)
                 .frame(width: 30)
 
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(DesignSystem.Colors.primaryText)
+                .foregroundColor(Color.primaryText)
 
             Spacer()
         }
@@ -118,20 +118,20 @@ struct SubscriptionView: View {
             Text("CURRENT STATUS")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(Color.secondaryText)
 
             HStack {
                 Image(systemName: subscriptionManager.subscriptionStatus.isSubscribed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .foregroundColor(subscriptionManager.subscriptionStatus.isSubscribed ? DesignSystem.Colors.aviationGreen : DesignSystem.Colors.secondaryText)
+                    .foregroundColor(subscriptionManager.subscriptionStatus.isSubscribed ? Color.aviationGreen : Color.secondaryText)
 
                 Text(subscriptionManager.subscriptionStatus.displayText)
                     .font(.subheadline)
-                    .foregroundColor(DesignSystem.Colors.primaryText)
+                    .foregroundColor(Color.primaryText)
 
                 Spacer()
             }
             .padding()
-            .background(DesignSystem.Colors.panelBackground)
+            .background(Color.panelBackground)
             .cornerRadius(8)
         }
     }
@@ -141,7 +141,7 @@ struct SubscriptionView: View {
             Text("CHOOSE A PLAN")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(Color.secondaryText)
 
             if subscriptionManager.isLoading {
                 ProgressView()
@@ -150,7 +150,7 @@ struct SubscriptionView: View {
             } else if subscriptionManager.products.isEmpty {
                 Text("Unable to load subscription options")
                     .font(.subheadline)
-                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                    .foregroundColor(Color.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding()
 
@@ -177,11 +177,11 @@ struct SubscriptionView: View {
             }) {
                 if subscriptionManager.isLoading {
                     ProgressView()
-                        .tint(DesignSystem.Colors.aviationBlue)
+                        .tint(Color.aviationBlue)
                 } else {
                     Text("Restore Purchases")
                         .font(.subheadline)
-                        .foregroundColor(DesignSystem.Colors.aviationBlue)
+                        .foregroundColor(Color.aviationBlue)
                 }
             }
             .disabled(subscriptionManager.isLoading)
@@ -193,17 +193,17 @@ struct SubscriptionView: View {
         VStack(spacing: 8) {
             Text("Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage your subscription in your device's Settings app.")
                 .font(.caption2)
-                .foregroundColor(DesignSystem.Colors.dimText)
+                .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
                 Link("Terms of Service", destination: URL(string: "https://aerocheck.app/terms")!)
                     .font(.caption2)
-                    .foregroundColor(DesignSystem.Colors.aviationBlue)
+                    .foregroundColor(Color.aviationBlue)
 
                 Link("Privacy Policy", destination: URL(string: "https://aerocheck.app/privacy")!)
                     .font(.caption2)
-                    .foregroundColor(DesignSystem.Colors.aviationBlue)
+                    .foregroundColor(Color.aviationBlue)
             }
         }
         .padding(.top)
@@ -227,7 +227,7 @@ struct ProductCard: View {
                     HStack {
                         Text(product.displayName)
                             .font(.headline)
-                            .foregroundColor(DesignSystem.Colors.primaryText)
+                            .foregroundColor(Color.primaryText)
 
                         if product.isYearly {
                             Text("Best Value")
@@ -236,14 +236,14 @@ struct ProductCard: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
-                                .background(DesignSystem.Colors.aviationGreen)
+                                .background(Color.aviationGreen)
                                 .cornerRadius(4)
                         }
                     }
 
                     Text(product.description)
                         .font(.caption)
-                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                        .foregroundColor(Color.secondaryText)
                 }
 
                 Spacer()
@@ -252,41 +252,23 @@ struct ProductCard: View {
                     Text(product.displayPrice)
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(DesignSystem.Colors.aviationGold)
+                        .foregroundColor(Color.aviationGold)
 
                     Text(product.subscriptionPeriodText)
                         .font(.caption2)
-                        .foregroundColor(DesignSystem.Colors.secondaryText)
+                        .foregroundColor(Color.secondaryText)
                 }
             }
             .padding()
-            .background(DesignSystem.Colors.panelBackground)
+            .background(Color.panelBackground)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(product.isYearly ? DesignSystem.Colors.aviationGold : Color.clear, lineWidth: 2)
+                    .stroke(product.isYearly ? Color.aviationGold : Color.clear, lineWidth: 2)
             )
         }
         .disabled(subscriptionManager.isPurchasing)
         .opacity(subscriptionManager.isPurchasing ? 0.6 : 1.0)
-    }
-}
-
-// MARK: - Button Styles
-
-struct SecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .foregroundColor(DesignSystem.Colors.aviationBlue)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(DesignSystem.Colors.aviationBlue, lineWidth: 1)
-            )
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
     }
 }
 

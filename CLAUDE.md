@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-iPhone/iPad app for pilot students at Aeroclub du Jura GVMP. Guides pilots through flight checklists while recording GPS tracks and flight data. Supports multiple aircraft (WT9 Dynamic, PA-28-181).
+iPhone/iPad app for pilot students. Guides pilots through flight checklists while recording GPS tracks and flight data. Supports multiple aircraft (WT9 Dynamic, PA-28-181).
 
 - **Target:** iOS/iPadOS 17.0+ (iPhone and iPad, optimized for iPad Air 11" and larger)
 - **Tech:** Swift 5.9+, SwiftUI, CoreLocation, MapKit, WidgetKit

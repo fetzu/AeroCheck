@@ -83,7 +83,7 @@ struct HomeView: View {
                         .tracking(isCompact ? 1 : 2)
                 }
 
-                Text("Aeroclub du Jura • GVMP")
+                Text("Keep your flights in check!")
                     .font(.system(size: isCompact ? 10 : 12))
                     .foregroundColor(.secondaryText)
             }

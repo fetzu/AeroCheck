@@ -403,7 +403,7 @@ struct SettingsView: View {
                 HStack(spacing: 4) {
                     Text(appVersion)
                     if !showDeveloperOptions {
-                        Link(destination: URL(string: "https://github.com/fetzu/AeroCheck/releases")!) {
+                        Link(destination: URL(string: "https://aerocheck.app/changelog")!) {
                             Image(systemName: "arrow.up.forward.square")
                                 .font(.caption)
                         }
@@ -421,13 +421,15 @@ struct SettingsView: View {
                 }
             }
 
-            Link(destination: URL(string: "https://www.julienbono.ch/")!) {
+            Link(destination: URL(string: "https://aerocheck.app/")!) {
                 HStack {
-                    Text("Author")
+                    Text("Website")
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
-                        Text("Julien 'fetzu' Bono")
+                        Text("AeroCheck.app")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         Image(systemName: "arrow.up.forward.square")
                             .font(.caption)
                     }
@@ -435,15 +437,13 @@ struct SettingsView: View {
                 }
             }
 
-            Link(destination: URL(string: "https://www.gvmp.aero/")!) {
+            Link(destination: URL(string: "https://www.julienbono.ch/")!) {
                 HStack {
-                    Text("Organization")
+                    Text("Author")
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
-                        Text("Aeroclub du Jura (GVMP)")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                        Text("Julien 'fetzu' Bono")
                         Image(systemName: "arrow.up.forward.square")
                             .font(.caption)
                     }
@@ -511,8 +511,6 @@ struct SettingsView: View {
             }
         } header: {
             Label("Available Checklists", systemImage: "checklist")
-        } footer: {
-            Text("Checklist data provided by GVMP")
         }
     }
 

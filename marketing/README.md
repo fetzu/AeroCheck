@@ -1,4 +1,4 @@
-# AéroCheck Marketing Assets
+# AeroCheck Marketing Assets
 
 This folder contains resources for creating marketing screenshots and promotional materials.
 

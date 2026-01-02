@@ -1950,7 +1950,7 @@ struct FlightShareCard: View {
                     .font(.system(size: 28))
                     .foregroundColor(.aviationGold)
 
-                Text("AéroCheck")
+                Text("AeroCheck")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundColor(.white.opacity(0.6))
             }

@@ -54,7 +54,7 @@ struct SmallWidgetView: View {
             HStack(spacing: 6) {
                 Image(systemName: "airplane")
                     .font(.system(size: 14, weight: .semibold))
-                Text("AéroCheck")
+                Text("AeroCheck")
                     .font(.system(size: 13, weight: .bold))
             }
             .foregroundStyle(Color.aviationGold)
@@ -207,7 +207,7 @@ struct AeroCheckWidget: Widget {
         StaticConfiguration(kind: kind, provider: AeroCheckProvider()) { entry in
             AeroCheckWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("AéroCheck")
+        .configurationDisplayName("AeroCheck")
         .description("Quickly start a flight or view your flight log.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }

@@ -485,7 +485,7 @@ struct SettingsView: View {
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
-                        Text("Aéroclub du Jura (GVMP)")
+                        Text("Aeroclub du Jura (GVMP)")
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                         Image(systemName: "arrow.up.forward.square")

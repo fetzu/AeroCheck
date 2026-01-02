@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>AéroCheck needs access to save flight summary images to your photo library.</string>
+	<string>AeroCheck needs access to save flight summary images to your photo library.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -327,7 +327,6 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     static func defaultFuelFlow(for aircraftType: AircraftType) -> Double {
         switch aircraftType {
         case .wt9Dynamic: return 20.0  // L/h
-        case .pa28Archer: return 40.0  // L/h
         }
     }
 
@@ -335,7 +334,6 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     static func defaultCruiseSpeed(for aircraftType: AircraftType) -> Int {
         switch aircraftType {
         case .wt9Dynamic: return 100  // knots
-        case .pa28Archer: return 110  // knots
         }
     }
 

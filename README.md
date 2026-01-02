@@ -11,15 +11,35 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 An iPad-first application for students and licensed pilots. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
+## Open Source with Premium Content
+
+AeroCheck is open source under the MIT License. The app includes:
+
+- **Free aircraft** (bundled with the app):
+  - WT9 Dynamic (F-HVXA)
+
+- **Premium aircraft** (requires AeroCheck Pro subscription):
+  - Piper Archer II PA-28-181 (HB-PFA)
+  - Additional aircraft checklists delivered via the AeroCheck API
+  - Automatic updates when checklists change
+  - Offline access after initial download
+
+### Subscription Options
+
+- **Monthly**: Access to all premium aircraft checklists
+- **Yearly**: Same access with a 30% discount
+
+All subscription payments are handled securely through the Apple App Store. See the [API Server](../AeroCheck-server) for self-hosting options.
+
 ## Supported Aircraft
 
-- **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025)
-- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020)
+- **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025) - Free
+- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020) - Premium
 
 ## Features
 
 ### ✈️ Multi-Aircraft Checklist System
-- **Two aircraft supported**: WT9 Dynamic (F-HVXA) and PA-28-181 (HB-PFA)
+- **WT9 Dynamic bundled free**, additional aircraft via AeroCheck Pro subscription
 - All 16 flight phases from official checklists
 - Aircraft selection in Settings - checklists, speeds, and limits adapt automatically
 - Checklists displayed exactly as in the official documentation
@@ -238,9 +258,11 @@ AeroCheck/
 ├── AeroCheck/
 │   ├── AeroCheckApp.swift           # App entry point
 │   ├── Info.plist                    # App configuration
+│   ├── Configuration.storekit        # StoreKit config for testing
 │   ├── Assets.xcassets/             # Images and colors
 │   ├── Models/
 │   │   ├── Aircraft.swift           # Aircraft types & metadata
+│   │   ├── RemoteAircraft.swift     # Remote/API aircraft models
 │   │   ├── Flight.swift             # Flight data model & GPX
 │   │   ├── FlightPlan.swift         # Flight plan models (Beta)
 │   │   ├── FlightPlanManager.swift  # Flight plan state (Beta)
@@ -257,6 +279,7 @@ AeroCheck/
 │   │   ├── FlightPlanningView.swift # Flight plan list (Beta)
 │   │   ├── FlightPlanEditorView.swift # Waypoint editor (Beta)
 │   │   ├── TerrainProfileView.swift # Terrain elevation display (Beta)
+│   │   ├── SubscriptionView.swift   # Subscription management
 │   │   └── SettingsView.swift       # Configuration
 │   ├── Components/
 │   │   ├── DesignSystem.swift       # Colors, fonts, styles
@@ -265,11 +288,18 @@ AeroCheck/
 │       ├── LocationManager.swift     # GPS tracking
 │       ├── OfflineMapManager.swift   # Offline ICAO/Segelflug chart caching
 │       ├── ElevationService.swift    # Terrain elevation from swisstopo (Beta)
-│       └── WindDataService.swift     # MeteoSwiss wind data (experimental)
+│       ├── WindDataService.swift     # MeteoSwiss wind data (experimental)
+│       ├── SubscriptionManager.swift # StoreKit 2 subscription handling
+│       └── AircraftDataService.swift # Remote aircraft checklist API
 ├── AeroCheckWidget/
 │   └── AeroCheckWidget.swift        # Home screen widgets
 └── README.md
 ```
+
+## Related Repositories
+
+- **[AeroCheck-server](../AeroCheck-server)**: Cloudflare Workers API for subscription management and premium checklist delivery
+- **[AeroCheck-checklists](../AeroCheck-checklists)**: Aircraft checklist data in JSON format
 
 ## GPX Format
 
@@ -403,10 +433,30 @@ Target speeds vary by aircraft. Examples for WT9:
 - PA-28-181 HB-PFA Checklist Version 1.6e from Aeroclub du Jura GVMP (July 2020)
 - SPHAIR Bases et procédures
 
+## Testing
+
+### StoreKit Testing
+
+The app includes a `Configuration.storekit` file for testing subscriptions locally:
+
+1. Open the project in Xcode
+2. Edit the scheme (Product > Scheme > Edit Scheme)
+3. Under Run > Options, set StoreKit Configuration to `Configuration.storekit`
+4. Run the app to test subscription flows without real purchases
+
+### API Testing
+
+For testing against the development server:
+
+1. Run the server locally with Wrangler: `cd ../AeroCheck-server && npm run dev`
+2. Update the API URL in `SubscriptionManager.swift` to `http://localhost:8787`
+3. Test subscription verification and checklist fetching
+
 ## Privacy
 
 - All flight data stored locally on device
-- GPS data never transmitted to external servers
+- GPS data never transmitted to external servers (except subscription verification with Apple)
+- Checklist data cached locally after initial download
 - Export only when explicitly requested by user
 
 ## Support
@@ -415,4 +465,4 @@ The app is provided as-is and support is not guaranteed. In case of issues, feel
 
 ---
 
-**Safe flying! ✈️**
+**Safe flying!**

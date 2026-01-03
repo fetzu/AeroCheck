@@ -12,6 +12,90 @@ class FlightPlanExportService {
         return flightPlan.toJSON()
     }
 
+    // MARK: - GPX Export (Avionics Compatible)
+
+    /// Export flight plan to GPX format compatible with Dynon SkyView and Garmin G3X
+    ///
+    /// This creates a minimal GPX 1.1 route file optimized for avionics import:
+    /// - Uses `<rte>` with `<rtept>` elements (route format, not track)
+    /// - Limits waypoints to 99 (SkyView maximum)
+    /// - Keeps waypoint names ≤20 characters (G3X limitation)
+    /// - Uses standard elements only (no custom extensions)
+    /// - Elevation in meters as per GPX standard
+    static func exportToAvionicsGPX(_ flightPlan: FlightPlan) -> Data? {
+        let gpx = generateAvionicsGPX(flightPlan)
+        return gpx.data(using: .utf8)
+    }
+
+    private static func generateAvionicsGPX(_ plan: FlightPlan) -> String {
+        // Limit to 99 waypoints (SkyView reads first 99 rtept in first rte)
+        let waypoints = Array(plan.waypoints.prefix(99))
+
+        var gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="AeroCheck"
+             xmlns="http://www.topografix.com/GPX/1/1"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+          <metadata>
+            <name>\(escapeXML(truncateName(plan.name, maxLength: 50)))</name>
+            <desc>Flight plan route exported from AeroCheck</desc>
+          </metadata>
+          <rte>
+            <name>\(escapeXML(truncateName(plan.name, maxLength: 50)))</name>
+
+        """
+
+        // Add route points
+        for waypoint in waypoints {
+            // Truncate waypoint name to 20 chars (G3X limitation)
+            let waypointName = truncateName(waypoint.name, maxLength: 20)
+
+            gpx += "    <rtept lat=\"\(String(format: "%.6f", waypoint.latitude))\" lon=\"\(String(format: "%.6f", waypoint.longitude))\">\n"
+            gpx += "      <name>\(escapeXML(waypointName))</name>\n"
+
+            // Add elevation if available (convert feet to meters)
+            // Note: Some SkyView firmware had issues with <ele> tag, but modern versions handle it
+            if let altitudeFeet = waypoint.altitude {
+                let altitudeMeters = altitudeFeet * 0.3048
+                gpx += "      <ele>\(String(format: "%.1f", altitudeMeters))</ele>\n"
+            }
+
+            // Add description with additional info if available
+            var descParts: [String] = []
+            if let freq = waypoint.frequency, !freq.isEmpty {
+                descParts.append("Freq: \(freq)")
+            }
+            if let callSign = waypoint.callSign, !callSign.isEmpty {
+                descParts.append("C/S: \(callSign)")
+            }
+            if !descParts.isEmpty {
+                gpx += "      <desc>\(escapeXML(descParts.joined(separator: ", ")))</desc>\n"
+            }
+
+            gpx += "    </rtept>\n"
+        }
+
+        gpx += """
+          </rte>
+        </gpx>
+        """
+
+        return gpx
+    }
+
+    /// Truncate a name to a maximum length, preserving whole words where possible
+    private static func truncateName(_ name: String, maxLength: Int) -> String {
+        guard name.count > maxLength else { return name }
+
+        // Try to break at a space to keep whole words
+        let truncated = String(name.prefix(maxLength))
+        if let lastSpace = truncated.lastIndex(of: " "), lastSpace > name.index(name.startIndex, offsetBy: maxLength / 2) {
+            return String(truncated[..<lastSpace])
+        }
+        return truncated
+    }
+
     // MARK: - Excel (XLSX) Export
 
     /// Export flight plan to XLSX format

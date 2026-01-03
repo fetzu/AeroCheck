@@ -7,12 +7,14 @@ enum FlightPlanExportFormat {
     case json
     case xlsx
     case pdf
+    case gpx  // Avionics-compatible GPX route format (Dynon SkyView, Garmin G3X)
 
     var fileExtension: String {
         switch self {
         case .json: return "json"
         case .xlsx: return "xlsx"
         case .pdf: return "pdf"
+        case .gpx: return "gpx"
         }
     }
 
@@ -21,6 +23,7 @@ enum FlightPlanExportFormat {
         case .json: return .json
         case .xlsx: return .spreadsheet
         case .pdf: return .pdf
+        case .gpx: return UTType(filenameExtension: "gpx") ?? .xml
         }
     }
 }
@@ -690,6 +693,18 @@ struct FlightPlanEditorView: View {
                     .padding(.vertical, 12)
                 }
                 .buttonStyle(.bordered)
+
+                Button(action: { exportFlightPlan(format: .gpx) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.system(size: 20))
+                        Text("GPX")
+                            .font(.system(size: 10))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
             }
         }
     }
@@ -773,6 +788,8 @@ struct FlightPlanEditorView: View {
             generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
         case .pdf:
             generatedData = FlightPlanExportService.exportToPDF(flightPlan)
+        case .gpx:
+            generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
         }
 
         // Only proceed if data was generated successfully
@@ -1684,6 +1701,7 @@ struct FlightPlanExportSheet: View {
         case .json: return "doc.text"
         case .xlsx: return "tablecells"
         case .pdf: return "doc.richtext"
+        case .gpx: return "point.topleft.down.to.point.bottomright.curvepath"
         }
     }
 

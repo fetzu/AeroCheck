@@ -5,27 +5,35 @@ import UniformTypeIdentifiers
 /// Export format options
 enum FlightPlanExportFormat {
     case json
+    case gpx  // Avionics-compatible GPX route format (Dynon SkyView, Garmin G3X)
     case xlsx
     case pdf
-    case gpx  // Avionics-compatible GPX route format (Dynon SkyView, Garmin G3X)
 
     var fileExtension: String {
         switch self {
         case .json: return "json"
+        case .gpx: return "gpx"
         case .xlsx: return "xlsx"
         case .pdf: return "pdf"
-        case .gpx: return "gpx"
         }
     }
 
     var contentType: UTType {
         switch self {
         case .json: return .json
+        case .gpx: return .xml  // GPX is XML-based
         case .xlsx: return .spreadsheet
         case .pdf: return .pdf
-        case .gpx: return UTType(filenameExtension: "gpx") ?? .xml
         }
     }
+}
+
+/// Wrapper for export data to use with sheet(item:)
+struct FlightPlanExportItem: Identifiable {
+    let id = UUID()
+    let data: Data
+    let filename: String
+    let format: FlightPlanExportFormat
 }
 
 /// Flight plan editor view - tabular format similar to "AVIS DE VOL" form
@@ -39,9 +47,7 @@ struct FlightPlanEditorView: View {
     @State private var showingAddWaypoint = false
     @State private var showingTerrainProfile = false
     @State private var showingMapPicker = false
-    @State private var showingExportSheet = false
-    @State private var exportData: Data?
-    @State private var exportFormat: FlightPlanExportFormat = .json
+    @State private var exportItem: FlightPlanExportItem?
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -126,14 +132,12 @@ struct FlightPlanEditorView: View {
                     addWaypoint(waypoint)
                 }
             }
-            .sheet(isPresented: $showingExportSheet) {
-                if let data = exportData {
-                    FlightPlanExportSheet(
-                        data: data,
-                        filename: flightPlan.exportFilename,
-                        format: exportFormat
-                    )
-                }
+            .sheet(item: $exportItem) { item in
+                FlightPlanExportSheet(
+                    data: item.data,
+                    filename: item.filename,
+                    format: item.format
+                )
             }
         }
         .preferredColorScheme(.dark)
@@ -670,6 +674,18 @@ struct FlightPlanEditorView: View {
                 }
                 .buttonStyle(.bordered)
 
+                Button(action: { exportFlightPlan(format: .gpx) }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.system(size: 20))
+                        Text("GPX")
+                            .font(.system(size: 10))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+
                 Button(action: { exportFlightPlan(format: .xlsx) }) {
                     VStack(spacing: 4) {
                         Image(systemName: "tablecells")
@@ -687,18 +703,6 @@ struct FlightPlanEditorView: View {
                         Image(systemName: "doc.richtext")
                             .font(.system(size: 20))
                         Text("PDF")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .gpx) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                            .font(.system(size: 20))
-                        Text("GPX")
                             .font(.system(size: 10))
                     }
                     .frame(maxWidth: .infinity)
@@ -779,30 +783,28 @@ struct FlightPlanEditorView: View {
     }
 
     private func exportFlightPlan(format: FlightPlanExportFormat) {
-        // Generate the data first, before updating any state
+        // Generate the data
         let generatedData: Data?
         switch format {
         case .json:
             generatedData = FlightPlanExportService.exportToJSON(flightPlan)
+        case .gpx:
+            generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
         case .xlsx:
             generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
         case .pdf:
             generatedData = FlightPlanExportService.exportToPDF(flightPlan)
-        case .gpx:
-            generatedData = FlightPlanExportService.exportToAvionicsGPX(flightPlan)
         }
 
         // Only proceed if data was generated successfully
         guard let data = generatedData else { return }
 
-        // Update state synchronously in the correct order
-        exportFormat = format
-        exportData = data
-
-        // Use a small delay to ensure state updates have propagated before showing sheet
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.showingExportSheet = true
-        }
+        // Create export item and show sheet (using item: binding is more reliable than isPresented)
+        exportItem = FlightPlanExportItem(
+            data: data,
+            filename: flightPlan.exportFilename,
+            format: format
+        )
     }
 
     private func addWaypoint(_ waypoint: FlightPlanWaypoint) {

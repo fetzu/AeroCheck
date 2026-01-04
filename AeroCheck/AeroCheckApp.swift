@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchConnectivity
 
 /// Main application entry point
 @main
@@ -8,6 +9,7 @@ struct AeroCheckApp: App {
     @StateObject private var offlineMapManager = OfflineMapManager()
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
+    @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @State private var showUpdateReminder = false
 
     var body: some Scene {
@@ -18,6 +20,7 @@ struct AeroCheckApp: App {
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(watchConnectivityManager)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -31,6 +34,9 @@ struct AeroCheckApp: App {
                 .sheet(isPresented: $showUpdateReminder) {
                     MapUpdateReminderSheet()
                         .environmentObject(offlineMapManager)
+                }
+                .onChange(of: appState.isFlightActive) { _, isActive in
+                    handleFlightStateChange(isActive: isActive)
                 }
         }
 
@@ -63,6 +69,20 @@ struct AeroCheckApp: App {
             appState.showFlightLog = true
         default:
             break
+        }
+    }
+
+    private func handleFlightStateChange(isActive: Bool) {
+        if isActive {
+            // Notify Watch that flight has started (triggers Watch app launch)
+            watchConnectivityManager.notifyFlightStarted(
+                appState: appState,
+                locationManager: locationManager,
+                flightPlanManager: flightPlanManager
+            )
+        } else {
+            // Notify Watch that flight has ended
+            watchConnectivityManager.notifyFlightEnded()
         }
     }
 }

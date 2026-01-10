@@ -35,7 +35,7 @@ jobs:
 
           # Release History
 
-          All notable changes to AeroCheck are documented here. For full details, visit the [GitHub Releases page](https://github.com/${{ github.repository }}/releases).
+          All notable changes to AéroCheck are documented here. For full details, visit the [GitHub Releases page](https://github.com/${{ github.repository }}/releases).
 
           <br>
 

@@ -18,7 +18,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     private func setupSession() {
         guard WCSession.isSupported() else {
-            print("[AeroCheck Watch] WatchConnectivity not supported")
+            print("[AéroCheck Watch] WatchConnectivity not supported")
             return
         }
 
@@ -78,13 +78,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 extension WatchConnectivityManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error = error {
-            print("[AeroCheck Watch] Activation failed: \(error.localizedDescription)")
+            print("[AéroCheck Watch] Activation failed: \(error.localizedDescription)")
             return
         }
 
         Task { @MainActor in
             self.isConnected = activationState == .activated
-            print("[AeroCheck Watch] Session activated: \(activationState == .activated)")
+            print("[AéroCheck Watch] Session activated: \(activationState == .activated)")
 
             // Load any existing application context
             if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
@@ -137,7 +137,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
             self.flightData = decoded
             self.lastUpdateTime = Date()
         } catch {
-            print("[AeroCheck Watch] Failed to decode flight data: \(error.localizedDescription)")
+            print("[v Watch] Failed to decode flight data: \(error.localizedDescription)")
         }
     }
 }

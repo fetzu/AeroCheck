@@ -96,7 +96,7 @@ struct FlightPlanningView: View {
                 defaultFilename: planToExport?.exportFilename ?? "FlightPlan"
             ) { result in
                 if case .failure(let error) = result {
-                    print("[AeroCheck] Export failed: \(error.localizedDescription)")
+                    print("[AéroCheck] Export failed: \(error.localizedDescription)")
                 }
             }
         }

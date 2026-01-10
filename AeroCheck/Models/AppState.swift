@@ -610,7 +610,7 @@ class AppState: ObservableObject {
             let encoded = try JSONEncoder().encode(flights)
             UserDefaults.standard.set(encoded, forKey: flightsKey)
         } catch {
-            print("[AeroCheck] Failed to save flights: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to save flights: \(error.localizedDescription)")
         }
     }
 
@@ -619,7 +619,7 @@ class AppState: ObservableObject {
         do {
             flights = try JSONDecoder().decode([Flight].self, from: data)
         } catch {
-            print("[AeroCheck] Failed to load flights: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to load flights: \(error.localizedDescription)")
         }
     }
 
@@ -628,7 +628,7 @@ class AppState: ObservableObject {
             let encoded = try JSONEncoder().encode(settings)
             UserDefaults.standard.set(encoded, forKey: settingsKey)
         } catch {
-            print("[AeroCheck] Failed to save settings: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to save settings: \(error.localizedDescription)")
         }
         syncAircraftType()
     }
@@ -638,7 +638,7 @@ class AppState: ObservableObject {
         do {
             settings = try JSONDecoder().decode(AppSettings.self, from: data)
         } catch {
-            print("[AeroCheck] Failed to load settings: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to load settings: \(error.localizedDescription)")
         }
     }
 
@@ -658,7 +658,7 @@ class AppState: ObservableObject {
             let data = try encoder.encode(state)
             UserDefaults.standard.set(data, forKey: activeFlightStateKey)
         } catch {
-            print("[AeroCheck] Failed to save active flight state: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to save active flight state: \(error.localizedDescription)")
         }
     }
 
@@ -684,10 +684,10 @@ class AppState: ObservableObject {
             }
 
             state.restore(to: self)
-            print("[AeroCheck] Restored active flight state from \(state.savedAt)")
+            print("[AéroCheck] Restored active flight state from \(state.savedAt)")
             return true
         } catch {
-            print("[AeroCheck] Failed to restore active flight state: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to restore active flight state: \(error.localizedDescription)")
             clearActiveFlightState()
             return false
         }

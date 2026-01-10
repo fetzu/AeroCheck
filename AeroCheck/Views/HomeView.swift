@@ -77,7 +77,7 @@ struct HomeView: View {
                         .font(.system(size: isCompact ? 22 : (isLandscape ? 26 : 32)))
                         .foregroundColor(.aviationGold)
 
-                    Text("AeroCheck")
+                    Text("AéroCheck")
                         .font(.system(size: isCompact ? 20 : (isLandscape ? 24 : 28), weight: .bold, design: .default))
                         .foregroundColor(.primaryText)
                         .tracking(isCompact ? 1 : 2)

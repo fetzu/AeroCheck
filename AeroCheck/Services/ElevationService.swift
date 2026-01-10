@@ -82,7 +82,7 @@ actor ElevationService {
                 }
             }
         } catch {
-            print("[AeroCheck] Elevation fetch error: \(error.localizedDescription)")
+            print("[AéroCheck] Elevation fetch error: \(error.localizedDescription)")
         }
 
         return nil
@@ -158,7 +158,7 @@ actor ElevationService {
                 }
             }
         } catch {
-            print("[AeroCheck] Profile fetch error: \(error.localizedDescription)")
+            print("[AéroCheck] Profile fetch error: \(error.localizedDescription)")
         }
 
         return nil
@@ -249,7 +249,7 @@ actor ElevationService {
                 }
             }
         } catch {
-            print("[AeroCheck] Profile fetch error: \(error.localizedDescription)")
+            print("[AéroCheck] Profile fetch error: \(error.localizedDescription)")
         }
 
         return nil

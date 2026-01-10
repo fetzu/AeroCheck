@@ -401,7 +401,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: nil)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AeroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -417,7 +417,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: flightPlan)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AeroCheck] Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -433,7 +433,7 @@ struct FlightExportMetadata: Codable {
     static var current: FlightExportMetadata {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         return FlightExportMetadata(
-            appName: "AeroCheck",
+            appName: "AéroCheck",
             appVersion: appVersion,
             formatVersion: currentExportFormatVersion,
             exportDate: Date()
@@ -492,23 +492,23 @@ extension Flight {
 
         // Try v2 format first (FlightExportWrapper with metadata)
         if let wrapper = try? decoder.decode(FlightExportWrapper.self, from: data) {
-            print("[AeroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
+            print("[AéroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
             return wrapper.flight
         }
 
         // Try legacy FlightWithNavigationExport format (no metadata)
         if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
-            print("[AeroCheck] Imported flight from legacy FlightWithNavigationExport format")
+            print("[AéroCheck] Imported flight from legacy FlightWithNavigationExport format")
             return legacyExport.flight
         }
 
         // Try v1 format (direct Flight object - oldest format)
         do {
             let flight = try decoder.decode(Flight.self, from: data)
-            print("[AeroCheck] Imported flight from v1 format (direct Flight object)")
+            print("[AéroCheck] Imported flight from v1 format (direct Flight object)")
             return flight
         } catch {
-            print("[AeroCheck] Failed to decode flight from JSON: \(error)")
+            print("[AéroCheck] Failed to decode flight from JSON: \(error)")
             throw ImportError.invalidJSON(underlying: error)
         }
     }

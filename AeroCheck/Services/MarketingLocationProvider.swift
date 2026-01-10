@@ -1,6 +1,6 @@
 //
 //  MarketingLocationProvider.swift
-//  AeroCheck
+//  AéroCheck
 //
 //  Provides simulated GPS location data for taking marketing screenshots.
 //  Enable in Settings by tapping the version number 5 times, then toggle Marketing Mode.

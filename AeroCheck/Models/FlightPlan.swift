@@ -594,7 +594,7 @@ extension FlightPlan {
         do {
             return try encoder.encode(self)
         } catch {
-            print("[AeroCheck] Failed to encode flight plan to JSON: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to encode flight plan to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -606,7 +606,7 @@ extension FlightPlan {
         do {
             return try decoder.decode(FlightPlan.self, from: data)
         } catch {
-            print("[AeroCheck] Failed to decode flight plan from JSON: \(error)")
+            print("[AéroCheck] Failed to decode flight plan from JSON: \(error)")
             return nil
         }
     }

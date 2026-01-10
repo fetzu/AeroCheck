@@ -1,6 +1,6 @@
-# AeroCheck Landing Page
+# AéroCheck Landing Page
 
-This is the landing page for [AeroCheck](https://github.com/fetzu/AeroCheck), an iOS flight checklist app for pilot students.
+This is the landing page for [AéroCheck](https://github.com/fetzu/AeroCheck), an iOS flight checklist app for pilot students.
 
 ## Viewing the Site
 
@@ -32,7 +32,7 @@ Then visit `http://localhost:4000/AeroCheck/` in your browser.
 
 ### Color Scheme
 
-The landing page uses AeroCheck's aviation-inspired dark theme:
+The landing page uses AéroCheck's aviation-inspired dark theme:
 - Background: `#141419` (cockpit background)
 - Accent: `#D9A633` (aviation gold)
 - Secondary: `#1A3366` (aviation blue)

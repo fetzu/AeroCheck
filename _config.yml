@@ -1,5 +1,5 @@
 # Page Title
-page_title                                : AeroCheck - Flight Checklist App for Pilots
+page_title                                : AéroCheck - Flight Checklist App for Pilots
 
 # App Info
 ios_app_id                                :                                           # Not on App Store yet
@@ -11,7 +11,7 @@ github_download_link                      : https://github.com/fetzu/AeroCheck/r
 presskit_download_link                    :                                           # No press kit yet
 
 app_icon                                  : assets/appicon.png
-app_name                                  : AeroCheck
+app_name                                  : AéroCheck
 app_price                                 : Free (Open Source)
 app_description                           : Your digital co-pilot for flight checklists. Designed for pilot students at Aeroclub du Jura GVMP.
 

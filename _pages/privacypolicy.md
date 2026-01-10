@@ -9,14 +9,14 @@ December 2025
 
 # Privacy Policy
 
-AeroCheck is an open-source flight checklist application designed for pilot training. We take your privacy seriously.
+AéroCheck is an open-source flight checklist application designed for pilot training. We take your privacy seriously.
 
 <br>
 
 ## 1.0 Data Collection
 
 ### 1.1 Location Data
-AeroCheck uses your device's GPS to:
+AéroCheck uses your device's GPS to:
 - Display your current position on the map
 - Record your flight track for later review
 - Calculate ground speed and estimated airspeed
@@ -27,14 +27,14 @@ AeroCheck uses your device's GPS to:
 Flight logs (including GPS tracks, timing data, and phase completions) are stored locally on your device using iOS's standard data storage mechanisms.
 
 ### 1.3 No Analytics or Tracking
-AeroCheck does not include any analytics SDKs, tracking pixels, or third-party data collection tools. We do not track how you use the app.
+AéroCheck does not include any analytics SDKs, tracking pixels, or third-party data collection tools. We do not track how you use the app.
 
 <br>
 
 ## 2.0 Third-Party Services
 
 ### 2.1 Map Tiles
-When using map features, AeroCheck may request map tiles from:
+When using map features, AéroCheck may request map tiles from:
 - **Apple Maps** - Subject to [Apple's Privacy Policy](https://www.apple.com/legal/privacy/)
 - **swisstopo** - Swiss Federal Office of Topography for ICAO charts and Swiss maps
 
@@ -55,19 +55,19 @@ All app data is stored locally on your device:
 - **Settings** - Stored in UserDefaults
 - **Cached map tiles** - Stored in the app's cache directory
 
-You can delete all app data by uninstalling AeroCheck from your device.
+You can delete all app data by uninstalling AéroCheck from your device.
 
 <br>
 
 ## 4.0 Data Export
 
-AeroCheck allows you to export your flight data in GPX, JSON, or ZIP formats. Once exported, you control where this data goes. We recommend being mindful when sharing flight logs, as they contain detailed location history.
+AéroCheck allows you to export your flight data in GPX, JSON, or ZIP formats. Once exported, you control where this data goes. We recommend being mindful when sharing flight logs, as they contain detailed location history.
 
 <br>
 
 ## 5.0 Open Source
 
-AeroCheck is open source software. You can review the complete source code on [GitHub](https://github.com/fetzu/AeroCheck) to verify our privacy practices.
+AéroCheck is open source software. You can review the complete source code on [GitHub](https://github.com/fetzu/AeroCheck) to verify our privacy practices.
 
 <br>
 

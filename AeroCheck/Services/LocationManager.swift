@@ -140,7 +140,9 @@ class LocationManager: NSObject, ObservableObject {
 
     private func startSignalCheckTimer() {
         signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.checkSignalStatus()
+            Task { @MainActor in
+                self?.checkSignalStatus()
+            }
         }
     }
 

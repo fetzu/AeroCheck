@@ -2,7 +2,7 @@ __IMPORTANT CAVEAT: This application is provided solely for training and pedagog
 
 _NOTE: This app has been entirely vibe coded. If you hate that, feel free to close your browser window in disgust and not use it._
 
-# AeroCheck
+# AéroCheck
 
 ![Platform](https://img.shields.io/badge/Platform-i(Pad)OS%2017%2B-blue)
 ![Devices](https://img.shields.io/badge/Devices-iPhone%20%7C%20iPad-green)
@@ -277,7 +277,7 @@ Exported flights use the standard GPX 1.1 format with extensions:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="AeroCheck">
+<gpx version="1.1" creator="AéroCheck">
   <metadata>
     <name>F-HVXA - Dec 1, 2025</name>
     <time>2025-12-01T10:00:00Z</time>

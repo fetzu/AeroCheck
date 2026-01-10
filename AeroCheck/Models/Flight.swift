@@ -279,14 +279,14 @@ extension Flight {
 
         var gpx = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <gpx version="1.1" creator="AeroCheck v\(appVersion)"
+        <gpx version="1.1" creator="AéroCheck v\(appVersion)"
              xmlns="http://www.topografix.com/GPX/1/1"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:pc="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
             <name>\(displayName) - \(formattedDate)</name>
-            <desc>Flight recorded with AeroCheck app</desc>
+            <desc>Flight recorded with AéroCheck app</desc>
         """
 
         if let start = startTime {

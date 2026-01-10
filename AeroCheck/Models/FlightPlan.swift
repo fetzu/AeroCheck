@@ -465,14 +465,14 @@ extension FlightPlan {
 
         var gpx = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <gpx version="1.1" creator="AeroCheck"
+        <gpx version="1.1" creator="AéroCheck"
              xmlns="http://www.topografix.com/GPX/1/1"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:ac="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
             <name>\(escapeXML(name))</name>
-            <desc>Flight plan created with AeroCheck</desc>
+            <desc>Flight plan created with AéroCheck</desc>
         """
 
         if let departureTime = plannedDepartureTime {

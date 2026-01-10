@@ -57,6 +57,12 @@ struct FlightPlanEditorView: View {
         UIDevice.current.userInterfaceIdiom == .phone
     }
 
+    /// Unique identifier for the waypoint list - changes when any waypoint is added/removed
+    /// Used to force SwiftUI to refresh the route table view
+    private var waypointListIdentifier: String {
+        flightPlan.waypoints.map { $0.id.uuidString }.joined(separator: "-")
+    }
+
     /// When true, hides Deactivate/Recalculate buttons (viewing from Flight Log)
     let isViewingFromFlightLog: Bool
 
@@ -266,7 +272,7 @@ struct FlightPlanEditorView: View {
                 }
             }
 
-            // Route table - id forces refresh when waypoint count changes
+            // Route table - id forces refresh when waypoints change (using combined waypoint IDs)
             Group {
                 if flightPlan.waypoints.isEmpty {
                     emptyRouteView
@@ -274,7 +280,7 @@ struct FlightPlanEditorView: View {
                     routeTable
                 }
             }
-            .id(flightPlan.waypoints.count)
+            .id(waypointListIdentifier)
         }
         .padding()
         .background(

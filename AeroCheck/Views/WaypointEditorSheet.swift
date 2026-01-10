@@ -268,9 +268,11 @@ struct WaypointEditorSheet: View {
                         }) {
                             HStack {
                                 Spacer()
-                                Label("Delete Waypoint", systemImage: "trash")
+                                Image(systemName: "trash")
+                                Text("Delete Waypoint")
                                 Spacer()
                             }
+                            .foregroundColor(.red)
                         }
                     }
                 }

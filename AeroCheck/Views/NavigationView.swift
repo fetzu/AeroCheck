@@ -498,34 +498,31 @@ struct NavigationMapView: View {
                     )
             }
 
-            // Panel toggle button - shows map icon when flight plan active, FREQ icon otherwise
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showCompactPanel.toggle()
-                }
-            }) {
-                HStack(spacing: 4) {
-                    if hasActiveFlightPlan {
+            // Flight Plan button (toggles bottom panel) - only shown when flight plan is active
+            if hasActiveFlightPlan {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCompactPanel.toggle()
+                    }
+                }) {
+                    HStack(spacing: 4) {
                         Image(systemName: "map.fill")
                             .font(.system(size: 12))
-                    } else {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 12))
+                        if showCompactPanel {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                        } else {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 8, weight: .bold))
+                        }
                     }
-                    if showCompactPanel {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .bold))
-                    } else {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 8, weight: .bold))
-                    }
+                    .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
+                    .frame(width: 50, height: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
                 }
-                .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
-                .frame(width: 50, height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
             }
 
             Spacer()
@@ -637,7 +634,7 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Right side: GPS status and center button
+            // Right side: GPS status, FREQ button (when no flight plan), and center button
             VStack(alignment: .trailing, spacing: 8) {
                 // GPS Status
                 HStack(spacing: 4) {
@@ -652,6 +649,29 @@ struct NavigationMapView: View {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Color.panelBackground.opacity(0.9))
                 )
+
+                // FREQ button - only shown when no flight plan is active (to toggle frequency drawer)
+                if !hasActiveFlightPlan {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showCompactPanel.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("FREQ")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(showCompactPanel ? .aviationGold : .primaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
+                    }
+                }
 
                 // Compass and center button row
                 HStack(spacing: 8) {

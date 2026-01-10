@@ -11,12 +11,12 @@
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
 		04F1C6F32EF9CD5A00192A14 /* FlightPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */; };
 		04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */; };
-		04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */; };
 		04F1C6FB2EF9CD9D00192A14 /* FlightPlanningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */; };
 		04F1C6FC2EF9CD9D00192A14 /* TerrainProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */; };
 		04F1C6FD2EF9CD9D00192A14 /* WaypointEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */; };
 		04F1C6FE2EF9CD9D00192A14 /* FlightPlanEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */; };
 		04F1C6FF2EF9CD9D00192A14 /* FlightPlanOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */; };
+		04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */; };
 		A1000001211111110000001 /* AeroCheckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000001 /* AeroCheckApp.swift */; };
 		A1000001211111110000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000002 /* ContentView.swift */; };
 		A1000001211111110000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000003 /* HomeView.swift */; };
@@ -41,6 +41,14 @@
 		A2000001211111110000003 /* AeroCheckWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001111111110000003 /* AeroCheckWidget.swift */; };
 		A2000001211111110000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000013 /* Assets.xcassets */; };
 		A2000001211111110000005 /* AeroCheckWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A2000001111111110000000 /* AeroCheckWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000001 /* WatchConnectivityManager.swift */; };
+		A3000001211111110000002 /* WatchConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000002 /* WatchConnectivityData.swift */; };
+		A4000001211111110000001 /* AeroCheckWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000001 /* AeroCheckWatchApp.swift */; };
+		A4000001211111110000002 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000002 /* WatchContentView.swift */; };
+		A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000003 /* WatchConnectivityManager.swift */; };
+		A4000001211111110000004 /* WatchConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000002 /* WatchConnectivityData.swift */; };
+		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
+		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +58,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = A2000004111111110000001;
 			remoteInfo = AeroCheckWidgetExtension;
+		};
+		A4000002111111110000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000006111111110000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A4000004111111110000001;
+			remoteInfo = AeroCheckWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -65,6 +80,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A4000003111111110000001 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -72,12 +98,12 @@
 		04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlan.swift; sourceTree = "<group>"; };
 		04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanManager.swift; sourceTree = "<group>"; };
 		04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationService.swift; sourceTree = "<group>"; };
-		04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanExportService.swift; sourceTree = "<group>"; };
 		04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanEditorView.swift; sourceTree = "<group>"; };
 		04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningView.swift; sourceTree = "<group>"; };
 		04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanOverlayView.swift; sourceTree = "<group>"; };
 		04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerrainProfileView.swift; sourceTree = "<group>"; };
 		04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointEditorSheet.swift; sourceTree = "<group>"; };
+		04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanExportService.swift; sourceTree = "<group>"; };
 		A1000001111111110000000 /* AeroCheck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000001111111110000001 /* AeroCheckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckApp.swift; sourceTree = "<group>"; };
 		A1000001111111110000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -104,6 +130,14 @@
 		A2000001111111110000002 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		A2000001111111110000003 /* AeroCheckWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWidget.swift; sourceTree = "<group>"; };
 		A2000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A3000001111111110000001 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
+		A3000001111111110000002 /* WatchConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityData.swift; sourceTree = "<group>"; };
+		A4000001111111110000000 /* AeroCheckWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheckWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
+		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A4000001111111110000003 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
+		A4000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A4000001111111110000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +157,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A4000002111111110000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -130,6 +171,8 @@
 			isa = PBXGroup;
 			children = (
 				A1000003111111110000002 /* AeroCheck */,
+				A3000003111111110000001 /* Shared */,
+				A4000003111111110000002 /* AeroCheckWatch */,
 				A2000003111111110000002 /* AeroCheckWidget */,
 				A2000003111111110000003 /* Frameworks */,
 				A1000003111111110000003 /* Products */,
@@ -155,6 +198,7 @@
 			children = (
 				A1000001111111110000000 /* AeroCheck.app */,
 				A2000001111111110000000 /* AeroCheckWidgetExtension.appex */,
+				A4000001111111110000000 /* AeroCheckWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -201,6 +245,7 @@
 				A1000001111111110000020 /* WindDataService.swift */,
 				04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */,
 				04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */,
+				A3000001111111110000001 /* WatchConnectivityManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -232,6 +277,26 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		A3000003111111110000001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A3000001111111110000002 /* WatchConnectivityData.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A4000003111111110000002 /* AeroCheckWatch */ = {
+			isa = PBXGroup;
+			children = (
+				A4000001111111110000001 /* AeroCheckWatchApp.swift */,
+				A4000001111111110000002 /* WatchContentView.swift */,
+				A4000001111111110000003 /* WatchConnectivityManager.swift */,
+				A4000001111111110000005 /* Assets.xcassets */,
+				A4000001111111110000004 /* Info.plist */,
+			);
+			path = AeroCheckWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -243,11 +308,13 @@
 				A1000002111111110000001 /* Frameworks */,
 				A1000004111111110000003 /* Resources */,
 				A2000003111111110000001 /* Embed Foundation Extensions */,
+				A4000003111111110000001 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				A2000004111111110000002 /* PBXTargetDependency */,
+				A2000006111111110000001 /* PBXTargetDependency */,
+				A4000006111111110000001 /* PBXTargetDependency */,
 			);
 			name = AeroCheck;
 			productName = AeroCheck;
@@ -271,6 +338,23 @@
 			productReference = A2000001111111110000000 /* AeroCheckWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A4000004111111110000001 /* AeroCheckWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A4000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckWatch" */;
+			buildPhases = (
+				A4000004111111110000002 /* Sources */,
+				A4000002111111110000002 /* Frameworks */,
+				A4000004111111110000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AeroCheckWatch;
+			productName = AeroCheckWatch;
+			productReference = A4000001111111110000000 /* AeroCheckWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -279,12 +363,15 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					A1000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 					A2000004111111110000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					A4000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -304,6 +391,7 @@
 			targets = (
 				A1000004111111110000001 /* AeroCheck */,
 				A2000004111111110000001 /* AeroCheckWidgetExtension */,
+				A4000004111111110000001 /* AeroCheckWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -322,6 +410,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2000001211111110000004 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4000004111111110000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4000001211111110000005 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,6 +456,8 @@
 				047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */,
 				A1000001211111110000017 /* PA28ChecklistData.swift in Sources */,
 				A1000001211111110000018 /* NavigationView.swift in Sources */,
+				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
+				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -371,13 +469,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A4000004111111110000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4000001211111110000001 /* AeroCheckWatchApp.swift in Sources */,
+				A4000001211111110000002 /* WatchContentView.swift in Sources */,
+				A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */,
+				A4000001211111110000004 /* WatchConnectivityData.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A2000004111111110000002 /* PBXTargetDependency */ = {
+		A2000006111111110000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A2000004111111110000001 /* AeroCheckWidgetExtension */;
 			targetProxy = A2000002111111110000001 /* PBXContainerItemProxy */;
+		};
+		A4000006111111110000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A4000004111111110000001 /* AeroCheckWatch */;
+			targetProxy = A4000002111111110000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -514,7 +628,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "AeroCheck";
+				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
@@ -548,7 +662,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "AeroCheck";
+				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
@@ -629,6 +743,64 @@
 			};
 			name = Release;
 		};
+		A4000005211111110000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2025122201;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AeroCheckWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fetzu.aerocheck;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.7.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		A4000005211111110000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2025122201;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AeroCheckWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fetzu.aerocheck;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.7.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -655,6 +827,15 @@
 			buildConfigurations = (
 				A2000005211111110000001 /* Debug */,
 				A2000005211111110000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A4000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A4000005211111110000001 /* Debug */,
+				A4000005211111110000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

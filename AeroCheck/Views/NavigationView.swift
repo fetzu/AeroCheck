@@ -167,6 +167,7 @@ struct NavigationMapView: View {
     @State private var showCompactPanel: Bool = true
     @State private var selectedCompactTab: CompactNavigationTab = .plan
     @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
+    @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -316,8 +317,14 @@ struct NavigationMapView: View {
 
     /// Determine if we should use compact layout for small devices
     /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
+    /// Now also supports showing just frequency drawer when no flight plan is active
     private var shouldUseCompactLayout: Bool {
-        isCompactWidth && appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil
+        isCompactWidth && appState.settings.enableFlightPlanning
+    }
+
+    /// Whether there is an active flight plan
+    private var hasActiveFlightPlan: Bool {
+        flightPlanManager.activeFlightPlan != nil
     }
 
     var body: some View {
@@ -491,15 +498,20 @@ struct NavigationMapView: View {
                     )
             }
 
-            // Flight Plan button (toggles bottom panel)
+            // Panel toggle button - shows map icon when flight plan active, FREQ icon otherwise
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showCompactPanel.toggle()
                 }
             }) {
                 HStack(spacing: 4) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 12))
+                    if hasActiveFlightPlan {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 12))
+                    } else {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 12))
+                    }
                     if showCompactPanel {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 8, weight: .bold))
@@ -673,40 +685,92 @@ struct NavigationMapView: View {
 
     private func compactBottomPanel(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            // Tab switcher header
-            HStack(spacing: 0) {
-                ForEach(CompactNavigationTab.allCases, id: \.self) { tab in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedCompactTab = tab
-                        }
-                    }) {
-                        Text(tab.rawValue)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(selectedCompactTab == tab ? .aviationGold : .secondaryText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                selectedCompactTab == tab ?
-                                    Color.aviationGold.opacity(0.15) : Color.clear
-                            )
-                    }
-                }
-            }
-            .background(Color.aviationDarkBlue)
+            // Drag handle area
+            draggablePanelHeader
 
             // Tab content
             ScrollView {
-                switch selectedCompactTab {
-                case .plan:
-                    compactFlightPlanContent
-                case .freq:
+                if hasActiveFlightPlan {
+                    switch selectedCompactTab {
+                    case .plan:
+                        compactFlightPlanContent
+                    case .freq:
+                        compactFrequencyContent
+                    }
+                } else {
+                    // Only show frequencies when no flight plan active
                     compactFrequencyContent
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.panelBackground.opacity(0.95))
         }
+    }
+
+    /// Header for the compact panel with drag gesture support
+    private var draggablePanelHeader: some View {
+        VStack(spacing: 0) {
+            // Drag indicator
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color.secondaryText.opacity(0.5))
+                .frame(width: 36, height: 5)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+            // Tab switcher or FREQ-only header
+            if hasActiveFlightPlan {
+                // Tab switcher when flight plan is active
+                HStack(spacing: 0) {
+                    ForEach(CompactNavigationTab.allCases, id: \.self) { tab in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedCompactTab = tab
+                            }
+                        }) {
+                            Text(tab.rawValue)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(selectedCompactTab == tab ? .aviationGold : .secondaryText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(
+                                    selectedCompactTab == tab ?
+                                        Color.aviationGold.opacity(0.15) : Color.clear
+                                )
+                        }
+                    }
+                }
+            } else {
+                // FREQ-only header when no flight plan
+                HStack {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 12))
+                    Text("FREQ")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundColor(.aviationGold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.aviationGold.opacity(0.15))
+            }
+        }
+        .background(Color.aviationDarkBlue)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    panelDragOffset = value.translation.height
+                }
+                .onEnded { value in
+                    // If dragged down more than 50 points, collapse the panel
+                    if value.translation.height > 50 {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showCompactPanel = false
+                        }
+                    }
+                    // If dragged up more than 50 points while collapsed, expand
+                    // (though this header is only shown when expanded)
+                    panelDragOffset = 0
+                }
+        )
     }
 
     // MARK: - Compact Flight Plan Content
@@ -1003,10 +1067,55 @@ struct NavigationMapView: View {
                     }
                 }
             } else {
+                // No active flight plan - show message and common frequencies
                 Text("No active flight plan")
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
                     .padding()
+
+                // Common Swiss frequencies section
+                Divider()
+                    .background(Color.dimText)
+                    .padding(.vertical, 4)
+
+                Text("COMMON SWISS FREQUENCIES")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.dimText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+
+                ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                    let isHighlighted = shouldHighlightCommonFrequency(freq)
+                    compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
+                    if freq != SwissCommonFrequency.allCases.last {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+
+                // Nearby CTRs
+                let nearbyCTRs = getNearbyCTRsForCompact()
+                if !nearbyCTRs.isEmpty {
+                    Divider()
+                        .background(Color.dimText)
+                        .padding(.vertical, 4)
+
+                    Text("NEARBY CONTROLLED AIRSPACE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+
+                    ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                        compactCTRRow(item.ctr, distanceNM: item.distanceNM)
+                        if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                            Divider()
+                                .background(Color.dimText.opacity(0.5))
+                        }
+                    }
+                }
             }
         }
         .padding(.bottom, 16)
@@ -1608,10 +1717,53 @@ struct RadioFrequencyOverlayView: View {
                             }
                         }
                     } else {
+                        // No active flight plan - show message and common frequencies
                         Text("No active flight plan")
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
                             .padding()
+
+                        // Common Swiss frequencies section
+                        Divider()
+                            .background(Color.dimText)
+                            .padding(.vertical, 4)
+
+                        Text("COMMON SWISS FREQUENCIES")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+
+                        ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                            commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
+                            if freq != SwissCommonFrequency.allCases.last {
+                                Divider()
+                                    .background(Color.dimText.opacity(0.5))
+                            }
+                        }
+
+                        // Nearby Controlled Airspace section
+                        if !nearbyCTRs.isEmpty {
+                            Divider()
+                                .background(Color.dimText)
+                                .padding(.vertical, 4)
+
+                            Text("NEARBY CONTROLLED AIRSPACE")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+
+                            ForEach(nearbyCTRs, id: \.ctr.id) { item in
+                                ctrFrequencyRow(item.ctr, distanceNM: item.distanceNM)
+                                if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                                    Divider()
+                                        .background(Color.dimText.opacity(0.5))
+                                }
+                            }
+                        }
                     }
                 }
             }

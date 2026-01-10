@@ -8,14 +8,18 @@ struct WaypointEditorSheet: View {
     @State private var waypoint: FlightPlanWaypoint
     let aircraftType: AircraftType
     let onSave: (FlightPlanWaypoint) -> Void
+    let onDelete: (() -> Void)?
 
     private let elevationService = ElevationService()
 
-    init(waypoint: FlightPlanWaypoint, aircraftType: AircraftType, onSave: @escaping (FlightPlanWaypoint) -> Void) {
+    init(waypoint: FlightPlanWaypoint, aircraftType: AircraftType, onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
         _waypoint = State(initialValue: waypoint)
         self.aircraftType = aircraftType
         self.onSave = onSave
+        self.onDelete = onDelete
     }
+
+    @State private var showingDeleteConfirmation = false
 
     // Local state for form fields
     @State private var name: String = ""
@@ -255,6 +259,34 @@ struct WaypointEditorSheet: View {
                         Label("Timing", systemImage: "clock")
                     }
                 }
+
+                // Delete section - only shown when onDelete callback is provided
+                if onDelete != nil {
+                    Section {
+                        Button(role: .destructive, action: {
+                            showingDeleteConfirmation = true
+                        }) {
+                            HStack {
+                                Spacer()
+                                Label("Delete Waypoint", systemImage: "trash")
+                                Spacer()
+                            }
+                        }
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Delete Waypoint",
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    onDelete?()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to delete this waypoint? This action cannot be undone.")
             }
             .navigationTitle("Edit Waypoint")
             .navigationBarTitleDisplayMode(.inline)
@@ -494,6 +526,8 @@ struct CoordinatePickerView: View {
             coordinate: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
             altitude: 5000
         ),
-        aircraftType: .wt9Dynamic
-    ) { _ in }
+        aircraftType: .wt9Dynamic,
+        onSave: { _ in },
+        onDelete: { print("Delete tapped") }
+    )
 }

@@ -48,6 +48,7 @@ struct FlightPlanEditorView: View {
     @State private var showingTerrainProfile = false
     @State private var showingMapPicker = false
     @State private var exportItem: FlightPlanExportItem?
+    @State private var showingAddWaypointChoice = false
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -108,10 +109,16 @@ struct FlightPlanEditorView: View {
             .sheet(item: $showingWaypointEditor) { waypoint in
                 WaypointEditorSheet(
                     waypoint: waypoint,
-                    aircraftType: flightPlan.aircraftType
-                ) { updatedWaypoint in
-                    updateWaypoint(updatedWaypoint)
-                }
+                    aircraftType: flightPlan.aircraftType,
+                    onSave: { updatedWaypoint in
+                        updateWaypoint(updatedWaypoint)
+                    },
+                    onDelete: {
+                        if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
+                            deleteWaypoint(at: index)
+                        }
+                    }
+                )
             }
             .sheet(isPresented: $showingAddWaypoint) {
                 AddWaypointSheet(aircraftType: flightPlan.aircraftType) { newWaypoint in
@@ -259,12 +266,15 @@ struct FlightPlanEditorView: View {
                 }
             }
 
-            // Route table
-            if flightPlan.waypoints.isEmpty {
-                emptyRouteView
-            } else {
-                routeTable
+            // Route table - id forces refresh when waypoint count changes
+            Group {
+                if flightPlan.waypoints.isEmpty {
+                    emptyRouteView
+                } else {
+                    routeTable
+                }
             }
+            .id(flightPlan.waypoints.count)
         }
         .padding()
         .background(
@@ -283,7 +293,14 @@ struct FlightPlanEditorView: View {
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
 
-            Button(action: { showingAddWaypoint = true }) {
+            Menu {
+                Button(action: { showingAddWaypoint = true }) {
+                    Label("Add Waypoint Manually", systemImage: "plus")
+                }
+                Button(action: { showingMapPicker = true }) {
+                    Label("Add from Map", systemImage: "map")
+                }
+            } label: {
                 Label("Add First Waypoint", systemImage: "plus")
                     .font(.system(size: 14, weight: .medium))
             }

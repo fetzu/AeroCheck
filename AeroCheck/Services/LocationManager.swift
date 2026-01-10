@@ -18,6 +18,7 @@ enum GPSSignalStatus {
 }
 
 /// Manages GPS location tracking during flights
+@MainActor
 class LocationManager: NSObject, ObservableObject {
     // MARK: - Published Properties
 
@@ -256,56 +257,60 @@ class LocationManager: NSObject, ObservableObject {
 // MARK: - CLLocationManagerDelegate
 
 extension LocationManager: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
 
-        // When marketing mode is active, ignore real GPS updates
-        // (marketing location is injected directly via currentLocation property)
-        guard !marketingModeActive else { return }
+        Task { @MainActor in
+            // When marketing mode is active, ignore real GPS updates
+            // (marketing location is injected directly via currentLocation property)
+            guard !self.marketingModeActive else { return }
 
-        // Update current location
-        currentLocation = location
+            // Update current location
+            self.currentLocation = location
 
-        // Update signal quality based on accuracy
-        updateSignalQuality(from: location)
+            // Update signal quality based on accuracy
+            self.updateSignalQuality(from: location)
 
-        // Check if we should record this point
-        let now = Date()
-        let shouldRecord: Bool
+            // Check if we should record this point
+            let now = Date()
+            let shouldRecord: Bool
 
-        if let lastTime = lastRecordedTime {
-            shouldRecord = now.timeIntervalSince(lastTime) >= recordingInterval
-        } else {
-            shouldRecord = true
-        }
-
-        if shouldRecord, let appState = appState {
-            let point = GPSPoint(from: location)
-            Task { @MainActor in
-                appState.addGPSPoint(point)
+            if let lastTime = self.lastRecordedTime {
+                shouldRecord = now.timeIntervalSince(lastTime) >= self.recordingInterval
+            } else {
+                shouldRecord = true
             }
-            lastRecordedTime = now
+
+            if shouldRecord, let appState = self.appState {
+                let point = GPSPoint(from: location)
+                appState.addGPSPoint(point)
+                self.lastRecordedTime = now
+            }
         }
     }
     
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        locationError = error.localizedDescription
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.locationError = error.localizedDescription
+        }
     }
-    
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
-        
-        switch authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            locationError = nil
-        case .denied:
-            locationError = "Location access denied. Please enable in Settings."
-        case .restricted:
-            locationError = "Location access restricted."
-        case .notDetermined:
-            locationError = nil
-        @unknown default:
-            locationError = "Unknown authorization status."
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor in
+            self.authorizationStatus = manager.authorizationStatus
+
+            switch self.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways:
+                self.locationError = nil
+            case .denied:
+                self.locationError = "Location access denied. Please enable in Settings."
+            case .restricted:
+                self.locationError = "Location access restricted."
+            case .notDetermined:
+                self.locationError = nil
+            @unknown default:
+                self.locationError = "Unknown authorization status."
+            }
         }
     }
 }

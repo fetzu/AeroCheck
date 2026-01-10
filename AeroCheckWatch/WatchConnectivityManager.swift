@@ -3,6 +3,7 @@ import Foundation
 import WatchConnectivity
 
 /// Watch-side connectivity manager for receiving data from iPhone
+@MainActor
 class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var flightData: WatchFlightData = WatchFlightData()
     @Published var isConnected: Bool = false
@@ -75,31 +76,31 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 // MARK: - WCSessionDelegate
 
 extension WatchConnectivityManager: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error = error {
             print("[AeroCheck Watch] Activation failed: \(error.localizedDescription)")
             return
         }
 
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.isConnected = activationState == .activated
             print("[AeroCheck Watch] Session activated: \(activationState == .activated)")
-        }
 
-        // Load any existing application context
-        if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
-            processFlightData(flightDataEncoded)
+            // Load any existing application context
+            if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
+                self.processFlightData(flightDataEncoded)
+            }
         }
     }
 
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        DispatchQueue.main.async {
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in
             self.handleMessage(message)
         }
     }
 
-    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        DispatchQueue.main.async {
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        Task { @MainActor in
             if let flightDataEncoded = applicationContext[WatchConnectivityKeys.flightData] as? Data {
                 self.processFlightData(flightDataEncoded)
             }

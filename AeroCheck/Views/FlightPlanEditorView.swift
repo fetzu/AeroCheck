@@ -49,18 +49,13 @@ struct FlightPlanEditorView: View {
     @State private var showingMapPicker = false
     @State private var exportItem: FlightPlanExportItem?
     @State private var showingAddWaypointChoice = false
+    @State private var routeRefreshToken = UUID() // Forces route table refresh
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
     /// report compact size class even though the device has plenty of space
     private var isCompactWidth: Bool {
         UIDevice.current.userInterfaceIdiom == .phone
-    }
-
-    /// Unique identifier for the waypoint list - changes when any waypoint is added/removed
-    /// Used to force SwiftUI to refresh the route table view
-    private var waypointListIdentifier: String {
-        flightPlan.waypoints.map { $0.id.uuidString }.joined(separator: "-")
     }
 
     /// When true, hides Deactivate/Recalculate buttons (viewing from Flight Log)
@@ -272,7 +267,7 @@ struct FlightPlanEditorView: View {
                 }
             }
 
-            // Route table - id forces refresh when waypoints change (using combined waypoint IDs)
+            // Route table - id forces refresh when waypoints change
             Group {
                 if flightPlan.waypoints.isEmpty {
                     emptyRouteView
@@ -280,7 +275,7 @@ struct FlightPlanEditorView: View {
                     routeTable
                 }
             }
-            .id(waypointListIdentifier)
+            .id(routeRefreshToken)
         }
         .padding()
         .background(
@@ -835,6 +830,7 @@ struct FlightPlanEditorView: View {
         updatedPlan.waypoints.append(waypoint)
         updatedPlan.calculateRouteData()
         flightPlan = updatedPlan
+        routeRefreshToken = UUID() // Force UI refresh
     }
 
     private func updateWaypoint(_ waypoint: FlightPlanWaypoint) {
@@ -843,6 +839,7 @@ struct FlightPlanEditorView: View {
             updatedPlan.waypoints[index] = waypoint
             updatedPlan.calculateRouteData()
             flightPlan = updatedPlan
+            routeRefreshToken = UUID() // Force UI refresh
         }
     }
 
@@ -851,6 +848,7 @@ struct FlightPlanEditorView: View {
         updatedPlan.waypoints.remove(at: index)
         updatedPlan.calculateRouteData()
         flightPlan = updatedPlan
+        routeRefreshToken = UUID() // Force UI refresh
     }
 
     private func moveWaypoint(from source: Int, to destination: Int) {
@@ -859,12 +857,14 @@ struct FlightPlanEditorView: View {
         updatedPlan.waypoints.insert(waypoint, at: destination)
         updatedPlan.calculateRouteData()
         flightPlan = updatedPlan
+        routeRefreshToken = UUID() // Force UI refresh
     }
 
     private func recalculateRoute() {
         var updatedPlan = flightPlan
         updatedPlan.calculateRouteData()
         flightPlan = updatedPlan
+        routeRefreshToken = UUID() // Force UI refresh
     }
 }
 

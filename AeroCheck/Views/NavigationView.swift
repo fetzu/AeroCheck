@@ -498,7 +498,8 @@ struct NavigationMapView: View {
                     )
             }
 
-            // Flight Plan button (toggles bottom panel) - only shown when flight plan is active
+            // Flight Plan button (toggles bottom panel) - shown when flight plan is active
+            // Opens the flight planning view when tapped, toggles panel with long press or when panel visible
             if hasActiveFlightPlan {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -522,6 +523,23 @@ struct NavigationMapView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.panelBackground.opacity(0.9))
                     )
+                }
+            } else {
+                // When no flight plan is active, show button to open flight planning view
+                Button(action: { showFlightPlanning = true }) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.primaryText)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.panelBackground.opacity(0.9))
+                        )
+                }
+                .sheet(isPresented: $showFlightPlanning) {
+                    FlightPlanningView()
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
                 }
             }
 

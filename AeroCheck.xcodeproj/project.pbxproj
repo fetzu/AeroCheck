@@ -628,7 +628,8 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
+				INFOPLIST_KEY_CFBundleName = "AéroCheck";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
@@ -662,7 +663,8 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheck/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
+				INFOPLIST_KEY_CFBundleName = "AéroCheck";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.reference";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app records your flight track using GPS to save in your flight log.";
@@ -696,7 +698,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "AeroCheck Widget";
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -724,7 +726,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "AeroCheck Widget";
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -752,7 +754,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWatch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fetzu.aerocheck;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
@@ -781,7 +783,7 @@
 				CURRENT_PROJECT_VERSION = 2025122201;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AeroCheckWatch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = AeroCheck;
+				INFOPLIST_KEY_CFBundleDisplayName = "AéroCheck";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.fetzu.aerocheck;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;

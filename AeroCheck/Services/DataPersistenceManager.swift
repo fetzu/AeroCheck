@@ -2,7 +2,7 @@ import Foundation
 
 /// Manages file-based data persistence
 /// - Flights and NavigationPlans: Stored in iCloud Drive (visible in Files app under iCloud/AéroCheck/)
-/// - Settings: Stored locally in Documents (synced via CloudKit)
+/// - Settings: Stored in iCloud Drive (synced automatically)
 /// - Map Cache: Stored locally in Documents (not synced)
 @MainActor
 class DataPersistenceManager: ObservableObject {
@@ -12,7 +12,7 @@ class DataPersistenceManager: ObservableObject {
 
     // MARK: - Directory Structure
 
-    /// Folder name for the app in both local and iCloud storage
+    /// Folder name for the app in local storage
     private let appFolderName = "AéroCheck"
 
     /// Subfolder for flight logs
@@ -24,8 +24,8 @@ class DataPersistenceManager: ObservableObject {
     /// Subfolder for map tiles (local only)
     private let mapDataFolderName = "MapData"
 
-    /// Hidden settings file name
-    private let settingsFileName = ".settings.json"
+    /// Settings file name (in iCloud Documents root)
+    private let settingsFileName = "settings.json"
 
     /// Index file for tracking all flights
     private let flightsIndexFileName = "flights_index.json"
@@ -46,31 +46,30 @@ class DataPersistenceManager: ObservableObject {
     }
 
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
+    /// The NSUbiquitousContainerName in Info.plist sets the display name
     private var iCloudDocumentsURL: URL? {
         iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
     }
 
-    /// Local app folder in Documents (On this iPhone/AéroCheck)
+    /// Local Documents directory (On this iPhone/AéroCheck - the app name is shown by iOS)
+    /// Note: iOS Files app shows the app's Documents folder with the app name,
+    /// so we don't need to create an extra subfolder
     var localAppDirectory: URL {
-        documentsDirectory.appendingPathComponent(appFolderName, isDirectory: true)
+        documentsDirectory
     }
 
-    /// Flights directory - in iCloud if available, otherwise local
+    /// Flights directory - directly in iCloud Documents (visible as iCloud/AéroCheck/Flights)
     var flightsDirectory: URL {
         if let iCloudDocs = iCloudDocumentsURL {
-            return iCloudDocs
-                .appendingPathComponent(appFolderName, isDirectory: true)
-                .appendingPathComponent(flightsFolderName, isDirectory: true)
+            return iCloudDocs.appendingPathComponent(flightsFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(flightsFolderName, isDirectory: true)
     }
 
-    /// Navigation plans directory - in iCloud if available, otherwise local
+    /// Navigation plans directory - directly in iCloud Documents (visible as iCloud/AéroCheck/NavigationPlans)
     var navigationPlansDirectory: URL {
         if let iCloudDocs = iCloudDocumentsURL {
-            return iCloudDocs
-                .appendingPathComponent(appFolderName, isDirectory: true)
-                .appendingPathComponent(navigationPlansFolderName, isDirectory: true)
+            return iCloudDocs.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
     }
@@ -80,9 +79,12 @@ class DataPersistenceManager: ObservableObject {
         localAppDirectory.appendingPathComponent(mapDataFolderName, isDirectory: true)
     }
 
-    /// Settings file URL (local, but content synced via CloudKit)
+    /// Settings file URL - in iCloud Documents if available, otherwise local
     private var settingsFileURL: URL {
-        localAppDirectory.appendingPathComponent(settingsFileName)
+        if let iCloudDocs = iCloudDocumentsURL {
+            return iCloudDocs.appendingPathComponent(settingsFileName)
+        }
+        return localAppDirectory.appendingPathComponent(settingsFileName)
     }
 
     /// Whether iCloud is available
@@ -103,11 +105,13 @@ class DataPersistenceManager: ObservableObject {
         let fileManager = FileManager.default
 
         do {
-            // Create local app folder
-            try fileManager.createDirectory(at: localAppDirectory, withIntermediateDirectories: true)
-
-            // Create map data folder (local only)
+            // Create map data folder (local only - On this iPhone/AéroCheck/MapData)
             try fileManager.createDirectory(at: mapTilesDirectory, withIntermediateDirectories: true)
+
+            // Create iCloud Documents directory if available
+            if let iCloudDocs = iCloudDocumentsURL {
+                try fileManager.createDirectory(at: iCloudDocs, withIntermediateDirectories: true)
+            }
 
             // Create flights and navigation plans folders (iCloud or local)
             try fileManager.createDirectory(at: flightsDirectory, withIntermediateDirectories: true)

@@ -434,8 +434,8 @@ class OfflineMapManager: ObservableObject {
     /// and needs to be called from the tile overlay's loadTile method
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL? {
         // Use the local Documents directory for map cache (On this iPhone/AéroCheck/MapData)
+        // Note: iOS Files app shows Documents folder with the app name, so no extra subfolder needed
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let appFolder = "AéroCheck"
         let mapDataFolder = "MapData"
         let layerDir: String
         switch layer {
@@ -443,7 +443,6 @@ class OfflineMapManager: ObservableObject {
         case .segelflug: layerDir = "Segelflug"
         }
         let cacheDir = documentsPath
-            .appendingPathComponent(appFolder, isDirectory: true)
             .appendingPathComponent(mapDataFolder, isDirectory: true)
             .appendingPathComponent(layerDir, isDirectory: true)
         let tilePath = cacheDir.appendingPathComponent("\(z)/\(x)/\(y).png")

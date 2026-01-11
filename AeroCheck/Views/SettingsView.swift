@@ -37,6 +37,8 @@ struct SettingsView: View {
     // iCloud Sync
     @State private var iCloudSyncEnabled: Bool = true
 
+    @State private var isLoadingSettings: Bool = false
+
     var body: some View {
         NavigationView {
             settingsForm
@@ -50,6 +52,9 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { loadSettings() }
+            .onChange(of: appState.settings) { _, _ in
+                loadSettings()
+            }
             .modifier(SettingsChangeModifier(
                 selectedAircraft: selectedAircraft,
                 gpsInterval: gpsInterval,
@@ -66,7 +71,7 @@ struct SettingsView: View {
                 enableCircuitMode: enableCircuitMode,
                 iCloudSyncEnabled: iCloudSyncEnabled,
                 marketingMode: marketingMode,
-                saveSettings: saveSettings,
+                saveSettings: { if !isLoadingSettings { saveSettings() } },
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
             ))
             .sheet(isPresented: $showDownloadModal) {
@@ -656,6 +661,7 @@ struct SettingsView: View {
     // MARK: - Methods
     
     private func loadSettings() {
+        isLoadingSettings = true
         selectedAircraft = appState.settings.selectedAircraft
         gpsInterval = appState.settings.gpsRecordingInterval
         keepScreenOn = appState.settings.keepScreenOn
@@ -673,10 +679,11 @@ struct SettingsView: View {
         enableCircuitMode = appState.settings.enableCircuitMode
         // iCloud Sync
         iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
-        // Marketing mode is NOT loaded from settings - it always starts as false
-        // Developer options are hidden by default and require 5 taps to reveal each session
-        marketingMode = false
-        showDeveloperOptions = false
+        
+        // Reset loading flag in next runloop to avoid triggering save loops
+        DispatchQueue.main.async {
+            self.isLoadingSettings = false
+        }
     }
 
     private func saveSettings() {
@@ -1240,4 +1247,3 @@ struct SettingsChangeModifier: ViewModifier {
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
 }
-

@@ -39,6 +39,7 @@ class SyncManager: ObservableObject {
     private let syncStateKey = "syncEngineState"
     private let lastSyncDateKey = "lastSyncDate"
     private let settingsRecordExistsKey = "settingsRecordExists"
+    private let settingsRecordKey = "cachedSettingsRecord"
 
     // MARK: - Private Properties
 
@@ -64,6 +65,20 @@ class SyncManager: ObservableObject {
     var settingsRecordExists: Bool = false
     private var pendingFlights: [UUID: Flight] = [:]  // Map of flight ID to flight data
     private var pendingFlightDeletions: Set<UUID> = []
+
+    /// Cached settings record to preserve change tag for updates
+    var cachedSettingsRecord: CKRecord? {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: settingsRecordKey) else { return nil }
+            return try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKRecord.self, from: data)
+        }
+        set {
+            if let record = newValue,
+               let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) {
+                UserDefaults.standard.set(data, forKey: settingsRecordKey)
+            }
+        }
+    }
 
     // MARK: - Initialization
 
@@ -222,7 +237,7 @@ class SyncManager: ObservableObject {
         print("[AéroCheck Sync] Queued settings for sync")
         
         // Immediately trigger sync to ensure settings changes are pushed to other devices
-        Task {
+        Task.detached {
             await self.syncNow()
         }
     }
@@ -297,8 +312,14 @@ class SyncManager: ObservableObject {
 
     func createSettingsRecord(_ settings: AppSettings) -> CKRecord? {
         guard let recordZone = recordZone else { return nil }
-        let recordID = CKRecord.ID(recordName: "settings", zoneID: recordZone.zoneID)
-        let record = CKRecord(recordType: SyncRecordType.settings.rawValue, recordID: recordID)
+        
+        let record: CKRecord
+        if let cached = cachedSettingsRecord {
+            record = cached
+        } else {
+            let recordID = CKRecord.ID(recordName: "settings", zoneID: recordZone.zoneID)
+            record = CKRecord(recordType: SyncRecordType.settings.rawValue, recordID: recordID)
+        }
 
         do {
             let encoder = JSONEncoder()
@@ -479,7 +500,6 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 if recordID.recordName == "settings" {
                     // Settings record - only process once per batch, and only if not already on server
                     if !processedSettingsRecord,
-                       !manager.settingsRecordExists,
                        let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
                         recordsToSave.append(record)
@@ -545,6 +565,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             switch record.recordType {
             case SyncRecordType.settings.rawValue:
                 if let settings = manager?.settingsFromRecord(record) {
+                    // Cache the record to preserve change tag for future updates
+                    manager?.cachedSettingsRecord = record
+                    
                     print("[AéroCheck Sync] Received settings update from cloud")
                     manager?.onSettingsUpdated?(settings)
                 }
@@ -615,6 +638,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         for record in changes.savedRecords {
             if record.recordID.recordName == "settings" {
                 manager?.clearPendingSettings()
+                manager?.cachedSettingsRecord = record // Update cache with new change tag
             } else if let flightId = UUID(uuidString: record.recordID.recordName) {
                 manager?.clearPendingFlight(flightId)
             }
@@ -637,16 +661,29 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             let error = failedSave.error
             
             // Handle server record changed error (code 14) - settings record already exists
-            let errorCode = (error as NSError).code
-            if errorCode == 14 || (error as NSError).userInfo["CKErrorServerErrorCode"] as? Int == 2004 {
+            let nsError = error as NSError
+            let errorCode = nsError.code
+            if errorCode == CKError.serverRecordChanged.rawValue || nsError.userInfo["CKErrorServerErrorCode"] as? Int == 2004 {
                 // For settings record, this is OK - it means the record was already created
                 if recordName == "settings" {
-                    print("[AéroCheck Sync] Settings record already exists on server, clearing pending changes")
+                    print("[AéroCheck Sync] Settings record conflict detected. Updating cache from server record.")
                     manager?.settingsRecordExists = true
                     UserDefaults.standard.set(true, forKey: "settingsRecordExists")
-                    manager?.clearPendingSettings()
+                    
+                    // Extract server record to get the latest change tag
+                    if let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord {
+                        manager?.cachedSettingsRecord = serverRecord
+                        // Re-queue the sync immediately with the updated change tag
+                        if let pendingSettings = manager?.getPendingSettings() {
+                            print("[AéroCheck Sync] Re-queueing settings sync with updated change tag")
+                            manager?.syncSettings(pendingSettings)
+                        }
+                    } else {
+                        manager?.clearPendingSettings()
+                    }
+                    
                     manager?.updateLastSyncDate()
-                    return
+                    continue
                 }
             }
             

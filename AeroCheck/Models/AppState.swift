@@ -10,7 +10,7 @@ enum PhaseCompletionStatus {
 }
 
 /// Application-wide settings
-struct AppSettings: Codable {
+struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var keepScreenOn: Bool = true
     var gpsRecordingInterval: Double = 5.0 // seconds

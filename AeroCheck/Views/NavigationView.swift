@@ -443,13 +443,14 @@ struct NavigationMapView: View {
         let panelHeight = geometry.size.height / 2
         let mapHeight = showCompactPanel ? panelHeight : geometry.size.height
 
-        VStack(spacing: 0) {
-            // Top portion: Map with controls (expands to full height when panel hidden)
-            ZStack {
-                // Map content
-                mapContent
+        ZStack {
+            // Map content - full screen behind everything
+            mapContent
+                .ignoresSafeArea()
 
-                // Overlay controls for compact layout
+            // Overlay controls and panel
+            VStack(spacing: 0) {
+                // Top portion: Controls overlay on map (expands to full height when panel hidden)
                 VStack {
                     // Top bar
                     compactTopBar
@@ -460,20 +461,20 @@ struct NavigationMapView: View {
                     compactMapControls
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            }
-            .frame(height: mapHeight)
-            .clipped()
-            .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+                .padding(.top, geometry.safeAreaInsets.top + 8)
+                .padding(.bottom, 8)
+                .frame(height: mapHeight)
+                .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
 
-            // Bottom half: Flight Plan or Radio Frequencies panel
-            if showCompactPanel {
-                compactBottomPanel(geometry: geometry)
-                    .frame(height: panelHeight)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                // Bottom half: Flight Plan or Radio Frequencies panel
+                if showCompactPanel {
+                    compactBottomPanel(geometry: geometry)
+                        .frame(height: panelHeight)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
-        .background(Color.cockpitBackground)
+        .ignoresSafeArea()
         .onAppear {
             mapWidth = geometry.size.width
         }

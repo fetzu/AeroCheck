@@ -213,6 +213,11 @@ class SyncManager: ObservableObject {
         engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
 
         print("[AéroCheck Sync] Queued settings for sync")
+        
+        // Immediately trigger sync to ensure settings changes are pushed to other devices
+        Task {
+            try? await self.syncNow()
+        }
     }
 
     /// Sync a flight to iCloud

@@ -182,6 +182,12 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(flight)
             try data.write(to: fileURL, options: .atomic)
+            
+            // Mark file to be synced to iCloud if using iCloud storage
+            if isICloudAvailable {
+                try fileURL.setResourceValue(false, forKey: .isExcludedFromBackupKey)
+            }
+            
             print("[AéroCheck] Flight saved: \(flightFilename(for: flight))")
         } catch {
             print("[AéroCheck] Failed to save flight: \(error.localizedDescription)")
@@ -289,6 +295,12 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(plan)
             try data.write(to: fileURL, options: .atomic)
+            
+            // Mark file to be synced to iCloud if using iCloud storage
+            if isICloudAvailable {
+                try fileURL.setResourceValue(false, forKey: .isExcludedFromBackupKey)
+            }
+            
             print("[AéroCheck] Navigation plan saved: \(navigationPlanFilename(for: plan))")
         } catch {
             print("[AéroCheck] Failed to save navigation plan: \(error.localizedDescription)")

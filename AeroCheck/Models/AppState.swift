@@ -226,6 +226,8 @@ class AppState: ObservableObject {
         syncManager.onSettingsUpdated = { [weak self] settings in
             Task { @MainActor in
                 self?.settings = settings
+                // Save synced settings to file for future loads
+                self?.persistence.saveSettings(settings)
                 self?.syncAircraftType()
                 print("[AéroCheck] Settings updated from iCloud sync")
             }

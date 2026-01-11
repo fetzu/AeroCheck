@@ -97,6 +97,7 @@
 
 /* Begin PBXFileReference section */
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
+		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
 		04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlan.swift; sourceTree = "<group>"; };
 		04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanManager.swift; sourceTree = "<group>"; };
 		04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationService.swift; sourceTree = "<group>"; };
@@ -174,6 +175,7 @@
 		A1000003111111110000001 = {
 			isa = PBXGroup;
 			children = (
+				04C457262F1337A20083040B /* AéroCheck.entitlements */,
 				A1000003111111110000002 /* AeroCheck */,
 				A3000003111111110000001 /* Shared */,
 				A4000003111111110000002 /* AeroCheckWatch */,
@@ -631,6 +633,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "AéroCheck.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0.1;
@@ -672,6 +675,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "AéroCheck.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0.1;

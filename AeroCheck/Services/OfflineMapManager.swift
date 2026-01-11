@@ -97,13 +97,12 @@ class OfflineMapManager: ObservableObject {
 
     // MARK: - Computed Properties
 
-    /// Base directory for storing cached tiles
+    /// Base directory for storing cached tiles (now uses DataPersistenceManager)
     private var baseCacheDirectory: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsPath.appendingPathComponent("AeroCheck/OfflineMaps", isDirectory: true)
+        return DataPersistenceManager.shared.mapTilesDirectory
     }
 
-    /// Directory for ICAO cache (legacy compatible path)
+    /// Directory for ICAO cache
     var cacheDirectory: URL {
         return baseCacheDirectory.appendingPathComponent("ICAO", isDirectory: true)
     }
@@ -212,7 +211,55 @@ class OfflineMapManager: ObservableObject {
     // MARK: - Initialization
 
     init() {
+        migrateFromLegacyLocationIfNeeded()
         loadCacheMetadata()
+    }
+
+    /// Migrate cached tiles from old location (Documents/AeroCheck/OfflineMaps) to new location
+    private func migrateFromLegacyLocationIfNeeded() {
+        let fileManager = FileManager.default
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let legacyBasePath = documentsPath.appendingPathComponent("AeroCheck/OfflineMaps", isDirectory: true)
+
+        // Check if legacy location exists
+        guard fileManager.fileExists(atPath: legacyBasePath.path) else {
+            return
+        }
+
+        // Check if migration is needed (new location doesn't have tiles yet)
+        let newICaoPath = cacheDirectory
+        let legacyICAOPath = legacyBasePath.appendingPathComponent("ICAO", isDirectory: true)
+
+        if fileManager.fileExists(atPath: legacyICAOPath.path) && !fileManager.fileExists(atPath: newICaoPath.path) {
+            do {
+                // Ensure parent directories exist
+                try fileManager.createDirectory(at: baseCacheDirectory, withIntermediateDirectories: true)
+
+                // Move ICAO tiles
+                if fileManager.fileExists(atPath: legacyICAOPath.path) {
+                    try fileManager.moveItem(at: legacyICAOPath, to: newICaoPath)
+                    print("[AéroCheck] Migrated ICAO tiles to new location")
+                }
+
+                // Move Segelflug tiles
+                let legacySegelflugPath = legacyBasePath.appendingPathComponent("Segelflug", isDirectory: true)
+                if fileManager.fileExists(atPath: legacySegelflugPath.path) {
+                    try fileManager.moveItem(at: legacySegelflugPath, to: segelflugCacheDirectory)
+                    print("[AéroCheck] Migrated Segelflug tiles to new location")
+                }
+
+                // Clean up empty legacy directories
+                try? fileManager.removeItem(at: legacyBasePath)
+                let legacyParent = documentsPath.appendingPathComponent("AeroCheck", isDirectory: true)
+                if let contents = try? fileManager.contentsOfDirectory(atPath: legacyParent.path), contents.isEmpty {
+                    try? fileManager.removeItem(at: legacyParent)
+                }
+
+                print("[AéroCheck] Map tiles migration completed")
+            } catch {
+                print("[AéroCheck] Failed to migrate map tiles: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Public Methods
@@ -433,13 +480,19 @@ class OfflineMapManager: ObservableObject {
     /// This method is nonisolated because it only performs file system operations
     /// and needs to be called from the tile overlay's loadTile method
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL? {
+        // Use the same folder structure as DataPersistenceManager
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let appFolder = "AéroCheck"
+        let mapsFolder = "Maps"
         let layerDir: String
         switch layer {
         case .icao: layerDir = "ICAO"
         case .segelflug: layerDir = "Segelflug"
         }
-        let cacheDir = documentsPath.appendingPathComponent("AeroCheck/OfflineMaps/\(layerDir)", isDirectory: true)
+        let cacheDir = documentsPath
+            .appendingPathComponent(appFolder, isDirectory: true)
+            .appendingPathComponent(mapsFolder, isDirectory: true)
+            .appendingPathComponent(layerDir, isDirectory: true)
         let tilePath = cacheDir.appendingPathComponent("\(z)/\(x)/\(y).png")
         if FileManager.default.fileExists(atPath: tilePath.path) {
             return tilePath

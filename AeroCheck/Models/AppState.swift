@@ -30,6 +30,9 @@ struct AppSettings: Codable {
     // Circuit mode
     var enableCircuitMode: Bool = false // When true, shows START CIRCUITS button
 
+    // iCloud Sync
+    var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -54,6 +57,7 @@ struct AppSettings: Codable {
         case waypointProximityThreshold
         case terrainAltitudeUnit
         case enableCircuitMode
+        case iCloudSyncEnabled
         // marketingMode is intentionally excluded
     }
 }
@@ -199,18 +203,41 @@ class AppState: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let flightsKey = "savedFlights"
-    private let settingsKey = "appSettings"
     private let activeFlightStateKey = "activeFlightState"
-    
+
+    // Reference to persistence manager
+    private let persistence = DataPersistenceManager.shared
+
     // MARK: - Initialization
 
     init() {
         loadFlights()
         loadSettings()
         syncAircraftType()
+        setupSyncCallbacks()
         // Try to restore active flight state if app was closed during a flight
         restoreActiveFlightState()
+    }
+
+    /// Setup callbacks for sync updates from other devices
+    private func setupSyncCallbacks() {
+        let syncManager = SyncManager.shared
+
+        syncManager.onSettingsUpdated = { [weak self] settings in
+            Task { @MainActor in
+                self?.settings = settings
+                self?.syncAircraftType()
+                print("[AéroCheck] Settings updated from iCloud sync")
+            }
+        }
+
+        syncManager.onFlightsUpdated = { [weak self] flights in
+            Task { @MainActor in
+                self?.flights = flights
+                self?.persistence.saveFlights(flights)
+                print("[AéroCheck] Flights updated from iCloud sync")
+            }
+        }
     }
 
     /// Sync the current aircraft type to ChecklistData
@@ -563,15 +590,30 @@ class AppState: ObservableObject {
     }
     
     // MARK: - Flight Log Management
-    
+
     func deleteFlight(_ flight: Flight) {
         flights.removeAll { $0.id == flight.id }
-        saveFlights()
+        persistence.saveFlights(flights)
+
+        // Sync deletion to iCloud
+        if settings.iCloudSyncEnabled {
+            SyncManager.shared.deleteFlight(flight.id)
+        }
     }
-    
+
     func deleteFlight(at indexSet: IndexSet) {
+        // Get flight IDs before removal for sync
+        let flightIdsToDelete = indexSet.map { flights[$0].id }
+
         flights.remove(atOffsets: indexSet)
-        saveFlights()
+        persistence.saveFlights(flights)
+
+        // Sync deletions to iCloud
+        if settings.iCloudSyncEnabled {
+            for flightId in flightIdsToDelete {
+                SyncManager.shared.deleteFlight(flightId)
+            }
+        }
     }
     
     func importFlight(from data: Data) -> Bool {
@@ -604,41 +646,51 @@ class AppState: ObservableObject {
     }
     
     // MARK: - Persistence
-    
+
     private func saveFlights() {
-        do {
-            let encoded = try JSONEncoder().encode(flights)
-            UserDefaults.standard.set(encoded, forKey: flightsKey)
-        } catch {
-            print("[AéroCheck] Failed to save flights: \(error.localizedDescription)")
+        // Save to file-based storage
+        persistence.saveFlights(flights)
+
+        // Sync to iCloud if enabled
+        if settings.iCloudSyncEnabled {
+            SyncManager.shared.syncAllFlights(flights)
+        }
+    }
+
+    /// Save a single flight (for sync efficiency)
+    func saveFlight(_ flight: Flight) {
+        persistence.saveFlights(flights)
+
+        if settings.iCloudSyncEnabled {
+            SyncManager.shared.syncFlight(flight, allFlights: flights)
         }
     }
 
     private func loadFlights() {
-        guard let data = UserDefaults.standard.data(forKey: flightsKey) else { return }
-        do {
-            flights = try JSONDecoder().decode([Flight].self, from: data)
-        } catch {
-            print("[AéroCheck] Failed to load flights: \(error.localizedDescription)")
-        }
+        flights = persistence.loadFlights()
     }
 
     func saveSettings() {
-        do {
-            let encoded = try JSONEncoder().encode(settings)
-            UserDefaults.standard.set(encoded, forKey: settingsKey)
-        } catch {
-            print("[AéroCheck] Failed to save settings: \(error.localizedDescription)")
+        // Save to file-based storage
+        persistence.saveSettings(settings)
+
+        // Update sync manager with current sync preference
+        SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
+
+        // Sync settings to iCloud if enabled
+        if settings.iCloudSyncEnabled {
+            SyncManager.shared.syncSettings(settings)
         }
+
         syncAircraftType()
     }
 
     private func loadSettings() {
-        guard let data = UserDefaults.standard.data(forKey: settingsKey) else { return }
-        do {
-            settings = try JSONDecoder().decode(AppSettings.self, from: data)
-        } catch {
-            print("[AéroCheck] Failed to load settings: \(error.localizedDescription)")
+        if let loadedSettings = persistence.loadSettings() {
+            settings = loadedSettings
+
+            // Update sync manager with loaded preference
+            SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled
         }
     }
 

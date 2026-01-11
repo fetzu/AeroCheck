@@ -32,7 +32,10 @@ struct SettingsView: View {
 
     // Circuit mode
     @State private var enableCircuitMode: Bool = false
-    
+
+    // iCloud Sync
+    @State private var iCloudSyncEnabled: Bool = true
+
     var body: some View {
         NavigationView {
             settingsForm
@@ -60,6 +63,7 @@ struct SettingsView: View {
                 waypointProximityThreshold: waypointProximityThreshold,
                 terrainAltitudeUnit: terrainAltitudeUnit,
                 enableCircuitMode: enableCircuitMode,
+                iCloudSyncEnabled: iCloudSyncEnabled,
                 marketingMode: marketingMode,
                 saveSettings: saveSettings,
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
@@ -104,6 +108,7 @@ struct SettingsView: View {
                 navigationSection
             }
             Group {
+                iCloudSyncSection
                 offlineMapsSection
                 checklistSection
             }
@@ -295,6 +300,55 @@ struct SettingsView: View {
             Label("Navigation", systemImage: "map")
         } footer: {
             Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+        }
+    }
+
+    private var iCloudSyncSection: some View {
+        Section {
+            Toggle("Sync to iCloud", isOn: $iCloudSyncEnabled)
+
+            if iCloudSyncEnabled {
+                if let lastSync = SyncManager.shared.lastSyncDate {
+                    HStack {
+                        Text("Last Sync")
+                        Spacer()
+                        Text(lastSync, style: .relative)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if SyncManager.shared.isSyncing {
+                    HStack {
+                        Text("Sync Status")
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Syncing...")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Button(action: {
+                    Task {
+                        await SyncManager.shared.syncNow()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text("Sync Now")
+                    }
+                }
+                .disabled(SyncManager.shared.isSyncing)
+            }
+        } header: {
+            Label("iCloud Sync", systemImage: "icloud")
+        } footer: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("When enabled, your settings and flight logs are synced across all your devices signed into the same iCloud account.")
+                if iCloudSyncEnabled {
+                    Text("Your flight logs are stored in the AéroCheck folder in Files and can be accessed from any device.")
+                }
+            }
         }
     }
 
@@ -613,6 +667,8 @@ struct SettingsView: View {
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         // Circuit mode
         enableCircuitMode = appState.settings.enableCircuitMode
+        // iCloud Sync
+        iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
         // Marketing mode is NOT loaded from settings - it always starts as false
         // Developer options are hidden by default and require 5 taps to reveal each session
         marketingMode = false
@@ -635,6 +691,8 @@ struct SettingsView: View {
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         // Circuit mode
         appState.settings.enableCircuitMode = enableCircuitMode
+        // iCloud Sync
+        appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -1145,6 +1203,7 @@ struct SettingsChangeModifier: ViewModifier {
     let waypointProximityThreshold: Double
     let terrainAltitudeUnit: TerrainAltitudeUnit
     let enableCircuitMode: Bool
+    let iCloudSyncEnabled: Bool
     let marketingMode: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
@@ -1164,6 +1223,7 @@ struct SettingsChangeModifier: ViewModifier {
             .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
             .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
             .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
+            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
     }
 }

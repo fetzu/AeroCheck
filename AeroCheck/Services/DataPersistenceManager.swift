@@ -16,7 +16,7 @@ class DataPersistenceManager: ObservableObject {
     /// Subfolder for flight logs (visible to user)
     private let flightsFolderName = "Flights"
 
-    /// Subfolder for map tiles (visible to user)
+    /// Subfolder for map tiles in Caches directory (local storage only, not synced)
     private let mapTilesFolderName = "Maps"
 
     /// Hidden settings file name (prefixed with dot to hide on macOS/Files app)
@@ -38,6 +38,11 @@ class DataPersistenceManager: ObservableObject {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
+    /// Caches directory URL (for local-only data like map tiles)
+    private var cachesDirectory: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    }
+
     /// App's root folder in Documents (visible in Files app as "AéroCheck")
     var appDirectory: URL {
         documentsDirectory.appendingPathComponent(appFolderName, isDirectory: true)
@@ -48,9 +53,11 @@ class DataPersistenceManager: ObservableObject {
         appDirectory.appendingPathComponent(flightsFolderName, isDirectory: true)
     }
 
-    /// Map tiles folder URL
+    /// Map tiles folder URL - stored in Caches directory for local-only storage
+    /// This keeps map data under "On this iPhone" and prevents iCloud sync
     var mapTilesDirectory: URL {
-        appDirectory.appendingPathComponent(mapTilesFolderName, isDirectory: true)
+        cachesDirectory.appendingPathComponent(appFolderName, isDirectory: true)
+            .appendingPathComponent(mapTilesFolderName, isDirectory: true)
     }
 
     /// Settings file URL (hidden file in app directory)

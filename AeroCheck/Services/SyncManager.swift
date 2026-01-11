@@ -56,11 +56,10 @@ class SyncManager: ObservableObject {
     /// Callback when flights are updated from sync
     var onFlightsUpdated: (([Flight]) -> Void)?
 
-    /// Pending changes to sync
+    /// Pending changes to sync - using dictionaries to preserve data for batch operations
     private var pendingSettingsChange: AppSettings?
-    private var pendingFlightChanges: Set<UUID> = []
+    private var pendingFlights: [UUID: Flight] = [:]  // Map of flight ID to flight data
     private var pendingFlightDeletions: Set<UUID> = []
-    private var localFlights: [Flight] = []
 
     // MARK: - Initialization
 
@@ -220,8 +219,8 @@ class SyncManager: ObservableObject {
     func syncFlight(_ flight: Flight, allFlights: [Flight]) {
         guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
-        localFlights = allFlights
-        pendingFlightChanges.insert(flight.id)
+        // Store the flight data so it's available when the batch is created
+        pendingFlights[flight.id] = flight
 
         let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
         engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
@@ -233,7 +232,10 @@ class SyncManager: ObservableObject {
     func syncAllFlights(_ flights: [Flight]) {
         guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
-        localFlights = flights
+        // Store all flight data so it's available when batches are created
+        for flight in flights {
+            pendingFlights[flight.id] = flight
+        }
 
         let changes: [CKSyncEngine.PendingRecordZoneChange] = flights.map { flight in
             let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
@@ -346,21 +348,29 @@ class SyncManager: ObservableObject {
     // MARK: - Pending Changes Access
 
     func getPendingSettings() -> AppSettings? {
-        let settings = pendingSettingsChange
+        return pendingSettingsChange
+    }
+
+    func clearPendingSettings() {
         pendingSettingsChange = nil
-        return settings
     }
 
-    func getLocalFlight(for id: UUID) -> Flight? {
-        return localFlights.first { $0.id == id }
+    func getPendingFlight(for id: UUID) -> Flight? {
+        return pendingFlights[id]
     }
 
-    func clearPendingFlightChange(_ id: UUID) {
-        pendingFlightChanges.remove(id)
+    func clearPendingFlight(_ id: UUID) {
+        pendingFlights.removeValue(forKey: id)
     }
 
     func clearPendingFlightDeletion(_ id: UUID) {
         pendingFlightDeletions.remove(id)
+    }
+
+    /// Update last sync date (called when sync operations complete)
+    func updateLastSyncDate() {
+        lastSyncDate = Date()
+        UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
     }
 }
 
@@ -438,33 +448,33 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
         guard let manager = manager else { return nil }
 
+        // Get all pending changes from the sync engine state
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
 
         var recordsToSave: [CKRecord] = []
         var recordIDsToDelete: [CKRecord.ID] = []
+        var processedSettingsRecord = false
 
         for change in pendingChanges {
             switch change {
             case .saveRecord(let recordID):
                 if recordID.recordName == "settings" {
-                    // Settings record
-                    if let settings = manager.getPendingSettings(),
+                    // Settings record - only process once per batch
+                    if !processedSettingsRecord,
+                       let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
                         recordsToSave.append(record)
+                        processedSettingsRecord = true
                     }
                 } else if let flightId = UUID(uuidString: recordID.recordName),
-                          let flight = manager.getLocalFlight(for: flightId),
+                          let flight = manager.getPendingFlight(for: flightId),
                           let record = manager.createFlightRecord(flight) {
                     // Flight record
                     recordsToSave.append(record)
-                    manager.clearPendingFlightChange(flightId)
                 }
 
             case .deleteRecord(let recordID):
                 recordIDsToDelete.append(recordID)
-                if let flightId = UUID(uuidString: recordID.recordName) {
-                    manager.clearPendingFlightDeletion(flightId)
-                }
 
             @unknown default:
                 break
@@ -561,6 +571,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             currentFlights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
 
             manager?.onFlightsUpdated?(currentFlights)
+
+            // Update last sync date when we receive changes
+            manager?.updateLastSyncDate()
         }
     }
 
@@ -578,6 +591,27 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     @MainActor
     private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) {
         print("[AéroCheck Sync] Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
+
+        // Clear pending data for successfully saved records
+        for record in changes.savedRecords {
+            if record.recordID.recordName == "settings" {
+                manager?.clearPendingSettings()
+            } else if let flightId = UUID(uuidString: record.recordID.recordName) {
+                manager?.clearPendingFlight(flightId)
+            }
+        }
+
+        // Clear pending deletions for successfully deleted records
+        for recordID in changes.deletedRecordIDs {
+            if let flightId = UUID(uuidString: recordID.recordName) {
+                manager?.clearPendingFlightDeletion(flightId)
+            }
+        }
+
+        // Update last sync date if any changes were made
+        if !changes.savedRecords.isEmpty || !changes.deletedRecordIDs.isEmpty {
+            manager?.updateLastSyncDate()
+        }
 
         for failedSave in changes.failedRecordSaves {
             print("[AéroCheck Sync] Failed to save record: \(failedSave.record.recordID.recordName), error: \(failedSave.error)")

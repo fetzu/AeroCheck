@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
+    @ObservedObject private var syncManager = SyncManager.shared
 
     @State private var selectedAircraft: AircraftType = .wt9Dynamic
     @State private var gpsInterval: Double = 5.0
@@ -308,37 +309,33 @@ struct SettingsView: View {
             Toggle("Sync to iCloud", isOn: $iCloudSyncEnabled)
 
             if iCloudSyncEnabled {
-                if let lastSync = SyncManager.shared.lastSyncDate {
+                if let lastSync = syncManager.lastSyncDate {
                     HStack {
                         Text("Last Sync")
                         Spacer()
-                        Text(lastSync, style: .relative)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                if SyncManager.shared.isSyncing {
-                    HStack {
-                        Text("Sync Status")
-                        Spacer()
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Syncing...")
+                        Text(formatSyncDate(lastSync))
                             .foregroundColor(.secondary)
                     }
                 }
 
                 Button(action: {
                     Task {
-                        await SyncManager.shared.syncNow()
+                        await syncManager.syncNow()
                     }
                 }) {
                     HStack {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Sync Now")
+                            .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
+                            .animation(
+                                syncManager.isSyncing
+                                    ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
+                                    : .default,
+                                value: syncManager.isSyncing
+                            )
+                        Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
                     }
                 }
-                .disabled(SyncManager.shared.isSyncing)
+                .disabled(syncManager.isSyncing)
             }
         } header: {
             Label("iCloud Sync", systemImage: "icloud")
@@ -350,6 +347,13 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    /// Format sync date as DD.MM.YYYY HH:MM
+    private func formatSyncDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.yyyy HH:mm"
+        return formatter.string(from: date)
     }
 
     private var offlineMapsSection: some View {

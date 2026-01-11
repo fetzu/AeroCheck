@@ -164,7 +164,7 @@ struct NavigationMapView: View {
     @State private var showRadioFrequencyWindow: Bool = false
 
     // Compact layout state (for small devices)
-    @State private var showCompactPanel: Bool = true
+    @State private var showCompactPanel: Bool = false
     @State private var selectedCompactTab: CompactNavigationTab = .plan
     @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture

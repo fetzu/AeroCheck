@@ -38,6 +38,7 @@ class SyncManager: ObservableObject {
     private let syncEnabledKey = "iCloudSyncEnabled"
     private let syncStateKey = "syncEngineState"
     private let lastSyncDateKey = "lastSyncDate"
+    private let settingsRecordExistsKey = "settingsRecordExists"
 
     // MARK: - Private Properties
 
@@ -58,6 +59,9 @@ class SyncManager: ObservableObject {
 
     /// Pending changes to sync - using dictionaries to preserve data for batch operations
     private var pendingSettingsChange: AppSettings?
+    
+    /// Track whether the settings record has been created on the server
+    var settingsRecordExists: Bool = false
     private var pendingFlights: [UUID: Flight] = [:]  // Map of flight ID to flight data
     private var pendingFlightDeletions: Set<UUID> = []
 
@@ -69,6 +73,9 @@ class SyncManager: ObservableObject {
 
         // Load last sync date
         self.lastSyncDate = UserDefaults.standard.object(forKey: lastSyncDateKey) as? Date
+        
+        // Load whether settings record exists on server
+        self.settingsRecordExists = UserDefaults.standard.bool(forKey: settingsRecordExistsKey)
 
         // Defer CloudKit initialization to avoid crashes if not configured
         if isSyncEnabled {
@@ -216,7 +223,7 @@ class SyncManager: ObservableObject {
         
         // Immediately trigger sync to ensure settings changes are pushed to other devices
         Task {
-            try? await self.syncNow()
+            await self.syncNow()
         }
     }
 
@@ -298,6 +305,12 @@ class SyncManager: ObservableObject {
             let data = try encoder.encode(settings)
             record["data"] = data as CKRecordValue
             record["lastModified"] = Date() as CKRecordValue
+            
+            // Mark that we've created the settings record
+            if !settingsRecordExists {
+                settingsRecordExists = true
+            }
+            
             return record
         } catch {
             print("[AéroCheck Sync] Failed to encode settings: \(error)")
@@ -464,8 +477,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             switch change {
             case .saveRecord(let recordID):
                 if recordID.recordName == "settings" {
-                    // Settings record - only process once per batch
+                    // Settings record - only process once per batch, and only if not already on server
                     if !processedSettingsRecord,
+                       !manager.settingsRecordExists,
                        let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
                         recordsToSave.append(record)
@@ -619,7 +633,24 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         }
 
         for failedSave in changes.failedRecordSaves {
-            print("[AéroCheck Sync] Failed to save record: \(failedSave.record.recordID.recordName), error: \(failedSave.error)")
+            let recordName = failedSave.record.recordID.recordName
+            let error = failedSave.error
+            
+            // Handle server record changed error (code 14) - settings record already exists
+            let errorCode = (error as NSError).code
+            if errorCode == 14 || (error as NSError).userInfo["CKErrorServerErrorCode"] as? Int == 2004 {
+                // For settings record, this is OK - it means the record was already created
+                if recordName == "settings" {
+                    print("[AéroCheck Sync] Settings record already exists on server, clearing pending changes")
+                    manager?.settingsRecordExists = true
+                    UserDefaults.standard.set(true, forKey: "settingsRecordExists")
+                    manager?.clearPendingSettings()
+                    manager?.updateLastSyncDate()
+                    return
+                }
+            }
+            
+            print("[AéroCheck Sync] Failed to save record: \(recordName), error: \(error)")
         }
     }
 }

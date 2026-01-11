@@ -13,9 +13,9 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let flightPlansKey = "savedFlightPlans"
     private let activeFlightPlanKey = "activeFlightPlan"
     private var chronometerTimer: Timer?
+    private let persistence = DataPersistenceManager.shared
 
     // MARK: - Initialization
 
@@ -70,18 +70,26 @@ class FlightPlanManager: ObservableObject {
             deactivateFlightPlan()
         }
 
-        saveFlightPlans()
+        // Delete the file from iCloud
+        deleteFlightPlanFile(plan)
     }
 
     /// Delete flight plans at offsets
     func deleteFlightPlans(at offsets: IndexSet) {
+        // Collect plans to delete for file cleanup
+        let plansToDelete = offsets.map { flightPlans[$0] }
+
         for index in offsets {
             if flightPlans[index].id == activeFlightPlan?.id {
                 deactivateFlightPlan()
             }
         }
         flightPlans.remove(atOffsets: offsets)
-        saveFlightPlans()
+
+        // Delete files from iCloud
+        for plan in plansToDelete {
+            deleteFlightPlanFile(plan)
+        }
     }
 
     /// Duplicate a flight plan
@@ -490,25 +498,22 @@ class FlightPlanManager: ObservableObject {
     // MARK: - Persistence
 
     private func saveFlightPlans() {
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(flightPlans)
-            UserDefaults.standard.set(data, forKey: flightPlansKey)
-        } catch {
-            print("[AéroCheck] Failed to save flight plans: \(error.localizedDescription)")
-        }
+        // Save all plans to individual files in iCloud
+        persistence.saveNavigationPlans(flightPlans)
+    }
+
+    /// Save a single flight plan
+    private func saveFlightPlan(_ plan: FlightPlan) {
+        persistence.saveNavigationPlan(plan)
     }
 
     private func loadFlightPlans() {
-        guard let data = UserDefaults.standard.data(forKey: flightPlansKey) else { return }
-        do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            flightPlans = try decoder.decode([FlightPlan].self, from: data)
-        } catch {
-            print("[AéroCheck] Failed to load flight plans: \(error.localizedDescription)")
-        }
+        flightPlans = persistence.loadNavigationPlans()
+    }
+
+    /// Delete a flight plan file
+    private func deleteFlightPlanFile(_ plan: FlightPlan) {
+        persistence.deleteNavigationPlan(plan)
     }
 
     private func saveActiveFlightPlan() {

@@ -59,6 +59,7 @@ enum CacheOption: String, CaseIterable, Identifiable {
 
 /// Manager for offline ICAO/Segelflug chart tile caching
 /// Handles downloading, storing, and serving cached tiles for offline use
+/// Map cache is stored locally in "On this iPhone/AéroCheck/MapData"
 @MainActor
 class OfflineMapManager: ObservableObject {
     // MARK: - Published Properties
@@ -97,7 +98,7 @@ class OfflineMapManager: ObservableObject {
 
     // MARK: - Computed Properties
 
-    /// Base directory for storing cached tiles (now uses DataPersistenceManager)
+    /// Base directory for storing cached tiles (local storage only)
     private var baseCacheDirectory: URL {
         return DataPersistenceManager.shared.mapTilesDirectory
     }
@@ -211,63 +212,7 @@ class OfflineMapManager: ObservableObject {
     // MARK: - Initialization
 
     init() {
-        migrateFromLegacyLocationIfNeeded()
         loadCacheMetadata()
-    }
-
-    /// Migrate cached tiles from old locations to the new Caches directory
-    private func migrateFromLegacyLocationIfNeeded() {
-        let fileManager = FileManager.default
-        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-
-        // List of possible legacy locations to migrate from
-        let legacyPaths = [
-            documentsPath.appendingPathComponent("AeroCheck/OfflineMaps", isDirectory: true),
-            documentsPath.appendingPathComponent("AéroCheck/Maps", isDirectory: true)
-        ]
-
-        for legacyBasePath in legacyPaths {
-            guard fileManager.fileExists(atPath: legacyBasePath.path) else {
-                continue
-            }
-
-            // Check if migration is needed (new location doesn't have tiles yet)
-            let newICaoPath = cacheDirectory
-            let legacyICAOPath = legacyBasePath.appendingPathComponent("ICAO", isDirectory: true)
-
-            if fileManager.fileExists(atPath: legacyICAOPath.path) && !fileManager.fileExists(atPath: newICaoPath.path) {
-                do {
-                    // Ensure parent directories exist
-                    try fileManager.createDirectory(at: baseCacheDirectory, withIntermediateDirectories: true)
-
-                    // Move ICAO tiles
-                    if fileManager.fileExists(atPath: legacyICAOPath.path) {
-                        try fileManager.moveItem(at: legacyICAOPath, to: newICaoPath)
-                        print("[AéroCheck] Migrated ICAO tiles from \(legacyBasePath.path) to Caches")
-                    }
-
-                    // Move Segelflug tiles
-                    let legacySegelflugPath = legacyBasePath.appendingPathComponent("Segelflug", isDirectory: true)
-                    if fileManager.fileExists(atPath: legacySegelflugPath.path) && !fileManager.fileExists(atPath: segelflugCacheDirectory.path) {
-                        try fileManager.moveItem(at: legacySegelflugPath, to: segelflugCacheDirectory)
-                        print("[AéroCheck] Migrated Segelflug tiles to Caches")
-                    }
-
-                    // Clean up empty legacy directories
-                    try? fileManager.removeItem(at: legacyBasePath)
-
-                    print("[AéroCheck] Map tiles migration to Caches completed")
-                } catch {
-                    print("[AéroCheck] Failed to migrate map tiles: \(error.localizedDescription)")
-                }
-            }
-        }
-
-        // Also clean up Maps folder from Documents/AéroCheck if it exists and is empty
-        let documentsMapPath = documentsPath.appendingPathComponent("AéroCheck/Maps", isDirectory: true)
-        if let contents = try? fileManager.contentsOfDirectory(atPath: documentsMapPath.path), contents.isEmpty {
-            try? fileManager.removeItem(at: documentsMapPath)
-        }
     }
 
     // MARK: - Public Methods
@@ -488,18 +433,18 @@ class OfflineMapManager: ObservableObject {
     /// This method is nonisolated because it only performs file system operations
     /// and needs to be called from the tile overlay's loadTile method
     nonisolated func cachedTileURL(z: Int, x: Int, y: Int, layer: CacheableLayer) -> URL? {
-        // Use the Caches directory to store map tiles (local storage only)
-        let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        // Use the local Documents directory for map cache (On this iPhone/AéroCheck/MapData)
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let appFolder = "AéroCheck"
-        let mapsFolder = "Maps"
+        let mapDataFolder = "MapData"
         let layerDir: String
         switch layer {
         case .icao: layerDir = "ICAO"
         case .segelflug: layerDir = "Segelflug"
         }
-        let cacheDir = cachesPath
+        let cacheDir = documentsPath
             .appendingPathComponent(appFolder, isDirectory: true)
-            .appendingPathComponent(mapsFolder, isDirectory: true)
+            .appendingPathComponent(mapDataFolder, isDirectory: true)
             .appendingPathComponent(layerDir, isDirectory: true)
         let tilePath = cacheDir.appendingPathComponent("\(z)/\(x)/\(y).png")
         if FileManager.default.fileExists(atPath: tilePath.path) {
@@ -630,4 +575,3 @@ class OfflineMapManager: ObservableObject {
         }
     }
 }
-

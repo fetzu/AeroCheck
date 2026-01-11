@@ -1,7 +1,9 @@
 import Foundation
 
-/// Manages file-based data persistence in the app's Documents folder
-/// Data is stored in the "AéroCheck" subfolder, making it visible in the Files app
+/// Manages file-based data persistence
+/// - Flights and NavigationPlans: Stored in iCloud Drive (visible in Files app under iCloud/AéroCheck/)
+/// - Settings: Stored locally in Documents (synced via CloudKit)
+/// - Map Cache: Stored locally in Documents (not synced)
 @MainActor
 class DataPersistenceManager: ObservableObject {
     // MARK: - Singleton
@@ -10,71 +12,88 @@ class DataPersistenceManager: ObservableObject {
 
     // MARK: - Directory Structure
 
-    /// Root folder name visible in Files app
+    /// Folder name for the app in both local and iCloud storage
     private let appFolderName = "AéroCheck"
 
-    /// Subfolder for flight logs (visible to user)
+    /// Subfolder for flight logs
     private let flightsFolderName = "Flights"
 
-    /// Subfolder for map tiles in Caches directory (local storage only, not synced)
-    private let mapTilesFolderName = "Maps"
+    /// Subfolder for navigation plans
+    private let navigationPlansFolderName = "NavigationPlans"
 
-    /// Hidden settings file name (prefixed with dot to hide on macOS/Files app)
+    /// Subfolder for map tiles (local only)
+    private let mapDataFolderName = "MapData"
+
+    /// Hidden settings file name
     private let settingsFileName = ".settings.json"
 
-    /// File for storing all flights
-    private let flightsFileName = "flights.json"
+    /// Index file for tracking all flights
+    private let flightsIndexFileName = "flights_index.json"
 
-    // MARK: - UserDefaults Keys (for migration)
-
-    private let legacyFlightsKey = "savedFlights"
-    private let legacySettingsKey = "appSettings"
-    private let migrationCompletedKey = "dataMigrationCompleted"
+    /// Index file for tracking all navigation plans
+    private let plansIndexFileName = "plans_index.json"
 
     // MARK: - Computed Properties
 
-    /// Documents directory URL
+    /// Documents directory URL (local storage)
     private var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
-    /// Caches directory URL (for local-only data like map tiles)
-    private var cachesDirectory: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    /// iCloud Drive container URL (nil if iCloud not available)
+    private var iCloudContainerURL: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.fetzu.aerocheck")
     }
 
-    /// App's root folder in Documents (visible in Files app as "AéroCheck")
-    var appDirectory: URL {
+    /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
+    private var iCloudDocumentsURL: URL? {
+        iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
+    }
+
+    /// Local app folder in Documents (On this iPhone/AéroCheck)
+    var localAppDirectory: URL {
         documentsDirectory.appendingPathComponent(appFolderName, isDirectory: true)
     }
 
-    /// Flights folder URL
+    /// Flights directory - in iCloud if available, otherwise local
     var flightsDirectory: URL {
-        appDirectory.appendingPathComponent(flightsFolderName, isDirectory: true)
+        if let iCloudDocs = iCloudDocumentsURL {
+            return iCloudDocs
+                .appendingPathComponent(appFolderName, isDirectory: true)
+                .appendingPathComponent(flightsFolderName, isDirectory: true)
+        }
+        return localAppDirectory.appendingPathComponent(flightsFolderName, isDirectory: true)
     }
 
-    /// Map tiles folder URL - stored in Caches directory for local-only storage
-    /// This keeps map data under "On this iPhone" and prevents iCloud sync
+    /// Navigation plans directory - in iCloud if available, otherwise local
+    var navigationPlansDirectory: URL {
+        if let iCloudDocs = iCloudDocumentsURL {
+            return iCloudDocs
+                .appendingPathComponent(appFolderName, isDirectory: true)
+                .appendingPathComponent(navigationPlansFolderName, isDirectory: true)
+        }
+        return localAppDirectory.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
+    }
+
+    /// Map tiles directory - always local (On this iPhone/AéroCheck/MapData)
     var mapTilesDirectory: URL {
-        cachesDirectory.appendingPathComponent(appFolderName, isDirectory: true)
-            .appendingPathComponent(mapTilesFolderName, isDirectory: true)
+        localAppDirectory.appendingPathComponent(mapDataFolderName, isDirectory: true)
     }
 
-    /// Settings file URL (hidden file in app directory)
+    /// Settings file URL (local, but content synced via CloudKit)
     private var settingsFileURL: URL {
-        appDirectory.appendingPathComponent(settingsFileName)
+        localAppDirectory.appendingPathComponent(settingsFileName)
     }
 
-    /// Flights data file URL
-    private var flightsFileURL: URL {
-        flightsDirectory.appendingPathComponent(flightsFileName)
+    /// Whether iCloud is available
+    var isICloudAvailable: Bool {
+        iCloudContainerURL != nil
     }
 
     // MARK: - Initialization
 
     private init() {
         createDirectoryStructure()
-        migrateFromUserDefaultsIfNeeded()
     }
 
     // MARK: - Directory Management
@@ -84,16 +103,21 @@ class DataPersistenceManager: ObservableObject {
         let fileManager = FileManager.default
 
         do {
-            // Create main app folder
-            try fileManager.createDirectory(at: appDirectory, withIntermediateDirectories: true)
+            // Create local app folder
+            try fileManager.createDirectory(at: localAppDirectory, withIntermediateDirectories: true)
 
-            // Create Flights subfolder
-            try fileManager.createDirectory(at: flightsDirectory, withIntermediateDirectories: true)
-
-            // Create Maps subfolder
+            // Create map data folder (local only)
             try fileManager.createDirectory(at: mapTilesDirectory, withIntermediateDirectories: true)
 
-            print("[AéroCheck] Directory structure created at: \(appDirectory.path)")
+            // Create flights and navigation plans folders (iCloud or local)
+            try fileManager.createDirectory(at: flightsDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: navigationPlansDirectory, withIntermediateDirectories: true)
+
+            if isICloudAvailable {
+                print("[AéroCheck] Directory structure created with iCloud at: \(flightsDirectory.path)")
+            } else {
+                print("[AéroCheck] Directory structure created locally at: \(localAppDirectory.path)")
+            }
         } catch {
             print("[AéroCheck] Failed to create directory structure: \(error.localizedDescription)")
         }
@@ -132,94 +156,215 @@ class DataPersistenceManager: ObservableObject {
         }
     }
 
-    // MARK: - Flights Persistence
+    // MARK: - Flight Persistence (Individual Files)
 
-    /// Save flights to file
-    func saveFlights(_ flights: [Flight]) {
+    /// Generate filename for a flight: YYYYMMDD-HHMM_PLANE.json
+    func flightFilename(for flight: Flight) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        let dateStr = formatter.string(from: flight.startTime ?? flight.stopTime ?? Date())
+        let plane = flight.airplane.replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+        return "\(dateStr)_\(plane).json"
+    }
+
+    /// Save a single flight to its own file
+    func saveFlight(_ flight: Flight) {
+        let fileURL = flightsDirectory.appendingPathComponent(flightFilename(for: flight))
+
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(flights)
-            try data.write(to: flightsFileURL, options: .atomic)
-            print("[AéroCheck] Flights saved to file (\(flights.count) flights)")
+            let data = try encoder.encode(flight)
+            try data.write(to: fileURL, options: .atomic)
+            print("[AéroCheck] Flight saved: \(flightFilename(for: flight))")
         } catch {
-            print("[AéroCheck] Failed to save flights: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to save flight: \(error.localizedDescription)")
         }
     }
 
-    /// Load flights from file
+    /// Save all flights (saves each to individual file and updates index)
+    func saveFlights(_ flights: [Flight]) {
+        // Save each flight to its own file
+        for flight in flights {
+            saveFlight(flight)
+        }
+
+        // Save index file for tracking
+        saveFlightsIndex(flights)
+    }
+
+    /// Save flights index (list of flight IDs and filenames)
+    private func saveFlightsIndex(_ flights: [Flight]) {
+        let index = flights.map { FlightIndexEntry(id: $0.id, filename: flightFilename(for: $0)) }
+        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            let data = try encoder.encode(index)
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            print("[AéroCheck] Failed to save flights index: \(error.localizedDescription)")
+        }
+    }
+
+    /// Load all flights from individual files
     func loadFlights() -> [Flight] {
-        guard FileManager.default.fileExists(atPath: flightsFileURL.path) else {
+        var flights: [Flight] = []
+        let fileManager = FileManager.default
+
+        // Ensure directory exists
+        guard fileManager.fileExists(atPath: flightsDirectory.path) else {
             return []
         }
 
         do {
-            let data = try Data(contentsOf: flightsFileURL)
+            let files = try fileManager.contentsOfDirectory(at: flightsDirectory, includingPropertiesForKeys: nil)
+            let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
+
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            let flights = try decoder.decode([Flight].self, from: data)
-            print("[AéroCheck] Flights loaded from file (\(flights.count) flights)")
-            return flights
+
+            for fileURL in jsonFiles {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    let flight = try decoder.decode(Flight.self, from: data)
+                    flights.append(flight)
+                } catch {
+                    print("[AéroCheck] Failed to load flight \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+
+            // Sort by start time (newest first)
+            flights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
+            print("[AéroCheck] Loaded \(flights.count) flights from iCloud")
         } catch {
-            print("[AéroCheck] Failed to load flights: \(error.localizedDescription)")
-            return []
+            print("[AéroCheck] Failed to enumerate flights directory: \(error.localizedDescription)")
+        }
+
+        return flights
+    }
+
+    /// Delete a flight file
+    func deleteFlight(_ flight: Flight) {
+        let fileURL = flightsDirectory.appendingPathComponent(flightFilename(for: flight))
+
+        do {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+                print("[AéroCheck] Deleted flight: \(flightFilename(for: flight))")
+            }
+        } catch {
+            print("[AéroCheck] Failed to delete flight: \(error.localizedDescription)")
         }
     }
 
-    // MARK: - Migration from UserDefaults
+    // MARK: - Navigation Plan Persistence (Individual Files)
 
-    /// Migrate data from UserDefaults to file-based storage
-    private func migrateFromUserDefaultsIfNeeded() {
-        let defaults = UserDefaults.standard
+    /// Generate filename for a navigation plan: YYYYMMDD-HHMM_NAME.json
+    func navigationPlanFilename(for plan: FlightPlan) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        let dateStr = formatter.string(from: plan.createdAt)
+        let name = plan.name.isEmpty ? "Plan" : plan.name
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+            .prefix(20)
+        return "\(dateStr)_\(name).json"
+    }
 
-        // Check if migration was already completed
-        if defaults.bool(forKey: migrationCompletedKey) {
-            return
+    /// Save a single navigation plan to its own file
+    func saveNavigationPlan(_ plan: FlightPlan) {
+        let fileURL = navigationPlansDirectory.appendingPathComponent(navigationPlanFilename(for: plan))
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(plan)
+            try data.write(to: fileURL, options: .atomic)
+            print("[AéroCheck] Navigation plan saved: \(navigationPlanFilename(for: plan))")
+        } catch {
+            print("[AéroCheck] Failed to save navigation plan: \(error.localizedDescription)")
+        }
+    }
+
+    /// Save all navigation plans (saves each to individual file and updates index)
+    func saveNavigationPlans(_ plans: [FlightPlan]) {
+        // Save each plan to its own file
+        for plan in plans {
+            saveNavigationPlan(plan)
         }
 
-        print("[AéroCheck] Starting data migration from UserDefaults...")
+        // Save index file for tracking
+        saveNavigationPlansIndex(plans)
+    }
 
-        var migrationSuccess = true
+    /// Save navigation plans index
+    private func saveNavigationPlansIndex(_ plans: [FlightPlan]) {
+        let index = plans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
+        let fileURL = navigationPlansDirectory.appendingPathComponent(plansIndexFileName)
 
-        // Migrate settings
-        if let settingsData = defaults.data(forKey: legacySettingsKey) {
-            do {
-                let decoder = JSONDecoder()
-                let settings = try decoder.decode(AppSettings.self, from: settingsData)
-                saveSettings(settings)
-                print("[AéroCheck] Settings migrated successfully")
-            } catch {
-                print("[AéroCheck] Failed to migrate settings: \(error.localizedDescription)")
-                migrationSuccess = false
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            let data = try encoder.encode(index)
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            print("[AéroCheck] Failed to save navigation plans index: \(error.localizedDescription)")
+        }
+    }
+
+    /// Load all navigation plans from individual files
+    func loadNavigationPlans() -> [FlightPlan] {
+        var plans: [FlightPlan] = []
+        let fileManager = FileManager.default
+
+        // Ensure directory exists
+        guard fileManager.fileExists(atPath: navigationPlansDirectory.path) else {
+            return []
+        }
+
+        do {
+            let files = try fileManager.contentsOfDirectory(at: navigationPlansDirectory, includingPropertiesForKeys: nil)
+            let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            for fileURL in jsonFiles {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    let plan = try decoder.decode(FlightPlan.self, from: data)
+                    plans.append(plan)
+                } catch {
+                    print("[AéroCheck] Failed to load navigation plan \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                }
             }
+
+            // Sort by creation date (newest first)
+            plans.sort { $0.createdAt > $1.createdAt }
+            print("[AéroCheck] Loaded \(plans.count) navigation plans from iCloud")
+        } catch {
+            print("[AéroCheck] Failed to enumerate navigation plans directory: \(error.localizedDescription)")
         }
 
-        // Migrate flights
-        if let flightsData = defaults.data(forKey: legacyFlightsKey) {
-            do {
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                let flights = try decoder.decode([Flight].self, from: flightsData)
-                saveFlights(flights)
-                print("[AéroCheck] Flights migrated successfully (\(flights.count) flights)")
-            } catch {
-                print("[AéroCheck] Failed to migrate flights: \(error.localizedDescription)")
-                migrationSuccess = false
+        return plans
+    }
+
+    /// Delete a navigation plan file
+    func deleteNavigationPlan(_ plan: FlightPlan) {
+        let fileURL = navigationPlansDirectory.appendingPathComponent(navigationPlanFilename(for: plan))
+
+        do {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+                print("[AéroCheck] Deleted navigation plan: \(navigationPlanFilename(for: plan))")
             }
-        }
-
-        if migrationSuccess {
-            // Mark migration as completed
-            defaults.set(true, forKey: migrationCompletedKey)
-
-            // Clean up old UserDefaults data (optional - keep for safety during transition)
-            // defaults.removeObject(forKey: legacySettingsKey)
-            // defaults.removeObject(forKey: legacyFlightsKey)
-
-            print("[AéroCheck] Data migration completed successfully")
-        } else {
-            print("[AéroCheck] Data migration completed with errors")
+        } catch {
+            print("[AéroCheck] Failed to delete navigation plan: \(error.localizedDescription)")
         }
     }
 
@@ -234,4 +379,18 @@ class DataPersistenceManager: ObservableObject {
     var segelflugMapTilesDirectory: URL {
         mapTilesDirectory.appendingPathComponent("Segelflug", isDirectory: true)
     }
+}
+
+// MARK: - Index Entry Types
+
+/// Entry in the flights index file
+struct FlightIndexEntry: Codable {
+    let id: UUID
+    let filename: String
+}
+
+/// Entry in the navigation plans index file
+struct NavigationPlanIndexEntry: Codable {
+    let id: UUID
+    let filename: String
 }

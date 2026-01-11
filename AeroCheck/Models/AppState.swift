@@ -593,25 +593,31 @@ class AppState: ObservableObject {
 
     func deleteFlight(_ flight: Flight) {
         flights.removeAll { $0.id == flight.id }
-        persistence.saveFlights(flights)
 
-        // Sync deletion to iCloud
+        // Delete the individual flight file from iCloud
+        persistence.deleteFlight(flight)
+
+        // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             SyncManager.shared.deleteFlight(flight.id)
         }
     }
 
     func deleteFlight(at indexSet: IndexSet) {
-        // Get flight IDs before removal for sync
-        let flightIdsToDelete = indexSet.map { flights[$0].id }
+        // Get flights before removal for file cleanup and sync
+        let flightsToDelete = indexSet.map { flights[$0] }
 
         flights.remove(atOffsets: indexSet)
-        persistence.saveFlights(flights)
 
-        // Sync deletions to iCloud
+        // Delete individual flight files from iCloud
+        for flight in flightsToDelete {
+            persistence.deleteFlight(flight)
+        }
+
+        // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
-            for flightId in flightIdsToDelete {
-                SyncManager.shared.deleteFlight(flightId)
+            for flight in flightsToDelete {
+                SyncManager.shared.deleteFlight(flight.id)
             }
         }
     }
@@ -648,10 +654,10 @@ class AppState: ObservableObject {
     // MARK: - Persistence
 
     private func saveFlights() {
-        // Save to file-based storage
+        // Save each flight to its own file in iCloud
         persistence.saveFlights(flights)
 
-        // Sync to iCloud if enabled
+        // Sync to iCloud (CloudKit) if enabled
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncAllFlights(flights)
         }
@@ -659,7 +665,8 @@ class AppState: ObservableObject {
 
     /// Save a single flight (for sync efficiency)
     func saveFlight(_ flight: Flight) {
-        persistence.saveFlights(flights)
+        // Save just this flight to its own file
+        persistence.saveFlight(flight)
 
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncFlight(flight, allFlights: flights)

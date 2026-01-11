@@ -41,11 +41,14 @@ class SyncManager: ObservableObject {
 
     // MARK: - Private Properties
 
-    private var container: CKContainer
-    private var database: CKDatabase
+    private var container: CKContainer?
+    private var database: CKDatabase?
     private var syncEngine: CKSyncEngine?
     private var syncEngineDelegate: SyncEngineDelegate?
-    private var recordZone: CKRecordZone
+    private var recordZone: CKRecordZone?
+
+    /// Whether CloudKit is available (entitlements configured)
+    private var isCloudKitAvailable: Bool = false
 
     /// Callback when settings are updated from sync
     var onSettingsUpdated: ((AppSettings) -> Void)?
@@ -62,25 +65,59 @@ class SyncManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
-        self.container = CKContainer(identifier: containerIdentifier)
-        self.database = container.privateCloudDatabase
-        self.recordZone = CKRecordZone(zoneName: zoneName)
-
         // Load sync preference (default to enabled)
         self.isSyncEnabled = UserDefaults.standard.object(forKey: syncEnabledKey) as? Bool ?? true
 
         // Load last sync date
         self.lastSyncDate = UserDefaults.standard.object(forKey: lastSyncDateKey) as? Date
 
+        // Defer CloudKit initialization to avoid crashes if not configured
         if isSyncEnabled {
-            initializeSyncEngine()
+            Task {
+                await initializeCloudKit()
+            }
+        }
+    }
+
+    /// Initialize CloudKit container safely
+    private func initializeCloudKit() async {
+        do {
+            // Try to create the container - this will fail if entitlements aren't configured
+            let testContainer = CKContainer(identifier: containerIdentifier)
+
+            // Check if we can access the account status (this validates the configuration)
+            let status = try await testContainer.accountStatus()
+
+            // If we get here, CloudKit is available
+            self.container = testContainer
+            self.database = testContainer.privateCloudDatabase
+            self.recordZone = CKRecordZone(zoneName: zoneName)
+            self.isCloudKitAvailable = true
+
+            print("[AéroCheck Sync] CloudKit initialized successfully, account status: \(status)")
+
+            if status == .available {
+                initializeSyncEngine()
+            } else {
+                syncError = "iCloud account not available"
+                print("[AéroCheck Sync] iCloud account not available: \(status)")
+            }
+        } catch {
+            isCloudKitAvailable = false
+            syncError = "CloudKit not configured"
+            print("[AéroCheck Sync] CloudKit not available: \(error.localizedDescription)")
+            print("[AéroCheck Sync] To enable iCloud sync, configure CloudKit in Xcode's Signing & Capabilities")
         }
     }
 
     // MARK: - Sync Engine Lifecycle
 
     private func initializeSyncEngine() {
-        guard syncEngine == nil else { return }
+        guard syncEngine == nil, isCloudKitAvailable else { return }
+        guard let container = container, let database = database else {
+            print("[AéroCheck Sync] Cannot initialize sync engine: CloudKit not available")
+            return
+        }
 
         Task {
             do {
@@ -133,7 +170,7 @@ class SyncManager: ObservableObject {
     // MARK: - Zone Management
 
     private func ensureZoneExists() async {
-        guard let engine = syncEngine else { return }
+        guard let engine = syncEngine, let recordZone = recordZone else { return }
 
         // Add pending zone creation
         engine.state.add(pendingDatabaseChanges: [.saveZone(recordZone)])
@@ -169,7 +206,7 @@ class SyncManager: ObservableObject {
 
     /// Sync settings to iCloud
     func syncSettings(_ settings: AppSettings) {
-        guard isSyncEnabled, let engine = syncEngine else { return }
+        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
         pendingSettingsChange = settings
 
@@ -181,7 +218,7 @@ class SyncManager: ObservableObject {
 
     /// Sync a flight to iCloud
     func syncFlight(_ flight: Flight, allFlights: [Flight]) {
-        guard isSyncEnabled, let engine = syncEngine else { return }
+        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
         localFlights = allFlights
         pendingFlightChanges.insert(flight.id)
@@ -194,7 +231,7 @@ class SyncManager: ObservableObject {
 
     /// Sync all flights to iCloud
     func syncAllFlights(_ flights: [Flight]) {
-        guard isSyncEnabled, let engine = syncEngine else { return }
+        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
         localFlights = flights
 
@@ -211,7 +248,7 @@ class SyncManager: ObservableObject {
 
     /// Delete a flight from iCloud
     func deleteFlight(_ flightId: UUID) {
-        guard isSyncEnabled, let engine = syncEngine else { return }
+        guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
         pendingFlightDeletions.insert(flightId)
 
@@ -245,6 +282,7 @@ class SyncManager: ObservableObject {
     // MARK: - Record Conversion
 
     func createSettingsRecord(_ settings: AppSettings) -> CKRecord? {
+        guard let recordZone = recordZone else { return nil }
         let recordID = CKRecord.ID(recordName: "settings", zoneID: recordZone.zoneID)
         let record = CKRecord(recordType: SyncRecordType.settings.rawValue, recordID: recordID)
 
@@ -261,6 +299,7 @@ class SyncManager: ObservableObject {
     }
 
     func createFlightRecord(_ flight: Flight) -> CKRecord? {
+        guard let recordZone = recordZone else { return nil }
         let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
         let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
 

@@ -401,9 +401,12 @@ class SubscriptionManager: ObservableObject {
         debugLogger.log("User ID: \(userID)", level: .info)
 
         // Get the JWS token (StoreKit 2 modern approach)
-        // Note: Transaction.jsonRepresentation is available in iOS 15.0+
-        let jwsRepresentation = transaction.jsonRepresentation
-        debugLogger.log("JWS token extracted (length: \(jwsRepresentation.count) chars)", level: .success)
+        // Note: Transaction.jsonRepresentation is available in iOS 15.0+ and returns Data
+        let jwsData = transaction.jsonRepresentation
+
+        // Convert Data to base64 string for transmission
+        let jwsToken = jwsData.base64EncodedString()
+        debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
         // Send to server
         let url = URL(string: "\(apiBaseURL)/api/v1/subscription/verify")!
@@ -411,14 +414,26 @@ class SubscriptionManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
-            "jwsToken": jwsRepresentation,
-            "userId": userID,
-            "environment": String(describing: transaction.environment)
-        ]
+        // Convert environment to a simple string (avoiding complex enum serialization)
+        let environmentString = "\(transaction.environment)"
+
+        debugLogger.log("Environment: \(environmentString)", level: .info)
+
+        struct VerifyRequest: Codable {
+            let jwsToken: String
+            let userId: String
+            let environment: String
+        }
+
+        let requestBody = VerifyRequest(
+            jwsToken: jwsToken,
+            userId: userID,
+            environment: environmentString
+        )
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let jsonData = try JSONEncoder().encode(requestBody)
+            request.httpBody = jsonData
 
             debugLogger.log("Sending JWS verification request to server", level: .info)
 

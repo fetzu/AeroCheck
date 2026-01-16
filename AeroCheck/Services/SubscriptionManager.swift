@@ -40,6 +40,9 @@ class SubscriptionManager: ObservableObject {
     /// Cached user ID from StoreKit
     private var cachedUserID: String?
 
+    /// Debug flag to force "not subscribed" state (for testing)
+    @Published var debugForceNotSubscribed: Bool = false
+
     // MARK: - Initialization
 
     init(apiBaseURL: String = "https://api.aerocheck.app") {
@@ -140,6 +143,13 @@ class SubscriptionManager: ObservableObject {
 
     /// Updates the subscription status by checking current entitlements
     func updateSubscriptionStatus() async {
+        // Check debug flag first
+        if debugForceNotSubscribed {
+            subscriptionStatus = .notSubscribed
+            print("[SubscriptionManager] Debug mode: Forcing not subscribed state")
+            return
+        }
+
         // Check for active subscription
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result {

@@ -795,6 +795,13 @@ struct SettingsView: View {
             Section {
                 Toggle("Marketing Mode", isOn: $marketingMode)
 
+                Toggle("Force 'Not Subscribed' State", isOn: $subscriptionManager.debugForceNotSubscribed)
+                    .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in
+                        Task {
+                            await subscriptionManager.updateSubscriptionStatus()
+                        }
+                    }
+
                 Button(role: .destructive, action: resetSubscription) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise")
@@ -817,7 +824,8 @@ struct SettingsView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
-                    Text("Reset Subscription: Clears cached subscription state. The app will re-check subscription status with Apple on next verification.")
+                    Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
+                    Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
                 }
             }
         }

@@ -389,7 +389,7 @@ class SubscriptionManager: ObservableObject {
         }
     }
 
-    /// Verifies a transaction with the AeroCheck API server
+    /// Verifies a transaction with the AeroCheck API server using StoreKit 2 JWS token
     private func verifyWithServer(transaction: Transaction) async {
         debugLogger.log("Starting server verification for: \(transaction.productID)", level: .info)
 
@@ -400,22 +400,10 @@ class SubscriptionManager: ObservableObject {
 
         debugLogger.log("User ID: \(userID)", level: .info)
 
-        // Get the app receipt
-        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
-            debugLogger.log("No receipt URL found - testing with StoreKit Configuration?", level: .error)
-            return
-        }
-
-        debugLogger.log("Receipt URL: \(receiptURL.path)", level: .info)
-
-        guard let receiptData = try? Data(contentsOf: receiptURL) else {
-            debugLogger.log("Could not read receipt data from \(receiptURL.path)", level: .error)
-            return
-        }
-
-        debugLogger.log("Receipt size: \(receiptData.count) bytes", level: .info)
-
-        let receiptString = receiptData.base64EncodedString()
+        // Get the JWS token (StoreKit 2 modern approach)
+        // Note: Transaction.jsonRepresentation is available in iOS 15.0+
+        let jwsRepresentation = transaction.jsonRepresentation
+        debugLogger.log("JWS token extracted (length: \(jwsRepresentation.count) chars)", level: .success)
 
         // Send to server
         let url = URL(string: "\(apiBaseURL)/api/v1/subscription/verify")!
@@ -424,14 +412,15 @@ class SubscriptionManager: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "receiptData": receiptString,
-            "userId": userID
+            "jwsToken": jwsRepresentation,
+            "userId": userID,
+            "environment": String(describing: transaction.environment)
         ]
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-            debugLogger.log("Sending request to \(url.absoluteString)", level: .info)
+            debugLogger.log("Sending JWS verification request to server", level: .info)
 
             let (data, response) = try await URLSession.shared.data(for: request)
 

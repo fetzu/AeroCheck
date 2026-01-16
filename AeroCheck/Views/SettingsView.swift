@@ -28,6 +28,7 @@ struct SettingsView: View {
     @State private var showDeveloperOptions: Bool = false
     @State private var versionTapCount: Int = 0
     @State private var showTransactionDebug: Bool = false
+    @State private var showSubscriptionLogs: Bool = false
 
     // Flight Planning settings
     @State private var enableFlightPlanning: Bool = false
@@ -831,6 +832,17 @@ struct SettingsView: View {
                         .environmentObject(subscriptionManager)
                 }
 
+                Button(action: { showSubscriptionLogs = true }) {
+                    HStack {
+                        Image(systemName: "doc.text.fill")
+                        Text("Show Subscription Logs")
+                    }
+                }
+                .sheet(isPresented: $showSubscriptionLogs) {
+                    SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
+                        .environmentObject(subscriptionManager)
+                }
+
                 Button(role: .destructive, action: resetSubscription) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise")
@@ -855,6 +867,7 @@ struct SettingsView: View {
                     Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
                     Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
                     Text("Show All Transactions: Displays all StoreKit transactions for debugging subscription issues.")
+                    Text("Show Subscription Logs: Real-time logs of subscription sync operations and server communication.")
                     Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
                 }
             }
@@ -1685,6 +1698,89 @@ struct TransactionDebugRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Subscription Debug Log View
+
+struct SubscriptionDebugLogView: View {
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var debugLogger: SubscriptionDebugLogger
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if debugLogger.logs.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text("No Logs Yet")
+                            .font(.headline)
+                        Text("Logs will appear here when you sync with the server or perform subscription operations.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                } else {
+                    List {
+                        ForEach(debugLogger.logs) { log in
+                            DebugLogRow(log: log)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Subscription Logs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        debugLogger.clear()
+                    }) {
+                        Image(systemName: "trash")
+                    }
+                    .disabled(debugLogger.logs.isEmpty)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct DebugLogRow: View {
+    let log: DebugLogEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(log.level.emoji)
+                    .font(.body)
+                Text(log.timestamp.formatted(date: .omitted, time: .standard))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+
+            Text(log.message)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(colorForLevel(log.level))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func colorForLevel(_ level: LogLevel) -> Color {
+        switch level {
+        case .info: return .primary
+        case .warning: return .orange
+        case .error: return .red
+        case .success: return .green
+        }
     }
 }
 

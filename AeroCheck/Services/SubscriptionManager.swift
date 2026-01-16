@@ -1,6 +1,53 @@
 import Foundation
 import StoreKit
 
+/// Debug logger for subscription operations
+@MainActor
+class SubscriptionDebugLogger: ObservableObject {
+    @Published var logs: [DebugLogEntry] = []
+    private let maxLogs = 100
+
+    func log(_ message: String, level: LogLevel = .info) {
+        let entry = DebugLogEntry(message: message, level: level, timestamp: Date())
+        logs.insert(entry, at: 0)
+
+        // Keep only the most recent logs
+        if logs.count > maxLogs {
+            logs = Array(logs.prefix(maxLogs))
+        }
+
+        // Also print to console
+        print("[SubscriptionManager] \(message)")
+    }
+
+    func clear() {
+        logs.removeAll()
+    }
+}
+
+struct DebugLogEntry: Identifiable {
+    let id = UUID()
+    let message: String
+    let level: LogLevel
+    let timestamp: Date
+}
+
+enum LogLevel {
+    case info
+    case warning
+    case error
+    case success
+
+    var emoji: String {
+        switch self {
+        case .info: return "ℹ️"
+        case .warning: return "⚠️"
+        case .error: return "❌"
+        case .success: return "✅"
+        }
+    }
+}
+
 /// Manages subscription purchases and status using StoreKit 2
 /// Integrates with the AeroCheck API for receipt verification
 @MainActor
@@ -22,6 +69,9 @@ class SubscriptionManager: ObservableObject {
 
     /// Whether products are loading
     @Published var isLoading = false
+
+    /// Debug logger
+    let debugLogger = SubscriptionDebugLogger()
 
     // MARK: - Private Properties
 
@@ -194,22 +244,48 @@ class SubscriptionManager: ObservableObject {
 
     /// Manually syncs subscription with server
     func syncWithServer() async {
-        print("[SubscriptionManager] Manually syncing subscription with server")
+        debugLogger.log("Manually syncing subscription with server", level: .info)
+
+        var transactionCount = 0
+        var foundActiveSubscription = false
 
         // Get current active transaction
         for await result in Transaction.currentEntitlements {
+            transactionCount += 1
+            debugLogger.log("Checking transaction #\(transactionCount)", level: .info)
+
             if case .verified(let transaction) = result {
+                debugLogger.log("Transaction verified: \(transaction.productID)", level: .info)
+
                 if productIdentifiers.contains(transaction.productID) {
-                    if let expirationDate = transaction.expirationDate, expirationDate > Date() {
-                        print("[SubscriptionManager] Found active subscription, verifying with server")
-                        await verifyWithServer(transaction: transaction)
-                        return
+                    debugLogger.log("Transaction is for our product: \(transaction.productID)", level: .info)
+
+                    if let expirationDate = transaction.expirationDate {
+                        let isActive = expirationDate > Date()
+                        debugLogger.log("Expiration: \(expirationDate), Active: \(isActive)", level: .info)
+
+                        if isActive {
+                            debugLogger.log("Found active subscription, verifying with server", level: .success)
+                            foundActiveSubscription = true
+                            await verifyWithServer(transaction: transaction)
+                            return
+                        } else {
+                            debugLogger.log("Transaction expired", level: .warning)
+                        }
+                    } else {
+                        debugLogger.log("Transaction has no expiration date", level: .warning)
                     }
+                } else {
+                    debugLogger.log("Transaction is not for our product (found: \(transaction.productID))", level: .warning)
                 }
+            } else if case .unverified(let transaction, let error) = result {
+                debugLogger.log("Unverified transaction: \(transaction.productID) - Error: \(error.localizedDescription)", level: .error)
             }
         }
 
-        print("[SubscriptionManager] No active subscription found to sync")
+        if !foundActiveSubscription {
+            debugLogger.log("No active subscription found to sync (checked \(transactionCount) transactions)", level: .warning)
+        }
     }
 
     /// Gets the user ID for API authentication
@@ -315,31 +391,29 @@ class SubscriptionManager: ObservableObject {
 
     /// Verifies a transaction with the AeroCheck API server
     private func verifyWithServer(transaction: Transaction) async {
-        print("[SubscriptionManager] Starting server verification for transaction: \(transaction.productID)")
+        debugLogger.log("Starting server verification for: \(transaction.productID)", level: .info)
 
         guard let userID = await getUserID() else {
-            print("[SubscriptionManager] ❌ No user ID available for server verification")
+            debugLogger.log("No user ID available for server verification", level: .error)
             return
         }
 
-        print("[SubscriptionManager] User ID: \(userID)")
+        debugLogger.log("User ID: \(userID)", level: .info)
 
         // Get the app receipt
         guard let receiptURL = Bundle.main.appStoreReceiptURL else {
-            print("[SubscriptionManager] ❌ No receipt URL found")
-            print("[SubscriptionManager] This usually means you're testing with StoreKit Configuration file")
-            print("[SubscriptionManager] Real App Store receipts are only available on physical devices with real/sandbox subscriptions")
+            debugLogger.log("No receipt URL found - testing with StoreKit Configuration?", level: .error)
             return
         }
 
-        print("[SubscriptionManager] Receipt URL: \(receiptURL.path)")
+        debugLogger.log("Receipt URL: \(receiptURL.path)", level: .info)
 
         guard let receiptData = try? Data(contentsOf: receiptURL) else {
-            print("[SubscriptionManager] ❌ Could not read receipt data from \(receiptURL.path)")
+            debugLogger.log("Could not read receipt data from \(receiptURL.path)", level: .error)
             return
         }
 
-        print("[SubscriptionManager] Receipt size: \(receiptData.count) bytes")
+        debugLogger.log("Receipt size: \(receiptData.count) bytes", level: .info)
 
         let receiptString = receiptData.base64EncodedString()
 
@@ -357,32 +431,31 @@ class SubscriptionManager: ObservableObject {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-            print("[SubscriptionManager] Sending verification request to \(url.absoluteString)")
+            debugLogger.log("Sending request to \(url.absoluteString)", level: .info)
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("[SubscriptionManager] ❌ Invalid response type")
+                debugLogger.log("Invalid response type", level: .error)
                 return
             }
 
-            print("[SubscriptionManager] Server response status: \(httpResponse.statusCode)")
+            debugLogger.log("Server response: HTTP \(httpResponse.statusCode)", level: httpResponse.statusCode == 200 ? .success : .error)
 
             guard httpResponse.statusCode == 200 else {
-                print("[SubscriptionManager] ❌ Server verification failed with status: \(httpResponse.statusCode)")
                 if let responseString = String(data: data, encoding: .utf8) {
-                    print("[SubscriptionManager] Response body: \(responseString)")
+                    debugLogger.log("Error response: \(responseString)", level: .error)
                 }
                 return
             }
 
             // Parse response (for debugging)
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                print("[SubscriptionManager] ✅ Server verification successful: \(json)")
+                debugLogger.log("Verification successful: \(json)", level: .success)
             }
 
         } catch {
-            print("[SubscriptionManager] ❌ Server verification error: \(error)")
+            debugLogger.log("Network error: \(error.localizedDescription)", level: .error)
         }
     }
 }

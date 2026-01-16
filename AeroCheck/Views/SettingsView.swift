@@ -794,6 +794,13 @@ struct SettingsView: View {
         if showDeveloperOptions {
             Section {
                 Toggle("Marketing Mode", isOn: $marketingMode)
+
+                Button(role: .destructive, action: resetSubscription) {
+                    HStack {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset Subscription State")
+                    }
+                }
             } header: {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
@@ -808,8 +815,17 @@ struct SettingsView: View {
                         )
                 }
             } footer: {
-                Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+                    Text("Reset Subscription: Clears cached subscription state. The app will re-check subscription status with Apple on next verification.")
+                }
             }
+        }
+    }
+
+    private func resetSubscription() {
+        Task {
+            await subscriptionManager.resetSubscriptionState()
         }
     }
     

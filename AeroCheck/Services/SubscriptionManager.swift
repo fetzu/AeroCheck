@@ -168,6 +168,20 @@ class SubscriptionManager: ObservableObject {
         subscriptionStatus = .notSubscribed
     }
 
+    /// Resets the subscription state (for debugging/testing)
+    func resetSubscriptionState() async {
+        // Clear cached user ID
+        cachedUserID = nil
+
+        // Reset subscription status
+        subscriptionStatus = .unknown
+
+        // Re-check subscription status
+        await updateSubscriptionStatus()
+
+        print("[SubscriptionManager] Subscription state reset")
+    }
+
     /// Gets the user ID for API authentication
     func getUserID() async -> String? {
         if let cached = cachedUserID {

@@ -273,17 +273,31 @@ class SubscriptionManager: ObservableObject {
 
     /// Verifies a transaction with the AeroCheck API server
     private func verifyWithServer(transaction: Transaction) async {
+        print("[SubscriptionManager] Starting server verification for transaction: \(transaction.productID)")
+
         guard let userID = await getUserID() else {
-            print("No user ID available for server verification")
+            print("[SubscriptionManager] ❌ No user ID available for server verification")
             return
         }
 
+        print("[SubscriptionManager] User ID: \(userID)")
+
         // Get the app receipt
-        guard let receiptURL = Bundle.main.appStoreReceiptURL,
-              let receiptData = try? Data(contentsOf: receiptURL) else {
-            print("Could not get app receipt")
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
+            print("[SubscriptionManager] ❌ No receipt URL found")
+            print("[SubscriptionManager] This usually means you're testing with StoreKit Configuration file")
+            print("[SubscriptionManager] Real App Store receipts are only available on physical devices with real/sandbox subscriptions")
             return
         }
+
+        print("[SubscriptionManager] Receipt URL: \(receiptURL.path)")
+
+        guard let receiptData = try? Data(contentsOf: receiptURL) else {
+            print("[SubscriptionManager] ❌ Could not read receipt data from \(receiptURL.path)")
+            return
+        }
+
+        print("[SubscriptionManager] Receipt size: \(receiptData.count) bytes")
 
         let receiptString = receiptData.base64EncodedString()
 
@@ -301,21 +315,32 @@ class SubscriptionManager: ObservableObject {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+            print("[SubscriptionManager] Sending verification request to \(url.absoluteString)")
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                print("Server verification failed with status: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("[SubscriptionManager] ❌ Invalid response type")
+                return
+            }
+
+            print("[SubscriptionManager] Server response status: \(httpResponse.statusCode)")
+
+            guard httpResponse.statusCode == 200 else {
+                print("[SubscriptionManager] ❌ Server verification failed with status: \(httpResponse.statusCode)")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("[SubscriptionManager] Response body: \(responseString)")
+                }
                 return
             }
 
             // Parse response (for debugging)
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                print("Server verification response: \(json)")
+                print("[SubscriptionManager] ✅ Server verification successful: \(json)")
             }
 
         } catch {
-            print("Server verification error: \(error)")
+            print("[SubscriptionManager] ❌ Server verification error: \(error)")
         }
     }
 }

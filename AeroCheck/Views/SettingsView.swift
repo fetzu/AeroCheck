@@ -170,14 +170,31 @@ struct SettingsView: View {
                 SubscriptionView()
                     .environmentObject(subscriptionManager)
             }
+
+            if subscriptionManager.subscriptionStatus.isSubscribed {
+                Button(action: syncSubscription) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text("Sync with Server")
+                    }
+                }
+            }
         } header: {
             Label("Subscription", systemImage: "star.fill")
         } footer: {
             if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text("You have access to all premium aircraft checklists.")
+                Text("You have access to all premium aircraft checklists. Tap 'Sync with Server' if premium aircraft still appear locked.")
             } else {
                 Text("Subscribe to unlock additional aircraft checklists.")
             }
+        }
+    }
+
+    private func syncSubscription() {
+        Task {
+            await subscriptionManager.syncWithServer()
+            // Refresh aircraft list to get updated hasAccess values
+            await aircraftDataService.fetchAvailableAircraft()
         }
     }
 

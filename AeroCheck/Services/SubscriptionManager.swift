@@ -192,6 +192,26 @@ class SubscriptionManager: ObservableObject {
         print("[SubscriptionManager] Subscription state reset")
     }
 
+    /// Manually syncs subscription with server
+    func syncWithServer() async {
+        print("[SubscriptionManager] Manually syncing subscription with server")
+
+        // Get current active transaction
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                if productIdentifiers.contains(transaction.productID) {
+                    if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+                        print("[SubscriptionManager] Found active subscription, verifying with server")
+                        await verifyWithServer(transaction: transaction)
+                        return
+                    }
+                }
+            }
+        }
+
+        print("[SubscriptionManager] No active subscription found to sync")
+    }
+
     /// Gets the user ID for API authentication
     func getUserID() async -> String? {
         if let cached = cachedUserID {

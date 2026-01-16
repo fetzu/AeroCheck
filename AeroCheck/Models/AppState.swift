@@ -12,6 +12,7 @@ enum PhaseCompletionStatus {
 /// Application-wide settings
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
+    var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
@@ -36,14 +37,25 @@ struct AppSettings: Codable, Equatable {
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
+    /// Whether a remote aircraft is selected
+    var isRemoteAircraftSelected: Bool {
+        selectedRemoteAircraftId != nil
+    }
+
     /// Aircraft registration (derived from selected aircraft)
     var defaultAirplane: String {
-        selectedAircraft.registration
+        // If remote aircraft is selected, return its ID for now
+        // This will be resolved to actual registration when loading checklist
+        if let remoteId = selectedRemoteAircraftId {
+            return remoteId
+        }
+        return selectedAircraft.registration
     }
 
     // Custom coding keys to exclude marketingMode from persistence
     enum CodingKeys: String, CodingKey {
         case selectedAircraft
+        case selectedRemoteAircraftId
         case keepScreenOn
         case gpsRecordingInterval
         case showSpeedReference
@@ -245,6 +257,29 @@ class AppState: ObservableObject {
     /// Sync the current aircraft type to ChecklistData
     private func syncAircraftType() {
         ChecklistData.currentAircraft = settings.selectedAircraft
+
+        // Clear remote checklist if not using remote aircraft
+        if settings.selectedRemoteAircraftId == nil {
+            ChecklistData.currentRemoteChecklist = nil
+        }
+    }
+
+    /// Load remote aircraft checklist if one is selected
+    /// Call this before starting a flight with a remote aircraft
+    func loadRemoteChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
+        guard let remoteId = settings.selectedRemoteAircraftId else {
+            ChecklistData.currentRemoteChecklist = nil
+            return
+        }
+
+        // Load the checklist from the data service
+        if let checklist = await aircraftDataService.fetchChecklist(for: remoteId) {
+            ChecklistData.currentRemoteChecklist = checklist
+            print("[AéroCheck] Loaded remote checklist for \(remoteId)")
+        } else {
+            print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
+            ChecklistData.currentRemoteChecklist = nil
+        }
     }
     
     // MARK: - Flight Management

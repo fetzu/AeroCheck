@@ -6,10 +6,12 @@ struct HomeView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @State private var showSettings = false
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
     @State private var showNavigation = false
+    @State private var remoteAircraftMetadata: RemoteAircraftMetadata? = nil
     
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -171,20 +173,74 @@ struct HomeView: View {
                 .font(.system(size: isCompact ? 40 : (isLandscape ? 44 : 80)))
                 .foregroundColor(.aviationGold.opacity(0.3))
 
-            // Aircraft info
-            VStack(spacing: isLandscape ? 2 : (isCompact ? 4 : 8)) {
-                Text(currentAircraft.registration)
-                    .font(.system(size: isCompact ? 24 : (isLandscape ? 28 : 36), weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGold)
+            // Aircraft info - show remote or bundled
+            if let remoteId = appState.settings.selectedRemoteAircraftId,
+               let remote = remoteAircraftMetadata {
+                // Remote aircraft
+                VStack(spacing: isLandscape ? 2 : (isCompact ? 4 : 8)) {
+                    HStack(spacing: 8) {
+                        Text(remote.registration)
+                            .font(.system(size: isCompact ? 24 : (isLandscape ? 28 : 36), weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
 
-                Text(currentAircraft.shortModelName)
-                    .font(.system(size: isCompact ? 13 : (isLandscape ? 15 : 18), weight: .semibold))
-                    .foregroundColor(.primaryText)
+                        if !remote.isFree {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: isCompact ? 16 : 20))
+                                .foregroundColor(.aviationGold)
+                        }
+                    }
 
-                if !isLandscape && !isCompact {
-                    Text("Version \(currentAircraft.checklistVersion) • \(currentAircraft.lastUpdated)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.dimText)
+                    Text(remote.shortModelName)
+                        .font(.system(size: isCompact ? 13 : (isLandscape ? 15 : 18), weight: .semibold))
+                        .foregroundColor(.primaryText)
+
+                    if !isLandscape && !isCompact {
+                        VStack(spacing: 4) {
+                            Text("Version \(remote.version) • \(remote.lastUpdated)")
+                                .font(.system(size: 13))
+                                .foregroundColor(.dimText)
+
+                            // Show cache status if checklist is cached
+                            if aircraftDataService.isChecklistCached(aircraftId: remote.id) {
+                                if aircraftDataService.isCacheValid(aircraftId: remote.id) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.aviationGreen)
+                                        Text("Available offline")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.aviationGreen)
+                                    }
+                                } else {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "clock")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.aviationAmber)
+                                        Text("Cache expired")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.aviationAmber)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Bundled aircraft
+                VStack(spacing: isLandscape ? 2 : (isCompact ? 4 : 8)) {
+                    Text(currentAircraft.registration)
+                        .font(.system(size: isCompact ? 24 : (isLandscape ? 28 : 36), weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+
+                    Text(currentAircraft.shortModelName)
+                        .font(.system(size: isCompact ? 13 : (isLandscape ? 15 : 18), weight: .semibold))
+                        .foregroundColor(.primaryText)
+
+                    if !isLandscape && !isCompact {
+                        Text("Version \(currentAircraft.checklistVersion) • \(currentAircraft.lastUpdated)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.dimText)
+                    }
                 }
             }
 
@@ -202,14 +258,14 @@ struct HomeView: View {
 
                 QuickStatView(
                     icon: "list.bullet",
-                    value: "\(currentAircraft.totalChecklistItems)",
+                    value: itemCountText,
                     label: "Items",
                     isCompact: isLandscape || isCompact
                 )
 
                 QuickStatView(
                     icon: "doc.text.fill",
-                    value: "\(currentAircraft.pageCount)",
+                    value: pageCountText,
                     label: "Pages",
                     isCompact: isLandscape || isCompact
                 )
@@ -221,6 +277,36 @@ struct HomeView: View {
                 .fill(Color.cardBackground)
                 .shadow(color: .black.opacity(0.4), radius: isCompact ? 8 : (isLandscape ? 12 : 20), x: 0, y: isCompact ? 4 : (isLandscape ? 6 : 10))
         )
+        .onAppear {
+            loadRemoteAircraftIfNeeded()
+        }
+        .onChange(of: appState.settings.selectedRemoteAircraftId) { _, _ in
+            loadRemoteAircraftIfNeeded()
+        }
+    }
+
+    private var itemCountText: String {
+        if let remote = remoteAircraftMetadata {
+            return "—" // Will be calculated when checklist is loaded
+        }
+        return "\(currentAircraft.totalChecklistItems)"
+    }
+
+    private var pageCountText: String {
+        if let remote = remoteAircraftMetadata {
+            return "\(remote.pageCount)"
+        }
+        return "\(currentAircraft.pageCount)"
+    }
+
+    private func loadRemoteAircraftIfNeeded() {
+        guard let remoteId = appState.settings.selectedRemoteAircraftId else {
+            remoteAircraftMetadata = nil
+            return
+        }
+
+        // Find the remote aircraft in the available list
+        remoteAircraftMetadata = aircraftDataService.availableAircraft.first { $0.id == remoteId }
     }
     
     // MARK: - Bottom Bar
@@ -328,22 +414,32 @@ struct HomeView: View {
     }
     
     private func startFlight() {
-        // Pass the active flight plan ID to the flight if one is active
-        let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
-        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId, circuitMode: false)
-        locationManager.startTracking(
-            appState: appState,
-            interval: appState.settings.gpsRecordingInterval
-        )
+        Task {
+            // Load remote checklist if needed
+            await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+
+            // Pass the active flight plan ID to the flight if one is active
+            let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
+            appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId, circuitMode: false)
+            locationManager.startTracking(
+                appState: appState,
+                interval: appState.settings.gpsRecordingInterval
+            )
+        }
     }
 
     private func startCircuits() {
-        // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
-        appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: nil, circuitMode: true)
-        locationManager.startTracking(
-            appState: appState,
-            interval: appState.settings.gpsRecordingInterval
-        )
+        Task {
+            // Load remote checklist if needed
+            await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+
+            // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
+            appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: nil, circuitMode: true)
+            locationManager.startTracking(
+                appState: appState,
+                interval: appState.settings.gpsRecordingInterval
+            )
+        }
     }
 }
 
@@ -375,9 +471,12 @@ struct QuickStatView: View {
 // MARK: - Preview
 
 #Preview {
-    HomeView()
+    let subManager = SubscriptionManager()
+    return HomeView()
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
+        .environmentObject(FlightPlanManager())
+        .environmentObject(AircraftDataService(subscriptionManager: subManager))
 }
 

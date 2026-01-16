@@ -188,25 +188,54 @@ struct ChecklistData {
     /// Only mutate this from AppState.syncAircraftType()
     nonisolated(unsafe) static var currentAircraft: AircraftType = .wt9Dynamic
 
+    /// Current remote aircraft checklist (if a remote aircraft is selected)
+    /// Only mutate this from AppState
+    nonisolated(unsafe) static var currentRemoteChecklist: RemoteAircraftChecklist? = nil
+
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
-        currentAircraft.items(for: phase)
+        if let remote = currentRemoteChecklist {
+            return remote.items(for: phase)
+        }
+        return currentAircraft.items(for: phase)
     }
 
     // MARK: - Learning Mode Support
 
     static func learningModeVisibleCount(for phase: ChecklistPhase) -> Int? {
-        currentAircraft.learningModeVisibleCount(for: phase)
+        if let remote = currentRemoteChecklist {
+            return remote.learningModeVisibleCount(for: phase)
+        }
+        return currentAircraft.learningModeVisibleCount(for: phase)
     }
 
     static func visibleItems(for phase: ChecklistPhase, learningMode: Bool) -> [ChecklistItem] {
-        currentAircraft.visibleItems(for: phase, learningMode: learningMode)
+        if let remote = currentRemoteChecklist {
+            return remote.visibleItems(for: phase, learningMode: learningMode)
+        }
+        return currentAircraft.visibleItems(for: phase, learningMode: learningMode)
     }
 
     static func visibleItemCount(for phase: ChecklistPhase, learningMode: Bool) -> Int {
-        currentAircraft.visibleItemCount(for: phase, learningMode: learningMode)
+        if let remote = currentRemoteChecklist {
+            let items = remote.items(for: phase)
+            if learningMode {
+                return items.count
+            }
+            if let count = remote.learningModeVisibleCount(for: phase) {
+                return count
+            }
+            return items.count
+        }
+        return currentAircraft.visibleItemCount(for: phase, learningMode: learningMode)
     }
 
     static func hasHiddenItems(for phase: ChecklistPhase, learningMode: Bool) -> Bool {
-        currentAircraft.hasHiddenItems(for: phase, learningMode: learningMode)
+        if learningMode {
+            return false
+        }
+        if let remote = currentRemoteChecklist {
+            return remote.learningModeVisibleCount(for: phase) != nil
+        }
+        return currentAircraft.hasHiddenItems(for: phase, learningMode: learningMode)
     }
 }

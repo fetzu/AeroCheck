@@ -37,6 +37,11 @@ struct AeroCheckApp: App {
                     handleDeepLink(url)
                 }
                 .onAppear {
+                    // Fetch available aircraft from API
+                    Task {
+                        await aircraftDataService.fetchAvailableAircraft()
+                    }
+
                     // Check for yearly map update reminder
                     if offlineMapManager.shouldShowUpdateReminder {
                         showUpdateReminder = true

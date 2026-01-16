@@ -75,19 +75,34 @@ class AircraftDataService: ObservableObject {
     func fetchChecklist(for aircraftId: String) async -> RemoteAircraftChecklist? {
         // Check cache first
         if let cached = loadCachedChecklist(aircraftId: aircraftId) {
-            // Check if update is available in background
-            Task {
-                await checkForUpdate(aircraftId: aircraftId)
+            // Check if cache is still valid (24 hours)
+            if isCacheValid(aircraftId: aircraftId) {
+                print("[AircraftDataService] Using cached checklist for \(aircraftId)")
+
+                // Check if update is available in background (don't block)
+                Task {
+                    await checkForUpdate(aircraftId: aircraftId)
+                }
+                return cached
+            } else {
+                print("[AircraftDataService] Cache expired for \(aircraftId), fetching fresh data")
             }
-            return cached
         }
 
         // Fetch from server
         do {
             let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId)
             cacheChecklist(checklist, aircraftId: aircraftId)
+            print("[AircraftDataService] Cached fresh checklist for \(aircraftId)")
             return checklist
         } catch {
+            // If offline and we have cached data (even if expired), use it
+            if let cached = loadCachedChecklist(aircraftId: aircraftId) {
+                print("[AircraftDataService] Using expired cache for \(aircraftId) (offline)")
+                errorMessage = "Using cached data (offline)"
+                return cached
+            }
+
             errorMessage = "Failed to fetch checklist: \(error.localizedDescription)"
             print("Failed to fetch checklist for \(aircraftId): \(error)")
             return nil
@@ -147,6 +162,45 @@ class AircraftDataService: ObservableObject {
             return nil
         }
         return attributes[.modificationDate] as? Date
+    }
+
+    /// Checks if cached checklist is still valid (within 24 hours)
+    func isCacheValid(aircraftId: String) -> Bool {
+        guard let cacheDate = getCacheDate(aircraftId: aircraftId) else {
+            return false
+        }
+
+        let expirationInterval: TimeInterval = 24 * 60 * 60 // 24 hours
+        let expirationDate = cacheDate.addingTimeInterval(expirationInterval)
+
+        return Date() < expirationDate
+    }
+
+    /// Clears the cache for a specific aircraft
+    func clearCache(for aircraftId: String) {
+        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
+
+        do {
+            try fileManager.removeItem(at: path)
+            print("[AircraftDataService] Cleared cache for \(aircraftId)")
+        } catch {
+            print("[AircraftDataService] Failed to clear cache for \(aircraftId): \(error)")
+        }
+    }
+
+    /// Clears all cached checklists
+    func clearAllCaches() {
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)
+
+            for fileURL in contents where fileURL.pathExtension == "json" {
+                try? fileManager.removeItem(at: fileURL)
+            }
+
+            print("[AircraftDataService] Cleared all caches")
+        } catch {
+            print("[AircraftDataService] Failed to clear caches: \(error)")
+        }
     }
 
     // MARK: - Private Methods

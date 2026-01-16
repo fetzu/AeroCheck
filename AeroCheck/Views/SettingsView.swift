@@ -123,6 +123,7 @@ struct SettingsView: View {
                 checklistSection
             }
             Group {
+                checklistCacheSection
                 aboutSection
                 availableChecklistsSection
                 dataSection
@@ -182,18 +183,96 @@ struct SettingsView: View {
 
     private var aircraftSection: some View {
         Section {
-            Picker("Aircraft in use", selection: $selectedAircraft) {
-                ForEach(AircraftType.allCases) { aircraft in
-                    Text("\(aircraft.registration) (\(aircraft.shortModelName))")
-                        .font(.system(.body, design: .monospaced))
-                        .tag(aircraft)
+            // Show bundled aircraft
+            ForEach(AircraftType.allCases) { aircraft in
+                Button(action: {
+                    selectedAircraft = aircraft
+                    appState.settings.selectedRemoteAircraftId = nil
+                    saveSettings()
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(aircraft.registration)
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Text(aircraft.shortModelName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.aviationGold)
+                        }
+                    }
                 }
             }
-            .pickerStyle(.menu)
+
+            // Show remote aircraft
+            if aircraftDataService.isLoading {
+                HStack {
+                    ProgressView()
+                    Text("Loading aircraft...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                ForEach(aircraftDataService.availableAircraft) { remoteAircraft in
+                    Button(action: {
+                        if remoteAircraft.hasAccess {
+                            appState.settings.selectedRemoteAircraftId = remoteAircraft.id
+                            saveSettings()
+                        } else {
+                            showSubscriptionView = true
+                        }
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(remoteAircraft.registration)
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+
+                                    if !remoteAircraft.isFree {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption)
+                                            .foregroundColor(.aviationGold)
+                                    }
+                                }
+
+                                Text(remoteAircraft.shortModelName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            if !remoteAircraft.hasAccess {
+                                Image(systemName: "lock.fill")
+                                    .foregroundColor(.secondary)
+                            } else if appState.settings.selectedRemoteAircraftId == remoteAircraft.id {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.aviationGold)
+                            }
+                        }
+                    }
+                    .disabled(!remoteAircraft.hasAccess && !remoteAircraft.isFree)
+                    .opacity(remoteAircraft.hasAccess ? 1.0 : 0.6)
+                }
+            }
         } header: {
             Label("Aircraft", systemImage: "airplane")
         } footer: {
-            Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
+            if aircraftDataService.availableAircraft.contains(where: { !$0.hasAccess }) {
+                Text("Select the aircraft you will be flying. Premium aircraft (marked with ⭐) require an AeroCheck Pro subscription.")
+            } else {
+                Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
+            }
         }
     }
 
@@ -498,6 +577,75 @@ struct SettingsView: View {
                 Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
                 Text("Circuit Mode: When ON, shows a START CIRCUITS button on the home screen. Circuit flights skip CRUISE and DESCENT checklists.")
             }
+        }
+    }
+
+    private var checklistCacheSection: some View {
+        Section {
+            // List cached aircraft
+            let cachedAircraft = aircraftDataService.availableAircraft.filter { aircraft in
+                aircraftDataService.isChecklistCached(aircraftId: aircraft.id)
+            }
+
+            if cachedAircraft.isEmpty {
+                Text("No cached checklists")
+                    .foregroundColor(.secondaryText)
+            } else {
+                ForEach(cachedAircraft) { aircraft in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(aircraft.registration)
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.semibold)
+                                if !aircraft.isFree {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.aviationGold)
+                                }
+                            }
+
+                            if let cacheDate = aircraftDataService.getCacheDate(aircraftId: aircraft.id) {
+                                let isValid = aircraftDataService.isCacheValid(aircraftId: aircraft.id)
+                                HStack(spacing: 4) {
+                                    Text(isValid ? "Valid until" : "Expired")
+                                        .font(.caption)
+                                        .foregroundColor(isValid ? .green : .orange)
+                                    Text(cacheDate.addingTimeInterval(24 * 60 * 60).formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundColor(.secondaryText)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            aircraftDataService.clearCache(for: aircraft.id)
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Clear all button if there are multiple cached aircraft
+                if cachedAircraft.count > 1 {
+                    Button(role: .destructive, action: {
+                        aircraftDataService.clearAllCaches()
+                    }) {
+                        HStack {
+                            Image(systemName: "trash.fill")
+                            Text("Clear All Cached Checklists")
+                        }
+                    }
+                }
+            }
+        } header: {
+            Label("Checklist Cache", systemImage: "externaldrive")
+        } footer: {
+            Text("Downloaded checklists are cached for offline use. Cache expires after 24 hours but will still be used if the server is unavailable.")
         }
     }
 

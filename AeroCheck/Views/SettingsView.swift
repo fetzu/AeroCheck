@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State private var marketingMode: Bool = false
     @State private var showDeveloperOptions: Bool = false
     @State private var versionTapCount: Int = 0
+    @State private var showTransactionDebug: Bool = false
 
     // Flight Planning settings
     @State private var enableFlightPlanning: Bool = false
@@ -819,6 +820,17 @@ struct SettingsView: View {
                         }
                     }
 
+                Button(action: { showTransactionDebug = true }) {
+                    HStack {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Show All Transactions")
+                    }
+                }
+                .sheet(isPresented: $showTransactionDebug) {
+                    TransactionDebugView()
+                        .environmentObject(subscriptionManager)
+                }
+
                 Button(role: .destructive, action: resetSubscription) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise")
@@ -842,6 +854,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
                     Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
+                    Text("Show All Transactions: Displays all StoreKit transactions for debugging subscription issues.")
                     Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
                 }
             }
@@ -1469,6 +1482,209 @@ struct SettingsChangeModifier: ViewModifier {
             .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
             .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+    }
+}
+
+// MARK: - Transaction Debug View
+
+struct TransactionDebugView: View {
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @Environment(\.dismiss) var dismiss
+    @State private var transactions: [TransactionDebugInfo] = []
+    @State private var isLoading = true
+    @State private var currentAccountType: String = "Unknown"
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Loading transactions...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if transactions.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text("No Transactions Found")
+                            .font(.headline)
+                        Text("This could mean:\n• You're not signed into an Apple ID\n• No subscriptions have been purchased\n• Testing with StoreKit Configuration file")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                } else {
+                    List {
+                        Section {
+                            HStack {
+                                Text("Total Transactions")
+                                Spacer()
+                                Text("\(transactions.count)")
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack {
+                                Text("Active Subscriptions")
+                                Spacer()
+                                Text("\(transactions.filter { $0.isActive }.count)")
+                                    .foregroundColor(transactions.filter { $0.isActive }.count > 0 ? .green : .secondary)
+                            }
+                            HStack {
+                                Text("Account Type")
+                                Spacer()
+                                Text(currentAccountType)
+                                    .foregroundColor(.secondary)
+                            }
+                        } header: {
+                            Text("Summary")
+                        }
+
+                        Section {
+                            ForEach(transactions) { transaction in
+                                TransactionDebugRow(transaction: transaction)
+                            }
+                        } header: {
+                            Text("All Transactions")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Transaction Debug")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        Task {
+                            await loadTransactions()
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                }
+            }
+            .task {
+                await loadTransactions()
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func loadTransactions() async {
+        isLoading = true
+        transactions = await subscriptionManager.getAllTransactions()
+
+        // Determine account type from transactions
+        if let firstTransaction = transactions.first {
+            currentAccountType = firstTransaction.environmentText
+        } else {
+            currentAccountType = "No Transactions"
+        }
+
+        isLoading = false
+    }
+}
+
+struct TransactionDebugRow: View {
+    let transaction: TransactionDebugInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Product ID and Status
+            HStack {
+                Text(transaction.productID)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(transaction.statusText)
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+
+            // Environment
+            HStack {
+                Text("Environment")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(transaction.environmentText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Purchase Date
+            HStack {
+                Text("Purchased")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(transaction.purchaseDate.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Expiration Date
+            if let expirationDate = transaction.expirationDate {
+                HStack {
+                    Text("Expires")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(expirationDate.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundColor(transaction.isActive ? .green : .red)
+                }
+            }
+
+            // Transaction IDs
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Transaction ID")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(transaction.id)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                HStack {
+                    Text("Original ID")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(transaction.originalID)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+
+            // Verification Error (if any)
+            if let error = transaction.verificationError {
+                Text("Verification Error: \(error)")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.top, 4)
+            }
+
+            // Revocation info (if any)
+            if let revocationDate = transaction.revocationDate {
+                Text("Revoked on \(revocationDate.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

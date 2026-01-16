@@ -235,6 +235,48 @@ class SubscriptionManager: ObservableObject {
         return nil
     }
 
+    /// Gets all transactions for debugging
+    func getAllTransactions() async -> [TransactionDebugInfo] {
+        var transactions: [TransactionDebugInfo] = []
+
+        // Get all current entitlements
+        for await result in Transaction.currentEntitlements {
+            switch result {
+            case .verified(let transaction):
+                transactions.append(TransactionDebugInfo(
+                    id: String(transaction.id),
+                    originalID: String(transaction.originalID),
+                    productID: transaction.productID,
+                    purchaseDate: transaction.purchaseDate,
+                    expirationDate: transaction.expirationDate,
+                    isUpgraded: transaction.isUpgraded,
+                    revocationDate: transaction.revocationDate,
+                    revocationReason: transaction.revocationReason,
+                    ownershipType: transaction.ownershipType,
+                    environmentRaw: String(describing: transaction.environment),
+                    isVerified: true
+                ))
+            case .unverified(let transaction, let error):
+                transactions.append(TransactionDebugInfo(
+                    id: String(transaction.id),
+                    originalID: String(transaction.originalID),
+                    productID: transaction.productID,
+                    purchaseDate: transaction.purchaseDate,
+                    expirationDate: transaction.expirationDate,
+                    isUpgraded: transaction.isUpgraded,
+                    revocationDate: transaction.revocationDate,
+                    revocationReason: transaction.revocationReason,
+                    ownershipType: transaction.ownershipType,
+                    environmentRaw: String(describing: transaction.environment),
+                    isVerified: false,
+                    verificationError: error.localizedDescription
+                ))
+            }
+        }
+
+        return transactions
+    }
+
     // MARK: - Private Methods
 
     /// Listens for transaction updates
@@ -396,6 +438,48 @@ enum SubscriptionError: LocalizedError {
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - Transaction Debug Info
+
+struct TransactionDebugInfo: Identifiable {
+    let id: String
+    let originalID: String
+    let productID: String
+    let purchaseDate: Date
+    let expirationDate: Date?
+    let isUpgraded: Bool
+    let revocationDate: Date?
+    let revocationReason: Transaction.RevocationReason?
+    let ownershipType: Transaction.OwnershipType
+    let environmentRaw: String
+    let isVerified: Bool
+    var verificationError: String?
+
+    var isActive: Bool {
+        guard let expirationDate = expirationDate else { return false }
+        return expirationDate > Date()
+    }
+
+    var statusText: String {
+        if !isVerified {
+            return "⚠️ UNVERIFIED"
+        }
+        if revocationDate != nil {
+            return "🚫 REVOKED"
+        }
+        if isUpgraded {
+            return "⬆️ UPGRADED"
+        }
+        if isActive {
+            return "✅ ACTIVE"
+        }
+        return "⏱️ EXPIRED"
+    }
+
+    var environmentText: String {
+        return environmentRaw
     }
 }
 

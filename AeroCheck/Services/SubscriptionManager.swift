@@ -93,6 +93,30 @@ class SubscriptionManager: ObservableObject {
     /// Debug flag to force "not subscribed" state (for testing)
     @Published var debugForceNotSubscribed: Bool = false
 
+    /// Whether the subscription is in grace period (lapsed but within 48h)
+    @Published var isInGracePeriod: Bool = false
+
+    /// Date when grace period ends (nil if not in grace period)
+    @Published var gracePeriodEndsAt: Date?
+
+    // MARK: - Subscription Verification Constants
+
+    /// How often to verify subscription status (24 hours)
+    private let subscriptionVerificationInterval: TimeInterval = 24 * 60 * 60
+
+    /// Grace period duration after subscription lapses (48 hours)
+    private let gracePeriodDuration: TimeInterval = 48 * 60 * 60
+
+    /// Maximum time a user can be offline before subscription must be re-verified (7 days)
+    /// This prevents indefinite offline usage without verification
+    private let maxOfflineDuration: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Key for storing last verification date
+    private let lastVerificationDateKey = "subscriptionLastVerificationDate"
+
+    /// Key for storing grace period start date
+    private let gracePeriodStartKey = "subscriptionGracePeriodStart"
+
     // MARK: - Initialization
 
     init(apiBaseURL: String = "https://api.aerocheck.app") {
@@ -286,6 +310,167 @@ class SubscriptionManager: ObservableObject {
         if !foundActiveSubscription {
             debugLogger.log("No active subscription found to sync (checked \(transactionCount) transactions)", level: .warning)
         }
+    }
+
+    // MARK: - Subscription Verification & Grace Period
+
+    /// Gets the last time the subscription was successfully verified
+    func getLastVerificationDate() -> Date? {
+        return UserDefaults.standard.object(forKey: lastVerificationDateKey) as? Date
+    }
+
+    /// Records a successful subscription verification
+    func recordSuccessfulVerification() {
+        UserDefaults.standard.set(Date(), forKey: lastVerificationDateKey)
+        // Clear any grace period since subscription is verified
+        clearGracePeriod()
+        debugLogger.log("Recorded successful subscription verification", level: .success)
+    }
+
+    /// Checks if subscription verification is needed (every 24 hours)
+    func needsVerification() -> Bool {
+        guard let lastVerification = getLastVerificationDate() else {
+            return true // Never verified, needs verification
+        }
+
+        let timeSinceVerification = Date().timeIntervalSince(lastVerification)
+        return timeSinceVerification >= subscriptionVerificationInterval
+    }
+
+    /// Checks if the maximum offline duration has been exceeded
+    /// Returns true if subscription should be considered invalid due to being offline too long
+    func hasExceededMaxOfflineDuration() -> Bool {
+        guard let lastVerification = getLastVerificationDate() else {
+            // Never verified - check when app was first used
+            return true
+        }
+
+        let timeSinceVerification = Date().timeIntervalSince(lastVerification)
+        return timeSinceVerification > maxOfflineDuration
+    }
+
+    /// Starts the grace period (called when subscription lapses or cannot be verified)
+    func startGracePeriod() {
+        // Only start if not already in grace period
+        guard UserDefaults.standard.object(forKey: gracePeriodStartKey) == nil else {
+            return
+        }
+
+        let now = Date()
+        UserDefaults.standard.set(now, forKey: gracePeriodStartKey)
+        isInGracePeriod = true
+        gracePeriodEndsAt = now.addingTimeInterval(gracePeriodDuration)
+        debugLogger.log("Grace period started, ends at \(gracePeriodEndsAt?.description ?? "unknown")", level: .warning)
+    }
+
+    /// Clears the grace period (called when subscription is verified)
+    func clearGracePeriod() {
+        UserDefaults.standard.removeObject(forKey: gracePeriodStartKey)
+        isInGracePeriod = false
+        gracePeriodEndsAt = nil
+    }
+
+    /// Checks if the grace period has expired
+    func hasGracePeriodExpired() -> Bool {
+        guard let gracePeriodStart = UserDefaults.standard.object(forKey: gracePeriodStartKey) as? Date else {
+            return false // Not in grace period
+        }
+
+        let gracePeriodEnd = gracePeriodStart.addingTimeInterval(gracePeriodDuration)
+        return Date() > gracePeriodEnd
+    }
+
+    /// Updates the grace period status from stored values
+    func updateGracePeriodStatus() {
+        if let gracePeriodStart = UserDefaults.standard.object(forKey: gracePeriodStartKey) as? Date {
+            let gracePeriodEnd = gracePeriodStart.addingTimeInterval(gracePeriodDuration)
+            if Date() > gracePeriodEnd {
+                // Grace period expired
+                isInGracePeriod = false
+                gracePeriodEndsAt = nil
+            } else {
+                // Still in grace period
+                isInGracePeriod = true
+                gracePeriodEndsAt = gracePeriodEnd
+            }
+        } else {
+            isInGracePeriod = false
+            gracePeriodEndsAt = nil
+        }
+    }
+
+    /// Performs a periodic subscription check (call this from app lifecycle)
+    /// Returns true if subscription is valid (active or in grace period)
+    func performPeriodicCheck() async -> Bool {
+        debugLogger.log("Performing periodic subscription check", level: .info)
+
+        // Update grace period status from stored values
+        updateGracePeriodStatus()
+
+        // Check if verification is needed
+        if needsVerification() {
+            debugLogger.log("Subscription verification needed (24h elapsed)", level: .info)
+
+            // Try to verify with StoreKit
+            await updateSubscriptionStatus()
+
+            if subscriptionStatus.isSubscribed {
+                // Subscription is active - verify with server
+                await syncWithServer()
+                recordSuccessfulVerification()
+                return true
+            } else {
+                // Subscription not active
+                if !isInGracePeriod && !hasGracePeriodExpired() {
+                    // Start grace period
+                    startGracePeriod()
+                    debugLogger.log("Subscription lapsed, starting 48h grace period", level: .warning)
+                    return true // Still valid during grace period
+                } else if isInGracePeriod && !hasGracePeriodExpired() {
+                    debugLogger.log("In grace period, subscription access continues", level: .warning)
+                    return true
+                } else {
+                    // Grace period expired
+                    debugLogger.log("Grace period expired, subscription invalid", level: .error)
+                    return false
+                }
+            }
+        } else {
+            // No verification needed yet
+            if subscriptionStatus.isSubscribed {
+                return true
+            } else if isInGracePeriod && !hasGracePeriodExpired() {
+                return true
+            } else {
+                return false
+            }
+        }
+    }
+
+    /// Checks if premium content should be accessible
+    /// Takes into account subscription status, grace period, and offline duration
+    func shouldAllowPremiumAccess() -> Bool {
+        // Debug mode check
+        if debugForceNotSubscribed {
+            return false
+        }
+
+        // Active subscription
+        if subscriptionStatus.isSubscribed {
+            // Check if offline too long (prevents indefinite offline usage)
+            if hasExceededMaxOfflineDuration() {
+                debugLogger.log("Offline duration exceeded, premium access denied until online", level: .warning)
+                return false
+            }
+            return true
+        }
+
+        // In grace period
+        if isInGracePeriod && !hasGracePeriodExpired() {
+            return true
+        }
+
+        return false
     }
 
     /// Gets the user ID for API authentication

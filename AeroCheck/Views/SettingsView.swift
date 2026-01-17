@@ -125,7 +125,6 @@ struct SettingsView: View {
                 checklistSection
             }
             Group {
-                checklistCacheSection
                 aboutSection
                 availableChecklistsSection
                 dataSection
@@ -155,6 +154,19 @@ struct SettingsView: View {
                         Text(subscriptionManager.subscriptionStatus.displayText)
                             .font(.caption)
                             .foregroundColor(.secondary)
+
+                        // Show grace period warning if applicable
+                        if subscriptionManager.isInGracePeriod,
+                           let endsAt = subscriptionManager.gracePeriodEndsAt {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.aviationAmber)
+                                Text("Grace period ends \(endsAt.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption2)
+                                    .foregroundColor(.aviationAmber)
+                            }
+                        }
                     }
 
                     Spacer()
@@ -162,6 +174,9 @@ struct SettingsView: View {
                     if subscriptionManager.subscriptionStatus.isSubscribed {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.aviationGreen)
+                    } else if subscriptionManager.isInGracePeriod {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.aviationAmber)
                     } else {
                         Image(systemName: "chevron.right")
                             .foregroundColor(.secondary)
@@ -172,33 +187,20 @@ struct SettingsView: View {
                 SubscriptionView()
                     .environmentObject(subscriptionManager)
             }
-
-            if subscriptionManager.subscriptionStatus.isSubscribed {
-                Button(action: syncSubscription) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Sync with Server")
-                    }
-                }
-            }
         } header: {
             Label("Subscription", systemImage: "star.fill")
         } footer: {
             if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text("You have access to all premium aircraft checklists. Tap 'Sync with Server' if premium aircraft still appear locked.")
+                Text("You have access to all premium aircraft checklists.")
+            } else if subscriptionManager.isInGracePeriod {
+                Text("Your subscription has lapsed. Premium checklists will remain available during the grace period.")
             } else {
                 Text("Subscribe to unlock additional aircraft checklists.")
             }
         }
     }
 
-    private func syncSubscription() {
-        Task {
-            await subscriptionManager.syncWithServer()
-            // Refresh aircraft list to get updated hasAccess values
-            await aircraftDataService.fetchAvailableAircraft()
-        }
-    }
+    @State private var isSyncingAircraftData = false
 
     private var aircraftSection: some View {
         Section {
@@ -272,10 +274,42 @@ struct SettingsView: View {
                     Spacer()
                 }
             }
+
+            // Get latest aircraft data button
+            Button(action: getLatestAircraftData) {
+                HStack {
+                    if isSyncingAircraftData {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    Text("Get latest aircraft data")
+                }
+            }
+            .disabled(isSyncingAircraftData)
         } header: {
             Label("Aircraft", systemImage: "airplane")
         } footer: {
-            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription.")
+            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates.")
+        }
+    }
+
+    private func getLatestAircraftData() {
+        isSyncingAircraftData = true
+        Task {
+            // First, sync subscription status
+            await subscriptionManager.syncWithServer()
+
+            // Refresh the aircraft list from server
+            await aircraftDataService.fetchAvailableAircraft()
+
+            // Force check for updates on all cached checklists
+            await aircraftDataService.syncAllChecklists()
+
+            await MainActor.run {
+                isSyncingAircraftData = false
+            }
         }
     }
 
@@ -583,75 +617,6 @@ struct SettingsView: View {
         }
     }
 
-    private var checklistCacheSection: some View {
-        Section {
-            // List cached aircraft
-            let cachedAircraft = aircraftDataService.availableAircraft.filter { aircraft in
-                aircraftDataService.isChecklistCached(aircraftId: aircraft.id)
-            }
-
-            if cachedAircraft.isEmpty {
-                Text("No cached checklists")
-                    .foregroundColor(.secondaryText)
-            } else {
-                ForEach(cachedAircraft) { aircraft in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text(aircraft.registration)
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.semibold)
-                                if !aircraft.isFree {
-                                    Image(systemName: "star.fill")
-                                        .font(.caption)
-                                        .foregroundColor(.aviationGold)
-                                }
-                            }
-
-                            if let cacheDate = aircraftDataService.getCacheDate(aircraftId: aircraft.id) {
-                                let isValid = aircraftDataService.isCacheValid(aircraftId: aircraft.id)
-                                HStack(spacing: 4) {
-                                    Text(isValid ? "Valid until" : "Expired")
-                                        .font(.caption)
-                                        .foregroundColor(isValid ? .green : .orange)
-                                    Text(cacheDate.addingTimeInterval(24 * 60 * 60).formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundColor(.secondaryText)
-                                }
-                            }
-                        }
-
-                        Spacer()
-
-                        Button(action: {
-                            aircraftDataService.clearCache(for: aircraft.id)
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                // Clear all button if there are multiple cached aircraft
-                if cachedAircraft.count > 1 {
-                    Button(role: .destructive, action: {
-                        aircraftDataService.clearAllCaches()
-                    }) {
-                        HStack {
-                            Image(systemName: "trash.fill")
-                            Text("Clear All Cached Checklists")
-                        }
-                    }
-                }
-            }
-        } header: {
-            Label("Checklist Cache", systemImage: "externaldrive")
-        } footer: {
-            Text("Downloaded checklists are cached for offline use. Cache expires after 24 hours but will still be used if the server is unavailable.")
-        }
-    }
-
     private var aboutSection: some View {
         Section {
             HStack {
@@ -785,7 +750,7 @@ struct SettingsView: View {
         } header: {
             Label("Available Checklists", systemImage: "checklist")
         } footer: {
-            Text("Checklists downloaded and cached on this device. Premium aircraft checklists are automatically cached when you select them.")
+            Text("Checklists cached on this device for offline use. Checklists are downloaded when you select an aircraft and refreshed automatically every 24 hours when online.")
         }
     }
 
@@ -1843,6 +1808,10 @@ struct PremiumAircraftListView: View {
                             if aircraft.hasAccess {
                                 appState.settings.selectedRemoteAircraftId = aircraft.id
                                 UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
+                                // Trigger download/cache of the checklist
+                                Task {
+                                    _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
+                                }
                                 dismiss()
                             } else {
                                 dismiss()

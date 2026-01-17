@@ -85,14 +85,22 @@ class AircraftDataService: ObservableObject {
                 }
                 return cached
             } else {
-                print("[AircraftDataService] Cache expired for \(aircraftId), fetching fresh data")
+                print("[AircraftDataService] Cache expired for \(aircraftId), checking for updates")
+                // Cache expired - check for update using checksum
+                await checkForUpdate(aircraftId: aircraftId)
+                // Return the (possibly updated) cached checklist
+                if let updated = loadCachedChecklist(aircraftId: aircraftId) {
+                    return updated
+                }
             }
         }
 
         // Fetch from server
         do {
+            // First get version info for checksum
+            let versionInfo = try? await fetchVersion(aircraftId: aircraftId)
             let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId)
-            cacheChecklist(checklist, aircraftId: aircraftId)
+            cacheChecklist(checklist, aircraftId: aircraftId, checksum: versionInfo?.checksum)
             print("[AircraftDataService] Cached fresh checklist for \(aircraftId)")
             return checklist
         } catch {
@@ -109,17 +117,30 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    /// Checks if an update is available for a checklist
+    /// Checks if an update is available for a checklist using checksum comparison
     func checkForUpdate(aircraftId: String) async {
-        guard let cached = loadCachedChecklist(aircraftId: aircraftId) else { return }
+        guard loadCachedChecklist(aircraftId: aircraftId) != nil else { return }
+        let cachedMetadata = loadCacheMetadata(aircraftId: aircraftId)
 
         do {
             let serverVersion = try await fetchVersion(aircraftId: aircraftId)
 
-            if serverVersion.version != cached.version {
+            // Compare checksums if available, otherwise fall back to version comparison
+            let needsUpdate: Bool
+            if let serverChecksum = serverVersion.checksum,
+               let cachedChecksum = cachedMetadata?.checksum {
+                needsUpdate = serverChecksum != cachedChecksum
+            } else {
+                // Fallback to version comparison if checksums not available
+                let cachedChecklist = loadCachedChecklist(aircraftId: aircraftId)
+                needsUpdate = serverVersion.version != cachedChecklist?.version
+            }
+
+            if needsUpdate {
+                print("[AircraftDataService] Update available for \(aircraftId), downloading...")
                 // Update available, fetch new version
                 if let updated = try? await fetchChecklistFromServer(aircraftId: aircraftId) {
-                    cacheChecklist(updated, aircraftId: aircraftId)
+                    cacheChecklist(updated, aircraftId: aircraftId, checksum: serverVersion.checksum)
 
                     // Notify that update is available
                     await MainActor.run {
@@ -130,6 +151,8 @@ class AircraftDataService: ObservableObject {
                         }
                     }
                 }
+            } else {
+                print("[AircraftDataService] Checklist for \(aircraftId) is up to date")
             }
         } catch {
             print("Failed to check for update: \(error)")
@@ -172,16 +195,13 @@ class AircraftDataService: ObservableObject {
 
         // Add remote aircraft that are cached
         for aircraft in availableAircraft where isChecklistCached(aircraftId: aircraft.id) {
-            if let cacheDate = getCacheDate(aircraftId: aircraft.id) {
-                let formatter = DateFormatter()
-                formatter.dateStyle = .medium
-                formatter.timeStyle = .none
-
+            // Load the cached checklist to get the actual lastUpdated value
+            if let cachedChecklist = loadCachedChecklist(aircraftId: aircraft.id) {
                 cached.append(CachedAircraftInfo(
                     registration: aircraft.registration,
                     modelName: aircraft.shortModelName,
-                    version: aircraft.version,
-                    lastUpdated: formatter.string(from: cacheDate),
+                    version: cachedChecklist.version,
+                    lastUpdated: cachedChecklist.lastUpdated,
                     isPremium: !aircraft.isFree
                 ))
             }
@@ -213,10 +233,16 @@ class AircraftDataService: ObservableObject {
 
     /// Clears the cache for a specific aircraft
     func clearCache(for aircraftId: String) {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
+        let checklistPath = cacheDirectory.appendingPathComponent("\(aircraftId).json")
+        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
 
         do {
-            try fileManager.removeItem(at: path)
+            if fileManager.fileExists(atPath: checklistPath.path) {
+                try fileManager.removeItem(at: checklistPath)
+            }
+            if fileManager.fileExists(atPath: metadataPath.path) {
+                try fileManager.removeItem(at: metadataPath)
+            }
             print("[AircraftDataService] Cleared cache for \(aircraftId)")
         } catch {
             print("[AircraftDataService] Failed to clear cache for \(aircraftId): \(error)")
@@ -236,6 +262,26 @@ class AircraftDataService: ObservableObject {
         } catch {
             print("[AircraftDataService] Failed to clear caches: \(error)")
         }
+    }
+
+    /// Clears all premium (non-free) cached checklists
+    /// Called when subscription expires and grace period ends
+    func clearPremiumCaches() {
+        print("[AircraftDataService] Clearing premium cached checklists")
+        for aircraft in availableAircraft where !aircraft.isFree {
+            clearCache(for: aircraft.id)
+        }
+    }
+
+    /// Checks and clears premium caches if subscription is no longer valid
+    /// Returns true if premium caches are still valid, false if they were cleared
+    func validatePremiumCaches(subscriptionManager: SubscriptionManager) -> Bool {
+        guard subscriptionManager.shouldAllowPremiumAccess() else {
+            print("[AircraftDataService] Subscription access revoked, clearing premium caches")
+            clearPremiumCaches()
+            return false
+        }
+        return true
     }
 
     // MARK: - Private Methods
@@ -349,16 +395,65 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    private func cacheChecklist(_ checklist: RemoteAircraftChecklist, aircraftId: String) {
+    private func cacheChecklist(_ checklist: RemoteAircraftChecklist, aircraftId: String, checksum: String? = nil) {
         let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
+        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
 
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
             let data = try encoder.encode(checklist)
             try data.write(to: path)
+
+            // Also store metadata for cache validation
+            let metadata = CacheMetadata(
+                aircraftId: aircraftId,
+                checksum: checksum,
+                cachedAt: Date(),
+                subscriptionVerifiedAt: Date()
+            )
+            let metadataData = try encoder.encode(metadata)
+            try metadataData.write(to: metadataPath)
         } catch {
             print("Failed to cache checklist: \(error)")
+        }
+    }
+
+    private func loadCacheMetadata(aircraftId: String) -> CacheMetadata? {
+        let path = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
+
+        guard fileManager.fileExists(atPath: path.path) else { return nil }
+
+        do {
+            let data = try Data(contentsOf: path)
+            let decoder = JSONDecoder()
+            return try decoder.decode(CacheMetadata.self, from: data)
+        } catch {
+            print("Failed to load cache metadata: \(error)")
+            return nil
+        }
+    }
+
+    private func updateSubscriptionVerificationDate(aircraftId: String) {
+        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
+
+        guard let metadata = loadCacheMetadata(aircraftId: aircraftId) else { return }
+
+        // Create updated metadata with new verification date
+        let updatedMetadata = CacheMetadata(
+            aircraftId: metadata.aircraftId,
+            checksum: metadata.checksum,
+            cachedAt: metadata.cachedAt,
+            subscriptionVerifiedAt: Date()
+        )
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(updatedMetadata)
+            try data.write(to: metadataPath)
+        } catch {
+            print("Failed to update cache metadata: \(error)")
         }
     }
 
@@ -440,4 +535,13 @@ private struct VersionInfo: Codable {
     let id: String
     let version: String
     let lastUpdated: String
+    let checksum: String?
+}
+
+/// Cache metadata stored alongside the checklist
+private struct CacheMetadata: Codable {
+    let aircraftId: String
+    let checksum: String?
+    let cachedAt: Date
+    let subscriptionVerifiedAt: Date?
 }

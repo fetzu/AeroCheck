@@ -303,7 +303,7 @@ class SubscriptionManager: ObservableObject {
         }
 
         // Fall back to device identifier
-        if let deviceID = await UIDevice.current.identifierForVendor?.uuidString {
+        if let deviceID = UIDevice.current.identifierForVendor?.uuidString {
             cachedUserID = deviceID
             return deviceID
         }

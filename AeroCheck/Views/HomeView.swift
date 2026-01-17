@@ -174,7 +174,7 @@ struct HomeView: View {
                 .foregroundColor(.aviationGold.opacity(0.3))
 
             // Aircraft info - show remote or bundled
-            if let remoteId = appState.settings.selectedRemoteAircraftId,
+            if appState.settings.selectedRemoteAircraftId != nil,
                let remote = remoteAircraftMetadata {
                 // Remote aircraft
                 VStack(spacing: isLandscape ? 2 : (isCompact ? 4 : 8)) {
@@ -286,7 +286,7 @@ struct HomeView: View {
     }
 
     private var itemCountText: String {
-        if let remote = remoteAircraftMetadata {
+        if remoteAircraftMetadata != nil {
             return "—" // Will be calculated when checklist is loaded
         }
         return "\(currentAircraft.totalChecklistItems)"

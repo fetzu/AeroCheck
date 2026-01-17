@@ -1521,12 +1521,54 @@ struct ImageShareSheet: UIViewControllerRepresentable {
     let image: UIImage
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        // Pass UIImage directly - iOS will recognize it as an image and show Save to Photos
-        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        // Create a ShareableImage item source for proper JPEG sharing with Save to Photos support
+        let shareableImage = ShareableImage(image: image)
+        let controller = UIActivityViewController(activityItems: [shareableImage], applicationActivities: nil)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Shareable Image for Activity Controller
+
+/// A UIActivityItemProvider that shares images as JPEG data for smaller file sizes
+/// while still supporting Save to Photos and other image-specific share actions
+class ShareableImage: UIActivityItemProvider {
+    let image: UIImage
+
+    init(image: UIImage) {
+        self.image = image
+        // Use the image as placeholder for quick preview
+        super.init(placeholderItem: image)
+    }
+
+    override var item: Any {
+        // For Save to Photos and most activities, return the UIImage directly
+        // This ensures iOS recognizes it as an image and shows "Save Image" option
+        return image
+    }
+
+    override func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+        // Indicate this is a JPEG image
+        return "public.jpeg"
+    }
+
+    override func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
+        // For file-based activities (AirDrop, Files, etc.), provide JPEG data as a file
+        if activityType == .airDrop || activityType == .copyToPasteboard {
+            // Create a temporary JPEG file for sharing
+            let jpegData = image.jpegData(compressionQuality: 0.85)
+            if let data = jpegData {
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("AeroCheck_Flight.jpg")
+                try? data.write(to: tempURL)
+                return tempURL
+            }
+        }
+
+        // For Save to Photos and other activities, return the image directly
+        return image
+    }
 }
 
 // MARK: - GPX File for Sharing

@@ -440,42 +440,46 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        // Calculate panel height accounting for bottom safe area
+        // Calculate panel height - exactly half the screen plus bottom safe area
         let bottomSafeArea = geometry.safeAreaInsets.bottom
+        let topSafeArea = geometry.safeAreaInsets.top
         let panelHeight = (geometry.size.height / 2) + bottomSafeArea
-        let mapHeight = showCompactPanel ? (geometry.size.height - panelHeight + bottomSafeArea) : geometry.size.height
 
-        ZStack {
+        ZStack(alignment: .top) {
             // Map content - full screen behind everything
             mapContent
                 .ignoresSafeArea()
 
-            // Overlay controls and panel
-            VStack(spacing: 0) {
-                // Top portion: Controls overlay on map (expands to full height when panel hidden)
-                VStack {
-                    // Top bar with safe area at top for Dynamic Island/notch
-                    compactTopBar
-                        .padding(.top, geometry.safeAreaInsets.top > 50 ? 8 : 4) // Extra padding for Dynamic Island
+            // Fixed top bar overlay - stays in place regardless of panel state
+            VStack {
+                compactTopBar
+                    .padding(.horizontal, 12)
+                    .padding(.top, topSafeArea + (topSafeArea > 50 ? 8 : 4)) // Account for Dynamic Island/notch
 
-                    Spacer()
+                Spacer()
+            }
 
-                    // Bottom controls (scale, GPS, center button)
-                    compactMapControls
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-                .frame(height: mapHeight)
-                .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+            // Map controls positioned above the panel (or at bottom when panel hidden)
+            VStack {
+                Spacer()
 
-                // Bottom half: Flight Plan or Radio Frequencies panel
+                compactMapControls
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, showCompactPanel ? (panelHeight + 8) : (bottomSafeArea + 8))
+                    .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+            }
+
+            // Bottom panel - slides up from bottom edge of screen
+            VStack {
+                Spacer()
+
                 if showCompactPanel {
                     compactBottomPanel(geometry: geometry, bottomSafeArea: bottomSafeArea)
                         .frame(height: panelHeight)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
         }
         .ignoresSafeArea()
         .onAppear {

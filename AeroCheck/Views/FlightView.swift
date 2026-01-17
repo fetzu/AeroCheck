@@ -106,25 +106,25 @@ struct FlightView: View {
         .fullScreenCover(isPresented: $showNavigationMode) {
             NavigationMapView(isPresented: $showNavigationMode)
         }
-        .alert("End Flight?", isPresented: $showEndFlightAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("End Flight", role: .destructive) {
+        .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.Button.endFlight, role: .destructive) {
                 locationManager.stopTracking()
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
             }
         } message: {
-            Text("This will save the flight to your log and stop GPS recording.")
+            Text(L10n.Alert.endFlightMessage)
         }
-        .alert("Abandon Flight?", isPresented: $showAbandonFlightAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Abandon Flight", role: .destructive) {
+        .alert(L10n.Alert.abandonFlightTitle, isPresented: $showAbandonFlightAlert) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.Alert.abandonFlightButton, role: .destructive) {
                 locationManager.stopTracking()
                 appState.cancelFlight()
                 flightPlanManager.deactivateFlightPlan()
             }
         } message: {
-            Text("This will discard the current flight without saving. GPS data will be lost.")
+            Text(L10n.Alert.abandonFlightMessage)
         }
         .onReceive(timer) { _ in
             // Trigger view update for timer display
@@ -527,7 +527,7 @@ struct FlightView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "speedometer")
                         .font(.system(size: 14))
-                    Text("SPEEDS")
+                    Text(L10n.Button.speeds)
                         .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundColor(.primaryText)
@@ -548,7 +548,7 @@ struct FlightView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "flag.checkered")
                             .font(.system(size: 14))
-                        Text("END")
+                        Text(L10n.Button.end)
                             .font(.system(size: 14, weight: .bold))
                     }
                     .foregroundColor(.white)
@@ -568,7 +568,7 @@ struct FlightView: View {
                     appState.nextPhase()
                 }) {
                     HStack(spacing: 4) {
-                        Text("NEXT")
+                        Text(L10n.Button.next)
                             .font(.system(size: 14, weight: .bold))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .semibold))
@@ -685,7 +685,7 @@ struct FlightView: View {
 
                 // Circuit mode indicator
                 if appState.isCircuitMode {
-                    Text("(for circuits)")
+                    Text(L10n.Flight.forCircuits)
                         .font(isCompact ? .system(size: 11, weight: .medium) : .system(size: 13, weight: .medium))
                         .foregroundColor(.aviationAmber)
                 }
@@ -717,7 +717,7 @@ struct FlightView: View {
             // Phase indicator
             Button(action: { showPhaseSelector = true }) {
                 HStack(spacing: 8) {
-                    Text("Phase \(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
+                    Text(L10n.Flight.phase(appState.currentPhase.rawValue + 1, ChecklistPhase.allCases.count))
                         .font(.captionText)
                         .foregroundColor(.secondaryText)
                     Image(systemName: "chevron.down")
@@ -747,13 +747,13 @@ struct FlightView: View {
             Button(action: { appState.previousPhase() }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                    Text("PREV")
+                    Text(L10n.Button.prev)
                 }
                 .fixedSize()
             }
             .buttonStyle(NavigationButtonStyle(direction: .previous, isEnabled: appState.canGoToPreviousPhase))
             .disabled(!appState.canGoToPreviousPhase)
-            
+
             Spacer()
 
             // Navigation mode button (compact for portrait)
@@ -761,7 +761,7 @@ struct FlightView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "map")
                         .font(.system(size: 16))
-                    Text("NAV")
+                    Text(L10n.Button.nav)
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .fixedSize()
@@ -784,7 +784,7 @@ struct FlightView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "speedometer")
                         .font(.system(size: 16))
-                    Text("SPEEDS")
+                    Text(L10n.Button.speeds)
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .fixedSize()
@@ -803,28 +803,28 @@ struct FlightView: View {
             .fixedSize()
 
             Spacer()
-            
+
             // Right side: either END FLIGHT (on last phase) or NEXT button
             if appState.isLastPhase {
                 // End flight button - with pulse effect
                 Button(action: { showEndFlightAlert = true }) {
                     HStack {
                         Image(systemName: "flag.checkered")
-                        Text("END FLIGHT")
+                        Text(L10n.Button.endFlight)
                     }
                 }
                 .buttonStyle(ActionButtonStyle(color: .aviationRed))
                 .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
             } else {
                 // Next button - with pulse effect
-                Button(action: { 
+                Button(action: {
                     pulseNextButton = false
                     pulseActionButton = false
                     allItemsChecked = false
                     appState.nextPhase()
                 }) {
                     HStack(spacing: 6) {
-                        Text("NEXT")
+                        Text(L10n.Button.next)
                         Image(systemName: "chevron.right")
                     }
                     .fixedSize()
@@ -861,7 +861,7 @@ struct FlightView: View {
             }
             
             // Phase overview header
-            Text("FLIGHT PHASES")
+            Text(L10n.Flight.phases)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
                 .padding(.top, 16)
@@ -925,18 +925,18 @@ struct FlightView: View {
             HStack {
                 Image(systemName: "location.fill")
                     .foregroundColor(gpsStatusColor)
-                Text("GPS")
+                Text(L10n.GPS.status)
                     .font(.captionText)
                     .foregroundColor(.secondaryText)
                 Spacer()
                 StatusIndicator(gpsStatusIndicator)
             }
-            
+
             // Points recorded
             HStack {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
                     .foregroundColor(.aviationBlue)
-                Text("Points")
+                Text(L10n.GPS.points)
                     .font(.captionText)
                     .foregroundColor(.secondaryText)
                 Spacer()
@@ -944,25 +944,25 @@ struct FlightView: View {
                     .font(.captionText)
                     .foregroundColor(.primaryText)
             }
-            
+
             AviationDivider(color: .dimText.opacity(0.5))
                 .padding(.vertical, 4)
-            
+
             // Chronological times
             if let engineTime = appState.formattedEngineStartTime {
-                TimeInfoRow(icon: "engine.combustion", label: "Engine Start", time: engineTime, color: .aviationGreen)
+                TimeInfoRow(icon: "engine.combustion", label: L10n.Time.engineStart, time: engineTime, color: .aviationGreen)
             }
-            
+
             if let lineUpTime = appState.formattedLineUpTime {
-                TimeInfoRow(icon: "airplane.departure", label: "Take-off", time: lineUpTime, color: .aviationAmber)
+                TimeInfoRow(icon: "airplane.departure", label: L10n.Time.takeoff, time: lineUpTime, color: .aviationAmber)
             }
-            
+
             if let landingTime = appState.formattedLandingTime {
-                TimeInfoRow(icon: "airplane.arrival", label: "Landing", time: landingTime, color: .aviationBlue)
+                TimeInfoRow(icon: "airplane.arrival", label: L10n.Time.landing, time: landingTime, color: .aviationBlue)
             }
-            
+
             if let shutdownTime = appState.formattedEngineShutdownTime {
-                TimeInfoRow(icon: "engine.combustion.fill", label: "Shutdown", time: shutdownTime, color: .aviationRed)
+                TimeInfoRow(icon: "engine.combustion.fill", label: L10n.Time.shutdown, time: shutdownTime, color: .aviationRed)
             }
         }
     }
@@ -1090,17 +1090,17 @@ struct PhaseSelectorView: View {
                             Image(systemName: "checkmark")
                                 .foregroundColor(.aviationGold)
                         }
-                        Text("Page \(phase.pageNumber)")
+                        Text(L10n.Sheet.page(phase.pageNumber))
                             .font(.captionText)
                             .foregroundColor(.secondaryText)
                     }
                 }
             }
-            .navigationTitle("Select Phase")
+            .navigationTitle(L10n.Sheet.selectPhase)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
             }
         }
@@ -1142,11 +1142,11 @@ struct SpeedReferenceSheet: View {
             }
             .scrollDisabled(isIPad)
             .background(Color.cockpitBackground)
-            .navigationTitle("Speed Reference")
+            .navigationTitle(L10n.Sheet.speedReference)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
             }
         }
@@ -1208,7 +1208,7 @@ struct CompactSpeedView: View {
         HStack(spacing: 8) {
             // Speed type label
             VStack(alignment: .trailing, spacing: 2) {
-                Text(showingEstimatedAirspeed ? "IAS" : "GS")
+                Text(showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
             }
@@ -1220,7 +1220,7 @@ struct CompactSpeedView: View {
                         Text("\(Int(max(0, displaySpeed)))")
                             .font(.system(size: 24, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
-                        Text("kt")
+                        Text(L10n.Unit.kt)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(textColor.opacity(0.8))
                     }
@@ -1242,7 +1242,7 @@ struct CompactSpeedView: View {
 
             // Target indicator (always shown)
             VStack(alignment: .leading, spacing: 2) {
-                Text("TGT")
+                Text(L10n.Speed.tgt)
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.dimText)
                 HStack(spacing: 2) {
@@ -1336,7 +1336,7 @@ struct CompactAltimeterView: View {
                             .foregroundColor(.black)
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
-                        Text("ft")
+                        Text(L10n.Unit.ft)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.black.opacity(0.7))
                     }
@@ -1356,7 +1356,7 @@ struct CompactAltimeterView: View {
             }
             .frame(minWidth: 80, minHeight: 40)
 
-            Text("MSL")
+            Text(L10n.Speed.msl)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondaryText)
         }
@@ -1380,22 +1380,22 @@ struct FlightInfoSheet: View {
     }
 
     private var gpsStatusText: String {
-        guard locationManager.isTracking else { return "Inactive" }
+        guard locationManager.isTracking else { return L10n.GPS.signalInactive }
         switch locationManager.gpsSignalStatus {
-        case .good: return "Good"
-        case .degraded: return "Degraded"
-        case .lost: return "Lost"
+        case .good: return L10n.GPS.signalGood
+        case .degraded: return L10n.GPS.signalDegraded
+        case .lost: return L10n.GPS.signalLost
         }
     }
 
     var body: some View {
         NavigationView {
             List {
-                Section("GPS Status") {
+                Section(L10n.GPS.status) {
                     HStack {
                         Image(systemName: "location.fill")
                             .foregroundColor(gpsStatusColor)
-                        Text("Signal")
+                        Text(L10n.GPS.signal)
                         Spacer()
                         Text(gpsStatusText)
                             .foregroundColor(gpsStatusColor)
@@ -1404,19 +1404,19 @@ struct FlightInfoSheet: View {
                     HStack {
                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
                             .foregroundColor(.aviationBlue)
-                        Text("Points Recorded")
+                        Text(L10n.GPS.pointsRecorded)
                         Spacer()
                         Text("\(appState.currentFlight?.gpsTrack.count ?? 0)")
                             .foregroundColor(.primaryText)
                     }
                 }
 
-                Section("Flight Times") {
+                Section(L10n.Flight.times) {
                     if let engineTime = appState.formattedEngineStartTime {
                         HStack {
                             Image(systemName: "engine.combustion")
                                 .foregroundColor(.aviationGreen)
-                            Text("Engine Start")
+                            Text(L10n.Time.engineStart)
                             Spacer()
                             Text(engineTime)
                                 .font(.system(.body, design: .monospaced))
@@ -1427,7 +1427,7 @@ struct FlightInfoSheet: View {
                         HStack {
                             Image(systemName: "airplane.departure")
                                 .foregroundColor(.aviationAmber)
-                            Text("Take-off")
+                            Text(L10n.Time.takeoff)
                             Spacer()
                             Text(lineUpTime)
                                 .font(.system(.body, design: .monospaced))
@@ -1438,7 +1438,7 @@ struct FlightInfoSheet: View {
                         HStack {
                             Image(systemName: "airplane.arrival")
                                 .foregroundColor(.aviationBlue)
-                            Text("Landing")
+                            Text(L10n.Time.landing)
                             Spacer()
                             Text(landingTime)
                                 .font(.system(.body, design: .monospaced))
@@ -1449,7 +1449,7 @@ struct FlightInfoSheet: View {
                         HStack {
                             Image(systemName: "engine.combustion.fill")
                                 .foregroundColor(.aviationRed)
-                            Text("Shutdown")
+                            Text(L10n.Time.shutdown)
                             Spacer()
                             Text(shutdownTime)
                                 .font(.system(.body, design: .monospaced))
@@ -1457,7 +1457,7 @@ struct FlightInfoSheet: View {
                     }
                 }
 
-                Section("Flight Phases") {
+                Section(L10n.Flight.phases) {
                     ForEach(ChecklistPhase.allCases) { phase in
                         HStack {
                             Circle()
@@ -1466,18 +1466,18 @@ struct FlightInfoSheet: View {
                             Text(phase.shortTitle)
                                 .font(.system(size: 14))
                             Spacer()
-                            Text("P\(phase.pageNumber)")
+                            Text(L10n.Sheet.page(phase.pageNumber))
                                 .font(.system(size: 12))
                                 .foregroundColor(.dimText)
                         }
                     }
                 }
             }
-            .navigationTitle("Flight Info")
+            .navigationTitle(L10n.Flight.info)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
             }
         }

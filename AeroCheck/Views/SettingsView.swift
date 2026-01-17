@@ -42,6 +42,9 @@ struct SettingsView: View {
     // iCloud Sync
     @State private var iCloudSyncEnabled: Bool = true
 
+    // Checklist Language
+    @State private var checklistLanguage: ChecklistLanguage = .auto
+
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -75,6 +78,7 @@ struct SettingsView: View {
                 terrainAltitudeUnit: terrainAltitudeUnit,
                 enableCircuitMode: enableCircuitMode,
                 iCloudSyncEnabled: iCloudSyncEnabled,
+                checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
                 saveSettings: { if !isLoadingSettings { saveSettings() } },
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
@@ -601,18 +605,26 @@ struct SettingsView: View {
 
     private var checklistSection: some View {
         Section {
-            Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
+            Toggle(L10n.Settings.stepByStep, isOn: $stepByStepHighlighting)
 
-            Toggle("Learning Mode (show all checks)", isOn: $learningMode)
+            Toggle(L10n.Settings.learningMode, isOn: $learningMode)
 
-            Toggle("Enable Circuit Mode", isOn: $enableCircuitMode)
+            Toggle(L10n.Settings.circuitMode, isOn: $enableCircuitMode)
+
+            // Checklist Language Picker
+            Picker(L10n.Settings.checklistLanguage, selection: $checklistLanguage) {
+                ForEach(ChecklistLanguage.allCases) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
         } header: {
-            Label("Checklist", systemImage: "checklist")
+            Label(L10n.Settings.checklist, systemImage: "checklist")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Step-by-Step: Highlights items one at a time. Tap anywhere to advance.")
-                Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
-                Text("Circuit Mode: When ON, shows a START CIRCUITS button on the home screen. Circuit flights skip CRUISE and DESCENT checklists.")
+                Text(L10n.Settings.stepByStepFooter)
+                Text(L10n.Settings.learningModeFooter)
+                Text(L10n.Settings.circuitModeFooter)
+                Text(L10n.Settings.checklistLanguageFooter)
             }
         }
     }
@@ -904,7 +916,9 @@ struct SettingsView: View {
         enableCircuitMode = appState.settings.enableCircuitMode
         // iCloud Sync
         iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
-        
+        // Checklist Language
+        checklistLanguage = appState.settings.checklistLanguage
+
         // Reset loading flag in next runloop to avoid triggering save loops
         DispatchQueue.main.async {
             self.isLoadingSettings = false
@@ -929,6 +943,8 @@ struct SettingsView: View {
         appState.settings.enableCircuitMode = enableCircuitMode
         // iCloud Sync
         appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
+        // Checklist Language
+        appState.settings.checklistLanguage = checklistLanguage
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -1440,6 +1456,7 @@ struct SettingsChangeModifier: ViewModifier {
     let terrainAltitudeUnit: TerrainAltitudeUnit
     let enableCircuitMode: Bool
     let iCloudSyncEnabled: Bool
+    let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
@@ -1460,6 +1477,7 @@ struct SettingsChangeModifier: ViewModifier {
             .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
             .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
             .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
+            .onChange(of: checklistLanguage) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
     }
 }

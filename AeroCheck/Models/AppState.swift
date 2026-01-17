@@ -34,6 +34,9 @@ struct AppSettings: Codable, Equatable {
     // iCloud Sync
     var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud
 
+    // Checklist Language
+    var checklistLanguage: ChecklistLanguage = .auto // Language for checklist content
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -70,6 +73,7 @@ struct AppSettings: Codable, Equatable {
         case terrainAltitudeUnit
         case enableCircuitMode
         case iCloudSyncEnabled
+        case checklistLanguage
         // marketingMode is intentionally excluded
     }
 }

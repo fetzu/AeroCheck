@@ -72,24 +72,30 @@ class AircraftDataService: ObservableObject {
     }
 
     /// Fetches a specific aircraft checklist
-    func fetchChecklist(for aircraftId: String) async -> RemoteAircraftChecklist? {
+    /// - Parameters:
+    ///   - aircraftId: The aircraft identifier
+    ///   - language: The language for checklist content (default: nil, uses server default)
+    func fetchChecklist(for aircraftId: String, language: String? = nil) async -> RemoteAircraftChecklist? {
+        // Create cache key that includes language
+        let cacheKey = language != nil ? "\(aircraftId)_\(language!)" : aircraftId
+
         // Check cache first
-        if let cached = loadCachedChecklist(aircraftId: aircraftId) {
+        if let cached = loadCachedChecklist(aircraftId: cacheKey) {
             // Check if cache is still valid (24 hours)
-            if isCacheValid(aircraftId: aircraftId) {
-                print("[AircraftDataService] Using cached checklist for \(aircraftId)")
+            if isCacheValid(aircraftId: cacheKey) {
+                print("[AircraftDataService] Using cached checklist for \(cacheKey)")
 
                 // Check if update is available in background (don't block)
                 Task {
-                    await checkForUpdate(aircraftId: aircraftId)
+                    await checkForUpdate(aircraftId: aircraftId, language: language)
                 }
                 return cached
             } else {
-                print("[AircraftDataService] Cache expired for \(aircraftId), checking for updates")
+                print("[AircraftDataService] Cache expired for \(cacheKey), checking for updates")
                 // Cache expired - check for update using checksum
-                await checkForUpdate(aircraftId: aircraftId)
+                await checkForUpdate(aircraftId: aircraftId, language: language)
                 // Return the (possibly updated) cached checklist
-                if let updated = loadCachedChecklist(aircraftId: aircraftId) {
+                if let updated = loadCachedChecklist(aircraftId: cacheKey) {
                     return updated
                 }
             }
@@ -98,32 +104,36 @@ class AircraftDataService: ObservableObject {
         // Fetch from server
         do {
             // First get version info for checksum
-            let versionInfo = try? await fetchVersion(aircraftId: aircraftId)
-            let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId)
-            cacheChecklist(checklist, aircraftId: aircraftId, checksum: versionInfo?.checksum)
-            print("[AircraftDataService] Cached fresh checklist for \(aircraftId)")
+            let versionInfo = try? await fetchVersion(aircraftId: aircraftId, language: language)
+            let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
+            cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
+            print("[AircraftDataService] Cached fresh checklist for \(cacheKey)")
             return checklist
         } catch {
             // If offline and we have cached data (even if expired), use it
-            if let cached = loadCachedChecklist(aircraftId: aircraftId) {
-                print("[AircraftDataService] Using expired cache for \(aircraftId) (offline)")
+            if let cached = loadCachedChecklist(aircraftId: cacheKey) {
+                print("[AircraftDataService] Using expired cache for \(cacheKey) (offline)")
                 errorMessage = "Using cached data (offline)"
                 return cached
             }
 
             errorMessage = "Failed to fetch checklist: \(error.localizedDescription)"
-            print("Failed to fetch checklist for \(aircraftId): \(error)")
+            print("Failed to fetch checklist for \(cacheKey): \(error)")
             return nil
         }
     }
 
     /// Checks if an update is available for a checklist using checksum comparison
-    func checkForUpdate(aircraftId: String) async {
-        guard loadCachedChecklist(aircraftId: aircraftId) != nil else { return }
-        let cachedMetadata = loadCacheMetadata(aircraftId: aircraftId)
+    /// - Parameters:
+    ///   - aircraftId: The aircraft identifier
+    ///   - language: The language for checklist content (default: nil)
+    func checkForUpdate(aircraftId: String, language: String? = nil) async {
+        let cacheKey = language != nil ? "\(aircraftId)_\(language!)" : aircraftId
+        guard loadCachedChecklist(aircraftId: cacheKey) != nil else { return }
+        let cachedMetadata = loadCacheMetadata(aircraftId: cacheKey)
 
         do {
-            let serverVersion = try await fetchVersion(aircraftId: aircraftId)
+            let serverVersion = try await fetchVersion(aircraftId: aircraftId, language: language)
 
             // Compare checksums if available, otherwise fall back to version comparison
             let needsUpdate: Bool
@@ -132,15 +142,15 @@ class AircraftDataService: ObservableObject {
                 needsUpdate = serverChecksum != cachedChecksum
             } else {
                 // Fallback to version comparison if checksums not available
-                let cachedChecklist = loadCachedChecklist(aircraftId: aircraftId)
+                let cachedChecklist = loadCachedChecklist(aircraftId: cacheKey)
                 needsUpdate = serverVersion.version != cachedChecklist?.version
             }
 
             if needsUpdate {
-                print("[AircraftDataService] Update available for \(aircraftId), downloading...")
+                print("[AircraftDataService] Update available for \(cacheKey), downloading...")
                 // Update available, fetch new version
-                if let updated = try? await fetchChecklistFromServer(aircraftId: aircraftId) {
-                    cacheChecklist(updated, aircraftId: aircraftId, checksum: serverVersion.checksum)
+                if let updated = try? await fetchChecklistFromServer(aircraftId: aircraftId, language: language) {
+                    cacheChecklist(updated, aircraftId: cacheKey, checksum: serverVersion.checksum)
 
                     // Notify that update is available
                     await MainActor.run {
@@ -152,7 +162,7 @@ class AircraftDataService: ObservableObject {
                     }
                 }
             } else {
-                print("[AircraftDataService] Checklist for \(aircraftId) is up to date")
+                print("[AircraftDataService] Checklist for \(cacheKey) is up to date")
             }
         } catch {
             print("Failed to check for update: \(error)")
@@ -310,8 +320,13 @@ class AircraftDataService: ObservableObject {
         return result.data.aircraft
     }
 
-    private func fetchChecklistFromServer(aircraftId: String) async throws -> RemoteAircraftChecklist {
-        let url = URL(string: "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/checklist")!
+    private func fetchChecklistFromServer(aircraftId: String, language: String? = nil) async throws -> RemoteAircraftChecklist {
+        // Build URL with optional language parameter
+        var urlString = "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/checklist"
+        if let lang = language {
+            urlString += "?lang=\(lang)"
+        }
+        let url = URL(string: urlString)!
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -345,8 +360,13 @@ class AircraftDataService: ObservableObject {
         return result.data
     }
 
-    private func fetchVersion(aircraftId: String) async throws -> VersionInfo {
-        let url = URL(string: "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/version")!
+    private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
+        // Build URL with optional language parameter
+        var urlString = "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/version"
+        if let lang = language {
+            urlString += "?lang=\(lang)"
+        }
+        let url = URL(string: urlString)!
 
         let (data, response) = try await URLSession.shared.data(from: url)
 

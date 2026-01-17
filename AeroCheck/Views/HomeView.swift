@@ -248,7 +248,7 @@ struct HomeView: View {
                         .tracking(isCompact ? 1 : 2)
                 }
 
-                Text("Keep your flights in check!")
+                Text(L10n.App.tagline)
                     .font(.system(size: isCompact ? 10 : 12))
                     .foregroundColor(.secondaryText)
             }
@@ -276,7 +276,7 @@ struct HomeView: View {
                     HStack(spacing: isCompact ? 10 : 14) {
                         Image(systemName: "play.fill")
                             .font(.system(size: isCompact ? 18 : 22))
-                        Text("START FLIGHT")
+                        Text(L10n.Button.startFlight)
                             .font(.system(size: isCompact ? 18 : 22, weight: .bold))
                     }
                     .frame(maxWidth: .infinity)
@@ -291,7 +291,7 @@ struct HomeView: View {
                         VStack(spacing: isCompact ? 2 : 4) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: isCompact ? 18 : 20))
-                            Text("CIRCUITS")
+                            Text(L10n.Button.circuits)
                                 .font(.system(size: isCompact ? 14 : 14, weight: .bold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
@@ -308,7 +308,7 @@ struct HomeView: View {
             // Info text and GPS status - hide only on compact devices (iPhone)
             if !isCompact {
                 VStack(spacing: isLandscape ? 8 : 12) {
-                    Text("Starting a flight will begin GPS tracking and guide you through all checklists.")
+                    Text(L10n.Home.flightInfo)
                         .font(.system(size: isLandscape ? 13 : 15))
                         .foregroundColor(.dimText)
                         .multilineTextAlignment(.center)
@@ -364,14 +364,14 @@ struct HomeView: View {
                 QuickStatView(
                     icon: "list.bullet.clipboard.fill",
                     value: "\(ChecklistPhase.allCases.count)",
-                    label: "Checks",
+                    label: L10n.Stats.checks,
                     isCompact: isLandscape || isCompact
                 )
 
                 QuickStatView(
                     icon: "list.bullet",
                     value: itemCountText,
-                    label: "Items",
+                    label: L10n.Stats.items,
                     isCompact: isLandscape || isCompact
                 )
             }
@@ -403,7 +403,7 @@ struct HomeView: View {
                     .foregroundColor(.primaryText)
 
                 if !isLandscape {
-                    Text("Version \(option.version)")
+                    Text(L10n.Home.version(option.version))
                         .font(.system(size: isCompact ? 10 : 12))
                         .foregroundColor(.dimText)
                 }
@@ -440,7 +440,7 @@ struct HomeView: View {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: isCompact ? 14 : 18))
                     if !isCompact {
-                        Text("FLIGHT LOG")
+                        Text(L10n.Button.flightLog)
                             .font(.system(size: 14, weight: .semibold))
                     }
                     if !appState.flights.isEmpty {
@@ -460,7 +460,7 @@ struct HomeView: View {
                     Image(systemName: "map.fill")
                         .font(.system(size: isCompact ? 14 : 18))
                     if !isCompact {
-                        Text("NAV")
+                        Text(L10n.Button.nav)
                             .font(.system(size: 14, weight: .semibold))
                     }
                 }
@@ -475,7 +475,7 @@ struct HomeView: View {
                     Image(systemName: "speedometer")
                         .font(.system(size: isCompact ? 14 : 18))
                     if !isCompact {
-                        Text("SPEEDS")
+                        Text(L10n.Button.speeds)
                             .font(.system(size: 14, weight: .semibold))
                     }
                 }
@@ -524,13 +524,13 @@ struct HomeView: View {
     private var locationStatusText: String {
         switch locationManager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            return "GPS Ready"
+            return L10n.GPS.ready
         case .denied:
-            return "GPS Denied"
+            return L10n.GPS.denied
         case .restricted:
-            return "GPS Restricted"
+            return L10n.GPS.restricted
         default:
-            return "GPS Not Set"
+            return L10n.GPS.notSet
         }
     }
     

@@ -297,7 +297,7 @@ class AircraftDataService: ObservableObject {
     // MARK: - Private Methods
 
     private func fetchAircraftList() async throws -> [RemoteAircraftMetadata] {
-        let url = URL(string: "\(apiBaseURL)/api/v1/aircraft/available")!
+        let url = URL(string: "\(apiBaseURL)/api/v2/aircraft/available")!
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -322,7 +322,7 @@ class AircraftDataService: ObservableObject {
 
     private func fetchChecklistFromServer(aircraftId: String, language: String? = nil) async throws -> RemoteAircraftChecklist {
         // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/checklist"
+        var urlString = "\(apiBaseURL)/api/v2/aircraft/\(aircraftId)/checklist"
         if let lang = language {
             urlString += "?lang=\(lang)"
         }
@@ -362,7 +362,7 @@ class AircraftDataService: ObservableObject {
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
         // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v1/aircraft/\(aircraftId)/version"
+        var urlString = "\(apiBaseURL)/api/v2/aircraft/\(aircraftId)/version"
         if let lang = language {
             urlString += "?lang=\(lang)"
         }

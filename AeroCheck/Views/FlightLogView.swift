@@ -956,10 +956,18 @@ struct FlightDetailView: View {
             await MainActor.run {
                 let shareCard = FlightShareCard(flight: flight, mapImage: mapImage, useUTC: appState.settings.alwaysUseUTC)
                 let renderer = ImageRenderer(content: shareCard)
-                renderer.scale = 3.0 // High resolution for sharing
+                // Use 2.0 scale for better file size while maintaining quality
+                // Results in 2160x3840 image (4K) which is high quality but reasonable size
+                renderer.scale = 2.0
 
-                if let image = renderer.uiImage {
-                    shareImage = image
+                if let uiImage = renderer.uiImage {
+                    // Compress the image to JPEG for better file size (quality 0.85)
+                    if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
+                       let compressedImage = UIImage(data: jpegData) {
+                        shareImage = compressedImage
+                    } else {
+                        shareImage = uiImage
+                    }
                     isGeneratingImage = false
                     showShareSheet = true
                 } else {
@@ -976,13 +984,14 @@ struct FlightDetailView: View {
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         let mapRect = polyline.boundingMapRect
 
-        // Target size for the snapshot (matching card map dimensions at 3x scale)
-        let targetWidth: CGFloat = 1000 * 3
-        let targetHeight: CGFloat = 620 * 3
+        // Target size for the snapshot (matching card map dimensions at 2x scale for the renderer)
+        // Card map section is 1000x620 points, we render at 2x = 2000x1240
+        let targetWidth: CGFloat = 2000
+        let targetHeight: CGFloat = 1240
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
-        // Use 15% padding to match the flight view's visual padding
+        // Use 15% padding to give visual breathing room around the track
         let paddingFactor = 0.15
         var paddedRect = mapRect.insetBy(
             dx: -mapRect.size.width * paddingFactor,
@@ -1008,7 +1017,8 @@ struct FlightDetailView: View {
         let options = MKMapSnapshotter.Options()
         options.mapRect = paddedRect
         options.size = CGSize(width: targetWidth, height: targetHeight)
-        options.scale = 1.0
+        // Use UIScreen.main.scale for proper device scaling
+        options.scale = UIScreen.main.scale
         options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
 
         let snapshotter = MKMapSnapshotter(options: options)
@@ -1016,56 +1026,54 @@ struct FlightDetailView: View {
         do {
             let snapshot = try await snapshotter.start()
 
-            // Draw the route on the snapshot
-            UIGraphicsBeginImageContextWithOptions(snapshot.image.size, true, snapshot.image.scale)
-            snapshot.image.draw(at: .zero)
+            // Draw the route on the snapshot using modern UIGraphicsImageRenderer
+            let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
+            let finalImage = renderer.image { rendererContext in
+                // Draw the base map
+                snapshot.image.draw(at: .zero)
 
-            guard let context = UIGraphicsGetCurrentContext() else {
-                UIGraphicsEndImageContext()
-                return snapshot.image
-            }
+                let context = rendererContext.cgContext
 
-            // Draw polyline
-            context.setStrokeColor(UIColor(Color.aviationGold).cgColor)
-            context.setLineWidth(8)
-            context.setLineCap(.round)
-            context.setLineJoin(.round)
+                // Draw polyline with thicker line for visibility
+                context.setStrokeColor(UIColor(Color.aviationGold).cgColor)
+                context.setLineWidth(6 * UIScreen.main.scale)
+                context.setLineCap(.round)
+                context.setLineJoin(.round)
 
-            let path = UIBezierPath()
-            for (index, coordinate) in coordinates.enumerated() {
-                let point = snapshot.point(for: coordinate)
-                if index == 0 {
-                    path.move(to: point)
-                } else {
-                    path.addLine(to: point)
+                let path = UIBezierPath()
+                for (index, coordinate) in coordinates.enumerated() {
+                    let point = snapshot.point(for: coordinate)
+                    if index == 0 {
+                        path.move(to: point)
+                    } else {
+                        path.addLine(to: point)
+                    }
+                }
+                context.addPath(path.cgPath)
+                context.strokePath()
+
+                // Draw start marker (green circle)
+                if let firstCoord = coordinates.first {
+                    let startPoint = snapshot.point(for: firstCoord)
+                    self.drawMarker(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UIScreen.main.scale)
+                }
+
+                // Draw end marker (red circle)
+                if let lastCoord = coordinates.last {
+                    let endPoint = snapshot.point(for: lastCoord)
+                    self.drawMarker(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UIScreen.main.scale)
                 }
             }
-            context.addPath(path.cgPath)
-            context.strokePath()
-
-            // Draw start marker (green circle)
-            if let firstCoord = coordinates.first {
-                let startPoint = snapshot.point(for: firstCoord)
-                drawMarker(at: startPoint, color: UIColor(Color.aviationGreen), in: context)
-            }
-
-            // Draw end marker (red circle)
-            if let lastCoord = coordinates.last {
-                let endPoint = snapshot.point(for: lastCoord)
-                drawMarker(at: endPoint, color: UIColor(Color.aviationRed), in: context)
-            }
-
-            let finalImage = UIGraphicsGetImageFromCurrentImageContext()
-            UIGraphicsEndImageContext()
 
             return finalImage
         } catch {
+            print("Map snapshot error: \(error)")
             return nil
         }
     }
 
-    private func drawMarker(at point: CGPoint, color: UIColor, in context: CGContext) {
-        let markerSize: CGFloat = 24
+    private func drawMarker(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat = 1.0) {
+        let markerSize: CGFloat = 20 * scale
         let rect = CGRect(
             x: point.x - markerSize / 2,
             y: point.y - markerSize / 2,
@@ -1079,7 +1087,7 @@ struct FlightDetailView: View {
 
         // Draw white border
         context.setStrokeColor(UIColor.white.cgColor)
-        context.setLineWidth(3)
+        context.setLineWidth(2 * scale)
         context.strokeEllipse(in: rect)
     }
 }

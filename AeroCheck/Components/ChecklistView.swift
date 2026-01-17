@@ -757,9 +757,28 @@ struct DotLeader: View {
 struct SpeedReferenceView: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
-    /// Current aircraft type from ChecklistData
-    private var aircraft: AircraftType {
-        ChecklistData.currentAircraft
+    /// Current aircraft registration - uses remote if available
+    private var currentRegistration: String {
+        if let remote = ChecklistData.currentRemoteChecklist {
+            return remote.registration
+        }
+        return ChecklistData.currentAircraft.registration
+    }
+
+    /// Current speeds list - uses remote if available
+    private var currentSpeeds: [SpeedReference] {
+        if let remote = ChecklistData.currentRemoteChecklist {
+            return remote.localSpeeds
+        }
+        return ChecklistData.currentAircraft.speeds
+    }
+
+    /// Current crosswind limits - uses remote if available
+    private var currentCrosswindLimits: (takeoff: String, landing: String) {
+        if let remote = ChecklistData.currentRemoteChecklist {
+            return remote.crosswindLimitsTuple
+        }
+        return ChecklistData.currentAircraft.crosswindLimits
     }
 
     private var isCompact: Bool {
@@ -768,7 +787,7 @@ struct SpeedReferenceView: View {
 
     /// Get speeds split into two columns
     private var speedColumns: (left: [SpeedReference], right: [SpeedReference]) {
-        let speeds = aircraft.speeds
+        let speeds = currentSpeeds
         let midpoint = (speeds.count + 1) / 2
         let left = Array(speeds.prefix(midpoint))
         let right = Array(speeds.suffix(from: midpoint))
@@ -782,7 +801,7 @@ struct SpeedReferenceView: View {
                 Text("AIRSPEEDS (AFM)")
                     .headerStyle()
                 Spacer()
-                Text(aircraft.registration)
+                Text(currentRegistration)
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundColor(.secondaryText)
             }
@@ -823,7 +842,7 @@ struct SpeedReferenceView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondaryText)
                 Spacer()
-                let crosswind = aircraft.crosswindLimits
+                let crosswind = currentCrosswindLimits
                 Text("TO: \(crosswind.takeoff)  /  LDG: \(crosswind.landing)")
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationAmber)
@@ -842,7 +861,7 @@ struct SpeedReferenceView: View {
         ]
 
         return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(aircraft.speeds) { speed in
+            ForEach(currentSpeeds) { speed in
                 iPhoneSpeedCell(speed: speed)
             }
         }

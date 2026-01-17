@@ -119,15 +119,22 @@ class SubscriptionManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(apiBaseURL: String = "https://api.aerocheck.app") {
+    /// Initialize the subscription manager
+    /// - Parameters:
+    ///   - apiBaseURL: The API base URL for receipt verification
+    ///   - deferLoadProducts: If true, products won't be loaded automatically (call loadProducts() manually)
+    init(apiBaseURL: String = "https://api.aerocheck.app", deferLoadProducts: Bool = false) {
         self.apiBaseURL = apiBaseURL
 
         // Start listening for transactions
         updateListenerTask = listenForTransactions()
 
-        // Load products and check current status
+        // Load products and check current status (unless deferred for faster startup)
         Task {
-            await loadProducts()
+            if !deferLoadProducts {
+                await loadProducts()
+            }
+            // Always check subscription status for quick entitlement check
             await updateSubscriptionStatus()
         }
     }

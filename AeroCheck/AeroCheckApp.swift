@@ -10,13 +10,15 @@ struct AeroCheckApp: App {
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
-    @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
     @State private var showUpdateReminder = false
+    @State private var isInitialized = false
 
     init() {
         // Initialize subscription manager first, then aircraft data service
-        let subManager = SubscriptionManager()
+        // Use deferLoadProducts to speed up initial launch - products will be loaded after view appears
+        let subManager = SubscriptionManager(deferLoadProducts: true)
         _subscriptionManager = StateObject(wrappedValue: subManager)
         _aircraftDataService = StateObject(wrappedValue: AircraftDataService(subscriptionManager: subManager))
     }
@@ -36,13 +38,19 @@ struct AeroCheckApp: App {
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
-                .onAppear {
-                    // Fetch available aircraft from API
-                    Task {
-                        await aircraftDataService.fetchAvailableAircraft()
-                    }
+                .task {
+                    // Perform deferred initialization in background after initial render
+                    guard !isInitialized else { return }
+                    isInitialized = true
 
-                    // Check for yearly map update reminder
+                    // Load subscription products and aircraft data in parallel
+                    async let productsTask: () = subscriptionManager.loadProducts()
+                    async let aircraftTask: () = aircraftDataService.fetchAvailableAircraft()
+
+                    // Wait for both to complete
+                    _ = await (productsTask, aircraftTask)
+
+                    // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
                         showUpdateReminder = true
                     }

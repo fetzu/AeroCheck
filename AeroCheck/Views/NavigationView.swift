@@ -440,8 +440,10 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        let panelHeight = geometry.size.height / 2
-        let mapHeight = showCompactPanel ? panelHeight : geometry.size.height
+        // Calculate panel height accounting for bottom safe area
+        let bottomSafeArea = geometry.safeAreaInsets.bottom
+        let panelHeight = (geometry.size.height / 2) + bottomSafeArea
+        let mapHeight = showCompactPanel ? (geometry.size.height - panelHeight + bottomSafeArea) : geometry.size.height
 
         ZStack {
             // Map content - full screen behind everything
@@ -452,8 +454,9 @@ struct NavigationMapView: View {
             VStack(spacing: 0) {
                 // Top portion: Controls overlay on map (expands to full height when panel hidden)
                 VStack {
-                    // Top bar
+                    // Top bar with safe area at top for Dynamic Island/notch
                     compactTopBar
+                        .padding(.top, geometry.safeAreaInsets.top > 50 ? 8 : 4) // Extra padding for Dynamic Island
 
                     Spacer()
 
@@ -461,14 +464,14 @@ struct NavigationMapView: View {
                     compactMapControls
                 }
                 .padding(.horizontal, 12)
-                .padding(.top, geometry.safeAreaInsets.top + 8)
+                .padding(.top, 12)
                 .padding(.bottom, 8)
                 .frame(height: mapHeight)
                 .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
 
                 // Bottom half: Flight Plan or Radio Frequencies panel
                 if showCompactPanel {
-                    compactBottomPanel(geometry: geometry)
+                    compactBottomPanel(geometry: geometry, bottomSafeArea: bottomSafeArea)
                         .frame(height: panelHeight)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -722,7 +725,7 @@ struct NavigationMapView: View {
 
     // MARK: - Compact Bottom Panel
 
-    private func compactBottomPanel(geometry: GeometryProxy) -> some View {
+    private func compactBottomPanel(geometry: GeometryProxy, bottomSafeArea: CGFloat) -> some View {
         VStack(spacing: 0) {
             // Drag handle area
             draggablePanelHeader
@@ -742,8 +745,12 @@ struct NavigationMapView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.panelBackground.opacity(0.95))
+
+            // Bottom safe area padding to extend panel to screen edge
+            Color.panelBackground.opacity(0.95)
+                .frame(height: bottomSafeArea)
         }
+        .background(Color.panelBackground.opacity(0.95))
     }
 
     /// Header for the compact panel with drag gesture support

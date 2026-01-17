@@ -1,0 +1,129 @@
+{
+  "identifier" : "F8E7C543-7A2B-4D1E-9F3A-8B5C6D2E1F0A",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "1234567890",
+    "_developerTeamID" : "YOUR_TEAM_ID",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 757382400,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21378596",
+      "localizations" : [
+
+      ],
+      "name" : "AeroCheck Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "2.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6475849271",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly access to premium aircraft checklists",
+              "displayName" : "AeroCheck Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "aerocheck.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "AeroCheck Pro Monthly",
+          "subscriptionGroupID" : "21378596",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "24.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6475849272",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Yearly access to premium aircraft checklists - Save 30%",
+              "displayName" : "AeroCheck Pro Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "aerocheck.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "AeroCheck Pro Yearly",
+          "subscriptionGroupID" : "21378596",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

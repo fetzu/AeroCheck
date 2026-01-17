@@ -5,9 +5,12 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var syncManager = SyncManager.shared
 
+    @State private var showSubscriptionView = false
     @State private var selectedAircraft: AircraftType = .wt9Dynamic
     @State private var gpsInterval: Double = 5.0
     @State private var keepScreenOn: Bool = true
@@ -24,6 +27,8 @@ struct SettingsView: View {
     @State private var marketingMode: Bool = false
     @State private var showDeveloperOptions: Bool = false
     @State private var versionTapCount: Int = 0
+    @State private var showTransactionDebug: Bool = false
+    @State private var showSubscriptionLogs: Bool = false
 
     // Flight Planning settings
     @State private var enableFlightPlanning: Bool = false
@@ -104,6 +109,7 @@ struct SettingsView: View {
     private var formContent: some View {
         Form {
             Group {
+                subscriptionSection
                 aircraftSection
                 gpsSection
                 experimentalAirspeedSection
@@ -136,20 +142,174 @@ struct SettingsView: View {
 
     // MARK: - Form Sections
 
-    private var aircraftSection: some View {
+    private var subscriptionSection: some View {
         Section {
-            Picker("Aircraft in use", selection: $selectedAircraft) {
-                ForEach(AircraftType.allCases) { aircraft in
-                    Text("\(aircraft.registration) (\(aircraft.shortModelName))")
-                        .font(.system(.body, design: .monospaced))
-                        .tag(aircraft)
+            Button(action: { showSubscriptionView = true }) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AeroCheck Pro")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+
+                        Text(subscriptionManager.subscriptionStatus.displayText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        // Show grace period warning if applicable
+                        if subscriptionManager.isInGracePeriod,
+                           let endsAt = subscriptionManager.gracePeriodEndsAt {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.aviationAmber)
+                                Text("Grace period ends \(endsAt.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption2)
+                                    .foregroundColor(.aviationAmber)
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    if subscriptionManager.subscriptionStatus.isSubscribed {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.aviationGreen)
+                    } else if subscriptionManager.isInGracePeriod {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.aviationAmber)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-            .pickerStyle(.menu)
+            .sheet(isPresented: $showSubscriptionView) {
+                SubscriptionView()
+                    .environmentObject(subscriptionManager)
+            }
+        } header: {
+            Label("Subscription", systemImage: "star.fill")
+        } footer: {
+            if subscriptionManager.subscriptionStatus.isSubscribed {
+                Text("You have access to all premium aircraft checklists.")
+            } else if subscriptionManager.isInGracePeriod {
+                Text("Your subscription has lapsed. Premium checklists will remain available during the grace period.")
+            } else {
+                Text("Subscribe to unlock additional aircraft checklists.")
+            }
+        }
+    }
+
+    @State private var isSyncingAircraftData = false
+
+    private var aircraftSection: some View {
+        Section {
+            // Show bundled aircraft (F-HVXA only)
+            ForEach(AircraftType.allCases) { aircraft in
+                Button(action: {
+                    selectedAircraft = aircraft
+                    appState.settings.selectedRemoteAircraftId = nil
+                    saveSettings()
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(aircraft.registration)
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Text(aircraft.shortModelName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.aviationGold)
+                        }
+                    }
+                }
+            }
+
+            // Premium Aircrafts navigation link
+            NavigationLink(destination: PremiumAircraftListView(showSubscriptionView: $showSubscriptionView)
+                .environmentObject(appState)
+                .environmentObject(aircraftDataService)
+            ) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("Premium Aircrafts")
+                                .font(.system(.body))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                                .foregroundColor(.aviationGold)
+                        }
+
+                        if aircraftDataService.isLoading {
+                            Text("Loading...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            let premiumCount = aircraftDataService.availableAircraft.filter { !$0.isFree }.count
+                            let accessibleCount = aircraftDataService.availableAircraft.filter { !$0.isFree && $0.hasAccess }.count
+
+                            if premiumCount > 0 {
+                                Text("\(accessibleCount)/\(premiumCount) available")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("No premium aircraft")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+
+            // Get latest aircraft data button
+            Button(action: getLatestAircraftData) {
+                HStack {
+                    if isSyncingAircraftData {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    Text("Get latest aircraft data")
+                }
+            }
+            .disabled(isSyncingAircraftData)
         } header: {
             Label("Aircraft", systemImage: "airplane")
         } footer: {
-            Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
+            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates.")
+        }
+    }
+
+    private func getLatestAircraftData() {
+        isSyncingAircraftData = true
+        Task {
+            // First, sync subscription status
+            await subscriptionManager.syncWithServer()
+
+            // Refresh the aircraft list from server
+            await aircraftDataService.fetchAvailableAircraft()
+
+            // Force check for updates on all cached checklists
+            await aircraftDataService.syncAllChecklists()
+
+            await MainActor.run {
+                isSyncingAircraftData = false
+            }
         }
     }
 
@@ -550,30 +710,47 @@ struct SettingsView: View {
 
     private var availableChecklistsSection: some View {
         Section {
-            ForEach(AircraftType.allCases) { aircraft in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(aircraft.registration)
-                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                        Text(aircraft.shortModelName)
-                            .foregroundColor(.secondary)
+            let cachedAircraft = aircraftDataService.getAllCachedAircraft()
+
+            if cachedAircraft.isEmpty {
+                Text("No checklists cached")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            } else {
+                ForEach(cachedAircraft) { aircraft in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(aircraft.registration)
+                                .font(.system(size: 17, weight: .semibold, design: .monospaced))
+
+                            if aircraft.isPremium {
+                                Image(systemName: "star.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.aviationGold)
+                            }
+
+                            Text(aircraft.modelName)
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Version \(aircraft.version)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(aircraft.lastUpdated)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    HStack {
-                        Text("Version \(aircraft.checklistVersion)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("•")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(aircraft.lastUpdated)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
         } header: {
             Label("Available Checklists", systemImage: "checklist")
+        } footer: {
+            Text("Checklists cached on this device for offline use. Checklists are downloaded when you select an aircraft and refreshed automatically every 24 hours when online.")
         }
     }
 
@@ -602,6 +779,42 @@ struct SettingsView: View {
         if showDeveloperOptions {
             Section {
                 Toggle("Marketing Mode", isOn: $marketingMode)
+
+                Toggle("Force 'Not Subscribed' State", isOn: $subscriptionManager.debugForceNotSubscribed)
+                    .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in
+                        Task {
+                            await subscriptionManager.updateSubscriptionStatus()
+                        }
+                    }
+
+                Button(action: { showTransactionDebug = true }) {
+                    HStack {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Show All Transactions")
+                    }
+                }
+                .sheet(isPresented: $showTransactionDebug) {
+                    TransactionDebugView()
+                        .environmentObject(subscriptionManager)
+                }
+
+                Button(action: { showSubscriptionLogs = true }) {
+                    HStack {
+                        Image(systemName: "doc.text.fill")
+                        Text("Show Subscription Logs")
+                    }
+                }
+                .sheet(isPresented: $showSubscriptionLogs) {
+                    SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
+                        .environmentObject(subscriptionManager)
+                }
+
+                Button(role: .destructive, action: resetSubscription) {
+                    HStack {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset Subscription State")
+                    }
+                }
             } header: {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
@@ -616,8 +829,20 @@ struct SettingsView: View {
                         )
                 }
             } footer: {
-                Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
+                    Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
+                    Text("Show All Transactions: Displays all StoreKit transactions for debugging subscription issues.")
+                    Text("Show Subscription Logs: Real-time logs of subscription sync operations and server communication.")
+                    Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
+                }
             }
+        }
+    }
+
+    private func resetSubscription() {
+        Task {
+            await subscriptionManager.resetSubscriptionState()
         }
     }
     
@@ -1239,6 +1464,292 @@ struct SettingsChangeModifier: ViewModifier {
     }
 }
 
+// MARK: - Transaction Debug View
+
+struct TransactionDebugView: View {
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @Environment(\.dismiss) var dismiss
+    @State private var transactions: [TransactionDebugInfo] = []
+    @State private var isLoading = true
+    @State private var currentAccountType: String = "Unknown"
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Loading transactions...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if transactions.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text("No Transactions Found")
+                            .font(.headline)
+                        Text("This could mean:\n• You're not signed into an Apple ID\n• No subscriptions have been purchased\n• Testing with StoreKit Configuration file")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                } else {
+                    List {
+                        Section {
+                            HStack {
+                                Text("Total Transactions")
+                                Spacer()
+                                Text("\(transactions.count)")
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack {
+                                Text("Active Subscriptions")
+                                Spacer()
+                                Text("\(transactions.filter { $0.isActive }.count)")
+                                    .foregroundColor(transactions.filter { $0.isActive }.count > 0 ? .green : .secondary)
+                            }
+                            HStack {
+                                Text("Account Type")
+                                Spacer()
+                                Text(currentAccountType)
+                                    .foregroundColor(.secondary)
+                            }
+                        } header: {
+                            Text("Summary")
+                        }
+
+                        Section {
+                            ForEach(transactions) { transaction in
+                                TransactionDebugRow(transaction: transaction)
+                            }
+                        } header: {
+                            Text("All Transactions")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Transaction Debug")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        Task {
+                            await loadTransactions()
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                }
+            }
+            .task {
+                await loadTransactions()
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func loadTransactions() async {
+        isLoading = true
+        transactions = await subscriptionManager.getAllTransactions()
+
+        // Determine account type from transactions
+        if let firstTransaction = transactions.first {
+            currentAccountType = firstTransaction.environmentText
+        } else {
+            currentAccountType = "No Transactions"
+        }
+
+        isLoading = false
+    }
+}
+
+struct TransactionDebugRow: View {
+    let transaction: TransactionDebugInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Product ID and Status
+            HStack {
+                Text(transaction.productID)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(transaction.statusText)
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+
+            // Environment
+            HStack {
+                Text("Environment")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(transaction.environmentText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Purchase Date
+            HStack {
+                Text("Purchased")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(transaction.purchaseDate.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Expiration Date
+            if let expirationDate = transaction.expirationDate {
+                HStack {
+                    Text("Expires")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(expirationDate.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundColor(transaction.isActive ? .green : .red)
+                }
+            }
+
+            // Transaction IDs
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Transaction ID")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(transaction.id)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                HStack {
+                    Text("Original ID")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(transaction.originalID)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+
+            // Verification Error (if any)
+            if let error = transaction.verificationError {
+                Text("Verification Error: \(error)")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.top, 4)
+            }
+
+            // Revocation info (if any)
+            if let revocationDate = transaction.revocationDate {
+                Text("Revoked on \(revocationDate.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Subscription Debug Log View
+
+struct SubscriptionDebugLogView: View {
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject var debugLogger: SubscriptionDebugLogger
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if debugLogger.logs.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+                        Text("No Logs Yet")
+                            .font(.headline)
+                        Text("Logs will appear here when you sync with the server or perform subscription operations.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                } else {
+                    List {
+                        ForEach(debugLogger.logs) { log in
+                            DebugLogRow(log: log)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Subscription Logs")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        debugLogger.clear()
+                    }) {
+                        Image(systemName: "trash")
+                    }
+                    .disabled(debugLogger.logs.isEmpty)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct DebugLogRow: View {
+    let log: DebugLogEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(log.level.emoji)
+                    .font(.body)
+                Text(log.timestamp.formatted(date: .omitted, time: .standard))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+
+            Text(log.message)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(colorForLevel(log.level))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func colorForLevel(_ level: LogLevel) -> Color {
+        switch level {
+        case .info: return .primary
+        case .warning: return .orange
+        case .error: return .red
+        case .success: return .green
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -1246,4 +1757,153 @@ struct SettingsChangeModifier: ViewModifier {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
+}
+import SwiftUI
+
+/// View displaying all premium aircraft available from the API
+struct PremiumAircraftListView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @Environment(\.dismiss) var dismiss
+    @Binding var showSubscriptionView: Bool
+
+    var premiumAircraft: [RemoteAircraftMetadata] {
+        aircraftDataService.availableAircraft.filter { !$0.isFree }
+    }
+
+    var body: some View {
+        List {
+            if aircraftDataService.isLoading {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Loading premium aircraft...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
+            } else if premiumAircraft.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "airplane.circle")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Premium Aircraft Available")
+                        .font(.headline)
+                    Text("Check back later for new aircraft.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(premiumAircraft) { aircraft in
+                    PremiumAircraftRow(
+                        aircraft: aircraft,
+                        isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
+                        onSelect: {
+                            if aircraft.hasAccess {
+                                appState.settings.selectedRemoteAircraftId = aircraft.id
+                                UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
+                                // Trigger download/cache of the checklist
+                                Task {
+                                    _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
+                                }
+                                dismiss()
+                            } else {
+                                dismiss()
+                                // Small delay to allow dismiss animation to complete
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    showSubscriptionView = true
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        .navigationTitle("Premium Aircraft")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+        .onAppear {
+            // Refresh aircraft list when view appears
+            Task {
+                await aircraftDataService.fetchAvailableAircraft()
+            }
+        }
+    }
+}
+
+struct PremiumAircraftRow: View {
+    let aircraft: RemoteAircraftMetadata
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 16) {
+                // Aircraft icon
+                ZStack {
+                    Circle()
+                        .fill(aircraft.hasAccess ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
+                        .frame(width: 50, height: 50)
+
+                    Image(systemName: aircraft.hasAccess ? "airplane.circle.fill" : "lock.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
+                }
+
+                // Aircraft details
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(aircraft.registration)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+
+                        Image(systemName: "star.fill")
+                            .font(.caption)
+                            .foregroundColor(.aviationGold)
+                    }
+
+                    Text(aircraft.shortModelName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if !aircraft.hasAccess {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                            Text("Requires AeroCheck Pro")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // Selection indicator
+                if isSelected && aircraft.hasAccess {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.aviationGold)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .disabled(!aircraft.hasAccess)
+        .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+    }
+}
+
+#Preview("Premium Aircraft List") {
+    NavigationView {
+        PremiumAircraftListView(showSubscriptionView: .constant(false))
+            .environmentObject(AppState())
+            .environmentObject(AircraftDataService(subscriptionManager: SubscriptionManager()))
+    }
 }

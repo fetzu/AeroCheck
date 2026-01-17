@@ -679,7 +679,7 @@ struct FlightView: View {
             }
 
             HStack(spacing: 4) {
-                Text(appState.currentFlight?.airplane ?? "F-HVXA")
+                Text(ChecklistData.currentAircraftRegistration)
                     .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
 

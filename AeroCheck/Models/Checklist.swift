@@ -238,4 +238,12 @@ struct ChecklistData {
         }
         return currentAircraft.hasHiddenItems(for: phase, learningMode: learningMode)
     }
+
+    /// Get the registration of the current aircraft (remote or bundled)
+    static var currentAircraftRegistration: String {
+        if let remote = currentRemoteChecklist {
+            return remote.registration
+        }
+        return currentAircraft.registration
+    }
 }

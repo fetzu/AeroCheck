@@ -202,7 +202,7 @@ struct SettingsView: View {
 
     private var aircraftSection: some View {
         Section {
-            // Show bundled aircraft
+            // Show bundled aircraft (F-HVXA only)
             ForEach(AircraftType.allCases) { aircraft in
                 Button(action: {
                     selectedAircraft = aircraft
@@ -231,67 +231,51 @@ struct SettingsView: View {
                 }
             }
 
-            // Show remote aircraft
-            if aircraftDataService.isLoading {
+            // Premium Aircrafts navigation link
+            NavigationLink(destination: PremiumAircraftListView(showSubscriptionView: $showSubscriptionView)
+                .environmentObject(appState)
+                .environmentObject(aircraftDataService)
+            ) {
                 HStack {
-                    ProgressView()
-                    Text("Loading aircraft...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                ForEach(aircraftDataService.availableAircraft) { remoteAircraft in
-                    Button(action: {
-                        if remoteAircraft.hasAccess {
-                            appState.settings.selectedRemoteAircraftId = remoteAircraft.id
-                            saveSettings()
-                        } else {
-                            showSubscriptionView = true
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("Premium Aircrafts")
+                                .font(.system(.body))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                                .foregroundColor(.aviationGold)
                         }
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(remoteAircraft.registration)
-                                        .font(.system(.body, design: .monospaced))
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
 
-                                    if !remoteAircraft.isFree {
-                                        Image(systemName: "star.fill")
-                                            .font(.caption)
-                                            .foregroundColor(.aviationGold)
-                                    }
-                                }
+                        if aircraftDataService.isLoading {
+                            Text("Loading...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            let premiumCount = aircraftDataService.availableAircraft.filter { !$0.isFree }.count
+                            let accessibleCount = aircraftDataService.availableAircraft.filter { !$0.isFree && $0.hasAccess }.count
 
-                                Text(remoteAircraft.shortModelName)
+                            if premiumCount > 0 {
+                                Text("\(accessibleCount)/\(premiumCount) available")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("No premium aircraft")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-
-                            Spacer()
-
-                            if !remoteAircraft.hasAccess {
-                                Image(systemName: "lock.fill")
-                                    .foregroundColor(.secondary)
-                            } else if appState.settings.selectedRemoteAircraftId == remoteAircraft.id {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.aviationGold)
-                            }
                         }
                     }
-                    .disabled(!remoteAircraft.hasAccess && !remoteAircraft.isFree)
-                    .opacity(remoteAircraft.hasAccess ? 1.0 : 0.6)
+
+                    Spacer()
                 }
             }
         } header: {
             Label("Aircraft", systemImage: "airplane")
         } footer: {
-            if aircraftDataService.availableAircraft.contains(where: { !$0.hasAccess }) {
-                Text("Select the aircraft you will be flying. Premium aircraft (marked with ⭐) require an AeroCheck Pro subscription.")
-            } else {
-                Text("Select the aircraft you will be flying. This determines the checklist and speeds used.")
-            }
+            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription.")
         }
     }
 
@@ -761,30 +745,47 @@ struct SettingsView: View {
 
     private var availableChecklistsSection: some View {
         Section {
-            ForEach(AircraftType.allCases) { aircraft in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(aircraft.registration)
-                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                        Text(aircraft.shortModelName)
-                            .foregroundColor(.secondary)
+            let cachedAircraft = aircraftDataService.getAllCachedAircraft()
+
+            if cachedAircraft.isEmpty {
+                Text("No checklists cached")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            } else {
+                ForEach(cachedAircraft) { aircraft in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(aircraft.registration)
+                                .font(.system(size: 17, weight: .semibold, design: .monospaced))
+
+                            if aircraft.isPremium {
+                                Image(systemName: "star.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.aviationGold)
+                            }
+
+                            Text(aircraft.modelName)
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Version \(aircraft.version)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(aircraft.lastUpdated)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    HStack {
-                        Text("Version \(aircraft.checklistVersion)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("•")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(aircraft.lastUpdated)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
         } header: {
             Label("Available Checklists", systemImage: "checklist")
+        } footer: {
+            Text("Checklists downloaded and cached on this device. Premium aircraft checklists are automatically cached when you select them.")
         }
     }
 
@@ -1791,4 +1792,149 @@ struct DebugLogRow: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
+}
+import SwiftUI
+
+/// View displaying all premium aircraft available from the API
+struct PremiumAircraftListView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @Environment(\.dismiss) var dismiss
+    @Binding var showSubscriptionView: Bool
+
+    var premiumAircraft: [RemoteAircraftMetadata] {
+        aircraftDataService.availableAircraft.filter { !$0.isFree }
+    }
+
+    var body: some View {
+        List {
+            if aircraftDataService.isLoading {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Loading premium aircraft...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
+            } else if premiumAircraft.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "airplane.circle")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Premium Aircraft Available")
+                        .font(.headline)
+                    Text("Check back later for new aircraft.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(premiumAircraft) { aircraft in
+                    PremiumAircraftRow(
+                        aircraft: aircraft,
+                        isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
+                        onSelect: {
+                            if aircraft.hasAccess {
+                                appState.settings.selectedRemoteAircraftId = aircraft.id
+                                UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
+                                dismiss()
+                            } else {
+                                dismiss()
+                                // Small delay to allow dismiss animation to complete
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    showSubscriptionView = true
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        .navigationTitle("Premium Aircraft")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+        .onAppear {
+            // Refresh aircraft list when view appears
+            Task {
+                await aircraftDataService.fetchAvailableAircraft()
+            }
+        }
+    }
+}
+
+struct PremiumAircraftRow: View {
+    let aircraft: RemoteAircraftMetadata
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 16) {
+                // Aircraft icon
+                ZStack {
+                    Circle()
+                        .fill(aircraft.hasAccess ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
+                        .frame(width: 50, height: 50)
+
+                    Image(systemName: aircraft.hasAccess ? "airplane.circle.fill" : "lock.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
+                }
+
+                // Aircraft details
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(aircraft.registration)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+
+                        Image(systemName: "star.fill")
+                            .font(.caption)
+                            .foregroundColor(.aviationGold)
+                    }
+
+                    Text(aircraft.shortModelName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if !aircraft.hasAccess {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                            Text("Requires AeroCheck Pro")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // Selection indicator
+                if isSelected && aircraft.hasAccess {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.aviationGold)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .disabled(!aircraft.hasAccess)
+        .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+    }
+}
+
+#Preview("Premium Aircraft List") {
+    NavigationView {
+        PremiumAircraftListView(showSubscriptionView: .constant(false))
+            .environmentObject(AppState())
+            .environmentObject(AircraftDataService(subscriptionManager: SubscriptionManager()))
+    }
 }

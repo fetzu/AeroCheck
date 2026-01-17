@@ -155,6 +155,41 @@ class AircraftDataService: ObservableObject {
         return fileManager.fileExists(atPath: path.path)
     }
 
+    /// Gets all cached aircraft (combines remote and bundled)
+    func getAllCachedAircraft() -> [CachedAircraftInfo] {
+        var cached: [CachedAircraftInfo] = []
+
+        // Add bundled aircraft
+        for aircraft in AircraftType.allCases {
+            cached.append(CachedAircraftInfo(
+                registration: aircraft.registration,
+                modelName: aircraft.shortModelName,
+                version: aircraft.checklistVersion,
+                lastUpdated: aircraft.lastUpdated,
+                isPremium: false
+            ))
+        }
+
+        // Add remote aircraft that are cached
+        for aircraft in availableAircraft where isChecklistCached(aircraftId: aircraft.id) {
+            if let cacheDate = getCacheDate(aircraftId: aircraft.id) {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                formatter.timeStyle = .none
+
+                cached.append(CachedAircraftInfo(
+                    registration: aircraft.registration,
+                    modelName: aircraft.shortModelName,
+                    version: aircraft.version,
+                    lastUpdated: formatter.string(from: cacheDate),
+                    isPremium: !aircraft.isFree
+                ))
+            }
+        }
+
+        return cached
+    }
+
     /// Gets the cache date for a checklist
     func getCacheDate(aircraftId: String) -> Date? {
         let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
@@ -341,6 +376,18 @@ class AircraftDataService: ObservableObject {
             return nil
         }
     }
+}
+
+// MARK: - Cached Aircraft Info
+
+/// Information about a cached aircraft checklist
+struct CachedAircraftInfo: Identifiable {
+    let id = UUID()
+    let registration: String
+    let modelName: String
+    let version: String
+    let lastUpdated: String
+    let isPremium: Bool
 }
 
 // MARK: - Error Types

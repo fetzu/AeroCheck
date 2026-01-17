@@ -145,8 +145,8 @@ class SubscriptionManager: ObservableObject {
                 // Verify the transaction
                 let transaction = try checkVerified(verification)
 
-                // Verify with our server
-                await verifyWithServer(transaction: transaction)
+                // Verify with our server - pass the VerificationResult
+                await verifyWithServer(verificationResult: verification)
 
                 // Finish the transaction
                 await transaction.finish()
@@ -212,9 +212,9 @@ class SubscriptionManager: ObservableObject {
                                 productID: transaction.productID
                             )
 
-                            // Verify with server in background
+                            // Verify with server in background - pass the VerificationResult
                             Task {
-                                await verifyWithServer(transaction: transaction)
+                                await verifyWithServer(verificationResult: result)
                             }
 
                             return
@@ -267,7 +267,7 @@ class SubscriptionManager: ObservableObject {
                         if isActive {
                             debugLogger.log("Found active subscription, verifying with server", level: .success)
                             foundActiveSubscription = true
-                            await verifyWithServer(transaction: transaction)
+                            await verifyWithServer(verificationResult: result)
                             return
                         } else {
                             debugLogger.log("Transaction expired", level: .warning)
@@ -362,8 +362,8 @@ class SubscriptionManager: ObservableObject {
                 do {
                     let transaction = try self.checkVerified(result)
 
-                    // Handle the transaction
-                    await self.verifyWithServer(transaction: transaction)
+                    // Handle the transaction - pass the VerificationResult, not just the Transaction
+                    await self.verifyWithServer(verificationResult: result)
                     await transaction.finish()
 
                     // Update status on main actor
@@ -390,7 +390,16 @@ class SubscriptionManager: ObservableObject {
     }
 
     /// Verifies a transaction with the AeroCheck API server using StoreKit 2 JWS token
-    private func verifyWithServer(transaction: Transaction) async {
+    private func verifyWithServer(verificationResult: VerificationResult<Transaction>) async {
+        // Extract the transaction for logging
+        let transaction: Transaction
+        switch verificationResult {
+        case .verified(let t):
+            transaction = t
+        case .unverified(let t, _):
+            transaction = t
+        }
+
         debugLogger.log("Starting server verification for: \(transaction.productID)", level: .info)
 
         guard let userID = await getUserID() else {
@@ -400,12 +409,9 @@ class SubscriptionManager: ObservableObject {
 
         debugLogger.log("User ID: \(userID)", level: .info)
 
-        // Get the JWS token (StoreKit 2 modern approach)
-        // Note: Transaction.jsonRepresentation is available in iOS 15.0+ and returns Data
-        let jwsData = transaction.jsonRepresentation
-
-        // Convert Data to base64 string for transmission
-        let jwsToken = jwsData.base64EncodedString()
+        // Get the JWS representation from the VerificationResult
+        // This is the signed JWT string that the server can verify
+        let jwsToken = verificationResult.jwsRepresentation
         debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
         // Send to server

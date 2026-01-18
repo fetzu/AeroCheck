@@ -245,7 +245,7 @@ struct SettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Text("Premium Aircrafts")
+                            Text(L10n.Settings.premiumAircrafts)
                                 .font(.system(.body))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
@@ -256,7 +256,7 @@ struct SettingsView: View {
                         }
 
                         if aircraftDataService.isLoading {
-                            Text("Loading...")
+                            Text(L10n.Settings.loading)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         } else {
@@ -264,11 +264,11 @@ struct SettingsView: View {
                             let accessibleCount = aircraftDataService.availableAircraft.filter { !$0.isFree && $0.hasAccess }.count
 
                             if premiumCount > 0 {
-                                Text("\(accessibleCount)/\(premiumCount) available")
+                                Text(L10n.Settings.available(accessibleCount, premiumCount))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             } else {
-                                Text("No premium aircraft")
+                                Text(L10n.Settings.noPremium)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -288,14 +288,14 @@ struct SettingsView: View {
                     } else {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
-                    Text("Get latest aircraft data")
+                    Text(L10n.Settings.getLatest)
                 }
             }
             .disabled(isSyncingAircraftData)
         } header: {
-            Label("Aircraft", systemImage: "airplane")
+            Label(L10n.Settings.aircraft, systemImage: "airplane")
         } footer: {
-            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates.")
+            Text(L10n.Settings.aircraftFooter)
         }
     }
 
@@ -320,11 +320,10 @@ struct SettingsView: View {
     private var gpsSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                let intervalText = "\(Int(gpsInterval)) seconds"
                 HStack {
-                    Text("Recording Interval")
+                    Text(L10n.Settings.gpsInterval)
                     Spacer()
-                    Text(intervalText)
+                    Text(L10n.Settings.seconds(Int(gpsInterval)))
                         .foregroundColor(.secondary)
                 }
 
@@ -333,27 +332,27 @@ struct SettingsView: View {
             }
 
             HStack {
-                Text("GPS Status")
+                Text(L10n.GPS.status)
                 Spacer()
                 Text(gpsStatusText)
                     .foregroundColor(gpsStatusColor)
             }
 
             if locationManager.authorizationStatus == .notDetermined {
-                Button("Request GPS Permission") {
+                Button(L10n.GPS.requestPermission) {
                     locationManager.requestAuthorization()
                 }
             }
         } header: {
-            Label("GPS Tracking", systemImage: "location.fill")
+            Label(L10n.Settings.gps, systemImage: "location.fill")
         } footer: {
-            Text("Lower intervals provide more detailed tracks but use more storage")
+            Text(L10n.Settings.gpsFooter)
         }
     }
 
     private var experimentalAirspeedSection: some View {
         Section {
-            Toggle("Show Estimated Airspeed", isOn: Binding(
+            Toggle(L10n.Settings.showEstimatedAirspeed, isOn: Binding(
                 get: { showEstimatedAirspeed },
                 set: { newValue in
                     if newValue {
@@ -366,8 +365,8 @@ struct SettingsView: View {
             ))
         } header: {
             HStack {
-                Label("Experimental", systemImage: "exclamationmark.triangle.fill")
-                Text("BETA")
+                Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
+                Text(L10n.Tag.beta)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -379,11 +378,11 @@ struct SettingsView: View {
             }
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss.")
+                Text(L10n.Settings.experimentalFooter)
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationAmber)
-                    Text("This feature only works in Switzerland and requires a constant cellular connection.")
+                    Text(L10n.Settings.switzerlandOnly)
                         .foregroundColor(.aviationAmber)
                 }
                 .font(.caption)
@@ -393,7 +392,7 @@ struct SettingsView: View {
 
     private var flightPlanningSection: some View {
         Section {
-            Toggle("Enable Flight Planning", isOn: Binding(
+            Toggle(L10n.Settings.enableFlightPlanning, isOn: Binding(
                 get: { enableFlightPlanning },
                 set: { newValue in
                     if newValue {
@@ -407,7 +406,7 @@ struct SettingsView: View {
             if enableFlightPlanning {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Waypoint Proximity")
+                        Text(L10n.Settings.waypointProximity)
                         Spacer()
                         Text("\(Int(waypointProximityThreshold)) m")
                             .foregroundColor(.secondary)
@@ -417,7 +416,7 @@ struct SettingsView: View {
                         .tint(.aviationGold)
                 }
 
-                Picker("Terrain Altitude Unit", selection: $terrainAltitudeUnit) {
+                Picker(L10n.Settings.terrainAltitudeUnit, selection: $terrainAltitudeUnit) {
                     ForEach(TerrainAltitudeUnit.allCases) { unit in
                         Text(unit.rawValue).tag(unit)
                     }
@@ -426,8 +425,8 @@ struct SettingsView: View {
             }
         } header: {
             HStack {
-                Label("Flight Planning", systemImage: "map.fill")
-                Text("BETA")
+                Label(L10n.Settings.flightPlanning, systemImage: "map.fill")
+                Text(L10n.Tag.beta)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -439,10 +438,10 @@ struct SettingsView: View {
             }
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Plan flight routes with waypoints, time/distance calculations, and terrain visualization.")
+                Text(L10n.Settings.flightPlanningFooter)
                 if enableFlightPlanning {
-                    Text("Waypoint Proximity: Distance at which waypoints auto-advance during flight.")
-                    Text("Terrain Altitude Unit: Unit for displaying terrain profile elevation.")
+                    Text(L10n.Settings.waypointProximityFooter)
+                    Text(L10n.Settings.terrainUnitFooter)
                 }
             }
         }
@@ -450,37 +449,37 @@ struct SettingsView: View {
 
     private var displaySection: some View {
         Section {
-            Toggle("Keep Screen On", isOn: $keepScreenOn)
-            Toggle("Always Use UTC Times", isOn: $alwaysUseUTC)
+            Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
+            Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
         } header: {
-            Label("Display", systemImage: "sun.max.fill")
+            Label(L10n.Settings.display, systemImage: "sun.max.fill")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Keep Screen On: Prevents the screen from dimming during flight.")
-                Text("Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix.")
+                Text(L10n.Settings.keepScreenOnFooter)
+                Text(L10n.Settings.alwaysUseUTCFooter)
             }
         }
     }
 
     private var navigationSection: some View {
         Section {
-            Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
+            Toggle(L10n.Settings.forceICAO, isOn: $forceICAOChartLayer)
                 .disabled(offlineMode)
         } header: {
-            Label("Navigation", systemImage: "map")
+            Label(L10n.Settings.navigation, systemImage: "map")
         } footer: {
-            Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+            Text(L10n.Settings.forceICAOFooter)
         }
     }
 
     private var iCloudSyncSection: some View {
         Section {
-            Toggle("Sync to iCloud", isOn: $iCloudSyncEnabled)
+            Toggle(L10n.Settings.syncToICloud, isOn: $iCloudSyncEnabled)
 
             if iCloudSyncEnabled {
                 if let lastSync = syncManager.lastSyncDate {
                     HStack {
-                        Text("Last Sync")
+                        Text(L10n.Settings.lastSync)
                         Spacer()
                         Text(formatSyncDate(lastSync))
                             .foregroundColor(.secondary)
@@ -501,18 +500,18 @@ struct SettingsView: View {
                                     : .default,
                                 value: syncManager.isSyncing
                             )
-                        Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
+                        Text(syncManager.isSyncing ? L10n.Settings.syncing : L10n.Settings.syncNow)
                     }
                 }
                 .disabled(syncManager.isSyncing)
             }
         } header: {
-            Label("iCloud Sync", systemImage: "icloud")
+            Label(L10n.Settings.icloud, systemImage: "icloud")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("When enabled, your settings and flight logs are synced across all your devices signed into the same iCloud account.")
+                Text(L10n.Settings.icloudFooter)
                 if iCloudSyncEnabled {
-                    Text("Your flight logs are stored in the AéroCheck folder in Files and can be accessed from any device.")
+                    Text(L10n.Settings.flightLogsFooter)
                 }
             }
         }
@@ -527,7 +526,7 @@ struct SettingsView: View {
 
     private var offlineMapsSection: some View {
         Section {
-            Toggle("Offline Mode", isOn: $offlineMode)
+            Toggle(L10n.Settings.offlineMode, isOn: $offlineMode)
                 .onChange(of: offlineMode) { _, newValue in
                     if newValue && !offlineMapManager.isCacheAvailable {
                         showDownloadModal = true
@@ -537,7 +536,7 @@ struct SettingsView: View {
             if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
                 if offlineMapManager.isCacheAvailable {
                     HStack {
-                        Text("ICAO Chart")
+                        Text(L10n.Settings.icaoChart)
                         Spacer()
                         Text(offlineMapManager.cacheVersion)
                             .foregroundColor(.secondary)
@@ -546,7 +545,7 @@ struct SettingsView: View {
 
                 if offlineMapManager.isSegelflugCacheAvailable {
                     HStack {
-                        Text("Segelflugkarte")
+                        Text(L10n.Settings.segelflugkarte)
                         Spacer()
                         Text(offlineMapManager.segelflugCacheVersion)
                             .foregroundColor(.secondary)
@@ -554,7 +553,7 @@ struct SettingsView: View {
                 }
 
                 HStack {
-                    Text("Total Cache Size")
+                    Text(L10n.Settings.totalCacheSize)
                     Spacer()
                     Text(offlineMapManager.formattedCacheSize)
                         .foregroundColor(.secondary)
@@ -563,26 +562,26 @@ struct SettingsView: View {
                 Button(action: { showDownloadModal = true }) {
                     HStack {
                         Image(systemName: "arrow.clockwise")
-                        Text("Update/Add Charts")
+                        Text(L10n.Settings.updateCharts)
                     }
                 }
 
                 Button(role: .destructive, action: { showDeleteConfirmation = true }) {
                     HStack {
                         Image(systemName: "trash")
-                        Text("Delete All Cached Charts")
+                        Text(L10n.Settings.deleteCache)
                     }
                 }
             } else {
                 Button(action: { showDownloadModal = true }) {
                     HStack {
                         Image(systemName: "arrow.down.circle")
-                        Text("Download Charts")
+                        Text(L10n.Settings.downloadCharts)
                     }
                 }
             }
         } header: {
-            Label("Offline Maps", systemImage: "arrow.down.circle")
+            Label(L10n.Settings.offlineMaps, systemImage: "arrow.down.circle")
         } footer: {
             offlineMapsFooter
         }
@@ -592,14 +591,14 @@ struct SettingsView: View {
     private var offlineMapsFooter: some View {
         if offlineMode {
             if offlineMapManager.isSegelflugCacheAvailable {
-                Text("Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache.")
+                Text(L10n.Settings.offlineActive)
             } else {
-                Text("Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode.")
+                Text(L10n.Settings.onlyICAO)
             }
         } else if offlineMapManager.isCacheAvailable {
-            Text("Charts cached for faster loading. Updated yearly by swisstopo in April.")
+            Text(L10n.Settings.chartsCached)
         } else {
-            Text("Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming.")
+            Text(L10n.Settings.downloadDesc)
         }
     }
 
@@ -632,7 +631,7 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             HStack {
-                Text("App Version")
+                Text(L10n.Settings.appVersion)
                     .foregroundColor(.primary)
                 Spacer()
                 HStack(spacing: 4) {
@@ -658,7 +657,7 @@ struct SettingsView: View {
 
             Link(destination: URL(string: "https://aerocheck.app/")!) {
                 HStack {
-                    Text("Website")
+                    Text(L10n.Settings.website)
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
@@ -674,7 +673,7 @@ struct SettingsView: View {
 
             Link(destination: URL(string: "https://www.julienbono.ch/")!) {
                 HStack {
-                    Text("Author")
+                    Text(L10n.Settings.author)
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
@@ -690,12 +689,12 @@ struct SettingsView: View {
                 HStack {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .foregroundColor(.primary)
-                    Text("Open Source")
+                    Text(L10n.Settings.openSource)
                         .font(.headline)
                 }
 
                 Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                    Text("This app is open source and available on GitHub. ")
+                    Text(L10n.Settings.openSourceDescription)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     + Text(Image(systemName: "arrow.up.forward.square"))
@@ -705,7 +704,7 @@ struct SettingsView: View {
                 }
 
                 Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                    Text("Released under the MIT License. ")
+                    Text(L10n.Settings.mitLicense)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     + Text(Image(systemName: "arrow.up.forward.square"))
@@ -716,7 +715,7 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
         } header: {
-            Label("About", systemImage: "info.circle.fill")
+            Label(L10n.Settings.about, systemImage: "info.circle.fill")
         }
     }
 
@@ -725,7 +724,7 @@ struct SettingsView: View {
             let cachedAircraft = aircraftDataService.getAllCachedAircraft()
 
             if cachedAircraft.isEmpty {
-                Text("No checklists cached")
+                Text(L10n.Settings.noCached)
                     .foregroundColor(.secondary)
                     .font(.caption)
             } else {
@@ -745,7 +744,7 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                         HStack {
-                            Text("Version \(aircraft.version)")
+                            Text(L10n.Settings.version(aircraft.version))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Text("•")
@@ -760,29 +759,29 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Label("Available Checklists", systemImage: "checklist")
+            Label(L10n.Settings.availableChecklists, systemImage: "checklist")
         } footer: {
-            Text("Checklists cached on this device for offline use. Checklists are downloaded when you select an aircraft and refreshed automatically every 24 hours when online.")
+            Text(L10n.Settings.availableChecklistsFooter)
         }
     }
 
     private var dataSection: some View {
         Section {
             HStack {
-                Text("Recorded Flights")
+                Text(L10n.Settings.recordedFlights)
                 Spacer()
                 Text("\(appState.flights.count)")
                     .foregroundColor(.secondary)
             }
 
             HStack {
-                Text("Total GPS Points")
+                Text(L10n.Settings.totalGPSPoints)
                 Spacer()
                 Text("\(totalGPSPoints)")
                     .foregroundColor(.secondary)
             }
         } header: {
-            Label("Data", systemImage: "externaldrive.fill")
+            Label(L10n.Settings.data, systemImage: "externaldrive.fill")
         }
     }
 
@@ -790,9 +789,9 @@ struct SettingsView: View {
     private var developerOptionsSection: some View {
         if showDeveloperOptions {
             Section {
-                Toggle("Marketing Mode", isOn: $marketingMode)
+                Toggle(L10n.Settings.marketingMode, isOn: $marketingMode)
 
-                Toggle("Force 'Not Subscribed' State", isOn: $subscriptionManager.debugForceNotSubscribed)
+                Toggle(L10n.Settings.forceNotSubscribed, isOn: $subscriptionManager.debugForceNotSubscribed)
                     .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in
                         Task {
                             await subscriptionManager.updateSubscriptionStatus()
@@ -802,7 +801,7 @@ struct SettingsView: View {
                 Button(action: { showTransactionDebug = true }) {
                     HStack {
                         Image(systemName: "doc.text.magnifyingglass")
-                        Text("Show All Transactions")
+                        Text(L10n.Settings.showAllTransactions)
                     }
                 }
                 .sheet(isPresented: $showTransactionDebug) {
@@ -813,7 +812,7 @@ struct SettingsView: View {
                 Button(action: { showSubscriptionLogs = true }) {
                     HStack {
                         Image(systemName: "doc.text.fill")
-                        Text("Show Subscription Logs")
+                        Text(L10n.Settings.showSubscriptionLogs)
                     }
                 }
                 .sheet(isPresented: $showSubscriptionLogs) {
@@ -824,13 +823,13 @@ struct SettingsView: View {
                 Button(role: .destructive, action: resetSubscription) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise")
-                        Text("Reset Subscription State")
+                        Text(L10n.Settings.resetSubscription)
                     }
                 }
             } header: {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
-                    Text("DEV")
+                    Text(L10n.Tag.dev)
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -842,11 +841,11 @@ struct SettingsView: View {
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
-                    Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
-                    Text("Show All Transactions: Displays all StoreKit transactions for debugging subscription issues.")
-                    Text("Show Subscription Logs: Real-time logs of subscription sync operations and server communication.")
-                    Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
+                    Text(L10n.Settings.marketingModeDesc)
+                    Text(L10n.Settings.forceNotSubscribedDesc)
+                    Text(L10n.Settings.showAllTransactionsDesc)
+                    Text(L10n.Settings.showSubscriptionLogsDesc)
+                    Text(L10n.Settings.resetSubscriptionDesc)
                 }
             }
         }
@@ -1031,7 +1030,7 @@ struct FlightPlanningWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L10n.Button.cancel) {
                         isPresented = false
                     }
                 }
@@ -1119,7 +1118,7 @@ struct EstimatedAirspeedWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L10n.Button.cancel) {
                         isPresented = false
                     }
                 }
@@ -1174,12 +1173,12 @@ struct OfflineMapDownloadSheet: View {
                     .padding(.top, 24)
 
                 // Title
-                Text("Download Charts")
+                Text(L10n.Settings.downloadCharts)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
-                Text("Download Swiss aeronautical charts for offline navigation and faster loading.")
+                Text(L10n.Download.description)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
@@ -1188,7 +1187,7 @@ struct OfflineMapDownloadSheet: View {
                 // Cache option picker (only show when not downloading and no complete cache)
                 if !offlineMapManager.isDownloading {
                     VStack(spacing: 12) {
-                        Text("Select Charts to Download")
+                        Text(L10n.Download.selectCharts)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondaryText)
 
@@ -1216,11 +1215,11 @@ struct OfflineMapDownloadSheet: View {
                             .padding(.horizontal, 40)
 
                         if let layer = offlineMapManager.currentDownloadingLayer {
-                            Text("Downloading \(layer.displayName)...")
+                            Text(L10n.Download.downloadingLayer(layer.displayName))
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondaryText)
                         } else {
-                            Text("Downloading tiles...")
+                            Text(L10n.Download.downloadingTiles)
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondaryText)
                         }
@@ -1231,7 +1230,7 @@ struct OfflineMapDownloadSheet: View {
 
                         // Estimated time remaining
                         if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
-                            Text("Estimated time remaining: \(formattedTimeRemaining(eta))")
+                            Text(L10n.Download.estimatedTimeRemaining(formattedTimeRemaining(eta)))
                                 .font(.system(size: 13))
                                 .foregroundColor(.dimText)
                         }
@@ -1261,7 +1260,7 @@ struct OfflineMapDownloadSheet: View {
                                 CacheStatusBadge(name: "Segelflug", isAvailable: true)
                             }
                         }
-                        Text("Total: \(offlineMapManager.formattedCacheSize)")
+                        Text(L10n.Download.total(offlineMapManager.formattedCacheSize))
                             .font(.system(size: 12))
                             .foregroundColor(.dimText)
                     }
@@ -1303,7 +1302,7 @@ struct OfflineMapDownloadSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if !offlineMapManager.isDownloading {
-                        Button("Cancel") {
+                        Button(L10n.Button.cancel) {
                             if !offlineMapManager.isCacheAvailable {
                                 offlineMode = false
                             }
@@ -1621,7 +1620,7 @@ struct TransactionDebugView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
@@ -1788,7 +1787,7 @@ struct SubscriptionDebugLogView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
@@ -1864,7 +1863,7 @@ struct PremiumAircraftListView: View {
                     Spacer()
                     VStack(spacing: 16) {
                         ProgressView()
-                        Text("Loading premium aircraft...")
+                        Text(L10n.Premium.loadingAircraft)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1876,9 +1875,9 @@ struct PremiumAircraftListView: View {
                     Image(systemName: "airplane.circle")
                         .font(.system(size: 60))
                         .foregroundColor(.secondary)
-                    Text("No Premium Aircraft Available")
+                    Text(L10n.Premium.noAircraftAvailable)
                         .font(.headline)
-                    Text("Check back later for new aircraft.")
+                    Text(L10n.Premium.checkBackLater)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1911,7 +1910,7 @@ struct PremiumAircraftListView: View {
                 }
             }
         }
-        .navigationTitle("Premium Aircraft")
+        .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
         .onAppear {
@@ -1963,7 +1962,7 @@ struct PremiumAircraftRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 10))
-                            Text("Requires AeroCheck Pro")
+                            Text(L10n.Premium.requiresAeroCheckPro)
                                 .font(.system(size: 11))
                         }
                         .foregroundColor(.secondary)

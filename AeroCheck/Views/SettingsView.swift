@@ -969,7 +969,7 @@ struct FlightPlanningWarningSheet: View {
                     .padding(.top, 40)
 
                 // Title
-                Text("Beta Feature")
+                Text(L10n.Warning.betaFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -977,22 +977,22 @@ struct FlightPlanningWarningSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     WarningItem(
                         icon: "exclamationmark.triangle.fill",
-                        text: "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
+                        text: L10n.Warning.flightPlanningBetaDesc
                     )
 
                     WarningItem(
                         icon: "map",
-                        text: "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
+                        text: L10n.Warning.flightPlanningPlanRoutes
                     )
 
                     WarningItem(
                         icon: "location.fill",
-                        text: "During flight, the app can automatically advance waypoints based on your GPS position."
+                        text: L10n.Warning.flightPlanningAutoAdvance
                     )
 
                     WarningItem(
                         icon: "mountain.2.fill",
-                        text: "Terrain visualization is only available within Switzerland using swisstopo data."
+                        text: L10n.Warning.flightPlanningTerrainViz
                     )
                 }
                 .padding(.horizontal, 24)
@@ -1005,7 +1005,7 @@ struct FlightPlanningWarningSheet: View {
                         enableFlightPlanning = true
                         isPresented = false
                     }) {
-                        Text("I Understand - Enable Feature")
+                        Text(L10n.Warning.iUnderstandEnable)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
@@ -1020,7 +1020,7 @@ struct FlightPlanningWarningSheet: View {
                     Button(action: {
                         isPresented = false
                     }) {
-                        Text("Cancel")
+                        Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
                     }
@@ -1057,7 +1057,7 @@ struct EstimatedAirspeedWarningSheet: View {
                     .padding(.top, 40)
 
                 // Title
-                Text("Experimental Feature")
+                Text(L10n.Warning.experimentalFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -1065,22 +1065,22 @@ struct EstimatedAirspeedWarningSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     WarningItem(
                         icon: "airplane",
-                        text: "The estimated indicated airspeed (IAS) shown is calculated from GPS ground speed and wind data from MeteoSwiss weather stations."
+                        text: L10n.Warning.estimatedAirspeedCalculated
                     )
 
                     WarningItem(
                         icon: "exclamationmark.circle.fill",
-                        text: "This estimation can be highly inaccurate due to local wind variations, altitude differences, and station distance."
+                        text: L10n.Warning.estimatedAirspeedInaccurate
                     )
 
                     WarningItem(
                         icon: "gauge.with.needle",
-                        text: "Always rely on your aircraft's onboard airspeed indicator for actual IAS readings."
+                        text: L10n.Warning.estimatedAirspeedAlwaysRelyOnboard
                     )
 
                     WarningItem(
                         icon: "network",
-                        text: "This feature requires a constant cellular connection and only works within Switzerland."
+                        text: L10n.Warning.estimatedAirspeedRequiresCellular
                     )
                 }
                 .padding(.horizontal, 24)
@@ -1093,7 +1093,7 @@ struct EstimatedAirspeedWarningSheet: View {
                         showEstimatedAirspeed = true
                         isPresented = false
                     }) {
-                        Text("I Understand - Enable Feature")
+                        Text(L10n.Warning.iUnderstandEnable)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
@@ -1108,7 +1108,7 @@ struct EstimatedAirspeedWarningSheet: View {
                     Button(action: {
                         isPresented = false
                     }) {
-                        Text("Cancel")
+                        Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
                     }

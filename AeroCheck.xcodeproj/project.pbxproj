@@ -56,6 +56,8 @@
 		B3000001211111110000003 /* RemoteAircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000003 /* RemoteAircraft.swift */; };
 		B3000001211111110000004 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000004 /* SubscriptionView.swift */; };
 		B3000001211111110000005 /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000005 /* Configuration.storekit */; };
+		C1000001211111110000001 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000001 /* Localization.swift */; };
+		C1000001211111110000002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000002 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -153,6 +155,8 @@
 		B3000001111111110000003 /* RemoteAircraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteAircraft.swift; sourceTree = "<group>"; };
 		B3000001111111110000004 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		B3000001111111110000005 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
+		C1000001111111110000001 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		C1000001111111110000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -204,6 +208,8 @@
 				A1000003111111110000005 /* Models */,
 				A1000003111111110000006 /* Services */,
 				A1000003111111110000007 /* Components */,
+				C1000001111111110000001 /* Localization.swift */,
+				C1000001111111110000002 /* Localizable.xcstrings */,
 				A1000001111111110000013 /* Assets.xcassets */,
 				A1000001111111110000014 /* Info.plist */,
 				B3000001111111110000005 /* Configuration.storekit */,
@@ -427,6 +433,7 @@
 			files = (
 				A1000001211111110000013 /* Assets.xcassets in Resources */,
 				B3000001211111110000005 /* Configuration.storekit in Resources */,
+				C1000001211111110000002 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,6 +495,7 @@
 				B3000001211111110000002 /* AircraftDataService.swift in Sources */,
 				B3000001211111110000003 /* RemoteAircraft.swift in Sources */,
 				B3000001211111110000004 /* SubscriptionView.swift in Sources */,
+				C1000001211111110000001 /* Localization.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

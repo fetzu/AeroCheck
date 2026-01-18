@@ -1441,6 +1441,64 @@ struct CacheStatusBadge: View {
 
 // MARK: - Settings Change Modifier
 
+// Helper modifiers to break up the complex expression
+struct SettingsChangeGroup1: ViewModifier {
+    let selectedAircraft: AircraftType
+    let gpsInterval: Double
+    let keepScreenOn: Bool
+    let stepByStepHighlighting: Bool
+    let learningMode: Bool
+    let saveSettings: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
+            .onChange(of: gpsInterval) { _, _ in saveSettings() }
+            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
+            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
+            .onChange(of: learningMode) { _, _ in saveSettings() }
+    }
+}
+
+struct SettingsChangeGroup2: ViewModifier {
+    let forceICAOChartLayer: Bool
+    let offlineMode: Bool
+    let alwaysUseUTC: Bool
+    let showEstimatedAirspeed: Bool
+    let enableFlightPlanning: Bool
+    let saveSettings: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
+            .onChange(of: offlineMode) { _, _ in saveSettings() }
+            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
+            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
+            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
+    }
+}
+
+struct SettingsChangeGroup3: ViewModifier {
+    let waypointProximityThreshold: Double
+    let terrainAltitudeUnit: TerrainAltitudeUnit
+    let enableCircuitMode: Bool
+    let iCloudSyncEnabled: Bool
+    let checklistLanguage: ChecklistLanguage
+    let marketingMode: Bool
+    let saveSettings: () -> Void
+    let updateMarketingMode: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
+            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
+            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
+            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
+            .onChange(of: checklistLanguage) { _, _ in saveSettings() }
+            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+    }
+}
+
 struct SettingsChangeModifier: ViewModifier {
     let selectedAircraft: AircraftType
     let gpsInterval: Double
@@ -1463,22 +1521,32 @@ struct SettingsChangeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
-            .onChange(of: gpsInterval) { _, _ in saveSettings() }
-            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
-            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
-            .onChange(of: learningMode) { _, _ in saveSettings() }
-            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
-            .onChange(of: offlineMode) { _, _ in saveSettings() }
-            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
-            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
-            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
-            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
-            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
-            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
-            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
-            .onChange(of: checklistLanguage) { _, _ in saveSettings() }
-            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+            .modifier(SettingsChangeGroup1(
+                selectedAircraft: selectedAircraft,
+                gpsInterval: gpsInterval,
+                keepScreenOn: keepScreenOn,
+                stepByStepHighlighting: stepByStepHighlighting,
+                learningMode: learningMode,
+                saveSettings: saveSettings
+            ))
+            .modifier(SettingsChangeGroup2(
+                forceICAOChartLayer: forceICAOChartLayer,
+                offlineMode: offlineMode,
+                alwaysUseUTC: alwaysUseUTC,
+                showEstimatedAirspeed: showEstimatedAirspeed,
+                enableFlightPlanning: enableFlightPlanning,
+                saveSettings: saveSettings
+            ))
+            .modifier(SettingsChangeGroup3(
+                waypointProximityThreshold: waypointProximityThreshold,
+                terrainAltitudeUnit: terrainAltitudeUnit,
+                enableCircuitMode: enableCircuitMode,
+                iCloudSyncEnabled: iCloudSyncEnabled,
+                checklistLanguage: checklistLanguage,
+                marketingMode: marketingMode,
+                saveSettings: saveSettings,
+                updateMarketingMode: updateMarketingMode
+            ))
     }
 }
 

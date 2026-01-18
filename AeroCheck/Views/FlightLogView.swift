@@ -1534,7 +1534,8 @@ struct ImageShareSheet: UIViewControllerRepresentable {
 
 /// A UIActivityItemProvider that shares images as JPEG data for smaller file sizes
 /// while still supporting Save to Photos and other image-specific share actions
-class ShareableImage: UIActivityItemProvider {
+@MainActor
+class ShareableImage: UIActivityItemProvider, @unchecked Sendable {
     let image: UIImage
 
     init(image: UIImage) {

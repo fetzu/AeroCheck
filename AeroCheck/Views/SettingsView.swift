@@ -56,7 +56,7 @@ struct SettingsView: View {
 
     private var settingsForm: some View {
         formContent
-            .navigationTitle("Settings")
+            .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { loadSettings() }
@@ -99,14 +99,14 @@ struct SettingsView: View {
                     enableFlightPlanning: $enableFlightPlanning
                 )
             }
-            .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+            .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
+                Button(L10n.Button.cancel, role: .cancel) { }
+                Button(L10n.Button.delete, role: .destructive) {
                     offlineMapManager.deleteCache()
                     offlineMode = false
                 }
             } message: {
-                Text("This will delete the cached ICAO chart. You will need to download it again for offline use.")
+                Text(L10n.Settings.deleteCacheMessage)
             }
     }
 
@@ -140,7 +140,7 @@ struct SettingsView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .confirmationAction) {
-            Button("Done") { dismiss() }
+            Button(L10n.Settings.done) { dismiss() }
         }
     }
 
@@ -151,7 +151,7 @@ struct SettingsView: View {
             Button(action: { showSubscriptionView = true }) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("AeroCheck Pro")
+                        Text(L10n.Settings.aeroCheckPro)
                             .font(.headline)
                             .foregroundColor(.primary)
 
@@ -166,7 +166,7 @@ struct SettingsView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.caption)
                                     .foregroundColor(.aviationAmber)
-                                Text("Grace period ends \(endsAt.formatted(date: .abbreviated, time: .shortened))")
+                                Text(L10n.Settings.gracePeriodEnds(endsAt.formatted(date: .abbreviated, time: .shortened)))
                                     .font(.caption2)
                                     .foregroundColor(.aviationAmber)
                             }
@@ -192,14 +192,14 @@ struct SettingsView: View {
                     .environmentObject(subscriptionManager)
             }
         } header: {
-            Label("Subscription", systemImage: "star.fill")
+            Label(L10n.Settings.subscription, systemImage: "star.fill")
         } footer: {
             if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text("You have access to all premium aircraft checklists.")
+                Text(L10n.Settings.subscriptionAccessAll)
             } else if subscriptionManager.isInGracePeriod {
-                Text("Your subscription has lapsed. Premium checklists will remain available during the grace period.")
+                Text(L10n.Settings.subscriptionLapsed)
             } else {
-                Text("Subscribe to unlock additional aircraft checklists.")
+                Text(L10n.Settings.subscriptionUnlockText)
             }
         }
     }

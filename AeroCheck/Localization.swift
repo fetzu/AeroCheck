@@ -148,67 +148,85 @@ enum L10n {
 
     // MARK: - Briefing
     enum Briefing {
+        static let departureTitle = String(localized: "briefing.departure.title")
+        static let approachTitle = String(localized: "briefing.approach.title")
         static let departure = String(localized: "briefing.departure")
         static let approach = String(localized: "briefing.approach")
+        static let airspeeds = String(localized: "briefing.airspeeds")
+        static let emergencyBriefing = String(localized: "briefing.emergencyBriefing")
+        static let missedApproach = String(localized: "briefing.missedApproach")
+        static let alternate = String(localized: "briefing.alternate")
+        static let close = String(localized: "briefing.close")
     }
 
     // MARK: - Settings
     enum Settings {
         static let title = String(localized: "settings.title")
+        static let done = String(localized: "settings.done")
+
+        // Subscription
         static let subscription = String(localized: "settings.subscription")
-        static let aeroCheckPro = String(localized: "settings.aeroCheckPro")
+        static let aeroCheckPro = String(localized: "settings.subscription.aeroCheckPro")
         static let subscriptionSubscribed = String(localized: "settings.subscription.subscribed")
         static let subscriptionGracePeriod = String(localized: "settings.subscription.gracePeriod")
         static let subscriptionUnlock = String(localized: "settings.subscription.unlock")
+        static let subscriptionAccessAll = String(localized: "settings.subscription.accessAll")
+        static let subscriptionLapsed = String(localized: "settings.subscription.lapsed")
+        static let subscriptionUnlockText = String(localized: "settings.subscription.unlockText")
         static func gracePeriodEnds(_ date: String) -> String {
             String(localized: "settings.subscription.gracePeriodEnds", defaultValue: "Grace period ends \(date)")
         }
 
+        // Alert
+        static let deleteCacheTitle = String(localized: "settings.deleteCache.title")
+        static let deleteCacheMessage = String(localized: "settings.deleteCache.message")
+
         // Aircraft
         static let aircraft = String(localized: "settings.aircraft")
-        static let premiumAircrafts = String(localized: "settings.aircraft.premium")
+        static let premiumAircrafts = String(localized: "settings.aircraft.premiumAircrafts")
         static let loading = String(localized: "settings.aircraft.loading")
         static func available(_ accessible: Int, _ total: Int) -> String {
             String(localized: "settings.aircraft.available", defaultValue: "\(accessible)/\(total) available")
         }
-        static let noPremium = String(localized: "settings.aircraft.noPremium")
-        static let getLatest = String(localized: "settings.aircraft.getLatest")
-        static let aircraftFooter = String(localized: "settings.aircraft.footer")
+        static let noPremium = String(localized: "settings.aircraft.noPremiumAircraft")
+        static let getLatest = String(localized: "settings.aircraft.getLatestData")
+        static let aircraftFooter = String(localized: "settings.aircraft.selectAircraft")
 
         // GPS
         static let gps = String(localized: "settings.gps")
-        static let gpsInterval = String(localized: "settings.gps.interval")
+        static let gpsInterval = String(localized: "settings.gps.recordingInterval")
+        static let gpsStatus = String(localized: "settings.gps.gpsStatus")
         static func seconds(_ n: Int) -> String {
             String(localized: "settings.gps.seconds", defaultValue: "\(n) seconds")
         }
-        static let gpsFooter = String(localized: "settings.gps.footer")
+        static let gpsFooter = String(localized: "settings.gps.lowerIntervals")
 
         // Experimental
         static let experimental = String(localized: "settings.experimental")
         static let showEstimatedAirspeed = String(localized: "settings.experimental.showEstimatedAirspeed")
-        static let experimentalFooter = String(localized: "settings.experimental.footer")
-        static let switzerlandOnly = String(localized: "settings.experimental.switzerlandOnly")
+        static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
+        static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
         static let enableFlightPlanning = String(localized: "settings.flightPlanning.enable")
         static let waypointProximity = String(localized: "settings.flightPlanning.waypointProximity")
-        static let terrainUnit = String(localized: "settings.flightPlanning.terrainUnit")
-        static let flightPlanningFooter = String(localized: "settings.flightPlanning.footer")
-        static let waypointProximityFooter = String(localized: "settings.flightPlanning.waypointProximityFooter")
-        static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitFooter")
+        static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
+        static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")
+        static let waypointProximityFooter = String(localized: "settings.flightPlanning.waypointProximityDesc")
+        static let terrainUnitFooter = String(localized: "settings.flightPlanning.terrainUnitDesc")
 
         // Display
         static let display = String(localized: "settings.display")
         static let keepScreenOn = String(localized: "settings.display.keepScreenOn")
         static let alwaysUseUTC = String(localized: "settings.display.alwaysUseUTC")
-        static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnFooter")
-        static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCFooter")
+        static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnDesc")
+        static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCDesc")
 
         // Navigation
         static let navigation = String(localized: "settings.navigation")
         static let forceICAO = String(localized: "settings.navigation.forceICAO")
-        static let forceICAOFooter = String(localized: "settings.navigation.forceICAOFooter")
+        static let forceICAOFooter = String(localized: "settings.navigation.forceICAODesc")
 
         // iCloud
         static let icloud = String(localized: "settings.icloud")
@@ -216,8 +234,8 @@ enum L10n {
         static let lastSync = String(localized: "settings.icloud.lastSync")
         static let syncNow = String(localized: "settings.icloud.syncNow")
         static let syncing = String(localized: "settings.icloud.syncing")
-        static let icloudFooter = String(localized: "settings.icloud.footer")
-        static let flightLogsFooter = String(localized: "settings.icloud.flightLogsFooter")
+        static let icloudFooter = String(localized: "settings.icloud.whenEnabledDesc")
+        static let flightLogsFooter = String(localized: "settings.icloud.flightLogsStored")
 
         // Offline Maps
         static let offlineMaps = String(localized: "settings.offlineMaps")
@@ -225,9 +243,13 @@ enum L10n {
         static let icaoChart = String(localized: "settings.offlineMaps.icaoChart")
         static let segelflugkarte = String(localized: "settings.offlineMaps.segelflugkarte")
         static let totalCacheSize = String(localized: "settings.offlineMaps.totalCacheSize")
-        static let updateCharts = String(localized: "settings.offlineMaps.updateCharts")
-        static let deleteCache = String(localized: "settings.offlineMaps.deleteCache")
+        static let updateCharts = String(localized: "settings.offlineMaps.updateAddCharts")
+        static let deleteCache = String(localized: "settings.offlineMaps.deleteAllCached")
         static let downloadCharts = String(localized: "settings.offlineMaps.downloadCharts")
+        static let offlineActive = String(localized: "settings.offlineMaps.offlineActive")
+        static let onlyICAO = String(localized: "settings.offlineMaps.onlyICAO")
+        static let chartsCached = String(localized: "settings.offlineMaps.chartsCached")
+        static let downloadDesc = String(localized: "settings.offlineMaps.downloadDesc")
 
         // Checklist
         static let checklist = String(localized: "settings.checklist")
@@ -249,18 +271,33 @@ enum L10n {
         static let website = String(localized: "settings.about.website")
         static let author = String(localized: "settings.about.author")
         static let openSource = String(localized: "settings.about.openSource")
-        static let openSourceDescription = String(localized: "settings.about.openSourceDescription")
+        static let openSourceDescription = String(localized: "settings.about.openSourceDesc")
         static let mitLicense = String(localized: "settings.about.mitLicense")
 
         // Available Checklists
         static let availableChecklists = String(localized: "settings.availableChecklists")
         static let noCached = String(localized: "settings.availableChecklists.noCached")
-        static let availableChecklistsFooter = String(localized: "settings.availableChecklists.footer")
+        static func version(_ v: String) -> String {
+            String(localized: "settings.availableChecklists.version", defaultValue: "Version \(v)")
+        }
+        static let availableChecklistsFooter = String(localized: "settings.availableChecklists.cachedDesc")
 
         // Data
         static let data = String(localized: "settings.data")
         static let recordedFlights = String(localized: "settings.data.recordedFlights")
         static let totalGPSPoints = String(localized: "settings.data.totalGPSPoints")
+
+        // Developer Options
+        static let marketingMode = String(localized: "settings.developer.marketingMode")
+        static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
+        static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
+        static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")
+        static let resetSubscription = String(localized: "settings.developer.resetSubscription")
+        static let marketingModeDesc = String(localized: "settings.developer.marketingModeDesc")
+        static let forceNotSubscribedDesc = String(localized: "settings.developer.forceNotSubscribedDesc")
+        static let showAllTransactionsDesc = String(localized: "settings.developer.showAllTransactionsDesc")
+        static let showSubscriptionLogsDesc = String(localized: "settings.developer.showSubscriptionLogsDesc")
+        static let resetSubscriptionDesc = String(localized: "settings.developer.resetSubscriptionDesc")
     }
 
     // MARK: - Sheets
@@ -298,30 +335,47 @@ enum L10n {
     // MARK: - Flight Log
     enum FlightLog {
         static let title = String(localized: "flightLog.title")
-        static let noFlights = String(localized: "flightLog.noFlights")
-        static let startFlightPrompt = String(localized: "flightLog.startFlightPrompt")
-        static let export = String(localized: "flightLog.export")
-        static let importFlight = String(localized: "flightLog.import")
-        static let exportAll = String(localized: "flightLog.exportAll")
-        static let exportAsGPX = String(localized: "flightLog.exportAsGPX")
-        static let exportAsJSON = String(localized: "flightLog.exportAsJSON")
-        static let exportAsZIP = String(localized: "flightLog.exportAsZIP")
+        static let close = String(localized: "flightLog.close")
+        static let exportAllTitle = String(localized: "flightLog.exportAll.title")
+        static let exportAllGPX = String(localized: "flightLog.exportAll.gpx")
+        static let exportAllJSON = String(localized: "flightLog.exportAll.json")
+        static func exportAllMessage(_ count: Int) -> String {
+            String(localized: "flightLog.exportAll.message", defaultValue: "Export all \(count) flights as a ZIP archive")
+        }
+        static let importErrorTitle = String(localized: "flightLog.importError.title")
+        static let importErrorOK = String(localized: "flightLog.importError.ok")
+        static let noFlightsTitle = String(localized: "flightLog.noFlights.title")
+        static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
+        static let importFlight = String(localized: "flightLog.importFlight")
     }
 
     // MARK: - Premium
     enum Premium {
         static let title = String(localized: "premium.title")
-        static let loading = String(localized: "premium.loading")
-        static let noAircraft = String(localized: "premium.noAircraft")
-        static let checkBack = String(localized: "premium.checkBack")
-        static let requiresSubscription = String(localized: "premium.requiresSubscription")
+        static let loadingAircraft = String(localized: "premium.loadingAircraft")
+        static let noAircraftAvailable = String(localized: "premium.noAircraftAvailable")
+        static let checkBackLater = String(localized: "premium.checkBackLater")
+        static let requiresAeroCheckPro = String(localized: "premium.requiresAeroCheckPro")
     }
 
     // MARK: - Warnings
     enum Warning {
         static let betaFeature = String(localized: "warning.betaFeature")
         static let experimentalFeature = String(localized: "warning.experimentalFeature")
-        static let iUnderstand = String(localized: "warning.iUnderstand")
+        static let iUnderstandEnable = String(localized: "warning.iUnderstandEnable")
+        static let cancel = String(localized: "warning.cancel")
+
+        // Flight Planning
+        static let flightPlanningBetaDesc = String(localized: "warning.flightPlanning.betaDesc")
+        static let flightPlanningPlanRoutes = String(localized: "warning.flightPlanning.planRoutes")
+        static let flightPlanningAutoAdvance = String(localized: "warning.flightPlanning.autoAdvance")
+        static let flightPlanningTerrainViz = String(localized: "warning.flightPlanning.terrainViz")
+
+        // Estimated Airspeed
+        static let estimatedAirspeedCalculated = String(localized: "warning.estimatedAirspeed.calculated")
+        static let estimatedAirspeedInaccurate = String(localized: "warning.estimatedAirspeed.inaccurate")
+        static let estimatedAirspeedAlwaysRelyOnboard = String(localized: "warning.estimatedAirspeed.alwaysRelyOnboard")
+        static let estimatedAirspeedRequiresCellular = String(localized: "warning.estimatedAirspeed.requiresCellular")
     }
 
     // MARK: - Download
@@ -332,16 +386,18 @@ enum L10n {
         static let icaoOnly = String(localized: "download.icaoOnly")
         static let icaoAndSegelflug = String(localized: "download.icaoAndSegelflug")
         static let cached = String(localized: "download.cached")
-        static let downloading = String(localized: "download.downloading")
+        static let downloadingTiles = String(localized: "download.downloadingTiles")
         static func downloadingLayer(_ name: String) -> String {
             String(localized: "download.downloadingLayer", defaultValue: "Downloading \(name)...")
         }
-        static func estimatedTime(_ time: String) -> String {
-            String(localized: "download.estimatedTime", defaultValue: "Estimated time remaining: \(time)")
+        static func estimatedTimeRemaining(_ time: String) -> String {
+            String(localized: "download.estimatedTimeRemaining", defaultValue: "Estimated time remaining: \(time)")
         }
         static func total(_ size: String) -> String {
             String(localized: "download.total", defaultValue: "Total: \(size)")
         }
+        static let done = String(localized: "download.done")
+        static let cancel = String(localized: "download.cancel")
         static let redownload = String(localized: "download.redownload")
         static let downloadSegelflug = String(localized: "download.downloadSegelflug")
     }
@@ -350,6 +406,123 @@ enum L10n {
     enum Tag {
         static let beta = String(localized: "beta")
         static let dev = String(localized: "dev")
+    }
+
+    // MARK: - Checklist Actions
+    enum ChecklistAction {
+        static let engineStart = String(localized: "checklist.engineStart")
+        static let started = String(localized: "checklist.started")
+        static let readyForLineUp = String(localized: "checklist.readyForLineUp")
+        static let lineUp = String(localized: "checklist.lineUp")
+        static let engineShutdown = String(localized: "checklist.engineShutdown")
+        static let shutdown = String(localized: "checklist.shutdown")
+        static let goAround = String(localized: "checklist.goAround")
+        static let goArounds = String(localized: "checklist.goArounds")
+        static let touchAndGo = String(localized: "checklist.touchAndGo")
+        static let touchAndGoes = String(localized: "checklist.touchAndGoes")
+        static let fullStop = String(localized: "checklist.fullStop")
+        static let fullStops = String(localized: "checklist.fullStops")
+        static let landed = String(localized: "checklist.landed")
+        static let landing = String(localized: "checklist.landing")
+
+        // Hidden Items
+        static let hiddenItemsTitle = String(localized: "checklist.hiddenItems.title")
+        static func hiddenItemsCount(_ count: Int, _ plural: String) -> String {
+            String(localized: "checklist.hiddenItems.count", defaultValue: "\(count) item\(plural) hidden — hold to reveal")
+        }
+        static let holdToUpdate = String(localized: "checklist.hiddenItems.holdToUpdate")
+        static func updateConfirm(_ label: String) -> String {
+            String(localized: "checklist.hiddenItems.updateConfirm", defaultValue: "Do you want to update the \(label) time to now?")
+        }
+
+        // Other
+        static func page(_ n: Int) -> String {
+            String(localized: "checklist.page", defaultValue: "PAGE \(n)")
+        }
+        static let tapToAdvance = String(localized: "checklist.tapToAdvance")
+        static let airspeedsAFM = String(localized: "checklist.airspeeds.afm")
+        static let maxCrosswind = String(localized: "checklist.maxCrosswind")
+    }
+
+    // MARK: - Flight Detail
+    enum FlightDetail {
+        // Export
+        static let exportFormatTitle = String(localized: "flightDetail.exportFormat.title")
+        static let exportFormatGPX = String(localized: "flightDetail.exportFormat.gpx")
+        static let exportFormatJSON = String(localized: "flightDetail.exportFormat.json")
+        static let exportFormatMessage = String(localized: "flightDetail.exportFormat.message")
+
+        // Delete
+        static let deleteTitle = String(localized: "flightDetail.delete.title")
+        static let deleteMessage = String(localized: "flightDetail.delete.message")
+
+        // Sections
+        static let flightTrack = String(localized: "flightDetail.flightTrack")
+        static let noGPSData = String(localized: "flightDetail.noGPSData")
+        static let altitudeProfile = String(localized: "flightDetail.altitudeProfile")
+        static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
+        static let flightDetails = String(localized: "flightDetail.flightDetails")
+
+        // Details
+        static let aircraft = String(localized: "flightDetail.aircraft")
+        static let date = String(localized: "flightDetail.date")
+        static let flightTime = String(localized: "flightDetail.flightTime")
+        static let distance = String(localized: "flightDetail.distance")
+        static let gpsPoints = String(localized: "flightDetail.gpsPoints")
+        static let goArounds = String(localized: "flightDetail.goArounds")
+        static let touchAndGoes = String(localized: "flightDetail.touchAndGoes")
+        static let fullStops = String(localized: "flightDetail.fullStops")
+
+        // Times
+        static let flightTimes = String(localized: "flightDetail.flightTimes")
+        static let sessionStart = String(localized: "flightDetail.sessionStart")
+        static let engineStart = String(localized: "flightDetail.engineStart")
+        static let takeoff = String(localized: "flightDetail.takeoff")
+        static let landing = String(localized: "flightDetail.landing")
+        static let engineShutdown = String(localized: "flightDetail.engineShutdown")
+        static let sessionEnd = String(localized: "flightDetail.sessionEnd")
+
+        // Name/Notes
+        static let flightName = String(localized: "flightDetail.flightName")
+        static let namePlaceholder = String(localized: "flightDetail.namePlaceholder")
+        static let notes = String(localized: "flightDetail.notes")
+
+        // Actions
+        static let navPlan = String(localized: "flightDetail.navPlan")
+        static let export = String(localized: "flightDetail.export")
+        static let delete = String(localized: "flightDetail.delete")
+    }
+
+    // MARK: - Debug
+    enum Debug {
+        // Transaction Debug
+        static let transactionLoading = String(localized: "debug.transaction.loading")
+        static let transactionNoFound = String(localized: "debug.transaction.noFound")
+        static let transactionCouldMean = String(localized: "debug.transaction.couldMean")
+        static let transactionTotal = String(localized: "debug.transaction.totalTransactions")
+        static let transactionActive = String(localized: "debug.transaction.activeSubscriptions")
+        static let transactionAccountType = String(localized: "debug.transaction.accountType")
+        static let transactionSummary = String(localized: "debug.transaction.summary")
+        static let transactionAll = String(localized: "debug.transaction.allTransactions")
+        static let transactionTitle = String(localized: "debug.transaction.title")
+        static let transactionClose = String(localized: "debug.transaction.close")
+        static let transactionEnvironment = String(localized: "debug.transaction.environment")
+        static let transactionPurchased = String(localized: "debug.transaction.purchased")
+        static let transactionExpires = String(localized: "debug.transaction.expires")
+        static let transactionID = String(localized: "debug.transaction.transactionID")
+        static let transactionOriginalID = String(localized: "debug.transaction.originalID")
+        static func transactionVerificationError(_ error: String) -> String {
+            String(localized: "debug.transaction.verificationError", defaultValue: "Verification Error: \(error)")
+        }
+        static func transactionRevokedOn(_ date: String) -> String {
+            String(localized: "debug.transaction.revokedOn", defaultValue: "Revoked on \(date)")
+        }
+
+        // Subscription Log
+        static let subscriptionLogNoLogs = String(localized: "debug.subscriptionLog.noLogs")
+        static let subscriptionLogAppear = String(localized: "debug.subscriptionLog.logsAppear")
+        static let subscriptionLogTitle = String(localized: "debug.subscriptionLog.title")
+        static let subscriptionLogClose = String(localized: "debug.subscriptionLog.close")
     }
 }
 

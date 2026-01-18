@@ -278,6 +278,8 @@ struct HomeView: View {
                             .font(.system(size: isCompact ? 18 : 22))
                         Text(L10n.Button.startFlight)
                             .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
@@ -292,9 +294,10 @@ struct HomeView: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: isCompact ? 18 : 20))
                             Text(L10n.Button.circuits)
-                                .font(.system(size: isCompact ? 14 : 14, weight: .bold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .font(.system(size: isCompact ? 13 : 14, weight: .bold))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.6)
+                                .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))

@@ -370,6 +370,7 @@ struct HomeView: View {
                     label: L10n.Stats.checks,
                     isCompact: isLandscape || isCompact
                 )
+                .frame(maxWidth: .infinity)
 
                 QuickStatView(
                     icon: "list.bullet",
@@ -377,6 +378,7 @@ struct HomeView: View {
                     label: L10n.Stats.items,
                     isCompact: isLandscape || isCompact
                 )
+                .frame(maxWidth: .infinity)
             }
         }
         .padding(isCompact ? 12 : (isLandscape ? 14 : 32))

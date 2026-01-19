@@ -44,7 +44,7 @@ enum L10n {
     enum Home {
         static let flightInfo = String(localized: "home.flightInfo")
         static func version(_ v: String) -> String {
-            String(localized: "home.version", defaultValue: "Version \(v)")
+            String(format: String(localized: "home.version"), v)
         }
     }
 
@@ -77,7 +77,7 @@ enum L10n {
     // MARK: - Flight
     enum Flight {
         static func phase(_ current: Int, _ total: Int) -> String {
-            String(localized: "flight.phase \(current) \(total)")
+            String(format: String(localized: "flight.phase"), current, total)
         }
         static let phases = String(localized: "flight.phases")
         static let times = String(localized: "flight.times")
@@ -156,7 +156,7 @@ enum L10n {
         }
 
         static func completed(_ phase: String) -> String {
-            String(localized: "phase.completed", defaultValue: "\(phase) COMPLETED")
+            String(format: String(localized: "phase.completed"), phase)
         }
     }
 
@@ -188,7 +188,7 @@ enum L10n {
         static let subscriptionLapsed = String(localized: "settings.subscription.lapsed")
         static let subscriptionUnlockText = String(localized: "settings.subscription.unlockText")
         static func gracePeriodEnds(_ date: String) -> String {
-            String(localized: "settings.subscription.gracePeriodEnds", defaultValue: "Grace period ends \(date)")
+            String(format: String(localized: "settings.subscription.gracePeriodEnds"), date)
         }
 
         // Alert
@@ -200,7 +200,7 @@ enum L10n {
         static let premiumAircrafts = String(localized: "settings.aircraft.premiumAircrafts")
         static let loading = String(localized: "settings.aircraft.loading")
         static func available(_ accessible: Int, _ total: Int) -> String {
-            String(localized: "settings.aircraft.available", defaultValue: "\(accessible)/\(total) available")
+            String(format: String(localized: "settings.aircraft.available"), accessible, total)
         }
         static let noPremium = String(localized: "settings.aircraft.noPremiumAircraft")
         static let getLatest = String(localized: "settings.aircraft.getLatestData")
@@ -211,7 +211,7 @@ enum L10n {
         static let gpsInterval = String(localized: "settings.gps.recordingInterval")
         static let gpsStatus = String(localized: "settings.gps.gpsStatus")
         static func seconds(_ n: Int) -> String {
-            String(localized: "settings.gps.seconds", defaultValue: "\(n) seconds")
+            String(format: String(localized: "settings.gps.seconds"), n)
         }
         static let gpsFooter = String(localized: "settings.gps.lowerIntervals")
 
@@ -292,7 +292,7 @@ enum L10n {
         static let availableChecklists = String(localized: "settings.availableChecklists")
         static let noCached = String(localized: "settings.availableChecklists.noCached")
         static func version(_ v: String) -> String {
-            String(localized: "settings.availableChecklists.version", defaultValue: "Version \(v)")
+            String(format: String(localized: "settings.availableChecklists.version"), v)
         }
         static let availableChecklistsFooter = String(localized: "settings.availableChecklists.cachedDesc")
 
@@ -319,7 +319,7 @@ enum L10n {
         static let speedReference = String(localized: "sheet.speedReference")
         static let selectPhase = String(localized: "sheet.selectPhase")
         static func page(_ n: Int) -> String {
-            String(localized: "sheet.page", defaultValue: "Page \(n)")
+            String(format: String(localized: "sheet.page"), n)
         }
     }
 
@@ -354,7 +354,7 @@ enum L10n {
         static let exportAllGPX = String(localized: "flightLog.exportAll.gpx")
         static let exportAllJSON = String(localized: "flightLog.exportAll.json")
         static func exportAllMessage(_ count: Int) -> String {
-            String(localized: "flightLog.exportAll.message", defaultValue: "Export all \(count) flights as a ZIP archive")
+            String(format: String(localized: "flightLog.exportAll.message"), count)
         }
         static let importErrorTitle = String(localized: "flightLog.importError.title")
         static let importErrorOK = String(localized: "flightLog.importError.ok")
@@ -363,10 +363,10 @@ enum L10n {
         static let importErrorParse = String(localized: "flightLog.importError.parse")
         static let importErrorZipNoFiles = String(localized: "flightLog.importError.zipNoFiles")
         static func importErrorZipPartial(_ success: Int, _ failed: Int) -> String {
-            String(localized: "flightLog.importError.zipPartial", defaultValue: "Imported \(success) flight(s). \(failed) file(s) could not be imported.")
+            String(format: String(localized: "flightLog.importError.zipPartial"), success, failed)
         }
         static func importErrorZipExtract(_ error: String) -> String {
-            String(localized: "flightLog.importError.zipExtract", defaultValue: "Failed to extract ZIP archive: \(error)")
+            String(format: String(localized: "flightLog.importError.zipExtract"), error)
         }
         static let noFlightsTitle = String(localized: "flightLog.noFlights.title")
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
@@ -413,13 +413,13 @@ enum L10n {
         static let cached = String(localized: "download.cached")
         static let downloadingTiles = String(localized: "download.downloadingTiles")
         static func downloadingLayer(_ name: String) -> String {
-            String(localized: "download.downloadingLayer", defaultValue: "Downloading \(name)...")
+            String(format: String(localized: "download.downloadingLayer"), name)
         }
         static func estimatedTimeRemaining(_ time: String) -> String {
-            String(localized: "download.estimatedTimeRemaining", defaultValue: "Estimated time remaining: \(time)")
+            String(format: String(localized: "download.estimatedTimeRemaining"), time)
         }
         static func total(_ size: String) -> String {
-            String(localized: "download.total", defaultValue: "Total: \(size)")
+            String(format: String(localized: "download.total"), size)
         }
         static let done = String(localized: "download.done")
         static let cancel = String(localized: "download.cancel")
@@ -510,16 +510,16 @@ enum L10n {
         // Hidden Items
         static let hiddenItemsTitle = String(localized: "checklist.hiddenItems.title")
         static func hiddenItemsCount(_ count: Int, _ plural: String) -> String {
-            String(localized: "checklist.hiddenItems.count", defaultValue: "\(count) item\(plural) hidden — hold to reveal")
+            String(format: String(localized: "checklist.hiddenItems.count"), count, plural)
         }
         static let holdToUpdate = String(localized: "checklist.hiddenItems.holdToUpdate")
         static func updateConfirm(_ label: String) -> String {
-            String(localized: "checklist.hiddenItems.updateConfirm", defaultValue: "Do you want to update the \(label) time to now?")
+            String(format: String(localized: "checklist.hiddenItems.updateConfirm"), label)
         }
 
         // Other
         static func page(_ n: Int) -> String {
-            String(localized: "checklist.page", defaultValue: "PAGE \(n)")
+            String(format: String(localized: "checklist.page"), n)
         }
         static let tapToAdvance = String(localized: "checklist.tapToAdvance")
         static let airspeedsAFM = String(localized: "checklist.airspeeds.afm")
@@ -594,10 +594,10 @@ enum L10n {
         static let transactionID = String(localized: "debug.transaction.transactionID")
         static let transactionOriginalID = String(localized: "debug.transaction.originalID")
         static func transactionVerificationError(_ error: String) -> String {
-            String(localized: "debug.transaction.verificationError", defaultValue: "Verification Error: \(error)")
+            String(format: String(localized: "debug.transaction.verificationError"), error)
         }
         static func transactionRevokedOn(_ date: String) -> String {
-            String(localized: "debug.transaction.revokedOn", defaultValue: "Revoked on \(date)")
+            String(format: String(localized: "debug.transaction.revokedOn"), date)
         }
 
         // Subscription Log

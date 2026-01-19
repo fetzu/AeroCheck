@@ -585,13 +585,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phase %@/%@"
+            "value": "Phase %d/%d"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phase %@/%@"
+            "value": "Phase %d/%d"
           }
         }
       }
@@ -825,6 +825,12 @@
             "state": "translated",
             "value": "PREFLIGHT CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIFICATION PRÉ-VOL"
+          }
         }
       }
     },
@@ -835,6 +841,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CHECK BEFORE ENGINE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIFICATION AVANT DÉMARRAGE MOTEUR"
           }
         }
       }
@@ -847,6 +859,12 @@
             "state": "translated",
             "value": "ENGINE START"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRAGE MOTEUR"
+          }
         }
       }
     },
@@ -857,6 +875,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CHECK AFTER ENGINE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIFICATION APRÈS DÉMARRAGE MOTEUR"
           }
         }
       }
@@ -869,6 +893,12 @@
             "state": "translated",
             "value": "TAXI CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROULAGE"
+          }
         }
       }
     },
@@ -879,6 +909,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RUNUP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POINT FIXE"
           }
         }
       }
@@ -891,6 +927,12 @@
             "state": "translated",
             "value": "CHECK BEFORE DEPARTURE"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VÉRIFICATION AVANT DÉPART"
+          }
         }
       }
     },
@@ -901,6 +943,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "LINE UP CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALIGNEMENT"
           }
         }
       }
@@ -913,6 +961,12 @@
             "state": "translated",
             "value": "CLIMB CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MONTÉE"
+          }
         }
       }
     },
@@ -923,6 +977,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CRUISE CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CROISIÈRE"
           }
         }
       }
@@ -935,6 +995,12 @@
             "state": "translated",
             "value": "DESCENT CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DESCENTE"
+          }
         }
       }
     },
@@ -945,6 +1011,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "APPROACH CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APPROCHE"
           }
         }
       }
@@ -957,6 +1029,12 @@
             "state": "translated",
             "value": "LANDING CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGE"
+          }
         }
       }
     },
@@ -967,6 +1045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "AFTER LANDING CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APRÈS ATTERRISSAGE"
           }
         }
       }
@@ -979,6 +1063,12 @@
             "state": "translated",
             "value": "ENGINE SHUTDOWN AND PARKING CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT MOTEUR"
+          }
         }
       }
     },
@@ -989,6 +1079,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "AT THE HANGAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AU HANGAR"
           }
         }
       }
@@ -1001,6 +1097,12 @@
             "state": "translated",
             "value": "PREFLIGHT CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÉ-VOL"
+          }
         }
       }
     },
@@ -1011,6 +1113,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CHECK BEFORE ENGINE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AVANT DÉMARRAGE"
           }
         }
       }
@@ -1023,6 +1131,12 @@
             "state": "translated",
             "value": "ENGINE START"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÉMARRAGE"
+          }
         }
       }
     },
@@ -1033,6 +1147,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CHECK AFTER ENGINE START"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APRÈS DÉMARRAGE"
           }
         }
       }
@@ -1045,6 +1165,12 @@
             "state": "translated",
             "value": "TAXI CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ROULAGE"
+          }
         }
       }
     },
@@ -1055,6 +1181,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "RUNUP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "POINT FIXE"
           }
         }
       }
@@ -1067,6 +1199,12 @@
             "state": "translated",
             "value": "CHECK BEFORE DEPARTURE"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AVANT DÉPART"
+          }
         }
       }
     },
@@ -1077,6 +1215,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "LINE UP CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALIGNEMENT"
           }
         }
       }
@@ -1089,6 +1233,12 @@
             "state": "translated",
             "value": "CLIMB CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MONTÉE"
+          }
         }
       }
     },
@@ -1099,6 +1249,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CRUISE CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CROISIÈRE"
           }
         }
       }
@@ -1111,6 +1267,12 @@
             "state": "translated",
             "value": "DESCENT CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DESCENTE"
+          }
         }
       }
     },
@@ -1121,6 +1283,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "APPROACH CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APPROCHE"
           }
         }
       }
@@ -1133,6 +1301,12 @@
             "state": "translated",
             "value": "LANDING CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATTERRISSAGE"
+          }
         }
       }
     },
@@ -1143,6 +1317,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "AFTER LANDING CHECK"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "APRÈS ATTERRISSAGE"
           }
         }
       }
@@ -1155,6 +1335,12 @@
             "state": "translated",
             "value": "PARKING CHECK"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARRÊT MOTEUR"
+          }
         }
       }
     },
@@ -1165,6 +1351,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "AT THE HANGAR"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HANGAR"
           }
         }
       }
@@ -1396,13 +1588,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@/%@ available"
+            "value": "%d/%d available"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@/%@ disponibles"
+            "value": "%d/%d disponibles"
           }
         }
       }
@@ -1498,13 +1690,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ seconds"
+            "value": "%d seconds"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ secondes"
+            "value": "%d secondes"
           }
         }
       }
@@ -2569,13 +2761,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Page %@"
+            "value": "Page %d"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Page %@"
+            "value": "Page %d"
           }
         }
       }
@@ -5006,7 +5198,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%d élément%@ masqué%@ — maintenir pour révéler"
+            "value": "%d élément%@ masqué(s) — maintenir pour révéler"
           }
         }
       }

@@ -1,6 +1,20 @@
 import Foundation
 import SwiftUI
 
+/// Get a localized string in a specific language
+/// - Parameters:
+///   - key: The localization key
+///   - language: The target language code (e.g., "en", "fr")
+///   - defaultValue: Fallback value if localization is not found
+/// - Returns: The localized string in the specified language
+func localizedString(key: String, language: String, defaultValue: String = "") -> String {
+    guard let path = Bundle.main.path(forResource: language, ofType: "lproj"),
+          let bundle = Bundle(path: path) else {
+        return defaultValue.isEmpty ? key : defaultValue
+    }
+    return bundle.localizedString(forKey: key, value: defaultValue, table: nil)
+}
+
 /// Localized string keys for type-safe localization access
 /// All UI strings should use these keys via String(localized:) or Text() with LocalizedStringKey
 enum L10n {
@@ -344,9 +358,20 @@ enum L10n {
         }
         static let importErrorTitle = String(localized: "flightLog.importError.title")
         static let importErrorOK = String(localized: "flightLog.importError.ok")
+        static let importErrorUnknown = String(localized: "flightLog.importError.unknown")
+        static let importErrorNoAccess = String(localized: "flightLog.importError.noAccess")
+        static let importErrorParse = String(localized: "flightLog.importError.parse")
+        static let importErrorZipNoFiles = String(localized: "flightLog.importError.zipNoFiles")
+        static func importErrorZipPartial(_ success: Int, _ failed: Int) -> String {
+            String(localized: "flightLog.importError.zipPartial", defaultValue: "Imported \(success) flight(s). \(failed) file(s) could not be imported.")
+        }
+        static func importErrorZipExtract(_ error: String) -> String {
+            String(localized: "flightLog.importError.zipExtract", defaultValue: "Failed to extract ZIP archive: \(error)")
+        }
         static let noFlightsTitle = String(localized: "flightLog.noFlights.title")
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")
+        static let pts = String(localized: "flightLog.pts")
     }
 
     // MARK: - Premium
@@ -424,6 +449,63 @@ enum L10n {
         static let fullStops = String(localized: "checklist.fullStops")
         static let landed = String(localized: "checklist.landed")
         static let landing = String(localized: "checklist.landing")
+
+        /// Get button title in a specific language
+        static func engineStart(language: String) -> String {
+            localizedString(key: "checklist.engineStart", language: language, defaultValue: "ENGINE START")
+        }
+
+        static func started(language: String) -> String {
+            localizedString(key: "checklist.started", language: language, defaultValue: "Started")
+        }
+
+        static func readyForLineUp(language: String) -> String {
+            localizedString(key: "checklist.readyForLineUp", language: language, defaultValue: "READY FOR LINE UP")
+        }
+
+        static func lineUp(language: String) -> String {
+            localizedString(key: "checklist.lineUp", language: language, defaultValue: "Line Up")
+        }
+
+        static func engineShutdown(language: String) -> String {
+            localizedString(key: "checklist.engineShutdown", language: language, defaultValue: "ENGINE SHUTDOWN")
+        }
+
+        static func shutdown(language: String) -> String {
+            localizedString(key: "checklist.shutdown", language: language, defaultValue: "Shutdown")
+        }
+
+        static func goAround(language: String) -> String {
+            localizedString(key: "checklist.goAround", language: language, defaultValue: "GO AROUND")
+        }
+
+        static func goArounds(language: String) -> String {
+            localizedString(key: "checklist.goArounds", language: language, defaultValue: "Go Arounds")
+        }
+
+        static func touchAndGo(language: String) -> String {
+            localizedString(key: "checklist.touchAndGo", language: language, defaultValue: "TOUCH-AND-GO")
+        }
+
+        static func touchAndGoes(language: String) -> String {
+            localizedString(key: "checklist.touchAndGoes", language: language, defaultValue: "Touch-and-goes")
+        }
+
+        static func fullStop(language: String) -> String {
+            localizedString(key: "checklist.fullStop", language: language, defaultValue: "FULL STOP")
+        }
+
+        static func fullStops(language: String) -> String {
+            localizedString(key: "checklist.fullStops", language: language, defaultValue: "Full Stops")
+        }
+
+        static func landed(language: String) -> String {
+            localizedString(key: "checklist.landed", language: language, defaultValue: "LANDED")
+        }
+
+        static func landing(language: String) -> String {
+            localizedString(key: "checklist.landing", language: language, defaultValue: "Landing")
+        }
 
         // Hidden Items
         static let hiddenItemsTitle = String(localized: "checklist.hiddenItems.title")
@@ -537,6 +619,12 @@ enum ChecklistLanguage: String, CaseIterable, Codable, Identifiable {
     case it = "it"
 
     var id: String { rawValue }
+
+    /// Languages for which at least one checklist is currently available
+    /// Currently only English and French checklists exist (WT9 is English-only, PA-28-181 has English and French)
+    static var availableLanguages: [ChecklistLanguage] {
+        return [.auto, .en, .fr]
+    }
 
     /// Display name for the language
     var displayName: String {

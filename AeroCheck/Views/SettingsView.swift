@@ -612,7 +612,7 @@ struct SettingsView: View {
 
             // Checklist Language Picker
             Picker(L10n.Settings.checklistLanguage, selection: $checklistLanguage) {
-                ForEach(ChecklistLanguage.allCases) { language in
+                ForEach(ChecklistLanguage.availableLanguages) { language in
                     Text(language.displayName).tag(language)
                 }
             }
@@ -1971,6 +1971,13 @@ struct PremiumAircraftRow: View {
 
                 Spacer()
 
+                // Language flags
+                HStack(spacing: 6) {
+                    ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                        LanguageFlagView(languageCode: languageCode)
+                    }
+                }
+
                 // Selection indicator
                 if isSelected && aircraft.hasAccess {
                     Image(systemName: "checkmark.circle.fill")
@@ -1982,6 +1989,38 @@ struct PremiumAircraftRow: View {
         }
         .disabled(!aircraft.hasAccess)
         .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+    }
+}
+
+/// A view that displays a language flag indicator
+struct LanguageFlagView: View {
+    let languageCode: String
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.secondary.opacity(0.15))
+                .frame(width: 28, height: 28)
+
+            Text(flagEmoji)
+                .font(.system(size: 16))
+        }
+    }
+
+    /// Converts language code to flag emoji
+    private var flagEmoji: String {
+        switch languageCode {
+        case "en":
+            return "🇬🇧"
+        case "fr":
+            return "🇫🇷"
+        case "de":
+            return "🇩🇪"
+        case "it":
+            return "🇮🇹"
+        default:
+            return "🏳️"
+        }
     }
 }
 

@@ -13,6 +13,7 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     let stallSpeed: Int
     let pageCount: Int
     var hasAccess: Bool
+    var availableLanguages: [String]?
 
     /// Converts to local AircraftType if available
     var localAircraftType: AircraftType? {
@@ -22,6 +23,26 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     /// Whether this aircraft is bundled locally in the app
     var isBundled: Bool {
         return aircraftType == "WT9"
+    }
+
+    /// Gets the available checklist languages for this aircraft
+    /// Returns hardcoded values until the API provides this information
+    var checklistLanguages: [String] {
+        // If API provides languages, use those
+        if let languages = availableLanguages, !languages.isEmpty {
+            return languages
+        }
+
+        // Hardcoded fallback based on known aircraft
+        // TODO: Remove this once the API consistently provides availableLanguages
+        switch id {
+        case "pa28-181":
+            return ["en", "fr"]  // PA-28-181 HB-PFA has English and French
+        case "wt9-dynamic":
+            return ["en"]  // WT9 Dynamic F-HVXA is English-only
+        default:
+            return ["en"]  // Default to English for unknown aircraft
+        }
     }
 }
 

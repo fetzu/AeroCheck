@@ -6166,6 +6166,125 @@
           }
         }
       }
+    },
+    "flightLog.importError.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown error"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur inconnue"
+          }
+        }
+      }
+    },
+    "flightLog.importError.noAccess": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot access the selected file."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'accéder au fichier sélectionné."
+          }
+        }
+      }
+    },
+    "flightLog.importError.parse": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not parse the flight file. Supported formats: GPX, JSON, ZIP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'analyser le fichier de vol. Formats supportés : GPX, JSON, ZIP"
+          }
+        }
+      }
+    },
+    "flightLog.importError.zipNoFiles": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No valid flight files found in the ZIP archive."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fichier de vol valide trouvé dans l'archive ZIP."
+          }
+        }
+      }
+    },
+    "flightLog.importError.zipPartial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported %d flight(s). %d file(s) could not be imported."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d vol(s) importé(s). %d fichier(s) n'ont pas pu être importés."
+          }
+        }
+      }
+    },
+    "flightLog.importError.zipExtract": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to extract ZIP archive: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l'extraction de l'archive ZIP : %@"
+          }
+        }
+      }
+    },
+    "flightLog.pts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pts"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pts"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

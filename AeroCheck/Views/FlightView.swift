@@ -262,7 +262,8 @@ struct FlightView: View {
                             stepByStepEnabled: appState.settings.stepByStepHighlighting,
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
-                            pulseActionButton: pulseActionButton
+                            pulseActionButton: pulseActionButton,
+                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage
                         )
                         .padding(24)
                         .id("checklistContent")
@@ -391,7 +392,8 @@ struct FlightView: View {
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
                             pulseActionButton: pulseActionButton,
-                            isCompact: true
+                            isCompact: true,
+                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)

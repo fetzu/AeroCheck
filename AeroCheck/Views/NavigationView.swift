@@ -832,10 +832,10 @@ struct NavigationMapView: View {
                 // Next waypoint header
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("NEXT WAYPOINT")
+                        Text(L10n.Nav.nextWaypoint)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                        Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -857,7 +857,7 @@ struct NavigationMapView: View {
                     HStack(spacing: 24) {
                         // Heading TO waypoint
                         VStack(spacing: 2) {
-                            Text("HDG TO")
+                            Text(L10n.Nav.hdgTo)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                             if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
@@ -878,7 +878,7 @@ struct NavigationMapView: View {
 
                         // Distance TO waypoint
                         VStack(spacing: 2) {
-                            Text("DIST TO")
+                            Text(L10n.Nav.distTo)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                             if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
@@ -929,7 +929,7 @@ struct NavigationMapView: View {
                 // Progress bar
                 VStack(spacing: 6) {
                     HStack {
-                        Text("Progress")
+                        Text(L10n.Nav.progress)
                             .font(.system(size: 10))
                             .foregroundColor(.secondaryText)
                         Spacer()
@@ -960,7 +960,7 @@ struct NavigationMapView: View {
                 // Chronometer
                 VStack(spacing: 6) {
                     HStack {
-                        Text("CHRONOMETER")
+                        Text(L10n.Nav.chronometer)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
 
@@ -984,7 +984,7 @@ struct NavigationMapView: View {
                         Button(action: {
                             flightPlanManager.startChronometer()
                         }) {
-                            Text("START")
+                            Text(L10n.Nav.start)
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.black)
                                 .padding(.horizontal, 20)
@@ -1016,7 +1016,7 @@ struct NavigationMapView: View {
                     }
                     .disabled(plan.currentWaypointIndex == 0)
 
-                    Text("WPT")
+                    Text(L10n.Nav.wpt)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
 
@@ -1055,7 +1055,7 @@ struct NavigationMapView: View {
                 if !frequenciesWithWaypoints.isEmpty {
                     ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
                         compactFrequencyRow(
-                            name: waypoint.name.isEmpty ? "Waypoint" : waypoint.name,
+                            name: waypoint.name.isEmpty ? L10n.Nav.waypoint : waypoint.name,
                             callSign: waypoint.callSign,
                             frequency: waypoint.frequency ?? "",
                             isCurrent: plan.currentWaypointIndex == index
@@ -1067,7 +1067,7 @@ struct NavigationMapView: View {
                         }
                     }
                 } else {
-                    Text("No frequencies in flight plan")
+                    Text(L10n.Nav.noFrequenciesInFlightPlan)
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                         .padding()
@@ -1710,7 +1710,7 @@ struct RadioFrequencyOverlayView: View {
                         let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
 
                         if frequenciesWithWaypoints.isEmpty {
-                            Text("No frequencies in flight plan")
+                            Text(L10n.Nav.noFrequenciesInFlightPlan)
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondaryText)
                                 .padding()
@@ -1857,7 +1857,7 @@ struct RadioFrequencyOverlayView: View {
     private func frequencyRow(waypoint: FlightPlanWaypoint, isCurrent: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(waypoint.name.isEmpty ? "Waypoint" : waypoint.name)
+                Text(waypoint.name.isEmpty ? L10n.Nav.waypoint : waypoint.name)
                     .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
                     .foregroundColor(isCurrent ? .aviationGold : .primaryText)
                     .lineLimit(1)

@@ -383,6 +383,28 @@ enum L10n {
         static let requiresAeroCheckPro = String(localized: "premium.requiresAeroCheckPro")
     }
 
+    // MARK: - Subscription View
+    enum Subscription {
+        static let unlockPremiumAircraft = String(localized: "subscription.unlockPremiumAircraft")
+        static let accessDescription = String(localized: "subscription.accessDescription")
+        static let benefits = String(localized: "subscription.benefits")
+        static let benefitAllChecklists = String(localized: "subscription.benefit.allChecklists")
+        static let benefitAutoUpdates = String(localized: "subscription.benefit.autoUpdates")
+        static let benefitOfflineAccess = String(localized: "subscription.benefit.offlineAccess")
+        static let benefitSupportDev = String(localized: "subscription.benefit.supportDev")
+        static let currentStatus = String(localized: "subscription.currentStatus")
+        static let choosePlan = String(localized: "subscription.choosePlan")
+        static let unableToLoad = String(localized: "subscription.unableToLoad")
+        static let retry = String(localized: "subscription.retry")
+        static let restorePurchases = String(localized: "subscription.restorePurchases")
+        static let termsDescription = String(localized: "subscription.termsDescription")
+        static let termsOfService = String(localized: "subscription.termsOfService")
+        static let privacyPolicy = String(localized: "subscription.privacyPolicy")
+        static let bestValue = String(localized: "subscription.bestValue")
+        static let error = String(localized: "subscription.error")
+        static let ok = String(localized: "subscription.ok")
+    }
+
     // MARK: - Warnings
     enum Warning {
         static let betaFeature = String(localized: "warning.betaFeature")

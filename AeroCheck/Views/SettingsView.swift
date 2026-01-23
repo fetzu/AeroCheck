@@ -229,6 +229,13 @@ struct SettingsView: View {
 
                         Spacer()
 
+                        // Language flags
+                        HStack(spacing: 6) {
+                            ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                                LanguageFlagView(languageCode: languageCode)
+                            }
+                        }
+
                         if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.aviationGold)
@@ -742,6 +749,15 @@ struct SettingsView: View {
 
                             Text(aircraft.modelName)
                                 .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            // Language flags
+                            HStack(spacing: 6) {
+                                ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                                    LanguageFlagView(languageCode: languageCode)
+                                }
+                            }
                         }
                         HStack {
                             Text(L10n.Settings.version(aircraft.version))

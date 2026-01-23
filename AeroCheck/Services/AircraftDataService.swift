@@ -199,7 +199,8 @@ class AircraftDataService: ObservableObject {
                 modelName: aircraft.shortModelName,
                 version: aircraft.checklistVersion,
                 lastUpdated: aircraft.lastUpdated,
-                isPremium: false
+                isPremium: false,
+                checklistLanguages: aircraft.checklistLanguages
             ))
         }
 
@@ -212,7 +213,8 @@ class AircraftDataService: ObservableObject {
                     modelName: aircraft.shortModelName,
                     version: cachedChecklist.version,
                     lastUpdated: cachedChecklist.lastUpdated,
-                    isPremium: !aircraft.isFree
+                    isPremium: !aircraft.isFree,
+                    checklistLanguages: aircraft.checklistLanguages
                 ))
             }
         }
@@ -503,6 +505,7 @@ struct CachedAircraftInfo: Identifiable {
     let version: String
     let lastUpdated: String
     let isPremium: Bool
+    let checklistLanguages: [String]
 }
 
 // MARK: - Error Types

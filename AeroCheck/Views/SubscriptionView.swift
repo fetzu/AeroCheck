@@ -47,8 +47,8 @@ struct SubscriptionView: View {
                 }
             }
         }
-        .alert("Error", isPresented: $showingError) {
-            Button("OK", role: .cancel) { }
+        .alert(L10n.Subscription.error, isPresented: $showingError) {
+            Button(L10n.Subscription.ok, role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
@@ -68,12 +68,12 @@ struct SubscriptionView: View {
                 .font(.system(size: 60))
                 .foregroundColor(Color.aviationGold)
 
-            Text("Unlock Premium Aircraft")
+            Text(L10n.Subscription.unlockPremiumAircraft)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(Color.primaryText)
 
-            Text("Access additional aircraft checklists with an AeroCheck Pro subscription")
+            Text(L10n.Subscription.accessDescription)
                 .font(.subheadline)
                 .foregroundColor(Color.secondaryText)
                 .multilineTextAlignment(.center)
@@ -83,15 +83,15 @@ struct SubscriptionView: View {
 
     private var benefitsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("BENEFITS")
+            Text(L10n.Subscription.benefits)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(Color.secondaryText)
 
-            benefitRow(icon: "airplane", text: "Access to all premium aircraft checklists")
-            benefitRow(icon: "arrow.triangle.2.circlepath", text: "Automatic updates when checklists change")
-            benefitRow(icon: "icloud.and.arrow.down", text: "Offline access after download")
-            benefitRow(icon: "star.fill", text: "Support continued development")
+            benefitRow(icon: "airplane", text: L10n.Subscription.benefitAllChecklists)
+            benefitRow(icon: "arrow.triangle.2.circlepath", text: L10n.Subscription.benefitAutoUpdates)
+            benefitRow(icon: "icloud.and.arrow.down", text: L10n.Subscription.benefitOfflineAccess)
+            benefitRow(icon: "star.fill", text: L10n.Subscription.benefitSupportDev)
         }
         .padding()
         .background(Color.panelBackground)
@@ -115,7 +115,7 @@ struct SubscriptionView: View {
 
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("CURRENT STATUS")
+            Text(L10n.Subscription.currentStatus)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(Color.secondaryText)
@@ -138,7 +138,7 @@ struct SubscriptionView: View {
 
     private var productsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CHOOSE A PLAN")
+            Text(L10n.Subscription.choosePlan)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(Color.secondaryText)
@@ -148,13 +148,13 @@ struct SubscriptionView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
             } else if subscriptionManager.products.isEmpty {
-                Text("Unable to load subscription options")
+                Text(L10n.Subscription.unableToLoad)
                     .font(.subheadline)
                     .foregroundColor(Color.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding()
 
-                Button("Retry") {
+                Button(L10n.Subscription.retry) {
                     Task {
                         await subscriptionManager.loadProducts()
                     }
@@ -179,7 +179,7 @@ struct SubscriptionView: View {
                     ProgressView()
                         .tint(Color.aviationBlue)
                 } else {
-                    Text("Restore Purchases")
+                    Text(L10n.Subscription.restorePurchases)
                         .font(.subheadline)
                         .foregroundColor(Color.aviationBlue)
                 }
@@ -191,17 +191,17 @@ struct SubscriptionView: View {
 
     private var termsSection: some View {
         VStack(spacing: 8) {
-            Text("Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. You can manage your subscription in your device's Settings app.")
+            Text(L10n.Subscription.termsDescription)
                 .font(.caption2)
                 .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
-                Link("Terms of Service", destination: URL(string: "https://aerocheck.app/terms")!)
+                Link(L10n.Subscription.termsOfService, destination: URL(string: "https://aerocheck.app/terms")!)
                     .font(.caption2)
                     .foregroundColor(Color.aviationBlue)
 
-                Link("Privacy Policy", destination: URL(string: "https://aerocheck.app/privacy")!)
+                Link(L10n.Subscription.privacyPolicy, destination: URL(string: "https://aerocheck.app/privacy")!)
                     .font(.caption2)
                     .foregroundColor(Color.aviationBlue)
             }
@@ -230,7 +230,7 @@ struct ProductCard: View {
                             .foregroundColor(Color.primaryText)
 
                         if product.isYearly {
-                            Text("Best Value")
+                            Text(L10n.Subscription.bestValue)
                                 .font(.caption2)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.white)

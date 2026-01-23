@@ -34,21 +34,21 @@ struct FlightPlanningView: View {
                     plansList
                 }
             }
-            .navigationTitle("Flight Plans")
+            .navigationTitle(L10n.Nav.flightPlans)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
 
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button(action: { showingNewPlanSheet = true }) {
-                            Label("New Flight Plan", systemImage: "plus")
+                            Label(L10n.Nav.newFlightPlan, systemImage: "plus")
                         }
 
                         Button(action: { showingImporter = true }) {
-                            Label("Import Flight Plan", systemImage: "square.and.arrow.down")
+                            Label(L10n.Nav.importFlightPlan, systemImage: "square.and.arrow.down")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -67,20 +67,20 @@ struct FlightPlanningView: View {
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
             }
-            .alert("Delete Flight Plan?", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+            .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
+                Button(L10n.Button.cancel, role: .cancel) { }
+                Button(L10n.Button.delete, role: .destructive) {
                     if let plan = planToDelete {
                         flightPlanManager.deleteFlightPlan(plan)
                     }
                 }
             } message: {
-                Text("This action cannot be undone.")
+                Text(L10n.Nav.deleteFlightPlanMessage)
             }
-            .alert("Import Error", isPresented: $showingImportError) {
+            .alert(L10n.Nav.importError, isPresented: $showingImportError) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(importError ?? "Failed to import flight plan.")
+                Text(importError ?? L10n.Nav.importErrorMessage)
             }
             .fileImporter(
                 isPresented: $showingImporter,
@@ -111,11 +111,11 @@ struct FlightPlanningView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.aviationGold.opacity(0.5))
 
-            Text("No Flight Plans")
+            Text(L10n.Nav.noFlightPlans)
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(.primaryText)
 
-            Text("Create a new flight plan to get started with route planning.")
+            Text(L10n.Nav.noFlightPlansMessage)
                 .font(.system(size: 16))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
@@ -124,7 +124,7 @@ struct FlightPlanningView: View {
             Button(action: { showingNewPlanSheet = true }) {
                 HStack {
                     Image(systemName: "plus")
-                    Text("New Flight Plan")
+                    Text(L10n.Nav.newFlightPlan)
                 }
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(.black)
@@ -152,7 +152,7 @@ struct FlightPlanningView: View {
                         }
                 } header: {
                     HStack {
-                        Label("Active Flight Plan", systemImage: "airplane.circle.fill")
+                        Label(L10n.Nav.activeFlightPlan, systemImage: "airplane.circle.fill")
                         Spacer()
                         StatusIndicator(.active, size: 8)
                     }
@@ -176,13 +176,13 @@ struct FlightPlanningView: View {
                             planToDelete = plan
                             showingDeleteAlert = true
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label(L10n.Button.delete, systemImage: "trash")
                         }
 
                         Button {
                             _ = flightPlanManager.duplicateFlightPlan(plan)
                         } label: {
-                            Label("Duplicate", systemImage: "doc.on.doc")
+                            Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
                         .tint(.aviationBlue)
                     }
@@ -191,14 +191,14 @@ struct FlightPlanningView: View {
                             Button {
                                 flightPlanManager.activateFlightPlan(plan)
                             } label: {
-                                Label("Activate", systemImage: "airplane.departure")
+                                Label(L10n.Nav.activate, systemImage: "airplane.departure")
                             }
                             .tint(.aviationGreen)
                         } else {
                             Button {
                                 flightPlanManager.deactivateFlightPlan()
                             } label: {
-                                Label("Deactivate", systemImage: "airplane.arrival")
+                                Label(L10n.Nav.deactivate, systemImage: "airplane.arrival")
                             }
                             .tint(.orange)
                         }
@@ -207,20 +207,20 @@ struct FlightPlanningView: View {
                         Button {
                             selectedPlan = plan
                         } label: {
-                            Label("Edit", systemImage: "pencil")
+                            Label(L10n.Nav.edit, systemImage: "pencil")
                         }
 
                         if plan.id != flightPlanManager.activeFlightPlan?.id {
                             Button {
                                 flightPlanManager.activateFlightPlan(plan)
                             } label: {
-                                Label("Activate", systemImage: "airplane.departure")
+                                Label(L10n.Nav.activate, systemImage: "airplane.departure")
                             }
                         } else {
                             Button {
                                 flightPlanManager.deactivateFlightPlan()
                             } label: {
-                                Label("Deactivate", systemImage: "airplane.arrival")
+                                Label(L10n.Nav.deactivate, systemImage: "airplane.arrival")
                             }
                         }
 
@@ -232,7 +232,7 @@ struct FlightPlanningView: View {
                                 planToExport = plan
                                 showingExporter = true
                             } label: {
-                                Label("Export as GPX", systemImage: "doc")
+                                Label(L10n.Nav.exportAsGPX, systemImage: "doc")
                             }
 
                             Button {
@@ -240,16 +240,16 @@ struct FlightPlanningView: View {
                                 planToExport = plan
                                 showingExporter = true
                             } label: {
-                                Label("Export as JSON", systemImage: "doc.text")
+                                Label(L10n.Nav.exportAsJSON, systemImage: "doc.text")
                             }
                         } label: {
-                            Label("Export", systemImage: "square.and.arrow.up")
+                            Label(L10n.Nav.export, systemImage: "square.and.arrow.up")
                         }
 
                         Button {
                             _ = flightPlanManager.duplicateFlightPlan(plan)
                         } label: {
-                            Label("Duplicate", systemImage: "doc.on.doc")
+                            Label(L10n.Nav.duplicate, systemImage: "doc.on.doc")
                         }
 
                         Divider()
@@ -258,7 +258,7 @@ struct FlightPlanningView: View {
                             planToDelete = plan
                             showingDeleteAlert = true
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label(L10n.Button.delete, systemImage: "trash")
                         }
                     }
                 }
@@ -266,7 +266,7 @@ struct FlightPlanningView: View {
                     flightPlanManager.deleteFlightPlans(at: offsets)
                 }
             } header: {
-                Label("All Flight Plans", systemImage: "list.bullet")
+                Label(L10n.Nav.allFlightPlans, systemImage: "list.bullet")
             }
         }
         .listStyle(.insetGrouped)
@@ -281,7 +281,7 @@ struct FlightPlanningView: View {
             guard let url = urls.first else { return }
 
             guard url.startAccessingSecurityScopedResource() else {
-                importError = "Unable to access the selected file."
+                importError = L10n.Nav.importErrorAccess
                 showingImportError = true
                 return
             }
@@ -293,7 +293,7 @@ struct FlightPlanningView: View {
                 if let _ = flightPlanManager.importFlightPlan(from: data) {
                     // Success - plan was imported
                 } else {
-                    importError = "The file format is not supported or the file is corrupted."
+                    importError = L10n.Nav.importErrorFormat
                     showingImportError = true
                 }
             } catch {
@@ -333,12 +333,12 @@ struct FlightPlanRow: View {
             // Plan details
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(plan.name.isEmpty ? "Unnamed Plan" : plan.name)
+                    Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.primaryText)
 
                     if isActive {
-                        Text("ACTIVE")
+                        Text(L10n.Nav.active)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
@@ -358,7 +358,7 @@ struct FlightPlanRow: View {
                     Text("•")
                         .foregroundColor(.dimText)
 
-                    Text("\(plan.waypoints.count) waypoints")
+                    Text(L10n.Nav.waypointsCount(plan.waypoints.count))
                         .font(.system(size: 13))
                         .foregroundColor(.secondaryText)
 
@@ -405,7 +405,7 @@ struct ActiveFlightPlanRow: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
-                Text(plan.name.isEmpty ? "Unnamed Plan" : plan.name)
+                Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -420,7 +420,7 @@ struct ActiveFlightPlanRow: View {
             if !plan.waypoints.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Progress")
+                        Text(L10n.Nav.progress)
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
 
@@ -439,10 +439,10 @@ struct ActiveFlightPlanRow: View {
                 if let nextWaypoint = plan.nextWaypoint {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text("Next")
+                            Text(L10n.Nav.next)
                                 .font(.system(size: 10))
                                 .foregroundColor(.dimText)
-                            Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                            Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.primaryText)
                         }
@@ -451,7 +451,7 @@ struct ActiveFlightPlanRow: View {
 
                         if let distance = nextWaypoint.distance {
                             VStack(alignment: .trailing) {
-                                Text("Dist")
+                                Text(L10n.Nav.dist)
                                     .font(.system(size: 10))
                                     .foregroundColor(.dimText)
                                 Text(String(format: "%.1f NM", distance))
@@ -462,7 +462,7 @@ struct ActiveFlightPlanRow: View {
 
                         if let mc = nextWaypoint.magneticCourse {
                             VStack(alignment: .trailing) {
-                                Text("MC")
+                                Text(L10n.Nav.mc)
                                     .font(.system(size: 10))
                                     .foregroundColor(.dimText)
                                 Text(String(format: "%03d°", Int(mc)))
@@ -495,9 +495,9 @@ struct NewFlightPlanSheet: View {
         NavigationView {
             Form {
                 Section {
-                    TextField("Flight Plan Name", text: $name)
+                    TextField(L10n.Nav.flightPlanName, text: $name)
 
-                    Picker("Aircraft", selection: $selectedAircraft) {
+                    Picker(L10n.Nav.aircraft, selection: $selectedAircraft) {
                         ForEach(AircraftType.allCases) { aircraft in
                             HStack {
                                 Text(aircraft.registration)
@@ -509,20 +509,20 @@ struct NewFlightPlanSheet: View {
                         }
                     }
                 } header: {
-                    Label("Details", systemImage: "doc.text")
+                    Label(L10n.Nav.details, systemImage: "doc.text")
                 }
             }
-            .navigationTitle("New Flight Plan")
+            .navigationTitle(L10n.Nav.newFlightPlan)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
+                    Button(L10n.Nav.create) {
                         let plan = flightPlanManager.createFlightPlan(
-                            name: name.isEmpty ? "New Flight Plan" : name,
+                            name: name.isEmpty ? L10n.Nav.newFlightPlan : name,
                             aircraftType: selectedAircraft
                         )
                         dismiss()

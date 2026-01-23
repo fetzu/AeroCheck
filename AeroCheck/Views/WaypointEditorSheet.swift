@@ -42,11 +42,11 @@ struct WaypointEditorSheet: View {
             Form {
                 // Location section
                 Section {
-                    TextField("Name (e.g., LSZQ, JORAT VOR)", text: $name)
+                    TextField(L10n.Nav.waypointNamePlaceholder, text: $name)
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Latitude")
+                            Text(L10n.Nav.latitude)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("46.0000", text: $latitudeString)
@@ -55,7 +55,7 @@ struct WaypointEditorSheet: View {
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Longitude")
+                            Text(L10n.Nav.longitude)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("7.0000", text: $longitudeString)
@@ -65,7 +65,7 @@ struct WaypointEditorSheet: View {
                     }
 
                     Button(action: { showingMapPicker = true }) {
-                        Label("Select on Map", systemImage: "map")
+                        Label(L10n.Nav.selectOnMap, systemImage: "map")
                     }
 
                     // Mini map preview
@@ -75,16 +75,16 @@ struct WaypointEditorSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 } header: {
-                    Label("Location", systemImage: "mappin.and.ellipse")
+                    Label(L10n.Nav.location, systemImage: "mappin.and.ellipse")
                 } footer: {
-                    Text("Enter coordinates in decimal degrees (e.g., 46.9481 for latitude)")
+                    Text(L10n.Nav.coordinatesHelp)
                 }
 
                 // Altitude section
                 Section {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Planned Altitude")
+                            Text(L10n.Nav.plannedAltitude)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("5000", text: $altitudeString)
@@ -92,7 +92,7 @@ struct WaypointEditorSheet: View {
                                 .font(.system(size: 14, design: .monospaced))
                         }
 
-                        Text("ft")
+                        Text(L10n.Unit.ft)
                             .foregroundColor(.secondaryText)
                     }
 
@@ -101,25 +101,25 @@ struct WaypointEditorSheet: View {
                         if isLoadingElevation {
                             ProgressView()
                                 .scaleEffect(0.8)
-                            Text("Loading elevation...")
+                            Text(L10n.Nav.loadingElevation)
                                 .foregroundColor(.secondaryText)
                                 .font(.system(size: 12))
                         } else if let groundElevation = groundElevationMeters {
                             let groundFeet = groundElevation * 3.28084
-                            Text("Ground level: \(Int(groundFeet)) ft")
+                            Text(L10n.Nav.groundLevel(Int(groundFeet)))
                                 .foregroundColor(.dimText)
                                 .font(.system(size: 12))
                         } else {
-                            Text("Ground level: N/A (outside Switzerland)")
+                            Text(L10n.Nav.groundLevelNA)
                                 .foregroundColor(.dimText)
                                 .font(.system(size: 12))
                         }
                     }
                 } header: {
-                    Label("Altitude", systemImage: "arrow.up.and.down")
+                    Label(L10n.Nav.altitude, systemImage: "arrow.up.and.down")
                 } footer: {
                     if groundElevationMeters != nil {
-                        Text("Default: 3000 ft AGL (above ground level)")
+                        Text(L10n.Nav.defaultAGL)
                     }
                 }
 
@@ -127,7 +127,7 @@ struct WaypointEditorSheet: View {
                 Section {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Ground Speed")
+                            Text(L10n.Nav.groundSpeed)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftType))", text: $groundSpeedString)
@@ -135,13 +135,13 @@ struct WaypointEditorSheet: View {
                                 .font(.system(size: 14, design: .monospaced))
                         }
 
-                        Text("kt")
+                        Text(L10n.Unit.kt)
                             .foregroundColor(.secondaryText)
                     }
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Wind Direction")
+                            Text(L10n.Nav.windDirection)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("270", text: $windDirectionString)
@@ -153,7 +153,7 @@ struct WaypointEditorSheet: View {
                             .foregroundColor(.secondaryText)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Wind Speed")
+                            Text(L10n.Nav.windSpeed)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
                             TextField("10", text: $windSpeedString)
@@ -161,14 +161,14 @@ struct WaypointEditorSheet: View {
                                 .font(.system(size: 14, design: .monospaced))
                         }
 
-                        Text("kt")
+                        Text(L10n.Unit.kt)
                             .foregroundColor(.secondaryText)
                     }
 
                     // Computed values (read-only)
                     if let mc = waypoint.magneticCourse {
                         HStack {
-                            Text("Magnetic Course")
+                            Text(L10n.Nav.magneticCourse)
                                 .foregroundColor(.secondaryText)
                             Spacer()
                             Text(String(format: "%03d°", Int(mc)))
@@ -178,7 +178,7 @@ struct WaypointEditorSheet: View {
 
                     if let distance = waypoint.distance {
                         HStack {
-                            Text("Distance to Next")
+                            Text(L10n.Nav.distanceToNext)
                                 .foregroundColor(.secondaryText)
                             Spacer()
                             Text(String(format: "%.1f NM", distance))
@@ -186,15 +186,15 @@ struct WaypointEditorSheet: View {
                         }
                     }
                 } header: {
-                    Label("Navigation", systemImage: "location.north.line")
+                    Label(L10n.Nav.navigation, systemImage: "location.north.line")
                 } footer: {
-                    Text("Ground speed and wind are used to calculate EET. MC and distance are computed automatically.")
+                    Text(L10n.Nav.navigationHelp)
                 }
 
                 // Radio section
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Frequency")
+                        Text(L10n.Nav.frequency)
                             .font(.system(size: 11))
                             .foregroundColor(.secondaryText)
                         TextField("118.100", text: $frequency)
@@ -203,14 +203,14 @@ struct WaypointEditorSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Callsign")
+                        Text(L10n.Nav.callsign)
                             .font(.system(size: 11))
                             .foregroundColor(.secondaryText)
                         TextField("e.g., PORRENTRUY INFO", text: $callSign)
                             .font(.system(size: 14))
                     }
                 } header: {
-                    Label("Radio", systemImage: "antenna.radiowaves.left.and.right")
+                    Label(L10n.Nav.radio, systemImage: "antenna.radiowaves.left.and.right")
                 }
 
                 // Remarks section
@@ -219,7 +219,7 @@ struct WaypointEditorSheet: View {
                         .frame(minHeight: 80)
                         .font(.system(size: 14))
                 } header: {
-                    Label("Remarks", systemImage: "note.text")
+                    Label(L10n.Nav.remarks, systemImage: "note.text")
                 }
 
                 // Timing section (read-only computed values)
@@ -227,7 +227,7 @@ struct WaypointEditorSheet: View {
                     Section {
                         if let eet = waypoint.formattedEET {
                             HStack {
-                                Text("EET (from departure)")
+                                Text(L10n.Nav.eetFromDeparture)
                                     .foregroundColor(.secondaryText)
                                 Spacer()
                                 Text(eet)
@@ -237,7 +237,7 @@ struct WaypointEditorSheet: View {
 
                         if let eto = waypoint.formattedETO {
                             HStack {
-                                Text("ETO")
+                                Text(L10n.Nav.eto)
                                     .foregroundColor(.secondaryText)
                                 Spacer()
                                 Text(eto)
@@ -247,7 +247,7 @@ struct WaypointEditorSheet: View {
 
                         if let ato = waypoint.formattedATO {
                             HStack {
-                                Text("ATO (recorded)")
+                                Text(L10n.Nav.atoRecorded)
                                     .foregroundColor(.secondaryText)
                                 Spacer()
                                 Text(ato)
@@ -256,7 +256,7 @@ struct WaypointEditorSheet: View {
                             }
                         }
                     } header: {
-                        Label("Timing", systemImage: "clock")
+                        Label(L10n.Nav.timing, systemImage: "clock")
                     }
                 }
 
@@ -269,7 +269,7 @@ struct WaypointEditorSheet: View {
                             HStack {
                                 Spacer()
                                 Image(systemName: "trash")
-                                Text("Delete Waypoint")
+                                Text(L10n.Nav.deleteWaypoint)
                                 Spacer()
                             }
                             .foregroundColor(.red)
@@ -278,27 +278,27 @@ struct WaypointEditorSheet: View {
                 }
             }
             .confirmationDialog(
-                "Delete Waypoint",
+                L10n.Nav.deleteWaypoint,
                 isPresented: $showingDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Delete", role: .destructive) {
+                Button(L10n.Button.delete, role: .destructive) {
                     onDelete?()
                     dismiss()
                 }
-                Button("Cancel", role: .cancel) {}
+                Button(L10n.Button.cancel, role: .cancel) {}
             } message: {
-                Text("Are you sure you want to delete this waypoint? This action cannot be undone.")
+                Text(L10n.Nav.deleteWaypointConfirmation)
             }
-            .navigationTitle("Edit Waypoint")
+            .navigationTitle(L10n.Nav.editWaypoint)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(L10n.Nav.save) {
                         saveWaypoint()
                     }
                     .disabled(latitudeString.isEmpty || longitudeString.isEmpty)
@@ -464,7 +464,7 @@ struct CoordinatePickerView: View {
                     Spacer()
 
                     VStack(spacing: 8) {
-                        Text("Selected Coordinates")
+                        Text(L10n.Nav.selectedCoordinates)
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
 
@@ -490,7 +490,7 @@ struct CoordinatePickerView: View {
                             onSelect(region.center)
                             dismiss()
                         }) {
-                            Text("Use This Location")
+                            Text(L10n.Nav.useThisLocation)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
@@ -507,11 +507,11 @@ struct CoordinatePickerView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Select Location")
+            .navigationTitle(L10n.Nav.selectLocation)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
             }
         }

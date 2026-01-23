@@ -636,7 +636,7 @@ struct NavigationMapView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "internaldrive.fill")
                                 .font(.system(size: 10))
-                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
                                 .font(.system(size: 10, weight: .bold))
                         }
                         .foregroundColor(.white)
@@ -1036,7 +1036,7 @@ struct NavigationMapView: View {
                 .padding(.bottom, 16)
 
             } else {
-                Text("No active flight plan")
+                Text(L10n.Nav.noActiveFlightPlan)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .padding()
@@ -1078,7 +1078,7 @@ struct NavigationMapView: View {
                     .background(Color.dimText)
                     .padding(.vertical, 4)
 
-                Text("COMMON SWISS FREQUENCIES")
+                Text(L10n.Nav.commonSwissFrequencies)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1101,7 +1101,7 @@ struct NavigationMapView: View {
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text("NEARBY CONTROLLED AIRSPACE")
+                    Text(L10n.Nav.nearbyControlledAirspace)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1118,7 +1118,7 @@ struct NavigationMapView: View {
                 }
             } else {
                 // No active flight plan - show message and common frequencies
-                Text("No active flight plan")
+                Text(L10n.Nav.noActiveFlightPlan)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
                     .padding()
@@ -1128,7 +1128,7 @@ struct NavigationMapView: View {
                     .background(Color.dimText)
                     .padding(.vertical, 4)
 
-                Text("COMMON SWISS FREQUENCIES")
+                Text(L10n.Nav.commonSwissFrequencies)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1151,7 +1151,7 @@ struct NavigationMapView: View {
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text("NEARBY CONTROLLED AIRSPACE")
+                    Text(L10n.Nav.nearbyControlledAirspace)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1517,7 +1517,7 @@ struct NavigationMapView: View {
                     Button(action: { showCacheInfoModal = true }) {
                         HStack(spacing: 6) {
                             Image(systemName: "internaldrive.fill")
-                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
                         }
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
@@ -1688,7 +1688,7 @@ struct RadioFrequencyOverlayView: View {
             HStack {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 12))
-                Text("RADIO FREQUENCIES")
+                Text(L10n.Nav.radioFrequencies)
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1)
                 Spacer()
@@ -1730,7 +1730,7 @@ struct RadioFrequencyOverlayView: View {
                             .background(Color.dimText)
                             .padding(.vertical, 4)
 
-                        Text("COMMON SWISS FREQUENCIES")
+                        Text(L10n.Nav.commonSwissFrequencies)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1751,7 +1751,7 @@ struct RadioFrequencyOverlayView: View {
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text("NEARBY CONTROLLED AIRSPACE")
+                            Text(L10n.Nav.nearbyControlledAirspace)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1768,7 +1768,7 @@ struct RadioFrequencyOverlayView: View {
                         }
                     } else {
                         // No active flight plan - show message and common frequencies
-                        Text("No active flight plan")
+                        Text(L10n.Nav.noActiveFlightPlan)
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
                             .padding()
@@ -1778,7 +1778,7 @@ struct RadioFrequencyOverlayView: View {
                             .background(Color.dimText)
                             .padding(.vertical, 4)
 
-                        Text("COMMON SWISS FREQUENCIES")
+                        Text(L10n.Nav.commonSwissFrequencies)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1799,7 +1799,7 @@ struct RadioFrequencyOverlayView: View {
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text("NEARBY CONTROLLED AIRSPACE")
+                            Text(L10n.Nav.nearbyControlledAirspace)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)

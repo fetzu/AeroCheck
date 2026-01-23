@@ -94,15 +94,15 @@ struct FlightPlanEditorView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
-            .navigationTitle(flightPlan.name.isEmpty ? "Flight Plan" : flightPlan.name)
+            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.flightPlan : flightPlan.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(L10n.Nav.save) {
                         saveAndDismiss()
                     }
                 }
@@ -157,7 +157,7 @@ struct FlightPlanEditorView: View {
         VStack(spacing: 16) {
             // Title bar
             HStack {
-                Text("NAVIGATION FLIGHT PLAN")
+                Text(L10n.Nav.navigationFlightPlan)
                     .font(.system(size: isCompactWidth ? 12 : 14, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .tracking(1)
@@ -165,7 +165,7 @@ struct FlightPlanEditorView: View {
                 Spacer()
 
                 HStack(spacing: 8) {
-                    Text("Flight Type")
+                    Text(L10n.Nav.flightType)
                         .font(.system(size: isCompactWidth ? 10 : 12))
                         .foregroundColor(.secondaryText)
 
@@ -192,17 +192,17 @@ struct FlightPlanEditorView: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 12) {
-                    FormField(label: "Pilot", text: $flightPlan.pilot)
-                    FormField(label: "Aircraft", text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: "Date", date: Binding(
+                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                    DateFormField(label: L10n.Nav.date, date: Binding(
                         get: { flightPlan.plannedDepartureTime ?? Date() },
                         set: { flightPlan.plannedDepartureTime = $0 }
                     ))
-                    OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
-                    OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
-                    FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
+                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
                 }
             } else {
                 // 4 columns for iPad
@@ -213,19 +213,19 @@ struct FlightPlanEditorView: View {
                     GridItem(.flexible())
                 ], spacing: 12) {
                     // Row 1
-                    FormField(label: "Pilot", text: $flightPlan.pilot)
-                    FormField(label: "Aircraft", text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: "Date", date: Binding(
+                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                    DateFormField(label: L10n.Nav.date, date: Binding(
                         get: { flightPlan.plannedDepartureTime ?? Date() },
                         set: { flightPlan.plannedDepartureTime = $0 }
                     ))
-                    OptionalFormField(label: "Runway", text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
 
                     // Row 2
-                    OptionalFormField(label: "Instructor", text: $flightPlan.instructor)
-                    FormField(label: "Total EET", text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: "Distance", text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: "Endurance", text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
+                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
                 }
             }
         }
@@ -242,27 +242,27 @@ struct FlightPlanEditorView: View {
         VStack(spacing: 12) {
             // Section header
             HStack {
-                Label("Route", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                Label(L10n.Nav.route, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.aviationGold)
 
                 Spacer()
 
                 Button(action: { showingTerrainProfile = true }) {
-                    Label("Terrain", systemImage: "mountain.2")
+                    Label(L10n.Nav.terrain, systemImage: "mountain.2")
                         .font(.system(size: 12))
                 }
                 .disabled(flightPlan.waypoints.count < 2)
 
                 Menu {
                     Button(action: { showingAddWaypoint = true }) {
-                        Label("Add Waypoint Manually", systemImage: "plus")
+                        Label(L10n.Nav.addWaypointManually, systemImage: "plus")
                     }
                     Button(action: { showingMapPicker = true }) {
-                        Label("Add from Map", systemImage: "map")
+                        Label(L10n.Nav.addFromMap, systemImage: "map")
                     }
                 } label: {
-                    Label("Add", systemImage: "plus.circle")
+                    Label(L10n.Nav.add, systemImage: "plus.circle")
                         .font(.system(size: 12))
                 }
             }
@@ -290,19 +290,19 @@ struct FlightPlanEditorView: View {
                 .font(.system(size: 32))
                 .foregroundColor(.dimText)
 
-            Text("No waypoints added")
+            Text(L10n.Nav.noWaypoints)
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
 
             Menu {
                 Button(action: { showingAddWaypoint = true }) {
-                    Label("Add Waypoint Manually", systemImage: "plus")
+                    Label(L10n.Nav.addWaypointManually, systemImage: "plus")
                 }
                 Button(action: { showingMapPicker = true }) {
-                    Label("Add from Map", systemImage: "map")
+                    Label(L10n.Nav.addFromMap, systemImage: "map")
                 }
             } label: {
-                Label("Add First Waypoint", systemImage: "plus")
+                Label(L10n.Nav.addFirstWaypoint, systemImage: "plus")
                     .font(.system(size: 14, weight: .medium))
             }
             .buttonStyle(.borderedProminent)
@@ -331,15 +331,15 @@ struct FlightPlanEditorView: View {
                     // Table header
                     HStack(spacing: 0) {
                         tableHeaderCell("#", width: 30)
-                        tableHeaderCell("Waypoint", width: nil, alignment: .leading)
-                        tableHeaderCell("Freq", width: 55)
-                        tableHeaderCell("MC", width: 50)
-                        tableHeaderCell("Dist", width: 50)
-                        tableHeaderCell("Alt", width: 60)
-                        tableHeaderCell("GS", width: 50)
-                        tableHeaderCell("EET", width: 50)
-                        tableHeaderCell("ETO", width: 55)
-                        tableHeaderCell("ATO", width: 55)
+                        tableHeaderCell(L10n.Nav.waypoint, width: nil, alignment: .leading)
+                        tableHeaderCell(L10n.Nav.freq, width: 55)
+                        tableHeaderCell(L10n.Nav.mc, width: 50)
+                        tableHeaderCell(L10n.Nav.dist, width: 50)
+                        tableHeaderCell(L10n.Nav.alt, width: 60)
+                        tableHeaderCell(L10n.Nav.gs, width: 50)
+                        tableHeaderCell(L10n.Nav.eet, width: 50)
+                        tableHeaderCell(L10n.Nav.eto, width: 55)
+                        tableHeaderCell(L10n.Nav.ato, width: 55)
                     }
                     .background(Color.aviationDarkBlue)
 
@@ -376,15 +376,15 @@ struct FlightPlanEditorView: View {
             // Table header with fixed widths
             HStack(spacing: 0) {
                 tableHeaderCell("#", width: 30)
-                tableHeaderCell("Waypoint", width: 100, alignment: .leading)
-                tableHeaderCell("Freq", width: 55)
-                tableHeaderCell("MC", width: 50)
-                tableHeaderCell("Dist", width: 50)
-                tableHeaderCell("Alt", width: 60)
-                tableHeaderCell("GS", width: 50)
-                tableHeaderCell("EET", width: 50)
-                tableHeaderCell("ETO", width: 55)
-                tableHeaderCell("ATO", width: 55)
+                tableHeaderCell(L10n.Nav.waypoint, width: 100, alignment: .leading)
+                tableHeaderCell(L10n.Nav.freq, width: 55)
+                tableHeaderCell(L10n.Nav.mc, width: 50)
+                tableHeaderCell(L10n.Nav.dist, width: 50)
+                tableHeaderCell(L10n.Nav.alt, width: 60)
+                tableHeaderCell(L10n.Nav.gs, width: 50)
+                tableHeaderCell(L10n.Nav.eet, width: 50)
+                tableHeaderCell(L10n.Nav.eto, width: 55)
+                tableHeaderCell(L10n.Nav.ato, width: 55)
             }
             .background(Color.aviationDarkBlue)
 
@@ -422,7 +422,7 @@ struct FlightPlanEditorView: View {
     private var fuelSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Label("Fuel Calculation", systemImage: "fuelpump")
+                Label(L10n.Nav.fuelCalculation, systemImage: "fuelpump")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.aviationGold)
 
@@ -431,7 +431,7 @@ struct FlightPlanEditorView: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 3), spacing: 12) {
                 NumberFormField(
-                    label: "Fuel Flow (L/h)",
+                    label: L10n.Nav.fuelFlow,
                     value: Binding(
                         get: { flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftType) },
                         set: { flightPlan.fuelFlow = $0 }
@@ -440,7 +440,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 NumberFormField(
-                    label: "Trip Fuel (L)",
+                    label: L10n.Nav.tripFuel,
                     value: Binding(
                         get: { flightPlan.tripFuel ?? 0 },
                         set: { flightPlan.tripFuel = $0 }
@@ -449,7 +449,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 NumberFormField(
-                    label: "Reserve (L)",
+                    label: L10n.Nav.reserveFuel,
                     value: Binding(
                         get: { flightPlan.reserveFuel ?? 0 },
                         set: { flightPlan.reserveFuel = $0 }
@@ -458,7 +458,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 NumberFormField(
-                    label: "Additional 45' (L)",
+                    label: L10n.Nav.additionalFuel,
                     value: Binding(
                         get: {
                             // Auto-populate with 45 minutes of fuel if not set
@@ -474,7 +474,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 NumberFormField(
-                    label: "Extra (L)",
+                    label: L10n.Nav.extraFuel,
                     value: Binding(
                         get: { flightPlan.extraFuel ?? 0 },
                         set: { flightPlan.extraFuel = $0 }
@@ -483,7 +483,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 FormField(
-                    label: "Required (L)",
+                    label: L10n.Nav.requiredFuel,
                     text: .constant(flightPlan.fuelRequired.map { String(format: "%.1f", $0) } ?? "--"),
                     isReadOnly: true
                 )
@@ -501,7 +501,7 @@ struct FlightPlanEditorView: View {
     private var timingSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Label("Timing", systemImage: "clock")
+                Label(L10n.Nav.timing, systemImage: "clock")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.aviationGold)
 
@@ -511,7 +511,7 @@ struct FlightPlanEditorView: View {
             // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
-                    label: "Counter Start",
+                    label: L10n.Nav.counterStart,
                     value: Binding(
                         get: { flightPlan.counterStart ?? 0 },
                         set: { flightPlan.counterStart = $0 }
@@ -519,13 +519,13 @@ struct FlightPlanEditorView: View {
                     format: "%.1f"
                 )
 
-                OptionalTimeFormField(label: "Block OFF", time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: "Time OFF", time: $flightPlan.timeOff)
-                OptionalTimeFormField(label: "Time ON", time: $flightPlan.timeOn)
-                OptionalTimeFormField(label: "Block ON", time: $flightPlan.blockOn)
+                OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
+                OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
+                OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
+                OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
 
                 NumberFormField(
-                    label: "Counter Stop",
+                    label: L10n.Nav.counterStop,
                     value: Binding(
                         get: { calculatedCounterStop },
                         set: { flightPlan.counterStop = $0 }
@@ -537,7 +537,7 @@ struct FlightPlanEditorView: View {
             // Second row: Landings and Engine Time
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 IntFormField(
-                    label: "Ldgs at Base",
+                    label: L10n.Nav.ldgsAtBase,
                     value: Binding(
                         get: { flightPlan.landingsAtBase ?? 0 },
                         set: { flightPlan.landingsAtBase = $0 }
@@ -545,7 +545,7 @@ struct FlightPlanEditorView: View {
                 )
 
                 IntFormField(
-                    label: "Total Ldgs",
+                    label: L10n.Nav.totalLdgs,
                     value: Binding(
                         get: { calculatedTotalLandings },
                         set: { flightPlan.totalLandings = $0 }
@@ -554,7 +554,7 @@ struct FlightPlanEditorView: View {
 
                 // Engine Time display (MMMMM.ZZ format)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Engine Time")
+                    Text(L10n.Nav.engineTime)
                         .font(.system(size: 11))
                         .foregroundColor(.secondaryText)
                     Text(formattedEngineTime)
@@ -585,7 +585,7 @@ struct FlightPlanEditorView: View {
     private var notesSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Label("Notes", systemImage: "note.text")
+                Label(L10n.Nav.notes, systemImage: "note.text")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.aviationGold)
 
@@ -593,7 +593,7 @@ struct FlightPlanEditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Remarks")
+                Text(L10n.Nav.remarks)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
 
@@ -606,7 +606,7 @@ struct FlightPlanEditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Debriefing")
+                Text(L10n.Nav.debriefing)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
 
@@ -635,7 +635,7 @@ struct FlightPlanEditorView: View {
                     Button(action: {
                         flightPlanManager.deactivateFlightPlan()
                     }) {
-                        Label("Deactivate Flight Plan", systemImage: "airplane.arrival")
+                        Label(L10n.Nav.deactivateFlightPlan, systemImage: "airplane.arrival")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -646,7 +646,7 @@ struct FlightPlanEditorView: View {
                         flightPlanManager.activateFlightPlan(flightPlan)
                         dismiss()
                     }) {
-                        Label("Activate Flight Plan", systemImage: "airplane.departure")
+                        Label(L10n.Nav.activateFlightPlan, systemImage: "airplane.departure")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -656,7 +656,7 @@ struct FlightPlanEditorView: View {
                 Button(action: {
                     recalculateRoute()
                 }) {
-                    Label("Recalculate Route", systemImage: "arrow.triangle.2.circlepath")
+                    Label(L10n.Nav.recalculateRoute, systemImage: "arrow.triangle.2.circlepath")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -675,7 +675,7 @@ struct FlightPlanEditorView: View {
 
     private var exportSection: some View {
         VStack(spacing: 8) {
-            Text("Export Flight Plan")
+            Text(L10n.Nav.exportFlightPlan)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.secondaryText)
 

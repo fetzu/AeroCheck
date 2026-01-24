@@ -96,8 +96,15 @@
 
 	</div>
 	<div class="footerLinks">
-		{% for page in site.pages %}
-			<a href="{{ page.url | relative_url }}" target="_self">{{ page.title }}</a>
+		{% assign current_lang = page.lang | default: "en" %}
+		{% for p in site.pages %}
+			{% if p.title %}
+				{% if current_lang == "fr" and p.english_only %}
+					<a href="{{ '/fr/releases/' | relative_url }}">{{ p.title }}</a>
+				{% else %}
+					<a href="{{ p.url | relative_url }}">{{ p.title }}</a>
+				{% endif %}
+			{% endif %}
 		{% endfor %}
 		{% if site.presskit_download_link %}
 			<a href="{{ site.presskit_download_link }}">Press Kit</a>

@@ -24,9 +24,14 @@
 	</div>
 	<nav class="scroll">
 		<ul>
+			{% assign current_lang = page.lang | default: "en" %}
 			{% for p in site.pages %}
 				{% if p.include_in_header == true %}
-				<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
+					{% if current_lang == "fr" and p.english_only %}
+						<li><a href="{{ '/fr/releases/' | relative_url }}">{{ p.title }}</a></li>
+					{% else %}
+						<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
+					{% endif %}
 				{% endif %}
 			{% endfor %}
 			{% if site.presskit_download_link %}
@@ -43,13 +48,12 @@
 			{% endif %}
 			<li class="langToggleContainer">
 				<div class="langToggle" role="tablist" aria-label="Language selection">
-					{% assign current_lang = page.lang | default: "en" %}
 					{% if current_lang == "en" %}
-						<a class="langToggleOption active" href="{{ '/' | relative_url }}" role="tab" aria-selected="true" aria-label="English" title="English">🇬🇧</a>
-						<a class="langToggleOption" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="false" aria-label="Français" title="Français">🇫🇷</a>
+						<a class="langToggleOption active" href="{{ '/' | relative_url }}" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption" href="{{ '/fr/' | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
 					{% else %}
-						<a class="langToggleOption" href="{{ '/' | relative_url }}" role="tab" aria-selected="false" aria-label="English" title="English">🇬🇧</a>
-						<a class="langToggleOption active" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="true" aria-label="Français" title="Français">🇫🇷</a>
+						<a class="langToggleOption" href="{{ '/' | relative_url }}" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption active" href="{{ '/fr/' | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
 					{% endif %}
 				</div>
 			</li>

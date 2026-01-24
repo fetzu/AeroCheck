@@ -28,7 +28,13 @@
 			{% for p in site.pages %}
 				{% if p.include_in_header == true %}
 					{% if current_lang == "fr" and p.english_only %}
-						<li><a href="{{ '/fr/releases/' | relative_url }}">{{ p.title }}</a></li>
+						{% if p.title == "Releases" %}
+							<li><a href="{{ '/fr/releases/' | relative_url }}">{{ p.title }}</a></li>
+						{% elsif p.title == "Aircraft List" %}
+							<li><a href="{{ '/fr/aircraft/' | relative_url }}">Liste des avions</a></li>
+						{% else %}
+							<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
+						{% endif %}
 					{% else %}
 						<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
 					{% endif %}

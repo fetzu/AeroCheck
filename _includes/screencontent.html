@@ -132,9 +132,9 @@
     }
 
     $(function() {
-        // Initialize iPhone carousel by default
-        if (iphoneScreenshots.length > 0) {
-            initCarousel('iphone', iphoneScreenshots, '.iphonePreview .carouselContainer');
+        // Initialize iPad carousel by default
+        if (ipadScreenshots.length > 0) {
+            initCarousel('ipad', ipadScreenshots, '.carouselContainerIpad');
         }
 
         // Set up toggle click handlers
@@ -143,7 +143,7 @@
             switchDevice(device);
         });
 
-        // Initialize slider position
+        // Initialize slider position (iPad is first button now, so start at 0)
         var $slider = $('.deviceToggleSlider');
         if ($slider.length) {
             $slider.css('transform', 'translateX(0)');

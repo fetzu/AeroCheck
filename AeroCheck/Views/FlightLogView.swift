@@ -34,11 +34,11 @@ struct FlightLogView: View {
                     flightList
                 }
             }
-            .navigationTitle("Flight Log")
+            .navigationTitle(L10n.FlightLog.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.FlightLog.close) { dismiss() }
                 }
                 
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -58,18 +58,18 @@ struct FlightLogView: View {
         .sheet(item: $selectedFlight) { flight in
             FlightDetailView(flight: flight)
         }
-        .confirmationDialog("Export All Flights", isPresented: $showExportAllOptions, titleVisibility: .visible) {
-            Button("GPX Files (.zip)") {
+        .confirmationDialog(L10n.FlightLog.exportAllTitle, isPresented: $showExportAllOptions, titleVisibility: .visible) {
+            Button(L10n.FlightLog.exportAllGPX) {
                 exportAllType = .gpx
                 showExportAllSheet = true
             }
-            Button("JSON Files (.zip)") {
+            Button(L10n.FlightLog.exportAllJSON) {
                 exportAllType = .json
                 showExportAllSheet = true
             }
-            Button("Cancel", role: .cancel) { }
+            Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
-            Text("Export all \(appState.flights.count) flights as a ZIP archive")
+            Text(L10n.FlightLog.exportAllMessage(appState.flights.count))
         }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = createExportAllZip() {
@@ -90,10 +90,10 @@ struct FlightLogView: View {
         ) { result in
             handleImport(result)
         }
-        .alert("Import Error", isPresented: $showImportError) {
-            Button("OK", role: .cancel) { }
+        .alert(L10n.FlightLog.importErrorTitle, isPresented: $showImportError) {
+            Button(L10n.FlightLog.importErrorOK, role: .cancel) { }
         } message: {
-            Text(importError ?? "Unknown error")
+            Text(importError ?? L10n.FlightLog.importErrorUnknown)
         }
     }
     
@@ -227,20 +227,20 @@ struct FlightLogView: View {
             Image(systemName: "airplane.circle")
                 .font(.system(size: 80))
                 .foregroundColor(.dimText)
-            
-            Text("No Flights Recorded")
+
+            Text(L10n.FlightLog.noFlightsTitle)
                 .font(.headerText)
                 .foregroundColor(.primaryText)
-            
-            Text("Start a flight to begin recording.\nYour flights will appear here.")
+
+            Text(L10n.FlightLog.noFlightsMessage)
                 .font(.bodyText)
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
-            
+
             Button(action: { showImportPicker = true }) {
                 HStack {
                     Image(systemName: "square.and.arrow.down")
-                    Text("Import Flight")
+                    Text(L10n.FlightLog.importFlight)
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
@@ -294,7 +294,7 @@ struct FlightLogView: View {
             guard let url = urls.first else { return }
 
             guard url.startAccessingSecurityScopedResource() else {
-                importError = "Cannot access the selected file."
+                importError = L10n.FlightLog.importErrorNoAccess
                 showImportError = true
                 return
             }
@@ -310,7 +310,7 @@ struct FlightLogView: View {
                 } else if appState.importFlight(from: data) {
                     // Success - no action needed
                 } else {
-                    importError = "Could not parse the flight file. Supported formats: GPX, JSON, ZIP"
+                    importError = L10n.FlightLog.importErrorParse
                     showImportError = true
                 }
             } catch {
@@ -339,15 +339,15 @@ struct FlightLogView: View {
             }
 
             if successCount == 0 {
-                importError = "No valid flight files found in the ZIP archive."
+                importError = L10n.FlightLog.importErrorZipNoFiles
                 showImportError = true
             } else if failCount > 0 {
-                importError = "Imported \(successCount) flight(s). \(failCount) file(s) could not be imported."
+                importError = L10n.FlightLog.importErrorZipPartial(successCount, failCount)
                 showImportError = true
             }
             // If all succeeded, no error message needed
         } catch {
-            importError = "Failed to extract ZIP archive: \(error.localizedDescription)"
+            importError = L10n.FlightLog.importErrorZipExtract(error.localizedDescription)
             showImportError = true
         }
     }
@@ -540,7 +540,7 @@ struct FlightRowView: View {
                     .labelStyle(CustomLabelStyle(spacing: 4))
 
                     Label {
-                        Text("\(flight.gpsTrack.count) pts")
+                        Text("\(flight.gpsTrack.count) \(L10n.FlightLog.pts)")
                     } icon: {
                         Image(systemName: "location.fill")
                             .font(.system(size: 10))
@@ -641,7 +641,7 @@ struct FlightDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { generateAndShareImage() }) {
@@ -667,18 +667,18 @@ struct FlightDetailView: View {
                 ImageShareSheet(image: image)
             }
         }
-        .confirmationDialog("Export Format", isPresented: $showExportOptions, titleVisibility: .visible) {
-            Button("GPX (GPS Track)") {
+        .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
+            Button(L10n.FlightDetail.exportFormatGPX) {
                 exportType = .gpx
                 showExportSheet = true
             }
-            Button("JSON (Full Data)") {
+            Button(L10n.FlightDetail.exportFormatJSON) {
                 exportType = .json
                 showExportSheet = true
             }
-            Button("Cancel", role: .cancel) { }
+            Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
-            Text("Choose export format. JSON includes all flight times and data.")
+            Text(L10n.FlightDetail.exportFormatMessage)
         }
         .sheet(isPresented: $showExportSheet) {
             switch exportType {
@@ -701,14 +701,14 @@ struct FlightDetailView: View {
                 }
             }
         }
-        .alert("Delete Flight?", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+        .alert(L10n.FlightDetail.deleteTitle, isPresented: $showDeleteAlert) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.Button.delete, role: .destructive) {
                 appState.deleteFlight(flight)
                 dismiss()
             }
         } message: {
-            Text("This action cannot be undone.")
+            Text(L10n.FlightDetail.deleteMessage)
         }
     }
     
@@ -716,10 +716,10 @@ struct FlightDetailView: View {
     
     private var mapSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("FLIGHT TRACK")
+            Text(L10n.FlightDetail.flightTrack)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
-            
+
             if flight.gpsTrack.isEmpty {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.cardBackground)
@@ -729,7 +729,7 @@ struct FlightDetailView: View {
                             Image(systemName: "map")
                                 .font(.system(size: 40))
                                 .foregroundColor(.dimText)
-                            Text("No GPS data recorded")
+                            Text(L10n.FlightDetail.noGPSData)
                                 .font(.bodyText)
                                 .foregroundColor(.dimText)
                         }
@@ -746,7 +746,7 @@ struct FlightDetailView: View {
 
     private var altitudeGraphSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ALTITUDE PROFILE")
+            Text(L10n.FlightDetail.altitudeProfile)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
 
@@ -759,7 +759,7 @@ struct FlightDetailView: View {
                             Image(systemName: "chart.xyaxis.line")
                                 .font(.system(size: 40))
                                 .foregroundColor(.dimText)
-                            Text("No altitude data recorded")
+                            Text(L10n.FlightDetail.noAltitudeData)
                                 .font(.bodyText)
                                 .foregroundColor(.dimText)
                         }
@@ -790,68 +790,68 @@ struct FlightDetailView: View {
 
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("FLIGHT DETAILS")
+            Text(L10n.FlightDetail.flightDetails)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
 
             VStack(spacing: 12) {
-                DetailRow(label: "Aircraft", value: flight.airplane, icon: "airplane")
-                DetailRow(label: "Date", value: flight.formattedDate, icon: "calendar")
-                DetailRow(label: "Flight Time", value: flight.formattedDuration, icon: "clock.fill")
-                DetailRow(label: "Distance", value: flight.formattedDistance, icon: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                DetailRow(label: "GPS Points", value: "\(flight.gpsTrack.count)", icon: "location.fill")
+                DetailRow(label: L10n.FlightDetail.aircraft, value: flight.airplane, icon: "airplane")
+                DetailRow(label: L10n.FlightDetail.date, value: flight.formattedDate, icon: "calendar")
+                DetailRow(label: L10n.FlightDetail.flightTime, value: flight.formattedDuration, icon: "clock.fill")
+                DetailRow(label: L10n.FlightDetail.distance, value: flight.formattedDistance, icon: "point.topleft.down.to.point.bottomright.curvepath.fill")
+                DetailRow(label: L10n.FlightDetail.gpsPoints, value: "\(flight.gpsTrack.count)", icon: "location.fill")
                 if flight.goAroundCount > 0 {
-                    DetailRow(label: "Go Arounds", value: "\(flight.goAroundCount)", icon: "arrow.up.right.circle.fill")
+                    DetailRow(label: L10n.FlightDetail.goArounds, value: "\(flight.goAroundCount)", icon: "arrow.up.right.circle.fill")
                 }
                 if flight.touchAndGoCount > 0 {
-                    DetailRow(label: "Touch-and-goes", value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
+                    DetailRow(label: L10n.FlightDetail.touchAndGoes, value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
                 }
                 if flight.fullStopCount > 0 {
-                    DetailRow(label: "Full Stops", value: "\(flight.fullStopCount)", icon: "stop.circle.fill")
+                    DetailRow(label: L10n.FlightDetail.fullStops, value: "\(flight.fullStopCount)", icon: "stop.circle.fill")
                 }
             }
             .cardStyle()
 
             // Chronological times
-            Text("FLIGHT TIMES")
+            Text(L10n.FlightDetail.flightTimes)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
                 .padding(.top, 8)
 
             VStack(spacing: 12) {
                 if let start = flight.startTime {
-                    TimelineRow(label: "Session Start", time: timeString(from: start), icon: "play.fill", color: .dimText)
+                    TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
                 }
 
                 if let engineStart = flight.engineStartTime {
-                    TimelineRow(label: "Engine Start", time: timeString(from: engineStart), icon: "engine.combustion", color: .aviationGreen)
+                    TimelineRow(label: L10n.FlightDetail.engineStart, time: timeString(from: engineStart), icon: "engine.combustion", color: .aviationGreen)
                 }
 
                 if let lineUp = flight.lineUpTime {
-                    TimelineRow(label: "Take-off", time: timeString(from: lineUp), icon: "airplane.departure", color: .aviationAmber)
+                    TimelineRow(label: L10n.FlightDetail.takeoff, time: timeString(from: lineUp), icon: "airplane.departure", color: .aviationAmber)
                 }
 
                 if let landing = flight.landingTime {
-                    TimelineRow(label: "Landing", time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
+                    TimelineRow(label: L10n.FlightDetail.landing, time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
                 }
 
                 if let shutdown = flight.engineShutdownTime {
-                    TimelineRow(label: "Engine Shutdown", time: timeString(from: shutdown), icon: "engine.combustion.fill", color: .aviationRed)
+                    TimelineRow(label: L10n.FlightDetail.engineShutdown, time: timeString(from: shutdown), icon: "engine.combustion.fill", color: .aviationRed)
                 }
 
                 if let stop = flight.stopTime {
-                    TimelineRow(label: "Session End", time: timeString(from: stop), icon: "stop.fill", color: .dimText)
+                    TimelineRow(label: L10n.FlightDetail.sessionEnd, time: timeString(from: stop), icon: "stop.fill", color: .dimText)
                 }
             }
             .cardStyle()
 
             // Flight Name editing (moved to be between FLIGHT TIMES and NOTES)
-            Text("FLIGHT NAME")
+            Text(L10n.FlightDetail.flightName)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
                 .padding(.top, 8)
 
-            TextField("Enter flight name (e.g., Circuits 2)", text: $flightName)
+            TextField(L10n.FlightDetail.namePlaceholder, text: $flightName)
                 .font(.bodyText)
                 .foregroundColor(.primaryText)
                 .padding(12)
@@ -870,7 +870,7 @@ struct FlightDetailView: View {
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Notes
-            Text("NOTES")
+            Text(L10n.FlightDetail.notes)
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
             
@@ -901,7 +901,7 @@ struct FlightDetailView: View {
                 }) {
                     HStack {
                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                        Text("Nav Plan")
+                        Text(L10n.FlightDetail.navPlan)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -916,7 +916,7 @@ struct FlightDetailView: View {
             Button(action: { showExportOptions = true }) {
                 HStack {
                     Image(systemName: "square.and.arrow.up")
-                    Text("Export")
+                    Text(L10n.FlightDetail.export)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -925,7 +925,7 @@ struct FlightDetailView: View {
             Button(action: { showDeleteAlert = true }) {
                 HStack {
                     Image(systemName: "trash")
-                    Text("Delete")
+                    Text(L10n.FlightDetail.delete)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -1534,7 +1534,8 @@ struct ImageShareSheet: UIViewControllerRepresentable {
 
 /// A UIActivityItemProvider that shares images as JPEG data for smaller file sizes
 /// while still supporting Save to Photos and other image-specific share actions
-class ShareableImage: UIActivityItemProvider {
+@MainActor
+class ShareableImage: UIActivityItemProvider, @unchecked Sendable {
     let image: UIImage
 
     init(image: UIImage) {

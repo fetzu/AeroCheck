@@ -636,7 +636,7 @@ struct NavigationMapView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "internaldrive.fill")
                                 .font(.system(size: 10))
-                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
                                 .font(.system(size: 10, weight: .bold))
                         }
                         .foregroundColor(.white)
@@ -832,10 +832,10 @@ struct NavigationMapView: View {
                 // Next waypoint header
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("NEXT WAYPOINT")
+                        Text(L10n.Nav.nextWaypoint)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                        Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -857,7 +857,7 @@ struct NavigationMapView: View {
                     HStack(spacing: 24) {
                         // Heading TO waypoint
                         VStack(spacing: 2) {
-                            Text("HDG TO")
+                            Text(L10n.Nav.hdgTo)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                             if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
@@ -878,7 +878,7 @@ struct NavigationMapView: View {
 
                         // Distance TO waypoint
                         VStack(spacing: 2) {
-                            Text("DIST TO")
+                            Text(L10n.Nav.distTo)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                             if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
@@ -929,7 +929,7 @@ struct NavigationMapView: View {
                 // Progress bar
                 VStack(spacing: 6) {
                     HStack {
-                        Text("Progress")
+                        Text(L10n.Nav.progress)
                             .font(.system(size: 10))
                             .foregroundColor(.secondaryText)
                         Spacer()
@@ -960,7 +960,7 @@ struct NavigationMapView: View {
                 // Chronometer
                 VStack(spacing: 6) {
                     HStack {
-                        Text("CHRONOMETER")
+                        Text(L10n.Nav.chronometer)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
 
@@ -984,7 +984,7 @@ struct NavigationMapView: View {
                         Button(action: {
                             flightPlanManager.startChronometer()
                         }) {
-                            Text("START")
+                            Text(L10n.Nav.start)
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.black)
                                 .padding(.horizontal, 20)
@@ -1016,7 +1016,7 @@ struct NavigationMapView: View {
                     }
                     .disabled(plan.currentWaypointIndex == 0)
 
-                    Text("WPT")
+                    Text(L10n.Nav.wpt)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
 
@@ -1036,7 +1036,7 @@ struct NavigationMapView: View {
                 .padding(.bottom, 16)
 
             } else {
-                Text("No active flight plan")
+                Text(L10n.Nav.noActiveFlightPlan)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .padding()
@@ -1055,7 +1055,7 @@ struct NavigationMapView: View {
                 if !frequenciesWithWaypoints.isEmpty {
                     ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
                         compactFrequencyRow(
-                            name: waypoint.name.isEmpty ? "Waypoint" : waypoint.name,
+                            name: waypoint.name.isEmpty ? L10n.Nav.waypoint : waypoint.name,
                             callSign: waypoint.callSign,
                             frequency: waypoint.frequency ?? "",
                             isCurrent: plan.currentWaypointIndex == index
@@ -1067,7 +1067,7 @@ struct NavigationMapView: View {
                         }
                     }
                 } else {
-                    Text("No frequencies in flight plan")
+                    Text(L10n.Nav.noFrequenciesInFlightPlan)
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                         .padding()
@@ -1078,7 +1078,7 @@ struct NavigationMapView: View {
                     .background(Color.dimText)
                     .padding(.vertical, 4)
 
-                Text("COMMON SWISS FREQUENCIES")
+                Text(L10n.Nav.commonSwissFrequencies)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1101,7 +1101,7 @@ struct NavigationMapView: View {
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text("NEARBY CONTROLLED AIRSPACE")
+                    Text(L10n.Nav.nearbyControlledAirspace)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1118,7 +1118,7 @@ struct NavigationMapView: View {
                 }
             } else {
                 // No active flight plan - show message and common frequencies
-                Text("No active flight plan")
+                Text(L10n.Nav.noActiveFlightPlan)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
                     .padding()
@@ -1128,7 +1128,7 @@ struct NavigationMapView: View {
                     .background(Color.dimText)
                     .padding(.vertical, 4)
 
-                Text("COMMON SWISS FREQUENCIES")
+                Text(L10n.Nav.commonSwissFrequencies)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1151,7 +1151,7 @@ struct NavigationMapView: View {
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text("NEARBY CONTROLLED AIRSPACE")
+                    Text(L10n.Nav.nearbyControlledAirspace)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1517,7 +1517,7 @@ struct NavigationMapView: View {
                     Button(action: { showCacheInfoModal = true }) {
                         HStack(spacing: 6) {
                             Image(systemName: "internaldrive.fill")
-                            Text(isOfflineMode ? "OFFLINE" : "CACHED")
+                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
                         }
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
@@ -1688,7 +1688,7 @@ struct RadioFrequencyOverlayView: View {
             HStack {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 12))
-                Text("RADIO FREQUENCIES")
+                Text(L10n.Nav.radioFrequencies)
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1)
                 Spacer()
@@ -1710,7 +1710,7 @@ struct RadioFrequencyOverlayView: View {
                         let frequenciesWithWaypoints = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
 
                         if frequenciesWithWaypoints.isEmpty {
-                            Text("No frequencies in flight plan")
+                            Text(L10n.Nav.noFrequenciesInFlightPlan)
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondaryText)
                                 .padding()
@@ -1730,7 +1730,7 @@ struct RadioFrequencyOverlayView: View {
                             .background(Color.dimText)
                             .padding(.vertical, 4)
 
-                        Text("COMMON SWISS FREQUENCIES")
+                        Text(L10n.Nav.commonSwissFrequencies)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1751,7 +1751,7 @@ struct RadioFrequencyOverlayView: View {
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text("NEARBY CONTROLLED AIRSPACE")
+                            Text(L10n.Nav.nearbyControlledAirspace)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1768,7 +1768,7 @@ struct RadioFrequencyOverlayView: View {
                         }
                     } else {
                         // No active flight plan - show message and common frequencies
-                        Text("No active flight plan")
+                        Text(L10n.Nav.noActiveFlightPlan)
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
                             .padding()
@@ -1778,7 +1778,7 @@ struct RadioFrequencyOverlayView: View {
                             .background(Color.dimText)
                             .padding(.vertical, 4)
 
-                        Text("COMMON SWISS FREQUENCIES")
+                        Text(L10n.Nav.commonSwissFrequencies)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1799,7 +1799,7 @@ struct RadioFrequencyOverlayView: View {
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text("NEARBY CONTROLLED AIRSPACE")
+                            Text(L10n.Nav.nearbyControlledAirspace)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1857,7 +1857,7 @@ struct RadioFrequencyOverlayView: View {
     private func frequencyRow(waypoint: FlightPlanWaypoint, isCurrent: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(waypoint.name.isEmpty ? "Waypoint" : waypoint.name)
+                Text(waypoint.name.isEmpty ? L10n.Nav.waypoint : waypoint.name)
                     .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
                     .foregroundColor(isCurrent ? .aviationGold : .primaryText)
                     .lineLimit(1)

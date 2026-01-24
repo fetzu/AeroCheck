@@ -43,6 +43,13 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// Available checklist languages
+    var checklistLanguages: [String] {
+        switch self {
+        case .wt9Dynamic: return ["en"]
+        }
+    }
+
     /// Stall speed (clean) for speed indicator warnings
     var stallSpeed: Int {
         switch self {

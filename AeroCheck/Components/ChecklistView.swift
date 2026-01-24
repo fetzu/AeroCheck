@@ -205,6 +205,7 @@ struct ChecklistView: View {
     var highlightedItemIndex: Int = 0
     var pulseActionButton: Bool = false
     var isCompact: Bool = false
+    var checklistLanguage: String = "en" // Language code for button translations
 
     // State for temporarily revealing hidden items
     @State private var hiddenItemsRevealed: Bool = false
@@ -260,7 +261,8 @@ struct ChecklistView: View {
          learningModeEnabled: Bool = false,
          highlightedItemIndex: Int = 0,
          pulseActionButton: Bool = false,
-         isCompact: Bool = false) {
+         isCompact: Bool = false,
+         checklistLanguage: String = "en") {
         self.phase = phase
         self.onEngineStart = onEngineStart
         self.onEngineStartUpdate = onEngineStartUpdate
@@ -288,6 +290,7 @@ struct ChecklistView: View {
         self.highlightedItemIndex = highlightedItemIndex
         self.pulseActionButton = pulseActionButton
         self.isCompact = isCompact
+        self.checklistLanguage = checklistLanguage
     }
     
     var body: some View {
@@ -409,11 +412,11 @@ struct ChecklistView: View {
 
                     if phase.showsEngineStartButton {
                         TimestampActionButton(
-                            title: "ENGINE START",
+                            title: L10n.ChecklistAction.engineStart(language: checklistLanguage),
                             icon: "engine.combustion.fill",
                             color: .aviationGreen,
                             timestamp: engineStartTime,
-                            timestampLabel: "Started",
+                            timestampLabel: L10n.ChecklistAction.started(language: checklistLanguage),
                             isPulsing: pulseActionButton,
                             onFirstPress: { onEngineStart?() },
                             onUpdateTime: { onEngineStartUpdate?() }
@@ -423,11 +426,11 @@ struct ChecklistView: View {
 
                     if phase.showsLineUpButton {
                         TimestampActionButton(
-                            title: "READY FOR LINE UP",
+                            title: L10n.ChecklistAction.readyForLineUp(language: checklistLanguage),
                             icon: "airplane.departure",
                             color: .aviationAmber,
                             timestamp: lineUpTime,
-                            timestampLabel: "Line Up",
+                            timestampLabel: L10n.ChecklistAction.lineUp(language: checklistLanguage),
                             timestampSuffix: " (+2 min)",
                             isPulsing: pulseActionButton,
                             onFirstPress: { onLineUp?() },
@@ -438,11 +441,11 @@ struct ChecklistView: View {
 
                     if phase.showsEngineShutdownButton {
                         TimestampActionButton(
-                            title: "ENGINE SHUTDOWN",
+                            title: L10n.ChecklistAction.engineShutdown(language: checklistLanguage),
                             icon: "engine.combustion.fill",
                             color: .aviationRed,
                             timestamp: engineShutdownTime,
-                            timestampLabel: "Shutdown",
+                            timestampLabel: L10n.ChecklistAction.shutdown(language: checklistLanguage),
                             isPulsing: pulseActionButton,
                             onFirstPress: { onEngineShutdown?() },
                             onUpdateTime: { onEngineShutdownUpdate?() }
@@ -463,22 +466,22 @@ struct ChecklistView: View {
 
                     // Go Around button
                     CounterActionButton(
-                        title: "GO AROUND",
+                        title: L10n.ChecklistAction.goAround(language: checklistLanguage),
                         icon: "arrow.up.right.circle.fill",
                         color: .aviationAmber,
                         count: goAroundCount,
-                        countLabel: "Go Arounds",
+                        countLabel: L10n.ChecklistAction.goArounds(language: checklistLanguage),
                         onPress: { onGoAround?() }
                     )
                     .id("goAroundButton")
 
                     // Touch and Go button
                     CounterActionButton(
-                        title: "TOUCH-AND-GO",
+                        title: L10n.ChecklistAction.touchAndGo(language: checklistLanguage),
                         icon: "arrow.triangle.2.circlepath",
                         color: .aviationBlue,
                         count: touchAndGoCount,
-                        countLabel: "Touch-and-goes",
+                        countLabel: L10n.ChecklistAction.touchAndGoes(language: checklistLanguage),
                         onPress: { onTouchAndGo?() }
                     )
                     .id("touchAndGoButton")
@@ -496,21 +499,21 @@ struct ChecklistView: View {
 
                     // Full Stop button (for circuit landings)
                     CounterActionButton(
-                        title: "FULL STOP",
+                        title: L10n.ChecklistAction.fullStop(language: checklistLanguage),
                         icon: "stop.circle.fill",
                         color: .aviationAmber,
                         count: fullStopCount,
-                        countLabel: "Full Stops",
+                        countLabel: L10n.ChecklistAction.fullStops(language: checklistLanguage),
                         onPress: { onFullStop?() }
                     )
                     .id("fullStopButton")
 
                     TimestampActionButton(
-                        title: "LANDED",
+                        title: L10n.ChecklistAction.landed(language: checklistLanguage),
                         icon: "airplane.arrival",
                         color: .aviationBlue,
                         timestamp: landingTime,
-                        timestampLabel: "Landing",
+                        timestampLabel: L10n.ChecklistAction.landing(language: checklistLanguage),
                         timestampSuffix: " (-1 min)",
                         isPulsing: pulseActionButton,
                         onFirstPress: { onLanded?() },
@@ -537,11 +540,11 @@ struct ChecklistView: View {
                     .foregroundColor(.aviationAmber)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("HIDDEN CHECKLIST ITEMS")
+                    Text(L10n.ChecklistAction.hiddenItemsTitle)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.aviationAmber)
 
-                    Text("\(hiddenItemCount) item\(hiddenItemCount == 1 ? "" : "s") hidden — hold to reveal")
+                    Text(L10n.ChecklistAction.hiddenItemsCount(hiddenItemCount, hiddenItemCount == 1 ? "" : "s"))
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                 }

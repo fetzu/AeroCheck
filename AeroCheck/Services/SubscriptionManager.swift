@@ -607,7 +607,7 @@ class SubscriptionManager: ObservableObject {
         debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
         // Send to server
-        let url = URL(string: "\(apiBaseURL)/api/v1/subscription/verify")!
+        let url = URL(string: "\(apiBaseURL)/api/v2/subscription/verify")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

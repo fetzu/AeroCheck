@@ -42,6 +42,9 @@ struct SettingsView: View {
     // iCloud Sync
     @State private var iCloudSyncEnabled: Bool = true
 
+    // Checklist Language
+    @State private var checklistLanguage: ChecklistLanguage = .auto
+
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -53,7 +56,7 @@ struct SettingsView: View {
 
     private var settingsForm: some View {
         formContent
-            .navigationTitle("Settings")
+            .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { loadSettings() }
@@ -75,6 +78,7 @@ struct SettingsView: View {
                 terrainAltitudeUnit: terrainAltitudeUnit,
                 enableCircuitMode: enableCircuitMode,
                 iCloudSyncEnabled: iCloudSyncEnabled,
+                checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
                 saveSettings: { if !isLoadingSettings { saveSettings() } },
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
@@ -95,14 +99,14 @@ struct SettingsView: View {
                     enableFlightPlanning: $enableFlightPlanning
                 )
             }
-            .alert("Delete Cache?", isPresented: $showDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+            .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
+                Button(L10n.Button.cancel, role: .cancel) { }
+                Button(L10n.Button.delete, role: .destructive) {
                     offlineMapManager.deleteCache()
                     offlineMode = false
                 }
             } message: {
-                Text("This will delete the cached ICAO chart. You will need to download it again for offline use.")
+                Text(L10n.Settings.deleteCacheMessage)
             }
     }
 
@@ -136,7 +140,7 @@ struct SettingsView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .confirmationAction) {
-            Button("Done") { dismiss() }
+            Button(L10n.Settings.done) { dismiss() }
         }
     }
 
@@ -147,7 +151,7 @@ struct SettingsView: View {
             Button(action: { showSubscriptionView = true }) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("AeroCheck Pro")
+                        Text(L10n.Settings.aeroCheckPro)
                             .font(.headline)
                             .foregroundColor(.primary)
 
@@ -162,7 +166,7 @@ struct SettingsView: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.caption)
                                     .foregroundColor(.aviationAmber)
-                                Text("Grace period ends \(endsAt.formatted(date: .abbreviated, time: .shortened))")
+                                Text(L10n.Settings.gracePeriodEnds(endsAt.formatted(date: .abbreviated, time: .shortened)))
                                     .font(.caption2)
                                     .foregroundColor(.aviationAmber)
                             }
@@ -188,14 +192,14 @@ struct SettingsView: View {
                     .environmentObject(subscriptionManager)
             }
         } header: {
-            Label("Subscription", systemImage: "star.fill")
+            Label(L10n.Settings.subscription, systemImage: "star.fill")
         } footer: {
             if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text("You have access to all premium aircraft checklists.")
+                Text(L10n.Settings.subscriptionAccessAll)
             } else if subscriptionManager.isInGracePeriod {
-                Text("Your subscription has lapsed. Premium checklists will remain available during the grace period.")
+                Text(L10n.Settings.subscriptionLapsed)
             } else {
-                Text("Subscribe to unlock additional aircraft checklists.")
+                Text(L10n.Settings.subscriptionUnlockText)
             }
         }
     }
@@ -225,6 +229,13 @@ struct SettingsView: View {
 
                         Spacer()
 
+                        // Language flags
+                        HStack(spacing: 6) {
+                            ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                                LanguageFlagView(languageCode: languageCode)
+                            }
+                        }
+
                         if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.aviationGold)
@@ -241,7 +252,7 @@ struct SettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Text("Premium Aircrafts")
+                            Text(L10n.Settings.premiumAircrafts)
                                 .font(.system(.body))
                                 .fontWeight(.semibold)
                                 .foregroundColor(.primary)
@@ -252,7 +263,7 @@ struct SettingsView: View {
                         }
 
                         if aircraftDataService.isLoading {
-                            Text("Loading...")
+                            Text(L10n.Settings.loading)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         } else {
@@ -260,11 +271,11 @@ struct SettingsView: View {
                             let accessibleCount = aircraftDataService.availableAircraft.filter { !$0.isFree && $0.hasAccess }.count
 
                             if premiumCount > 0 {
-                                Text("\(accessibleCount)/\(premiumCount) available")
+                                Text(L10n.Settings.available(accessibleCount, premiumCount))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             } else {
-                                Text("No premium aircraft")
+                                Text(L10n.Settings.noPremium)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -284,14 +295,14 @@ struct SettingsView: View {
                     } else {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
-                    Text("Get latest aircraft data")
+                    Text(L10n.Settings.getLatest)
                 }
             }
             .disabled(isSyncingAircraftData)
         } header: {
-            Label("Aircraft", systemImage: "airplane")
+            Label(L10n.Settings.aircraft, systemImage: "airplane")
         } footer: {
-            Text("Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates.")
+            Text(L10n.Settings.aircraftFooter)
         }
     }
 
@@ -316,11 +327,10 @@ struct SettingsView: View {
     private var gpsSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                let intervalText = "\(Int(gpsInterval)) seconds"
                 HStack {
-                    Text("Recording Interval")
+                    Text(L10n.Settings.gpsInterval)
                     Spacer()
-                    Text(intervalText)
+                    Text(L10n.Settings.seconds(Int(gpsInterval)))
                         .foregroundColor(.secondary)
                 }
 
@@ -329,27 +339,27 @@ struct SettingsView: View {
             }
 
             HStack {
-                Text("GPS Status")
+                Text(L10n.GPS.status)
                 Spacer()
                 Text(gpsStatusText)
                     .foregroundColor(gpsStatusColor)
             }
 
             if locationManager.authorizationStatus == .notDetermined {
-                Button("Request GPS Permission") {
+                Button(L10n.GPS.requestPermission) {
                     locationManager.requestAuthorization()
                 }
             }
         } header: {
-            Label("GPS Tracking", systemImage: "location.fill")
+            Label(L10n.Settings.gps, systemImage: "location.fill")
         } footer: {
-            Text("Lower intervals provide more detailed tracks but use more storage")
+            Text(L10n.Settings.gpsFooter)
         }
     }
 
     private var experimentalAirspeedSection: some View {
         Section {
-            Toggle("Show Estimated Airspeed", isOn: Binding(
+            Toggle(L10n.Settings.showEstimatedAirspeed, isOn: Binding(
                 get: { showEstimatedAirspeed },
                 set: { newValue in
                     if newValue {
@@ -362,8 +372,8 @@ struct SettingsView: View {
             ))
         } header: {
             HStack {
-                Label("Experimental", systemImage: "exclamationmark.triangle.fill")
-                Text("BETA")
+                Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
+                Text(L10n.Tag.beta)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -375,11 +385,11 @@ struct SettingsView: View {
             }
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("When enabled, displays an estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data from MeteoSwiss.")
+                Text(L10n.Settings.experimentalFooter)
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationAmber)
-                    Text("This feature only works in Switzerland and requires a constant cellular connection.")
+                    Text(L10n.Settings.switzerlandOnly)
                         .foregroundColor(.aviationAmber)
                 }
                 .font(.caption)
@@ -389,7 +399,7 @@ struct SettingsView: View {
 
     private var flightPlanningSection: some View {
         Section {
-            Toggle("Enable Flight Planning", isOn: Binding(
+            Toggle(L10n.Settings.enableFlightPlanning, isOn: Binding(
                 get: { enableFlightPlanning },
                 set: { newValue in
                     if newValue {
@@ -403,7 +413,7 @@ struct SettingsView: View {
             if enableFlightPlanning {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Waypoint Proximity")
+                        Text(L10n.Settings.waypointProximity)
                         Spacer()
                         Text("\(Int(waypointProximityThreshold)) m")
                             .foregroundColor(.secondary)
@@ -413,7 +423,7 @@ struct SettingsView: View {
                         .tint(.aviationGold)
                 }
 
-                Picker("Terrain Altitude Unit", selection: $terrainAltitudeUnit) {
+                Picker(L10n.Settings.terrainAltitudeUnit, selection: $terrainAltitudeUnit) {
                     ForEach(TerrainAltitudeUnit.allCases) { unit in
                         Text(unit.rawValue).tag(unit)
                     }
@@ -422,8 +432,8 @@ struct SettingsView: View {
             }
         } header: {
             HStack {
-                Label("Flight Planning", systemImage: "map.fill")
-                Text("BETA")
+                Label(L10n.Settings.flightPlanning, systemImage: "map.fill")
+                Text(L10n.Tag.beta)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -435,10 +445,10 @@ struct SettingsView: View {
             }
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Plan flight routes with waypoints, time/distance calculations, and terrain visualization.")
+                Text(L10n.Settings.flightPlanningFooter)
                 if enableFlightPlanning {
-                    Text("Waypoint Proximity: Distance at which waypoints auto-advance during flight.")
-                    Text("Terrain Altitude Unit: Unit for displaying terrain profile elevation.")
+                    Text(L10n.Settings.waypointProximityFooter)
+                    Text(L10n.Settings.terrainUnitFooter)
                 }
             }
         }
@@ -446,37 +456,37 @@ struct SettingsView: View {
 
     private var displaySection: some View {
         Section {
-            Toggle("Keep Screen On", isOn: $keepScreenOn)
-            Toggle("Always Use UTC Times", isOn: $alwaysUseUTC)
+            Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
+            Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
         } header: {
-            Label("Display", systemImage: "sun.max.fill")
+            Label(L10n.Settings.display, systemImage: "sun.max.fill")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Keep Screen On: Prevents the screen from dimming during flight.")
-                Text("Always Use UTC Times: When enabled, all times in the app are displayed in UTC with a (UTC) suffix.")
+                Text(L10n.Settings.keepScreenOnFooter)
+                Text(L10n.Settings.alwaysUseUTCFooter)
             }
         }
     }
 
     private var navigationSection: some View {
         Section {
-            Toggle("Force ICAO Chart Layer", isOn: $forceICAOChartLayer)
+            Toggle(L10n.Settings.forceICAO, isOn: $forceICAOChartLayer)
                 .disabled(offlineMode)
         } header: {
-            Label("Navigation", systemImage: "map")
+            Label(L10n.Settings.navigation, systemImage: "map")
         } footer: {
-            Text("When ON, the ICAO Chart (1:500,000) remains at all zoom levels. When OFF, seamlessly switches to Segelflugkarte (1:300,000) when zooming in.")
+            Text(L10n.Settings.forceICAOFooter)
         }
     }
 
     private var iCloudSyncSection: some View {
         Section {
-            Toggle("Sync to iCloud", isOn: $iCloudSyncEnabled)
+            Toggle(L10n.Settings.syncToICloud, isOn: $iCloudSyncEnabled)
 
             if iCloudSyncEnabled {
                 if let lastSync = syncManager.lastSyncDate {
                     HStack {
-                        Text("Last Sync")
+                        Text(L10n.Settings.lastSync)
                         Spacer()
                         Text(formatSyncDate(lastSync))
                             .foregroundColor(.secondary)
@@ -497,18 +507,18 @@ struct SettingsView: View {
                                     : .default,
                                 value: syncManager.isSyncing
                             )
-                        Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
+                        Text(syncManager.isSyncing ? L10n.Settings.syncing : L10n.Settings.syncNow)
                     }
                 }
                 .disabled(syncManager.isSyncing)
             }
         } header: {
-            Label("iCloud Sync", systemImage: "icloud")
+            Label(L10n.Settings.icloud, systemImage: "icloud")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("When enabled, your settings and flight logs are synced across all your devices signed into the same iCloud account.")
+                Text(L10n.Settings.icloudFooter)
                 if iCloudSyncEnabled {
-                    Text("Your flight logs are stored in the AéroCheck folder in Files and can be accessed from any device.")
+                    Text(L10n.Settings.flightLogsFooter)
                 }
             }
         }
@@ -523,7 +533,7 @@ struct SettingsView: View {
 
     private var offlineMapsSection: some View {
         Section {
-            Toggle("Offline Mode", isOn: $offlineMode)
+            Toggle(L10n.Settings.offlineMode, isOn: $offlineMode)
                 .onChange(of: offlineMode) { _, newValue in
                     if newValue && !offlineMapManager.isCacheAvailable {
                         showDownloadModal = true
@@ -533,7 +543,7 @@ struct SettingsView: View {
             if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
                 if offlineMapManager.isCacheAvailable {
                     HStack {
-                        Text("ICAO Chart")
+                        Text(L10n.Settings.icaoChart)
                         Spacer()
                         Text(offlineMapManager.cacheVersion)
                             .foregroundColor(.secondary)
@@ -542,7 +552,7 @@ struct SettingsView: View {
 
                 if offlineMapManager.isSegelflugCacheAvailable {
                     HStack {
-                        Text("Segelflugkarte")
+                        Text(L10n.Settings.segelflugkarte)
                         Spacer()
                         Text(offlineMapManager.segelflugCacheVersion)
                             .foregroundColor(.secondary)
@@ -550,7 +560,7 @@ struct SettingsView: View {
                 }
 
                 HStack {
-                    Text("Total Cache Size")
+                    Text(L10n.Settings.totalCacheSize)
                     Spacer()
                     Text(offlineMapManager.formattedCacheSize)
                         .foregroundColor(.secondary)
@@ -559,26 +569,26 @@ struct SettingsView: View {
                 Button(action: { showDownloadModal = true }) {
                     HStack {
                         Image(systemName: "arrow.clockwise")
-                        Text("Update/Add Charts")
+                        Text(L10n.Settings.updateCharts)
                     }
                 }
 
                 Button(role: .destructive, action: { showDeleteConfirmation = true }) {
                     HStack {
                         Image(systemName: "trash")
-                        Text("Delete All Cached Charts")
+                        Text(L10n.Settings.deleteCache)
                     }
                 }
             } else {
                 Button(action: { showDownloadModal = true }) {
                     HStack {
                         Image(systemName: "arrow.down.circle")
-                        Text("Download Charts")
+                        Text(L10n.Settings.downloadCharts)
                     }
                 }
             }
         } header: {
-            Label("Offline Maps", systemImage: "arrow.down.circle")
+            Label(L10n.Settings.offlineMaps, systemImage: "arrow.down.circle")
         } footer: {
             offlineMapsFooter
         }
@@ -588,31 +598,39 @@ struct SettingsView: View {
     private var offlineMapsFooter: some View {
         if offlineMode {
             if offlineMapManager.isSegelflugCacheAvailable {
-                Text("Offline mode active. Both ICAO Chart and Segelflugkarte are available from cache.")
+                Text(L10n.Settings.offlineActive)
             } else {
-                Text("Offline mode active. Only ICAO Chart is cached. Download Segelflugkarte for seamless zooming in offline mode.")
+                Text(L10n.Settings.onlyICAO)
             }
         } else if offlineMapManager.isCacheAvailable {
-            Text("Charts cached for faster loading. Updated yearly by swisstopo in April.")
+            Text(L10n.Settings.chartsCached)
         } else {
-            Text("Download charts for offline navigation. ICAO Chart is required; Segelflugkarte is optional for detailed zooming.")
+            Text(L10n.Settings.downloadDesc)
         }
     }
 
     private var checklistSection: some View {
         Section {
-            Toggle("Step-by-Step Highlighting", isOn: $stepByStepHighlighting)
+            Toggle(L10n.Settings.stepByStep, isOn: $stepByStepHighlighting)
 
-            Toggle("Learning Mode (show all checks)", isOn: $learningMode)
+            Toggle(L10n.Settings.learningMode, isOn: $learningMode)
 
-            Toggle("Enable Circuit Mode", isOn: $enableCircuitMode)
+            Toggle(L10n.Settings.circuitMode, isOn: $enableCircuitMode)
+
+            // Checklist Language Picker
+            Picker(L10n.Settings.checklistLanguage, selection: $checklistLanguage) {
+                ForEach(ChecklistLanguage.availableLanguages) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
         } header: {
-            Label("Checklist", systemImage: "checklist")
+            Label(L10n.Settings.checklist, systemImage: "checklist")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Step-by-Step: Highlights items one at a time. Tap anywhere to advance.")
-                Text("Learning Mode: When OFF, memorizable checks are hidden to test your memory. When ON, all checks are shown for studying.")
-                Text("Circuit Mode: When ON, shows a START CIRCUITS button on the home screen. Circuit flights skip CRUISE and DESCENT checklists.")
+                Text(L10n.Settings.stepByStepFooter)
+                Text(L10n.Settings.learningModeFooter)
+                Text(L10n.Settings.circuitModeFooter)
+                Text(L10n.Settings.checklistLanguageFooter)
             }
         }
     }
@@ -620,7 +638,7 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             HStack {
-                Text("App Version")
+                Text(L10n.Settings.appVersion)
                     .foregroundColor(.primary)
                 Spacer()
                 HStack(spacing: 4) {
@@ -646,7 +664,7 @@ struct SettingsView: View {
 
             Link(destination: URL(string: "https://aerocheck.app/")!) {
                 HStack {
-                    Text("Website")
+                    Text(L10n.Settings.website)
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
@@ -662,7 +680,7 @@ struct SettingsView: View {
 
             Link(destination: URL(string: "https://www.julienbono.ch/")!) {
                 HStack {
-                    Text("Author")
+                    Text(L10n.Settings.author)
                         .foregroundColor(.primary)
                     Spacer()
                     HStack(spacing: 4) {
@@ -678,12 +696,12 @@ struct SettingsView: View {
                 HStack {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .foregroundColor(.primary)
-                    Text("Open Source")
+                    Text(L10n.Settings.openSource)
                         .font(.headline)
                 }
 
                 Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                    Text("This app is open source and available on GitHub. ")
+                    Text(L10n.Settings.openSourceDescription)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     + Text(Image(systemName: "arrow.up.forward.square"))
@@ -693,7 +711,7 @@ struct SettingsView: View {
                 }
 
                 Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                    Text("Released under the MIT License. ")
+                    Text(L10n.Settings.mitLicense)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     + Text(Image(systemName: "arrow.up.forward.square"))
@@ -704,7 +722,7 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
         } header: {
-            Label("About", systemImage: "info.circle.fill")
+            Label(L10n.Settings.about, systemImage: "info.circle.fill")
         }
     }
 
@@ -713,7 +731,7 @@ struct SettingsView: View {
             let cachedAircraft = aircraftDataService.getAllCachedAircraft()
 
             if cachedAircraft.isEmpty {
-                Text("No checklists cached")
+                Text(L10n.Settings.noCached)
                     .foregroundColor(.secondary)
                     .font(.caption)
             } else {
@@ -731,9 +749,18 @@ struct SettingsView: View {
 
                             Text(aircraft.modelName)
                                 .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            // Language flags
+                            HStack(spacing: 6) {
+                                ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                                    LanguageFlagView(languageCode: languageCode)
+                                }
+                            }
                         }
                         HStack {
-                            Text("Version \(aircraft.version)")
+                            Text(L10n.Settings.version(aircraft.version))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Text("•")
@@ -748,29 +775,29 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Label("Available Checklists", systemImage: "checklist")
+            Label(L10n.Settings.availableChecklists, systemImage: "checklist")
         } footer: {
-            Text("Checklists cached on this device for offline use. Checklists are downloaded when you select an aircraft and refreshed automatically every 24 hours when online.")
+            Text(L10n.Settings.availableChecklistsFooter)
         }
     }
 
     private var dataSection: some View {
         Section {
             HStack {
-                Text("Recorded Flights")
+                Text(L10n.Settings.recordedFlights)
                 Spacer()
                 Text("\(appState.flights.count)")
                     .foregroundColor(.secondary)
             }
 
             HStack {
-                Text("Total GPS Points")
+                Text(L10n.Settings.totalGPSPoints)
                 Spacer()
                 Text("\(totalGPSPoints)")
                     .foregroundColor(.secondary)
             }
         } header: {
-            Label("Data", systemImage: "externaldrive.fill")
+            Label(L10n.Settings.data, systemImage: "externaldrive.fill")
         }
     }
 
@@ -778,9 +805,9 @@ struct SettingsView: View {
     private var developerOptionsSection: some View {
         if showDeveloperOptions {
             Section {
-                Toggle("Marketing Mode", isOn: $marketingMode)
+                Toggle(L10n.Settings.marketingMode, isOn: $marketingMode)
 
-                Toggle("Force 'Not Subscribed' State", isOn: $subscriptionManager.debugForceNotSubscribed)
+                Toggle(L10n.Settings.forceNotSubscribed, isOn: $subscriptionManager.debugForceNotSubscribed)
                     .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in
                         Task {
                             await subscriptionManager.updateSubscriptionStatus()
@@ -790,7 +817,7 @@ struct SettingsView: View {
                 Button(action: { showTransactionDebug = true }) {
                     HStack {
                         Image(systemName: "doc.text.magnifyingglass")
-                        Text("Show All Transactions")
+                        Text(L10n.Settings.showAllTransactions)
                     }
                 }
                 .sheet(isPresented: $showTransactionDebug) {
@@ -801,7 +828,7 @@ struct SettingsView: View {
                 Button(action: { showSubscriptionLogs = true }) {
                     HStack {
                         Image(systemName: "doc.text.fill")
-                        Text("Show Subscription Logs")
+                        Text(L10n.Settings.showSubscriptionLogs)
                     }
                 }
                 .sheet(isPresented: $showSubscriptionLogs) {
@@ -812,13 +839,13 @@ struct SettingsView: View {
                 Button(role: .destructive, action: resetSubscription) {
                     HStack {
                         Image(systemName: "arrow.counterclockwise")
-                        Text("Reset Subscription State")
+                        Text(L10n.Settings.resetSubscription)
                     }
                 }
             } header: {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
-                    Text("DEV")
+                    Text(L10n.Tag.dev)
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -830,11 +857,11 @@ struct SettingsView: View {
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Marketing Mode: When enabled, shake your device to show the marketing location controls overlay. This allows you to simulate GPS positions for taking screenshots.")
-                    Text("Force 'Not Subscribed': Ignores actual subscription status and pretends you're not subscribed. Useful for testing the free experience even with an active subscription.")
-                    Text("Show All Transactions: Displays all StoreKit transactions for debugging subscription issues.")
-                    Text("Show Subscription Logs: Real-time logs of subscription sync operations and server communication.")
-                    Text("Reset Subscription: Clears cached subscription state and re-checks with StoreKit.")
+                    Text(L10n.Settings.marketingModeDesc)
+                    Text(L10n.Settings.forceNotSubscribedDesc)
+                    Text(L10n.Settings.showAllTransactionsDesc)
+                    Text(L10n.Settings.showSubscriptionLogsDesc)
+                    Text(L10n.Settings.resetSubscriptionDesc)
                 }
             }
         }
@@ -904,7 +931,9 @@ struct SettingsView: View {
         enableCircuitMode = appState.settings.enableCircuitMode
         // iCloud Sync
         iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
-        
+        // Checklist Language
+        checklistLanguage = appState.settings.checklistLanguage
+
         // Reset loading flag in next runloop to avoid triggering save loops
         DispatchQueue.main.async {
             self.isLoadingSettings = false
@@ -929,6 +958,8 @@ struct SettingsView: View {
         appState.settings.enableCircuitMode = enableCircuitMode
         // iCloud Sync
         appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
+        // Checklist Language
+        appState.settings.checklistLanguage = checklistLanguage
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -953,7 +984,7 @@ struct FlightPlanningWarningSheet: View {
                     .padding(.top, 40)
 
                 // Title
-                Text("Beta Feature")
+                Text(L10n.Warning.betaFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -961,22 +992,22 @@ struct FlightPlanningWarningSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     WarningItem(
                         icon: "exclamationmark.triangle.fill",
-                        text: "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
+                        text: L10n.Warning.flightPlanningBetaDesc
                     )
 
                     WarningItem(
                         icon: "map",
-                        text: "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
+                        text: L10n.Warning.flightPlanningPlanRoutes
                     )
 
                     WarningItem(
                         icon: "location.fill",
-                        text: "During flight, the app can automatically advance waypoints based on your GPS position."
+                        text: L10n.Warning.flightPlanningAutoAdvance
                     )
 
                     WarningItem(
                         icon: "mountain.2.fill",
-                        text: "Terrain visualization is only available within Switzerland using swisstopo data."
+                        text: L10n.Warning.flightPlanningTerrainViz
                     )
                 }
                 .padding(.horizontal, 24)
@@ -989,7 +1020,7 @@ struct FlightPlanningWarningSheet: View {
                         enableFlightPlanning = true
                         isPresented = false
                     }) {
-                        Text("I Understand - Enable Feature")
+                        Text(L10n.Warning.iUnderstandEnable)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
@@ -1004,7 +1035,7 @@ struct FlightPlanningWarningSheet: View {
                     Button(action: {
                         isPresented = false
                     }) {
-                        Text("Cancel")
+                        Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
                     }
@@ -1015,7 +1046,7 @@ struct FlightPlanningWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L10n.Button.cancel) {
                         isPresented = false
                     }
                 }
@@ -1041,7 +1072,7 @@ struct EstimatedAirspeedWarningSheet: View {
                     .padding(.top, 40)
 
                 // Title
-                Text("Experimental Feature")
+                Text(L10n.Warning.experimentalFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -1049,22 +1080,22 @@ struct EstimatedAirspeedWarningSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     WarningItem(
                         icon: "airplane",
-                        text: "The estimated indicated airspeed (IAS) shown is calculated from GPS ground speed and wind data from MeteoSwiss weather stations."
+                        text: L10n.Warning.estimatedAirspeedCalculated
                     )
 
                     WarningItem(
                         icon: "exclamationmark.circle.fill",
-                        text: "This estimation can be highly inaccurate due to local wind variations, altitude differences, and station distance."
+                        text: L10n.Warning.estimatedAirspeedInaccurate
                     )
 
                     WarningItem(
                         icon: "gauge.with.needle",
-                        text: "Always rely on your aircraft's onboard airspeed indicator for actual IAS readings."
+                        text: L10n.Warning.estimatedAirspeedAlwaysRelyOnboard
                     )
 
                     WarningItem(
                         icon: "network",
-                        text: "This feature requires a constant cellular connection and only works within Switzerland."
+                        text: L10n.Warning.estimatedAirspeedRequiresCellular
                     )
                 }
                 .padding(.horizontal, 24)
@@ -1077,7 +1108,7 @@ struct EstimatedAirspeedWarningSheet: View {
                         showEstimatedAirspeed = true
                         isPresented = false
                     }) {
-                        Text("I Understand - Enable Feature")
+                        Text(L10n.Warning.iUnderstandEnable)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
@@ -1092,7 +1123,7 @@ struct EstimatedAirspeedWarningSheet: View {
                     Button(action: {
                         isPresented = false
                     }) {
-                        Text("Cancel")
+                        Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
                     }
@@ -1103,7 +1134,7 @@ struct EstimatedAirspeedWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L10n.Button.cancel) {
                         isPresented = false
                     }
                 }
@@ -1158,12 +1189,12 @@ struct OfflineMapDownloadSheet: View {
                     .padding(.top, 24)
 
                 // Title
-                Text("Download Charts")
+                Text(L10n.Settings.downloadCharts)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.primaryText)
 
                 // Description
-                Text("Download Swiss aeronautical charts for offline navigation and faster loading.")
+                Text(L10n.Download.description)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
@@ -1172,7 +1203,7 @@ struct OfflineMapDownloadSheet: View {
                 // Cache option picker (only show when not downloading and no complete cache)
                 if !offlineMapManager.isDownloading {
                     VStack(spacing: 12) {
-                        Text("Select Charts to Download")
+                        Text(L10n.Download.selectCharts)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.secondaryText)
 
@@ -1200,11 +1231,11 @@ struct OfflineMapDownloadSheet: View {
                             .padding(.horizontal, 40)
 
                         if let layer = offlineMapManager.currentDownloadingLayer {
-                            Text("Downloading \(layer.displayName)...")
+                            Text(L10n.Download.downloadingLayer(layer.displayName))
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondaryText)
                         } else {
-                            Text("Downloading tiles...")
+                            Text(L10n.Download.downloadingTiles)
                                 .font(.system(size: 14))
                                 .foregroundColor(.secondaryText)
                         }
@@ -1215,7 +1246,7 @@ struct OfflineMapDownloadSheet: View {
 
                         // Estimated time remaining
                         if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
-                            Text("Estimated time remaining: \(formattedTimeRemaining(eta))")
+                            Text(L10n.Download.estimatedTimeRemaining(formattedTimeRemaining(eta)))
                                 .font(.system(size: 13))
                                 .foregroundColor(.dimText)
                         }
@@ -1245,7 +1276,7 @@ struct OfflineMapDownloadSheet: View {
                                 CacheStatusBadge(name: "Segelflug", isAvailable: true)
                             }
                         }
-                        Text("Total: \(offlineMapManager.formattedCacheSize)")
+                        Text(L10n.Download.total(offlineMapManager.formattedCacheSize))
                             .font(.system(size: 12))
                             .foregroundColor(.dimText)
                     }
@@ -1287,7 +1318,7 @@ struct OfflineMapDownloadSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     if !offlineMapManager.isDownloading {
-                        Button("Cancel") {
+                        Button(L10n.Button.cancel) {
                             if !offlineMapManager.isCacheAvailable {
                                 offlineMode = false
                             }
@@ -1425,6 +1456,64 @@ struct CacheStatusBadge: View {
 
 // MARK: - Settings Change Modifier
 
+// Helper modifiers to break up the complex expression
+struct SettingsChangeGroup1: ViewModifier {
+    let selectedAircraft: AircraftType
+    let gpsInterval: Double
+    let keepScreenOn: Bool
+    let stepByStepHighlighting: Bool
+    let learningMode: Bool
+    let saveSettings: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
+            .onChange(of: gpsInterval) { _, _ in saveSettings() }
+            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
+            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
+            .onChange(of: learningMode) { _, _ in saveSettings() }
+    }
+}
+
+struct SettingsChangeGroup2: ViewModifier {
+    let forceICAOChartLayer: Bool
+    let offlineMode: Bool
+    let alwaysUseUTC: Bool
+    let showEstimatedAirspeed: Bool
+    let enableFlightPlanning: Bool
+    let saveSettings: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
+            .onChange(of: offlineMode) { _, _ in saveSettings() }
+            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
+            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
+            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
+    }
+}
+
+struct SettingsChangeGroup3: ViewModifier {
+    let waypointProximityThreshold: Double
+    let terrainAltitudeUnit: TerrainAltitudeUnit
+    let enableCircuitMode: Bool
+    let iCloudSyncEnabled: Bool
+    let checklistLanguage: ChecklistLanguage
+    let marketingMode: Bool
+    let saveSettings: () -> Void
+    let updateMarketingMode: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
+            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
+            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
+            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
+            .onChange(of: checklistLanguage) { _, _ in saveSettings() }
+            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+    }
+}
+
 struct SettingsChangeModifier: ViewModifier {
     let selectedAircraft: AircraftType
     let gpsInterval: Double
@@ -1440,27 +1529,39 @@ struct SettingsChangeModifier: ViewModifier {
     let terrainAltitudeUnit: TerrainAltitudeUnit
     let enableCircuitMode: Bool
     let iCloudSyncEnabled: Bool
+    let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
-            .onChange(of: gpsInterval) { _, _ in saveSettings() }
-            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
-            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
-            .onChange(of: learningMode) { _, _ in saveSettings() }
-            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
-            .onChange(of: offlineMode) { _, _ in saveSettings() }
-            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
-            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
-            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
-            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
-            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
-            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
-            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
-            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+            .modifier(SettingsChangeGroup1(
+                selectedAircraft: selectedAircraft,
+                gpsInterval: gpsInterval,
+                keepScreenOn: keepScreenOn,
+                stepByStepHighlighting: stepByStepHighlighting,
+                learningMode: learningMode,
+                saveSettings: saveSettings
+            ))
+            .modifier(SettingsChangeGroup2(
+                forceICAOChartLayer: forceICAOChartLayer,
+                offlineMode: offlineMode,
+                alwaysUseUTC: alwaysUseUTC,
+                showEstimatedAirspeed: showEstimatedAirspeed,
+                enableFlightPlanning: enableFlightPlanning,
+                saveSettings: saveSettings
+            ))
+            .modifier(SettingsChangeGroup3(
+                waypointProximityThreshold: waypointProximityThreshold,
+                terrainAltitudeUnit: terrainAltitudeUnit,
+                enableCircuitMode: enableCircuitMode,
+                iCloudSyncEnabled: iCloudSyncEnabled,
+                checklistLanguage: checklistLanguage,
+                marketingMode: marketingMode,
+                saveSettings: saveSettings,
+                updateMarketingMode: updateMarketingMode
+            ))
     }
 }
 
@@ -1535,7 +1636,7 @@ struct TransactionDebugView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
@@ -1702,7 +1803,7 @@ struct SubscriptionDebugLogView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
@@ -1778,7 +1879,7 @@ struct PremiumAircraftListView: View {
                     Spacer()
                     VStack(spacing: 16) {
                         ProgressView()
-                        Text("Loading premium aircraft...")
+                        Text(L10n.Premium.loadingAircraft)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -1790,9 +1891,9 @@ struct PremiumAircraftListView: View {
                     Image(systemName: "airplane.circle")
                         .font(.system(size: 60))
                         .foregroundColor(.secondary)
-                    Text("No Premium Aircraft Available")
+                    Text(L10n.Premium.noAircraftAvailable)
                         .font(.headline)
-                    Text("Check back later for new aircraft.")
+                    Text(L10n.Premium.checkBackLater)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1825,7 +1926,7 @@ struct PremiumAircraftListView: View {
                 }
             }
         }
-        .navigationTitle("Premium Aircraft")
+        .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
         .onAppear {
@@ -1877,7 +1978,7 @@ struct PremiumAircraftRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 10))
-                            Text("Requires AeroCheck Pro")
+                            Text(L10n.Premium.requiresAeroCheckPro)
                                 .font(.system(size: 11))
                         }
                         .foregroundColor(.secondary)
@@ -1885,6 +1986,13 @@ struct PremiumAircraftRow: View {
                 }
 
                 Spacer()
+
+                // Language flags
+                HStack(spacing: 6) {
+                    ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                        LanguageFlagView(languageCode: languageCode)
+                    }
+                }
 
                 // Selection indicator
                 if isSelected && aircraft.hasAccess {
@@ -1897,6 +2005,38 @@ struct PremiumAircraftRow: View {
         }
         .disabled(!aircraft.hasAccess)
         .opacity(aircraft.hasAccess ? 1.0 : 0.7)
+    }
+}
+
+/// A view that displays a language flag indicator
+struct LanguageFlagView: View {
+    let languageCode: String
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.secondary.opacity(0.15))
+                .frame(width: 28, height: 28)
+
+            Text(flagEmoji)
+                .font(.system(size: 16))
+        }
+    }
+
+    /// Converts language code to flag emoji
+    private var flagEmoji: String {
+        switch languageCode {
+        case "en":
+            return "🇬🇧"
+        case "fr":
+            return "🇫🇷"
+        case "de":
+            return "🇩🇪"
+        case "it":
+            return "🇮🇹"
+        default:
+            return "🏳️"
+        }
     }
 }
 

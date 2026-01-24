@@ -23,22 +23,22 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
     
     var title: String {
         switch self {
-        case .preflight: return "PREFLIGHT CHECK"
-        case .beforeEngineStart: return "CHECK BEFORE ENGINE START"
-        case .engineStart: return "ENGINE START"
-        case .afterEngineStart: return "CHECK AFTER ENGINE START"
-        case .taxi: return "TAXI CHECK"
-        case .runup: return "RUNUP"
-        case .beforeDeparture: return "CHECK BEFORE DEPARTURE"
-        case .lineUp: return "LINE UP CHECK"
-        case .climb: return "CLIMB CHECK"
-        case .cruise: return "CRUISE CHECK"
-        case .descent: return "DESCENT CHECK"
-        case .approach: return "APPROACH CHECK"
-        case .landing: return "LANDING CHECK"
-        case .afterLanding: return "AFTER LANDING CHECK"
-        case .shutdown: return "ENGINE SHUTDOWN AND PARKING CHECK"
-        case .hangar: return "AT THE HANGAR"
+        case .preflight: return L10n.Phase.preflight
+        case .beforeEngineStart: return L10n.Phase.beforeEngineStart
+        case .engineStart: return L10n.Phase.engineStart
+        case .afterEngineStart: return L10n.Phase.afterEngineStart
+        case .taxi: return L10n.Phase.taxi
+        case .runup: return L10n.Phase.runup
+        case .beforeDeparture: return L10n.Phase.beforeDeparture
+        case .lineUp: return L10n.Phase.lineUp
+        case .climb: return L10n.Phase.climb
+        case .cruise: return L10n.Phase.cruise
+        case .descent: return L10n.Phase.descent
+        case .approach: return L10n.Phase.approach
+        case .landing: return L10n.Phase.landing
+        case .afterLanding: return L10n.Phase.afterLanding
+        case .shutdown: return L10n.Phase.shutdown
+        case .hangar: return L10n.Phase.hangar
         }
     }
     
@@ -56,28 +56,28 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
         case .hangar:
             return ""
         default:
-            return "\(shortTitle) COMPLETED"
+            return L10n.Phase.completed(shortTitle)
         }
     }
     
     var shortTitle: String {
         switch self {
-        case .preflight: return "PREFLIGHT CHECK"
-        case .beforeEngineStart: return "CHECK BEFORE ENGINE START"
-        case .engineStart: return "ENGINE START"
-        case .afterEngineStart: return "CHECK AFTER ENGINE START"
-        case .taxi: return "TAXI CHECK"
-        case .runup: return "RUNUP"
-        case .beforeDeparture: return "CHECK BEFORE DEPARTURE"
-        case .lineUp: return "LINE UP CHECK"
-        case .climb: return "CLIMB CHECK"
-        case .cruise: return "CRUISE CHECK"
-        case .descent: return "DESCENT CHECK"
-        case .approach: return "APPROACH CHECK"
-        case .landing: return "LANDING CHECK"
-        case .afterLanding: return "AFTER LANDING CHECK"
-        case .shutdown: return "PARKING CHECK"
-        case .hangar: return "AT THE HANGAR"
+        case .preflight: return L10n.Phase.Short.preflight
+        case .beforeEngineStart: return L10n.Phase.Short.beforeEngineStart
+        case .engineStart: return L10n.Phase.Short.engineStart
+        case .afterEngineStart: return L10n.Phase.Short.afterEngineStart
+        case .taxi: return L10n.Phase.Short.taxi
+        case .runup: return L10n.Phase.Short.runup
+        case .beforeDeparture: return L10n.Phase.Short.beforeDeparture
+        case .lineUp: return L10n.Phase.Short.lineUp
+        case .climb: return L10n.Phase.Short.climb
+        case .cruise: return L10n.Phase.Short.cruise
+        case .descent: return L10n.Phase.Short.descent
+        case .approach: return L10n.Phase.Short.approach
+        case .landing: return L10n.Phase.Short.landing
+        case .afterLanding: return L10n.Phase.Short.afterLanding
+        case .shutdown: return L10n.Phase.Short.shutdown
+        case .hangar: return L10n.Phase.Short.hangar
         }
     }
     
@@ -143,9 +143,9 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
     var briefingText: String? {
         switch self {
         case .beforeDeparture:
-            return "*** Departure briefing *** (tap to view)"
+            return L10n.Briefing.departure
         case .descent:
-            return "*** Approach briefing *** (tap to view)"
+            return L10n.Briefing.approach
         default:
             return nil
         }

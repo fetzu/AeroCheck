@@ -47,32 +47,32 @@ features                                  :
     fontawesome_icon_name                 : clipboard-check
 
   - title                                 : Multi-Aircraft Support
-    description                           : Supports WT9 Dynamic and PA-28-181 Archer II with aircraft-specific checklists and procedures.
+    description                           : WT9 Dynamic included free. Additional aircraft available with a premium subscription.
     fontawesome_icon_name                 : plane
 
-  - title                                 : GPS Tracking
-    description                           : Records your flight path with real-time ground speed and altitude display. Export to GPX for analysis.
+  - title                                 : GPS Tracking & Flight Logging
+    description                           : Records your flight path with real-time ground speed and altitude. Automatic timing of engine start, line-up, landing, and shutdown. Export flights as GPX, JSON, or ZIP.
     fontawesome_icon_name                 : location-arrow
 
   - title                                 : Interactive Navigation
-    description                           : Full-screen map with Swiss ICAO charts, flight planning, terrain profiles, and nearby CTR frequencies. Cache maps for offline use.
+    description                           : Full-screen map with Swiss ICAO charts, flight planning, terrain profiles, and nearby CTR frequencies. Export your navigation plan as GPX for Dynon, Garmin, and other MFDs. Cache maps for offline use.
     fontawesome_icon_name                 : map
 
-  - title                                 : Learning Mode
+  - title                                 : Learning & Circuit Modes
     description                           : Hide memorizable items to test your knowledge. Circuit mode streamlines pattern work with full-stop tracking.
     fontawesome_icon_name                 : graduation-cap
 
-  - title                                 : Flight Logging
-    description                           : Automatic timing of engine start, line-up, landing, and shutdown. Export flights as GPX, JSON, or ZIP.
+  - title                                 : Apple Watch App
+    description                           : Keep track of your flight from your wrist with real-time phase, speed, and altitude information.
     fontawesome_icon_name                 : clock
 
   - title                                 : Dark Cockpit UI
     description                           : Designed for readability in the cockpit with large touch targets and aviation-inspired colors.
     fontawesome_icon_name                 : moon
 
-  - title                                 : Offline Ready
-    description                           : Cache Swiss ICAO charts for offline use. Essential for flights over areas with limited cellular coverage.
-    fontawesome_icon_name                 : database
+  - title                                 : iCloud Sync
+    description                           : Settings and flight history sync automatically across all your devices.
+    fontawesome_icon_name                 : cloud
 
   - title                                 : Open Source
     description                           : Built with Swift and SwiftUI. Contribute on GitHub or adapt it for your own aeroclub.

@@ -1,0 +1,54 @@
+# French translations
+lang: fr
+lang_name: Francais
+
+# App Info
+page_title: "AeroCheck - Application de Checklist de Vol pour Pilotes"
+app_name: "AeroCheck"
+app_price: "Gratuit (Open Source)"
+app_description: "Votre copilote numerique pour les checklists de vol. Concu pour les eleves-pilotes de l'Aeroclub du Jura GVMP."
+
+# Features
+features:
+  - title: "16 Phases de Vol"
+    description: "Couverture complete du Preflight au Hangar. Naviguez a travers toutes les phases avec un guidage etape par etape."
+    fontawesome_icon_name: "clipboard-check"
+
+  - title: "Support Multi-Aeroplane"
+    description: "WT9 Dynamic inclus gratuitement. Aeronefs supplementaires disponibles avec un abonnement premium."
+    fontawesome_icon_name: "plane"
+
+  - title: "Suivi GPS & Journal de Vol"
+    description: "Enregistre votre trajectoire avec vitesse sol et altitude en temps reel. Chronometrage automatique du demarrage moteur, alignement, atterrissage et arret moteur. Exportez vos vols en GPX, JSON ou ZIP."
+    fontawesome_icon_name: "location-arrow"
+
+  - title: "Navigation Interactive"
+    description: "Carte plein ecran avec cartes OACI suisses, planification de vol, profils de terrain et frequences CTR a proximite. Exportez votre plan de navigation en GPX pour Dynon, Garmin et autres MFD. Mise en cache des cartes pour utilisation hors ligne."
+    fontawesome_icon_name: "map"
+
+  - title: "Modes Apprentissage & Circuit"
+    description: "Masquez les elements a memoriser pour tester vos connaissances. Le mode circuit simplifie le travail de tour de piste avec suivi des atterrissages complets."
+    fontawesome_icon_name: "graduation-cap"
+
+  - title: "Application Apple Watch"
+    description: "Suivez votre vol depuis votre poignet avec phase, vitesse et altitude en temps reel."
+    fontawesome_icon_name: "clock"
+
+  - title: "Interface Cockpit Sombre"
+    description: "Concue pour une lisibilite optimale dans le cockpit avec de grandes zones tactiles et des couleurs inspirees de l'aviation."
+    fontawesome_icon_name: "moon"
+
+  - title: "Synchronisation iCloud"
+    description: "Les parametres et l'historique des vols se synchronisent automatiquement sur tous vos appareils."
+    fontawesome_icon_name: "cloud"
+
+  - title: "Open Source"
+    description: "Developpe avec Swift et SwiftUI. Contribuez sur GitHub ou adaptez-le pour votre propre aeroclub."
+    fontawesome_icon_name: "code-branch"
+
+# Footer
+footer:
+  made_with: "Fait avec"
+  by: "par"
+  in: "en"
+  city: "Suisse"

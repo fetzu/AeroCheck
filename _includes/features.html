@@ -1,6 +1,14 @@
 <div class="features">
 
-    {% for feature in site.features %}
+    {% assign lang = page.lang | default: "en" %}
+    {% assign t = site.data[lang] %}
+    {% if t.features %}
+        {% assign features_list = t.features %}
+    {% else %}
+        {% assign features_list = site.features %}
+    {% endif %}
+
+    {% for feature in features_list %}
 
     {% if feature.title %}
     <div class="feature">

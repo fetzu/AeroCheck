@@ -828,6 +828,61 @@ footer {
 	}
 }
 
+// Language Toggle (pill-style switcher)
+.langToggleContainer {
+	padding-left: 20px !important;
+	display: flex;
+	align-items: center;
+	margin-left: auto;
+}
+
+.langToggle {
+	display: inline-flex;
+	position: relative;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 16px;
+	padding: 2px;
+	gap: 2px;
+}
+
+.langToggleOption {
+	position: relative;
+	z-index: 1;
+	padding: 4px 10px;
+	font-size: 1.2rem;
+	font-weight: 500;
+	color: rgba($header-title-color, 0.6);
+	background: transparent;
+	border: none;
+	border-radius: 14px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	text-decoration: none;
+	text-align: center;
+}
+
+.langToggleOption:hover {
+	color: rgba($header-title-color, 0.9);
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.langToggleOption.active {
+	color: #141419;
+	background: $header-title-color;
+}
+
+@media only screen and (max-width: 768px) {
+	.langToggleContainer {
+		padding-left: 10px !important;
+	}
+
+	.langToggleOption {
+		padding: 3px 8px;
+		font-size: 1.1rem;
+	}
+}
+
 // iPad Preview Styling
 // iPad frame is 515x674px. Screen area starts at ~5% from left, ~4% from top
 // Screen area is ~89% width, ~92% height of frame

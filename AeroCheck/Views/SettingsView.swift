@@ -726,52 +726,84 @@ struct SettingsView: View {
         }
     }
 
+    /// Groups cached aircraft by aeroclub for display
+    private func groupCachedAircraftByAeroclub(_ aircraft: [CachedAircraftInfo]) -> [(aeroclub: String?, aircraft: [CachedAircraftInfo])] {
+        let grouped = Dictionary(grouping: aircraft) { $0.aeroclub }
+        return grouped
+            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
+            .sorted { lhs, rhs in
+                switch (lhs.aeroclub, rhs.aeroclub) {
+                case (nil, nil): return false
+                case (nil, _): return true
+                case (_, nil): return false
+                case (let a?, let b?): return a < b
+                }
+            }
+    }
+
     private var availableChecklistsSection: some View {
         Section {
             let cachedAircraft = aircraftDataService.getAllCachedAircraft()
+            let groupedAircraft = groupCachedAircraftByAeroclub(cachedAircraft)
 
             if cachedAircraft.isEmpty {
                 Text(L10n.Settings.noCached)
                     .foregroundColor(.secondary)
                     .font(.caption)
             } else {
-                ForEach(cachedAircraft) { aircraft in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(aircraft.registration)
-                                .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                ForEach(groupedAircraft, id: \.aeroclub) { group in
+                    // Show aeroclub header if present
+                    if let aeroclub = group.aeroclub {
+                        HStack(spacing: 6) {
+                            Image(systemName: "building.2")
+                                .font(.caption)
+                                .foregroundColor(.aviationGold)
+                            Text(aeroclub)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.aviationGold)
+                        }
+                        .padding(.top, group.aeroclub == groupedAircraft.first?.aeroclub ? 0 : 8)
+                    }
 
-                            if aircraft.isPremium {
-                                Image(systemName: "star.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.aviationGold)
-                            }
+                    ForEach(group.aircraft) { aircraft in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(aircraft.registration)
+                                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
 
-                            Text(aircraft.modelName)
-                                .foregroundColor(.secondary)
+                                if aircraft.isPremium {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.aviationGold)
+                                }
 
-                            Spacer()
+                                Text(aircraft.modelName)
+                                    .foregroundColor(.secondary)
 
-                            // Language flags
-                            HStack(spacing: 6) {
-                                ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
-                                    LanguageFlagView(languageCode: languageCode)
+                                Spacer()
+
+                                // Language flags
+                                HStack(spacing: 6) {
+                                    ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
+                                        LanguageFlagView(languageCode: languageCode)
+                                    }
                                 }
                             }
+                            HStack {
+                                Text(L10n.Settings.version(aircraft.version))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("•")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(aircraft.lastUpdated)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
-                        HStack {
-                            Text(L10n.Settings.version(aircraft.version))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("•")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(aircraft.lastUpdated)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
         } header: {
@@ -1872,6 +1904,14 @@ struct PremiumAircraftListView: View {
         aircraftDataService.availableAircraft.filter { !$0.isFree }
     }
 
+    /// Groups premium aircraft by aeroclub
+    var aircraftByAeroclub: [(aeroclub: String, aircraft: [RemoteAircraftMetadata])] {
+        let grouped = Dictionary(grouping: premiumAircraft) { $0.aeroclub ?? "" }
+        return grouped
+            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
+            .sorted { $0.aeroclub < $1.aeroclub }
+    }
+
     var body: some View {
         List {
             if aircraftDataService.isLoading {
@@ -1901,28 +1941,40 @@ struct PremiumAircraftListView: View {
                 .padding(.vertical, 40)
                 .listRowBackground(Color.clear)
             } else {
-                ForEach(premiumAircraft) { aircraft in
-                    PremiumAircraftRow(
-                        aircraft: aircraft,
-                        isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
-                        onSelect: {
-                            if aircraft.hasAccess {
-                                appState.settings.selectedRemoteAircraftId = aircraft.id
-                                UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
-                                // Trigger download/cache of the checklist
-                                Task {
-                                    _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
+                ForEach(aircraftByAeroclub, id: \.aeroclub) { group in
+                    Section {
+                        ForEach(group.aircraft) { aircraft in
+                            PremiumAircraftRow(
+                                aircraft: aircraft,
+                                isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
+                                onSelect: {
+                                    if aircraft.hasAccess {
+                                        appState.settings.selectedRemoteAircraftId = aircraft.id
+                                        UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
+                                        // Trigger download/cache of the checklist
+                                        Task {
+                                            _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
+                                        }
+                                        dismiss()
+                                    } else {
+                                        dismiss()
+                                        // Small delay to allow dismiss animation to complete
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                            showSubscriptionView = true
+                                        }
+                                    }
                                 }
-                                dismiss()
-                            } else {
-                                dismiss()
-                                // Small delay to allow dismiss animation to complete
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                    showSubscriptionView = true
-                                }
+                            )
+                        }
+                    } header: {
+                        if !group.aeroclub.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "building.2")
+                                    .font(.caption)
+                                Text(group.aeroclub)
                             }
                         }
-                    )
+                    }
                 }
             }
         }

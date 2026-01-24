@@ -188,7 +188,7 @@ class AircraftDataService: ObservableObject {
         return fileManager.fileExists(atPath: path.path)
     }
 
-    /// Gets all cached aircraft (combines remote and bundled)
+    /// Gets all cached aircraft (combines remote and bundled), sorted by aeroclub
     func getAllCachedAircraft() -> [CachedAircraftInfo] {
         var cached: [CachedAircraftInfo] = []
 
@@ -197,6 +197,7 @@ class AircraftDataService: ObservableObject {
             cached.append(CachedAircraftInfo(
                 registration: aircraft.registration,
                 modelName: aircraft.shortModelName,
+                aeroclub: nil, // Bundled aircraft have no aeroclub
                 version: aircraft.checklistVersion,
                 lastUpdated: aircraft.lastUpdated,
                 isPremium: false,
@@ -211,6 +212,7 @@ class AircraftDataService: ObservableObject {
                 cached.append(CachedAircraftInfo(
                     registration: aircraft.registration,
                     modelName: aircraft.shortModelName,
+                    aeroclub: aircraft.aeroclub,
                     version: cachedChecklist.version,
                     lastUpdated: cachedChecklist.lastUpdated,
                     isPremium: !aircraft.isFree,
@@ -219,7 +221,15 @@ class AircraftDataService: ObservableObject {
             }
         }
 
-        return cached
+        // Sort by aeroclub (nil values first, then alphabetically)
+        return cached.sorted { lhs, rhs in
+            switch (lhs.aeroclub, rhs.aeroclub) {
+            case (nil, nil): return lhs.registration < rhs.registration
+            case (nil, _): return true
+            case (_, nil): return false
+            case (let a?, let b?): return a == b ? lhs.registration < rhs.registration : a < b
+            }
+        }
     }
 
     /// Gets the cache date for a checklist
@@ -502,6 +512,7 @@ struct CachedAircraftInfo: Identifiable {
     let id = UUID()
     let registration: String
     let modelName: String
+    let aeroclub: String?
     let version: String
     let lastUpdated: String
     let isPremium: Bool

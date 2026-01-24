@@ -7,6 +7,7 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     let registration: String
     let modelName: String
     let shortModelName: String
+    let aeroclub: String?
     var version: String
     var lastUpdated: String
     let isFree: Bool
@@ -100,6 +101,7 @@ struct RemoteAircraftChecklist: Codable, Identifiable, Equatable {
     let registration: String
     let modelName: String
     let shortModelName: String
+    let aeroclub: String?
     let version: String
     let lastUpdated: String
     let isFree: Bool

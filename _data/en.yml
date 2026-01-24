@@ -3,10 +3,10 @@ lang: en
 lang_name: English
 
 # App Info
-page_title: "AeroCheck - Flight Checklist App for Pilots"
-app_name: "AeroCheck"
+page_title: "AéroCheck - Flight Checklist App for Pilots"
+app_name: "AéroCheck"
 app_price: "Free (Open Source)"
-app_description: "Your digital co-pilot for flight checklists. Designed for pilot students at Aeroclub du Jura GVMP."
+app_description: "Your digital co-pilot for flight checklists and navigation. Designed for both student and experienced private pilots."
 
 # Features
 features:

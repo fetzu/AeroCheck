@@ -81,6 +81,36 @@
 	grid-column: 3/11;
 }
 
+// Translation notice for English-only pages
+.translation-notice {
+	background: rgba(217, 166, 51, 0.15);
+	border: 1px solid rgba(217, 166, 51, 0.4);
+	border-radius: 8px;
+	padding: 16px 20px;
+	margin-bottom: 24px;
+
+	p {
+		margin: 0;
+		color: #333;
+		font-size: 0.95rem;
+
+		&:first-child {
+			font-weight: 500;
+			margin-bottom: 6px;
+		}
+	}
+
+	a {
+		color: #1A3366;
+		text-decoration: none;
+		font-weight: 500;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
 @media only screen and (max-width: 768px) {
 
 	.page {
@@ -828,7 +858,7 @@ footer {
 	}
 }
 
-// Language Toggle (pill-style switcher)
+// Language Toggle (flag-based switcher)
 .langToggleContainer {
 	padding-left: 20px !important;
 	display: flex;
@@ -840,36 +870,38 @@ footer {
 	display: inline-flex;
 	position: relative;
 	background: rgba(255, 255, 255, 0.1);
-	border-radius: 16px;
-	padding: 2px;
+	border-radius: 20px;
+	padding: 3px;
 	gap: 2px;
 }
 
 .langToggleOption {
 	position: relative;
 	z-index: 1;
-	padding: 4px 10px;
-	font-size: 1.2rem;
-	font-weight: 500;
-	color: rgba($header-title-color, 0.6);
+	padding: 4px 6px;
+	font-size: 1.4rem;
+	line-height: 1;
 	background: transparent;
 	border: none;
-	border-radius: 14px;
+	border-radius: 16px;
 	cursor: pointer;
 	transition: all 0.2s ease;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 	text-decoration: none;
 	text-align: center;
+	opacity: 0.5;
+	filter: grayscale(50%);
 }
 
 .langToggleOption:hover {
-	color: rgba($header-title-color, 0.9);
+	opacity: 0.8;
+	filter: grayscale(20%);
 	background: rgba(255, 255, 255, 0.1);
 }
 
 .langToggleOption.active {
-	color: #141419;
-	background: $header-title-color;
+	opacity: 1;
+	filter: grayscale(0%);
+	background: rgba(255, 255, 255, 0.15);
 }
 
 @media only screen and (max-width: 768px) {
@@ -878,8 +910,8 @@ footer {
 	}
 
 	.langToggleOption {
-		padding: 3px 8px;
-		font-size: 1.1rem;
+		padding: 3px 5px;
+		font-size: 1.2rem;
 	}
 }
 

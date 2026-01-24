@@ -11,9 +11,9 @@
 			{% assign lang = page.lang | default: "en" %}
 			{% if page.url != '/' and page.url != '/fr/' %}
 				{% if lang == "fr" %}
-					<a href="{{ '/fr/' | relative_url }}" target="_self"><img class="headerIcon" src="{{ site.app_icon | relative_url }}"></a>
+					<a href="{{ '/fr/' | relative_url }}"><img class="headerIcon" src="{{ site.app_icon | relative_url }}"></a>
 				{% else %}
-					<a href="{{ '/' | relative_url }}" target="_self"><img class="headerIcon" src="{{ site.app_icon | relative_url }}"></a>
+					<a href="{{ '/' | relative_url }}"><img class="headerIcon" src="{{ site.app_icon | relative_url }}"></a>
 				{% endif %}
 			{% else %}
 				<img class="headerIcon" src="{{ site.app_icon | relative_url }}">
@@ -24,6 +24,14 @@
 	</div>
 	<nav class="scroll">
 		<ul>
+			{% for p in site.pages %}
+				{% if p.include_in_header == true %}
+				<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
+				{% endif %}
+			{% endfor %}
+			{% if site.presskit_download_link %}
+				<li><a href="{{ site.presskit_download_link }}">Press Kit</a></li>
+			{% endif %}
 			{% if page.url == '/' or page.url == '/fr/' %}
 			<li class="deviceToggleContainer">
 				<div class="deviceToggle" role="tablist" aria-label="Device preview">
@@ -33,23 +41,15 @@
 				</div>
 			</li>
 			{% endif %}
-			{% for page in site.pages %}
-				{% if page.include_in_header == true %}
-				<li><a href="{{ page.url | relative_url }}" target="_self">{{ page.title }}</a></li>
-				{% endif %}
-			{% endfor %}
-			{% if site.presskit_download_link %}
-				<li><a href="{{ site.presskit_download_link }}">Press Kit</a></li>
-			{% endif %}
 			<li class="langToggleContainer">
 				<div class="langToggle" role="tablist" aria-label="Language selection">
 					{% assign current_lang = page.lang | default: "en" %}
 					{% if current_lang == "en" %}
-						<a class="langToggleOption active" href="{{ '/' | relative_url }}" role="tab" aria-selected="true" aria-label="English">EN</a>
-						<a class="langToggleOption" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="false" aria-label="Francais">FR</a>
+						<a class="langToggleOption active" href="{{ '/' | relative_url }}" role="tab" aria-selected="true" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="false" aria-label="Français" title="Français">🇫🇷</a>
 					{% else %}
-						<a class="langToggleOption" href="{{ '/' | relative_url }}" role="tab" aria-selected="false" aria-label="English">EN</a>
-						<a class="langToggleOption active" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="true" aria-label="Francais">FR</a>
+						<a class="langToggleOption" href="{{ '/' | relative_url }}" role="tab" aria-selected="false" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption active" href="{{ '/fr/' | relative_url }}" role="tab" aria-selected="true" aria-label="Français" title="Français">🇫🇷</a>
 					{% endif %}
 				</div>
 			</li>

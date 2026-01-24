@@ -2,6 +2,7 @@
 layout: page
 title: Releases
 include_in_header: true
+english_only: true
 ---
 
 # Release History

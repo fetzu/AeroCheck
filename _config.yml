@@ -13,7 +13,7 @@ presskit_download_link                    :                                     
 app_icon                                  : assets/appicon.png
 app_name                                  : AéroCheck
 app_price                                 : Free (Open Source)
-app_description                           : Your digital co-pilot for flight checklists. Designed for pilot students at Aeroclub du Jura GVMP.
+app_description                           : Your digital co-pilot for flight checklists and navigation. Designed for both student and experienced private pilots.
 
 enable_smart_app_banner                   : false                                     # Not on App Store yet
 
@@ -35,7 +35,7 @@ mastodon_link                             :
 
 # Custom Links
 website_link                              : https://fetzu.ch
-aeroclub_link                             : https://www.gvmp.aero
+aeroclub_link                             :
 
 
 
@@ -122,6 +122,9 @@ footer_text_color                         : "#888888"
 ####################################################
 ### Jekyll Configuration. No need to touch this. ###
 ####################################################
+
+# Site URL (for canonical links and translations)
+url: "https://aerocheck.app"
 
 # Set the Sass partials directory, as we're using @imports
 sass:

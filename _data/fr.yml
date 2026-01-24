@@ -3,47 +3,47 @@ lang: fr
 lang_name: Francais
 
 # App Info
-page_title: "AeroCheck - Application de Checklist de Vol pour Pilotes"
-app_name: "AeroCheck"
+page_title: "AéroCheck - Application de Checklist de Vol pour Pilotes"
+app_name: "AéroCheck"
 app_price: "Gratuit (Open Source)"
-app_description: "Votre copilote numerique pour les checklists de vol. Concu pour les eleves-pilotes de l'Aeroclub du Jura GVMP."
+app_description: "Votre copilote numérique pour les checklists de vol et la navigation. Conçu pour les élèves-pilotes comme pour les pilotes privés expérimentés."
 
 # Features
 features:
   - title: "16 Phases de Vol"
-    description: "Couverture complete du Preflight au Hangar. Naviguez a travers toutes les phases avec un guidage etape par etape."
+    description: "Couverture complète du Preflight au Hangar. Naviguez à travers toutes les phases avec un guidage étape par étape."
     fontawesome_icon_name: "clipboard-check"
 
-  - title: "Support Multi-Aeroplane"
-    description: "WT9 Dynamic inclus gratuitement. Aeronefs supplementaires disponibles avec un abonnement premium."
+  - title: "Support Multi-Aéronef"
+    description: "WT9 Dynamic inclus gratuitement. Aéronefs supplémentaires disponibles avec un abonnement premium."
     fontawesome_icon_name: "plane"
 
   - title: "Suivi GPS & Journal de Vol"
-    description: "Enregistre votre trajectoire avec vitesse sol et altitude en temps reel. Chronometrage automatique du demarrage moteur, alignement, atterrissage et arret moteur. Exportez vos vols en GPX, JSON ou ZIP."
+    description: "Enregistre votre trajectoire avec vitesse sol et altitude en temps réel. Chronométrage automatique du démarrage moteur, alignement, atterrissage et arrêt moteur. Exportez vos vols en GPX, JSON ou ZIP."
     fontawesome_icon_name: "location-arrow"
 
   - title: "Navigation Interactive"
-    description: "Carte plein ecran avec cartes OACI suisses, planification de vol, profils de terrain et frequences CTR a proximite. Exportez votre plan de navigation en GPX pour Dynon, Garmin et autres MFD. Mise en cache des cartes pour utilisation hors ligne."
+    description: "Carte plein écran avec cartes OACI suisses, planification de vol, profils de terrain et fréquences CTR à proximité. Exportez votre plan de navigation en GPX pour Dynon, Garmin et autres MFD. Mise en cache des cartes pour utilisation hors ligne."
     fontawesome_icon_name: "map"
 
   - title: "Modes Apprentissage & Circuit"
-    description: "Masquez les elements a memoriser pour tester vos connaissances. Le mode circuit simplifie le travail de tour de piste avec suivi des atterrissages complets."
+    description: "Masquez les éléments à mémoriser pour tester vos connaissances. Le mode circuit simplifie le travail de tour de piste avec suivi des atterrissages complets."
     fontawesome_icon_name: "graduation-cap"
 
   - title: "Application Apple Watch"
-    description: "Suivez votre vol depuis votre poignet avec phase, vitesse et altitude en temps reel."
+    description: "Suivez votre vol depuis votre poignet avec phase, vitesse et altitude en temps réel."
     fontawesome_icon_name: "clock"
 
   - title: "Interface Cockpit Sombre"
-    description: "Concue pour une lisibilite optimale dans le cockpit avec de grandes zones tactiles et des couleurs inspirees de l'aviation."
+    description: "Conçue pour une lisibilité optimale dans le cockpit avec de grandes zones tactiles et des couleurs inspirées de l'aviation."
     fontawesome_icon_name: "moon"
 
   - title: "Synchronisation iCloud"
-    description: "Les parametres et l'historique des vols se synchronisent automatiquement sur tous vos appareils."
+    description: "Les paramètres et l'historique des vols se synchronisent automatiquement sur tous vos appareils."
     fontawesome_icon_name: "cloud"
 
   - title: "Open Source"
-    description: "Developpe avec Swift et SwiftUI. Contribuez sur GitHub ou adaptez-le pour votre propre aeroclub."
+    description: "Développé avec Swift et SwiftUI. Contribuez sur GitHub ou adaptez-le pour votre propre aéroclub."
     fontawesome_icon_name: "code-branch"
 
 # Footer

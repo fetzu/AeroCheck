@@ -3,7 +3,8 @@
 ---
 
 <!DOCTYPE html>
-<html lang="en-us">
+{% assign lang = page.lang | default: "en" %}
+<html lang="{{ lang }}">
 
 {% include head.html %}
 
@@ -12,6 +13,12 @@
         <div class="container subPageContainer">
         {% include header.html %}
             <article class="page markdown-body">
+                {% if lang == "fr" and page.english_only %}
+                <div class="translation-notice">
+                    <p>🇬🇧 Cette page est disponible uniquement en anglais.</p>
+                    <p><a href="https://translate.google.com/translate?sl=en&tl=fr&u={{ site.url }}{{ page.url | url_encode }}" target="_blank" rel="noopener">Traduire cette page avec Google Translate →</a></p>
+                </div>
+                {% endif %}
                 {{ content }}
             </article>
         </div>

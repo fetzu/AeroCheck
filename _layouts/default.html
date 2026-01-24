@@ -80,12 +80,12 @@
                         </div>
                         <div class="downloadButtonsContainer">
                             {% if site.github_download_link %}
-                                <a class="githubDownloadLink" href="{{site.github_download_link}}"><img class="githubDownload" src="assets/github-download.svg" alt="Download from GitHub"></a>
+                                <a class="githubDownloadLink" href="{{site.github_download_link}}"><img class="githubDownload" src="{{ 'assets/github-download.svg' | relative_url }}" alt="Download from GitHub"></a>
                             {% elsif site.appstore_link %}
-                                <a class="appStoreLink" href="{{site.appstore_link}}"><img class="appStore" src="assets/appstore.png"></a>
+                                <a class="appStoreLink" href="{{site.appstore_link}}"><img class="appStore" src="{{ 'assets/appstore.png' | relative_url }}"></a>
                             {% endif %}
                             {% if site.playstore_link %}
-                                <a class="playStoreLink" href="{{site.playstore_link}}"><img class="playStore" src="assets/playstore.png"></a>
+                                <a class="playStoreLink" href="{{site.playstore_link}}"><img class="playStore" src="{{ 'assets/playstore.png' | relative_url }}"></a>
                             {% endif %}
                         </div>
                     </div>

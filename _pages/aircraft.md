@@ -329,10 +329,10 @@ function languageToFlag(code) {
     return flags[code] || '🏳️';
 }
 
-// Fetch aircraft data from API
+// Fetch aircraft data from API (v3 includes aeroclub field)
 async function fetchAircraft() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/aircraft/available`);
+        const response = await fetch(`${API_BASE_URL}/api/v3/aircraft/available`);
         if (!response.ok) throw new Error('Failed to fetch aircraft');
         const data = await response.json();
         return data.data.aircraft;
@@ -342,10 +342,10 @@ async function fetchAircraft() {
     }
 }
 
-// Fetch aeroclubs list from API
+// Fetch aeroclubs list from API (v3 endpoint)
 async function fetchAeroclubs() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/aircraft/aeroclubs`);
+        const response = await fetch(`${API_BASE_URL}/api/v3/aircraft/aeroclubs`);
         if (!response.ok) throw new Error('Failed to fetch aeroclubs');
         const data = await response.json();
         return data.data.aeroclubs;

@@ -11,6 +11,65 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.0.0** - Premium Takes Flight
+*Released January 24, 2026*
+
+### What's New
+
+#### Premium Subscription
+Unlock additional aircraft with a monthly or yearly subscription:
+
+- **Premium Aircraft**: Access detailed checklists for additional aircraft types beyond the free WT9 Dynamic
+- **Seamless Updates**: Premium checklists are downloaded and cached automatically
+- **Subscription Management**: View your subscription status and manage it directly in the app
+
+#### Apple Watch Companion App
+Keep track of your flight from your wrist:
+
+- **Real-time Flight Data**: View current phase, speed, and altitude on your Apple Watch
+- **Always Synced**: Flight status updates automatically via WatchConnectivity
+- **Glanceable Design**: Quick access to essential flight information
+
+#### iCloud Sync
+Your settings and flights, everywhere:
+
+- **Settings Sync**: Preferences sync across all your devices
+- **Flight History**: Access your flight log from any device
+- **Automatic Backup**: Your data is safely stored in iCloud
+
+#### Multi-Language Support
+Now available in French:
+
+- **Complete Translation**: All UI elements translated to French
+- **Language Switching**: Follows your device language settings
+- **Original Phase Names**: Checklist phase names remain in their original language for clarity
+
+#### Flight Plan GPX Export (Beta)
+Export your navigation plan for your avionics:
+
+- **GPX Route Export**: Compatible with Dynon SkyView, Garmin G3X, and other MFDs
+- **Quick Sharing**: Export directly from the flight plan editor
+
+#### Other Improvements
+- Segelflugkarte max zoom level corrected for proper tile display
+- Various UI refinements and stability improvements
+
+---
+
+This is a major release featuring our new premium subscription model, Apple Watch support, and iCloud synchronization. The free tier continues to include the full-featured WT9 Dynamic checklist with all navigation and tracking features.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/2.7.0...3.0.0
+
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.0.0)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 2.7.0** - Navigate and Communicate
 *Released January 01, 2026*
 
@@ -43,7 +102,7 @@ Perfect for pattern work and touch-and-go practice:
 
 ---
 
-⚠️ **Important**: AéroCheck is provided solely for training and pedagogical purposes. Always rely on official checklists and AIP for operational decisions.
+⚠️ **Important**: This application is provided solely for training and pedagogical purposes. Always rely on official checklists and AIP for operational decisions.
 
 **Full Changelog**: https://github.com/fetzu/AeroCheck/compare/v2.6.0...v2.7.0
 
@@ -52,12 +111,7 @@ Perfect for pattern work and touch-and-go practice:
 
 <br>
 
-________
-
-<br>
-
-### `Initial Release`
-# **Version 2.6.0** - Cache-cache
+## **Version 2.6.0** - Cache-cache
 *Released December 21, 2025*
 
 ### What’s New
@@ -216,9 +270,9 @@ This feature is disabled by default. Enable it in Settings > Experimental, where
 ## **Version 2.0.0** - Going somewhere?
 *Released December 14, 2025*
 
-🚀 New Navigation Mode in AéroCheck!
+🚀 New Navigation Mode in AeroCheck!
 
-This release introduces a brand-new Navigation mode in AéroCheck, featuring an interactive map view directly in the app. You can now follow your aircraft position and GPS track while switching between multiple map layers, including Apple Maps (standard & satellite), ICAO charts, Swiss national maps, and aerial imagery.
+This release introduces a brand-new Navigation mode in AeroCheck, featuring an interactive map view directly in the app. You can now follow your aircraft position and GPS track while switching between multiple map layers, including Apple Maps (standard & satellite), ICAO charts, Swiss national maps, and aerial imagery.
 
 The new Navigation mode makes it easier to visualize your flight, terrain, and airspace context — both during and after a flight. ✈️
 
@@ -232,16 +286,16 @@ Give it a try and let us know what you think!
 *Released December 07, 2025*
 
 ### Release description
-We're excited to introduce AéroCheck v1.0.0, the first official release of our iOS/iPadOS learning application. Crafted with the powerful and inspiring assistance of Claude 4.5 Sonnet & Opus, this version brings you the following core features:
-	•	Complete walkthrough of the flight task-flow (briefing → taxi → take-off → en-route → descent → landing).
+We’re excited to introduce AeroCheck v1.0.0, the first official release of our iOS/iPadOS learning application. Crafted with the powerful and inspiring assistance of Claude 4.5 Sonnet & Opus, this version brings you the following core features:
+	•	Complete walkthrough of the ATC “AeroCheck” task-flow (briefing → taxi → take-off → en-route → descent → landing).
 	•	Integrated checklists matching each phase of flight, allowing you to tap through and familiarise with real-world procedures.
 	•	On devices with cellular capability: live-display of speed and altitude (via built-in sensors) to enhance your situational awareness practice.
 	•	Fully native support for both iPhone and iPad — optimised for classroom and cockpit-style tablet use alike.
 	•	Designed as a learning and rehearsal tool: practice flows, reinforce knowledge, and deepen your understanding of pressure, altitude and air-taxi operations.
 
-⚠️ Important reminder: AéroCheck is not certified for in-flight operational use. Always rely on official checklists from your aircraft manufacturer and the latest documentation from your AFM/POH. Never substitute AéroCheck for procedural compliance. Use it as a supplementary study and training aid only.
+⚠️ Important reminder: AeroCheck is not certified for in-flight operational use. Always rely on official checklists from your aircraft manufacturer and the latest documentation from your AFM/POH. Never substitute AeroCheck for procedural compliance. Use it as a supplementary study and training aid only.
 
-Thank you for downloading and welcome to your first step in mastering the flight checklist workflow. Safe learning — and clear skies ahead!
+Thank you for downloading and welcome to your first step in mastering the AeroCheck workflow. Safe learning — and clear skies ahead!
 
 ### What's Changed
 * feat: add altitude tracking and altimeter display by @fetzu in https://github.com/fetzu/AeroCheck/pull/1
@@ -259,6 +313,9 @@ Thank you for downloading and welcome to your first step in mastering the flight
 * @fetzu made their first contribution in https://github.com/fetzu/AeroCheck/pull/1
 
 **Full Changelog**: https://github.com/fetzu/AeroCheck/commits/1.0.0
+
+### Note
+The original app name (and release notes) was "AéroCheck". It has been subsequently renamed to "AeroCheck" to avoid confusion.
 
 [Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/1.0.0)
 

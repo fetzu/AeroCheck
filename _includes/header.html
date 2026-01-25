@@ -54,12 +54,23 @@
 			{% endif %}
 			<li class="langToggleContainer">
 				<div class="langToggle" role="tablist" aria-label="Language selection">
-					{% if current_lang == "en" %}
-						<a class="langToggleOption active" href="{{ '/' | relative_url }}" aria-label="English" title="English">🇬🇧</a>
-						<a class="langToggleOption" href="{{ '/fr/' | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
+					{% comment %}Determine English and French URLs based on current page{% endcomment %}
+					{% if page.url contains '/releases' or page.url contains '/releases/' %}
+						{% assign en_url = '/releases/' %}
+						{% assign fr_url = '/fr/releases/' %}
+					{% elsif page.url contains '/aircraft' or page.url contains '/aircraft/' %}
+						{% assign en_url = '/aircraft/' %}
+						{% assign fr_url = '/fr/aircraft/' %}
 					{% else %}
-						<a class="langToggleOption" href="{{ '/' | relative_url }}" aria-label="English" title="English">🇬🇧</a>
-						<a class="langToggleOption active" href="{{ '/fr/' | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
+						{% assign en_url = '/' %}
+						{% assign fr_url = '/fr/' %}
+					{% endif %}
+					{% if current_lang == "en" %}
+						<a class="langToggleOption active" href="{{ en_url | relative_url }}" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption" href="{{ fr_url | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
+					{% else %}
+						<a class="langToggleOption" href="{{ en_url | relative_url }}" aria-label="English" title="English">🇬🇧</a>
+						<a class="langToggleOption active" href="{{ fr_url | relative_url }}" aria-label="Français" title="Français">🇫🇷</a>
 					{% endif %}
 				</div>
 			</li>

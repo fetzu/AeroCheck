@@ -2,7 +2,6 @@
 layout: page
 title: Liste des avions
 lang: fr
-english_only: true
 permalink: /fr/aircraft/
 ---
 
@@ -20,12 +19,15 @@ permalink: /fr/aircraft/
     padding: 16px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
+    align-items: flex-end;
 }
 
 .filter-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    flex: 1;
+    min-width: 250px;
 }
 
 .filter-group label {
@@ -37,19 +39,30 @@ permalink: /fr/aircraft/
 }
 
 .filter-group select {
-    padding: 8px 12px;
+    padding: 12px 16px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(212, 175, 55, 0.3);
+    background: rgba(255, 255, 255, 0.08);
     color: #fff;
-    font-size: 14px;
-    min-width: 200px;
+    font-size: 15px;
     cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D4AF37' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.filter-group select:hover {
+    border-color: rgba(212, 175, 55, 0.6);
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
 .filter-group select:focus {
     outline: none;
     border-color: #D4AF37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
 }
 
 .aircraft-stats {
@@ -64,12 +77,18 @@ permalink: /fr/aircraft/
     padding: 16px 24px;
     border-radius: 12px;
     text-align: center;
+    min-width: 120px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .stat-card .value {
     font-size: 28px;
     font-weight: 700;
     color: #D4AF37;
+    line-height: 1.2;
 }
 
 .stat-card .label {
@@ -77,6 +96,7 @@ permalink: /fr/aircraft/
     color: #888;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin-top: 4px;
 }
 
 .aircraft-table {
@@ -216,7 +236,7 @@ permalink: /fr/aircraft/
         flex-direction: column;
     }
 
-    .filter-group select {
+    .filter-group {
         min-width: 100%;
     }
 
@@ -256,7 +276,7 @@ permalink: /fr/aircraft/
 
 # Avions disponibles
 
-Cette page liste toutes les checklists d'avions actuellement disponibles dans AeroCheck. La liste est chargee en direct depuis notre API.
+Cette page liste toutes les checklists d'avions actuellement disponibles dans AeroCheck.
 
 <div class="aircraft-list-container">
     <div class="aircraft-stats" id="aircraft-stats">
@@ -280,27 +300,9 @@ Cette page liste toutes les checklists d'avions actuellement disponibles dans Ae
 
     <div class="aircraft-filters">
         <div class="filter-group">
-            <label for="aeroclub-filter">Aeroclub</label>
+            <label for="aeroclub-filter">Filtrer par aeroclub</label>
             <select id="aeroclub-filter">
                 <option value="">Tous les aeroclubs</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label for="language-filter">Langue</label>
-            <select id="language-filter">
-                <option value="">Toutes les langues</option>
-                <option value="en">Anglais</option>
-                <option value="fr">Francais</option>
-                <option value="de">Allemand</option>
-                <option value="it">Italien</option>
-            </select>
-        </div>
-        <div class="filter-group">
-            <label for="type-filter">Acces</label>
-            <select id="type-filter">
-                <option value="">Tous</option>
-                <option value="free">Gratuit</option>
-                <option value="premium">Premium</option>
             </select>
         </div>
     </div>
@@ -464,25 +466,11 @@ function renderAircraft(aircraft) {
 // Apply filters
 function applyFilters() {
     const aeroclubFilter = document.getElementById('aeroclub-filter').value;
-    const languageFilter = document.getElementById('language-filter').value;
-    const typeFilter = document.getElementById('type-filter').value;
 
     let filtered = allAircraft;
 
     if (aeroclubFilter) {
         filtered = filtered.filter(a => a.aeroclub === aeroclubFilter);
-    }
-
-    if (languageFilter) {
-        filtered = filtered.filter(a =>
-            (a.availableLanguages || ['en']).includes(languageFilter)
-        );
-    }
-
-    if (typeFilter === 'free') {
-        filtered = filtered.filter(a => a.isFree);
-    } else if (typeFilter === 'premium') {
-        filtered = filtered.filter(a => !a.isFree);
     }
 
     renderAircraft(filtered);
@@ -504,10 +492,8 @@ async function init() {
         populateAeroclubFilter(aeroclubs);
         renderAircraft(aircraft);
 
-        // Set up filter listeners
+        // Set up filter listener
         document.getElementById('aeroclub-filter').addEventListener('change', applyFilters);
-        document.getElementById('language-filter').addEventListener('change', applyFilters);
-        document.getElementById('type-filter').addEventListener('change', applyFilters);
 
     } catch (error) {
         document.getElementById('aircraft-content').innerHTML = `

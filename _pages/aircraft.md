@@ -160,18 +160,17 @@ permalink: /aircraft/
     display: flex;
     gap: 6px;
     align-items: center;
-    min-height: 48px;
 }
 
 .language-flag {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .premium-badge {

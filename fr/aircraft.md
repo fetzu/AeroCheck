@@ -110,6 +110,7 @@ permalink: /fr/aircraft/
     padding: 12px 16px;
     text-align: left;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    vertical-align: middle;
 }
 
 .aircraft-table th {
@@ -158,6 +159,8 @@ permalink: /fr/aircraft/
 .language-flags {
     display: flex;
     gap: 6px;
+    align-items: center;
+    height: 100%;
 }
 
 .language-flag {

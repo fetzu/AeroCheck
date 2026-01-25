@@ -130,12 +130,15 @@ class SubscriptionManager: ObservableObject {
         updateListenerTask = listenForTransactions()
 
         // Load products and check current status (unless deferred for faster startup)
-        Task {
+        // Use detached task with utility priority to avoid blocking UI
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self = self else { return }
+
             if !deferLoadProducts {
-                await loadProducts()
+                await self.loadProducts()
             }
-            // Always check subscription status for quick entitlement check
-            await updateSubscriptionStatus()
+            // Check subscription status - this is local and should be quick
+            await self.updateSubscriptionStatus()
         }
     }
 
@@ -607,7 +610,7 @@ class SubscriptionManager: ObservableObject {
         debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
         // Send to server
-        let url = URL(string: "\(apiBaseURL)/api/v2/subscription/verify")!
+        let url = URL(string: "\(apiBaseURL)/api/v3/subscription/verify")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -632,6 +635,7 @@ class SubscriptionManager: ObservableObject {
         do {
             let jsonData = try JSONEncoder().encode(requestBody)
             request.httpBody = jsonData
+            request.timeoutInterval = 15 // Set timeout for poor network conditions
 
             debugLogger.log("Sending JWS verification request to server", level: .info)
 

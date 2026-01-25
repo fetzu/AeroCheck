@@ -43,12 +43,26 @@ struct AeroCheckApp: App {
                     guard !isInitialized else { return }
                     isInitialized = true
 
-                    // Load subscription products and aircraft data in parallel
-                    async let productsTask: () = subscriptionManager.loadProducts()
-                    async let aircraftTask: () = aircraftDataService.fetchAvailableAircraft()
+                    // Load subscription products and aircraft data in parallel with timeouts
+                    // Use TaskGroup to handle errors gracefully and not block startup on network issues
+                    await withTaskGroup(of: Void.self) { group in
+                        // Load products with timeout - non-critical for initial launch
+                        group.addTask {
+                            await withTimeout(seconds: 10) {
+                                await subscriptionManager.loadProducts()
+                            }
+                        }
 
-                    // Wait for both to complete
-                    _ = await (productsTask, aircraftTask)
+                        // Fetch aircraft data with timeout - falls back to cached data
+                        group.addTask {
+                            await withTimeout(seconds: 15) {
+                                await aircraftDataService.fetchAvailableAircraft()
+                            }
+                        }
+
+                        // Wait for all tasks (they handle their own errors)
+                        await group.waitForAll()
+                    }
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
@@ -240,5 +254,51 @@ struct MapUpdateReminderSheet: View {
     private func ignore() {
         offlineMapManager.ignoreUpdate()
         dismiss()
+    }
+}
+
+// MARK: - Timeout Helper
+
+/// Executes an async operation with a timeout
+/// If the timeout is reached, the operation is cancelled and returns gracefully
+/// This helps prevent app hangs on poor network connectivity
+private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T) async -> T? {
+    await withTaskGroup(of: T?.self) { group in
+        group.addTask {
+            await operation()
+        }
+
+        group.addTask {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            return nil
+        }
+
+        // Return the first completed result
+        if let result = await group.next() {
+            group.cancelAll()
+            return result
+        }
+
+        return nil
+    }
+}
+
+/// Executes an async void operation with a timeout
+/// If the timeout is reached, the operation is cancelled gracefully
+private func withTimeout(seconds: TimeInterval, operation: @escaping () async -> Void) async {
+    await withTaskGroup(of: Bool.self) { group in
+        group.addTask {
+            await operation()
+            return true
+        }
+
+        group.addTask {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            return false
+        }
+
+        // Wait for first completion
+        _ = await group.next()
+        group.cancelAll()
     }
 }

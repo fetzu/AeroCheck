@@ -397,10 +397,11 @@ class AircraftDataService: ObservableObject {
     // MARK: - Private Methods
 
     private func fetchAircraftList() async throws -> [RemoteAircraftMetadata] {
-        let url = URL(string: "\(apiBaseURL)/api/v2/aircraft/available")!
+        let url = URL(string: "\(apiBaseURL)/api/v3/aircraft/available")!
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 15 // Set timeout for poor network conditions
 
         // Add auth header if available
         if let userID = await subscriptionManager.getUserID() {
@@ -414,15 +415,43 @@ class AircraftDataService: ObservableObject {
             throw AircraftDataError.serverError((response as? HTTPURLResponse)?.statusCode ?? -1)
         }
 
-        let decoder = JSONDecoder()
-        let result = try decoder.decode(AircraftListResponse.self, from: data)
+        // Parse aircraft list with resilient decoding - skip malformed entries
+        return parseAircraftListResilient(from: data)
+    }
 
-        return result.data.aircraft
+    /// Parses aircraft list data, skipping any malformed aircraft entries
+    /// This ensures the app can display valid aircraft even if some entries are malformed
+    private func parseAircraftListResilient(from data: Data) -> [RemoteAircraftMetadata] {
+        // First try to parse the wrapper to get the aircraft array
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataDict = json["data"] as? [String: Any],
+              let aircraftArray = dataDict["aircraft"] as? [[String: Any]] else {
+            print("[AircraftDataService] Failed to parse aircraft list wrapper")
+            return []
+        }
+
+        var validAircraft: [RemoteAircraftMetadata] = []
+        let decoder = JSONDecoder()
+
+        for (index, aircraftDict) in aircraftArray.enumerated() {
+            do {
+                let aircraftData = try JSONSerialization.data(withJSONObject: aircraftDict)
+                let aircraft = try decoder.decode(RemoteAircraftMetadata.self, from: aircraftData)
+                validAircraft.append(aircraft)
+            } catch {
+                // Log the error but continue processing other aircraft
+                let aircraftId = aircraftDict["id"] as? String ?? "unknown"
+                print("[AircraftDataService] Skipping malformed aircraft at index \(index) (id: \(aircraftId)): \(error.localizedDescription)")
+            }
+        }
+
+        print("[AircraftDataService] Parsed \(validAircraft.count)/\(aircraftArray.count) aircraft successfully")
+        return validAircraft
     }
 
     private func fetchChecklistFromServer(aircraftId: String, language: String? = nil) async throws -> RemoteAircraftChecklist {
         // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v2/aircraft/\(aircraftId)/checklist"
+        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(aircraftId)/checklist"
         if let lang = language {
             urlString += "?lang=\(lang)"
         }
@@ -430,6 +459,7 @@ class AircraftDataService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 30 // Checklists can be larger, allow more time
 
         // Add auth header if available
         if let userID = await subscriptionManager.getUserID() {
@@ -462,13 +492,16 @@ class AircraftDataService: ObservableObject {
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
         // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v2/aircraft/\(aircraftId)/version"
+        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(aircraftId)/version"
         if let lang = language {
             urlString += "?lang=\(lang)"
         }
         let url = URL(string: urlString)!
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10 // Version check should be quick
+
+        let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {

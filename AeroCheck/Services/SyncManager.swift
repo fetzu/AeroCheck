@@ -88,15 +88,46 @@ class SyncManager: ObservableObject {
 
         // Load last sync date
         self.lastSyncDate = UserDefaults.standard.object(forKey: lastSyncDateKey) as? Date
-        
+
         // Load whether settings record exists on server
         self.settingsRecordExists = UserDefaults.standard.bool(forKey: settingsRecordExistsKey)
 
-        // Defer CloudKit initialization to avoid crashes if not configured
+        // Defer CloudKit initialization to avoid blocking app startup
+        // Use detached task with low priority to not compete with UI rendering
         if isSyncEnabled {
-            Task {
-                await initializeCloudKit()
+            Task.detached(priority: .utility) { [weak self] in
+                await self?.initializeCloudKitWithTimeout()
             }
+        }
+    }
+
+    /// Initialize CloudKit with a timeout to prevent blocking app startup
+    private func initializeCloudKitWithTimeout() async {
+        // Use a timeout to prevent indefinite blocking on poor network
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+            return false
+        }
+
+        let initTask = Task { () -> Bool in
+            await initializeCloudKit()
+            return true
+        }
+
+        // Wait for whichever completes first
+        let completed = await withTaskGroup(of: Bool.self) { group in
+            group.addTask { await initTask.value }
+            group.addTask { await timeoutTask.value }
+
+            if let result = await group.next() {
+                group.cancelAll()
+                return result
+            }
+            return false
+        }
+
+        if !completed {
+            print("[AéroCheck Sync] CloudKit initialization timed out - will retry later")
         }
     }
 

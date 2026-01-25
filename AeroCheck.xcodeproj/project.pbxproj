@@ -58,6 +58,8 @@
 		B3000001211111110000005 /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000005 /* Configuration.storekit */; };
 		C1000001211111110000001 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000001 /* Localization.swift */; };
 		C1000001211111110000002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000002 /* Localizable.xcstrings */; };
+		D1000001211111110000001 /* BundledChecklistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000001 /* BundledChecklistService.swift */; };
+		D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000002 /* wt9-dynamic-bundled.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -157,6 +159,8 @@
 		B3000001111111110000005 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
 		C1000001111111110000001 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		C1000001111111110000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		D1000001111111110000001 /* BundledChecklistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledChecklistService.swift; sourceTree = "<group>"; };
+		D1000001111111110000002 /* wt9-dynamic-bundled.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled.json"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +212,7 @@
 				A1000003111111110000005 /* Models */,
 				A1000003111111110000006 /* Services */,
 				A1000003111111110000007 /* Components */,
+				D1000003111111110000001 /* Resources */,
 				C1000001111111110000001 /* Localization.swift */,
 				C1000001111111110000002 /* Localizable.xcstrings */,
 				A1000001111111110000013 /* Assets.xcassets */,
@@ -215,6 +220,14 @@
 				B3000001111111110000005 /* Configuration.storekit */,
 			);
 			path = AeroCheck;
+			sourceTree = "<group>";
+		};
+		D1000003111111110000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D1000001111111110000002 /* wt9-dynamic-bundled.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		A1000003111111110000003 /* Products */ = {
@@ -275,6 +288,7 @@
 				A3000001111111110000001 /* WatchConnectivityManager.swift */,
 				B3000001111111110000001 /* SubscriptionManager.swift */,
 				B3000001111111110000002 /* AircraftDataService.swift */,
+				D1000001111111110000001 /* BundledChecklistService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -434,6 +448,7 @@
 				A1000001211111110000013 /* Assets.xcassets in Resources */,
 				B3000001211111110000005 /* Configuration.storekit in Resources */,
 				C1000001211111110000002 /* Localizable.xcstrings in Resources */,
+				D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -496,6 +511,7 @@
 				B3000001211111110000003 /* RemoteAircraft.swift in Sources */,
 				B3000001211111110000004 /* SubscriptionView.swift in Sources */,
 				C1000001211111110000001 /* Localization.swift in Sources */,
+				D1000001211111110000001 /* BundledChecklistService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

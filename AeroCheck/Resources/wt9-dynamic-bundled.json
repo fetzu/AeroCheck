@@ -1,0 +1,277 @@
+{
+  "id": "wt9-dynamic",
+  "aircraftType": "WT9",
+  "registration": "F-HVXA",
+  "modelName": "WT9 Dynamic",
+  "shortModelName": "WT9 Dynamic",
+  "aeroclub": "Groupe de vol à moteur de Porrentruy",
+  "version": "2.1e",
+  "lastUpdated": "March 2025",
+  "isFree": true,
+  "stallSpeed": 42,
+  "pageCount": 4,
+  "crosswindLimits": {
+    "takeoff": "14 kt",
+    "landing": "16 kt"
+  },
+  "speeds": [
+    { "name": "Vso", "description": "flaps down", "value": "33" },
+    { "name": "Vs", "description": "stall clean", "value": "42" },
+    { "name": "Vr", "description": "rotation", "value": "40" },
+    { "name": "Vx", "description": "best angle", "value": "55" },
+    { "name": "Vy", "description": "best rate", "value": "70" },
+    { "name": "Vcc", "description": "cruise climb", "value": "85" },
+    { "name": "Vfe", "description": "flaps ext.", "value": "76" },
+    { "name": "VA", "description": "600kg", "value": "97" },
+    { "name": "VA", "description": "410kg", "value": "75" },
+    { "name": "Vbg", "description": "best glide", "value": "70" },
+    { "name": "Vapp", "description": "init (clean)", "value": "70" },
+    { "name": "Vapp", "description": "init (F1)", "value": "65" },
+    { "name": "Vapp", "description": "interm (F2)", "value": "65" },
+    { "name": "Vfinal", "description": "F2-F3", "value": "60-55" }
+  ],
+  "targetSpeeds": {
+    "preflight": null,
+    "beforeEngineStart": null,
+    "engineStart": null,
+    "afterEngineStart": null,
+    "taxi": null,
+    "runup": null,
+    "beforeDeparture": null,
+    "lineUp": null,
+    "climb": 55,
+    "cruise": 100,
+    "descent": 85,
+    "approach": 65,
+    "landing": 55,
+    "afterLanding": null,
+    "shutdown": null,
+    "hangar": null
+  },
+  "learningModeVisibleCount": {
+    "preflight": null,
+    "beforeEngineStart": null,
+    "engineStart": 2,
+    "afterEngineStart": null,
+    "taxi": 0,
+    "runup": 3,
+    "beforeDeparture": null,
+    "lineUp": 0,
+    "climb": 0,
+    "cruise": null,
+    "descent": 0,
+    "approach": 0,
+    "landing": 0,
+    "afterLanding": 0,
+    "shutdown": null,
+    "hangar": null
+  },
+  "phases": {
+    "preflight": {
+      "title": "PREFLIGHT CHECK",
+      "pageNumber": 1,
+      "items": [
+        { "number": 1, "challenge": "Outside check", "response": "Completed", "isHeader": false },
+        { "number": 2, "challenge": "Aircraft papers", "response": "Checked", "isHeader": false },
+        { "number": 3, "challenge": "Aircraft log", "response": "Checked", "isHeader": false },
+        { "number": 4, "challenge": "Tow bar", "response": "Removed", "isHeader": false },
+        { "number": 5, "challenge": "Cabin", "response": "Checked", "isHeader": false },
+        { "number": 6, "challenge": "Loadsheet", "response": "Within limits", "isHeader": false }
+      ]
+    },
+    "beforeEngineStart": {
+      "title": "CHECK BEFORE ENGINE START",
+      "pageNumber": 1,
+      "items": [
+        { "number": 1, "challenge": "Seat belts & harness", "response": "Adjusted & locked", "isHeader": false },
+        { "number": 2, "challenge": "Parking brake", "response": "Set", "isHeader": false },
+        { "number": 3, "challenge": "Rudder pedals", "response": "Set", "isHeader": false },
+        { "number": 4, "challenge": "Electrical consumers", "response": "OFF", "isHeader": false },
+        { "number": 5, "challenge": "Circuit breakers", "response": "All IN", "isHeader": false },
+        { "number": 6, "challenge": "Master switch", "response": "ON", "isHeader": false },
+        { "number": 7, "challenge": "Dynon LHD1000 / RHD1000", "response": "Both ON", "isHeader": false },
+        { "number": 8, "challenge": "Starter key", "response": "Charge", "isHeader": false },
+        { "number": 9, "challenge": "Annunciator & stick shaker", "response": "Checked", "isHeader": false },
+        { "number": 10, "challenge": "Fuel Quantity", "response": "L__ R__ end HH:MM @20l/h, tot set", "isHeader": false },
+        { "number": 11, "challenge": "Fuel selector valve", "response": "Left", "isHeader": false },
+        { "number": 12, "challenge": "Auxiliary fuel pump", "response": "ON… 0.2bar… OFF", "isHeader": false }
+      ]
+    },
+    "engineStart": {
+      "title": "ENGINE START",
+      "pageNumber": 1,
+      "items": [
+        { "number": 1, "challenge": "NAV - ACL", "response": "ON", "isHeader": false },
+        { "number": 2, "challenge": "Carburator heat", "response": "OFF", "isHeader": false },
+        { "number": 3, "challenge": "Engine is hot", "response": "Throttle 1/4 open, Choke OFF", "isHeader": false },
+        { "number": 4, "challenge": "Engine is cold", "response": "Throttle idle, Choke ON", "isHeader": false },
+        { "number": 5, "challenge": "Propeller area", "response": "Clear", "isHeader": false },
+        { "number": 6, "challenge": "Magnetos", "response": "Both ON", "isHeader": false },
+        { "number": 7, "challenge": "Starter key", "response": "Start, max 10 seconds", "isHeader": false },
+        { "number": 8, "challenge": "When engine fires", "response": "Close Choke, add throttle", "isHeader": false },
+        { "number": 9, "challenge": "Throttle", "response": "2000 RPM, Time Check", "isHeader": false },
+        { "number": 10, "challenge": "Oil pressure", "response": "White (2 bar min) within 10''", "isHeader": false },
+        { "number": 11, "challenge": "Throttle", "response": "2500 RPM after 2 min if cold", "isHeader": false }
+      ]
+    },
+    "afterEngineStart": {
+      "title": "CHECK AFTER ENGINE START",
+      "pageNumber": 2,
+      "items": [
+        { "number": 1, "challenge": "Alternator output", "response": "Checked", "isHeader": false },
+        { "number": 2, "challenge": "Annunciator lights", "response": "No lights (or OT rising)", "isHeader": false },
+        { "number": 3, "challenge": "Avionics", "response": "ON (check ATIS)", "isHeader": false },
+        { "number": 4, "challenge": "Ventilation, heater", "response": "As required", "isHeader": false },
+        { "number": 5, "challenge": "Engine instruments", "response": "Checked (OT yellow rising)", "isHeader": false },
+        { "number": 6, "challenge": "Avionics", "response": "Set and preselected", "isHeader": false },
+        { "number": 7, "challenge": "Flight instruments", "response": "Set", "isHeader": false },
+        { "number": 8, "challenge": "Oil Temperature", "response": "Rising, no taxi < 30°C", "isHeader": false }
+      ]
+    },
+    "taxi": {
+      "title": "TAXI CHECK",
+      "pageNumber": 2,
+      "items": [
+        { "number": 1, "challenge": "Brakes & steering", "response": "Checked", "isHeader": false },
+        { "number": 2, "challenge": "Flight instruments", "response": "Checked", "isHeader": false }
+      ]
+    },
+    "runup": {
+      "title": "RUNUP",
+      "pageNumber": 2,
+      "items": [
+        { "number": 1, "challenge": "Parking brake", "response": "Max Set", "isHeader": false },
+        { "number": 2, "challenge": "Warm up", "response": "Oil Temp ≥ 50°C", "isHeader": false },
+        { "number": 3, "challenge": "Zone behind aircraft", "response": "Clear", "isHeader": false },
+        { "number": 4, "challenge": "Throttle", "response": "4000 RPM", "isHeader": false },
+        { "number": 5, "challenge": "Engine instr. & amp.", "response": "Checked", "isHeader": false },
+        { "number": 6, "challenge": "Magnetos L, R", "response": "Max drop 300, diff 115", "isHeader": false },
+        { "number": 7, "challenge": "Carburator heat", "response": "Check function", "isHeader": false },
+        { "number": 8, "challenge": "Throttle idle", "response": "Max 1800 RPM", "isHeader": false },
+        { "number": 9, "challenge": "Throttle", "response": "2500 RPM (cooling)", "isHeader": false },
+        { "number": 10, "challenge": "Annunciator lights", "response": "No light", "isHeader": false }
+      ]
+    },
+    "beforeDeparture": {
+      "title": "CHECK BEFORE DEPARTURE",
+      "pageNumber": 2,
+      "items": [
+        { "number": 1, "challenge": "Fuel quantity", "response": "L__ R__ end HH:MM @20l/h", "isHeader": false },
+        { "number": 2, "challenge": "Fuel selector valve", "response": "Left", "isHeader": false },
+        { "number": 3, "challenge": "Carburator heat", "response": "OFF", "isHeader": false },
+        { "number": 4, "challenge": "Choke", "response": "OFF", "isHeader": false },
+        { "number": 5, "challenge": "Magnetos", "response": "Both ON", "isHeader": false },
+        { "number": 6, "challenge": "Trim", "response": "Set for departure", "isHeader": false },
+        { "number": 7, "challenge": "Flaps", "response": "Set for departure (F1)", "isHeader": false },
+        { "number": 8, "challenge": "Flight instr. & avionics", "response": "No flag, set for departure", "isHeader": false },
+        { "number": 9, "challenge": "Cabin & Pax", "response": "Secured", "isHeader": false },
+        { "number": 10, "challenge": "Canopy", "response": "Closed and locked", "isHeader": false },
+        { "number": 11, "challenge": "Rescue system", "response": "Safety lock removed", "isHeader": false },
+        { "number": 12, "challenge": "Flight controls", "response": "Free and correct", "isHeader": false },
+        { "number": 13, "challenge": "Departure briefing", "response": "Completed", "isHeader": false }
+      ]
+    },
+    "lineUp": {
+      "title": "LINE UP CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "Canopy & windows", "response": "Closed and locked", "isHeader": false },
+        { "number": 2, "challenge": "Time", "response": "Noted", "isHeader": false },
+        { "number": 3, "challenge": "Approach sector & Runway", "response": "Clear", "isHeader": false },
+        { "number": 4, "challenge": "Auxiliary fuel pump", "response": "ON", "isHeader": false },
+        { "number": 5, "challenge": "Landing light", "response": "ON", "isHeader": false }
+      ]
+    },
+    "climb": {
+      "title": "CLIMB CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "Flaps", "response": "Up", "isHeader": false },
+        { "number": 2, "challenge": "Climb power", "response": "Set", "isHeader": false },
+        { "number": 3, "challenge": "Auxiliary fuel pump", "response": "OFF, pressure checked", "isHeader": false },
+        { "number": 4, "challenge": "Landing light", "response": "ON / OFF", "isHeader": false },
+        { "number": 5, "challenge": "Engine parameters", "response": "Checked", "isHeader": false }
+      ]
+    },
+    "cruise": {
+      "title": "CRUISE CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "Altimeter", "response": "Checked (STD / QNH)", "isHeader": false },
+        { "number": 2, "challenge": "Cruise power", "response": "4800 RPM SET", "isHeader": false },
+        { "number": 3, "challenge": "Engine instruments", "response": "Oil Press, Oil Temp, CH Temp", "isHeader": false },
+        { "number": 4, "challenge": "Fuel quantity", "response": "L__ R__ end HH:MM @20l/h", "isHeader": false },
+        { "number": 5, "challenge": "Fuel selector", "response": "As required", "isHeader": false }
+      ]
+    },
+    "descent": {
+      "title": "DESCENT CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "ATIS or AD Information", "response": "Noted", "isHeader": false },
+        { "number": 2, "challenge": "Approach briefing", "response": "Completed", "isHeader": false },
+        { "number": 3, "challenge": "Avionics", "response": "HDG bug SET & Checked", "isHeader": false },
+        { "number": 4, "challenge": "Circuit breakers", "response": "All IN", "isHeader": false },
+        { "number": 5, "challenge": "Cabin & Pax", "response": "Secured", "isHeader": false }
+      ]
+    },
+    "approach": {
+      "title": "APPROACH CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "Altimeter", "response": "QNH set", "isHeader": false },
+        { "number": 2, "challenge": "Fuel quantity", "response": "L__ R__ end HH:MM @20l/h", "isHeader": false },
+        { "number": 3, "challenge": "Fuel selector", "response": "Left", "isHeader": false },
+        { "number": 4, "challenge": "Auxiliary fuel pump", "response": "ON", "isHeader": false },
+        { "number": 5, "challenge": "Carburator heat", "response": "ON", "isHeader": false },
+        { "number": 6, "challenge": "Landing lights", "response": "ON", "isHeader": false }
+      ]
+    },
+    "landing": {
+      "title": "LANDING CHECK",
+      "pageNumber": 3,
+      "items": [
+        { "number": 1, "challenge": "Flaps", "response": "Below 76kt → F2 or F3", "isHeader": false },
+        { "number": 2, "challenge": "Carburator heat", "response": "OFF", "isHeader": false }
+      ]
+    },
+    "afterLanding": {
+      "title": "AFTER LANDING CHECK",
+      "pageNumber": 4,
+      "items": [
+        { "number": 1, "challenge": "Transponder", "response": "Standby", "isHeader": false },
+        { "number": 2, "challenge": "Landing lights", "response": "OFF", "isHeader": false },
+        { "number": 3, "challenge": "Flaps", "response": "UP", "isHeader": false },
+        { "number": 4, "challenge": "Auxiliary fuel pump", "response": "OFF", "isHeader": false },
+        { "number": 5, "challenge": "Time", "response": "Noted", "isHeader": false }
+      ]
+    },
+    "shutdown": {
+      "title": "ENGINE SHUTDOWN AND PARKING CHECK",
+      "pageNumber": 4,
+      "items": [
+        { "number": 1, "challenge": "Parking brake", "response": "SET", "isHeader": false },
+        { "number": 2, "challenge": "Throttle", "response": "Idle", "isHeader": false },
+        { "number": 3, "challenge": "121.5", "response": "Checked", "isHeader": false },
+        { "number": 4, "challenge": "Avionics switch", "response": "OFF", "isHeader": false },
+        { "number": 5, "challenge": "Electrical consumers", "response": "All OFF, except NAV-ACL", "isHeader": false },
+        { "number": 6, "challenge": "Magnetos", "response": "OFF", "isHeader": false },
+        { "number": 7, "challenge": "Nav ACL", "response": "OFF", "isHeader": false },
+        { "number": 8, "challenge": "Starter key", "response": "OFF", "isHeader": false },
+        { "number": 9, "challenge": "Master switch", "response": "OFF", "isHeader": false },
+        { "number": 10, "challenge": "Rescue system", "response": "Secured", "isHeader": false },
+        { "number": 11, "challenge": "Flight data & documents", "response": "Noted & completed", "isHeader": false },
+        { "number": 12, "challenge": "Aircraft", "response": "To be secured", "isHeader": false }
+      ]
+    },
+    "hangar": {
+      "title": "AT THE HANGAR",
+      "pageNumber": 4,
+      "items": [
+        { "number": 1, "challenge": "Parking brake", "response": "Released", "isHeader": false },
+        { "number": 2, "challenge": "Flaps", "response": "Set F3", "isHeader": false },
+        { "number": 3, "challenge": "External electrical power", "response": "When OAT < 5 °C", "isHeader": false }
+      ]
+    }
+  }
+}

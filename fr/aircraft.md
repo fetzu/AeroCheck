@@ -453,7 +453,7 @@ function renderAircraft(aircraft) {
                     <td class="aircraft-model">${a.modelName}</td>
                     <td class="aircraft-version">${a.version}</td>
                     <td class="aircraft-updated">${a.lastUpdated}</td>
-                    <td class="language-flags">${languages}</td>
+                    <td><div class="language-flags">${languages}</div></td>
                     <td>${badge}</td>
                 </tr>
             `;

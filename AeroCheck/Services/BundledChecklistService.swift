@@ -5,25 +5,71 @@ import Foundation
 /// or when the API returns an older version.
 enum BundledChecklistService {
 
-    // MARK: - Bundled Aircraft IDs
+    // MARK: - Bundled Aircraft Configuration
+
+    /// Configuration for bundled aircraft including available languages
+    struct BundledAircraftConfig {
+        let aircraftId: String
+        let defaultLanguage: String
+        let availableLanguages: [String]
+        let resourceNames: [String: String] // language -> resource name mapping
+    }
 
     /// Aircraft IDs that are bundled with the app
     static let bundledAircraftIds: Set<String> = ["wt9-dynamic"]
+
+    /// Configuration for each bundled aircraft
+    private static let bundledAircraftConfigs: [String: BundledAircraftConfig] = [
+        "wt9-dynamic": BundledAircraftConfig(
+            aircraftId: "wt9-dynamic",
+            defaultLanguage: "en",
+            availableLanguages: ["en", "fr"],
+            resourceNames: [
+                "en": "wt9-dynamic-bundled",
+                "fr": "wt9-dynamic-bundled-fr"
+            ]
+        )
+    ]
 
     /// Check if an aircraft ID is bundled
     static func isBundled(aircraftId: String) -> Bool {
         bundledAircraftIds.contains(aircraftId)
     }
 
+    /// Get available languages for a bundled aircraft
+    static func availableLanguages(for aircraftId: String) -> [String] {
+        bundledAircraftConfigs[aircraftId]?.availableLanguages ?? []
+    }
+
+    /// Check if a specific language is bundled for an aircraft
+    static func isLanguageBundled(aircraftId: String, language: String) -> Bool {
+        bundledAircraftConfigs[aircraftId]?.availableLanguages.contains(language) ?? false
+    }
+
     // MARK: - Loading Bundled Checklists
 
     /// Load a bundled checklist from the app bundle
-    /// - Parameter aircraftId: The aircraft identifier (e.g., "wt9-dynamic")
+    /// - Parameters:
+    ///   - aircraftId: The aircraft identifier (e.g., "wt9-dynamic")
+    ///   - language: The language code (e.g., "en", "fr"). If nil or not available, uses default language.
     /// - Returns: The checklist if found and valid, nil otherwise
-    static func loadBundledChecklist(for aircraftId: String) -> RemoteAircraftChecklist? {
-        // Map aircraft ID to bundled resource name
-        guard let resourceName = bundledResourceName(for: aircraftId) else {
-            print("[BundledChecklistService] No bundled resource for aircraft: \(aircraftId)")
+    static func loadBundledChecklist(for aircraftId: String, language: String? = nil) -> RemoteAircraftChecklist? {
+        guard let config = bundledAircraftConfigs[aircraftId] else {
+            print("[BundledChecklistService] No bundled config for aircraft: \(aircraftId)")
+            return nil
+        }
+
+        // Determine which language to use
+        let effectiveLanguage: String
+        if let lang = language, config.availableLanguages.contains(lang) {
+            effectiveLanguage = lang
+        } else {
+            effectiveLanguage = config.defaultLanguage
+        }
+
+        // Get resource name for the language
+        guard let resourceName = config.resourceNames[effectiveLanguage] else {
+            print("[BundledChecklistService] No resource name for language \(effectiveLanguage) on aircraft: \(aircraftId)")
             return nil
         }
 
@@ -36,7 +82,7 @@ enum BundledChecklistService {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             let checklist = try decoder.decode(RemoteAircraftChecklist.self, from: data)
-            print("[BundledChecklistService] Loaded bundled checklist: \(aircraftId) v\(checklist.version)")
+            print("[BundledChecklistService] Loaded bundled checklist: \(aircraftId) (\(effectiveLanguage)) v\(checklist.version)")
             return checklist
         } catch {
             print("[BundledChecklistService] Failed to decode bundled checklist: \(error)")
@@ -44,14 +90,10 @@ enum BundledChecklistService {
         }
     }
 
-    /// Get the bundled resource name for an aircraft ID
+    /// Get the bundled resource name for an aircraft ID (legacy support - uses default language)
     private static func bundledResourceName(for aircraftId: String) -> String? {
-        switch aircraftId {
-        case "wt9-dynamic":
-            return "wt9-dynamic-bundled"
-        default:
-            return nil
-        }
+        guard let config = bundledAircraftConfigs[aircraftId] else { return nil }
+        return config.resourceNames[config.defaultLanguage]
     }
 
     // MARK: - Version Comparison
@@ -86,7 +128,20 @@ enum BundledChecklistService {
     }
 
     /// Get the version of a bundled checklist
-    static func bundledVersion(for aircraftId: String) -> String? {
-        loadBundledChecklist(for: aircraftId)?.version
+    static func bundledVersion(for aircraftId: String, language: String? = nil) -> String? {
+        loadBundledChecklist(for: aircraftId, language: language)?.version
+    }
+
+    /// Get all bundled versions for an aircraft (one per language)
+    static func allBundledVersions(for aircraftId: String) -> [String: String] {
+        guard let config = bundledAircraftConfigs[aircraftId] else { return [:] }
+
+        var versions: [String: String] = [:]
+        for lang in config.availableLanguages {
+            if let version = bundledVersion(for: aircraftId, language: lang) {
+                versions[lang] = version
+            }
+        }
+        return versions
     }
 }

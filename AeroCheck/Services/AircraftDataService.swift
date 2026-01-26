@@ -108,9 +108,10 @@ class AircraftDataService: ObservableObject {
             let versionInfo = try? await fetchVersion(aircraftId: aircraftId, language: language)
             let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
 
-            // For bundled aircraft, only cache if API version is same or newer than bundled
+            // For bundled aircraft, compare against bundled version for the same language
             if BundledChecklistService.isBundled(aircraftId: aircraftId) {
-                if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId) {
+                // Get bundled checklist for the requested language (or default)
+                if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language) {
                     if BundledChecklistService.isNewer(checklist.version, than: bundled.version) ||
                        checklist.version == bundled.version {
                         cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
@@ -121,6 +122,12 @@ class AircraftDataService: ObservableObject {
                         print("[AircraftDataService] API version (\(checklist.version)) older than bundled (\(bundled.version)), using bundled")
                         return bundled
                     }
+                } else {
+                    // Language not bundled but aircraft is bundled - this is a new language from API
+                    // Cache it as it's new content not available in the bundle
+                    cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
+                    print("[AircraftDataService] New language variant (\(language ?? "default")) from API for bundled aircraft \(aircraftId)")
+                    return checklist
                 }
             }
 
@@ -136,9 +143,10 @@ class AircraftDataService: ObservableObject {
             }
 
             // For bundled aircraft, fall back to bundled version when offline
+            // Use language-aware fallback
             if BundledChecklistService.isBundled(aircraftId: aircraftId) {
-                if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId) {
-                    print("[AircraftDataService] Using bundled checklist for \(aircraftId) (offline/error)")
+                if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language) {
+                    print("[AircraftDataService] Using bundled checklist for \(aircraftId) (\(language ?? "default")) (offline/error)")
                     return bundled
                 }
             }
@@ -153,7 +161,7 @@ class AircraftDataService: ObservableObject {
     /// Checks cache, then API, then falls back to bundled version
     /// - Parameter aircraftId: The bundled aircraft identifier (e.g., "wt9-dynamic")
     /// - Parameter language: The language for checklist content (default: nil)
-    /// - Returns: The best available checklist, never nil for bundled aircraft
+    /// - Returns: The best available checklist, never nil for bundled aircraft with bundled languages
     func getBundledAircraftChecklist(for aircraftId: String, language: String? = nil) async -> RemoteAircraftChecklist? {
         guard BundledChecklistService.isBundled(aircraftId: aircraftId) else {
             return await fetchChecklist(for: aircraftId, language: language)
@@ -164,8 +172,9 @@ class AircraftDataService: ObservableObject {
             return checklist
         }
 
-        // Fall back to bundled version (should always succeed for bundled aircraft)
-        return BundledChecklistService.loadBundledChecklist(for: aircraftId)
+        // Fall back to bundled version with language support
+        // (should always succeed for bundled aircraft with bundled languages)
+        return BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language)
     }
 
     /// Checks if an update is available for a checklist using checksum comparison
@@ -179,10 +188,15 @@ class AircraftDataService: ObservableObject {
         // For bundled aircraft, we can check for updates even without cache
         let isBundled = BundledChecklistService.isBundled(aircraftId: aircraftId)
         let cachedChecklist = loadCachedChecklist(aircraftId: cacheKey)
-        let bundledChecklist = isBundled ? BundledChecklistService.loadBundledChecklist(for: aircraftId) : nil
+        // Get bundled checklist for the specific language (if available)
+        let bundledChecklist = isBundled ? BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language) : nil
 
         // Need either cached or bundled version to compare against
-        guard cachedChecklist != nil || bundledChecklist != nil else { return }
+        // Exception: if language is not bundled but aircraft is bundled, we should still check for API updates
+        let hasLocalVersion = cachedChecklist != nil || bundledChecklist != nil
+        let isNewLanguageForBundledAircraft = isBundled && language != nil && !BundledChecklistService.isLanguageBundled(aircraftId: aircraftId, language: language!)
+
+        guard hasLocalVersion || isNewLanguageForBundledAircraft else { return }
 
         let cachedMetadata = loadCacheMetadata(aircraftId: cacheKey)
 
@@ -197,12 +211,15 @@ class AircraftDataService: ObservableObject {
             if let serverChecksum = serverVersion.checksum,
                let cachedChecksum = cachedMetadata?.checksum {
                 needsUpdate = serverChecksum != cachedChecksum
+            } else if currentVersion.isEmpty {
+                // No local version (new language from API) - always update
+                needsUpdate = true
             } else {
                 needsUpdate = serverVersion.version != currentVersion
             }
 
             if needsUpdate {
-                // For bundled aircraft, only update if server version is newer than bundled
+                // For bundled aircraft with bundled language, only update if server version is newer than bundled
                 if isBundled, let bundled = bundledChecklist {
                     if !BundledChecklistService.isNewer(serverVersion.version, than: bundled.version) &&
                        serverVersion.version != bundled.version {
@@ -243,9 +260,29 @@ class AircraftDataService: ObservableObject {
 
     /// Syncs bundled aircraft checklists with the server
     /// Call this on app launch to check for updates to bundled aircraft
+    /// Also checks for new language variants available from the API
     func syncBundledAircraft() async {
         for aircraftId in BundledChecklistService.bundledAircraftIds {
+            // Check default language
             await checkForUpdate(aircraftId: aircraftId)
+
+            // Check all bundled languages
+            for language in BundledChecklistService.availableLanguages(for: aircraftId) {
+                await checkForUpdate(aircraftId: aircraftId, language: language)
+            }
+
+            // Also check if API has new languages not in the bundle
+            // by checking the aircraft metadata for available languages
+            if let aircraft = availableAircraft.first(where: { $0.id == aircraftId }) {
+                let bundledLanguages = Set(BundledChecklistService.availableLanguages(for: aircraftId))
+                let apiLanguages = Set(aircraft.checklistLanguages)
+                let newLanguages = apiLanguages.subtracting(bundledLanguages)
+
+                for language in newLanguages {
+                    print("[AircraftDataService] Checking new API language '\(language)' for bundled aircraft \(aircraftId)")
+                    await checkForUpdate(aircraftId: aircraftId, language: language)
+                }
+            }
         }
     }
 
@@ -267,8 +304,17 @@ class AircraftDataService: ObservableObject {
 
         // Add bundled aircraft first
         for aircraftId in BundledChecklistService.bundledAircraftIds {
+            // Get available languages from bundled config
+            let bundledLanguages = BundledChecklistService.availableLanguages(for: aircraftId)
+
             // Check if we have a cached (possibly newer) version from API
             if let cachedChecklist = loadCachedChecklist(aircraftId: aircraftId) {
+                // Determine all available languages (bundled + any cached from API)
+                var allLanguages = Set(bundledLanguages)
+                if let aircraft = availableAircraft.first(where: { $0.id == aircraftId }) {
+                    allLanguages.formUnion(aircraft.checklistLanguages)
+                }
+
                 cached.append(CachedAircraftInfo(
                     registration: cachedChecklist.registration,
                     modelName: cachedChecklist.shortModelName,
@@ -276,7 +322,7 @@ class AircraftDataService: ObservableObject {
                     version: cachedChecklist.version,
                     lastUpdated: cachedChecklist.lastUpdated,
                     isPremium: false, // Bundled aircraft are always free
-                    checklistLanguages: ["en"] // TODO: Get from cached data if available
+                    checklistLanguages: Array(allLanguages).sorted()
                 ))
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId) {
                 // Use bundled version
@@ -287,7 +333,7 @@ class AircraftDataService: ObservableObject {
                     version: bundled.version,
                     lastUpdated: bundled.lastUpdated,
                     isPremium: false,
-                    checklistLanguages: ["en"]
+                    checklistLanguages: bundledLanguages
                 ))
             }
             processedIds.insert(aircraftId)

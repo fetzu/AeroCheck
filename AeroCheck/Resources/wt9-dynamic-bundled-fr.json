@@ -1,0 +1,890 @@
+{
+  "id": "wt9-dynamic",
+  "aircraftType": "WT9",
+  "registration": "F-HVXA",
+  "modelName": "Aerospool Dynamic WT9",
+  "shortModelName": "WT9",
+  "aeroclub": "Groupe de vol à moteur de Porrentruy",
+  "version": "2.1f",
+  "lastUpdated": "Mars 2025",
+  "isFree": true,
+  "stallSpeed": 42,
+  "pageCount": 4,
+  "crosswindLimits": {
+    "takeoff": "14 kt",
+    "landing": "16 kt"
+  },
+  "speeds": [
+    {
+      "name": "Vso",
+      "description": "volets F3",
+      "value": "33"
+    },
+    {
+      "name": "Vs",
+      "description": "stall lisse",
+      "value": "42"
+    },
+    {
+      "name": "Vr",
+      "description": "rotation",
+      "value": "40"
+    },
+    {
+      "name": "Vx",
+      "description": "meilleur angle",
+      "value": "55"
+    },
+    {
+      "name": "Vy",
+      "description": "meilleur taux",
+      "value": "70"
+    },
+    {
+      "name": "Vcc",
+      "description": "montée en croisière",
+      "value": "85"
+    },
+    {
+      "name": "Vfe",
+      "description": "sortie volets",
+      "value": "76"
+    },
+    {
+      "name": "VA",
+      "description": "600 kg – 410 kg",
+      "value": "97 – 75"
+    },
+    {
+      "name": "Vbg",
+      "description": "meilleur plané",
+      "value": "70"
+    },
+    {
+      "name": "Vapp",
+      "description": "approche initiale lisse",
+      "value": "70"
+    },
+    {
+      "name": "Vapp",
+      "description": "approche initiale F1",
+      "value": "65"
+    },
+    {
+      "name": "Vapp",
+      "description": "approche intermédiaire F2",
+      "value": "65"
+    },
+    {
+      "name": "Vfinal",
+      "description": "finale - gate F2-F3",
+      "value": "60 – 55"
+    }
+  ],
+  "targetSpeeds": {
+    "preflight": null,
+    "beforeEngineStart": null,
+    "engineStart": null,
+    "afterEngineStart": null,
+    "taxi": null,
+    "runup": null,
+    "beforeDeparture": null,
+    "lineUp": null,
+    "climb": 70,
+    "cruise": 85,
+    "descent": 70,
+    "approach": 70,
+    "landing": 60,
+    "afterLanding": null,
+    "shutdown": null,
+    "hangar": null
+  },
+  "learningModeVisibleCount": {
+    "preflight": null,
+    "beforeEngineStart": null,
+    "engineStart": 2,
+    "afterEngineStart": 0,
+    "taxi": 0,
+    "runup": 3,
+    "beforeDeparture": null,
+    "lineUp": 0,
+    "climb": 0,
+    "cruise": null,
+    "descent": 0,
+    "approach": 0,
+    "landing": 0,
+    "afterLanding": 0,
+    "shutdown": null,
+    "hangar": null
+  },
+  "phases": {
+    "preflight": {
+      "title": "CONTRÔLE PRÉ-VOL",
+      "pageNumber": 1,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Inspection avion",
+          "response": "Effectuée",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Documents avion",
+          "response": "Contrôlés",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Carnet de route",
+          "response": "Contrôlé",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Barre de traction",
+          "response": "Removed",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Cabine",
+          "response": "Contrôlée",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Masse et centrage",
+          "response": "Dans les limites",
+          "isHeader": false
+        }
+      ]
+    },
+    "beforeEngineStart": {
+      "title": "CONTRÔLE AVANT MISE EN MARCHE",
+      "pageNumber": 1,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Ceintures & harnais",
+          "response": "Ajustées et verrouillées",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Frein de parc",
+          "response": "Park",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Palonnier",
+          "response": "Réglé",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Consommateurs électriques",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Disjoncteurs",
+          "response": "Tous ON",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Interrupteur général",
+          "response": "ON",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Dynon LHD1000 and RHD1000",
+          "response": "Les deux ON",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Clé démarreur",
+          "response": "Charge",
+          "isHeader": false
+        },
+        {
+          "number": 9,
+          "challenge": "Panneau alarmes & stick shaker",
+          "response": "Contrôlés",
+          "isHeader": false
+        },
+        {
+          "number": 10,
+          "challenge": "Quantité carburant",
+          "response": "G + D, autonomie avec 20 l/h, totaliseur réglé",
+          "isHeader": false
+        },
+        {
+          "number": 11,
+          "challenge": "Sélecteur carburant",
+          "response": "Gauche",
+          "isHeader": false
+        },
+        {
+          "number": 12,
+          "challenge": "Pompe carburant auxiliaire",
+          "response": "ON… 0,2bar… puis OFF",
+          "isHeader": false
+        }
+      ]
+    },
+    "engineStart": {
+      "title": "MISE EN MARCHE",
+      "pageNumber": 1,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "NAV - ACL",
+          "response": "ON",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Chauffage carburateur",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Moteur est chaud",
+          "response": "Puissance : tourner 1/4 ouvert, Choke OFF",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Moteur est froid",
+          "response": "Puissance : ralenti, Choke ON",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Zone d'hélice",
+          "response": "Libre",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Magnétos",
+          "response": "Les deux ON",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Clé démarreur",
+          "response": "Start, maximum 10 secondes",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Lorsque le moteur démarre",
+          "response": "Choke OFF et ajout Puissance",
+          "isHeader": false
+        },
+        {
+          "number": 9,
+          "challenge": "Throttle",
+          "response": "2000 RPM, temps mémorisé",
+          "isHeader": false
+        },
+        {
+          "number": 10,
+          "challenge": "Pression huile",
+          "response": "Blanc (2 bars minimum) en max 10 secondes",
+          "isHeader": false
+        },
+        {
+          "number": 11,
+          "challenge": "Puissance",
+          "response": "2500 RPM après 2 minutes si moteur froid",
+          "isHeader": false
+        }
+      ]
+    },
+    "afterEngineStart": {
+      "title": "CONTRÔLE APRÈS MISE EN MARCHE",
+      "pageNumber": 2,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Charge alternateur",
+          "response": "Contrôlée",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Panneau alarmes",
+          "response": "Éteint (sauf OT croissante)",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Avionique",
+          "response": "ON (contrôle ATIS)",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Ventilation, chauffage",
+          "response": "Chauffage ON/OFF Ventilation ON/OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Instruments moteur",
+          "response": "Contrôlé, sauf température huile jaune",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Avionique",
+          "response": "Réglée (selon proc)",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Instruments de vol",
+          "response": "Réglés (selon proc)",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Température huile",
+          "response": "En montée, pas de roulage avant 30°C",
+          "isHeader": false
+        }
+      ]
+    },
+    "taxi": {
+      "title": "CONTRÔLE DE ROULAGE",
+      "pageNumber": 2,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Freins & palonnier",
+          "response": "Contrôlés",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Instruments de vol",
+          "response": "Contrôlés",
+          "isHeader": false
+        }
+      ]
+    },
+    "runup": {
+      "title": "CONTRÔLE MOTEUR",
+      "pageNumber": 2,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Frein de parc",
+          "response": "Max",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Préchauffe moteur",
+          "response": "Température huile minimum 50°C",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Zone arrière avion",
+          "response": "Libre",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Puissance",
+          "response": "4000 RPM",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Instruments moteur & charge",
+          "response": "Contrôlés",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Magnetos L, R",
+          "response": "Chute max 300, différence max 115",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Chauffage carburateur",
+          "response": "Fonction contrôlée",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Puissance ralenti",
+          "response": "Contrôlé max 1800 RPM",
+          "isHeader": false
+        },
+        {
+          "number": 9,
+          "challenge": "Puissance",
+          "response": "2500 RPM (refroidissement)",
+          "isHeader": false
+        },
+        {
+          "number": 10,
+          "challenge": "Panneau alarmes",
+          "response": "Éteint",
+          "isHeader": false
+        }
+      ]
+    },
+    "beforeDeparture": {
+      "title": "CONTRÔLE AVANT DÉPART",
+      "pageNumber": 2,
+      "items": [
+        {
+          "number": null,
+          "challenge": "Briefing de départ",
+          "response": "(piste / route / altitude / vr, vx, vy, vbg / urgence / parachute)",
+          "isHeader": true
+        },
+        {
+          "number": 1,
+          "challenge": "Quantité carburant",
+          "response": "G + D, autonomie HH:MM (avec 20l/h)",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Sélecteur carburant",
+          "response": "Gauche",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Chauffage carburateur",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Choke",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Magnétos",
+          "response": "Les deux ON",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Trim",
+          "response": "Position décollage",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Volets",
+          "response": "Position décollage (flaps 1)",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Instruments de vol & avionique",
+          "response": "Pas de flag, pas de changement, Réglés pr départ",
+          "isHeader": false
+        },
+        {
+          "number": 9,
+          "challenge": "Cabin & Passagers",
+          "response": "Sécurisés",
+          "isHeader": false
+        },
+        {
+          "number": 10,
+          "challenge": "Verrière",
+          "response": "Fermée et verrouillée",
+          "isHeader": false
+        },
+        {
+          "number": 11,
+          "challenge": "Parachute",
+          "response": "Goupille de sécurité enlevée",
+          "isHeader": false
+        },
+        {
+          "number": 12,
+          "challenge": "Commandes de vol",
+          "response": "Libres et conformes",
+          "isHeader": false
+        },
+        {
+          "number": 13,
+          "challenge": "Briefing de départ",
+          "response": "Effectué",
+          "isHeader": false
+        }
+      ]
+    },
+    "lineUp": {
+      "title": "CONTRÔLE D'ALIGNEMENT",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Verrière & Fenêtre",
+          "response": "Fermée et verrouillées",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Heure",
+          "response": "Notée",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Secteur d'approche & Piste",
+          "response": "Libres",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Pompe carburant auxiliaire",
+          "response": "ON",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Phare d'atterrissage",
+          "response": "ON",
+          "isHeader": false
+        }
+      ]
+    },
+    "climb": {
+      "title": "CONTRÔLE DE MONTÉE",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Volets",
+          "response": "Rentrés",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Puissance de montée",
+          "response": "Établie",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Pompe carburant auxiliaire",
+          "response": "OFF, Pression contrôlée",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Phare d'atterrissage",
+          "response": "ON / OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Paramètres moteur",
+          "response": "Contrôlés",
+          "isHeader": false
+        }
+      ]
+    },
+    "cruise": {
+      "title": "CONTRÔLE DE CROISIÈRE",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Altimètre",
+          "response": "Contrôlé (STD / QNH)",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Puissance de croisière",
+          "response": "4800 RPM établie",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Instruments moteur",
+          "response": "Contrôlés, Pression & Temp huile, temp culasse",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Quantité carburant",
+          "response": "G + D, autonomie HH:MM avec 20 l/h",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Sélecteur carburant",
+          "response": "Selon besoin",
+          "isHeader": false
+        }
+      ]
+    },
+    "descent": {
+      "title": "CONTRÔLE DE DESCENTE",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": null,
+          "challenge": "Briefing d'approche",
+          "response": "(piste / route / altitude / options / alternate)",
+          "isHeader": true
+        },
+        {
+          "number": 1,
+          "challenge": "ATIS ou AD Information",
+          "response": "Notée",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Briefing d'approche",
+          "response": "Effectué",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Avionique",
+          "response": "Avionique & HDG bug réglé & contrôlé",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Disjoncteurs",
+          "response": "Tous ON",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Cabin & Passagers",
+          "response": "Sécurisés",
+          "isHeader": false
+        }
+      ]
+    },
+    "approach": {
+      "title": "CONTRÔLE D'APPROCHE",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Altimètre",
+          "response": "QNH établi XXXX",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Quantité carburant",
+          "response": "G + D, autonomie HH:MM avec 20 l/h",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Sélecteur carburant",
+          "response": "Gauche",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Pompe carburant auxiliaire",
+          "response": "ON",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Chauffage carburateur",
+          "response": "ON",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Phare d'atterrissage",
+          "response": "ON",
+          "isHeader": false
+        }
+      ]
+    },
+    "landing": {
+      "title": "CONTRÔLE D'ATTERRISSAGE",
+      "pageNumber": 3,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Volets",
+          "response": "Vitesse inférieure à 76, Volets 2 ou 3",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Chauffage carburateur",
+          "response": "OFF",
+          "isHeader": false
+        }
+      ]
+    },
+    "afterLanding": {
+      "title": "CONTRÔLE APRÈS L'ATTERRISSAGE",
+      "pageNumber": 4,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Transpondeur",
+          "response": "Standby",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Phare d'atterrissage",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Volets",
+          "response": "Rentrés",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Pompe carburant auxiliaire",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Heure",
+          "response": "Notée",
+          "isHeader": false
+        }
+      ]
+    },
+    "shutdown": {
+      "title": "CONTRÔLE ARRÊT MOTEUR ET PARKING",
+      "pageNumber": 4,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Frein de parc",
+          "response": "Park",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Puissance",
+          "response": "Ralenti",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "121.5",
+          "response": "Contrôlé",
+          "isHeader": false
+        },
+        {
+          "number": 4,
+          "challenge": "Interrupteur avionique",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 5,
+          "challenge": "Consommateurs électriques",
+          "response": "Tous OFF, sauf NAV-ACL",
+          "isHeader": false
+        },
+        {
+          "number": 6,
+          "challenge": "Magnétos",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 7,
+          "challenge": "Nav ACL",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 8,
+          "challenge": "Clé démarreur",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 9,
+          "challenge": "Interrupteur général",
+          "response": "OFF",
+          "isHeader": false
+        },
+        {
+          "number": 10,
+          "challenge": "Parachute",
+          "response": "Sécurisé",
+          "isHeader": false
+        },
+        {
+          "number": 11,
+          "challenge": "Données de vol & documents",
+          "response": "Notées & remplies",
+          "isHeader": false
+        },
+        {
+          "number": 12,
+          "challenge": "Avion",
+          "response": "À hangarer et sécuriser",
+          "isHeader": false
+        }
+      ]
+    },
+    "hangar": {
+      "title": "AU HANGAR",
+      "pageNumber": 4,
+      "items": [
+        {
+          "number": 1,
+          "challenge": "Frein de parc",
+          "response": "Libéré",
+          "isHeader": false
+        },
+        {
+          "number": 2,
+          "challenge": "Volets",
+          "response": "F3",
+          "isHeader": false
+        },
+        {
+          "number": 3,
+          "challenge": "Alimentation électrique extérieure",
+          "response": "Si OAT < 5 °C",
+          "isHeader": false
+        }
+      ]
+    }
+  }
+}

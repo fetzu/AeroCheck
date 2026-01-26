@@ -268,20 +268,45 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Load remote aircraft checklist if one is selected
-    /// Call this before starting a flight with a remote aircraft
+    /// Load the appropriate checklist for the selected aircraft and language
+    /// Call this before starting a flight
     func loadRemoteChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
-        guard let remoteId = settings.selectedRemoteAircraftId else {
-            ChecklistData.currentRemoteChecklist = nil
+        let language = settings.checklistLanguage.resolvedLanguage
+
+        // Handle remote (premium) aircraft
+        if let remoteId = settings.selectedRemoteAircraftId {
+            if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
+                ChecklistData.currentRemoteChecklist = checklist
+                print("[AéroCheck] Loaded remote checklist for \(remoteId) (\(language))")
+            } else {
+                print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
+                ChecklistData.currentRemoteChecklist = nil
+            }
             return
         }
 
-        // Load the checklist from the data service
-        if let checklist = await aircraftDataService.fetchChecklist(for: remoteId) {
-            ChecklistData.currentRemoteChecklist = checklist
-            print("[AéroCheck] Loaded remote checklist for \(remoteId)")
+        // Handle bundled aircraft with language-specific checklists
+        // For bundled aircraft like the WT9, load the language-specific JSON
+        // into currentRemoteChecklist so ChecklistData uses it instead of
+        // the hardcoded WT9ChecklistData
+        let aircraftType = settings.selectedAircraft
+        if aircraftType == .wt9Dynamic {
+            let bundledId = "wt9-dynamic"
+
+            // First try to get a cached/API version for this language
+            if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
+                ChecklistData.currentRemoteChecklist = checklist
+                print("[AéroCheck] Loaded checklist for bundled aircraft \(bundledId) (\(language))")
+            } else if let bundled = BundledChecklistService.loadBundledChecklist(for: bundledId, language: language) {
+                // Fall back to bundled resource
+                ChecklistData.currentRemoteChecklist = bundled
+                print("[AéroCheck] Loaded bundled checklist for \(bundledId) (\(language))")
+            } else {
+                // No language-specific checklist available, use hardcoded default
+                ChecklistData.currentRemoteChecklist = nil
+                print("[AéroCheck] Using default checklist for \(bundledId)")
+            }
         } else {
-            print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
             ChecklistData.currentRemoteChecklist = nil
         }
     }

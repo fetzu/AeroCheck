@@ -826,7 +826,7 @@ enum ChecklistLanguage: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     /// Languages for which at least one checklist is currently available
-    /// Currently only English and French checklists exist (WT9 is English-only, PA-28-181 has English and French)
+    /// Currently English and French checklists exist (both WT9 and PA-28-181 have English and French)
     static var availableLanguages: [ChecklistLanguage] {
         return [.auto, .en, .fr]
     }

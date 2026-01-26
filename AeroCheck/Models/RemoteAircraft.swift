@@ -40,7 +40,7 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
         case "pa28-181":
             return ["en", "fr"]  // PA-28-181 HB-PFA has English and French
         case "wt9-dynamic":
-            return ["en"]  // WT9 Dynamic F-HVXA is English-only
+            return ["en", "fr"]  // WT9 Dynamic F-HVXA has English and French
         default:
             return ["en"]  // Default to English for unknown aircraft
         }

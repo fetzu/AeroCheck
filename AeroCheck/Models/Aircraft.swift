@@ -46,7 +46,7 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     /// Available checklist languages
     var checklistLanguages: [String] {
         switch self {
-        case .wt9Dynamic: return ["en"]
+        case .wt9Dynamic: return BundledChecklistService.availableLanguages(for: "wt9-dynamic")
         }
     }
 

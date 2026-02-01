@@ -151,6 +151,17 @@ permalink: /aircraft/
     font-size: 13px;
 }
 
+.aircraft-version a {
+    color: #D4AF37;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.aircraft-version a:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
 .aircraft-updated {
     font-size: 13px;
     color: #888;
@@ -451,7 +462,7 @@ function renderAircraft(aircraft) {
                     <td class="aircraft-type">${a.aircraftType}</td>
                     <td class="aircraft-registration">${a.registration}</td>
                     <td class="aircraft-model">${a.modelName}</td>
-                    <td class="aircraft-version">${a.version}</td>
+                    <td class="aircraft-version"><a href="/aircraft/versions/?id=${a.id}" title="View version history">${a.version}</a></td>
                     <td class="aircraft-updated">${a.lastUpdated}</td>
                     <td><div class="language-flags">${languages}</div></td>
                     <td>${badge}</td>

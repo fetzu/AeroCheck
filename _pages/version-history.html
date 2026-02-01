@@ -1,0 +1,336 @@
+---
+layout: page
+title: Version History
+permalink: /aircraft/versions/
+---
+
+<style>
+.version-history-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #D4AF37;
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 24px;
+    transition: color 0.2s ease;
+}
+
+.back-link:hover {
+    color: #fff;
+}
+
+.back-link svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.aircraft-header {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+.aircraft-header h2 {
+    margin: 0 0 8px 0;
+    color: #fff;
+    font-size: 24px;
+}
+
+.aircraft-header .registration {
+    font-family: monospace;
+    font-weight: 700;
+    color: #D4AF37;
+    font-size: 18px;
+}
+
+.aircraft-header .current-version {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #888;
+}
+
+.aircraft-header .current-version span {
+    color: #D4AF37;
+    font-family: monospace;
+}
+
+.version-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.version-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px 24px;
+    transition: all 0.2s ease;
+}
+
+.version-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(212, 175, 55, 0.3);
+}
+
+.version-card.current {
+    border-color: rgba(212, 175, 55, 0.5);
+    background: rgba(212, 175, 55, 0.05);
+}
+
+.version-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.version-number {
+    font-family: monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.current-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #D4AF37, #B8860B);
+    color: #000;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.version-date {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.version-languages {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.language-flag {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    font-size: 14px;
+}
+
+.version-changelog {
+    font-size: 14px;
+    color: #ccc;
+    line-height: 1.5;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-state {
+    text-align: center;
+    padding: 48px;
+    color: #888;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #D4AF37;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.error-state {
+    text-align: center;
+    padding: 48px;
+    color: #f44336;
+}
+
+.no-history {
+    text-align: center;
+    padding: 48px;
+    color: #888;
+}
+
+@media (max-width: 768px) {
+    .version-card-header {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+</style>
+
+<div class="version-history-container">
+    <a href="/aircraft/" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        Back to Aircraft List
+    </a>
+
+    <div id="version-content">
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading version history...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE_URL = 'https://api.aerocheck.app';
+
+// Language code to flag emoji mapping
+function languageToFlag(code) {
+    const flags = {
+        'en': '🇬🇧',
+        'fr': '🇫🇷',
+        'de': '🇩🇪',
+        'it': '🇮🇹'
+    };
+    return flags[code] || '🏳️';
+}
+
+// Format date for display
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+// Get aircraft ID from URL query parameter
+function getAircraftId() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id');
+}
+
+// Fetch version history from API
+async function fetchVersionHistory(aircraftId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v3/aircraft/${aircraftId}/history`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('Aircraft not found');
+            }
+            throw new Error('Failed to fetch version history');
+        }
+        const data = await response.json();
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching version history:', error);
+        throw error;
+    }
+}
+
+// Render version history
+function renderVersionHistory(history) {
+    const container = document.getElementById('version-content');
+
+    const languagesHtml = (languages) => {
+        return languages.map(lang =>
+            `<span class="language-flag" title="${lang.toUpperCase()}">${languageToFlag(lang)}</span>`
+        ).join('');
+    };
+
+    let html = `
+        <div class="aircraft-header">
+            <h2>${history.modelName}</h2>
+            <div class="registration">${history.registration}</div>
+            <div class="current-version">Current version: <span>${history.currentVersion}</span></div>
+        </div>
+
+        <h3>Version History</h3>
+
+        <div class="version-list">
+    `;
+
+    if (history.versions.length === 0) {
+        html += '<div class="no-history"><p>No version history available for this aircraft.</p></div>';
+    } else {
+        history.versions.forEach(version => {
+            const currentClass = version.isCurrent ? ' current' : '';
+            const currentBadge = version.isCurrent ? '<span class="current-badge">Current</span>' : '';
+
+            html += `
+                <div class="version-card${currentClass}">
+                    <div class="version-card-header">
+                        <span class="version-number">v${version.version}</span>
+                        ${currentBadge}
+                    </div>
+                    <div class="version-date">${formatDate(version.releaseDate)}</div>
+                    <div class="version-languages">${languagesHtml(version.languages)}</div>
+                    ${version.changelog ? `<div class="version-changelog">${version.changelog}</div>` : ''}
+                </div>
+            `;
+        });
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Show error state
+function showError(message) {
+    const container = document.getElementById('version-content');
+    container.innerHTML = `
+        <div class="error-state">
+            <p>${message}</p>
+            <p style="margin-top: 16px;">
+                <a href="/aircraft/" class="back-link" style="display: inline-flex;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                    Return to Aircraft List
+                </a>
+            </p>
+        </div>
+    `;
+}
+
+// Initialize
+async function init() {
+    const aircraftId = getAircraftId();
+
+    if (!aircraftId) {
+        showError('No aircraft specified. Please select an aircraft from the aircraft list.');
+        return;
+    }
+
+    try {
+        const history = await fetchVersionHistory(aircraftId);
+        renderVersionHistory(history);
+    } catch (error) {
+        showError(`Failed to load version history: ${error.message}`);
+    }
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+</script>

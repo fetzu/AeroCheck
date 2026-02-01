@@ -1,7 +1,8 @@
 ---
 layout: page
-title: Version History
-permalink: /aircraft/versions/
+title: Historique des versions
+lang: fr
+permalink: /fr/aircraft/versions/
 ---
 
 <style>
@@ -190,15 +191,15 @@ permalink: /aircraft/versions/
 </style>
 
 <div class="version-history-container">
-    <a href="/aircraft/" class="back-link">
+    <a href="/fr/aircraft/" class="back-link">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        Back to Aircraft List
+        Retour a la liste des avions
     </a>
 
     <div id="version-content">
         <div class="loading-state">
             <div class="loading-spinner"></div>
-            <p>Loading version history...</p>
+            <p>Chargement de l'historique...</p>
         </div>
     </div>
 </div>
@@ -220,7 +221,7 @@ function languageToFlag(code) {
 // Format date for display
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -239,9 +240,9 @@ async function fetchVersionHistory(aircraftId) {
         const response = await fetch(`${API_BASE_URL}/api/v3/aircraft/${aircraftId}/history`);
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Aircraft not found');
+                throw new Error('Avion non trouve');
             }
-            throw new Error('Failed to fetch version history');
+            throw new Error('Erreur lors du chargement');
         }
         const data = await response.json();
         return data.data;
@@ -265,20 +266,20 @@ function renderVersionHistory(history) {
         <div class="aircraft-header">
             <h2>${history.modelName}</h2>
             <div class="registration">${history.registration}</div>
-            <div class="current-version">Current version: <span>${history.currentVersion}</span></div>
+            <div class="current-version">Version actuelle : <span>${history.currentVersion}</span></div>
         </div>
 
-        <h3>Version History</h3>
+        <h3>Historique des versions</h3>
 
         <div class="version-list">
     `;
 
     if (history.versions.length === 0) {
-        html += '<div class="no-history"><p>No version history available for this aircraft.</p></div>';
+        html += '<div class="no-history"><p>Aucun historique disponible pour cet avion.</p></div>';
     } else {
         history.versions.forEach(version => {
             const currentClass = version.isCurrent ? ' current' : '';
-            const currentBadge = version.isCurrent ? '<span class="current-badge">Current</span>' : '';
+            const currentBadge = version.isCurrent ? '<span class="current-badge">Actuelle</span>' : '';
 
             html += `
                 <div class="version-card${currentClass}">
@@ -305,9 +306,9 @@ function showError(message) {
         <div class="error-state">
             <p>${message}</p>
             <p style="margin-top: 16px;">
-                <a href="/aircraft/" class="back-link" style="display: inline-flex;">
+                <a href="/fr/aircraft/" class="back-link" style="display: inline-flex;">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                    Return to Aircraft List
+                    Retour a la liste des avions
                 </a>
             </p>
         </div>
@@ -319,7 +320,7 @@ async function init() {
     const aircraftId = getAircraftId();
 
     if (!aircraftId) {
-        showError('No aircraft specified. Please select an aircraft from the aircraft list.');
+        showError('Aucun avion specifie. Veuillez selectionner un avion dans la liste.');
         return;
     }
 
@@ -327,7 +328,7 @@ async function init() {
         const history = await fetchVersionHistory(aircraftId);
         renderVersionHistory(history);
     } catch (error) {
-        showError(`Failed to load version history: ${error.message}`);
+        showError(`Erreur de chargement : ${error.message}`);
     }
 }
 

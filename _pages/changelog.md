@@ -2,7 +2,6 @@
 layout: page
 title: Releases
 include_in_header: true
-english_only: true
 ---
 
 # Release History
@@ -12,6 +11,51 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.1.0** - Multilingual Checklists
+*Released February 02, 2026*
+
+### What's New
+
+#### Multilingual Checklist Support
+Access checklists in multiple languages:
+
+- **French WT9 Checklist**: Now available alongside the English version
+- **Bundled Checklists**: WT9 Dynamic checklists (English and French) are now bundled directly in the app for instant availability
+- **Language Selection**: Choose your preferred checklist language for supported aircraft
+- **Offline First**: Bundled checklists work immediately without requiring a download
+
+#### Flying Club Organization
+Better aircraft organization:
+
+- **Aeroclub Sorting**: Aircraft are now organized and sorted by flying club
+- **Club Identification**: See which aeroclub each aircraft belongs to at a glance
+
+#### Enhanced Reliability
+Improved startup and data handling:
+
+- **API v3 Upgrade**: Updated to use the latest API version with better error handling
+- **Startup Resilience**: App now handles temporary network issues gracefully during startup
+- **Version Checking**: Bundled checklists are automatically checked for updates against the server
+
+#### Bug Fixes
+- **Flight Log**: Flight names now display aircraft registration (e.g., \"HB-PFA\") instead of internal IDs
+- **Checklist Selection**: Fixed issue preventing French WT9 checklist from being properly selected and used
+
+---
+
+This release focuses on making AeroCheck more accessible with multilingual support and improving the overall user experience with better organization and reliability.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.0.0...3.1.0
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.1.0)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.0.0** - Premium Takes Flight
 *Released January 24, 2026*
 
@@ -66,12 +110,7 @@ This is a major release featuring our new premium subscription model, Apple Watc
 
 <br>
 
-________
-
-<br>
-
-### `Initial Release`
-# **Version 2.7.0** - Navigate and Communicate
+## **Version 2.7.0** - Navigate and Communicate
 *Released January 01, 2026*
 
 ### What's New

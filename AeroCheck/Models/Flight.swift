@@ -10,7 +10,8 @@ let currentExportFormatVersion = 2
 struct Flight: Identifiable, Codable {
     let id: UUID
     var name: String // Custom flight name
-    var airplane: String
+    var airplane: String // Aircraft ID (e.g., "pa28-181", "wt9-dynamic")
+    var aircraftRegistration: String? // Aircraft tail number (e.g., "HB-PFA", "F-HVXA")
     var aircraftType: String? // Aircraft type identifier (e.g., "WT9", "PA28")
     var checklistVersion: String? // Checklist version used (e.g., "2.1e")
     var flightPlanId: UUID? // Associated flight plan ID (if using navigation planning)
@@ -33,7 +34,7 @@ struct Flight: Identifiable, Codable {
     // MARK: - Coding Keys
 
     enum CodingKeys: String, CodingKey {
-        case id, name, airplane, aircraftType, checklistVersion
+        case id, name, airplane, aircraftRegistration, aircraftType, checklistVersion
         case flightPlanId, flightPlan
         case startTime, stopTime, engineStartTime, lineUpTime, landingTime, engineShutdownTime
         case gpsTrack, notes
@@ -49,6 +50,7 @@ struct Flight: Identifiable, Codable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         airplane = try container.decode(String.self, forKey: .airplane)
+        aircraftRegistration = try container.decodeIfPresent(String.self, forKey: .aircraftRegistration)
         aircraftType = try container.decodeIfPresent(String.self, forKey: .aircraftType)
         checklistVersion = try container.decodeIfPresent(String.self, forKey: .checklistVersion)
 
@@ -80,7 +82,8 @@ struct Flight: Identifiable, Codable {
     init(
         id: UUID = UUID(),
         name: String = "",
-        airplane: String = "F-HVXA",
+        airplane: String = "wt9-dynamic",
+        aircraftRegistration: String? = nil,
         aircraftType: String? = nil,
         checklistVersion: String? = nil,
         flightPlanId: UUID? = nil,
@@ -103,6 +106,7 @@ struct Flight: Identifiable, Codable {
         self.id = id
         self.name = name
         self.airplane = airplane
+        self.aircraftRegistration = aircraftRegistration
         self.aircraftType = aircraftType
         self.checklistVersion = checklistVersion
         self.flightPlanId = flightPlanId
@@ -133,12 +137,14 @@ struct Flight: Identifiable, Codable {
         return touchAndGoCount + fullStopCount
     }
     
-    /// Display name: "Custom Name (Airplane)" or just "Airplane" if no name
+    /// Display name: "Custom Name (Registration)" or just "Registration" if no name
+    /// Falls back to airplane ID if registration is not available (for backwards compatibility)
     var displayName: String {
+        let displayIdentifier = aircraftRegistration ?? airplane
         if name.isEmpty {
-            return airplane
+            return displayIdentifier
         }
-        return "\(name) (\(airplane))"
+        return "\(name) (\(displayIdentifier))"
     }
     
     /// Flight duration from engine start to engine shutdown

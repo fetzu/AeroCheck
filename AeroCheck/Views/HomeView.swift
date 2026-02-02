@@ -546,7 +546,7 @@ struct HomeView: View {
 
             // Pass the active flight plan ID to the flight if one is active
             let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
-            appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: activeFlightPlanId, circuitMode: false)
+            appState.startFlight(withAircraft: appState.settings.defaultAirplane, aircraftRegistration: selectedAircraft?.registration, flightPlanId: activeFlightPlanId, circuitMode: false)
             locationManager.startTracking(
                 appState: appState,
                 interval: appState.settings.gpsRecordingInterval
@@ -560,7 +560,7 @@ struct HomeView: View {
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
             // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
-            appState.startFlight(withAircraft: appState.settings.defaultAirplane, flightPlanId: nil, circuitMode: true)
+            appState.startFlight(withAircraft: appState.settings.defaultAirplane, aircraftRegistration: selectedAircraft?.registration, flightPlanId: nil, circuitMode: true)
             locationManager.startTracking(
                 appState: appState,
                 interval: appState.settings.gpsRecordingInterval

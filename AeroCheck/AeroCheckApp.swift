@@ -101,9 +101,18 @@ struct AeroCheckApp: App {
             // Parse aircraft from query parameters
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let aircraft = components.queryItems?.first(where: { $0.name == "aircraft" })?.value {
+                // Look up aircraft registration from available aircraft
+                let registration: String?
+                if let remoteAircraft = aircraftDataService.availableAircraft.first(where: { $0.id == aircraft }) {
+                    registration = remoteAircraft.registration
+                } else if aircraft == "wt9-dynamic" || aircraft == "WT9" {
+                    registration = AircraftType.wt9Dynamic.registration
+                } else {
+                    registration = nil
+                }
                 // Pass active flight plan ID if one exists
                 let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
-                appState.startFlight(withAircraft: aircraft, flightPlanId: activeFlightPlanId)
+                appState.startFlight(withAircraft: aircraft, aircraftRegistration: registration, flightPlanId: activeFlightPlanId)
             }
         case "flight-log":
             appState.showFlightLog = true

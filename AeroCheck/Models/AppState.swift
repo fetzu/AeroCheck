@@ -314,15 +314,22 @@ class AppState: ObservableObject {
     // MARK: - Flight Management
 
     func startFlight() {
-        startFlight(withAircraft: settings.defaultAirplane, aircraftRegistration: settings.selectedAircraft.registration, flightPlanId: nil, circuitMode: false)
+        startFlight(
+            withAircraft: settings.defaultAirplane,
+            aircraftRegistration: settings.selectedAircraft.registration,
+            aircraftType: settings.selectedAircraft.rawValue,
+            checklistVersion: settings.selectedAircraft.checklistVersion,
+            flightPlanId: nil,
+            circuitMode: false
+        )
     }
 
-    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
+    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
         currentFlight = Flight(
             airplane: aircraft,
             aircraftRegistration: aircraftRegistration,
-            aircraftType: settings.selectedAircraft.rawValue,
-            checklistVersion: settings.selectedAircraft.checklistVersion,
+            aircraftType: aircraftType,
+            checklistVersion: checklistVersion,
             flightPlanId: flightPlanId,
             startTime: Date()
         )

@@ -41,6 +41,16 @@ enum AircraftOption: Identifiable, Hashable {
         }
     }
 
+    /// Aircraft type identifier (e.g., "WT9", "PA28")
+    var aircraftType: String {
+        switch self {
+        case .bundled(let aircraft):
+            return aircraft.rawValue
+        case .remote(let metadata):
+            return metadata.aircraftType
+        }
+    }
+
     var isFree: Bool {
         switch self {
         case .bundled:
@@ -546,7 +556,14 @@ struct HomeView: View {
 
             // Pass the active flight plan ID to the flight if one is active
             let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
-            appState.startFlight(withAircraft: appState.settings.defaultAirplane, aircraftRegistration: selectedAircraft?.registration, flightPlanId: activeFlightPlanId, circuitMode: false)
+            appState.startFlight(
+                withAircraft: appState.settings.defaultAirplane,
+                aircraftRegistration: selectedAircraft?.registration,
+                aircraftType: selectedAircraft?.aircraftType,
+                checklistVersion: selectedAircraft?.version,
+                flightPlanId: activeFlightPlanId,
+                circuitMode: false
+            )
             locationManager.startTracking(
                 appState: appState,
                 interval: appState.settings.gpsRecordingInterval
@@ -560,7 +577,14 @@ struct HomeView: View {
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
             // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
-            appState.startFlight(withAircraft: appState.settings.defaultAirplane, aircraftRegistration: selectedAircraft?.registration, flightPlanId: nil, circuitMode: true)
+            appState.startFlight(
+                withAircraft: appState.settings.defaultAirplane,
+                aircraftRegistration: selectedAircraft?.registration,
+                aircraftType: selectedAircraft?.aircraftType,
+                checklistVersion: selectedAircraft?.version,
+                flightPlanId: nil,
+                circuitMode: true
+            )
             locationManager.startTracking(
                 appState: appState,
                 interval: appState.settings.gpsRecordingInterval

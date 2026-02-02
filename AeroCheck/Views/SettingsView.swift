@@ -115,6 +115,7 @@ struct SettingsView: View {
             Group {
                 subscriptionSection
                 aircraftSection
+                aircraftVisibilitySection
                 gpsSection
                 experimentalAirspeedSection
             }
@@ -322,6 +323,181 @@ struct SettingsView: View {
                 isSyncingAircraftData = false
             }
         }
+    }
+
+    // MARK: - Aircraft Visibility Section
+
+    /// All aeroclubs with at least one aircraft the user has access to
+    private var availableAeroclubs: [(aeroclub: String, aircraft: [RemoteAircraftMetadata])] {
+        let accessibleAircraft = aircraftDataService.availableAircraft.filter { $0.hasAccess && !$0.isBundled }
+        let grouped = Dictionary(grouping: accessibleAircraft) { $0.aeroclub ?? "" }
+        return grouped
+            .filter { !$0.key.isEmpty } // Only groups with an aeroclub name
+            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
+            .sorted { $0.aeroclub < $1.aeroclub }
+    }
+
+    private var aircraftVisibilitySection: some View {
+        Section {
+            // Only show if user has accessible aircraft with aeroclubs
+            if availableAeroclubs.isEmpty {
+                Text(L10n.Settings.noAircraftToFilter)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                // Show All / Hide All buttons
+                HStack(spacing: 12) {
+                    Button(action: showAllAircraft) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye")
+                                .font(.caption)
+                            Text(L10n.Settings.showAll)
+                                .font(.caption)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.aviationGreen.opacity(0.2))
+                        .foregroundColor(.aviationGreen)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: hideAllAircraft) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.slash")
+                                .font(.caption)
+                            Text(L10n.Settings.hideAll)
+                                .font(.caption)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.aviationRed.opacity(0.2))
+                        .foregroundColor(.aviationRed)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.vertical, 4)
+
+                // Expandable aeroclub sections
+                ForEach(availableAeroclubs, id: \.aeroclub) { group in
+                    DisclosureGroup {
+                        // Individual aircraft toggles
+                        ForEach(group.aircraft) { aircraft in
+                            aircraftVisibilityToggle(for: aircraft)
+                        }
+                    } label: {
+                        aeroclubVisibilityHeader(for: group.aeroclub, aircraftCount: group.aircraft.count)
+                    }
+                }
+            }
+        } header: {
+            Label(L10n.Settings.aircraftVisibility, systemImage: "eye.circle")
+        } footer: {
+            Text(L10n.Settings.aircraftVisibilityFooter)
+        }
+    }
+
+    private func aeroclubVisibilityHeader(for aeroclub: String, aircraftCount: Int) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "building.2")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(aeroclub)
+                        .font(.body)
+                }
+
+                let visibleCount = visibleAircraftCount(in: aeroclub)
+                Text(L10n.Settings.aircraftVisible(visibleCount, aircraftCount))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            // Toggle for entire aeroclub
+            Toggle("", isOn: Binding(
+                get: { !appState.settings.hiddenAeroclubs.contains(aeroclub) },
+                set: { isVisible in
+                    if isVisible {
+                        appState.settings.hiddenAeroclubs.remove(aeroclub)
+                    } else {
+                        appState.settings.hiddenAeroclubs.insert(aeroclub)
+                    }
+                    saveSettings()
+                }
+            ))
+            .labelsHidden()
+            .tint(.aviationGold)
+        }
+    }
+
+    private func aircraftVisibilityToggle(for aircraft: RemoteAircraftMetadata) -> some View {
+        let isClubHidden = appState.settings.hiddenAeroclubs.contains(aircraft.aeroclub ?? "")
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(aircraft.registration)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                    .foregroundColor(isClubHidden ? .secondary : .primary)
+
+                Text(aircraft.shortModelName)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { !appState.settings.hiddenAircraftIds.contains(aircraft.id) && !isClubHidden },
+                set: { isVisible in
+                    if isVisible {
+                        appState.settings.hiddenAircraftIds.remove(aircraft.id)
+                        // If aeroclub was hidden, unhide it when showing individual aircraft
+                        if let club = aircraft.aeroclub {
+                            appState.settings.hiddenAeroclubs.remove(club)
+                        }
+                    } else {
+                        appState.settings.hiddenAircraftIds.insert(aircraft.id)
+                    }
+                    saveSettings()
+                }
+            ))
+            .labelsHidden()
+            .tint(.aviationGold)
+            .disabled(isClubHidden)
+        }
+        .padding(.leading, 16)
+        .opacity(isClubHidden ? 0.5 : 1.0)
+    }
+
+    private func visibleAircraftCount(in aeroclub: String) -> Int {
+        guard let group = availableAeroclubs.first(where: { $0.aeroclub == aeroclub }) else { return 0 }
+
+        // If aeroclub is hidden, all aircraft are hidden
+        if appState.settings.hiddenAeroclubs.contains(aeroclub) {
+            return 0
+        }
+
+        // Count aircraft not individually hidden
+        return group.aircraft.filter { !appState.settings.hiddenAircraftIds.contains($0.id) }.count
+    }
+
+    private func showAllAircraft() {
+        appState.settings.hiddenAircraftIds.removeAll()
+        appState.settings.hiddenAeroclubs.removeAll()
+        saveSettings()
+    }
+
+    private func hideAllAircraft() {
+        // Hide all aeroclubs (this effectively hides all aircraft)
+        for group in availableAeroclubs {
+            appState.settings.hiddenAeroclubs.insert(group.aeroclub)
+        }
+        saveSettings()
     }
 
     private var gpsSection: some View {

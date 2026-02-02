@@ -206,6 +206,16 @@ enum L10n {
         static let getLatest = String(localized: "settings.aircraft.getLatestData")
         static let aircraftFooter = String(localized: "settings.aircraft.selectAircraft")
 
+        // Aircraft Visibility
+        static let aircraftVisibility = String(localized: "settings.aircraftVisibility")
+        static let noAircraftToFilter = String(localized: "settings.aircraftVisibility.noAircraft")
+        static let showAll = String(localized: "settings.aircraftVisibility.showAll")
+        static let hideAll = String(localized: "settings.aircraftVisibility.hideAll")
+        static func aircraftVisible(_ visible: Int, _ total: Int) -> String {
+            String(format: String(localized: "settings.aircraftVisibility.visible"), visible, total)
+        }
+        static let aircraftVisibilityFooter = String(localized: "settings.aircraftVisibility.footer")
+
         // GPS
         static let gps = String(localized: "settings.gps")
         static let gpsInterval = String(localized: "settings.gps.recordingInterval")

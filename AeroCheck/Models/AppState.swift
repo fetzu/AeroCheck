@@ -31,6 +31,10 @@ struct AppSettings: Codable, Equatable {
     // Circuit mode
     var enableCircuitMode: Bool = false // When true, shows START CIRCUITS button
 
+    // Aircraft visibility (premium feature)
+    var hiddenAircraftIds: Set<String> = [] // Individual aircraft IDs to hide on home screen
+    var hiddenAeroclubs: Set<String> = [] // Entire aeroclubs to hide on home screen
+
     // iCloud Sync
     var iCloudSyncEnabled: Bool = true // When true, syncs settings and flights to iCloud
 
@@ -43,6 +47,23 @@ struct AppSettings: Codable, Equatable {
     /// Whether a remote aircraft is selected
     var isRemoteAircraftSelected: Bool {
         selectedRemoteAircraftId != nil
+    }
+
+    /// Checks if an aircraft should be visible on the home screen
+    /// - Parameters:
+    ///   - aircraftId: The aircraft identifier
+    ///   - aeroclub: The aeroclub the aircraft belongs to (nil for bundled aircraft)
+    /// - Returns: true if the aircraft should be shown
+    func isAircraftVisible(aircraftId: String, aeroclub: String?) -> Bool {
+        // Check if individually hidden
+        if hiddenAircraftIds.contains(aircraftId) {
+            return false
+        }
+        // Check if aeroclub is hidden (only applies to remote aircraft with aeroclubs)
+        if let club = aeroclub, hiddenAeroclubs.contains(club) {
+            return false
+        }
+        return true
     }
 
     /// Aircraft registration (derived from selected aircraft)
@@ -72,9 +93,40 @@ struct AppSettings: Codable, Equatable {
         case waypointProximityThreshold
         case terrainAltitudeUnit
         case enableCircuitMode
+        case hiddenAircraftIds
+        case hiddenAeroclubs
         case iCloudSyncEnabled
         case checklistLanguage
         // marketingMode is intentionally excluded
+    }
+
+    // Default initializer (needed because we have a custom decoder)
+    init() {}
+
+    // Custom decoder for backward compatibility with new fields
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
+        selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
+        keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? true
+        gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
+        showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
+        stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true
+        learningMode = try container.decodeIfPresent(Bool.self, forKey: .learningMode) ?? false
+        forceICAOChartLayer = try container.decodeIfPresent(Bool.self, forKey: .forceICAOChartLayer) ?? false
+        offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
+        alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
+        showEstimatedAirspeed = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedAirspeed) ?? false
+        enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
+        waypointProximityThreshold = try container.decodeIfPresent(Double.self, forKey: .waypointProximityThreshold) ?? 500
+        terrainAltitudeUnit = try container.decodeIfPresent(TerrainAltitudeUnit.self, forKey: .terrainAltitudeUnit) ?? .feet
+        enableCircuitMode = try container.decodeIfPresent(Bool.self, forKey: .enableCircuitMode) ?? false
+        hiddenAircraftIds = try container.decodeIfPresent(Set<String>.self, forKey: .hiddenAircraftIds) ?? []
+        hiddenAeroclubs = try container.decodeIfPresent(Set<String>.self, forKey: .hiddenAeroclubs) ?? []
+        iCloudSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .iCloudSyncEnabled) ?? true
+        checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
+        // marketingMode intentionally excluded - always defaults to false
     }
 }
 

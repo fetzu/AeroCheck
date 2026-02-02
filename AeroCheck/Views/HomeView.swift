@@ -106,18 +106,21 @@ struct HomeView: View {
         geometry.size.width < 600
     }
 
-    /// Available aircraft options based on subscription status
+    /// Available aircraft options based on subscription status and visibility settings
     private var availableAircraft: [AircraftOption] {
         var options: [AircraftOption] = []
 
-        // Add bundled aircraft first
+        // Add bundled aircraft first (bundled aircraft are always visible - they can't be hidden)
         for aircraft in AircraftType.allCases {
             options.append(.bundled(aircraft))
         }
 
-        // Add remote aircraft that user has access to
+        // Add remote aircraft that user has access to and are visible
         for remote in aircraftDataService.availableAircraft where remote.hasAccess && !remote.isBundled {
-            options.append(.remote(remote))
+            // Check visibility settings
+            if appState.settings.isAircraftVisible(aircraftId: remote.id, aeroclub: remote.aeroclub) {
+                options.append(.remote(remote))
+            }
         }
 
         return options
@@ -189,6 +192,12 @@ struct HomeView: View {
         .onChange(of: selectedAircraftIndex) { _, newIndex in
             updateAppStateAircraft(index: newIndex)
         }
+        .onChange(of: appState.settings.hiddenAircraftIds) { _, _ in
+            syncSelectedAircraftIndex()
+        }
+        .onChange(of: appState.settings.hiddenAeroclubs) { _, _ in
+            syncSelectedAircraftIndex()
+        }
     }
 
     /// Sync the selected index with the current app state aircraft selection
@@ -204,6 +213,14 @@ struct HomeView: View {
                 }
                 return
             }
+            // Selected remote aircraft is hidden - fall back to first available (bundled)
+            if !aircraft.isEmpty {
+                selectedAircraftIndex = 0
+                // Update app state to clear the hidden selection
+                appState.settings.selectedRemoteAircraftId = nil
+                appState.saveSettings()
+            }
+            return
         }
 
         // Bundled aircraft selected

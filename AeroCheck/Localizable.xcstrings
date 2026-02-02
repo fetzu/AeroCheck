@@ -3707,6 +3707,108 @@
         }
       }
     },
+    "settings.aircraftVisibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aircraft Visibility"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visibilité des avions"
+          }
+        }
+      }
+    },
+    "settings.aircraftVisibility.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden aircraft won't appear on the home screen but remain accessible in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les avions masqués n'apparaîtront pas sur l'écran d'accueil mais restent accessibles dans les Réglages."
+          }
+        }
+      }
+    },
+    "settings.aircraftVisibility.hideAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide All"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout masquer"
+          }
+        }
+      }
+    },
+    "settings.aircraftVisibility.noAircraft": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No accessible aircraft to filter. Subscribe to AeroCheck Pro to access premium aircraft."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun avion accessible à filtrer. Abonnez-vous à AeroCheck Pro pour accéder aux avions premium."
+          }
+        }
+      }
+    },
+    "settings.aircraftVisibility.showAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show All"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout afficher"
+          }
+        }
+      }
+    },
+    "settings.aircraftVisibility.visible": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d of %d visible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d sur %d visibles"
+          }
+        }
+      }
+    },
     "settings.gps.recordingInterval": {
       "extractionState": "manual",
       "localizations": {

@@ -9,6 +9,7 @@ struct FlightView: View {
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var flightEventDetector: FlightEventDetector
+    @EnvironmentObject var airportDataService: AirportDataService
     @State private var showPhaseSelector = false
     @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
@@ -71,6 +72,54 @@ struct FlightView: View {
         )
     }
 
+    /// Build briefing context from current state
+    private var briefingContext: BriefingContext {
+        // Get speeds from current checklist
+        let speeds: [SpeedReference]
+        let hasParachute: Bool
+        let registration: String
+        let aircraftType: String
+
+        if let remoteChecklist = ChecklistData.currentRemoteChecklist {
+            speeds = remoteChecklist.localSpeeds
+            hasParachute = remoteChecklist.hasParachute ?? false
+            registration = remoteChecklist.registration
+            aircraftType = remoteChecklist.shortModelName
+        } else {
+            // Fallback to bundled WT9 data
+            speeds = WT9ChecklistData.speeds
+            hasParachute = WT9ChecklistData.hasParachute
+            registration = "F-HVXA"
+            aircraftType = "WT9"
+        }
+
+        // Get wind data if available (from MeteoSwiss)
+        let windDirection: Double?
+        let windSpeed: Double?
+        if let windData = windDataService.currentWindData {
+            windDirection = windData.directionDegrees
+            windSpeed = windData.speedKmh * 0.539957  // Convert km/h to knots
+        } else {
+            windDirection = nil
+            windSpeed = nil
+        }
+
+        // Get destination from flight plan if available (waypoint name is often the ICAO code)
+        let destinationIdent = flightPlanManager.activeFlightPlan?.waypoints.last?.name
+
+        return BriefingContextBuilder.build(
+            speeds: speeds,
+            hasParachute: hasParachute,
+            aircraftRegistration: registration,
+            aircraftType: aircraftType,
+            currentLocation: locationManager.getCurrentCoordinate(),
+            airportDataService: airportDataService,
+            windDirection: windDirection,
+            windSpeed: windSpeed,
+            destinationIdent: destinationIdent
+        )
+    }
+
     var body: some View {
         GeometryReader { geometry in
             if isCompactWidth(geometry) {
@@ -100,10 +149,10 @@ struct FlightView: View {
             SpeedReferenceSheet()
         }
         .sheet(isPresented: $showDepartureBriefing) {
-            DepartureBriefingView()
+            DepartureBriefingView(context: briefingContext)
         }
         .sheet(isPresented: $showApproachBriefing) {
-            ApproachBriefingView()
+            ApproachBriefingView(context: briefingContext)
         }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)

@@ -942,39 +942,55 @@ struct CompactSpeedRow: View {
 // MARK: - Briefing Views
 
 struct DepartureBriefingView: View {
+    let context: BriefingContext
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Runway and wind
+                    // Departure Section
                     BriefingSection(title: "DEPARTURE") {
-                        BriefingItem(label: "Runway", value: "LSZQ 25")
-                        BriefingItem(label: "Wind", value: "calm / crosswind / headwind / tailwind...")
-                        BriefingItem(label: "First turn", value: "RIGHT after departure")
-                        BriefingItem(label: "Level off", value: "2900 ft")
-                        BriefingItem(label: "Outbound", value: "for circuits")
-                    }
-                    
-                    // Speeds (indicated airspeed from AFM)
-                    BriefingSection(title: "AIRSPEEDS (IAS)") {
-                        BriefingItem(label: "Rotation", value: "40 kt")
-                        BriefingItem(label: "Vx", value: "55 kt")
-                        BriefingItem(label: "Vy", value: "70 kt")
-                        BriefingItem(label: "Vbest glide", value: "70 kt")
-                    }
-                    
-                    // Emergency
-                    BriefingSection(title: "EMERGENCY BRIEFING", isWarning: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmergencyItem(text: "Any malfunction before rotation: IDLE - BRAKE - STOP")
-                            EmergencyItem(text: "Engine failure after rotation: NOSE DOWN, LAND STRAIGHT AHEAD")
-                            EmergencyItem(text: "No return below 1000 ft AAL")
-                            EmergencyItem(text: "No parachute activation below 600 ft AAL")
+                        if let airport = context.departureAirport {
+                            BriefingItem(label: "Airport", value: "\(airport.name) (\(airport.ident))")
+                            if let elev = airport.elevation {
+                                BriefingItem(label: "Elevation", value: "\(elev) ft")
+                            }
+                        } else {
+                            BriefingItem(label: "Airport", value: "Not detected")
+                        }
+                        if let wind = context.currentWind {
+                            BriefingItem(label: "Wind", value: String(format: "%03.0f\u{00B0} / %.0f kt", wind.direction, wind.speed))
+                        } else {
+                            BriefingItem(label: "Wind", value: "Not available")
                         }
                     }
-                    
+
+                    // Runway Section
+                    if !context.departureRunways.isEmpty {
+                        BriefingSection(title: "RUNWAY") {
+                            if let suggested = context.suggestedDepartureRunway {
+                                RunwayRowView(runway: suggested, isSuggested: true)
+                            }
+                            ForEach(context.departureRunways.filter { $0.id != context.suggestedDepartureRunway?.id }) { runway in
+                                RunwayRowView(runway: runway, isSuggested: false)
+                            }
+                        }
+                    }
+
+                    // Airspeeds Section - Dynamic from aircraft
+                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                        SpeedGridView(speeds: context.speeds, phase: .departure)
+                    }
+
+                    // Emergency Section - Conditional
+                    BriefingSection(title: "EMERGENCY BRIEFING", isWarning: true) {
+                        EmergencyBriefingContent(
+                            hasParachute: context.hasParachute,
+                            fieldElevation: context.departureElevation
+                        )
+                    }
+
                     Spacer()
                 }
                 .padding(24)
@@ -993,38 +1009,57 @@ struct DepartureBriefingView: View {
 }
 
 struct ApproachBriefingView: View {
+    let context: BriefingContext
     @Environment(\.dismiss) var dismiss
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Approach info
+                    // Approach Section
                     BriefingSection(title: "APPROACH") {
-                        BriefingItem(label: "Runway", value: "LSZQ 25")
-                        BriefingItem(label: "Routing", value: "Proceed via sector West/East/North @ 3500 ft")
-                        BriefingItem(label: "Downwind", value: "Join downwind runway 07/25 @ 2900 ft")
-                    }
-                    
-                    // Speeds (indicated airspeed from AFM)
-                    BriefingSection(title: "AIRSPEEDS (IAS)") {
-                        BriefingItem(label: "Initial", value: "70 kt - FLAPS 1")
-                        BriefingItem(label: "Intermediate", value: "65 kt - FLAPS 2")
-                        BriefingItem(label: "Final", value: "60 kt - FLAPS 3")
-                    }
-                    
-                    // Missed approach
-                    BriefingSection(title: "MISSED APPROACH", isWarning: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmergencyItem(text: "GO AROUND, join Downwind @ 2900 ft")
+                        if let airport = context.destinationAirport {
+                            BriefingItem(label: "Airport", value: "\(airport.name) (\(airport.ident))")
+                            if let elev = airport.elevation {
+                                BriefingItem(label: "Elevation", value: "\(elev) ft")
+                            }
+                        } else {
+                            BriefingItem(label: "Airport", value: "Not detected")
+                        }
+                        if let wind = context.currentWind {
+                            BriefingItem(label: "Wind", value: String(format: "%03.0f\u{00B0} / %.0f kt", wind.direction, wind.speed))
+                        } else {
+                            BriefingItem(label: "Wind", value: "Not available")
                         }
                     }
-                    
-                    // Alternate
-                    BriefingSection(title: "ALTERNATE") {
-                        BriefingItem(label: "Aerodrome", value: "(none)")
+
+                    // Runway Section
+                    if !context.destinationRunways.isEmpty {
+                        BriefingSection(title: "RUNWAY") {
+                            if let suggested = context.suggestedArrivalRunway {
+                                RunwayRowView(runway: suggested, isSuggested: true)
+                            }
+                            ForEach(context.destinationRunways.filter { $0.id != context.suggestedArrivalRunway?.id }) { runway in
+                                RunwayRowView(runway: runway, isSuggested: false)
+                            }
+                        }
                     }
-                    
+
+                    // Airspeeds Section - Dynamic from aircraft
+                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                        SpeedGridView(speeds: context.speeds, phase: .approach)
+                    }
+
+                    // Missed Approach Section
+                    BriefingSection(title: "MISSED APPROACH", isWarning: true) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            EmergencyItem(text: "GO AROUND: Full power, pitch up")
+                            if context.hasParachute {
+                                EmergencyItem(text: "If unable to climb: Consider BRS activation")
+                            }
+                        }
+                    }
+
                     Spacer()
                 }
                 .padding(24)
@@ -1039,6 +1074,130 @@ struct ApproachBriefingView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Speed Grid View
+
+struct SpeedGridView: View {
+    let speeds: AircraftSpeeds
+    let phase: BriefingPhase
+
+    private var speedItems: [(label: String, value: String)] {
+        switch phase {
+        case .departure:
+            return [
+                ("Rotation (Vr)", formatSpeed(speeds.vr)),
+                ("Best Angle (Vx)", formatSpeed(speeds.vx)),
+                ("Best Rate (Vy)", formatSpeed(speeds.vy)),
+                ("Best Glide (Vbg)", formatSpeed(speeds.vbg))
+            ]
+        case .approach:
+            return [
+                ("Initial (Vapp)", formatSpeed(speeds.vapp)),
+                ("Final (Vfinal)", formatSpeed(speeds.vfinal)),
+                ("Stall (Vso)", formatSpeed(speeds.vso)),
+                ("Best Glide (Vbg)", formatSpeed(speeds.vbg))
+            ]
+        }
+    }
+
+    private func formatSpeed(_ speed: Int?) -> String {
+        guard let speed = speed else { return "N/A" }
+        return "\(speed) kt"
+    }
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+            ForEach(speedItems, id: \.label) { item in
+                HStack {
+                    Text(item.label)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondaryText)
+                    Spacer()
+                    Text(item.value)
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundColor(item.value == "N/A" ? .dimText : .aviationGreen)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+// MARK: - Runway Row View
+
+struct RunwayRowView: View {
+    let runway: Runway
+    var isSuggested: Bool = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isSuggested {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.aviationGold)
+            }
+
+            Text(runway.identifier)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(isSuggested ? .aviationGold : .primaryText)
+
+            Text("-")
+                .foregroundColor(.dimText)
+
+            Text(runway.descriptionString)
+                .font(.system(size: 12))
+                .foregroundColor(.secondaryText)
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
+        .background(isSuggested ? Color.aviationGold.opacity(0.1) : Color.clear)
+        .cornerRadius(4)
+    }
+}
+
+// MARK: - Emergency Briefing Content
+
+struct EmergencyBriefingContent: View {
+    let hasParachute: Bool
+    let fieldElevation: Int?
+
+    /// Calculate MSL altitude for no-return (1000 ft AAL)
+    var noReturnAltitudeMSL: Int? {
+        guard let elev = fieldElevation else { return nil }
+        return elev + 1000
+    }
+
+    /// Calculate MSL altitude for minimum parachute activation (600 ft AAL)
+    var minParachuteAltitudeMSL: Int? {
+        guard let elev = fieldElevation else { return nil }
+        return elev + 600
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Always show these
+            EmergencyItem(text: "Any malfunction before rotation: IDLE - BRAKE - STOP")
+            EmergencyItem(text: "Engine failure after rotation: NOSE DOWN, LAND STRAIGHT AHEAD")
+
+            // Show actual altitudes if available
+            if let mslAlt = noReturnAltitudeMSL {
+                EmergencyItem(text: "No return below 1000 ft AAL (\(mslAlt) ft MSL)")
+            } else {
+                EmergencyItem(text: "No return below 1000 ft AAL")
+            }
+
+            // Conditional parachute info
+            if hasParachute {
+                if let mslAlt = minParachuteAltitudeMSL {
+                    EmergencyItem(text: "No parachute activation below 600 ft AAL (\(mslAlt) ft MSL)")
+                } else {
+                    EmergencyItem(text: "No parachute activation below 600 ft AAL")
+                }
+            }
+        }
     }
 }
 

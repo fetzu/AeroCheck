@@ -12,6 +12,9 @@ struct WT9ChecklistData {
     /// Last updated date
     static let lastUpdated = "March 2025"
 
+    /// Whether aircraft has ballistic parachute (BRS/CAPS)
+    static let hasParachute = true
+
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
         switch phase {
         case .preflight:

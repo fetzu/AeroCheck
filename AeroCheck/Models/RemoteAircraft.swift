@@ -107,6 +107,7 @@ struct RemoteAircraftChecklist: Codable, Identifiable, Equatable {
     let isFree: Bool
     let stallSpeed: Int
     let pageCount: Int
+    let hasParachute: Bool?  // Whether aircraft has ballistic parachute (BRS/CAPS)
     let crosswindLimits: RemoteCrosswindLimits
     let speeds: [RemoteSpeedReference]
     let targetSpeeds: [String: Int?]
@@ -213,6 +214,7 @@ struct RemoteAircraftAdapter {
     var lastUpdated: String { checklist.lastUpdated }
     var stallSpeed: Int { checklist.stallSpeed }
     var pageCount: Int { checklist.pageCount }
+    var hasParachute: Bool { checklist.hasParachute ?? false }
     var speeds: [SpeedReference] { checklist.localSpeeds }
     var crosswindLimits: (takeoff: String, landing: String) { checklist.crosswindLimitsTuple }
 

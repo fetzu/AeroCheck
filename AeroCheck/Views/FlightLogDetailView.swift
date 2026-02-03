@@ -9,92 +9,92 @@ struct FlightLogDetailView: View {
     var body: some View {
         List {
             // Flight Header Section
-            Section("Flight") {
-                LabeledContent("Date", value: flight.formattedDate)
-                LabeledContent("Aircraft", value: flight.displayName)
+            Section(L10n.FlightLogDetail.flightSection) {
+                LabeledContent(L10n.FlightLogDetail.date, value: flight.formattedDate)
+                LabeledContent(L10n.FlightLogDetail.aircraft, value: flight.displayName)
                 if let aircraftType = flight.aircraftType {
-                    LabeledContent("Type", value: aircraftType)
+                    LabeledContent(L10n.FlightLogDetail.type, value: aircraftType)
                 }
                 if let version = flight.checklistVersion {
-                    LabeledContent("Checklist Version", value: version)
+                    LabeledContent(L10n.FlightLogDetail.checklistVersion, value: version)
                 }
             }
 
             // Route Section
             if flight.departureAirportIdent != nil || flight.arrivalAirportIdent != nil {
-                Section("Route") {
+                Section(L10n.FlightLogDetail.routeSection) {
                     if let dep = flight.departureAirportIdent {
-                        LabeledContent("Departure", value: dep)
+                        LabeledContent(L10n.FlightLogDetail.departure, value: dep)
                     }
                     if let arr = flight.arrivalAirportIdent {
-                        LabeledContent("Arrival", value: arr)
+                        LabeledContent(L10n.FlightLogDetail.arrival, value: arr)
                     }
-                    LabeledContent("Distance", value: flight.formattedDistance)
+                    LabeledContent(L10n.FlightLogDetail.distance, value: flight.formattedDistance)
                 }
             }
 
             // Times Section
-            Section("Times") {
+            Section(L10n.FlightLogDetail.timesSection) {
                 if let blockOff = flight.blockOffTime {
-                    LabeledContent("Block Off", value: formatTime(blockOff))
+                    LabeledContent(L10n.FlightLogDetail.blockOff, value: formatTime(blockOff))
                 }
                 if let engineStart = flight.engineStartTime {
-                    LabeledContent("Engine Start", value: formatTime(engineStart))
+                    LabeledContent(L10n.FlightLogDetail.engineStart, value: formatTime(engineStart))
                 }
                 if let lineUp = flight.lineUpTime {
-                    LabeledContent("Take-off", value: formatTime(lineUp))
+                    LabeledContent(L10n.FlightLogDetail.takeOff, value: formatTime(lineUp))
                 }
                 if let landing = flight.landingTime {
-                    LabeledContent("Landing", value: formatTime(landing))
+                    LabeledContent(L10n.FlightLogDetail.landing, value: formatTime(landing))
                 }
                 if let engineStop = flight.engineShutdownTime {
-                    LabeledContent("Engine Stop", value: formatTime(engineStop))
+                    LabeledContent(L10n.FlightLogDetail.engineStop, value: formatTime(engineStop))
                 }
                 if let blockOn = flight.blockOnTime {
-                    LabeledContent("Block On", value: formatTime(blockOn))
+                    LabeledContent(L10n.FlightLogDetail.blockOn, value: formatTime(blockOn))
                 }
             }
 
             // Durations Section
-            Section("Durations") {
+            Section(L10n.FlightLogDetail.durationsSection) {
                 if let blockTime = flight.blockTime {
-                    LabeledContent("Block Time", value: formatDuration(blockTime))
+                    LabeledContent(L10n.FlightLogDetail.blockTime, value: formatDuration(blockTime))
                 }
                 if let flightTime = flight.flightTime {
-                    LabeledContent("Flight Time", value: formatDuration(flightTime))
+                    LabeledContent(L10n.FlightLogDetail.flightTime, value: formatDuration(flightTime))
                 }
                 if let duration = flight.duration {
-                    LabeledContent("Engine Time", value: formatDuration(duration))
+                    LabeledContent(L10n.FlightLogDetail.engineTime, value: formatDuration(duration))
                 }
             }
 
             // Engine Hours Section (if logged)
             if flight.engineHourStart != nil || flight.engineHourEnd != nil {
-                Section("Engine Hours") {
+                Section(L10n.FlightLogDetail.engineHoursSection) {
                     if let start = flight.engineHourStart {
-                        LabeledContent("Hours Before", value: formatHours(start))
+                        LabeledContent(L10n.FlightLogDetail.hoursBefore, value: formatHours(start))
                     }
                     if let end = flight.engineHourEnd {
-                        LabeledContent("Hours After", value: formatHours(end))
+                        LabeledContent(L10n.FlightLogDetail.hoursAfter, value: formatHours(end))
                     }
                     if let flown = flight.engineHoursFlown {
-                        LabeledContent("Hours Flown", value: formatHours(flown))
+                        LabeledContent(L10n.FlightLogDetail.hoursFlown, value: formatHours(flown))
                             .foregroundColor(.aviationGreen)
                     }
                 }
             }
 
             // Events Section
-            Section("Events") {
-                LabeledContent("Go-arounds", value: "\(flight.goAroundCount)")
-                LabeledContent("Touch-and-gos", value: "\(flight.touchAndGoCount)")
-                LabeledContent("Full Stop Landings", value: "\(flight.fullStopCount)")
-                LabeledContent("Total Landings", value: "\(flight.totalLandings)")
+            Section(L10n.FlightLogDetail.eventsSection) {
+                LabeledContent(L10n.FlightLogDetail.goArounds, value: "\(flight.goAroundCount)")
+                LabeledContent(L10n.FlightLogDetail.touchAndGos, value: "\(flight.touchAndGoCount)")
+                LabeledContent(L10n.FlightLogDetail.fullStopLandings, value: "\(flight.fullStopCount)")
+                LabeledContent(L10n.FlightLogDetail.totalLandings, value: "\(flight.totalLandings)")
             }
 
             // Track Preview Section (if GPS track available)
             if !flight.gpsTrack.isEmpty {
-                Section("Track") {
+                Section(L10n.FlightLogDetail.trackSection) {
                     TrackPreviewView(flight: flight)
                         .frame(height: 200)
                         .listRowInsets(EdgeInsets())
@@ -103,7 +103,7 @@ struct FlightLogDetailView: View {
 
             // Notes Section
             if !flight.notes.isEmpty {
-                Section("Notes") {
+                Section(L10n.FlightLogDetail.notesSection) {
                     Text(flight.notes)
                         .font(.body)
                         .foregroundColor(.primaryText)
@@ -113,11 +113,11 @@ struct FlightLogDetailView: View {
             // Export Section
             Section {
                 NavigationLink(destination: FlightExportView(flight: flight)) {
-                    Label("Export Flight", systemImage: "square.and.arrow.up")
+                    Label(L10n.FlightLogDetail.exportFlight, systemImage: "square.and.arrow.up")
                 }
             }
         }
-        .navigationTitle("Flight Details")
+        .navigationTitle(L10n.FlightLogDetail.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
     }
@@ -160,7 +160,7 @@ struct TrackPreviewView: View {
 
             // Start marker
             if let first = flight.gpsTrack.first {
-                Annotation("Start", coordinate: first.coordinate) {
+                Annotation(L10n.FlightLogDetail.trackStart, coordinate: first.coordinate) {
                     Circle()
                         .fill(.green)
                         .frame(width: 12, height: 12)
@@ -169,7 +169,7 @@ struct TrackPreviewView: View {
 
             // End marker
             if let last = flight.gpsTrack.last {
-                Annotation("End", coordinate: last.coordinate) {
+                Annotation(L10n.FlightLogDetail.trackEnd, coordinate: last.coordinate) {
                     Circle()
                         .fill(.red)
                         .frame(width: 12, height: 12)
@@ -189,21 +189,21 @@ struct FlightExportView: View {
 
     var body: some View {
         List {
-            Section("Export Format") {
+            Section(L10n.FlightLogDetail.exportFormat) {
                 Button(action: { exportGPX() }) {
-                    Label("Export as GPX", systemImage: "map")
+                    Label(L10n.FlightLogDetail.exportGPX, systemImage: "map")
                 }
 
                 Button(action: { exportJSON() }) {
-                    Label("Export as JSON", systemImage: "doc.text")
+                    Label(L10n.FlightLogDetail.exportJSON, systemImage: "doc.text")
                 }
 
                 Button(action: { exportZIP() }) {
-                    Label("Export as ZIP (GPX + JSON)", systemImage: "doc.zipper")
+                    Label(L10n.FlightLogDetail.exportZIP, systemImage: "doc.zipper")
                 }
             }
         }
-        .navigationTitle("Export")
+        .navigationTitle(L10n.FlightLogDetail.exportTitle)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showShareSheet) {
             if let url = exportURL {

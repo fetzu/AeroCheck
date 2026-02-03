@@ -46,7 +46,7 @@ struct EventConfirmationView: View {
                     autoDismissTask?.cancel()
                     onDismiss()
                 }) {
-                    Text("Dismiss")
+                    Text(L10n.EventConfirmation.dismiss)
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -59,7 +59,7 @@ struct EventConfirmationView: View {
                     autoDismissTask?.cancel()
                     onConfirm()
                 }) {
-                    Text("Confirm")
+                    Text(L10n.EventConfirmation.confirm)
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -71,7 +71,7 @@ struct EventConfirmationView: View {
             .padding(.horizontal)
 
             // Auto-dismiss note
-            Text("Auto-dismisses in 30 seconds")
+            Text(L10n.EventConfirmation.autoDismiss)
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
         }

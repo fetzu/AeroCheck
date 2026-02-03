@@ -7,15 +7,15 @@ enum HourMeterPhase {
 
     var title: String {
         switch self {
-        case .start: return "Engine Hours - Before Start"
-        case .stop: return "Engine Hours - After Stop"
+        case .start: return L10n.HourMeter.beforeStartTitle
+        case .stop: return L10n.HourMeter.afterStopTitle
         }
     }
 
     var subtitle: String {
         switch self {
-        case .start: return "Enter the tachometer reading before starting the engine"
-        case .stop: return "Enter the tachometer reading after stopping the engine"
+        case .start: return L10n.HourMeter.beforeStartSubtitle
+        case .stop: return L10n.HourMeter.afterStopSubtitle
         }
     }
 }
@@ -57,14 +57,14 @@ struct HourMeterInputView: View {
                         .background(Color.panelBackground)
                         .cornerRadius(12)
 
-                    Text("hours")
+                    Text(L10n.HourMeter.hours)
                         .font(.caption)
                         .foregroundColor(.secondaryText)
                 }
                 .padding(.horizontal, 32)
 
                 // Format hint
-                Text("Enter hours as decimal (1234.5) or time format (1234:30)")
+                Text(L10n.HourMeter.formatHint)
                     .font(.caption)
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
@@ -116,7 +116,7 @@ struct HourMeterInputView: View {
 
                     // Clear
                     Button(action: { inputValue = "" }) {
-                        Text("Clear")
+                        Text(L10n.HourMeter.clear)
                             .font(.headline)
                             .foregroundColor(.secondaryText)
                             .frame(width: 80, height: 50)
@@ -128,7 +128,7 @@ struct HourMeterInputView: View {
 
                     // Skip
                     Button(action: { isPresented = false }) {
-                        Text("Skip")
+                        Text(L10n.HourMeter.skip)
                             .font(.headline)
                             .foregroundColor(.secondaryText)
                             .frame(width: 80, height: 50)
@@ -138,7 +138,7 @@ struct HourMeterInputView: View {
 
                     // Save
                     Button(action: saveValue) {
-                        Text("Save")
+                        Text(L10n.HourMeter.save)
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(width: 100, height: 50)
@@ -155,17 +155,17 @@ struct HourMeterInputView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L10n.Button.cancel) {
                         isPresented = false
                     }
                 }
             }
         }
         .preferredColorScheme(.dark)
-        .alert("Invalid Format", isPresented: $showInvalidAlert) {
-            Button("OK", role: .cancel) { }
+        .alert(L10n.HourMeter.invalidFormatTitle, isPresented: $showInvalidAlert) {
+            Button(L10n.Subscription.ok, role: .cancel) { }
         } message: {
-            Text("Please enter a valid hour reading (e.g., 1234.5 or 1234:30)")
+            Text(L10n.HourMeter.invalidFormatMessage)
         }
     }
 

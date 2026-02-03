@@ -155,11 +155,11 @@ struct RotateToPortraitView: View {
                     .foregroundColor(.aviationGold)
 
                 VStack(spacing: 8) {
-                    Text("Rotate Your Device")
+                    Text(L10n.ContentViewStrings.rotateDevice)
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.primaryText)
 
-                    Text("This app is designed for portrait mode on iPhone")
+                    Text(L10n.ContentViewStrings.portraitMode)
                         .font(.system(size: 16))
                         .foregroundColor(.secondaryText)
                         .multilineTextAlignment(.center)

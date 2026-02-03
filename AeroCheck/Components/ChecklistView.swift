@@ -950,25 +950,25 @@ struct DepartureBriefingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Departure Section
-                    BriefingSection(title: "DEPARTURE") {
+                    BriefingSection(title: L10n.Briefing.departure.uppercased()) {
                         if let airport = context.departureAirport {
-                            BriefingItem(label: "Airport", value: "\(airport.name) (\(airport.ident))")
+                            BriefingItem(label: L10n.Briefing.airport, value: "\(airport.name) (\(airport.ident))")
                             if let elev = airport.elevation {
-                                BriefingItem(label: "Elevation", value: "\(elev) ft")
+                                BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
                         } else {
-                            BriefingItem(label: "Airport", value: "Not detected")
+                            BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: "Wind", value: String(format: "%03.0f\u{00B0} / %.0f kt", wind.direction, wind.speed))
+                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
                         } else {
-                            BriefingItem(label: "Wind", value: "Not available")
+                            BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                         }
                     }
 
                     // Runway Section
                     if !context.departureRunways.isEmpty {
-                        BriefingSection(title: "RUNWAY") {
+                        BriefingSection(title: L10n.Briefing.runway.uppercased()) {
                             if let suggested = context.suggestedDepartureRunway {
                                 RunwayRowView(runway: suggested, isSuggested: true)
                             }
@@ -979,12 +979,12 @@ struct DepartureBriefingView: View {
                     }
 
                     // Airspeeds Section - Dynamic from aircraft
-                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                    BriefingSection(title: L10n.Briefing.airspeedsIAS.uppercased()) {
                         SpeedGridView(speeds: context.speeds, phase: .departure)
                     }
 
                     // Emergency Section - Conditional
-                    BriefingSection(title: "EMERGENCY BRIEFING", isWarning: true) {
+                    BriefingSection(title: L10n.Briefing.emergencyBriefing.uppercased(), isWarning: true) {
                         EmergencyBriefingContent(
                             hasParachute: context.hasParachute,
                             fieldElevation: context.departureElevation
@@ -996,11 +996,11 @@ struct DepartureBriefingView: View {
                 .padding(24)
             }
             .background(Color.cockpitBackground)
-            .navigationTitle("Departure Briefing")
+            .navigationTitle(L10n.Briefing.departureTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Briefing.close) { dismiss() }
                 }
             }
         }
@@ -1017,25 +1017,25 @@ struct ApproachBriefingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Approach Section
-                    BriefingSection(title: "APPROACH") {
+                    BriefingSection(title: L10n.Briefing.approach.uppercased()) {
                         if let airport = context.destinationAirport {
-                            BriefingItem(label: "Airport", value: "\(airport.name) (\(airport.ident))")
+                            BriefingItem(label: L10n.Briefing.airport, value: "\(airport.name) (\(airport.ident))")
                             if let elev = airport.elevation {
-                                BriefingItem(label: "Elevation", value: "\(elev) ft")
+                                BriefingItem(label: L10n.Briefing.elevation, value: "\(elev) \(L10n.Unit.ft)")
                             }
                         } else {
-                            BriefingItem(label: "Airport", value: "Not detected")
+                            BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: "Wind", value: String(format: "%03.0f\u{00B0} / %.0f kt", wind.direction, wind.speed))
+                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
                         } else {
-                            BriefingItem(label: "Wind", value: "Not available")
+                            BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                         }
                     }
 
                     // Runway Section
                     if !context.destinationRunways.isEmpty {
-                        BriefingSection(title: "RUNWAY") {
+                        BriefingSection(title: L10n.Briefing.runway.uppercased()) {
                             if let suggested = context.suggestedArrivalRunway {
                                 RunwayRowView(runway: suggested, isSuggested: true)
                             }
@@ -1046,16 +1046,16 @@ struct ApproachBriefingView: View {
                     }
 
                     // Airspeeds Section - Dynamic from aircraft
-                    BriefingSection(title: "AIRSPEEDS (IAS)") {
+                    BriefingSection(title: L10n.Briefing.airspeedsIAS.uppercased()) {
                         SpeedGridView(speeds: context.speeds, phase: .approach)
                     }
 
                     // Missed Approach Section
-                    BriefingSection(title: "MISSED APPROACH", isWarning: true) {
+                    BriefingSection(title: L10n.Briefing.missedApproach.uppercased(), isWarning: true) {
                         VStack(alignment: .leading, spacing: 12) {
-                            EmergencyItem(text: "GO AROUND: Full power, pitch up")
+                            EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                             if context.hasParachute {
-                                EmergencyItem(text: "If unable to climb: Consider BRS activation")
+                                EmergencyItem(text: L10n.Briefing.brsConsider)
                             }
                         }
                     }
@@ -1065,11 +1065,11 @@ struct ApproachBriefingView: View {
                 .padding(24)
             }
             .background(Color.cockpitBackground)
-            .navigationTitle("Approach Briefing")
+            .navigationTitle(L10n.Briefing.approachTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button(L10n.Briefing.close) { dismiss() }
                 }
             }
         }
@@ -1087,24 +1087,24 @@ struct SpeedGridView: View {
         switch phase {
         case .departure:
             return [
-                ("Rotation (Vr)", formatSpeed(speeds.vr)),
-                ("Best Angle (Vx)", formatSpeed(speeds.vx)),
-                ("Best Rate (Vy)", formatSpeed(speeds.vy)),
-                ("Best Glide (Vbg)", formatSpeed(speeds.vbg))
+                (L10n.Briefing.speedRotation, formatSpeed(speeds.vr)),
+                (L10n.Briefing.speedBestAngle, formatSpeed(speeds.vx)),
+                (L10n.Briefing.speedBestRate, formatSpeed(speeds.vy)),
+                (L10n.Briefing.speedBestGlide, formatSpeed(speeds.vbg))
             ]
         case .approach:
             return [
-                ("Initial (Vapp)", formatSpeed(speeds.vapp)),
-                ("Final (Vfinal)", formatSpeed(speeds.vfinal)),
-                ("Stall (Vso)", formatSpeed(speeds.vso)),
-                ("Best Glide (Vbg)", formatSpeed(speeds.vbg))
+                (L10n.Briefing.speedInitial, formatSpeed(speeds.vapp)),
+                (L10n.Briefing.speedFinal, formatSpeed(speeds.vfinal)),
+                (L10n.Briefing.speedStall, formatSpeed(speeds.vso)),
+                (L10n.Briefing.speedBestGlide, formatSpeed(speeds.vbg))
             ]
         }
     }
 
     private func formatSpeed(_ speed: Int?) -> String {
-        guard let speed = speed else { return "N/A" }
-        return "\(speed) kt"
+        guard let speed = speed else { return L10n.Briefing.speedNA }
+        return L10n.Briefing.speedFormat(speed)
     }
 
     var body: some View {
@@ -1117,7 +1117,7 @@ struct SpeedGridView: View {
                     Spacer()
                     Text(item.value)
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundColor(item.value == "N/A" ? .dimText : .aviationGreen)
+                        .foregroundColor(item.value == L10n.Briefing.speedNA ? .dimText : .aviationGreen)
                 }
                 .padding(.vertical, 4)
             }
@@ -1179,22 +1179,22 @@ struct EmergencyBriefingContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Always show these
-            EmergencyItem(text: "Any malfunction before rotation: IDLE - BRAKE - STOP")
-            EmergencyItem(text: "Engine failure after rotation: NOSE DOWN, LAND STRAIGHT AHEAD")
+            EmergencyItem(text: L10n.Briefing.malfunctionBeforeRotation)
+            EmergencyItem(text: L10n.Briefing.engineFailureAfterRotation)
 
             // Show actual altitudes if available
             if let mslAlt = noReturnAltitudeMSL {
-                EmergencyItem(text: "No return below 1000 ft AAL (\(mslAlt) ft MSL)")
+                EmergencyItem(text: L10n.Briefing.noReturnBelowWithMSL(mslAlt))
             } else {
-                EmergencyItem(text: "No return below 1000 ft AAL")
+                EmergencyItem(text: L10n.Briefing.noReturnBelow)
             }
 
             // Conditional parachute info
             if hasParachute {
                 if let mslAlt = minParachuteAltitudeMSL {
-                    EmergencyItem(text: "No parachute activation below 600 ft AAL (\(mslAlt) ft MSL)")
+                    EmergencyItem(text: L10n.Briefing.noParachuteBelowWithMSL(mslAlt))
                 } else {
-                    EmergencyItem(text: "No parachute activation below 600 ft AAL")
+                    EmergencyItem(text: L10n.Briefing.noParachuteBelow)
                 }
             }
         }

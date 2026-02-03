@@ -167,10 +167,44 @@ enum L10n {
         static let departure = String(localized: "briefing.departure")
         static let approach = String(localized: "briefing.approach")
         static let airspeeds = String(localized: "briefing.airspeeds")
+        static let airspeedsIAS = String(localized: "briefing.airspeeds.ias")
         static let emergencyBriefing = String(localized: "briefing.emergencyBriefing")
         static let missedApproach = String(localized: "briefing.missedApproach")
         static let alternate = String(localized: "briefing.alternate")
         static let close = String(localized: "briefing.close")
+        static let airport = String(localized: "briefing.airport")
+        static let elevation = String(localized: "briefing.elevation")
+        static let wind = String(localized: "briefing.wind")
+        static let runway = String(localized: "briefing.runway")
+        static let notDetected = String(localized: "briefing.notDetected")
+        static let notAvailable = String(localized: "briefing.notAvailable")
+        static let goAroundProcedure = String(localized: "briefing.goAround.procedure")
+        static let brsConsider = String(localized: "briefing.brs.consider")
+
+        // Emergency items
+        static let malfunctionBeforeRotation = String(localized: "briefing.emergency.malfunctionBeforeRotation")
+        static let engineFailureAfterRotation = String(localized: "briefing.emergency.engineFailureAfterRotation")
+        static let noReturnBelow = String(localized: "briefing.emergency.noReturnBelow")
+        static func noReturnBelowWithMSL(_ msl: Int) -> String {
+            String(format: String(localized: "briefing.emergency.noReturnBelowWithMSL"), msl)
+        }
+        static let noParachuteBelow = String(localized: "briefing.emergency.noParachuteBelow")
+        static func noParachuteBelowWithMSL(_ msl: Int) -> String {
+            String(format: String(localized: "briefing.emergency.noParachuteBelowWithMSL"), msl)
+        }
+
+        // Speed labels
+        static let speedRotation = String(localized: "briefing.speed.rotation")
+        static let speedBestAngle = String(localized: "briefing.speed.bestAngle")
+        static let speedBestRate = String(localized: "briefing.speed.bestRate")
+        static let speedBestGlide = String(localized: "briefing.speed.bestGlide")
+        static let speedInitial = String(localized: "briefing.speed.initial")
+        static let speedFinal = String(localized: "briefing.speed.final")
+        static let speedStall = String(localized: "briefing.speed.stall")
+        static let speedNA = String(localized: "briefing.speed.na")
+        static func speedFormat(_ speed: Int) -> String {
+            String(format: String(localized: "briefing.speed.format"), speed)
+        }
     }
 
     // MARK: - Settings
@@ -653,6 +687,95 @@ enum L10n {
         static let subscriptionLogAppear = String(localized: "debug.subscriptionLog.logsAppear")
         static let subscriptionLogTitle = String(localized: "debug.subscriptionLog.title")
         static let subscriptionLogClose = String(localized: "debug.subscriptionLog.close")
+    }
+
+    // MARK: - Event Confirmation
+    enum EventConfirmation {
+        static let dismiss = String(localized: "eventConfirmation.dismiss")
+        static let confirm = String(localized: "eventConfirmation.confirm")
+        static let autoDismiss = String(localized: "eventConfirmation.autoDismiss")
+    }
+
+    // MARK: - Hour Meter
+    enum HourMeter {
+        static let beforeStartTitle = String(localized: "hourMeter.beforeStart.title")
+        static let afterStopTitle = String(localized: "hourMeter.afterStop.title")
+        static let beforeStartSubtitle = String(localized: "hourMeter.beforeStart.subtitle")
+        static let afterStopSubtitle = String(localized: "hourMeter.afterStop.subtitle")
+        static let hours = String(localized: "hourMeter.hours")
+        static let formatHint = String(localized: "hourMeter.formatHint")
+        static let clear = String(localized: "hourMeter.clear")
+        static let skip = String(localized: "hourMeter.skip")
+        static let save = String(localized: "hourMeter.save")
+        static let invalidFormatTitle = String(localized: "hourMeter.invalidFormat.title")
+        static let invalidFormatMessage = String(localized: "hourMeter.invalidFormat.message")
+    }
+
+    // MARK: - Flight Log Detail
+    enum FlightLogDetail {
+        // Sections
+        static let flightSection = String(localized: "flightLogDetail.flight")
+        static let routeSection = String(localized: "flightLogDetail.route")
+        static let timesSection = String(localized: "flightLogDetail.times")
+        static let durationsSection = String(localized: "flightLogDetail.durations")
+        static let engineHoursSection = String(localized: "flightLogDetail.engineHours")
+        static let eventsSection = String(localized: "flightLogDetail.events")
+        static let trackSection = String(localized: "flightLogDetail.track")
+        static let notesSection = String(localized: "flightLogDetail.notes")
+        static let navigationTitle = String(localized: "flightLogDetail.title")
+
+        // Flight info
+        static let date = String(localized: "flightLogDetail.date")
+        static let aircraft = String(localized: "flightLogDetail.aircraft")
+        static let type = String(localized: "flightLogDetail.type")
+        static let checklistVersion = String(localized: "flightLogDetail.checklistVersion")
+
+        // Route
+        static let departure = String(localized: "flightLogDetail.departure")
+        static let arrival = String(localized: "flightLogDetail.arrival")
+        static let distance = String(localized: "flightLogDetail.distance")
+
+        // Times
+        static let blockOff = String(localized: "flightLogDetail.blockOff")
+        static let engineStart = String(localized: "flightLogDetail.engineStart")
+        static let takeOff = String(localized: "flightLogDetail.takeOff")
+        static let landing = String(localized: "flightLogDetail.landing")
+        static let engineStop = String(localized: "flightLogDetail.engineStop")
+        static let blockOn = String(localized: "flightLogDetail.blockOn")
+
+        // Durations
+        static let blockTime = String(localized: "flightLogDetail.blockTime")
+        static let flightTime = String(localized: "flightLogDetail.flightTime")
+        static let engineTime = String(localized: "flightLogDetail.engineTime")
+
+        // Engine Hours
+        static let hoursBefore = String(localized: "flightLogDetail.hoursBefore")
+        static let hoursAfter = String(localized: "flightLogDetail.hoursAfter")
+        static let hoursFlown = String(localized: "flightLogDetail.hoursFlown")
+
+        // Events
+        static let goArounds = String(localized: "flightLogDetail.goArounds")
+        static let touchAndGos = String(localized: "flightLogDetail.touchAndGos")
+        static let fullStopLandings = String(localized: "flightLogDetail.fullStopLandings")
+        static let totalLandings = String(localized: "flightLogDetail.totalLandings")
+
+        // Track
+        static let trackStart = String(localized: "flightLogDetail.trackStart")
+        static let trackEnd = String(localized: "flightLogDetail.trackEnd")
+
+        // Export
+        static let exportFlight = String(localized: "flightLogDetail.exportFlight")
+        static let exportFormat = String(localized: "flightLogDetail.exportFormat")
+        static let exportGPX = String(localized: "flightLogDetail.exportGPX")
+        static let exportJSON = String(localized: "flightLogDetail.exportJSON")
+        static let exportZIP = String(localized: "flightLogDetail.exportZIP")
+        static let exportTitle = String(localized: "flightLogDetail.exportTitle")
+    }
+
+    // MARK: - Content View
+    enum ContentViewStrings {
+        static let rotateDevice = String(localized: "contentView.rotateDevice")
+        static let portraitMode = String(localized: "contentView.portraitMode")
     }
 
     // MARK: - Navigation / Flight Plans

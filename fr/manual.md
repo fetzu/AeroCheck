@@ -3,7 +3,6 @@ layout: page
 title: Manuel d'utilisation
 lang: fr
 permalink: /fr/manual/
-english_only: true
 ---
 
 # Manuel d'utilisation

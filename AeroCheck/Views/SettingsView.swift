@@ -1,1309 +1,72 @@
 import SwiftUI
 
-/// Settings view for configuring the app
+/// Settings hub view with navigation to sub-pages
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var locationManager: LocationManager
-    @EnvironmentObject var offlineMapManager: OfflineMapManager
-    @EnvironmentObject var subscriptionManager: SubscriptionManager
-    @EnvironmentObject var aircraftDataService: AircraftDataService
-    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) var dismiss
-    @ObservedObject private var syncManager = SyncManager.shared
-
-    @State private var showSubscriptionView = false
-    @State private var selectedAircraft: AircraftType = .wt9Dynamic
-    @State private var gpsInterval: Double = 5.0
-    @State private var keepScreenOn: Bool = true
-    @State private var stepByStepHighlighting: Bool = true
-    @State private var learningMode: Bool = false
-    @State private var forceICAOChartLayer: Bool = false
-    @State private var offlineMode: Bool = false
-    @State private var alwaysUseUTC: Bool = false
-    @State private var showEstimatedAirspeed: Bool = false
-    @State private var showDownloadModal: Bool = false
-    @State private var showDeleteConfirmation: Bool = false
-    @State private var showEstimatedAirspeedWarning: Bool = false
-    @State private var pendingEstimatedAirspeedValue: Bool = false
-    @State private var marketingMode: Bool = false
-    @State private var showDeveloperOptions: Bool = false
-    @State private var versionTapCount: Int = 0
-    @State private var showTransactionDebug: Bool = false
-    @State private var showSubscriptionLogs: Bool = false
-
-    // Flight Planning settings
-    @State private var enableFlightPlanning: Bool = false
-    @State private var waypointProximityThreshold: Double = 500
-    @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
-    @State private var showFlightPlanningWarning: Bool = false
-
-    // Circuit mode
-    @State private var enableCircuitMode: Bool = false
-
-    // iCloud Sync
-    @State private var iCloudSyncEnabled: Bool = true
-
-    // Checklist Language
-    @State private var checklistLanguage: ChecklistLanguage = .auto
-
-    // Airport overlay
-    @State private var showAirportsOnMap: Bool = false
-
-    // Flight logging
-    @State private var logEngineHours: Bool = false
-
-    @State private var isLoadingSettings: Bool = false
 
     var body: some View {
-        NavigationView {
-            settingsForm
-        }
-        .preferredColorScheme(.dark)
-    }
+        NavigationStack {
+            Form {
+                Section {
+                    NavigationLink(destination: AircraftSettingsView()) {
+                        SettingsRow(
+                            icon: "airplane",
+                            title: L10n.Settings.aircraftAndSubscription,
+                            subtitle: L10n.Settings.aircraftAndSubscriptionSubtitle
+                        )
+                    }
 
-    private var settingsForm: some View {
-        formContent
+                    NavigationLink(destination: ChecklistFlightSettingsView()) {
+                        SettingsRow(
+                            icon: "checklist",
+                            title: L10n.Settings.checklistAndFlight,
+                            subtitle: L10n.Settings.checklistAndFlightSubtitle
+                        )
+                    }
+
+                    NavigationLink(destination: NavigationMapsSettingsView()) {
+                        SettingsRow(
+                            icon: "map",
+                            title: L10n.Settings.navigationAndMaps,
+                            subtitle: L10n.Settings.navigationAndMapsSubtitle
+                        )
+                    }
+
+                    NavigationLink(destination: FlightPlanningSettingsView()) {
+                        SettingsRow(
+                            icon: "point.topleft.down.to.point.bottomright.curvepath",
+                            title: L10n.Settings.flightPlanning,
+                            subtitle: L10n.Settings.flightPlanningSubtitle
+                        )
+                    }
+
+                    NavigationLink(destination: SyncDataSettingsView()) {
+                        SettingsRow(
+                            icon: "icloud",
+                            title: L10n.Settings.syncAndData,
+                            subtitle: L10n.Settings.syncAndDataSubtitle
+                        )
+                    }
+
+                    NavigationLink(destination: AboutSettingsView()) {
+                        SettingsRow(
+                            icon: "info.circle",
+                            title: L10n.Settings.about,
+                            subtitle: L10n.Settings.aboutSubtitle
+                        )
+                    }
+                }
+            }
             .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
-            .onAppear { loadSettings() }
-            .onChange(of: appState.settings) { _, _ in
-                loadSettings()
-            }
-            .modifier(SettingsChangeModifier(
-                selectedAircraft: selectedAircraft,
-                gpsInterval: gpsInterval,
-                keepScreenOn: keepScreenOn,
-                stepByStepHighlighting: stepByStepHighlighting,
-                learningMode: learningMode,
-                forceICAOChartLayer: forceICAOChartLayer,
-                offlineMode: offlineMode,
-                alwaysUseUTC: alwaysUseUTC,
-                showEstimatedAirspeed: showEstimatedAirspeed,
-                enableFlightPlanning: enableFlightPlanning,
-                waypointProximityThreshold: waypointProximityThreshold,
-                terrainAltitudeUnit: terrainAltitudeUnit,
-                enableCircuitMode: enableCircuitMode,
-                iCloudSyncEnabled: iCloudSyncEnabled,
-                checklistLanguage: checklistLanguage,
-                marketingMode: marketingMode,
-                showAirportsOnMap: showAirportsOnMap,
-                logEngineHours: logEngineHours,
-                saveSettings: { if !isLoadingSettings { saveSettings() } },
-                updateMarketingMode: { appState.settings.marketingMode = $0 }
-            ))
-            .sheet(isPresented: $showDownloadModal) {
-                OfflineMapDownloadSheet(offlineMode: $offlineMode)
-                    .environmentObject(offlineMapManager)
-            }
-            .sheet(isPresented: $showEstimatedAirspeedWarning) {
-                EstimatedAirspeedWarningSheet(
-                    isPresented: $showEstimatedAirspeedWarning,
-                    showEstimatedAirspeed: $showEstimatedAirspeed
-                )
-            }
-            .sheet(isPresented: $showFlightPlanningWarning) {
-                FlightPlanningWarningSheet(
-                    isPresented: $showFlightPlanningWarning,
-                    enableFlightPlanning: $enableFlightPlanning
-                )
-            }
-            .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
-                Button(L10n.Button.cancel, role: .cancel) { }
-                Button(L10n.Button.delete, role: .destructive) {
-                    offlineMapManager.deleteCache()
-                    offlineMode = false
-                }
-            } message: {
-                Text(L10n.Settings.deleteCacheMessage)
-            }
-    }
-
-    private var formContent: some View {
-        Form {
-            // Group 1: Aircraft & Subscription
-            Group {
-                subscriptionSection
-                aircraftSection
-                aircraftVisibilitySection
-            }
-            // Group 2: Flight (in-flight behavior)
-            Group {
-                checklistSection
-                flightLoggingSection
-                gpsSection
-                displaySection
-            }
-            // Group 3: Navigation & Data
-            Group {
-                navigationSection
-                flightPlanningSection
-                experimentalAirspeedSection
-                airportDataSection
-                offlineMapsSection
-                iCloudSyncSection
-            }
-            // Group 4: About & Advanced
-            Group {
-                aboutSection
-                availableChecklistsSection
-                dataSection
-                developerOptionsSection
-            }
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .confirmationAction) {
-            Button(L10n.Settings.done) { dismiss() }
-        }
-    }
-
-    // MARK: - Form Sections
-
-    private var subscriptionSection: some View {
-        Section {
-            Button(action: { showSubscriptionView = true }) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L10n.Settings.aeroCheckPro)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-
-                        Text(subscriptionManager.subscriptionStatus.displayText)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        // Show grace period warning if applicable
-                        if subscriptionManager.isInGracePeriod,
-                           let endsAt = subscriptionManager.gracePeriodEndsAt {
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.aviationAmber)
-                                Text(L10n.Settings.gracePeriodEnds(endsAt.formatted(date: .abbreviated, time: .shortened)))
-                                    .font(.caption2)
-                                    .foregroundColor(.aviationAmber)
-                            }
-                        }
-                    }
-
-                    Spacer()
-
-                    if subscriptionManager.subscriptionStatus.isSubscribed {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.aviationGreen)
-                    } else if subscriptionManager.isInGracePeriod {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.aviationAmber)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .sheet(isPresented: $showSubscriptionView) {
-                SubscriptionView()
-                    .environmentObject(subscriptionManager)
-            }
-        } header: {
-            Label(L10n.Settings.subscription, systemImage: "star.fill")
-        } footer: {
-            if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text(L10n.Settings.subscriptionAccessAll)
-            } else if subscriptionManager.isInGracePeriod {
-                Text(L10n.Settings.subscriptionLapsed)
-            } else {
-                Text(L10n.Settings.subscriptionUnlockText)
-            }
-        }
-    }
-
-    @State private var isSyncingAircraftData = false
-
-    private var aircraftSection: some View {
-        Section {
-            // Show bundled aircraft (F-HVXA only)
-            ForEach(AircraftType.allCases) { aircraft in
-                Button(action: {
-                    selectedAircraft = aircraft
-                    appState.settings.selectedRemoteAircraftId = nil
-                    saveSettings()
-                }) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(aircraft.registration)
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-
-                            Text(aircraft.shortModelName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer()
-
-                        // Language flags
-                        HStack(spacing: 6) {
-                            ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
-                                LanguageFlagView(languageCode: languageCode)
-                            }
-                        }
-
-                        if selectedAircraft == aircraft && appState.settings.selectedRemoteAircraftId == nil {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.aviationGold)
-                        }
-                    }
-                }
-            }
-
-            // Premium Aircrafts navigation link
-            NavigationLink(destination: PremiumAircraftListView(showSubscriptionView: $showSubscriptionView)
-                .environmentObject(appState)
-                .environmentObject(aircraftDataService)
-            ) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Text(L10n.Settings.premiumAircrafts)
-                                .font(.system(.body))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-
-                            Image(systemName: "star.fill")
-                                .font(.caption)
-                                .foregroundColor(.aviationGold)
-                        }
-
-                        if aircraftDataService.isLoading {
-                            Text(L10n.Settings.loading)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        } else {
-                            let premiumCount = aircraftDataService.availableAircraft.filter { !$0.isFree }.count
-                            let accessibleCount = aircraftDataService.availableAircraft.filter { !$0.isFree && $0.hasAccess }.count
-
-                            if premiumCount > 0 {
-                                Text(L10n.Settings.available(accessibleCount, premiumCount))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                Text(L10n.Settings.noPremium)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-
-                    Spacer()
-                }
-            }
-
-            // Get latest aircraft data button
-            Button(action: getLatestAircraftData) {
-                HStack {
-                    if isSyncingAircraftData {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                    }
-                    Text(L10n.Settings.getLatest)
-                }
-            }
-            .disabled(isSyncingAircraftData)
-        } header: {
-            Label(L10n.Settings.aircraft, systemImage: "airplane")
-        } footer: {
-            Text(L10n.Settings.aircraftFooter)
-        }
-    }
-
-    private func getLatestAircraftData() {
-        isSyncingAircraftData = true
-        Task {
-            // First, sync subscription status
-            await subscriptionManager.syncWithServer()
-
-            // Refresh the aircraft list from server
-            await aircraftDataService.fetchAvailableAircraft()
-
-            // Force check for updates on all cached checklists
-            await aircraftDataService.syncAllChecklists()
-
-            await MainActor.run {
-                isSyncingAircraftData = false
-            }
-        }
-    }
-
-    // MARK: - Aircraft Visibility Section
-
-    /// All aeroclubs with at least one aircraft the user has access to
-    private var availableAeroclubs: [(aeroclub: String, aircraft: [RemoteAircraftMetadata])] {
-        let accessibleAircraft = aircraftDataService.availableAircraft.filter { $0.hasAccess && !$0.isBundled }
-        let grouped = Dictionary(grouping: accessibleAircraft) { $0.aeroclub ?? "" }
-        return grouped
-            .filter { !$0.key.isEmpty } // Only groups with an aeroclub name
-            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
-            .sorted { $0.aeroclub < $1.aeroclub }
-    }
-
-    private var aircraftVisibilitySection: some View {
-        Section {
-            // Only show if user has accessible aircraft with aeroclubs
-            if availableAeroclubs.isEmpty {
-                Text(L10n.Settings.noAircraftToFilter)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                // Show All / Hide All buttons
-                HStack(spacing: 12) {
-                    Button(action: showAllAircraft) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "eye")
-                                .font(.caption)
-                            Text(L10n.Settings.showAll)
-                                .font(.caption)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.aviationGreen.opacity(0.2))
-                        .foregroundColor(.aviationGreen)
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: hideAllAircraft) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "eye.slash")
-                                .font(.caption)
-                            Text(L10n.Settings.hideAll)
-                                .font(.caption)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.aviationRed.opacity(0.2))
-                        .foregroundColor(.aviationRed)
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.vertical, 4)
-
-                // Expandable aeroclub sections
-                ForEach(availableAeroclubs, id: \.aeroclub) { group in
-                    DisclosureGroup {
-                        // Individual aircraft toggles
-                        ForEach(group.aircraft) { aircraft in
-                            aircraftVisibilityToggle(for: aircraft)
-                        }
-                    } label: {
-                        aeroclubVisibilityHeader(for: group.aeroclub, aircraftCount: group.aircraft.count)
-                    }
-                }
-            }
-        } header: {
-            Label(L10n.Settings.aircraftVisibility, systemImage: "eye.circle")
-        } footer: {
-            Text(L10n.Settings.aircraftVisibilityFooter)
-        }
-    }
-
-    private func aeroclubVisibilityHeader(for aeroclub: String, aircraftCount: Int) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: "building.2")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(aeroclub)
-                        .font(.body)
-                }
-
-                let visibleCount = visibleAircraftCount(in: aeroclub)
-                Text(L10n.Settings.aircraftVisible(visibleCount, aircraftCount))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            // Toggle for entire aeroclub
-            Toggle("", isOn: Binding(
-                get: { !appState.settings.hiddenAeroclubs.contains(aeroclub) },
-                set: { isVisible in
-                    if isVisible {
-                        appState.settings.hiddenAeroclubs.remove(aeroclub)
-                    } else {
-                        appState.settings.hiddenAeroclubs.insert(aeroclub)
-                    }
-                    saveSettings()
-                }
-            ))
-            .labelsHidden()
-            .tint(.aviationGold)
-        }
-    }
-
-    private func aircraftVisibilityToggle(for aircraft: RemoteAircraftMetadata) -> some View {
-        let isClubHidden = appState.settings.hiddenAeroclubs.contains(aircraft.aeroclub ?? "")
-
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(aircraft.registration)
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.medium)
-                    .foregroundColor(isClubHidden ? .secondary : .primary)
-
-                Text(aircraft.shortModelName)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: Binding(
-                get: { !appState.settings.hiddenAircraftIds.contains(aircraft.id) && !isClubHidden },
-                set: { isVisible in
-                    if isVisible {
-                        appState.settings.hiddenAircraftIds.remove(aircraft.id)
-                        // If aeroclub was hidden, unhide it when showing individual aircraft
-                        if let club = aircraft.aeroclub {
-                            appState.settings.hiddenAeroclubs.remove(club)
-                        }
-                    } else {
-                        appState.settings.hiddenAircraftIds.insert(aircraft.id)
-                    }
-                    saveSettings()
-                }
-            ))
-            .labelsHidden()
-            .tint(.aviationGold)
-            .disabled(isClubHidden)
-        }
-        .padding(.leading, 16)
-        .opacity(isClubHidden ? 0.5 : 1.0)
-    }
-
-    private func visibleAircraftCount(in aeroclub: String) -> Int {
-        guard let group = availableAeroclubs.first(where: { $0.aeroclub == aeroclub }) else { return 0 }
-
-        // If aeroclub is hidden, all aircraft are hidden
-        if appState.settings.hiddenAeroclubs.contains(aeroclub) {
-            return 0
-        }
-
-        // Count aircraft not individually hidden
-        return group.aircraft.filter { !appState.settings.hiddenAircraftIds.contains($0.id) }.count
-    }
-
-    private func showAllAircraft() {
-        appState.settings.hiddenAircraftIds.removeAll()
-        appState.settings.hiddenAeroclubs.removeAll()
-        saveSettings()
-    }
-
-    private func hideAllAircraft() {
-        // Hide all aeroclubs (this effectively hides all aircraft)
-        for group in availableAeroclubs {
-            appState.settings.hiddenAeroclubs.insert(group.aeroclub)
-        }
-        saveSettings()
-    }
-
-    private var gpsSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(L10n.Settings.gpsInterval)
-                    Spacer()
-                    Text(L10n.Settings.seconds(Int(gpsInterval)))
-                        .foregroundColor(.secondary)
-                }
-
-                Slider(value: $gpsInterval, in: 1...30, step: 1)
-                    .tint(.aviationGold)
-            }
-
-            HStack {
-                Text(L10n.GPS.status)
-                Spacer()
-                Text(gpsStatusText)
-                    .foregroundColor(gpsStatusColor)
-            }
-
-            if locationManager.authorizationStatus == .notDetermined {
-                Button(L10n.GPS.requestPermission) {
-                    locationManager.requestAuthorization()
-                }
-            }
-        } header: {
-            Label(L10n.Settings.gps, systemImage: "location.fill")
-        } footer: {
-            Text(L10n.Settings.gpsFooter)
-        }
-    }
-
-    private var experimentalAirspeedSection: some View {
-        Section {
-            Toggle(L10n.Settings.showEstimatedAirspeed, isOn: Binding(
-                get: { showEstimatedAirspeed },
-                set: { newValue in
-                    if newValue {
-                        pendingEstimatedAirspeedValue = true
-                        showEstimatedAirspeedWarning = true
-                    } else {
-                        showEstimatedAirspeed = false
-                    }
-                }
-            ))
-        } header: {
-            HStack {
-                Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
-                Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.aviationAmber)
-                    )
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.experimentalFooter)
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationAmber)
-                    Text(L10n.Settings.switzerlandOnly)
-                        .foregroundColor(.aviationAmber)
-                }
-                .font(.caption)
-            }
-        }
-    }
-
-    private var flightPlanningSection: some View {
-        Section {
-            Toggle(L10n.Settings.enableFlightPlanning, isOn: Binding(
-                get: { enableFlightPlanning },
-                set: { newValue in
-                    if newValue {
-                        showFlightPlanningWarning = true
-                    } else {
-                        enableFlightPlanning = false
-                    }
-                }
-            ))
-
-            if enableFlightPlanning {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text(L10n.Settings.waypointProximity)
-                        Spacer()
-                        Text("\(Int(waypointProximityThreshold)) m")
-                            .foregroundColor(.secondary)
-                    }
-
-                    Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
-                        .tint(.aviationGold)
-                }
-
-                Picker(L10n.Settings.terrainAltitudeUnit, selection: $terrainAltitudeUnit) {
-                    ForEach(TerrainAltitudeUnit.allCases) { unit in
-                        Text(unit.rawValue).tag(unit)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-        } header: {
-            HStack {
-                Label(L10n.Settings.flightPlanning, systemImage: "map.fill")
-                Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.aviationAmber)
-                    )
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.flightPlanningFooter)
-                if enableFlightPlanning {
-                    Text(L10n.Settings.waypointProximityFooter)
-                    Text(L10n.Settings.terrainUnitFooter)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.Settings.done) { dismiss() }
                 }
             }
         }
-    }
-
-    private var displaySection: some View {
-        Section {
-            Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
-            Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
-        } header: {
-            Label(L10n.Settings.display, systemImage: "sun.max.fill")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.keepScreenOnFooter)
-                Text(L10n.Settings.alwaysUseUTCFooter)
-            }
-        }
-    }
-
-    private var navigationSection: some View {
-        Section {
-            Toggle(L10n.Settings.forceICAO, isOn: $forceICAOChartLayer)
-                .disabled(offlineMode)
-        } header: {
-            Label(L10n.Settings.navigation, systemImage: "map")
-        } footer: {
-            Text(L10n.Settings.forceICAOFooter)
-        }
-    }
-
-    // MARK: - Airport Data Section
-
-    private var airportDataSection: some View {
-        Section {
-            // Download/update button
-            if airportDataService.isDownloading {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text(L10n.Settings.downloadingAirports)
-                            .font(.body)
-                    }
-                    ProgressView(value: airportDataService.downloadProgress)
-                        .tint(.aviationGold)
-                }
-            } else if airportDataService.isDataAvailable {
-                // Data is available
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L10n.Settings.airportsLoaded(airportDataService.airportCount))
-                            .font(.body)
-                        if let lastUpdate = airportDataService.lastUpdated {
-                            Text(L10n.Settings.lastUpdatedDate(formatAirportDate(lastUpdate)))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    Spacer()
-                    if airportDataService.needsUpdate {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .foregroundColor(.aviationAmber)
-                            .help(L10n.Settings.airportUpdateAvailable)
-                    }
-                }
-
-                // Show on map toggle
-                Toggle(L10n.Settings.showAirportsOnMap, isOn: $showAirportsOnMap)
-
-                // Update button
-                Button(action: {
-                    Task {
-                        await airportDataService.downloadData()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text(L10n.Settings.updateAirportData)
-                    }
-                }
-
-                // Delete button
-                Button(role: .destructive, action: {
-                    airportDataService.deleteData()
-                }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(L10n.Settings.deleteAirportData)
-                    }
-                }
-            } else {
-                // No data - show download button
-                Button(action: {
-                    Task {
-                        await airportDataService.downloadData()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.down.circle")
-                        Text(L10n.Settings.downloadAirportData)
-                    }
-                }
-            }
-
-            // Error display
-            if let error = airportDataService.downloadError {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationRed)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.aviationRed)
-                }
-            }
-        } header: {
-            Label(L10n.Settings.airportData, systemImage: "building.2")
-        } footer: {
-            Text(L10n.Settings.airportDataFooter)
-        }
-    }
-
-    private func formatAirportDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private var iCloudSyncSection: some View {
-        Section {
-            Toggle(L10n.Settings.syncToICloud, isOn: $iCloudSyncEnabled)
-
-            if iCloudSyncEnabled {
-                if let lastSync = syncManager.lastSyncDate {
-                    HStack {
-                        Text(L10n.Settings.lastSync)
-                        Spacer()
-                        Text(formatSyncDate(lastSync))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Button(action: {
-                    Task {
-                        await syncManager.syncNow()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
-                            .animation(
-                                syncManager.isSyncing
-                                    ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
-                                    : .default,
-                                value: syncManager.isSyncing
-                            )
-                        Text(syncManager.isSyncing ? L10n.Settings.syncing : L10n.Settings.syncNow)
-                    }
-                }
-                .disabled(syncManager.isSyncing)
-            }
-        } header: {
-            Label(L10n.Settings.icloud, systemImage: "icloud")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.icloudFooter)
-                if iCloudSyncEnabled {
-                    Text(L10n.Settings.flightLogsFooter)
-                }
-            }
-        }
-    }
-
-    /// Format sync date as DD.MM.YYYY HH:MM
-    private func formatSyncDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd.MM.yyyy HH:mm"
-        return formatter.string(from: date)
-    }
-
-    private var offlineMapsSection: some View {
-        Section {
-            Toggle(L10n.Settings.offlineMode, isOn: $offlineMode)
-                .onChange(of: offlineMode) { _, newValue in
-                    if newValue && !offlineMapManager.isCacheAvailable {
-                        showDownloadModal = true
-                    }
-                }
-
-            if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
-                if offlineMapManager.isCacheAvailable {
-                    HStack {
-                        Text(L10n.Settings.icaoChart)
-                        Spacer()
-                        Text(offlineMapManager.cacheVersion)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                if offlineMapManager.isSegelflugCacheAvailable {
-                    HStack {
-                        Text(L10n.Settings.segelflugkarte)
-                        Spacer()
-                        Text(offlineMapManager.segelflugCacheVersion)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    Text(L10n.Settings.totalCacheSize)
-                    Spacer()
-                    Text(offlineMapManager.formattedCacheSize)
-                        .foregroundColor(.secondary)
-                }
-
-                Button(action: { showDownloadModal = true }) {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text(L10n.Settings.updateCharts)
-                    }
-                }
-
-                Button(role: .destructive, action: { showDeleteConfirmation = true }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(L10n.Settings.deleteCache)
-                    }
-                }
-            } else {
-                Button(action: { showDownloadModal = true }) {
-                    HStack {
-                        Image(systemName: "arrow.down.circle")
-                        Text(L10n.Settings.downloadCharts)
-                    }
-                }
-            }
-        } header: {
-            Label(L10n.Settings.offlineMaps, systemImage: "arrow.down.circle")
-        } footer: {
-            offlineMapsFooter
-        }
-    }
-
-    @ViewBuilder
-    private var offlineMapsFooter: some View {
-        if offlineMode {
-            if offlineMapManager.isSegelflugCacheAvailable {
-                Text(L10n.Settings.offlineActive)
-            } else {
-                Text(L10n.Settings.onlyICAO)
-            }
-        } else if offlineMapManager.isCacheAvailable {
-            Text(L10n.Settings.chartsCached)
-        } else {
-            Text(L10n.Settings.downloadDesc)
-        }
-    }
-
-    private var checklistSection: some View {
-        Section {
-            Toggle(L10n.Settings.stepByStep, isOn: $stepByStepHighlighting)
-
-            Toggle(L10n.Settings.learningMode, isOn: $learningMode)
-
-            Toggle(L10n.Settings.circuitMode, isOn: $enableCircuitMode)
-
-            // Checklist Language Picker
-            Picker(L10n.Settings.checklistLanguage, selection: $checklistLanguage) {
-                ForEach(ChecklistLanguage.availableLanguages) { language in
-                    Text(language.displayName).tag(language)
-                }
-            }
-        } header: {
-            Label(L10n.Settings.checklist, systemImage: "checklist")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.stepByStepFooter)
-                Text(L10n.Settings.learningModeFooter)
-                Text(L10n.Settings.circuitModeFooter)
-                Text(L10n.Settings.checklistLanguageFooter)
-            }
-        }
-    }
-
-    private var flightLoggingSection: some View {
-        Section {
-            Toggle(L10n.Settings.logEngineHours, isOn: $logEngineHours)
-        } header: {
-            Label(L10n.Settings.flightLogging, systemImage: "clock.badge.checkmark")
-        } footer: {
-            Text(L10n.Settings.logEngineHoursFooter)
-        }
-    }
-
-    private var aboutSection: some View {
-        Section {
-            HStack {
-                Text(L10n.Settings.appVersion)
-                    .foregroundColor(.primary)
-                Spacer()
-                HStack(spacing: 4) {
-                    Text(appVersion)
-                    if !showDeveloperOptions {
-                        Link(destination: URL(string: "https://aerocheck.app/changelog")!) {
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.caption)
-                        }
-                    }
-                }
-                .foregroundColor(.secondary)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                versionTapCount += 1
-                if versionTapCount >= 5 {
-                    withAnimation {
-                        showDeveloperOptions = true
-                    }
-                }
-            }
-
-            Link(destination: URL(string: "https://aerocheck.app/")!) {
-                HStack {
-                    Text(L10n.Settings.website)
-                        .foregroundColor(.primary)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Text("AeroCheck.app")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Image(systemName: "arrow.up.forward.square")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.secondary)
-                }
-            }
-
-            Link(destination: URL(string: "https://www.julienbono.ch/")!) {
-                HStack {
-                    Text(L10n.Settings.author)
-                        .foregroundColor(.primary)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Text("Julien 'fetzu' Bono")
-                        Image(systemName: "arrow.up.forward.square")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.secondary)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        .foregroundColor(.primary)
-                    Text(L10n.Settings.openSource)
-                        .font(.headline)
-                }
-
-                Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                    Text(L10n.Settings.openSourceDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    + Text(Image(systemName: "arrow.up.forward.square"))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .baselineOffset(4)
-                }
-
-                Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                    Text(L10n.Settings.mitLicense)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    + Text(Image(systemName: "arrow.up.forward.square"))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .baselineOffset(4)
-                }
-            }
-            .padding(.vertical, 4)
-        } header: {
-            Label(L10n.Settings.about, systemImage: "info.circle.fill")
-        }
-    }
-
-    /// Groups cached aircraft by aeroclub for display
-    private func groupCachedAircraftByAeroclub(_ aircraft: [CachedAircraftInfo]) -> [(aeroclub: String?, aircraft: [CachedAircraftInfo])] {
-        let grouped = Dictionary(grouping: aircraft) { $0.aeroclub }
-        return grouped
-            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
-            .sorted { lhs, rhs in
-                switch (lhs.aeroclub, rhs.aeroclub) {
-                case (nil, nil): return false
-                case (nil, _): return true
-                case (_, nil): return false
-                case (let a?, let b?): return a < b
-                }
-            }
-    }
-
-    private var availableChecklistsSection: some View {
-        Section {
-            let cachedAircraft = aircraftDataService.getAllCachedAircraft()
-            let groupedAircraft = groupCachedAircraftByAeroclub(cachedAircraft)
-
-            if cachedAircraft.isEmpty {
-                Text(L10n.Settings.noCached)
-                    .foregroundColor(.secondary)
-                    .font(.caption)
-            } else {
-                ForEach(groupedAircraft, id: \.aeroclub) { group in
-                    // Show aeroclub header if present
-                    if let aeroclub = group.aeroclub {
-                        HStack(spacing: 6) {
-                            Image(systemName: "building.2")
-                                .font(.caption)
-                                .foregroundColor(.aviationGold)
-                            Text(aeroclub)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.aviationGold)
-                        }
-                        .padding(.top, group.aeroclub == groupedAircraft.first?.aeroclub ? 0 : 8)
-                    }
-
-                    ForEach(group.aircraft) { aircraft in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(aircraft.registration)
-                                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
-
-                                if aircraft.isPremium {
-                                    Image(systemName: "star.fill")
-                                        .font(.caption)
-                                        .foregroundColor(.aviationGold)
-                                }
-
-                                Text(aircraft.modelName)
-                                    .foregroundColor(.secondary)
-
-                                Spacer()
-
-                                // Language flags
-                                HStack(spacing: 6) {
-                                    ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
-                                        LanguageFlagView(languageCode: languageCode)
-                                    }
-                                }
-                            }
-                            HStack {
-                                Text(L10n.Settings.version(aircraft.version))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("•")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text(aircraft.lastUpdated)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-            }
-        } header: {
-            Label(L10n.Settings.availableChecklists, systemImage: "checklist")
-        } footer: {
-            Text(L10n.Settings.availableChecklistsFooter)
-        }
-    }
-
-    private var dataSection: some View {
-        Section {
-            HStack {
-                Text(L10n.Settings.recordedFlights)
-                Spacer()
-                Text("\(appState.flights.count)")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text(L10n.Settings.totalGPSPoints)
-                Spacer()
-                Text("\(totalGPSPoints)")
-                    .foregroundColor(.secondary)
-            }
-        } header: {
-            Label(L10n.Settings.data, systemImage: "externaldrive.fill")
-        }
-    }
-
-    @ViewBuilder
-    private var developerOptionsSection: some View {
-        if showDeveloperOptions {
-            Section {
-                Toggle(L10n.Settings.marketingMode, isOn: $marketingMode)
-
-                Toggle(L10n.Settings.forceNotSubscribed, isOn: $subscriptionManager.debugForceNotSubscribed)
-                    .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in
-                        Task {
-                            await subscriptionManager.updateSubscriptionStatus()
-                        }
-                    }
-
-                Button(action: { showTransactionDebug = true }) {
-                    HStack {
-                        Image(systemName: "doc.text.magnifyingglass")
-                        Text(L10n.Settings.showAllTransactions)
-                    }
-                }
-                .sheet(isPresented: $showTransactionDebug) {
-                    TransactionDebugView()
-                        .environmentObject(subscriptionManager)
-                }
-
-                Button(action: { showSubscriptionLogs = true }) {
-                    HStack {
-                        Image(systemName: "doc.text.fill")
-                        Text(L10n.Settings.showSubscriptionLogs)
-                    }
-                }
-                .sheet(isPresented: $showSubscriptionLogs) {
-                    SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
-                        .environmentObject(subscriptionManager)
-                }
-
-                Button(role: .destructive, action: resetSubscription) {
-                    HStack {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text(L10n.Settings.resetSubscription)
-                    }
-                }
-            } header: {
-                HStack {
-                    Label("Developer Options", systemImage: "hammer.fill")
-                    Text(L10n.Tag.dev)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.purple)
-                        )
-                }
-            } footer: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(L10n.Settings.marketingModeDesc)
-                    Text(L10n.Settings.forceNotSubscribedDesc)
-                    Text(L10n.Settings.showAllTransactionsDesc)
-                    Text(L10n.Settings.showSubscriptionLogsDesc)
-                    Text(L10n.Settings.resetSubscriptionDesc)
-                }
-            }
-        }
-    }
-
-    private func resetSubscription() {
-        Task {
-            await subscriptionManager.resetSubscriptionState()
-        }
-    }
-    
-    // MARK: - Computed Properties
-
-    /// App version from Info.plist (single source of truth via Xcode project settings)
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-    }
-
-    private var gpsStatusText: String {
-        switch locationManager.authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            return "Authorized"
-        case .denied:
-            return "Denied"
-        case .restricted:
-            return "Restricted"
-        case .notDetermined:
-            return "Not Set"
-        @unknown default:
-            return "Unknown"
-        }
-    }
-    
-    private var gpsStatusColor: Color {
-        switch locationManager.authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            return .green
-        case .denied, .restricted:
-            return .red
-        default:
-            return .secondary
-        }
-    }
-    
-    private var totalGPSPoints: Int {
-        appState.flights.reduce(0) { $0 + $1.gpsTrack.count }
-    }
-    
-    // MARK: - Methods
-    
-    private func loadSettings() {
-        isLoadingSettings = true
-        selectedAircraft = appState.settings.selectedAircraft
-        gpsInterval = appState.settings.gpsRecordingInterval
-        keepScreenOn = appState.settings.keepScreenOn
-        stepByStepHighlighting = appState.settings.stepByStepHighlighting
-        learningMode = appState.settings.learningMode
-        forceICAOChartLayer = appState.settings.forceICAOChartLayer
-        offlineMode = appState.settings.offlineMode
-        alwaysUseUTC = appState.settings.alwaysUseUTC
-        showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
-        // Flight Planning settings
-        enableFlightPlanning = appState.settings.enableFlightPlanning
-        waypointProximityThreshold = appState.settings.waypointProximityThreshold
-        terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
-        // Circuit mode
-        enableCircuitMode = appState.settings.enableCircuitMode
-        // iCloud Sync
-        iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
-        // Checklist Language
-        checklistLanguage = appState.settings.checklistLanguage
-        // Airport overlay
-        showAirportsOnMap = appState.settings.showAirportsOnMap
-        // Flight logging
-        logEngineHours = appState.settings.logEngineHours
-
-        // Reset loading flag in next runloop to avoid triggering save loops
-        DispatchQueue.main.async {
-            self.isLoadingSettings = false
-        }
-    }
-
-    private func saveSettings() {
-        appState.settings.selectedAircraft = selectedAircraft
-        appState.settings.gpsRecordingInterval = gpsInterval
-        appState.settings.keepScreenOn = keepScreenOn
-        appState.settings.stepByStepHighlighting = stepByStepHighlighting
-        appState.settings.learningMode = learningMode
-        appState.settings.forceICAOChartLayer = forceICAOChartLayer
-        appState.settings.offlineMode = offlineMode
-        appState.settings.alwaysUseUTC = alwaysUseUTC
-        appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
-        // Flight Planning settings
-        appState.settings.enableFlightPlanning = enableFlightPlanning
-        appState.settings.waypointProximityThreshold = waypointProximityThreshold
-        appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
-        // Circuit mode
-        appState.settings.enableCircuitMode = enableCircuitMode
-        // iCloud Sync
-        appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
-        // Checklist Language
-        appState.settings.checklistLanguage = checklistLanguage
-        // Airport overlay
-        appState.settings.showAirportsOnMap = showAirportsOnMap
-        // Flight logging
-        appState.settings.logEngineHours = logEngineHours
-        // Note: marketingMode is handled separately and NOT persisted
-        appState.saveSettings()
-
-        // Apply screen setting
-        UIApplication.shared.isIdleTimerDisabled = keepScreenOn
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -1316,44 +79,25 @@ struct FlightPlanningWarningSheet: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
-                // Warning icon
                 Image(systemName: "map.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.aviationAmber)
                     .padding(.top, 40)
 
-                // Title
                 Text(L10n.Warning.betaFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
-                // Warning message
                 VStack(alignment: .leading, spacing: 16) {
-                    WarningItem(
-                        icon: "exclamationmark.triangle.fill",
-                        text: L10n.Warning.flightPlanningBetaDesc
-                    )
-
-                    WarningItem(
-                        icon: "map",
-                        text: L10n.Warning.flightPlanningPlanRoutes
-                    )
-
-                    WarningItem(
-                        icon: "location.fill",
-                        text: L10n.Warning.flightPlanningAutoAdvance
-                    )
-
-                    WarningItem(
-                        icon: "mountain.2.fill",
-                        text: L10n.Warning.flightPlanningTerrainViz
-                    )
+                    WarningItem(icon: "exclamationmark.triangle.fill", text: L10n.Warning.flightPlanningBetaDesc)
+                    WarningItem(icon: "map", text: L10n.Warning.flightPlanningPlanRoutes)
+                    WarningItem(icon: "location.fill", text: L10n.Warning.flightPlanningAutoAdvance)
+                    WarningItem(icon: "mountain.2.fill", text: L10n.Warning.flightPlanningTerrainViz)
                 }
                 .padding(.horizontal, 24)
 
                 Spacer()
 
-                // Buttons
                 VStack(spacing: 12) {
                     Button(action: {
                         enableFlightPlanning = true
@@ -1371,9 +115,7 @@ struct FlightPlanningWarningSheet: View {
                     }
                     .padding(.horizontal, 24)
 
-                    Button(action: {
-                        isPresented = false
-                    }) {
+                    Button(action: { isPresented = false }) {
                         Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
@@ -1385,9 +127,7 @@ struct FlightPlanningWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) {
-                        isPresented = false
-                    }
+                    Button(L10n.Button.cancel) { isPresented = false }
                 }
             }
         }
@@ -1404,44 +144,25 @@ struct EstimatedAirspeedWarningSheet: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
-                // Warning icon
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.aviationAmber)
                     .padding(.top, 40)
 
-                // Title
                 Text(L10n.Warning.experimentalFeature)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
-                // Warning message
                 VStack(alignment: .leading, spacing: 16) {
-                    WarningItem(
-                        icon: "airplane",
-                        text: L10n.Warning.estimatedAirspeedCalculated
-                    )
-
-                    WarningItem(
-                        icon: "exclamationmark.circle.fill",
-                        text: L10n.Warning.estimatedAirspeedInaccurate
-                    )
-
-                    WarningItem(
-                        icon: "gauge.with.needle",
-                        text: L10n.Warning.estimatedAirspeedAlwaysRelyOnboard
-                    )
-
-                    WarningItem(
-                        icon: "network",
-                        text: L10n.Warning.estimatedAirspeedRequiresCellular
-                    )
+                    WarningItem(icon: "airplane", text: L10n.Warning.estimatedAirspeedCalculated)
+                    WarningItem(icon: "exclamationmark.circle.fill", text: L10n.Warning.estimatedAirspeedInaccurate)
+                    WarningItem(icon: "gauge.with.needle", text: L10n.Warning.estimatedAirspeedAlwaysRelyOnboard)
+                    WarningItem(icon: "network", text: L10n.Warning.estimatedAirspeedRequiresCellular)
                 }
                 .padding(.horizontal, 24)
 
                 Spacer()
 
-                // Buttons
                 VStack(spacing: 12) {
                     Button(action: {
                         showEstimatedAirspeed = true
@@ -1459,9 +180,7 @@ struct EstimatedAirspeedWarningSheet: View {
                     }
                     .padding(.horizontal, 24)
 
-                    Button(action: {
-                        isPresented = false
-                    }) {
+                    Button(action: { isPresented = false }) {
                         Text(L10n.Warning.cancel)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(.secondaryText)
@@ -1473,9 +192,7 @@ struct EstimatedAirspeedWarningSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) {
-                        isPresented = false
-                    }
+                    Button(L10n.Button.cancel) { isPresented = false }
                 }
             }
         }
@@ -1510,7 +227,6 @@ struct OfflineMapDownloadSheet: View {
     @Binding var offlineMode: Bool
     @State private var selectedCacheOption: CacheOption = .icaoOnly
 
-    /// Storage estimate for each option
     private func storageEstimate(for option: CacheOption) -> String {
         switch option {
         case .icaoOnly: return "~100 MB"
@@ -1521,25 +237,21 @@ struct OfflineMapDownloadSheet: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                // Header icon
                 Image(systemName: "map.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.aviationGold)
                     .padding(.top, 24)
 
-                // Title
                 Text(L10n.Settings.downloadCharts)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.primaryText)
 
-                // Description
                 Text(L10n.Download.description)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
 
-                // Cache option picker (only show when not downloading and no complete cache)
                 if !offlineMapManager.isDownloading {
                     VStack(spacing: 12) {
                         Text(L10n.Download.selectCharts)
@@ -1562,7 +274,6 @@ struct OfflineMapDownloadSheet: View {
 
                 Spacer()
 
-                // Download progress or status
                 if offlineMapManager.isDownloading {
                     VStack(spacing: 12) {
                         ProgressView(value: offlineMapManager.downloadProgress)
@@ -1583,7 +294,6 @@ struct OfflineMapDownloadSheet: View {
                             .font(.system(size: 14, design: .monospaced))
                             .foregroundColor(.secondaryText)
 
-                        // Estimated time remaining
                         if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
                             Text(L10n.Download.estimatedTimeRemaining(formattedTimeRemaining(eta)))
                                 .font(.system(size: 13))
@@ -1604,7 +314,6 @@ struct OfflineMapDownloadSheet: View {
                     }
                 }
 
-                // Current cache status
                 if !offlineMapManager.isDownloading && (offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable) {
                     VStack(spacing: 8) {
                         HStack(spacing: 16) {
@@ -1623,7 +332,6 @@ struct OfflineMapDownloadSheet: View {
 
                 Spacer()
 
-                // Action buttons
                 VStack(spacing: 12) {
                     if offlineMapManager.isDownloading {
                         // No action button while downloading
@@ -1670,7 +378,6 @@ struct OfflineMapDownloadSheet: View {
         .preferredColorScheme(.dark)
         .interactiveDismissDisabled(offlineMapManager.isDownloading)
         .onAppear {
-            // Default to ICAO + Segelflug if ICAO is already cached but Segelflug isn't
             if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
                 selectedCacheOption = .icaoAndSegelflug
             }
@@ -1697,17 +404,13 @@ struct OfflineMapDownloadSheet: View {
     }
 
     private func startDownload() {
-        Task {
-            await offlineMapManager.downloadCharts(option: selectedCacheOption)
-        }
+        Task { await offlineMapManager.downloadCharts(option: selectedCacheOption) }
     }
 
-    /// Format time interval as human-readable string (e.g., "2m 30s" or "45s")
     private func formattedTimeRemaining(_ interval: TimeInterval) -> String {
         let totalSeconds = Int(interval)
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
-
         if minutes > 0 {
             return "\(minutes)m \(seconds)s"
         } else {
@@ -1793,125 +496,6 @@ struct CacheStatusBadge: View {
     }
 }
 
-// MARK: - Settings Change Modifier
-
-// Helper modifiers to break up the complex expression
-struct SettingsChangeGroup1: ViewModifier {
-    let selectedAircraft: AircraftType
-    let gpsInterval: Double
-    let keepScreenOn: Bool
-    let stepByStepHighlighting: Bool
-    let learningMode: Bool
-    let saveSettings: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: selectedAircraft) { _, _ in saveSettings() }
-            .onChange(of: gpsInterval) { _, _ in saveSettings() }
-            .onChange(of: keepScreenOn) { _, _ in saveSettings() }
-            .onChange(of: stepByStepHighlighting) { _, _ in saveSettings() }
-            .onChange(of: learningMode) { _, _ in saveSettings() }
-    }
-}
-
-struct SettingsChangeGroup2: ViewModifier {
-    let forceICAOChartLayer: Bool
-    let offlineMode: Bool
-    let alwaysUseUTC: Bool
-    let showEstimatedAirspeed: Bool
-    let enableFlightPlanning: Bool
-    let saveSettings: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: forceICAOChartLayer) { _, _ in saveSettings() }
-            .onChange(of: offlineMode) { _, _ in saveSettings() }
-            .onChange(of: alwaysUseUTC) { _, _ in saveSettings() }
-            .onChange(of: showEstimatedAirspeed) { _, _ in saveSettings() }
-            .onChange(of: enableFlightPlanning) { _, _ in saveSettings() }
-    }
-}
-
-struct SettingsChangeGroup3: ViewModifier {
-    let waypointProximityThreshold: Double
-    let terrainAltitudeUnit: TerrainAltitudeUnit
-    let enableCircuitMode: Bool
-    let iCloudSyncEnabled: Bool
-    let checklistLanguage: ChecklistLanguage
-    let marketingMode: Bool
-    let showAirportsOnMap: Bool
-    let logEngineHours: Bool
-    let saveSettings: () -> Void
-    let updateMarketingMode: (Bool) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: waypointProximityThreshold) { _, _ in saveSettings() }
-            .onChange(of: terrainAltitudeUnit) { _, _ in saveSettings() }
-            .onChange(of: enableCircuitMode) { _, _ in saveSettings() }
-            .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
-            .onChange(of: checklistLanguage) { _, _ in saveSettings() }
-            .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
-            .onChange(of: showAirportsOnMap) { _, _ in saveSettings() }
-            .onChange(of: logEngineHours) { _, _ in saveSettings() }
-    }
-}
-
-struct SettingsChangeModifier: ViewModifier {
-    let selectedAircraft: AircraftType
-    let gpsInterval: Double
-    let keepScreenOn: Bool
-    let stepByStepHighlighting: Bool
-    let learningMode: Bool
-    let forceICAOChartLayer: Bool
-    let offlineMode: Bool
-    let alwaysUseUTC: Bool
-    let showEstimatedAirspeed: Bool
-    let enableFlightPlanning: Bool
-    let waypointProximityThreshold: Double
-    let terrainAltitudeUnit: TerrainAltitudeUnit
-    let enableCircuitMode: Bool
-    let iCloudSyncEnabled: Bool
-    let checklistLanguage: ChecklistLanguage
-    let marketingMode: Bool
-    let showAirportsOnMap: Bool
-    let logEngineHours: Bool
-    let saveSettings: () -> Void
-    let updateMarketingMode: (Bool) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .modifier(SettingsChangeGroup1(
-                selectedAircraft: selectedAircraft,
-                gpsInterval: gpsInterval,
-                keepScreenOn: keepScreenOn,
-                stepByStepHighlighting: stepByStepHighlighting,
-                learningMode: learningMode,
-                saveSettings: saveSettings
-            ))
-            .modifier(SettingsChangeGroup2(
-                forceICAOChartLayer: forceICAOChartLayer,
-                offlineMode: offlineMode,
-                alwaysUseUTC: alwaysUseUTC,
-                showEstimatedAirspeed: showEstimatedAirspeed,
-                enableFlightPlanning: enableFlightPlanning,
-                saveSettings: saveSettings
-            ))
-            .modifier(SettingsChangeGroup3(
-                waypointProximityThreshold: waypointProximityThreshold,
-                terrainAltitudeUnit: terrainAltitudeUnit,
-                enableCircuitMode: enableCircuitMode,
-                iCloudSyncEnabled: iCloudSyncEnabled,
-                checklistLanguage: checklistLanguage,
-                marketingMode: marketingMode,
-                showAirportsOnMap: showAirportsOnMap,
-                logEngineHours: logEngineHours,
-                saveSettings: saveSettings,
-                updateMarketingMode: updateMarketingMode
-            ))
-    }
-}
-
 // MARK: - Transaction Debug View
 
 struct TransactionDebugView: View {
@@ -1987,18 +571,14 @@ struct TransactionDebugView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        Task {
-                            await loadTransactions()
-                        }
+                        Task { await loadTransactions() }
                     }) {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(isLoading)
                 }
             }
-            .task {
-                await loadTransactions()
-            }
+            .task { await loadTransactions() }
         }
         .preferredColorScheme(.dark)
     }
@@ -2006,14 +586,11 @@ struct TransactionDebugView: View {
     private func loadTransactions() async {
         isLoading = true
         transactions = await subscriptionManager.getAllTransactions()
-
-        // Determine account type from transactions
         if let firstTransaction = transactions.first {
             currentAccountType = firstTransaction.environmentText
         } else {
             currentAccountType = "No Transactions"
         }
-
         isLoading = false
     }
 }
@@ -2023,7 +600,6 @@ struct TransactionDebugRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Product ID and Status
             HStack {
                 Text(transaction.productID)
                     .font(.system(.body, design: .monospaced))
@@ -2034,7 +610,6 @@ struct TransactionDebugRow: View {
                     .fontWeight(.medium)
             }
 
-            // Environment
             HStack {
                 Text("Environment")
                     .font(.caption)
@@ -2045,7 +620,6 @@ struct TransactionDebugRow: View {
                     .foregroundColor(.secondary)
             }
 
-            // Purchase Date
             HStack {
                 Text("Purchased")
                     .font(.caption)
@@ -2056,7 +630,6 @@ struct TransactionDebugRow: View {
                     .foregroundColor(.secondary)
             }
 
-            // Expiration Date
             if let expirationDate = transaction.expirationDate {
                 HStack {
                     Text("Expires")
@@ -2069,7 +642,6 @@ struct TransactionDebugRow: View {
                 }
             }
 
-            // Transaction IDs
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Transaction ID")
@@ -2095,7 +667,6 @@ struct TransactionDebugRow: View {
                 }
             }
 
-            // Verification Error (if any)
             if let error = transaction.verificationError {
                 Text("Verification Error: \(error)")
                     .font(.caption2)
@@ -2103,7 +674,6 @@ struct TransactionDebugRow: View {
                     .padding(.top, 4)
             }
 
-            // Revocation info (if any)
             if let revocationDate = transaction.revocationDate {
                 Text("Revoked on \(revocationDate.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption2)
@@ -2153,9 +723,7 @@ struct SubscriptionDebugLogView: View {
                     Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: {
-                        debugLogger.clear()
-                    }) {
+                    Button(action: { debugLogger.clear() }) {
                         Image(systemName: "trash")
                     }
                     .disabled(debugLogger.logs.isEmpty)
@@ -2206,6 +774,9 @@ struct DebugLogRow: View {
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
 }
+
+// MARK: - Premium Aircraft List
+
 import SwiftUI
 
 /// View displaying all premium aircraft available from the API
@@ -2219,7 +790,6 @@ struct PremiumAircraftListView: View {
         aircraftDataService.availableAircraft.filter { !$0.isFree }
     }
 
-    /// Groups premium aircraft by aeroclub
     var aircraftByAeroclub: [(aeroclub: String, aircraft: [RemoteAircraftMetadata])] {
         let grouped = Dictionary(grouping: premiumAircraft) { $0.aeroclub ?? "" }
         return grouped
@@ -2266,14 +836,12 @@ struct PremiumAircraftListView: View {
                                     if aircraft.hasAccess {
                                         appState.settings.selectedRemoteAircraftId = aircraft.id
                                         UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
-                                        // Trigger download/cache of the checklist
                                         Task {
                                             _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
                                         }
                                         dismiss()
                                     } else {
                                         dismiss()
-                                        // Small delay to allow dismiss animation to complete
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                             showSubscriptionView = true
                                         }
@@ -2297,10 +865,7 @@ struct PremiumAircraftListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)
         .onAppear {
-            // Refresh aircraft list when view appears
-            Task {
-                await aircraftDataService.fetchAvailableAircraft()
-            }
+            Task { await aircraftDataService.fetchAvailableAircraft() }
         }
     }
 }
@@ -2313,7 +878,6 @@ struct PremiumAircraftRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 16) {
-                // Aircraft icon
                 ZStack {
                     Circle()
                         .fill(aircraft.hasAccess ? Color.aviationGold.opacity(0.2) : Color.secondary.opacity(0.2))
@@ -2324,7 +888,6 @@ struct PremiumAircraftRow: View {
                         .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
                 }
 
-                // Aircraft details
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
@@ -2354,14 +917,12 @@ struct PremiumAircraftRow: View {
 
                 Spacer()
 
-                // Language flags
                 HStack(spacing: 6) {
                     ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
                         LanguageFlagView(languageCode: languageCode)
                     }
                 }
 
-                // Selection indicator
                 if isSelected && aircraft.hasAccess {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
@@ -2390,19 +951,13 @@ struct LanguageFlagView: View {
         }
     }
 
-    /// Converts language code to flag emoji
     private var flagEmoji: String {
         switch languageCode {
-        case "en":
-            return "🇬🇧"
-        case "fr":
-            return "🇫🇷"
-        case "de":
-            return "🇩🇪"
-        case "it":
-            return "🇮🇹"
-        default:
-            return "🏳️"
+        case "en": return "\u{1F1EC}\u{1F1E7}"
+        case "fr": return "\u{1F1EB}\u{1F1F7}"
+        case "de": return "\u{1F1E9}\u{1F1EA}"
+        case "it": return "\u{1F1EE}\u{1F1F9}"
+        default: return "\u{1F3F3}\u{FE0F}"
         }
     }
 }

@@ -384,6 +384,40 @@ enum L10n {
         static let showAllTransactionsDesc = String(localized: "settings.developer.showAllTransactionsDesc")
         static let showSubscriptionLogsDesc = String(localized: "settings.developer.showSubscriptionLogsDesc")
         static let resetSubscriptionDesc = String(localized: "settings.developer.resetSubscriptionDesc")
+
+        // Settings Hub - Navigation titles and subtitles
+        static let aircraftAndSubscription = String(localized: "settings.hub.aircraftAndSubscription")
+        static let aircraftAndSubscriptionSubtitle = String(localized: "settings.hub.aircraftAndSubscriptionSubtitle")
+        static let checklistAndFlight = String(localized: "settings.hub.checklistAndFlight")
+        static let checklistAndFlightSubtitle = String(localized: "settings.hub.checklistAndFlightSubtitle")
+        static let navigationAndMaps = String(localized: "settings.hub.navigationAndMaps")
+        static let navigationAndMapsSubtitle = String(localized: "settings.hub.navigationAndMapsSubtitle")
+        static let flightPlanningSubtitle = String(localized: "settings.hub.flightPlanningSubtitle")
+        static let syncAndData = String(localized: "settings.hub.syncAndData")
+        static let syncAndDataSubtitle = String(localized: "settings.hub.syncAndDataSubtitle")
+        static let aboutSubtitle = String(localized: "settings.hub.aboutSubtitle")
+    }
+
+    // MARK: - Onboarding
+    enum Onboarding {
+        static let welcomeTitle = String(localized: "onboarding.welcome.title")
+        static let welcomeSubtitle = String(localized: "onboarding.welcome.subtitle")
+        static let checklistsTitle = String(localized: "onboarding.checklists.title")
+        static let checklistsBody = String(localized: "onboarding.checklists.body")
+        static let navigationTitle = String(localized: "onboarding.navigation.title")
+        static let navigationBody = String(localized: "onboarding.navigation.body")
+        static let downloadAirports = String(localized: "onboarding.navigation.downloadAirports")
+        static let downloadCharts = String(localized: "onboarding.navigation.downloadCharts")
+        static let downloading = String(localized: "onboarding.navigation.downloading")
+        static let downloaded = String(localized: "onboarding.navigation.downloaded")
+        static let briefingsTitle = String(localized: "onboarding.briefings.title")
+        static let briefingsBody = String(localized: "onboarding.briefings.body")
+        static let readyTitle = String(localized: "onboarding.ready.title")
+        static let readyBody = String(localized: "onboarding.ready.body")
+        static let readyButton = String(localized: "onboarding.ready.button")
+        static let skip = String(localized: "onboarding.skip")
+        static let getStarted = String(localized: "onboarding.getStarted")
+        static let next = String(localized: "onboarding.next")
     }
 
     // MARK: - Sheets

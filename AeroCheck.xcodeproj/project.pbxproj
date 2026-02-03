@@ -68,6 +68,13 @@
 		G1000001211111110000001 /* HourMeterInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000001111111110000001 /* HourMeterInputView.swift */; };
 
 		H1000001211111110000001 /* BriefingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = H1000001111111110000001 /* BriefingData.swift */; };
+		I1000001211111110000001 /* AircraftSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000001 /* AircraftSettingsView.swift */; };
+		I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000002 /* ChecklistFlightSettingsView.swift */; };
+		I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* NavigationMapsSettingsView.swift */; };
+		I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000004 /* FlightPlanningSettingsView.swift */; };
+		I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000005 /* SyncDataSettingsView.swift */; };
+		I1000001211111110000006 /* AboutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000006 /* AboutSettingsView.swift */; };
+		I1000001211111110000007 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000007 /* OnboardingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -177,6 +184,13 @@
 		G1000001111111110000001 /* HourMeterInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourMeterInputView.swift; sourceTree = "<group>"; };
 
 		H1000001111111110000001 /* BriefingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingData.swift; sourceTree = "<group>"; };
+		I1000001111111110000001 /* AircraftSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000002 /* ChecklistFlightSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistFlightSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000003 /* NavigationMapsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapsSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000004 /* FlightPlanningSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000005 /* SyncDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDataSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000006 /* AboutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000007 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -260,11 +274,13 @@
 		A1000003111111110000004 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				J1000003111111110000001 /* Settings */,
 				A1000001111111110000002 /* ContentView.swift */,
 				A1000001111111110000003 /* HomeView.swift */,
 				A1000001111111110000004 /* FlightView.swift */,
 				A1000001111111110000005 /* FlightLogView.swift */,
 				A1000001111111110000018 /* NavigationView.swift */,
+				I1000001111111110000007 /* OnboardingView.swift */,
 				A1000001111111110000006 /* SettingsView.swift */,
 				04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */,
 				04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */,
@@ -276,6 +292,19 @@
 				G1000001111111110000001 /* HourMeterInputView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		J1000003111111110000001 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				I1000001111111110000006 /* AboutSettingsView.swift */,
+				I1000001111111110000001 /* AircraftSettingsView.swift */,
+				I1000001111111110000002 /* ChecklistFlightSettingsView.swift */,
+				I1000001111111110000004 /* FlightPlanningSettingsView.swift */,
+				I1000001111111110000003 /* NavigationMapsSettingsView.swift */,
+				I1000001111111110000005 /* SyncDataSettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		A1000003111111110000005 /* Models */ = {
@@ -542,6 +571,13 @@
 				H1000001211111110000001 /* BriefingData.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,
+				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,
+				I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */,
+				I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */,
+				I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */,
+				I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */,
+				I1000001211111110000006 /* AboutSettingsView.swift in Sources */,
+				I1000001211111110000007 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -42,7 +42,9 @@ AeroCheck/
 │   ├── FlightPlanEditorView.swift  # Tabular flight plan editor (Beta)
 │   ├── WaypointEditorSheet.swift   # Waypoint editing sheet (Beta)
 │   ├── FlightPlanOverlayView.swift # In-flight HUD overlay (Beta)
-│   └── TerrainProfileView.swift    # Terrain elevation display (Beta)
+│   ├── TerrainProfileView.swift    # Terrain elevation display (Beta)
+│   ├── EventConfirmationView.swift # Flight event confirmation UI (go-around, touch-and-go prompts)
+│   └── HourMeterInputView.swift   # Engine hour meter (Hobbs/tachometer) input during start/stop
 ├── Models/
 │   ├── AppState.swift         # Central state manager (@MainActor ObservableObject)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
@@ -51,7 +53,9 @@ AeroCheck/
 │   ├── Checklist.swift        # 16 flight phases with items
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
-│   └── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
+│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
+│   ├── Airport.swift          # Airport, AirportFrequency, and Runway data models
+│   └── BriefingData.swift     # Dynamic departure and approach briefing context builder
 ├── Services/
 │   ├── LocationManager.swift       # GPS tracking (CLLocationManagerDelegate)
 │   ├── SubscriptionManager.swift   # StoreKit 2 subscription handling
@@ -59,6 +63,9 @@ AeroCheck/
 │   ├── DataPersistenceManager.swift # File-based data persistence
 │   ├── SyncManager.swift           # iCloud sync (CKSyncEngine)
 │   ├── OfflineMapManager.swift     # ICAO chart caching for offline use
+│   ├── FlightEventDetector.swift   # Automatic detection of go-arounds, touch-and-gos, full-stop landings
+│   ├── AirportDataService.swift    # OurAirports data management (download, cache, query ~40K airports)
+│   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
 │   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
 │   ├── ElevationService.swift      # Terrain elevation from swisstopo (Beta)
 │   ├── FlightPlanExportService.swift # GPX route export for avionics (Beta)
@@ -120,6 +127,10 @@ AeroCheckWatch/
 | iCloud Sync | Settings and flights sync across devices |
 | Multi-Language | English, French (via `Localization.swift`) |
 | Flight Planning (Beta) | `FlightPlanManager` + waypoint routes, terrain profile, in-flight overlay |
+| Dynamic Briefings | `BriefingData` - auto-generated departure/approach briefings with airport/wind detection |
+| Airport Frequencies | `AirportDataService` - OurAirports FREQ panel (nearby airports within 15nm) |
+| Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
+| Flight Event Detection | `FlightEventDetector` - automatic go-around, touch-and-go, full-stop detection |
 
 ## Code Patterns
 
@@ -179,7 +190,7 @@ if subscriptionManager.isSubscribed {
 
 ## API Integration
 
-**Base URL:** `https://api.aerocheck.app/api/v2`
+**Base URL:** `https://api.aerocheck.app/api/v3`
 
 **Key Endpoints:**
 - `POST /subscription/verify` - Validate Apple subscription (JWS token)
@@ -226,6 +237,29 @@ if subscriptionManager.isSubscribed {
 - In-App Purchase
 - iCloud (CloudKit)
 - App Groups (for Widget)
+
+## Performance Notes
+
+- **GPS accuracy:** Uses `kCLLocationAccuracyNearestTenMeters` (not Best) to save battery
+- **Distance filter:** 50m to reduce unnecessary location callbacks
+- **Signal check timer:** 3-second interval (not 1s)
+- **Airport data:** Lazy-loaded on demand (flight start or map overlay enabled), not at app startup
+- **Wind data:** Automatically paused when app backgrounds, resumed on foreground during active flight
+- **HomeView item count:** Cached to avoid disk I/O on every render
+
+## Localization Patterns
+
+- Aviation abbreviations (kt, ft, NM, MSL, GPS, FREQ, etc.) are intentionally NOT translated per ICAO standards
+- All user-facing strings should use `L10n.*` keys from `Localization.swift`
+- `Localizable.xcstrings` contains EN/FR translations
+
+## Settings Organization
+
+Settings are organized into 4 groups following Apple HIG:
+1. **Aircraft & Subscription** - Aircraft selection, subscription management
+2. **Flight** - Circuit mode, learning mode, flight preferences
+3. **Navigation & Data** - Map layers, offline maps, airport data, wind data
+4. **About & Advanced** - Version info, developer options, debug tools
 
 ## Development Notes
 

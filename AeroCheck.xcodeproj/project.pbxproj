@@ -63,6 +63,8 @@
 		D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */; };
 		E1000001211111110000001 /* Airport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000001 /* Airport.swift */; };
 		E1000001211111110000002 /* AirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000002 /* AirportDataService.swift */; };
+		F1000001211111110000001 /* FlightEventDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000001 /* FlightEventDetector.swift */; };
+		F1000001211111110000002 /* EventConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000002 /* EventConfirmationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -167,6 +169,8 @@
 		D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled-fr.json"; sourceTree = "<group>"; };
 		E1000001111111110000001 /* Airport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airport.swift; sourceTree = "<group>"; };
 		E1000001111111110000002 /* AirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataService.swift; sourceTree = "<group>"; };
+		F1000001111111110000001 /* FlightEventDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightEventDetector.swift; sourceTree = "<group>"; };
+		F1000001111111110000002 /* EventConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventConfirmationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -262,6 +266,7 @@
 				04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */,
 				04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */,
 				B3000001111111110000004 /* SubscriptionView.swift */,
+				F1000001111111110000002 /* EventConfirmationView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -297,6 +302,7 @@
 				B3000001111111110000001 /* SubscriptionManager.swift */,
 				B3000001111111110000002 /* AircraftDataService.swift */,
 				E1000001111111110000002 /* AirportDataService.swift */,
+				F1000001111111110000001 /* FlightEventDetector.swift */,
 				D1000001111111110000001 /* BundledChecklistService.swift */,
 			);
 			path = Services;
@@ -524,6 +530,8 @@
 				D1000001211111110000001 /* BundledChecklistService.swift in Sources */,
 				E1000001211111110000001 /* Airport.swift in Sources */,
 				E1000001211111110000002 /* AirportDataService.swift in Sources */,
+				F1000001211111110000001 /* FlightEventDetector.swift in Sources */,
+				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

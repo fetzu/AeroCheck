@@ -270,6 +270,15 @@ class AppState: ObservableObject {
     private let lowSpeedThreshold: Double = 2.0 // m/s (about 4 knots)
     private let requiredLowSpeedReadings: Int = 3
 
+    // Block time detection
+    private var consecutiveMovingReadings: Int = 0
+    private var consecutiveStoppedReadings: Int = 0
+    private var lastStopLocation: (latitude: Double, longitude: Double)?
+    private let blockOffSpeedThreshold: Double = 2.0 // m/s (about 4 knots) - sustained movement
+    private let blockOnSpeedThreshold: Double = 0.5 // m/s (about 1 knot) - nearly stopped
+    private let requiredMovingReadings: Int = 2 // At 5-second intervals, this is ~10 seconds
+    private let requiredStoppedReadings: Int = 2 // At 5-second intervals, this is ~10 seconds
+
     // Circuit mode - skips CRUISE and DESCENT phases
     @Published var isCircuitMode: Bool = false
 
@@ -400,6 +409,9 @@ class AppState: ObservableObject {
         highestCompletedPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveLowSpeedReadings = 0
+        consecutiveMovingReadings = 0
+        consecutiveStoppedReadings = 0
+        lastStopLocation = nil
         currentHighlightedItem = [:] // Reset highlighting
     }
     
@@ -412,6 +424,8 @@ class AppState: ObservableObject {
         flight.landingTime = landingTime
         flight.engineShutdownTime = engineShutdownTime
         flight.flightPlan = flightPlan
+        // Block times are already set on currentFlight, copy them to the final flight
+        // (they're already there since we modify currentFlight directly)
 
         flights.insert(flight, at: 0)
         saveFlights()
@@ -426,6 +440,9 @@ class AppState: ObservableObject {
         phaseCompletionStatus = [:]
         currentPhase = .preflight
         hasLandingBeenDetected = false
+        consecutiveMovingReadings = 0
+        consecutiveStoppedReadings = 0
+        lastStopLocation = nil
 
         // Clear saved flight state since flight ended normally
         clearActiveFlightState()
@@ -442,6 +459,9 @@ class AppState: ObservableObject {
         phaseCompletionStatus = [:]
         currentPhase = .preflight
         hasLandingBeenDetected = false
+        consecutiveMovingReadings = 0
+        consecutiveStoppedReadings = 0
+        lastStopLocation = nil
         currentHighlightedItem = [:]
 
         // Clear saved flight state since flight was cancelled
@@ -569,9 +589,19 @@ class AppState: ObservableObject {
         currentPhase = .taxi
     }
 
-    func addGPSPoint(_ point: GPSPoint) {
+    func addGPSPoint(_ point: GPSPoint, airportDataService: AirportDataService? = nil) {
         currentFlight?.gpsTrack.append(point)
-        
+
+        // Block off detection: after ENGINE START, detect first sustained movement
+        if engineStartTime != nil && currentFlight?.blockOffTime == nil {
+            checkForBlockOff(point: point, airportDataService: airportDataService)
+        }
+
+        // Block on detection: after block off, track last stop location before ENGINE STOP
+        if currentFlight?.blockOffTime != nil && engineShutdownTime == nil {
+            checkForBlockOn(point: point, airportDataService: airportDataService)
+        }
+
         // Auto-detect landing when in After Landing phase
         if currentPhase == .afterLanding && !hasLandingBeenDetected {
             checkForLanding(speed: point.speed)
@@ -589,6 +619,64 @@ class AppState: ObservableObject {
             }
         } else {
             consecutiveLowSpeedReadings = 0
+        }
+    }
+
+    /// Check for block off time (first sustained movement after ENGINE START)
+    private func checkForBlockOff(point: GPSPoint, airportDataService: AirportDataService?) {
+        if point.speed >= blockOffSpeedThreshold {
+            consecutiveMovingReadings += 1
+            if consecutiveMovingReadings >= requiredMovingReadings {
+                // Aircraft is moving - record block off
+                let blockOffTime = Date()
+                currentFlight?.blockOffTime = blockOffTime
+                currentFlight?.blockOffLatitude = point.latitude
+                currentFlight?.blockOffLongitude = point.longitude
+
+                // Find nearest airport
+                if let airportService = airportDataService {
+                    let coordinate = point.coordinate
+                    let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
+                    if let nearest = nearestAirports.first {
+                        currentFlight?.departureAirportIdent = nearest.ident
+                        print("[AéroCheck] Block off detected at \(nearest.ident) (\(nearest.name))")
+                    }
+                }
+                print("[AéroCheck] Block off time recorded: \(blockOffTime)")
+            }
+        } else {
+            consecutiveMovingReadings = 0
+        }
+    }
+
+    /// Check for block on time (sustained stop before ENGINE STOP)
+    private func checkForBlockOn(point: GPSPoint, airportDataService: AirportDataService?) {
+        if point.speed >= 0 && point.speed < blockOnSpeedThreshold {
+            consecutiveStoppedReadings += 1
+            if consecutiveStoppedReadings >= requiredStoppedReadings {
+                // Aircraft has stopped - update block on time (keep updating until engine shutdown)
+                let blockOnTime = Date()
+                currentFlight?.blockOnTime = blockOnTime
+                currentFlight?.blockOnLatitude = point.latitude
+                currentFlight?.blockOnLongitude = point.longitude
+
+                // Find nearest airport (only if changed or not set)
+                if let airportService = airportDataService {
+                    let coordinate = point.coordinate
+                    let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
+                    if let nearest = nearestAirports.first {
+                        // Only update if different from current or not set
+                        if currentFlight?.arrivalAirportIdent != nearest.ident {
+                            currentFlight?.arrivalAirportIdent = nearest.ident
+                            print("[AéroCheck] Block on location updated: \(nearest.ident) (\(nearest.name))")
+                        }
+                    }
+                }
+                // Don't reset counter - keep tracking last stop
+            }
+        } else {
+            // Aircraft started moving again, reset counter but keep last block on if set
+            consecutiveStoppedReadings = 0
         }
     }
     

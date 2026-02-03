@@ -95,6 +95,8 @@ struct HomeView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @State private var showSettings = false
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
@@ -583,7 +585,9 @@ struct HomeView: View {
             )
             locationManager.startTracking(
                 appState: appState,
-                interval: appState.settings.gpsRecordingInterval
+                interval: appState.settings.gpsRecordingInterval,
+                airportDataService: airportDataService,
+                flightEventDetector: flightEventDetector
             )
         }
     }
@@ -604,7 +608,9 @@ struct HomeView: View {
             )
             locationManager.startTracking(
                 appState: appState,
-                interval: appState.settings.gpsRecordingInterval
+                interval: appState.settings.gpsRecordingInterval,
+                airportDataService: airportDataService,
+                flightEventDetector: flightEventDetector
             )
         }
     }

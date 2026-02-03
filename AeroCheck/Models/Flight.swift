@@ -4,7 +4,8 @@ import CoreLocation
 /// Current export format version
 /// - v1: Original format (no fullStopCount, fullStopTimes, flightPlanId, flightPlan)
 /// - v2: Added fullStopCount, fullStopTimes, flightPlanId, flightPlan, export metadata
-let currentExportFormatVersion = 2
+/// - v3: Added block times, departure/arrival airports
+let currentExportFormatVersion = 3
 
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
@@ -22,6 +23,17 @@ struct Flight: Identifiable, Codable {
     var lineUpTime: Date?
     var landingTime: Date?
     var engineShutdownTime: Date?
+
+    // Block times and airport detection (v3)
+    var blockOffTime: Date?           // First movement after ENGINE START
+    var blockOffLatitude: Double?     // Latitude at block off
+    var blockOffLongitude: Double?    // Longitude at block off
+    var blockOnTime: Date?            // Final stop before ENGINE STOP
+    var blockOnLatitude: Double?      // Latitude at block on
+    var blockOnLongitude: Double?     // Longitude at block on
+    var departureAirportIdent: String?  // Nearest airport ICAO code at block off
+    var arrivalAirportIdent: String?    // Nearest airport ICAO code at block on
+
     var gpsTrack: [GPSPoint]
     var notes: String
     var goAroundCount: Int
@@ -37,6 +49,9 @@ struct Flight: Identifiable, Codable {
         case id, name, airplane, aircraftRegistration, aircraftType, checklistVersion
         case flightPlanId, flightPlan
         case startTime, stopTime, engineStartTime, lineUpTime, landingTime, engineShutdownTime
+        case blockOffTime, blockOffLatitude, blockOffLongitude
+        case blockOnTime, blockOnLatitude, blockOnLongitude
+        case departureAirportIdent, arrivalAirportIdent
         case gpsTrack, notes
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
@@ -64,6 +79,16 @@ struct Flight: Identifiable, Codable {
         lineUpTime = try container.decodeIfPresent(Date.self, forKey: .lineUpTime)
         landingTime = try container.decodeIfPresent(Date.self, forKey: .landingTime)
         engineShutdownTime = try container.decodeIfPresent(Date.self, forKey: .engineShutdownTime)
+
+        // Block times and airport detection - new in v3, default to nil for backward compatibility
+        blockOffTime = try container.decodeIfPresent(Date.self, forKey: .blockOffTime)
+        blockOffLatitude = try container.decodeIfPresent(Double.self, forKey: .blockOffLatitude)
+        blockOffLongitude = try container.decodeIfPresent(Double.self, forKey: .blockOffLongitude)
+        blockOnTime = try container.decodeIfPresent(Date.self, forKey: .blockOnTime)
+        blockOnLatitude = try container.decodeIfPresent(Double.self, forKey: .blockOnLatitude)
+        blockOnLongitude = try container.decodeIfPresent(Double.self, forKey: .blockOnLongitude)
+        departureAirportIdent = try container.decodeIfPresent(String.self, forKey: .departureAirportIdent)
+        arrivalAirportIdent = try container.decodeIfPresent(String.self, forKey: .arrivalAirportIdent)
 
         gpsTrack = try container.decodeIfPresent([GPSPoint].self, forKey: .gpsTrack) ?? []
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
@@ -94,6 +119,14 @@ struct Flight: Identifiable, Codable {
         lineUpTime: Date? = nil,
         landingTime: Date? = nil,
         engineShutdownTime: Date? = nil,
+        blockOffTime: Date? = nil,
+        blockOffLatitude: Double? = nil,
+        blockOffLongitude: Double? = nil,
+        blockOnTime: Date? = nil,
+        blockOnLatitude: Double? = nil,
+        blockOnLongitude: Double? = nil,
+        departureAirportIdent: String? = nil,
+        arrivalAirportIdent: String? = nil,
         gpsTrack: [GPSPoint] = [],
         notes: String = "",
         goAroundCount: Int = 0,
@@ -117,6 +150,14 @@ struct Flight: Identifiable, Codable {
         self.lineUpTime = lineUpTime
         self.landingTime = landingTime
         self.engineShutdownTime = engineShutdownTime
+        self.blockOffTime = blockOffTime
+        self.blockOffLatitude = blockOffLatitude
+        self.blockOffLongitude = blockOffLongitude
+        self.blockOnTime = blockOnTime
+        self.blockOnLatitude = blockOnLatitude
+        self.blockOnLongitude = blockOnLongitude
+        self.departureAirportIdent = departureAirportIdent
+        self.arrivalAirportIdent = arrivalAirportIdent
         self.gpsTrack = gpsTrack
         self.notes = notes
         self.goAroundCount = goAroundCount
@@ -159,7 +200,45 @@ struct Flight: Identifiable, Codable {
         guard let start = startTime, let stop = stopTime else { return nil }
         return stop.timeIntervalSince(start)
     }
-    
+
+    /// Block time duration (from first movement to last stop)
+    var blockTime: TimeInterval? {
+        guard let off = blockOffTime, let on = blockOnTime else { return nil }
+        return on.timeIntervalSince(off)
+    }
+
+    /// Flight time duration (from lineup/takeoff to landing)
+    var flightTime: TimeInterval? {
+        guard let takeoff = lineUpTime, let landing = landingTime else { return nil }
+        return landing.timeIntervalSince(takeoff)
+    }
+
+    /// Block off location as CLLocationCoordinate2D
+    var blockOffLocation: CLLocationCoordinate2D? {
+        guard let lat = blockOffLatitude, let lon = blockOffLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Block on location as CLLocationCoordinate2D
+    var blockOnLocation: CLLocationCoordinate2D? {
+        guard let lat = blockOnLatitude, let lon = blockOnLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    var formattedBlockTime: String {
+        guard let blockTime = blockTime else { return "--:--" }
+        let hours = Int(blockTime) / 3600
+        let minutes = (Int(blockTime) % 3600) / 60
+        return String(format: "%02d:%02d", hours, minutes)
+    }
+
+    var formattedFlightTime: String {
+        guard let flightTime = flightTime else { return "--:--" }
+        let hours = Int(flightTime) / 3600
+        let minutes = (Int(flightTime) % 3600) / 60
+        return String(format: "%02d:%02d", hours, minutes)
+    }
+
     var formattedDuration: String {
         guard let duration = duration else { return "--:--" }
         let hours = Int(duration) / 3600
@@ -339,7 +418,33 @@ extension Flight {
         if let stop = stopTime {
             gpx += "\n        <pc:stopTime>\(dateFormatter.string(from: stop))</pc:stopTime>"
         }
-        
+
+        // Block times and airport detection (v3)
+        if let blockOff = blockOffTime {
+            gpx += "\n        <pc:blockOffTime>\(dateFormatter.string(from: blockOff))</pc:blockOffTime>"
+        }
+        if let lat = blockOffLatitude {
+            gpx += "\n        <pc:blockOffLatitude>\(lat)</pc:blockOffLatitude>"
+        }
+        if let lon = blockOffLongitude {
+            gpx += "\n        <pc:blockOffLongitude>\(lon)</pc:blockOffLongitude>"
+        }
+        if let blockOn = blockOnTime {
+            gpx += "\n        <pc:blockOnTime>\(dateFormatter.string(from: blockOn))</pc:blockOnTime>"
+        }
+        if let lat = blockOnLatitude {
+            gpx += "\n        <pc:blockOnLatitude>\(lat)</pc:blockOnLatitude>"
+        }
+        if let lon = blockOnLongitude {
+            gpx += "\n        <pc:blockOnLongitude>\(lon)</pc:blockOnLongitude>"
+        }
+        if let dep = departureAirportIdent {
+            gpx += "\n        <pc:departureAirportIdent>\(dep)</pc:departureAirportIdent>"
+        }
+        if let arr = arrivalAirportIdent {
+            gpx += "\n        <pc:arrivalAirportIdent>\(arr)</pc:arrivalAirportIdent>"
+        }
+
         gpx += "\n        <pc:distanceKm>\(String(format: "%.2f", distanceKilometers))</pc:distanceKm>"
 
         if goAroundCount > 0 {
@@ -629,6 +734,22 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.engineShutdownTime = dateFormatter.date(from: text)
         case "stopTime":
             flight?.stopTime = dateFormatter.date(from: text)
+        case "blockOffTime":
+            flight?.blockOffTime = dateFormatter.date(from: text)
+        case "blockOffLatitude":
+            flight?.blockOffLatitude = Double(text)
+        case "blockOffLongitude":
+            flight?.blockOffLongitude = Double(text)
+        case "blockOnTime":
+            flight?.blockOnTime = dateFormatter.date(from: text)
+        case "blockOnLatitude":
+            flight?.blockOnLatitude = Double(text)
+        case "blockOnLongitude":
+            flight?.blockOnLongitude = Double(text)
+        case "departureAirportIdent":
+            flight?.departureAirportIdent = text
+        case "arrivalAirportIdent":
+            flight?.arrivalAirportIdent = text
         case "goAroundCount":
             flight?.goAroundCount = Int(text) ?? 0
         case "goAroundTime":

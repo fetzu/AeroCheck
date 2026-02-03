@@ -35,6 +35,8 @@ class LocationManager: NSObject, ObservableObject {
     private var recordingInterval: TimeInterval = 5.0
     private var lastRecordedTime: Date?
     private weak var appState: AppState?
+    private weak var airportDataService: AirportDataService?
+    private weak var flightEventDetector: FlightEventDetector?
 
     // GPS accuracy tracking
     private var lastGoodSignalTime: Date?
@@ -84,8 +86,10 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.requestWhenInUseAuthorization()
     }
     
-    func startTracking(appState: AppState, interval: TimeInterval = 5.0) {
+    func startTracking(appState: AppState, interval: TimeInterval = 5.0, airportDataService: AirportDataService? = nil, flightEventDetector: FlightEventDetector? = nil) {
         self.appState = appState
+        self.airportDataService = airportDataService
+        self.flightEventDetector = flightEventDetector
         self.recordingInterval = interval
         self.lastRecordedTime = nil
         self.lastGoodSignalTime = Date()
@@ -108,6 +112,9 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.stopUpdatingLocation()
         stopSignalCheckTimer()
         appState = nil
+        airportDataService = nil
+        flightEventDetector?.reset()
+        flightEventDetector = nil
     }
 
     /// Start location updates without recording (for navigation view)
@@ -285,8 +292,21 @@ extension LocationManager: CLLocationManagerDelegate {
 
             if shouldRecord, let appState = self.appState {
                 let point = GPSPoint(from: location)
-                appState.addGPSPoint(point)
+                appState.addGPSPoint(point, airportDataService: self.airportDataService)
                 self.lastRecordedTime = now
+
+                // Process location for flight event detection (go-arounds, touch-and-gos)
+                if let detector = self.flightEventDetector,
+                   let airportService = self.airportDataService,
+                   appState.engineStartTime != nil {
+                    // Get nearby airports for event detection
+                    let nearbyAirports = airportService.findNearestAirports(
+                        to: location.coordinate,
+                        limit: 3,
+                        maxDistanceNm: 5.0
+                    )
+                    detector.processLocation(location, nearbyAirports: nearbyAirports)
+                }
             }
         }
     }

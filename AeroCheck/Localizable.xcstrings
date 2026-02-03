@@ -5379,13 +5379,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FULL STOP"
+            "value": "FULL STOP LANDING"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ARRÊT COMPLET"
+            "value": "ATTERRISSAGE COMPLET"
           }
         }
       }
@@ -5396,13 +5396,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full Stops"
+            "value": "Full Stop Landings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrêts complets"
+            "value": "Atterrissages complets"
           }
         }
       }
@@ -5413,13 +5413,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "LANDED"
+            "value": "FULL STOP LANDING"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ATTERRI"
+            "value": "ATTERRISSAGE COMPLET"
           }
         }
       }
@@ -6178,13 +6178,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Full Stops"
+            "value": "Full Stop Landings"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrêts complets"
+            "value": "Atterrissages complets"
           }
         }
       }

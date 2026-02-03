@@ -8,6 +8,7 @@ struct FlightView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @State private var showPhaseSelector = false
     @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
@@ -145,6 +146,47 @@ struct FlightView: View {
                 windDataService.startFetching(locationManager: locationManager)
             } else {
                 windDataService.stopFetching()
+            }
+        }
+        // Event confirmation overlays
+        .overlay {
+            if let goAroundEvent = flightEventDetector.pendingGoAround {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Tap outside dismisses
+                        flightEventDetector.dismissGoAround()
+                    }
+                EventConfirmationView(
+                    event: goAroundEvent,
+                    onConfirm: {
+                        appState.recordGoAround()
+                        flightEventDetector.dismissGoAround()
+                    },
+                    onDismiss: {
+                        flightEventDetector.dismissGoAround()
+                    }
+                )
+            }
+        }
+        .overlay {
+            if let touchAndGoEvent = flightEventDetector.pendingTouchAndGo {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Tap outside dismisses
+                        flightEventDetector.dismissTouchAndGo()
+                    }
+                EventConfirmationView(
+                    event: touchAndGoEvent,
+                    onConfirm: {
+                        appState.recordTouchAndGo()
+                        flightEventDetector.dismissTouchAndGo()
+                    },
+                    onDismiss: {
+                        flightEventDetector.dismissTouchAndGo()
+                    }
+                )
             }
         }
     }

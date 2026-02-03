@@ -828,7 +828,7 @@ struct NavigationMapView: View {
     // MARK: - Compact Flight Plan Content
 
     private var compactFlightPlanContent: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             if let plan = flightPlanManager.activeFlightPlan,
                let nextWaypoint = plan.nextWaypoint {
                 // Next waypoint header
@@ -850,7 +850,7 @@ struct NavigationMapView: View {
                         .foregroundColor(.secondaryText)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.top, 8)
 
                 // Navigation data
                 if let location = locationManager.currentLocation {
@@ -865,15 +865,15 @@ struct NavigationMapView: View {
                             if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
                                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                                     Text(String(format: "%03d", Int(bearing)))
-                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
                                         .foregroundColor(.aviationGold)
                                     Text("°")
-                                        .font(.system(size: 16, weight: .bold))
+                                        .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.aviationGold)
                                 }
                             } else {
                                 Text("---°")
-                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
                                     .foregroundColor(.dimText)
                             }
                         }
@@ -886,15 +886,15 @@ struct NavigationMapView: View {
                             if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
                                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                                     Text(String(format: "%.1f", distance))
-                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
                                         .foregroundColor(.aviationGold)
                                     Text("NM")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 10, weight: .medium))
                                         .foregroundColor(.secondaryText)
                                 }
                             } else {
                                 Text("-- NM")
-                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
                                     .foregroundColor(.dimText)
                             }
                         }
@@ -908,15 +908,15 @@ struct NavigationMapView: View {
                                 let minutes = Int(eet / 60)
                                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                                     Text("\(minutes)")
-                                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
                                         .foregroundColor(.aviationGold)
                                     Text("min")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 10, weight: .medium))
                                         .foregroundColor(.secondaryText)
                                 }
                             } else {
                                 Text("--")
-                                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
                                     .foregroundColor(.dimText)
                             }
                         }
@@ -978,7 +978,7 @@ struct NavigationMapView: View {
                     }
 
                     Text(flightPlanManager.formattedChronometer)
-                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
                         .foregroundColor(.aviationGreen)
                         .id(refreshTrigger)
 
@@ -989,8 +989,8 @@ struct NavigationMapView: View {
                             Text(L10n.Nav.start)
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.black)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(Color.aviationGreen)

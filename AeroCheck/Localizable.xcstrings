@@ -4540,6 +4540,40 @@
         }
       }
     },
+    "settings.developer.resetOnboarding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset Onboarding"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser l'onboarding"
+          }
+        }
+      }
+    },
+    "settings.developer.resetOnboardingDesc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset Onboarding: Show the onboarding flow again on next launch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialiser l'onboarding : Affiche le flux d'onboarding au prochain lancement."
+          }
+        }
+      }
+    },
     "warning.iUnderstandEnable": {
       "extractionState": "manual",
       "localizations": {

@@ -636,15 +636,20 @@ struct FlightView: View {
 
             // Navigation mode button (compact)
             Button(action: { showNavigationMode = true }) {
-                Image(systemName: "map")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primaryText)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.aviationBlue, lineWidth: 2)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationBlue.opacity(0.2)))
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "map")
+                        .font(.system(size: 14))
+                    Text(L10n.Button.nav)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.aviationBlue, lineWidth: 2)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationBlue.opacity(0.2)))
+                )
             }
 
             // Speeds button
@@ -935,10 +940,11 @@ struct FlightView: View {
                 Button(action: { showEndFlightAlert = true }) {
                     HStack {
                         Image(systemName: "flag.checkered")
-                        Text(L10n.Button.endFlight)
+                        Text(L10n.Button.end)
                     }
                 }
                 .buttonStyle(ActionButtonStyle(color: .aviationRed))
+                .fixedSize()
                 .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
             } else {
                 // Next button - with pulse effect

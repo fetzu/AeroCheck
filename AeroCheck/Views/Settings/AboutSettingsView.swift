@@ -256,6 +256,16 @@ struct AboutSettingsView: View {
                         Text(L10n.Settings.resetSubscription)
                     }
                 }
+
+                Button(role: .destructive, action: {
+                    appState.settings.hasCompletedOnboarding = false
+                    appState.saveSettings()
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text(L10n.Settings.resetOnboarding)
+                    }
+                }
             } header: {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
@@ -276,6 +286,7 @@ struct AboutSettingsView: View {
                     Text(L10n.Settings.showAllTransactionsDesc)
                     Text(L10n.Settings.showSubscriptionLogsDesc)
                     Text(L10n.Settings.resetSubscriptionDesc)
+                    Text(L10n.Settings.resetOnboardingDesc)
                 }
             }
         }

@@ -939,7 +939,7 @@ struct DepartureBriefingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Departure Section
-                    BriefingSection(title: L10n.Briefing.departure.uppercased()) {
+                    BriefingSection(title: L10n.Briefing.departureTitle.uppercased()) {
                         if let airport = context.departureAirport {
                             BriefingItem(label: L10n.Briefing.airport, value: "\(airport.name) (\(airport.ident))")
                             if let elev = airport.elevation {
@@ -1016,7 +1016,7 @@ struct ApproachBriefingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Approach Section
-                    BriefingSection(title: L10n.Briefing.approach.uppercased()) {
+                    BriefingSection(title: L10n.Briefing.approachTitle.uppercased()) {
                         if let airport = context.destinationAirport {
                             BriefingItem(label: L10n.Briefing.airport, value: "\(airport.name) (\(airport.ident))")
                             if let elev = airport.elevation {

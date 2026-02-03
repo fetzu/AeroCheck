@@ -384,6 +384,8 @@ enum L10n {
         static let showAllTransactionsDesc = String(localized: "settings.developer.showAllTransactionsDesc")
         static let showSubscriptionLogsDesc = String(localized: "settings.developer.showSubscriptionLogsDesc")
         static let resetSubscriptionDesc = String(localized: "settings.developer.resetSubscriptionDesc")
+        static let resetOnboarding = String(localized: "settings.developer.resetOnboarding")
+        static let resetOnboardingDesc = String(localized: "settings.developer.resetOnboardingDesc")
 
         // Settings Hub - Navigation titles and subtitles
         static let aircraftAndSubscription = String(localized: "settings.hub.aircraftAndSubscription")

@@ -5,7 +5,8 @@ import CoreLocation
 /// - v1: Original format (no fullStopCount, fullStopTimes, flightPlanId, flightPlan)
 /// - v2: Added fullStopCount, fullStopTimes, flightPlanId, flightPlan, export metadata
 /// - v3: Added block times, departure/arrival airports
-let currentExportFormatVersion = 3
+/// - v4: Added engine hour meter readings
+let currentExportFormatVersion = 4
 
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
@@ -34,6 +35,10 @@ struct Flight: Identifiable, Codable {
     var departureAirportIdent: String?  // Nearest airport ICAO code at block off
     var arrivalAirportIdent: String?    // Nearest airport ICAO code at block on
 
+    // Engine hour meter readings (v4)
+    var engineHourStart: Double?        // Tachometer/hour meter reading at engine start
+    var engineHourEnd: Double?          // Tachometer/hour meter reading at engine stop
+
     var gpsTrack: [GPSPoint]
     var notes: String
     var goAroundCount: Int
@@ -52,6 +57,7 @@ struct Flight: Identifiable, Codable {
         case blockOffTime, blockOffLatitude, blockOffLongitude
         case blockOnTime, blockOnLatitude, blockOnLongitude
         case departureAirportIdent, arrivalAirportIdent
+        case engineHourStart, engineHourEnd
         case gpsTrack, notes
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
@@ -90,6 +96,10 @@ struct Flight: Identifiable, Codable {
         departureAirportIdent = try container.decodeIfPresent(String.self, forKey: .departureAirportIdent)
         arrivalAirportIdent = try container.decodeIfPresent(String.self, forKey: .arrivalAirportIdent)
 
+        // Engine hour meter readings - new in v4, default to nil for backward compatibility
+        engineHourStart = try container.decodeIfPresent(Double.self, forKey: .engineHourStart)
+        engineHourEnd = try container.decodeIfPresent(Double.self, forKey: .engineHourEnd)
+
         gpsTrack = try container.decodeIfPresent([GPSPoint].self, forKey: .gpsTrack) ?? []
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
 
@@ -127,6 +137,8 @@ struct Flight: Identifiable, Codable {
         blockOnLongitude: Double? = nil,
         departureAirportIdent: String? = nil,
         arrivalAirportIdent: String? = nil,
+        engineHourStart: Double? = nil,
+        engineHourEnd: Double? = nil,
         gpsTrack: [GPSPoint] = [],
         notes: String = "",
         goAroundCount: Int = 0,
@@ -158,6 +170,8 @@ struct Flight: Identifiable, Codable {
         self.blockOnLongitude = blockOnLongitude
         self.departureAirportIdent = departureAirportIdent
         self.arrivalAirportIdent = arrivalAirportIdent
+        self.engineHourStart = engineHourStart
+        self.engineHourEnd = engineHourEnd
         self.gpsTrack = gpsTrack
         self.notes = notes
         self.goAroundCount = goAroundCount
@@ -223,6 +237,12 @@ struct Flight: Identifiable, Codable {
     var blockOnLocation: CLLocationCoordinate2D? {
         guard let lat = blockOnLatitude, let lon = blockOnLongitude else { return nil }
         return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Engine hours flown (difference between end and start readings)
+    var engineHoursFlown: Double? {
+        guard let start = engineHourStart, let end = engineHourEnd else { return nil }
+        return end - start
     }
 
     var formattedBlockTime: String {
@@ -443,6 +463,14 @@ extension Flight {
         }
         if let arr = arrivalAirportIdent {
             gpx += "\n        <pc:arrivalAirportIdent>\(arr)</pc:arrivalAirportIdent>"
+        }
+
+        // Engine hour meter readings (v4)
+        if let hourStart = engineHourStart {
+            gpx += "\n        <pc:engineHourStart>\(String(format: "%.1f", hourStart))</pc:engineHourStart>"
+        }
+        if let hourEnd = engineHourEnd {
+            gpx += "\n        <pc:engineHourEnd>\(String(format: "%.1f", hourEnd))</pc:engineHourEnd>"
         }
 
         gpx += "\n        <pc:distanceKm>\(String(format: "%.2f", distanceKilometers))</pc:distanceKm>"
@@ -750,6 +778,10 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight?.departureAirportIdent = text
         case "arrivalAirportIdent":
             flight?.arrivalAirportIdent = text
+        case "engineHourStart":
+            flight?.engineHourStart = Double(text)
+        case "engineHourEnd":
+            flight?.engineHourEnd = Double(text)
         case "goAroundCount":
             flight?.goAroundCount = Int(text) ?? 0
         case "goAroundTime":

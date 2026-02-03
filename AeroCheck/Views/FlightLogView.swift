@@ -9,7 +9,6 @@ struct FlightLogView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.dismiss) var dismiss
-    @State private var selectedFlight: Flight?
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
@@ -55,9 +54,6 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(item: $selectedFlight) { flight in
-            FlightDetailView(flight: flight)
-        }
         .confirmationDialog(L10n.FlightLog.exportAllTitle, isPresented: $showExportAllOptions, titleVisibility: .visible) {
             Button(L10n.FlightLog.exportAllGPX) {
                 exportAllType = .gpx
@@ -263,12 +259,10 @@ struct FlightLogView: View {
     private var flightList: some View {
         List {
             ForEach(sortedFlights) { flight in
-                FlightRowView(flight: flight)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedFlight = flight
-                    }
-                    .listRowBackground(Color.cardBackground)
+                NavigationLink(destination: FlightLogDetailView(flight: flight)) {
+                    FlightRowView(flight: flight)
+                }
+                .listRowBackground(Color.cardBackground)
             }
             .onDelete { indexSet in
                 deleteFlights(at: indexSet)

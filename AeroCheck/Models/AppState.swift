@@ -44,6 +44,9 @@ struct AppSettings: Codable, Equatable {
     // Airport data overlay
     var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
 
+    // Flight logging
+    var logEngineHours: Bool = false // When true, prompts for hour meter reading at engine start and stop
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -101,6 +104,7 @@ struct AppSettings: Codable, Equatable {
         case iCloudSyncEnabled
         case checklistLanguage
         case showAirportsOnMap
+        case logEngineHours
         // marketingMode is intentionally excluded
     }
 
@@ -130,6 +134,8 @@ struct AppSettings: Codable, Equatable {
         hiddenAeroclubs = try container.decodeIfPresent(Set<String>.self, forKey: .hiddenAeroclubs) ?? []
         iCloudSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .iCloudSyncEnabled) ?? true
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
+        showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
+        logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
         // marketingMode intentionally excluded - always defaults to false
     }
 }

@@ -49,6 +49,9 @@ struct SettingsView: View {
     // Airport overlay
     @State private var showAirportsOnMap: Bool = false
 
+    // Flight logging
+    @State private var logEngineHours: Bool = false
+
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -85,6 +88,7 @@ struct SettingsView: View {
                 checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
                 showAirportsOnMap: showAirportsOnMap,
+                logEngineHours: logEngineHours,
                 saveSettings: { if !isLoadingSettings { saveSettings() } },
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
             ))
@@ -134,6 +138,7 @@ struct SettingsView: View {
                 iCloudSyncSection
                 offlineMapsSection
                 checklistSection
+                flightLoggingSection
             }
             Group {
                 aboutSection
@@ -915,6 +920,16 @@ struct SettingsView: View {
         }
     }
 
+    private var flightLoggingSection: some View {
+        Section {
+            Toggle("Log Engine Hours", isOn: $logEngineHours)
+        } header: {
+            Label("Flight Logging", systemImage: "clock.badge.checkmark")
+        } footer: {
+            Text("When enabled, prompts for tachometer/hour meter readings at engine start and stop. Useful for maintenance tracking.")
+        }
+    }
+
     private var aboutSection: some View {
         Section {
             HStack {
@@ -1247,6 +1262,8 @@ struct SettingsView: View {
         checklistLanguage = appState.settings.checklistLanguage
         // Airport overlay
         showAirportsOnMap = appState.settings.showAirportsOnMap
+        // Flight logging
+        logEngineHours = appState.settings.logEngineHours
 
         // Reset loading flag in next runloop to avoid triggering save loops
         DispatchQueue.main.async {
@@ -1276,6 +1293,8 @@ struct SettingsView: View {
         appState.settings.checklistLanguage = checklistLanguage
         // Airport overlay
         appState.settings.showAirportsOnMap = showAirportsOnMap
+        // Flight logging
+        appState.settings.logEngineHours = logEngineHours
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -1817,6 +1836,7 @@ struct SettingsChangeGroup3: ViewModifier {
     let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
     let showAirportsOnMap: Bool
+    let logEngineHours: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
 
@@ -1829,6 +1849,7 @@ struct SettingsChangeGroup3: ViewModifier {
             .onChange(of: checklistLanguage) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
             .onChange(of: showAirportsOnMap) { _, _ in saveSettings() }
+            .onChange(of: logEngineHours) { _, _ in saveSettings() }
     }
 }
 
@@ -1850,6 +1871,7 @@ struct SettingsChangeModifier: ViewModifier {
     let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
     let showAirportsOnMap: Bool
+    let logEngineHours: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
 
@@ -1879,6 +1901,7 @@ struct SettingsChangeModifier: ViewModifier {
                 checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
                 showAirportsOnMap: showAirportsOnMap,
+                logEngineHours: logEngineHours,
                 saveSettings: saveSettings,
                 updateMarketingMode: updateMarketingMode
             ))

@@ -25,6 +25,10 @@ struct FlightView: View {
     @State private var allItemsChecked = false
     @State private var scrollToBottom = false
 
+    // Hour meter input modals
+    @State private var showHourMeterStart = false
+    @State private var showHourMeterStop = false
+
     // Timer for updating flight duration display
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -103,6 +107,24 @@ struct FlightView: View {
         }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
+        }
+        .sheet(isPresented: $showHourMeterStart) {
+            HourMeterInputView(
+                isPresented: $showHourMeterStart,
+                phase: .start,
+                onSubmit: { hours in
+                    appState.currentFlight?.engineHourStart = hours
+                }
+            )
+        }
+        .sheet(isPresented: $showHourMeterStop) {
+            HourMeterInputView(
+                isPresented: $showHourMeterStop,
+                phase: .stop,
+                onSubmit: { hours in
+                    appState.currentFlight?.engineHourEnd = hours
+                }
+            )
         }
         .fullScreenCover(isPresented: $showNavigationMode) {
             NavigationMapView(isPresented: $showNavigationMode)
@@ -210,6 +232,10 @@ struct FlightView: View {
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
+                                // Show hour meter input if enabled
+                                if appState.settings.logEngineHours {
+                                    showHourMeterStart = true
+                                }
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {
                                     triggerNextButtonPulse()
@@ -240,6 +266,10 @@ struct FlightView: View {
                             onEngineShutdown: {
                                 appState.recordEngineShutdown()
                                 pulseActionButton = false
+                                // Show hour meter input if enabled
+                                if appState.settings.logEngineHours {
+                                    showHourMeterStop = true
+                                }
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {
                                     triggerNextButtonPulse()
@@ -368,6 +398,7 @@ struct FlightView: View {
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
+                                if appState.settings.logEngineHours { showHourMeterStart = true }
                                 if allItemsChecked { triggerNextButtonPulse() }
                             },
                             onEngineStartUpdate: { appState.recordEngineStart() },
@@ -388,6 +419,7 @@ struct FlightView: View {
                             onEngineShutdown: {
                                 appState.recordEngineShutdown()
                                 pulseActionButton = false
+                                if appState.settings.logEngineHours { showHourMeterStop = true }
                                 if allItemsChecked { triggerNextButtonPulse() }
                             },
                             onEngineShutdownUpdate: { appState.recordEngineShutdown() },

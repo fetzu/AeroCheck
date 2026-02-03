@@ -11,6 +11,24 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.2.1** - Icon Fix
+*Released February 03, 2026*
+
+### Bug Fixes
+
+- **Onboarding Logo**: Fixed missing app icon on the onboarding welcome screen. The logo outline was visible but the image was empty due to a missing asset reference.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.2.0...3.2.1
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.2.1)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.2.0** - Guided Experience
 *Released February 03, 2026*
 
@@ -74,11 +92,7 @@ This release focuses on making AeroCheck more welcoming for new users with guide
 
 <br>
 
-________
-
-<br>
-
-# **Version 3.1.0** - Multilingual Checklists
+## **Version 3.1.0** - Multilingual Checklists
 *Released February 02, 2026*
 
 ### What's New
@@ -384,7 +398,6 @@ Give it a try and let us know what you think!
 
 <br>
 
-### `Initial Release`
 ## **Version 1.0.0** - Take Off Check completed !
 *Released December 07, 2025*
 

@@ -102,6 +102,7 @@ struct HomeView: View {
     @State private var showSpeedReference = false
     @State private var showNavigation = false
     @State private var selectedAircraftIndex: Int = 0
+    @State private var cachedItemCountText: String = "—"
 
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -187,12 +188,14 @@ struct HomeView: View {
         }
         .onAppear {
             syncSelectedAircraftIndex()
+            updateCachedItemCount()
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
         }
         .onChange(of: selectedAircraftIndex) { _, newIndex in
             updateAppStateAircraft(index: newIndex)
+            updateCachedItemCount()
         }
         .onChange(of: appState.settings.hiddenAircraftIds) { _, _ in
             syncSelectedAircraftIndex()
@@ -403,7 +406,7 @@ struct HomeView: View {
 
                 QuickStatView(
                     icon: "list.bullet",
-                    value: itemCountText,
+                    value: cachedItemCountText,
                     label: L10n.Stats.items,
                     isCompact: isLandscape || isCompact
                 )
@@ -446,21 +449,22 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var itemCountText: String {
+    /// Update the cached item count text — avoids disk I/O on every render
+    private func updateCachedItemCount() {
         guard let option = selectedAircraft else {
-            return "—"
+            cachedItemCountText = "—"
+            return
         }
 
         switch option {
         case .bundled(let aircraft):
-            return "\(aircraft.totalChecklistItems)"
+            cachedItemCountText = "\(aircraft.totalChecklistItems)"
         case .remote(let metadata):
-            // Try to get item count from cached checklist
             if let checklist = aircraftDataService.getChecklist(for: metadata.id) {
-                return "\(checklist.toAircraftAdapter().totalChecklistItems)"
+                cachedItemCountText = "\(checklist.toAircraftAdapter().totalChecklistItems)"
+            } else {
+                cachedItemCountText = "—"
             }
-            // Fallback to dash if checklist not yet loaded
-            return "—"
         }
     }
     
@@ -573,6 +577,9 @@ struct HomeView: View {
             // Load remote checklist if needed
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
+            // Ensure airport data is loaded for FREQ panel and flight event detection
+            await airportDataService.ensureLoaded()
+
             // Pass the active flight plan ID to the flight if one is active
             let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
             appState.startFlight(
@@ -596,6 +603,9 @@ struct HomeView: View {
         Task {
             // Load remote checklist if needed
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+
+            // Ensure airport data is loaded for FREQ panel and flight event detection
+            await airportDataService.ensureLoaded()
 
             // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
             appState.startFlight(

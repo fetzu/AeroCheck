@@ -40,12 +40,22 @@ class AirportDataService: ObservableObject {
     private var runwaysFileURL: URL { dataDirectory.appendingPathComponent("runways.json") }
     private var metadataFileURL: URL { dataDirectory.appendingPathComponent("metadata.json") }
 
+    /// Whether in-memory data has been loaded from disk
+    private var isLoaded = false
+
     // MARK: - Initialization
 
     init() {
-        Task {
-            await loadFromLocal()
-        }
+        // Defer loading until data is actually needed (flight start or map overlay)
+        // to save ~20-30MB of memory at app startup.
+        // Callers use ensureLoaded() to trigger loading on demand.
+    }
+
+    /// Load airport data into memory if not already loaded.
+    /// Called automatically by query methods that need the data.
+    func ensureLoaded() async {
+        guard !isLoaded else { return }
+        await loadFromLocal()
     }
 
     // MARK: - Public Methods
@@ -110,6 +120,7 @@ class AirportDataService: ObservableObject {
             self.airportCount = parsedAirports.count
             self.lastUpdated = Date()
             self.isDataAvailable = true
+            self.isLoaded = true
 
             downloadProgress = 1.0
             print("[AirportData] Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
@@ -126,6 +137,7 @@ class AirportDataService: ObservableObject {
     func loadFromLocal() async {
         guard fileManager.fileExists(atPath: airportsFileURL.path) else {
             print("[AirportData] No local data found")
+            isLoaded = true // Mark as attempted to avoid repeated checks
             return
         }
 
@@ -159,6 +171,7 @@ class AirportDataService: ObservableObject {
             self.runwaysByAirport = Dictionary(grouping: loadedRunways) { $0.airportIdent }
             self.airportCount = loadedAirports.count
             self.isDataAvailable = true
+            self.isLoaded = true
 
             print("[AirportData] Loaded from cache: \(loadedAirports.count) airports")
 
@@ -180,6 +193,7 @@ class AirportDataService: ObservableObject {
             airportCount = 0
             lastUpdated = nil
             isDataAvailable = false
+            isLoaded = false
             print("[AirportData] Data deleted")
         } catch {
             print("[AirportData] Failed to delete data: \(error)")

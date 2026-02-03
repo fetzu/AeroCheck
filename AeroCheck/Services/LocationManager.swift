@@ -61,8 +61,8 @@ class LocationManager: NSObject, ObservableObject {
     
     private func setupLocationManager() {
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 10 // meters
+        locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        locationManager.distanceFilter = 50 // meters — reduces wakeups at flight speeds while keeping map responsive
         locationManager.activityType = .airborne
 
         // Background location configuration:
@@ -146,7 +146,7 @@ class LocationManager: NSObject, ObservableObject {
     // MARK: - Signal Quality Monitoring
 
     private func startSignalCheckTimer() {
-        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkSignalStatus()
             }

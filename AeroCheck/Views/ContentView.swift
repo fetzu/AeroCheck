@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var windDataService: WindDataService
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -88,12 +89,18 @@ struct ContentView: View {
                 if appState.isFlightActive {
                     appState.saveActiveFlightState()
                 }
+                // Stop wind data fetching in background to save battery
+                windDataService.stopFetching()
             case .active:
                 // On app start, deactivate flight plan if no flight is in progress
                 // This is handled after flight state restoration, so if a flight was
                 // restored, isFlightActive will be true and we keep the flight plan
                 if !appState.isFlightActive {
                     flightPlanManager.deactivateFlightPlan()
+                }
+                // Resume wind data fetching if flight is active and estimated airspeed is enabled
+                if appState.isFlightActive && appState.settings.showEstimatedAirspeed {
+                    windDataService.startFetching(locationManager: locationManager)
                 }
             @unknown default:
                 break

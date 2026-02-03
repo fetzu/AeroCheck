@@ -7,6 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var syncManager = SyncManager.shared
 
@@ -45,6 +46,9 @@ struct SettingsView: View {
     // Checklist Language
     @State private var checklistLanguage: ChecklistLanguage = .auto
 
+    // Airport overlay
+    @State private var showAirportsOnMap: Bool = false
+
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -80,6 +84,7 @@ struct SettingsView: View {
                 iCloudSyncEnabled: iCloudSyncEnabled,
                 checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
+                showAirportsOnMap: showAirportsOnMap,
                 saveSettings: { if !isLoadingSettings { saveSettings() } },
                 updateMarketingMode: { appState.settings.marketingMode = $0 }
             ))
@@ -125,6 +130,7 @@ struct SettingsView: View {
                 navigationSection
             }
             Group {
+                airportDataSection
                 iCloudSyncSection
                 offlineMapsSection
                 checklistSection
@@ -655,6 +661,104 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Airport Data Section
+
+    private var airportDataSection: some View {
+        Section {
+            // Download/update button
+            if airportDataService.isDownloading {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text(L10n.Settings.downloadingAirports)
+                            .font(.body)
+                    }
+                    ProgressView(value: airportDataService.downloadProgress)
+                        .tint(.aviationGold)
+                }
+            } else if airportDataService.isDataAvailable {
+                // Data is available
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.Settings.airportsLoaded(airportDataService.airportCount))
+                            .font(.body)
+                        if let lastUpdate = airportDataService.lastUpdated {
+                            Text(L10n.Settings.lastUpdatedDate(formatAirportDate(lastUpdate)))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if airportDataService.needsUpdate {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundColor(.aviationAmber)
+                            .help(L10n.Settings.airportUpdateAvailable)
+                    }
+                }
+
+                // Show on map toggle
+                Toggle(L10n.Settings.showAirportsOnMap, isOn: $showAirportsOnMap)
+
+                // Update button
+                Button(action: {
+                    Task {
+                        await airportDataService.downloadData()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text(L10n.Settings.updateAirportData)
+                    }
+                }
+
+                // Delete button
+                Button(role: .destructive, action: {
+                    airportDataService.deleteData()
+                }) {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text(L10n.Settings.deleteAirportData)
+                    }
+                }
+            } else {
+                // No data - show download button
+                Button(action: {
+                    Task {
+                        await airportDataService.downloadData()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.down.circle")
+                        Text(L10n.Settings.downloadAirportData)
+                    }
+                }
+            }
+
+            // Error display
+            if let error = airportDataService.downloadError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.aviationRed)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.aviationRed)
+                }
+            }
+        } header: {
+            Label(L10n.Settings.airportData, systemImage: "building.2")
+        } footer: {
+            Text(L10n.Settings.airportDataFooter)
+        }
+    }
+
+    private func formatAirportDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+
     private var iCloudSyncSection: some View {
         Section {
             Toggle(L10n.Settings.syncToICloud, isOn: $iCloudSyncEnabled)
@@ -1141,6 +1245,8 @@ struct SettingsView: View {
         iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
         // Checklist Language
         checklistLanguage = appState.settings.checklistLanguage
+        // Airport overlay
+        showAirportsOnMap = appState.settings.showAirportsOnMap
 
         // Reset loading flag in next runloop to avoid triggering save loops
         DispatchQueue.main.async {
@@ -1168,6 +1274,8 @@ struct SettingsView: View {
         appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
         // Checklist Language
         appState.settings.checklistLanguage = checklistLanguage
+        // Airport overlay
+        appState.settings.showAirportsOnMap = showAirportsOnMap
         // Note: marketingMode is handled separately and NOT persisted
         appState.saveSettings()
 
@@ -1708,6 +1816,7 @@ struct SettingsChangeGroup3: ViewModifier {
     let iCloudSyncEnabled: Bool
     let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
+    let showAirportsOnMap: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
 
@@ -1719,6 +1828,7 @@ struct SettingsChangeGroup3: ViewModifier {
             .onChange(of: iCloudSyncEnabled) { _, _ in saveSettings() }
             .onChange(of: checklistLanguage) { _, _ in saveSettings() }
             .onChange(of: marketingMode) { _, newValue in updateMarketingMode(newValue) }
+            .onChange(of: showAirportsOnMap) { _, _ in saveSettings() }
     }
 }
 
@@ -1739,6 +1849,7 @@ struct SettingsChangeModifier: ViewModifier {
     let iCloudSyncEnabled: Bool
     let checklistLanguage: ChecklistLanguage
     let marketingMode: Bool
+    let showAirportsOnMap: Bool
     let saveSettings: () -> Void
     let updateMarketingMode: (Bool) -> Void
 
@@ -1767,6 +1878,7 @@ struct SettingsChangeModifier: ViewModifier {
                 iCloudSyncEnabled: iCloudSyncEnabled,
                 checklistLanguage: checklistLanguage,
                 marketingMode: marketingMode,
+                showAirportsOnMap: showAirportsOnMap,
                 saveSettings: saveSettings,
                 updateMarketingMode: updateMarketingMode
             ))

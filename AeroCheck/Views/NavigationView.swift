@@ -153,6 +153,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var airportDataService: AirportDataService
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -1287,6 +1288,24 @@ struct NavigationMapView: View {
 
     // MARK: - Map Content
 
+    /// Airports visible in the current map region (when airport overlay is enabled)
+    private var visibleAirports: [Airport] {
+        guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
+            return []
+        }
+        let region = mapState.region
+        let halfLatSpan = region.span.latitudeDelta / 2
+        let halfLonSpan = region.span.longitudeDelta / 2
+        return airportDataService.getAirportsInRegion(
+            minLat: region.center.latitude - halfLatSpan,
+            maxLat: region.center.latitude + halfLatSpan,
+            minLon: region.center.longitude - halfLonSpan,
+            maxLon: region.center.longitude + halfLonSpan,
+            types: [.largeAirport, .mediumAirport, .smallAirport],
+            limit: 100
+        )
+    }
+
     @ViewBuilder
     private var mapContent: some View {
         // Track the current waypoint index to force map updates when it changes
@@ -1309,7 +1328,8 @@ struct NavigationMapView: View {
                 isStrictOfflineMode: isOfflineMode,
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
-                currentWaypointIndex: currentWaypointIndex
+                currentWaypointIndex: currentWaypointIndex,
+                visibleAirports: visibleAirports
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1320,7 +1340,8 @@ struct NavigationMapView: View {
                 gpsTrack: displayGpsTrack,
                 isFollowingAircraft: $isFollowingAircraft,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
-                currentWaypointIndex: currentWaypointIndex
+                currentWaypointIndex: currentWaypointIndex,
+                visibleAirports: visibleAirports
             )
         }
     }
@@ -2334,6 +2355,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     @Binding var isFollowingAircraft: Bool
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
+    var visibleAirports: [Airport] = []  // Airports to display on map
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2398,10 +2420,31 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update flight plan overlay
         updateFlightPlanOverlay(mapView, context: context)
+
+        // Update airport annotations
+        updateAirportAnnotations(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
+        // Get existing airport annotations
+        let existingAirportAnnotations = mapView.annotations.compactMap { $0 as? AirportAnnotation }
+        let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
+        let newIds = Set(visibleAirports.map { $0.id })
+
+        // Remove annotations that are no longer visible
+        let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
+        mapView.removeAnnotations(toRemove)
+
+        // Add new annotations
+        let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
+        for airport in toAdd {
+            let annotation = AirportAnnotation(airport: airport)
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
@@ -2573,6 +2616,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
             }
 
+            // Handle airport annotation
+            if let airportAnnotation = annotation as? AirportAnnotation {
+                return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
             // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
@@ -2701,6 +2749,56 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 2
+
+            return annotationView
+        }
+
+        /// Create annotation view for airports
+        private func createAirportAnnotationView(_ mapView: MKMapView, annotation: AirportAnnotation) -> MKAnnotationView {
+            let identifier = "AirportAnnotation"
+            let annotationView: MKAnnotationView
+
+            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+                reusedView.annotation = annotation
+                annotationView = reusedView
+            } else {
+                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
+
+            annotationView.canShowCallout = true
+
+            // Size and color based on airport type
+            let size: CGFloat
+            let iconName: String
+            let color: UIColor
+
+            switch annotation.airport.type {
+            case .largeAirport:
+                size = 20
+                iconName = "airplane.circle.fill"
+                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0) // Blue
+            case .mediumAirport:
+                size = 16
+                iconName = "airplane.circle"
+                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9) // Blue
+            case .smallAirport:
+                size = 14
+                iconName = "airplane"
+                color = UIColor(red: 0.4, green: 0.7, blue: 0.4, alpha: 0.9) // Green
+            default:
+                size = 12
+                iconName = "circle.fill"
+                color = UIColor.gray
+            }
+
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+            }
+
+            // Configure callout
+            annotationView.rightCalloutAccessoryView = nil
+            annotationView.leftCalloutAccessoryView = nil
 
             return annotationView
         }
@@ -2854,6 +2952,7 @@ struct SwissMapView: UIViewRepresentable {
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
+    var visibleAirports: [Airport] = []  // Airports to display on map
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -3062,6 +3161,27 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update flight plan overlay
         updateFlightPlanOverlay(mapView, context: context)
+
+        // Update airport annotations
+        updateAirportAnnotations(mapView, context: context)
+    }
+
+    private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
+        // Get existing airport annotations
+        let existingAirportAnnotations = mapView.annotations.compactMap { $0 as? AirportAnnotation }
+        let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
+        let newIds = Set(visibleAirports.map { $0.id })
+
+        // Remove annotations that are no longer visible
+        let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
+        mapView.removeAnnotations(toRemove)
+
+        // Add new annotations
+        let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
+        for airport in toAdd {
+            let annotation = AirportAnnotation(airport: airport)
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
@@ -3325,6 +3445,11 @@ struct SwissMapView: UIViewRepresentable {
                 return createWaypointAnnotationView(mapView, annotation: waypointAnnotation)
             }
 
+            // Handle airport annotation
+            if let airportAnnotation = annotation as? AirportAnnotation {
+                return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
             // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
@@ -3455,6 +3580,56 @@ struct SwissMapView: UIViewRepresentable {
             annotationView.layer.shadowOffset = CGSize(width: 0, height: 2)
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 2
+
+            return annotationView
+        }
+
+        /// Create annotation view for airports
+        private func createAirportAnnotationView(_ mapView: MKMapView, annotation: AirportAnnotation) -> MKAnnotationView {
+            let identifier = "AirportAnnotation"
+            let annotationView: MKAnnotationView
+
+            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+                reusedView.annotation = annotation
+                annotationView = reusedView
+            } else {
+                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
+
+            annotationView.canShowCallout = true
+
+            // Size and color based on airport type
+            let size: CGFloat
+            let iconName: String
+            let color: UIColor
+
+            switch annotation.airport.type {
+            case .largeAirport:
+                size = 20
+                iconName = "airplane.circle.fill"
+                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0) // Blue
+            case .mediumAirport:
+                size = 16
+                iconName = "airplane.circle"
+                color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9) // Blue
+            case .smallAirport:
+                size = 14
+                iconName = "airplane"
+                color = UIColor(red: 0.4, green: 0.7, blue: 0.4, alpha: 0.9) // Green
+            default:
+                size = 12
+                iconName = "circle.fill"
+                color = UIColor.gray
+            }
+
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
+            if let image = UIImage(systemName: iconName, withConfiguration: config) {
+                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+            }
+
+            // Configure callout
+            annotationView.rightCalloutAccessoryView = nil
+            annotationView.leftCalloutAccessoryView = nil
 
             return annotationView
         }

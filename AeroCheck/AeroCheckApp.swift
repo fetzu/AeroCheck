@@ -12,6 +12,7 @@ struct AeroCheckApp: App {
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
+    @StateObject private var airportDataService = AirportDataService()
     @State private var showUpdateReminder = false
     @State private var isInitialized = false
 
@@ -34,6 +35,7 @@ struct AeroCheckApp: App {
                 .environmentObject(watchConnectivityManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
+                .environmentObject(airportDataService)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -88,6 +90,7 @@ struct AeroCheckApp: App {
                 .environmentObject(flightPlanManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
+                .environmentObject(airportDataService)
                 .preferredColorScheme(.dark)
         }
         #endif

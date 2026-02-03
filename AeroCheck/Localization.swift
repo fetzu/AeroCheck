@@ -252,6 +252,22 @@ enum L10n {
         static let forceICAO = String(localized: "settings.navigation.forceICAO")
         static let forceICAOFooter = String(localized: "settings.navigation.forceICAODesc")
 
+        // Airport Data
+        static let airportData = String(localized: "settings.airportData")
+        static let downloadAirportData = String(localized: "settings.airportData.download")
+        static let updateAirportData = String(localized: "settings.airportData.update")
+        static let deleteAirportData = String(localized: "settings.airportData.delete")
+        static let downloadingAirports = String(localized: "settings.airportData.downloading")
+        static let airportUpdateAvailable = String(localized: "settings.airportData.updateAvailable")
+        static func airportsLoaded(_ count: Int) -> String {
+            String(format: String(localized: "settings.airportData.loaded"), count)
+        }
+        static func lastUpdatedDate(_ date: String) -> String {
+            String(format: String(localized: "settings.airportData.lastUpdated"), date)
+        }
+        static let airportDataFooter = String(localized: "settings.airportData.footer")
+        static let showAirportsOnMap = String(localized: "settings.airportData.showOnMap")
+
         // iCloud
         static let icloud = String(localized: "settings.icloud")
         static let syncToICloud = String(localized: "settings.icloud.syncToICloud")

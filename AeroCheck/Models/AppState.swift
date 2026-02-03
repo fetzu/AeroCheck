@@ -41,6 +41,9 @@ struct AppSettings: Codable, Equatable {
     // Checklist Language
     var checklistLanguage: ChecklistLanguage = .auto // Language for checklist content
 
+    // Airport data overlay
+    var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -97,6 +100,7 @@ struct AppSettings: Codable, Equatable {
         case hiddenAeroclubs
         case iCloudSyncEnabled
         case checklistLanguage
+        case showAirportsOnMap
         // marketingMode is intentionally excluded
     }
 

@@ -61,6 +61,8 @@
 		D1000001211111110000001 /* BundledChecklistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000001 /* BundledChecklistService.swift */; };
 		D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000002 /* wt9-dynamic-bundled.json */; };
 		D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */; };
+		E1000001211111110000001 /* Airport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000001 /* Airport.swift */; };
+		E1000001211111110000002 /* AirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000002 /* AirportDataService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +165,8 @@
 		D1000001111111110000001 /* BundledChecklistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledChecklistService.swift; sourceTree = "<group>"; };
 		D1000001111111110000002 /* wt9-dynamic-bundled.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled.json"; sourceTree = "<group>"; };
 		D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled-fr.json"; sourceTree = "<group>"; };
+		E1000001111111110000001 /* Airport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airport.swift; sourceTree = "<group>"; };
+		E1000001111111110000002 /* AirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -266,6 +270,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000001111111110000015 /* Aircraft.swift */,
+				E1000001111111110000001 /* Airport.swift */,
 				A1000001111111110000007 /* Flight.swift */,
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
 				04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */,
@@ -291,6 +296,7 @@
 				A3000001111111110000001 /* WatchConnectivityManager.swift */,
 				B3000001111111110000001 /* SubscriptionManager.swift */,
 				B3000001111111110000002 /* AircraftDataService.swift */,
+				E1000001111111110000002 /* AirportDataService.swift */,
 				D1000001111111110000001 /* BundledChecklistService.swift */,
 			);
 			path = Services;
@@ -516,6 +522,8 @@
 				B3000001211111110000004 /* SubscriptionView.swift in Sources */,
 				C1000001211111110000001 /* Localization.swift in Sources */,
 				D1000001211111110000001 /* BundledChecklistService.swift in Sources */,
+				E1000001211111110000001 /* Airport.swift in Sources */,
+				E1000001211111110000002 /* AirportDataService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

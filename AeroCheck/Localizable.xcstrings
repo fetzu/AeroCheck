@@ -4013,6 +4013,176 @@
         }
       }
     },
+    "settings.airportData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airport Data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Donnees aeroports"
+          }
+        }
+      }
+    },
+    "settings.airportData.delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Airport Data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les donnees"
+          }
+        }
+      }
+    },
+    "settings.airportData.download": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download Airport Data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telecharger les donnees"
+          }
+        }
+      }
+    },
+    "settings.airportData.downloading": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading airports..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telechargement..."
+          }
+        }
+      }
+    },
+    "settings.airportData.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airport data from OurAirports.com. Used for navigation map display and flight planning. Updates recommended every 90 days."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Donnees des aeroports de OurAirports.com. Utilisees pour l'affichage sur la carte et la planification de vol. Mise a jour recommandee tous les 90 jours."
+          }
+        }
+      }
+    },
+    "settings.airportData.showOnMap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Airports on Map"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les aeroports sur la carte"
+          }
+        }
+      }
+    },
+    "settings.airportData.lastUpdated": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last updated: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derniere mise a jour : %@"
+          }
+        }
+      }
+    },
+    "settings.airportData.loaded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d airports loaded"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d aeroports charges"
+          }
+        }
+      }
+    },
+    "settings.airportData.update": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Airport Data"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre a jour"
+          }
+        }
+      }
+    },
+    "settings.airportData.updateAvailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update available (data > 90 days old)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise a jour disponible (donnees > 90 jours)"
+          }
+        }
+      }
+    },
     "settings.icloud.whenEnabledDesc": {
       "extractionState": "manual",
       "localizations": {

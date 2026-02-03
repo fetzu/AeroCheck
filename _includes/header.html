@@ -27,11 +27,13 @@
 			{% assign current_lang = page.lang | default: "en" %}
 			{% for p in site.pages %}
 				{% if p.include_in_header == true %}
-					{% if current_lang == "fr" and p.english_only %}
+					{% if current_lang == "fr" %}
 						{% if p.title == "Releases" %}
 							<li><a href="{{ '/fr/releases/' | relative_url }}">{{ p.title }}</a></li>
 						{% elsif p.title == "Aircraft List" %}
 							<li><a href="{{ '/fr/aircraft/' | relative_url }}">Liste des avions</a></li>
+						{% elsif p.title == "User Manual" %}
+							<li><a href="{{ '/fr/manual/' | relative_url }}">Manuel</a></li>
 						{% else %}
 							<li><a href="{{ p.url | relative_url }}">{{ p.title }}</a></li>
 						{% endif %}
@@ -61,6 +63,9 @@
 					{% elsif page.url contains '/aircraft' or page.url contains '/aircraft/' %}
 						{% assign en_url = '/aircraft/' %}
 						{% assign fr_url = '/fr/aircraft/' %}
+					{% elsif page.url contains '/manual' or page.url contains '/manual/' %}
+						{% assign en_url = '/manual/' %}
+						{% assign fr_url = '/fr/manual/' %}
 					{% else %}
 						{% assign en_url = '/' %}
 						{% assign fr_url = '/fr/' %}

@@ -121,25 +121,29 @@ struct SettingsView: View {
 
     private var formContent: some View {
         Form {
+            // Group 1: Aircraft & Subscription
             Group {
                 subscriptionSection
                 aircraftSection
                 aircraftVisibilitySection
-                gpsSection
-                experimentalAirspeedSection
             }
+            // Group 2: Flight (in-flight behavior)
             Group {
-                flightPlanningSection
-                displaySection
-                navigationSection
-            }
-            Group {
-                airportDataSection
-                iCloudSyncSection
-                offlineMapsSection
                 checklistSection
                 flightLoggingSection
+                gpsSection
+                displaySection
             }
+            // Group 3: Navigation & Data
+            Group {
+                navigationSection
+                flightPlanningSection
+                experimentalAirspeedSection
+                airportDataSection
+                offlineMapsSection
+                iCloudSyncSection
+            }
+            // Group 4: About & Advanced
             Group {
                 aboutSection
                 availableChecklistsSection
@@ -922,11 +926,11 @@ struct SettingsView: View {
 
     private var flightLoggingSection: some View {
         Section {
-            Toggle("Log Engine Hours", isOn: $logEngineHours)
+            Toggle(L10n.Settings.logEngineHours, isOn: $logEngineHours)
         } header: {
-            Label("Flight Logging", systemImage: "clock.badge.checkmark")
+            Label(L10n.Settings.flightLogging, systemImage: "clock.badge.checkmark")
         } footer: {
-            Text("When enabled, prompts for tachometer/hour meter readings at engine start and stop. Useful for maintenance tracking.")
+            Text(L10n.Settings.logEngineHoursFooter)
         }
     }
 

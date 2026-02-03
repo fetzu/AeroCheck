@@ -259,7 +259,7 @@ struct FlightLogView: View {
     private var flightList: some View {
         List {
             ForEach(sortedFlights) { flight in
-                NavigationLink(destination: FlightLogDetailView(flight: flight)) {
+                NavigationLink(destination: FlightDetailView(flight: flight)) {
                     FlightRowView(flight: flight)
                 }
                 .listRowBackground(Color.cardBackground)
@@ -790,6 +790,12 @@ struct FlightDetailView: View {
 
             VStack(spacing: 12) {
                 DetailRow(label: L10n.FlightDetail.aircraft, value: flight.airplane, icon: "airplane")
+                if let aircraftType = flight.aircraftType {
+                    DetailRow(label: L10n.FlightDetail.aircraftType, value: aircraftType, icon: "info.circle")
+                }
+                if let version = flight.checklistVersion {
+                    DetailRow(label: L10n.FlightDetail.checklistVersion, value: version, icon: "doc.text")
+                }
                 DetailRow(label: L10n.FlightDetail.date, value: flight.formattedDate, icon: "calendar")
                 DetailRow(label: L10n.FlightDetail.flightTime, value: flight.formattedDuration, icon: "clock.fill")
                 DetailRow(label: L10n.FlightDetail.distance, value: flight.formattedDistance, icon: "point.topleft.down.to.point.bottomright.curvepath.fill")
@@ -806,6 +812,24 @@ struct FlightDetailView: View {
             }
             .cardStyle()
 
+            // Route
+            if flight.departureAirportIdent != nil || flight.arrivalAirportIdent != nil {
+                Text(L10n.FlightDetail.route)
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .padding(.top, 8)
+
+                VStack(spacing: 12) {
+                    if let dep = flight.departureAirportIdent {
+                        DetailRow(label: L10n.FlightDetail.departure, value: dep, icon: "airplane.departure")
+                    }
+                    if let arr = flight.arrivalAirportIdent {
+                        DetailRow(label: L10n.FlightDetail.arrival, value: arr, icon: "airplane.arrival")
+                    }
+                }
+                .cardStyle()
+            }
+
             // Chronological times
             Text(L10n.FlightDetail.flightTimes)
                 .font(.captionText)
@@ -813,6 +837,10 @@ struct FlightDetailView: View {
                 .padding(.top, 8)
 
             VStack(spacing: 12) {
+                if let blockOff = flight.blockOffTime {
+                    TimelineRow(label: L10n.FlightDetail.blockOff, time: timeString(from: blockOff), icon: "door.left.hand.open", color: .dimText)
+                }
+
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
                 }
@@ -836,8 +864,44 @@ struct FlightDetailView: View {
                 if let stop = flight.stopTime {
                     TimelineRow(label: L10n.FlightDetail.sessionEnd, time: timeString(from: stop), icon: "stop.fill", color: .dimText)
                 }
+
+                if let blockOn = flight.blockOnTime {
+                    TimelineRow(label: L10n.FlightDetail.blockOn, time: timeString(from: blockOn), icon: "door.left.hand.closed", color: .dimText)
+                }
             }
             .cardStyle()
+
+            // Engine Hours (if logged)
+            if flight.engineHourStart != nil || flight.engineHourEnd != nil {
+                Text(L10n.FlightDetail.engineHours)
+                    .font(.captionText)
+                    .foregroundColor(.secondaryText)
+                    .padding(.top, 8)
+
+                VStack(spacing: 12) {
+                    if let start = flight.engineHourStart {
+                        DetailRow(label: L10n.FlightDetail.hoursBefore, value: String(format: "%.1f", start), icon: "gauge.with.dots.needle.0percent")
+                    }
+                    if let end = flight.engineHourEnd {
+                        DetailRow(label: L10n.FlightDetail.hoursAfter, value: String(format: "%.1f", end), icon: "gauge.with.dots.needle.100percent")
+                    }
+                    if let flown = flight.engineHoursFlown {
+                        HStack {
+                            Image(systemName: "clock.badge.checkmark")
+                                .foregroundColor(.aviationGreen)
+                                .frame(width: 24)
+                            Text(L10n.FlightDetail.hoursFlown)
+                                .font(.bodyText)
+                                .foregroundColor(.secondaryText)
+                            Spacer()
+                            Text(String(format: "%.1f", flown))
+                                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                                .foregroundColor(.aviationGreen)
+                        }
+                    }
+                }
+                .cardStyle()
+            }
 
             // Flight Name editing (moved to be between FLIGHT TIMES and NOTES)
             Text(L10n.FlightDetail.flightName)

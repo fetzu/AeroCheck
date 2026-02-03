@@ -490,23 +490,12 @@ struct ChecklistView: View {
                 }
             }
 
-            // Full Stop and Landed buttons
+            // Full Stop Landing button
             if phase.showsLandedButton {
                 Spacer().frame(height: 24)
 
                 HStack(spacing: 16) {
                     Spacer()
-
-                    // Full Stop button (for circuit landings)
-                    CounterActionButton(
-                        title: L10n.ChecklistAction.fullStop(language: checklistLanguage),
-                        icon: "stop.circle.fill",
-                        color: .aviationAmber,
-                        count: fullStopCount,
-                        countLabel: L10n.ChecklistAction.fullStops(language: checklistLanguage),
-                        onPress: { onFullStop?() }
-                    )
-                    .id("fullStopButton")
 
                     TimestampActionButton(
                         title: L10n.ChecklistAction.landed(language: checklistLanguage),
@@ -963,6 +952,10 @@ struct DepartureBriefingView: View {
                             BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
+                            Text(L10n.Briefing.windCheckHint)
+                                .font(.system(size: 11))
+                                .foregroundColor(.dimText)
+                                .italic()
                         }
                     }
 
@@ -976,6 +969,12 @@ struct DepartureBriefingView: View {
                                 RunwayRowView(runway: runway, isSuggested: false)
                             }
                         }
+                    }
+
+                    // Departure Procedure Section
+                    BriefingSection(title: L10n.Briefing.departureProcedure.uppercased()) {
+                        BriefingItem(label: L10n.Briefing.firstTurn, value: L10n.Briefing.toBeBriefed)
+                        BriefingItem(label: L10n.Briefing.levelOff, value: L10n.Briefing.toBeBriefed)
                     }
 
                     // Airspeeds Section - Dynamic from aircraft
@@ -1030,6 +1029,10 @@ struct ApproachBriefingView: View {
                             BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
+                            Text(L10n.Briefing.windCheckHint)
+                                .font(.system(size: 11))
+                                .foregroundColor(.dimText)
+                                .italic()
                         }
                     }
 
@@ -1052,12 +1055,7 @@ struct ApproachBriefingView: View {
 
                     // Missed Approach Section
                     BriefingSection(title: L10n.Briefing.missedApproach.uppercased(), isWarning: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            EmergencyItem(text: L10n.Briefing.goAroundProcedure)
-                            if context.hasParachute {
-                                EmergencyItem(text: L10n.Briefing.brsConsider)
-                            }
-                        }
+                        EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                     }
 
                     Spacer()

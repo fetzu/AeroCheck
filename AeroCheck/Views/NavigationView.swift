@@ -426,6 +426,7 @@ struct NavigationMapView: View {
                     containerSize: geometry.size
                 )
                 .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
                 .transition(.opacity.combined(with: .scale))
             }
         }
@@ -1690,6 +1691,7 @@ struct CompassView: View {
 struct RadioFrequencyOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var airportDataService: AirportDataService
     @Binding var isPresented: Bool
     let containerSize: CGSize
 
@@ -1746,6 +1748,9 @@ struct RadioFrequencyOverlayView: View {
                             }
                         }
 
+                        // Nearby airport frequencies section
+                        nearbyAirportFrequenciesSection
+
                         // Common Swiss frequencies section
                         Divider()
                             .background(Color.dimText)
@@ -1793,6 +1798,9 @@ struct RadioFrequencyOverlayView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)
                             .padding()
+
+                        // Nearby airport frequencies section
+                        nearbyAirportFrequenciesSection
 
                         // Common Swiss frequencies section
                         Divider()
@@ -1911,6 +1919,91 @@ struct RadioFrequencyOverlayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    /// Section displaying nearby airport frequencies from OurAirports data
+    @ViewBuilder
+    private var nearbyAirportFrequenciesSection: some View {
+        let airports = nearbyAirportFrequencies
+        if !airports.isEmpty {
+            Divider()
+                .background(Color.dimText)
+                .padding(.vertical, 4)
+
+            Text(L10n.Nav.nearbyAirportFrequencies)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+
+            ForEach(airports, id: \.airport.id) { item in
+                let isNearby = item.distanceNM <= 5.0
+                VStack(alignment: .leading, spacing: 0) {
+                    // Airport header
+                    HStack {
+                        Text(item.airport.ident)
+                            .font(.system(size: 11, weight: isNearby ? .bold : .semibold))
+                            .foregroundColor(isNearby ? .aviationGold : .primaryText)
+                        Text(item.airport.name)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(String(format: "%.0fnm", item.distanceNM))
+                            .font(.system(size: 9))
+                            .foregroundColor(.dimText)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+
+                    // Individual frequencies
+                    ForEach(item.frequencies) { freq in
+                        HStack {
+                            Text(freq.type)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondaryText)
+                                .frame(width: 35, alignment: .leading)
+                            if let desc = freq.description, !desc.isEmpty {
+                                Text(desc)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.dimText)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text(freq.formattedFrequency)
+                                .font(.system(size: 12, weight: isNearby ? .bold : .medium, design: .monospaced))
+                                .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 2)
+                    }
+                }
+                .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
+
+                if item.airport.id != airports.last?.airport.id {
+                    Divider()
+                        .background(Color.dimText.opacity(0.5))
+                }
+            }
+        }
+    }
+
+    /// Get nearby airports with their frequencies from OurAirports data
+    private var nearbyAirportFrequencies: [(airport: Airport, frequencies: [AirportFrequency], distanceNM: Double)] {
+        guard let location = locationManager.currentLocation,
+              airportDataService.isDataAvailable else { return [] }
+        let nearbyAirports = airportDataService.findNearestAirports(
+            to: location.coordinate,
+            limit: 5,
+            maxDistanceNm: 15.0
+        )
+        return nearbyAirports.compactMap { (airport: Airport) -> (airport: Airport, frequencies: [AirportFrequency], distanceNM: Double)? in
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            guard !frequencies.isEmpty else { return nil }
+            let distanceNM = airport.distance(from: location.coordinate)
+            return (airport: airport, frequencies: frequencies, distanceNM: distanceNM)
+        }
     }
 
     /// Get nearby CTRs based on current location

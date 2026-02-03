@@ -181,6 +181,13 @@ enum L10n {
         static let goAroundProcedure = String(localized: "briefing.goAround.procedure")
         static let brsConsider = String(localized: "briefing.brs.consider")
 
+        // Departure procedure
+        static let departureProcedure = String(localized: "briefing.departureProcedure")
+        static let firstTurn = String(localized: "briefing.firstTurn")
+        static let levelOff = String(localized: "briefing.levelOff")
+        static let toBeBriefed = String(localized: "briefing.toBeBriefed")
+        static let windCheckHint = String(localized: "briefing.windCheckHint")
+
         // Emergency items
         static let malfunctionBeforeRotation = String(localized: "briefing.emergency.malfunctionBeforeRotation")
         static let engineFailureAfterRotation = String(localized: "briefing.emergency.engineFailureAfterRotation")
@@ -333,6 +340,11 @@ enum L10n {
         static let stepByStepFooter = String(localized: "settings.checklist.stepByStepFooter")
         static let learningModeFooter = String(localized: "settings.checklist.learningModeFooter")
         static let circuitModeFooter = String(localized: "settings.checklist.circuitModeFooter")
+
+        // Flight Logging
+        static let flightLogging = String(localized: "settings.flightLogging")
+        static let logEngineHours = String(localized: "settings.flightLogging.logEngineHours")
+        static let logEngineHoursFooter = String(localized: "settings.flightLogging.logEngineHoursFooter")
 
         // Checklist Language
         static let checklistLanguage = String(localized: "settings.checklistLanguage")
@@ -646,6 +658,25 @@ enum L10n {
         static let engineShutdown = String(localized: "flightDetail.engineShutdown")
         static let sessionEnd = String(localized: "flightDetail.sessionEnd")
 
+        // Route
+        static let route = String(localized: "flightDetail.route")
+        static let departure = String(localized: "flightDetail.departure")
+        static let arrival = String(localized: "flightDetail.arrival")
+
+        // Engine Hours
+        static let engineHours = String(localized: "flightDetail.engineHours")
+        static let hoursBefore = String(localized: "flightDetail.hoursBefore")
+        static let hoursAfter = String(localized: "flightDetail.hoursAfter")
+        static let hoursFlown = String(localized: "flightDetail.hoursFlown")
+
+        // Block Times
+        static let blockOff = String(localized: "flightDetail.blockOff")
+        static let blockOn = String(localized: "flightDetail.blockOn")
+
+        // Additional
+        static let aircraftType = String(localized: "flightDetail.aircraftType")
+        static let checklistVersion = String(localized: "flightDetail.checklistVersion")
+
         // Name/Notes
         static let flightName = String(localized: "flightDetail.flightName")
         static let namePlaceholder = String(localized: "flightDetail.namePlaceholder")
@@ -904,6 +935,7 @@ enum L10n {
         static let noActiveFlightPlan = String(localized: "nav.noActiveFlightPlan")
         static let commonSwissFrequencies = String(localized: "nav.commonSwissFrequencies")
         static let nearbyControlledAirspace = String(localized: "nav.nearbyControlledAirspace")
+        static let nearbyAirportFrequencies = String(localized: "nav.nearbyAirportFrequencies")
         static let noFrequenciesInFlightPlan = String(localized: "nav.noFrequenciesInFlightPlan")
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
 

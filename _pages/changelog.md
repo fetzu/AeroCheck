@@ -11,6 +11,74 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.2.0** - Guided Experience
+*Released February 03, 2026*
+
+### What's New
+
+#### Onboarding Flow
+A new guided introduction for first-time users:
+
+- **5-Page Walkthrough**: Welcome, Checklists, Navigation, Briefings, and Ready to Fly screens
+- **Feature Discovery**: Learn about all 16 flight phases, learning mode, circuit mode, and more
+- **Download Recommendations**: Optionally download airport data and Swiss ICAO charts during onboarding
+- **Existing User Bypass**: Users who already have flights in their log skip onboarding automatically
+
+#### Redesigned Settings
+Settings restructured following Apple Human Interface Guidelines:
+
+- **NavigationStack Hub**: Clean top-level menu with 6 categorized sub-pages
+- **Aircraft & Subscription**: Aircraft management and subscription in one place
+- **Checklist & Flight**: Step-by-step highlighting, learning mode, and flight logging options
+- **Navigation & Maps**: Map layers, offline charts, and airport data management
+- **Flight Planning**: Route planning and terrain profile settings
+- **Sync & Data**: iCloud sync, GPS, and data statistics
+- **About**: Version info, available checklists, and developer options
+
+#### Smart Briefings & Flight Events
+New in-flight intelligence features:
+
+- **Dynamic Briefings**: Departure and approach briefings with nearby airport detection, runway suggestions, wind data, and emergency procedures
+- **Flight Event Detection**: Automatic detection of go-arounds, touch-and-gos, and full-stop landings
+- **Engine Hour Logging**: Optional Hobbs meter input at the end of each flight
+
+#### Airport Database Integration
+Access worldwide airport data:
+
+- **40,000+ Airports**: OurAirports database with frequencies, runways, and elevation data
+- **Nearby Frequencies**: See relevant radio frequencies based on your GPS position
+- **Lazy Loading**: Airport data loads only when needed to keep startup fast
+
+#### Performance & Localization
+Under-the-hood improvements:
+
+- **Full French Translation**: All UI strings now available in English and French
+- **GPS Optimization**: Improved accuracy settings and signal quality timer
+- **Airport Data Lazy Loading**: Better memory usage with on-demand data loading
+
+#### Bug Fixes
+- Fixed briefing section titles showing "(tap to view)" text inside the briefing view
+- Added "NAV" label text to compact iPhone navigation button
+- Fixed PLAN panel content overflowing on iPhone screens
+- Fixed END FLIGHT button layout wrapping on iPad in portrait mode
+- Added Reset Onboarding option in developer settings
+- Multiple UI/UX improvements across checklist, navigation, and settings views
+
+---
+
+This release focuses on making AeroCheck more welcoming for new users with guided onboarding, while improving organization with a redesigned settings experience and adding powerful in-flight briefing capabilities.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.1.0...3.2.0
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.2.0)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.1.0** - Multilingual Checklists
 *Released February 02, 2026*
 
@@ -51,12 +119,7 @@ This release focuses on making AeroCheck more accessible with multilingual suppo
 
 <br>
 
-________
-
-<br>
-
-### `Initial Release`
-# **Version 3.0.0** - Premium Takes Flight
+## **Version 3.0.0** - Premium Takes Flight
 *Released January 24, 2026*
 
 ### What's New

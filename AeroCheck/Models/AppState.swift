@@ -47,6 +47,9 @@ struct AppSettings: Codable, Equatable {
     // Flight logging
     var logEngineHours: Bool = false // When true, prompts for hour meter reading at engine start and stop
 
+    // Onboarding
+    var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -105,6 +108,7 @@ struct AppSettings: Codable, Equatable {
         case checklistLanguage
         case showAirportsOnMap
         case logEngineHours
+        case hasCompletedOnboarding
         // marketingMode is intentionally excluded
     }
 
@@ -136,6 +140,7 @@ struct AppSettings: Codable, Equatable {
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         // marketingMode intentionally excluded - always defaults to false
     }
 }
@@ -300,6 +305,11 @@ class AppState: ObservableObject {
     init() {
         loadFlights()
         loadSettings()
+        // Auto-complete onboarding for existing users (they already know the app)
+        if !settings.hasCompletedOnboarding && !flights.isEmpty {
+            settings.hasCompletedOnboarding = true
+            persistence.saveSettings(settings)
+        }
         syncAircraftType()
         setupSyncCallbacks()
         // Try to restore active flight state if app was closed during a flight

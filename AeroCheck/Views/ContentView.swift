@@ -17,7 +17,10 @@ struct ContentView: View {
             let isLandscape = geometry.size.width > geometry.size.height
 
             ZStack {
-                if appState.isFlightActive {
+                if !appState.settings.hasCompletedOnboarding {
+                    OnboardingView()
+                        .transition(.opacity)
+                } else if appState.isFlightActive {
                     FlightView()
                         .transition(.opacity)
                 } else {
@@ -45,6 +48,7 @@ struct ContentView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: appState.settings.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)

@@ -84,18 +84,18 @@ struct TimestampActionButton: View {
             
             // Long press hint when already pressed
             if hasBeenPressed {
-                Text("Hold 1.5s to update")
+                Text(L10n.ChecklistAction.holdToUpdate)
                     .font(.system(size: 10))
                     .foregroundColor(.dimText)
             }
         }
-        .alert("Update Time?", isPresented: $showUpdateConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Update") {
+        .alert(L10n.ChecklistAction.updateTimeTitle, isPresented: $showUpdateConfirmation) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.ChecklistAction.update) {
                 onUpdateTime()
             }
         } message: {
-            Text("Do you want to update the \(timestampLabel.lowercased()) time to now?")
+            Text(L10n.ChecklistAction.updateConfirm(timestampLabel.lowercased()))
         }
     }
     
@@ -297,7 +297,7 @@ struct ChecklistView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Page indicator with optional step-by-step hint
             HStack {
-                Text("PAGE \(phase.pageNumber)")
+                Text(L10n.ChecklistAction.page(phase.pageNumber))
                     .font(isCompact ? .system(size: 11) : .captionText)
                     .foregroundColor(.dimText)
 
@@ -307,7 +307,7 @@ struct ChecklistView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.tap.fill")
                             .font(.system(size: isCompact ? 9 : 10))
-                        Text("Tap to advance")
+                        Text(L10n.ChecklistAction.tapToAdvance)
                             .font(.system(size: isCompact ? 10 : 11))
                     }
                     .foregroundColor(.dimText)
@@ -790,7 +790,7 @@ struct SpeedReferenceView: View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with aircraft info
             HStack {
-                Text("AIRSPEEDS (AFM)")
+                Text(L10n.ChecklistAction.airspeedsAFM)
                     .headerStyle()
                 Spacer()
                 Text(currentRegistration)
@@ -830,12 +830,12 @@ struct SpeedReferenceView: View {
 
             // Crosswind limits
             HStack {
-                Text("Max crosswind")
+                Text(L10n.ChecklistAction.maxCrosswind)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondaryText)
                 Spacer()
                 let crosswind = currentCrosswindLimits
-                Text("TO: \(crosswind.takeoff)  /  LDG: \(crosswind.landing)")
+                Text(L10n.ChecklistAction.crosswindFormat(takeoff: crosswind.takeoff, landing: crosswind.landing))
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationAmber)
             }

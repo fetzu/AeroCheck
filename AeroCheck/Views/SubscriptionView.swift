@@ -36,11 +36,11 @@ struct SubscriptionView: View {
                 .padding()
             }
             .background(Color.cockpitBackground)
-            .navigationTitle("AeroCheck Pro")
+            .navigationTitle(L10n.Settings.aeroCheckPro)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button(L10n.Button.done) {
                         dismiss()
                     }
                     .foregroundColor(Color.aviationGold)

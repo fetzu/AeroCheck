@@ -1420,7 +1420,7 @@ struct AltitudeChartView: View {
 
     var body: some View {
         if altitudeData.isEmpty {
-            Text("No altitude data")
+            Text(L10n.FlightDetail.noAltitudeData)
                 .font(.captionText)
                 .foregroundColor(.dimText)
         } else {
@@ -1519,7 +1519,7 @@ struct AltitudeChartView: View {
             }
             .chartYScale(domain: altitudeRange)
             .chartYAxisLabel(position: .leading, alignment: .center) {
-                Text("Altitude (ft MSL)")
+                Text(L10n.FlightDetail.altitudeFtMSL)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.secondaryText)
             }
@@ -1815,7 +1815,7 @@ struct FlightShareCard: View {
 
                 // Flight duration
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("FLIGHT TIME")
+                    Text(L10n.FlightDetail.flightTime.uppercased())
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white.opacity(0.5))
                         .tracking(2)
@@ -1852,7 +1852,7 @@ struct FlightShareCard: View {
                             Image(systemName: "map")
                                 .font(.system(size: 50))
                                 .foregroundColor(.white.opacity(0.3))
-                            Text("No GPS data")
+                            Text(L10n.FlightDetail.noGPSData)
                                 .font(.system(size: 24))
                                 .foregroundColor(.white.opacity(0.4))
                         }
@@ -1865,7 +1865,7 @@ struct FlightShareCard: View {
 
     private var altitudeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ALTITUDE PROFILE")
+            Text(L10n.FlightDetail.altitudeProfile.uppercased())
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.white.opacity(0.5))
                 .tracking(2)
@@ -1883,7 +1883,7 @@ struct FlightShareCard: View {
                     .fill(Color.white.opacity(0.05))
                     .frame(height: 280)
                     .overlay(
-                        Text("No altitude data")
+                        Text(L10n.FlightDetail.noAltitudeData)
                             .font(.system(size: 20))
                             .foregroundColor(.white.opacity(0.4))
                     )
@@ -2103,7 +2103,7 @@ struct ShareCardAltitudeChart: View {
 
     var body: some View {
         if altitudeData.isEmpty {
-            Text("No altitude data")
+            Text(L10n.FlightDetail.noAltitudeData)
                 .font(.system(size: 18))
                 .foregroundColor(.white.opacity(0.4))
         } else {

@@ -32,11 +32,11 @@ struct TerrainProfileView: View {
                     profileContent
                 }
             }
-            .navigationTitle("Terrain Profile")
+            .navigationTitle(L10n.Terrain.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
             }
         }
@@ -54,11 +54,11 @@ struct TerrainProfileView: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: .aviationGold))
                 .scaleEffect(1.5)
 
-            Text("Loading terrain data...")
+            Text(L10n.Terrain.loading)
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
 
-            Text("Fetching elevation from swisstopo")
+            Text(L10n.Terrain.loadingSource)
                 .font(.system(size: 12))
                 .foregroundColor(.dimText)
         }
@@ -70,11 +70,11 @@ struct TerrainProfileView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.dimText)
 
-            Text("Terrain Data Unavailable")
+            Text(L10n.Terrain.unavailableTitle)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primaryText)
 
-            Text("Terrain profile visualization is only available for routes within Switzerland using swisstopo data.")
+            Text(L10n.Terrain.unavailableDescription)
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
@@ -82,7 +82,7 @@ struct TerrainProfileView: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "info.circle")
-                Text("Route must be within Swiss boundaries")
+                Text(L10n.Terrain.unavailableHint)
             }
             .font(.system(size: 12))
             .foregroundColor(.dimText)
@@ -95,7 +95,7 @@ struct TerrainProfileView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.aviationAmber)
 
-            Text("Error Loading Terrain")
+            Text(L10n.Terrain.errorTitle)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primaryText)
 
@@ -108,7 +108,7 @@ struct TerrainProfileView: View {
             Button(action: {
                 Task { await loadTerrainData() }
             }) {
-                Label("Retry", systemImage: "arrow.clockwise")
+                Label(L10n.Terrain.retry, systemImage: "arrow.clockwise")
             }
             .buttonStyle(.borderedProminent)
             .tint(.aviationGold)
@@ -121,11 +121,11 @@ struct TerrainProfileView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.dimText)
 
-            Text("No Terrain Data")
+            Text(L10n.Terrain.noDataTitle)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primaryText)
 
-            Text("Could not fetch terrain data for this route.")
+            Text(L10n.Terrain.noDataDescription)
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
         }
@@ -135,8 +135,8 @@ struct TerrainProfileView: View {
         VStack(spacing: 0) {
             // Legend and info
             HStack {
-                legendItem(color: .brown.opacity(0.6), label: "Terrain")
-                legendItem(color: .aviationGold, label: "Planned Alt")
+                legendItem(color: .brown.opacity(0.6), label: L10n.Terrain.legendTerrain)
+                legendItem(color: .aviationGold, label: L10n.Terrain.legendPlannedAlt)
 
                 Spacer()
 

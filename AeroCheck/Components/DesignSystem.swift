@@ -373,6 +373,7 @@ struct SpeedIndicatorView: View {
             .frame(width: 100, height: 70)
 
             // Target speed indicator (always shown)
+            // Intentionally untranslated: aviation instrument labels (TGT = Target)
             HStack(spacing: 4) {
                 Image(systemName: targetIcon)
                     .font(.system(size: 10))
@@ -509,6 +510,7 @@ struct AltimeterView: View {
         gpsSignalStatus == .lost ? .lost : .degraded
     }
 
+    // Intentionally untranslated: aviation instrument labels (ALT, FT, MSL)
     var body: some View {
         VStack(spacing: 4) {
             // Altitude label

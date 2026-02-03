@@ -618,6 +618,11 @@ enum L10n {
         static let tapToAdvance = String(localized: "checklist.tapToAdvance")
         static let airspeedsAFM = String(localized: "checklist.airspeeds.afm")
         static let maxCrosswind = String(localized: "checklist.maxCrosswind")
+        static func crosswindFormat(takeoff: String, landing: String) -> String {
+            String(format: String(localized: "checklist.crosswindFormat"), takeoff, landing)
+        }
+        static let updateTimeTitle = String(localized: "checklist.updateTime.title")
+        static let update = String(localized: "checklist.update")
     }
 
     // MARK: - Flight Detail
@@ -637,6 +642,7 @@ enum L10n {
         static let noGPSData = String(localized: "flightDetail.noGPSData")
         static let altitudeProfile = String(localized: "flightDetail.altitudeProfile")
         static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
+        static let altitudeFtMSL = String(localized: "flightDetail.altitudeFtMSL")
         static let flightDetails = String(localized: "flightDetail.flightDetails")
 
         // Details
@@ -807,6 +813,47 @@ enum L10n {
     enum ContentViewStrings {
         static let rotateDevice = String(localized: "contentView.rotateDevice")
         static let portraitMode = String(localized: "contentView.portraitMode")
+    }
+
+    // MARK: - Terrain Profile
+    enum Terrain {
+        static let title = String(localized: "terrain.title")
+        static let loading = String(localized: "terrain.loading")
+        static let loadingSource = String(localized: "terrain.loadingSource")
+        static let unavailableTitle = String(localized: "terrain.unavailableTitle")
+        static let unavailableDescription = String(localized: "terrain.unavailableDescription")
+        static let unavailableHint = String(localized: "terrain.unavailableHint")
+        static let errorTitle = String(localized: "terrain.errorTitle")
+        static let retry = String(localized: "terrain.retry")
+        static let noDataTitle = String(localized: "terrain.noDataTitle")
+        static let noDataDescription = String(localized: "terrain.noDataDescription")
+        static let legendTerrain = String(localized: "terrain.legendTerrain")
+        static let legendPlannedAlt = String(localized: "terrain.legendPlannedAlt")
+    }
+
+    // MARK: - Map Layer Selector
+    enum MapLayer {
+        static let title = String(localized: "mapLayer.title")
+    }
+
+    // MARK: - Flight Plan Overlay
+    enum FlightPlan {
+        // Overlay
+        static let overlayTitle = String(localized: "flightPlan.overlay.title")
+        static let chrono = String(localized: "flightPlan.overlay.chrono")
+        static let plannedAlt = String(localized: "flightPlan.overlay.plannedAlt")
+        static let fltTime = String(localized: "flightPlan.overlay.fltTime")
+
+        // Departure Time
+        static let adjustDepartureTime = String(localized: "flightPlan.overlay.adjustDepartureTime")
+        static let adjustDepartureTimeDesc = String(localized: "flightPlan.overlay.adjustDepartureTimeDesc")
+        static let updateDepartureTime = String(localized: "flightPlan.overlay.updateDepartureTime")
+        static let setDepartureTimeToNow = String(localized: "flightPlan.overlay.setDepartureTimeToNow")
+        static let departureTime = String(localized: "flightPlan.overlay.departureTime")
+
+        // Editor
+        static let waypointNameHint = String(localized: "flightPlan.editor.waypointNameHint")
+        static let altitudePlaceholder = String(localized: "flightPlan.editor.altitudePlaceholder")
     }
 
     // MARK: - Navigation / Flight Plans

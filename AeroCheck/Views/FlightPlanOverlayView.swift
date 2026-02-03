@@ -141,7 +141,7 @@ struct FlightPlanOverlayView: View {
         VStack(spacing: 0) {
             // Header with collapse button (expanded is always middle-left)
             HStack {
-                Text("FLIGHT PLAN")
+                Text(L10n.FlightPlan.overlayTitle)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .tracking(1)
@@ -168,7 +168,7 @@ struct FlightPlanOverlayView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 } else {
-                    Text("No active flight plan")
+                    Text(L10n.Nav.noActiveFlightPlan)
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                         .padding()
@@ -210,10 +210,10 @@ struct FlightPlanOverlayView: View {
             if let plan = flightPlanManager.activeFlightPlan,
                let nextWaypoint = plan.nextWaypoint {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("NEXT")
+                    Text(L10n.Nav.next)
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.dimText)
-                    Text(nextWaypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                    Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -264,7 +264,7 @@ struct FlightPlanOverlayView: View {
 
             // Chronometer with label
             VStack(spacing: 2) {
-                Text("CHRONO")
+                Text(L10n.FlightPlan.chrono)
                     .font(.system(size: 8, weight: .bold))
                     .foregroundColor(.dimText)
                 Text(flightPlanManager.formattedChronometer)
@@ -291,10 +291,10 @@ struct FlightPlanOverlayView: View {
             // Waypoint name
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("NEXT WAYPOINT")
+                    Text(L10n.Nav.nextWaypoint)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
-                    Text(waypoint.name.isEmpty ? "WPT\(plan.currentWaypointIndex + 1)" : waypoint.name)
+                    Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : waypoint.name)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -316,7 +316,7 @@ struct FlightPlanOverlayView: View {
                 HStack(spacing: 20) {
                     // Heading TO waypoint
                     VStack(spacing: 2) {
-                        Text("HDG TO")
+                        Text(L10n.Nav.hdgTo)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                         if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
@@ -337,7 +337,7 @@ struct FlightPlanOverlayView: View {
 
                     // Distance TO waypoint
                     VStack(spacing: 2) {
-                        Text("DIST TO")
+                        Text(L10n.Nav.distTo)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
                         if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
@@ -368,7 +368,7 @@ struct FlightPlanOverlayView: View {
             // Planned altitude if set
             if let altitude = waypoint.altitude {
                 HStack {
-                    Text("Planned Alt:")
+                    Text(L10n.FlightPlan.plannedAlt)
                         .font(.system(size: 10))
                         .foregroundColor(.secondaryText)
                     Text(String(format: "%.0f ft", altitude))
@@ -404,7 +404,7 @@ struct FlightPlanOverlayView: View {
     /// Flight time display row
     private var flightTimeRow: some View {
         HStack(spacing: 12) {
-            Text("FLT TIME:")
+            Text(L10n.FlightPlan.fltTime)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(.dimText)
 
@@ -428,7 +428,7 @@ struct FlightPlanOverlayView: View {
     private func progressSection(plan: FlightPlan) -> some View {
         VStack(spacing: 6) {
             HStack {
-                Text("Progress")
+                Text(L10n.Nav.progress)
                     .font(.system(size: 10))
                     .foregroundColor(.secondaryText)
                 Spacer()
@@ -455,7 +455,7 @@ struct FlightPlanOverlayView: View {
     private var chronometerSection: some View {
         VStack(spacing: 6) {
             HStack {
-                Text("CHRONOMETER")
+                Text(L10n.Nav.chronometer)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
 
@@ -507,7 +507,7 @@ struct FlightPlanOverlayView: View {
                 Button(action: {
                     flightPlanManager.startChronometer()
                 }) {
-                    Text("START")
+                    Text(L10n.Nav.start)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.black)
                         .padding(.horizontal, 16)
@@ -537,7 +537,7 @@ struct FlightPlanOverlayView: View {
                 }
                 .disabled(flightPlanManager.activeFlightPlan?.currentWaypointIndex == 0)
 
-                Text("WPT")
+                Text(L10n.Nav.wpt)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondaryText)
 
@@ -559,7 +559,7 @@ struct FlightPlanOverlayView: View {
                 Button(action: { showingDepartureTimePicker = true }) {
                     HStack {
                         Image(systemName: "clock")
-                        Text("Adjust Departure Time")
+                        Text(L10n.FlightPlan.adjustDepartureTime)
                     }
                     .font(.system(size: 11))
                     .foregroundColor(.aviationGold)
@@ -621,20 +621,20 @@ struct DepartureTimePickerSheet: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
-                Text("Adjust the planned departure time to recalculate ETOs for all waypoints.")
+                Text(L10n.FlightPlan.adjustDepartureTimeDesc)
                     .font(.system(size: 14))
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
-                DatePicker("Departure Time", selection: $selectedTime, displayedComponents: [.date, .hourAndMinute])
+                DatePicker(L10n.FlightPlan.departureTime, selection: $selectedTime, displayedComponents: [.date, .hourAndMinute])
                     .datePickerStyle(.wheel)
                     .labelsHidden()
 
                 Button(action: {
                     updateDepartureTime()
                 }) {
-                    Text("Update Departure Time")
+                    Text(L10n.FlightPlan.updateDepartureTime)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
@@ -649,7 +649,7 @@ struct DepartureTimePickerSheet: View {
                 Button(action: {
                     setDepartureTimeToNow()
                 }) {
-                    Text("Set Departure Time To Now")
+                    Text(L10n.FlightPlan.setDepartureTimeToNow)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.primaryText)
                         .frame(maxWidth: .infinity)
@@ -665,11 +665,11 @@ struct DepartureTimePickerSheet: View {
             }
             .padding(.top)
             .background(Color.cockpitBackground)
-            .navigationTitle("Departure Time")
+            .navigationTitle(L10n.FlightPlan.departureTime)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
             }
             .onAppear {

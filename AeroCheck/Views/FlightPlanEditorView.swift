@@ -893,13 +893,13 @@ struct WaypointTableRow: View {
 
             // Waypoint name - flexible on iPad, fixed on iPhone
             if isCompact {
-                Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
+                Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
                     .frame(width: 100, alignment: .leading)
             } else {
-                Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
+                Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
@@ -963,25 +963,25 @@ struct WaypointTableRow: View {
         }
         .contextMenu {
             Button(action: onTap) {
-                Label("Edit", systemImage: "pencil")
+                Label(L10n.Nav.edit, systemImage: "pencil")
             }
 
             if let moveUp = onMoveUp {
                 Button(action: moveUp) {
-                    Label("Move Up", systemImage: "arrow.up")
+                    Label(L10n.Nav.moveUp, systemImage: "arrow.up")
                 }
             }
 
             if let moveDown = onMoveDown {
                 Button(action: moveDown) {
-                    Label("Move Down", systemImage: "arrow.down")
+                    Label(L10n.Nav.moveDown, systemImage: "arrow.down")
                 }
             }
 
             Divider()
 
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.Button.delete, systemImage: "trash")
             }
         }
     }
@@ -1107,13 +1107,13 @@ struct DatePickerSheet: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Select Date")
+                Text(L10n.Nav.selectDate)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.primaryText)
 
                 Spacer()
 
-                Button("Done") {
+                Button(L10n.Button.done) {
                     isPresented = false
                 }
                 .font(.system(size: 16, weight: .medium))
@@ -1166,7 +1166,7 @@ struct OptionalTimeFormField: View {
                 }
                 showingPicker = true
             }) {
-                Text(isSet ? timeFormatter.string(from: selectedTime) : "Set")
+                Text(isSet ? timeFormatter.string(from: selectedTime) : L10n.Nav.set)
                     .font(.system(size: 14, weight: isSet ? .medium : .regular, design: .monospaced))
                     .foregroundColor(isSet ? .primaryText : .aviationGold)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1202,13 +1202,13 @@ struct TimePickerSheet: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Select Time")
+                Text(L10n.Nav.selectTime)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.primaryText)
 
                 Spacer()
 
-                Button("Done") {
+                Button(L10n.Button.done) {
                     isPresented = false
                 }
                 .font(.system(size: 16, weight: .medium))
@@ -1303,16 +1303,16 @@ struct AddWaypointSheet: View {
         NavigationView {
             Form {
                 Section {
-                    TextField("Name (e.g., LSZQ, JORAT)", text: $name)
+                    TextField(L10n.FlightPlan.waypointNameHint, text: $name)
 
                     HStack {
-                        TextField("Latitude", text: $latitude)
+                        TextField(L10n.Nav.latitude, text: $latitude)
                             .keyboardType(.decimalPad)
-                        TextField("Longitude", text: $longitude)
+                        TextField(L10n.Nav.longitude, text: $longitude)
                             .keyboardType(.decimalPad)
                     }
 
-                    TextField("Altitude (ft)", text: $altitude)
+                    TextField(L10n.FlightPlan.altitudePlaceholder, text: $altitude)
                         .keyboardType(.numberPad)
 
                     // Ground level display
@@ -1320,42 +1320,42 @@ struct AddWaypointSheet: View {
                         if isLoadingElevation {
                             ProgressView()
                                 .scaleEffect(0.8)
-                            Text("Loading elevation...")
+                            Text(L10n.Nav.loadingElevation)
                                 .foregroundColor(.secondaryText)
                                 .font(.system(size: 12))
                         } else if let groundElevation = groundElevationMeters {
                             let groundFeet = groundElevation * 3.28084
-                            Text("Ground level: \(Int(groundFeet)) ft")
+                            Text(L10n.Nav.groundLevel(Int(groundFeet)))
                                 .foregroundColor(.dimText)
                                 .font(.system(size: 12))
                         }
                     }
                 } header: {
-                    Label("Location", systemImage: "mappin")
+                    Label(L10n.Nav.location, systemImage: "mappin")
                 } footer: {
                     if groundElevationMeters != nil {
-                        Text("Default: 3000 ft AGL (above ground level)")
+                        Text(L10n.Nav.defaultAGL)
                     }
                 }
 
                 Section {
-                    TextField("Frequency", text: $frequency)
+                    TextField(L10n.Nav.frequency, text: $frequency)
                         .keyboardType(.decimalPad)
 
-                    TextField("Remarks", text: $remarks)
+                    TextField(L10n.Nav.remarks, text: $remarks)
                 } header: {
-                    Label("Details", systemImage: "info.circle")
+                    Label(L10n.Nav.details, systemImage: "info.circle")
                 }
             }
-            .navigationTitle("Add Waypoint")
+            .navigationTitle(L10n.Nav.addWaypoint)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
+                    Button(L10n.Nav.add) {
                         addWaypoint()
                     }
                     .disabled(latitude.isEmpty || longitude.isEmpty)
@@ -1408,7 +1408,7 @@ struct AddWaypointSheet: View {
               let lon = Double(longitude) else { return }
 
         let waypoint = FlightPlanWaypoint(
-            name: name.isEmpty ? "WPT" : name,
+            name: name.isEmpty ? L10n.Nav.wpt : name,
             coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
             altitude: Double(altitude),
             frequency: frequency.isEmpty ? nil : frequency,
@@ -1485,7 +1485,7 @@ struct MapWaypointPickerView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        Picker("Layer", selection: $selectedLayer) {
+                        Picker(L10n.Nav.layer, selection: $selectedLayer) {
                             ForEach(WaypointPickerMapLayer.allCases) { layer in
                                 Label(layer.rawValue, systemImage: layer.icon)
                                     .tag(layer)
@@ -1505,7 +1505,7 @@ struct MapWaypointPickerView: View {
                     Spacer()
 
                     VStack(spacing: 12) {
-                        TextField("Waypoint Name", text: $waypointName)
+                        TextField(L10n.Nav.waypointNamePlaceholder, text: $waypointName)
                             .textFieldStyle(.roundedBorder)
 
                         Text("Lat: \(String(format: "%.4f", region.center.latitude))  Lon: \(String(format: "%.4f", region.center.longitude))")
@@ -1516,7 +1516,7 @@ struct MapWaypointPickerView: View {
                             onSelect(region.center, waypointName)
                             dismiss()
                         }) {
-                            Text("Add Waypoint at Center")
+                            Text(L10n.Nav.addWaypointAtCenter)
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -1526,11 +1526,11 @@ struct MapWaypointPickerView: View {
                     .background(Color.panelBackground.opacity(0.95))
                 }
             }
-            .navigationTitle("Select Location")
+            .navigationTitle(L10n.Nav.selectLocation)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(L10n.Button.cancel) { dismiss() }
                 }
             }
         }
@@ -1687,7 +1687,7 @@ struct FlightPlanExportSheet: View {
                     .font(.system(size: 60))
                     .foregroundColor(.aviationGold)
 
-                Text("Export Ready")
+                Text(L10n.Nav.exportReady)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -1700,7 +1700,7 @@ struct FlightPlanExportSheet: View {
                     .foregroundColor(.dimText)
 
                 ShareLink(item: exportFile, preview: SharePreview(filename, icon: iconName)) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Label(L10n.Nav.share, systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
@@ -1710,11 +1710,11 @@ struct FlightPlanExportSheet: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.cockpitBackground)
-            .navigationTitle("Export Flight Plan")
+            .navigationTitle(L10n.Nav.exportFlightPlan)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
             }
         }

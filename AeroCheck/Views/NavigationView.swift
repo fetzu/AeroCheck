@@ -2985,11 +2985,11 @@ struct LayerPickerSheet: View {
                 .padding(.vertical, 16)
             }
             .background(Color.cockpitBackground)
-            .navigationTitle("Map Layer")
+            .navigationTitle(L10n.MapLayer.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
             }
         }
@@ -4002,7 +4002,7 @@ struct CacheInfoSheet: View {
                     .padding(.top, 20)
 
                 // Title
-                Text(isOfflineMode ? "Offline Mode Active" : "Using Cached Charts")
+                Text(isOfflineMode ? L10n.Nav.offlineModeActive : L10n.Nav.usingCachedCharts)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.primaryText)
 
@@ -4010,32 +4010,32 @@ struct CacheInfoSheet: View {
                 VStack(spacing: 8) {
                     if isOfflineMode {
                         if hasFullOfflineSupport {
-                            Text("The app is in offline mode. Both ICAO Chart and Segelflugkarte are available from cache with seamless zoom switching.")
+                            Text(L10n.Nav.offlineDesc)
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondaryText)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
-                            Text("The app is in offline mode. Only the ICAO Chart is cached.")
+                            Text(L10n.Nav.offlineICAOOnly)
                                 .font(.system(size: 13))
                                 .foregroundColor(.secondaryText)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
 
-                            Text("Download Segelflugkarte for seamless zoom transitions in offline mode.")
+                            Text(L10n.Nav.downloadSegelflugkarteDesc)
                                 .font(.system(size: 11))
                                 .foregroundColor(.aviationAmber)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     } else {
-                        Text("Charts are being served from your local cache for faster loading.")
+                        Text(L10n.Nav.cachedChartsDesc)
                             .font(.system(size: 13))
                             .foregroundColor(.secondaryText)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Tiles load instantly from cache; uncached tiles fetch from the network.")
+                        Text(L10n.Nav.cachedTilesDesc)
                             .font(.system(size: 11))
                             .foregroundColor(.dimText)
                             .multilineTextAlignment(.center)
@@ -4049,7 +4049,7 @@ struct CacheInfoSheet: View {
                     // ICAO Cache
                     if offlineMapManager.isCacheAvailable {
                         HStack {
-                            Text("ICAO Chart:")
+                            Text(L10n.Nav.icaoChart)
                                 .foregroundColor(.secondaryText)
                             Spacer()
                             Text(offlineMapManager.cacheVersion)
@@ -4059,20 +4059,20 @@ struct CacheInfoSheet: View {
 
                     // Segelflug Cache
                     HStack {
-                        Text("Segelflugkarte:")
+                        Text(L10n.Nav.segelflugkarte)
                             .foregroundColor(.secondaryText)
                         Spacer()
                         if offlineMapManager.isSegelflugCacheAvailable {
                             Text(offlineMapManager.segelflugCacheVersion)
                                 .foregroundColor(.aviationGreen)
                         } else {
-                            Text("Not cached")
+                            Text(L10n.Nav.notCached)
                                 .foregroundColor(.dimText)
                         }
                     }
 
                     HStack {
-                        Text("Total Size:")
+                        Text(L10n.Nav.totalSize)
                             .foregroundColor(.secondaryText)
                         Spacer()
                         Text(offlineMapManager.formattedCacheSize)
@@ -4097,7 +4097,7 @@ struct CacheInfoSheet: View {
                         Button(action: goOnline) {
                             HStack(spacing: 6) {
                                 Image(systemName: "wifi")
-                                Text("Go Online")
+                                Text(L10n.Nav.goOnline)
                             }
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
@@ -4114,7 +4114,7 @@ struct CacheInfoSheet: View {
                         Button(action: { dismiss() }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "wifi.slash")
-                                Text("Stay Offline")
+                                Text(L10n.Nav.stayOffline)
                             }
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color.aviationRed.opacity(0.7))
@@ -4135,7 +4135,7 @@ struct CacheInfoSheet: View {
             .toolbar {
                 if !isOfflineMode {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
+                        Button(L10n.Button.done) { dismiss() }
                     }
                 }
             }

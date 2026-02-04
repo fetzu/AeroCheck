@@ -255,7 +255,7 @@ struct Flight: Identifiable, Codable {
 
     /// Format engine hours as decimal string (e.g., "1234.5")
     static func formatHoursDecimal(_ hours: Double) -> String {
-        String(format: "%.1f", hours)
+        String(format: "%.2f", hours)
     }
 
     /// Format engine hours as time string (e.g., "1234:30")
@@ -493,10 +493,10 @@ extension Flight {
 
         // Engine hour meter readings (v4)
         if let hourStart = engineHourStart {
-            gpx += "\n        <pc:engineHourStart>\(String(format: "%.1f", hourStart))</pc:engineHourStart>"
+            gpx += "\n        <pc:engineHourStart>\(String(format: "%.2f", hourStart))</pc:engineHourStart>"
         }
         if let hourEnd = engineHourEnd {
-            gpx += "\n        <pc:engineHourEnd>\(String(format: "%.1f", hourEnd))</pc:engineHourEnd>"
+            gpx += "\n        <pc:engineHourEnd>\(String(format: "%.2f", hourEnd))</pc:engineHourEnd>"
         }
 
         gpx += "\n        <pc:distanceKm>\(String(format: "%.2f", distanceKilometers))</pc:distanceKm>"

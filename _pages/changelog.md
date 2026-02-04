@@ -11,6 +11,29 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.2.3** - Engine Hours Improvements
+*Released February 04, 2026*
+
+### Improvements
+
+- **Engine Hours Display**: Engine hours now display with two decimal places for more precise readings (e.g., 1234.50 instead of 1234.5).
+- **Engine Hours Modal**: The "Before Start" modal now appears when navigating to the Engine Start phase rather than when pressing the Engine Start button.
+- **Engine Hours Inline Display**: Engine hours are now shown inline in the checklist view, tappable to edit.
+- **Engine Hours Reset**: Re-displays the modal with pre-filled value when Engine Shutdown is reset via long-press.
+- **Flight Log View**: Engine hours now show in both decimal and time formats (e.g., "1.25 / 1:15"). Before/After values are tappable to toggle format.
+- **iPad Layout Fix**: Fixed the hour meter input modal where bottom buttons were cut off on iPad.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.2.2...3.2.3
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.2.3)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.2.2** - Airport Data Fix
 *Released February 04, 2026*
 
@@ -24,12 +47,7 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 
 <br>
 
-________
-
-<br>
-
-### `Initial Release`
-# **Version 3.2.1** - Icon Fix
+## **Version 3.2.1** - Icon Fix
 *Released February 03, 2026*
 
 ### Bug Fixes

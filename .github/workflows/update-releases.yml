@@ -43,11 +43,12 @@ jobs:
 
           # Process each release
           echo "$releases" | jq -r '
+            length as $len |
             to_entries | .[] |
             if .key == 0 then
               "### `Latest`\n# **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n\n________\n\n<br>\n"
-            elif .key == (length - 1) then
-              "### `Initial Release`\n# **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n"
+            elif .key == ($len - 1) then
+              "### `Initial Release`\n## **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n"
             else
               "## **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n"
             end

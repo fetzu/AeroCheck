@@ -28,7 +28,6 @@ ________
 
 <br>
 
-### `Initial Release`
 # **Version 3.2.0** - Guided Experience
 *Released February 03, 2026*
 
@@ -398,6 +397,7 @@ Give it a try and let us know what you think!
 
 <br>
 
+### `Initial Release`
 ## **Version 1.0.0** - Take Off Check completed !
 *Released December 07, 2025*
 

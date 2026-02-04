@@ -11,6 +11,24 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.2.2** - Airport Data Fix
+*Released February 04, 2026*
+
+### Bug Fixes
+
+- **Airport Data Persistence**: Fixed airport database appearing as not downloaded after restarting the app. Downloaded OurAirports data (airports, frequencies, runways) now correctly persists across app launches.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.2.1...3.2.2
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.2.2)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.2.1** - Icon Fix
 *Released February 03, 2026*
 
@@ -24,11 +42,7 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 
 <br>
 
-________
-
-<br>
-
-# **Version 3.2.0** - Guided Experience
+## **Version 3.2.0** - Guided Experience
 *Released February 03, 2026*
 
 ### What's New
@@ -397,7 +411,6 @@ Give it a try and let us know what you think!
 
 <br>
 
-### `Initial Release`
 ## **Version 1.0.0** - Take Off Check completed !
 *Released December 07, 2025*
 

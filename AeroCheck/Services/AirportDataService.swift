@@ -49,6 +49,17 @@ class AirportDataService: ObservableObject {
         // Defer loading until data is actually needed (flight start or map overlay)
         // to save ~20-30MB of memory at app startup.
         // Callers use ensureLoaded() to trigger loading on demand.
+
+        // Check if data files exist on disk and restore metadata
+        // without loading the full dataset into memory.
+        if fileManager.fileExists(atPath: airportsFileURL.path) {
+            isDataAvailable = true
+            if let metadataData = try? Data(contentsOf: metadataFileURL),
+               let metadata = try? JSONDecoder().decode(AirportDataMetadata.self, from: metadataData) {
+                lastUpdated = metadata.lastUpdated
+                airportCount = metadata.airportCount
+            }
+        }
     }
 
     /// Load airport data into memory if not already loaded.

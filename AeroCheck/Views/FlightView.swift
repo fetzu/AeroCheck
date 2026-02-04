@@ -29,6 +29,8 @@ struct FlightView: View {
     // Hour meter input modals
     @State private var showHourMeterStart = false
     @State private var showHourMeterStop = false
+    @State private var hourMeterStartInitialValue: String = ""
+    @State private var hourMeterStopInitialValue: String = ""
 
     // Timer for updating flight duration display
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -161,18 +163,22 @@ struct FlightView: View {
             HourMeterInputView(
                 isPresented: $showHourMeterStart,
                 phase: .start,
-                onSubmit: { hours in
+                onSubmit: { hours, format in
                     appState.currentFlight?.engineHourStart = hours
-                }
+                    appState.currentFlight?.engineHourStartInputFormat = format
+                },
+                initialValue: hourMeterStartInitialValue
             )
         }
         .sheet(isPresented: $showHourMeterStop) {
             HourMeterInputView(
                 isPresented: $showHourMeterStop,
                 phase: .stop,
-                onSubmit: { hours in
+                onSubmit: { hours, format in
                     appState.currentFlight?.engineHourEnd = hours
-                }
+                    appState.currentFlight?.engineHourEndInputFormat = format
+                },
+                initialValue: hourMeterStopInitialValue
             )
         }
         .fullScreenCover(isPresented: $showNavigationMode) {
@@ -217,6 +223,31 @@ struct FlightView: View {
                 windDataService.startFetching(locationManager: locationManager)
             } else {
                 windDataService.stopFetching()
+            }
+        }
+        .onChange(of: appState.currentPhase) { oldPhase, newPhase in
+            // Show hour meter input when navigating TO Engine Start phase
+            if newPhase == .engineStart && appState.settings.logEngineHours {
+                if appState.currentFlight?.engineHourStart == nil {
+                    hourMeterStartInitialValue = ""
+                    showHourMeterStart = true
+                }
+            }
+            // Re-show hour meter stop input when navigating back to Shutdown phase
+            // (e.g., after reset) if shutdown time was cleared
+            if newPhase == .shutdown && oldPhase != .shutdown && appState.settings.logEngineHours {
+                if appState.engineShutdownTime == nil && appState.currentFlight?.engineHourEnd != nil {
+                    // Shutdown was reset - pre-fill with previous value
+                    let prevEnd = appState.currentFlight?.engineHourEnd ?? 0
+                    let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                    if prevFormat == "time" {
+                        hourMeterStopInitialValue = Flight.formatHoursTime(prevEnd)
+                    } else {
+                        hourMeterStopInitialValue = Flight.formatHoursDecimal(prevEnd)
+                    }
+                    appState.currentFlight?.engineHourEnd = nil
+                    appState.currentFlight?.engineHourEndInputFormat = nil
+                }
             }
         }
         // Event confirmation overlays
@@ -281,10 +312,6 @@ struct FlightView: View {
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
-                                // Show hour meter input if enabled
-                                if appState.settings.logEngineHours {
-                                    showHourMeterStart = true
-                                }
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {
                                     triggerNextButtonPulse()
@@ -317,6 +344,7 @@ struct FlightView: View {
                                 pulseActionButton = false
                                 // Show hour meter input if enabled
                                 if appState.settings.logEngineHours {
+                                    hourMeterStopInitialValue = ""
                                     showHourMeterStop = true
                                 }
                                 // Now pulse NEXT button if all items checked
@@ -326,6 +354,18 @@ struct FlightView: View {
                             },
                             onEngineShutdownUpdate: {
                                 appState.recordEngineShutdown()
+                                // Re-show hour meter with previous value pre-filled
+                                if appState.settings.logEngineHours {
+                                    if let prevEnd = appState.currentFlight?.engineHourEnd {
+                                        let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                                        hourMeterStopInitialValue = prevFormat == "time"
+                                            ? Flight.formatHoursTime(prevEnd)
+                                            : Flight.formatHoursDecimal(prevEnd)
+                                    } else {
+                                        hourMeterStopInitialValue = ""
+                                    }
+                                    showHourMeterStop = true
+                                }
                             },
                             onGoAround: {
                                 appState.recordGoAround()
@@ -384,7 +424,33 @@ struct FlightView: View {
                             learningModeEnabled: appState.settings.learningMode,
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
                             pulseActionButton: pulseActionButton,
-                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage
+                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage,
+                            engineHourStart: appState.settings.logEngineHours ? appState.currentFlight?.engineHourStart : nil,
+                            engineHourEnd: appState.settings.logEngineHours ? appState.currentFlight?.engineHourEnd : nil,
+                            engineHourStartInputFormat: appState.currentFlight?.engineHourStartInputFormat,
+                            engineHourEndInputFormat: appState.currentFlight?.engineHourEndInputFormat,
+                            onEditEngineHourStart: {
+                                if let prevStart = appState.currentFlight?.engineHourStart {
+                                    let prevFormat = appState.currentFlight?.engineHourStartInputFormat ?? "decimal"
+                                    hourMeterStartInitialValue = prevFormat == "time"
+                                        ? Flight.formatHoursTime(prevStart)
+                                        : Flight.formatHoursDecimal(prevStart)
+                                } else {
+                                    hourMeterStartInitialValue = ""
+                                }
+                                showHourMeterStart = true
+                            },
+                            onEditEngineHourEnd: {
+                                if let prevEnd = appState.currentFlight?.engineHourEnd {
+                                    let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                                    hourMeterStopInitialValue = prevFormat == "time"
+                                        ? Flight.formatHoursTime(prevEnd)
+                                        : Flight.formatHoursDecimal(prevEnd)
+                                } else {
+                                    hourMeterStopInitialValue = ""
+                                }
+                                showHourMeterStop = true
+                            }
                         )
                         .padding(24)
                         .id("checklistContent")
@@ -447,7 +513,6 @@ struct FlightView: View {
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
-                                if appState.settings.logEngineHours { showHourMeterStart = true }
                                 if allItemsChecked { triggerNextButtonPulse() }
                             },
                             onEngineStartUpdate: { appState.recordEngineStart() },
@@ -468,10 +533,26 @@ struct FlightView: View {
                             onEngineShutdown: {
                                 appState.recordEngineShutdown()
                                 pulseActionButton = false
-                                if appState.settings.logEngineHours { showHourMeterStop = true }
+                                if appState.settings.logEngineHours {
+                                    hourMeterStopInitialValue = ""
+                                    showHourMeterStop = true
+                                }
                                 if allItemsChecked { triggerNextButtonPulse() }
                             },
-                            onEngineShutdownUpdate: { appState.recordEngineShutdown() },
+                            onEngineShutdownUpdate: {
+                                appState.recordEngineShutdown()
+                                if appState.settings.logEngineHours {
+                                    if let prevEnd = appState.currentFlight?.engineHourEnd {
+                                        let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                                        hourMeterStopInitialValue = prevFormat == "time"
+                                            ? Flight.formatHoursTime(prevEnd)
+                                            : Flight.formatHoursDecimal(prevEnd)
+                                    } else {
+                                        hourMeterStopInitialValue = ""
+                                    }
+                                    showHourMeterStop = true
+                                }
+                            },
                             onGoAround: {
                                 appState.recordGoAround()
                                 pulseActionButton = false
@@ -516,7 +597,33 @@ struct FlightView: View {
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
                             pulseActionButton: pulseActionButton,
                             isCompact: true,
-                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage
+                            checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage,
+                            engineHourStart: appState.settings.logEngineHours ? appState.currentFlight?.engineHourStart : nil,
+                            engineHourEnd: appState.settings.logEngineHours ? appState.currentFlight?.engineHourEnd : nil,
+                            engineHourStartInputFormat: appState.currentFlight?.engineHourStartInputFormat,
+                            engineHourEndInputFormat: appState.currentFlight?.engineHourEndInputFormat,
+                            onEditEngineHourStart: {
+                                if let prevStart = appState.currentFlight?.engineHourStart {
+                                    let prevFormat = appState.currentFlight?.engineHourStartInputFormat ?? "decimal"
+                                    hourMeterStartInitialValue = prevFormat == "time"
+                                        ? Flight.formatHoursTime(prevStart)
+                                        : Flight.formatHoursDecimal(prevStart)
+                                } else {
+                                    hourMeterStartInitialValue = ""
+                                }
+                                showHourMeterStart = true
+                            },
+                            onEditEngineHourEnd: {
+                                if let prevEnd = appState.currentFlight?.engineHourEnd {
+                                    let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                                    hourMeterStopInitialValue = prevFormat == "time"
+                                        ? Flight.formatHoursTime(prevEnd)
+                                        : Flight.formatHoursDecimal(prevEnd)
+                                } else {
+                                    hourMeterStopInitialValue = ""
+                                }
+                                showHourMeterStop = true
+                            }
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)

@@ -24,133 +24,136 @@ enum HourMeterPhase {
 struct HourMeterInputView: View {
     @Binding var isPresented: Bool
     let phase: HourMeterPhase
-    let onSubmit: (Double) -> Void
+    let onSubmit: (Double, String) -> Void // (hours, inputFormat: "decimal" or "time")
+    var initialValue: String = ""
 
     @State private var inputValue: String = ""
     @State private var showInvalidAlert = false
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // Title and subtitle
-                VStack(spacing: 8) {
-                    Text(phase.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primaryText)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Title and subtitle
+                    VStack(spacing: 8) {
+                        Text(phase.title)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primaryText)
 
-                    Text(phase.subtitle)
-                        .font(.subheadline)
-                        .foregroundColor(.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.top, 16)
+                        Text(phase.subtitle)
+                            .font(.subheadline)
+                            .foregroundColor(.secondaryText)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .padding(.top, 16)
 
-                // Display showing current input
-                VStack(spacing: 4) {
-                    Text(inputValue.isEmpty ? "0.0" : inputValue)
-                        .font(.system(size: 56, weight: .light, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                        .background(Color.panelBackground)
-                        .cornerRadius(12)
+                    // Display showing current input
+                    VStack(spacing: 4) {
+                        Text(inputValue.isEmpty ? "0.0" : inputValue)
+                            .font(.system(size: 56, weight: .light, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 20)
+                            .background(Color.panelBackground)
+                            .cornerRadius(12)
 
-                    Text(L10n.HourMeter.hours)
-                        .font(.caption)
-                        .foregroundColor(.secondaryText)
-                }
-                .padding(.horizontal, 32)
-
-                // Format hint
-                Text(L10n.HourMeter.formatHint)
-                    .font(.caption)
-                    .foregroundColor(.secondaryText)
-                    .multilineTextAlignment(.center)
+                        Text(L10n.HourMeter.hours)
+                            .font(.caption)
+                            .foregroundColor(.secondaryText)
+                    }
                     .padding(.horizontal, 32)
 
-                // Dial pad
-                VStack(spacing: 12) {
-                    // Row 1: 1, 2, 3
-                    HStack(spacing: 12) {
-                        dialButton("1")
-                        dialButton("2")
-                        dialButton("3")
-                    }
+                    // Format hint
+                    Text(L10n.HourMeter.formatHint)
+                        .font(.caption)
+                        .foregroundColor(.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
 
-                    // Row 2: 4, 5, 6
-                    HStack(spacing: 12) {
-                        dialButton("4")
-                        dialButton("5")
-                        dialButton("6")
-                    }
+                    // Dial pad
+                    VStack(spacing: 12) {
+                        // Row 1: 1, 2, 3
+                        HStack(spacing: 12) {
+                            dialButton("1")
+                            dialButton("2")
+                            dialButton("3")
+                        }
 
-                    // Row 3: 7, 8, 9
-                    HStack(spacing: 12) {
-                        dialButton("7")
-                        dialButton("8")
-                        dialButton("9")
-                    }
+                        // Row 2: 4, 5, 6
+                        HStack(spacing: 12) {
+                            dialButton("4")
+                            dialButton("5")
+                            dialButton("6")
+                        }
 
-                    // Row 4: ., 0, :
-                    HStack(spacing: 12) {
-                        dialButton(".")
-                        dialButton("0")
-                        dialButton(":")
+                        // Row 3: 7, 8, 9
+                        HStack(spacing: 12) {
+                            dialButton("7")
+                            dialButton("8")
+                            dialButton("9")
+                        }
+
+                        // Row 4: ., 0, :
+                        HStack(spacing: 12) {
+                            dialButton(".")
+                            dialButton("0")
+                            dialButton(":")
+                        }
                     }
+                    .padding(.horizontal, 48)
+
+                    // Action buttons
+                    HStack(spacing: 16) {
+                        // Backspace
+                        Button(action: backspace) {
+                            Image(systemName: "delete.left")
+                                .font(.title2)
+                                .foregroundColor(.secondaryText)
+                                .frame(width: 60, height: 50)
+                                .background(Color.panelBackground)
+                                .cornerRadius(10)
+                        }
+
+                        // Clear
+                        Button(action: { inputValue = "" }) {
+                            Text(L10n.HourMeter.clear)
+                                .font(.headline)
+                                .foregroundColor(.secondaryText)
+                                .frame(width: 80, height: 50)
+                                .background(Color.panelBackground)
+                                .cornerRadius(10)
+                        }
+
+                        Spacer()
+
+                        // Skip
+                        Button(action: { isPresented = false }) {
+                            Text(L10n.HourMeter.skip)
+                                .font(.headline)
+                                .foregroundColor(.secondaryText)
+                                .frame(width: 80, height: 50)
+                                .background(Color.panelBackground)
+                                .cornerRadius(10)
+                        }
+
+                        // Save
+                        Button(action: saveValue) {
+                            Text(L10n.HourMeter.save)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(width: 100, height: 50)
+                                .background(inputValue.isEmpty ? Color.gray : Color.aviationGreen)
+                                .cornerRadius(10)
+                        }
+                        .disabled(inputValue.isEmpty)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 48)
-
-                // Action buttons
-                HStack(spacing: 16) {
-                    // Backspace
-                    Button(action: backspace) {
-                        Image(systemName: "delete.left")
-                            .font(.title2)
-                            .foregroundColor(.secondaryText)
-                            .frame(width: 60, height: 50)
-                            .background(Color.panelBackground)
-                            .cornerRadius(10)
-                    }
-
-                    // Clear
-                    Button(action: { inputValue = "" }) {
-                        Text(L10n.HourMeter.clear)
-                            .font(.headline)
-                            .foregroundColor(.secondaryText)
-                            .frame(width: 80, height: 50)
-                            .background(Color.panelBackground)
-                            .cornerRadius(10)
-                    }
-
-                    Spacer()
-
-                    // Skip
-                    Button(action: { isPresented = false }) {
-                        Text(L10n.HourMeter.skip)
-                            .font(.headline)
-                            .foregroundColor(.secondaryText)
-                            .frame(width: 80, height: 50)
-                            .background(Color.panelBackground)
-                            .cornerRadius(10)
-                    }
-
-                    // Save
-                    Button(action: saveValue) {
-                        Text(L10n.HourMeter.save)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(width: 100, height: 50)
-                            .background(inputValue.isEmpty ? Color.gray : Color.aviationGreen)
-                            .cornerRadius(10)
-                    }
-                    .disabled(inputValue.isEmpty)
-                }
-                .padding(.horizontal, 32)
-
-                Spacer()
             }
+            .scrollBounceBehavior(.basedOnSize)
             .background(Color.cockpitBackground)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -162,6 +165,11 @@ struct HourMeterInputView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            if !initialValue.isEmpty {
+                inputValue = initialValue
+            }
+        }
         .alert(L10n.HourMeter.invalidFormatTitle, isPresented: $showInvalidAlert) {
             Button(L10n.Subscription.ok, role: .cancel) { }
         } message: {
@@ -218,7 +226,8 @@ struct HourMeterInputView: View {
             showInvalidAlert = true
             return
         }
-        onSubmit(hours)
+        let format = inputValue.contains(":") ? "time" : "decimal"
+        onSubmit(hours, format)
         isPresented = false
     }
 
@@ -237,8 +246,6 @@ struct HourMeterInputView: View {
                 return nil
             }
             // Convert minutes to decimal hours (60 min = 1 hour)
-            // Typical hour meters use 100ths, so :30 = 0.5
-            // But some use actual minutes, so we'll treat :30 as 30 minutes = 0.5 hours
             let decimalMinutes = minutesPart / 60.0
             return wholePart + decimalMinutes
         }
@@ -254,8 +261,8 @@ struct HourMeterInputView: View {
     HourMeterInputView(
         isPresented: .constant(true),
         phase: .start,
-        onSubmit: { hours in
-            print("Submitted: \(hours) hours")
+        onSubmit: { hours, format in
+            print("Submitted: \(hours) hours (format: \(format))")
         }
     )
 }

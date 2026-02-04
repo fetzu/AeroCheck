@@ -38,6 +38,8 @@ struct Flight: Identifiable, Codable {
     // Engine hour meter readings (v4)
     var engineHourStart: Double?        // Tachometer/hour meter reading at engine start
     var engineHourEnd: Double?          // Tachometer/hour meter reading at engine stop
+    var engineHourStartInputFormat: String?  // Raw input format used ("decimal" or "time")
+    var engineHourEndInputFormat: String?    // Raw input format used ("decimal" or "time")
 
     var gpsTrack: [GPSPoint]
     var notes: String
@@ -57,7 +59,7 @@ struct Flight: Identifiable, Codable {
         case blockOffTime, blockOffLatitude, blockOffLongitude
         case blockOnTime, blockOnLatitude, blockOnLongitude
         case departureAirportIdent, arrivalAirportIdent
-        case engineHourStart, engineHourEnd
+        case engineHourStart, engineHourEnd, engineHourStartInputFormat, engineHourEndInputFormat
         case gpsTrack, notes
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
@@ -99,6 +101,8 @@ struct Flight: Identifiable, Codable {
         // Engine hour meter readings - new in v4, default to nil for backward compatibility
         engineHourStart = try container.decodeIfPresent(Double.self, forKey: .engineHourStart)
         engineHourEnd = try container.decodeIfPresent(Double.self, forKey: .engineHourEnd)
+        engineHourStartInputFormat = try container.decodeIfPresent(String.self, forKey: .engineHourStartInputFormat)
+        engineHourEndInputFormat = try container.decodeIfPresent(String.self, forKey: .engineHourEndInputFormat)
 
         gpsTrack = try container.decodeIfPresent([GPSPoint].self, forKey: .gpsTrack) ?? []
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
@@ -139,6 +143,8 @@ struct Flight: Identifiable, Codable {
         arrivalAirportIdent: String? = nil,
         engineHourStart: Double? = nil,
         engineHourEnd: Double? = nil,
+        engineHourStartInputFormat: String? = nil,
+        engineHourEndInputFormat: String? = nil,
         gpsTrack: [GPSPoint] = [],
         notes: String = "",
         goAroundCount: Int = 0,
@@ -172,6 +178,8 @@ struct Flight: Identifiable, Codable {
         self.arrivalAirportIdent = arrivalAirportIdent
         self.engineHourStart = engineHourStart
         self.engineHourEnd = engineHourEnd
+        self.engineHourStartInputFormat = engineHourStartInputFormat
+        self.engineHourEndInputFormat = engineHourEndInputFormat
         self.gpsTrack = gpsTrack
         self.notes = notes
         self.goAroundCount = goAroundCount
@@ -243,6 +251,24 @@ struct Flight: Identifiable, Codable {
     var engineHoursFlown: Double? {
         guard let start = engineHourStart, let end = engineHourEnd else { return nil }
         return end - start
+    }
+
+    /// Format engine hours as decimal string (e.g., "1234.5")
+    static func formatHoursDecimal(_ hours: Double) -> String {
+        String(format: "%.1f", hours)
+    }
+
+    /// Format engine hours as time string (e.g., "1234:30")
+    static func formatHoursTime(_ hours: Double) -> String {
+        let wholePart = Int(hours)
+        let minutesPart = Int(round((hours - Double(wholePart)) * 60))
+        return String(format: "%d:%02d", wholePart, minutesPart)
+    }
+
+    /// Format engine hours flown as dual format (e.g., "1.5 / 1:30")
+    var engineHoursFlownFormatted: String? {
+        guard let flown = engineHoursFlown else { return nil }
+        return "\(Flight.formatHoursDecimal(flown)) / \(Flight.formatHoursTime(flown))"
     }
 
     var formattedBlockTime: String {

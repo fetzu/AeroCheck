@@ -207,6 +207,14 @@ struct ChecklistView: View {
     var isCompact: Bool = false
     var checklistLanguage: String = "en" // Language code for button translations
 
+    // Engine hours display
+    var engineHourStart: Double? = nil
+    var engineHourEnd: Double? = nil
+    var engineHourStartInputFormat: String? = nil
+    var engineHourEndInputFormat: String? = nil
+    var onEditEngineHourStart: (() -> Void)? = nil
+    var onEditEngineHourEnd: (() -> Void)? = nil
+
     // State for temporarily revealing hidden items
     @State private var hiddenItemsRevealed: Bool = false
     @State private var revealLongPressProgress: CGFloat = 0
@@ -262,7 +270,13 @@ struct ChecklistView: View {
          highlightedItemIndex: Int = 0,
          pulseActionButton: Bool = false,
          isCompact: Bool = false,
-         checklistLanguage: String = "en") {
+         checklistLanguage: String = "en",
+         engineHourStart: Double? = nil,
+         engineHourEnd: Double? = nil,
+         engineHourStartInputFormat: String? = nil,
+         engineHourEndInputFormat: String? = nil,
+         onEditEngineHourStart: (() -> Void)? = nil,
+         onEditEngineHourEnd: (() -> Void)? = nil) {
         self.phase = phase
         self.onEngineStart = onEngineStart
         self.onEngineStartUpdate = onEngineStartUpdate
@@ -291,6 +305,12 @@ struct ChecklistView: View {
         self.pulseActionButton = pulseActionButton
         self.isCompact = isCompact
         self.checklistLanguage = checklistLanguage
+        self.engineHourStart = engineHourStart
+        self.engineHourEnd = engineHourEnd
+        self.engineHourStartInputFormat = engineHourStartInputFormat
+        self.engineHourEndInputFormat = engineHourEndInputFormat
+        self.onEditEngineHourStart = onEditEngineHourStart
+        self.onEditEngineHourEnd = onEditEngineHourEnd
     }
     
     var body: some View {
@@ -403,6 +423,20 @@ struct ChecklistView: View {
                 }
             }
             
+            // Engine hours display (between completion text and action button)
+            if phase.showsEngineStartButton, let hours = engineHourStart {
+                Spacer().frame(height: 12)
+                engineHoursRow(hours: hours, format: engineHourStartInputFormat) {
+                    onEditEngineHourStart?()
+                }
+            }
+            if phase.showsEngineShutdownButton, let hours = engineHourEnd {
+                Spacer().frame(height: 12)
+                engineHoursRow(hours: hours, format: engineHourEndInputFormat) {
+                    onEditEngineHourEnd?()
+                }
+            }
+
             // Special buttons
             if phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
                 Spacer().frame(height: 24)
@@ -601,6 +635,38 @@ struct ChecklistView: View {
         withAnimation(.easeOut(duration: 0.2)) {
             revealLongPressProgress = 0
         }
+    }
+
+    /// Tappable engine hours display row
+    private func engineHoursRow(hours: Double, format: String?, onEdit: @escaping () -> Void) -> some View {
+        Button(action: onEdit) {
+            HStack(spacing: 8) {
+                Image(systemName: "gauge.with.dots.needle.50percent")
+                    .foregroundColor(.aviationGold)
+                    .font(.system(size: 14))
+                Text(L10n.FlightDetail.engineHours.uppercased())
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Text(format == "time" ? Flight.formatHoursTime(hours) : Flight.formatHoursDecimal(hours))
+                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+                Image(systemName: "pencil")
+                    .foregroundColor(.dimText)
+                    .font(.system(size: 12))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.aviationGold.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.aviationGold.opacity(0.2), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

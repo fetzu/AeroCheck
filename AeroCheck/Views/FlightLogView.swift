@@ -873,19 +873,31 @@ struct FlightDetailView: View {
 
             // Engine Hours (if logged)
             if flight.engineHourStart != nil || flight.engineHourEnd != nil {
-                Text(L10n.FlightDetail.engineHours)
+                Text(L10n.FlightDetail.engineHours.uppercased())
                     .font(.captionText)
                     .foregroundColor(.secondaryText)
                     .padding(.top, 8)
 
                 VStack(spacing: 12) {
                     if let start = flight.engineHourStart {
-                        DetailRow(label: L10n.FlightDetail.hoursBefore, value: String(format: "%.1f", start), icon: "gauge.with.dots.needle.0percent")
+                        ToggleableHoursRow(
+                            label: L10n.FlightDetail.hoursBefore,
+                            hours: start,
+                            inputFormat: flight.engineHourStartInputFormat,
+                            icon: "gauge.with.dots.needle.0percent",
+                            color: .aviationGold
+                        )
                     }
                     if let end = flight.engineHourEnd {
-                        DetailRow(label: L10n.FlightDetail.hoursAfter, value: String(format: "%.1f", end), icon: "gauge.with.dots.needle.100percent")
+                        ToggleableHoursRow(
+                            label: L10n.FlightDetail.hoursAfter,
+                            hours: end,
+                            inputFormat: flight.engineHourEndInputFormat,
+                            icon: "gauge.with.dots.needle.100percent",
+                            color: .aviationGold
+                        )
                     }
-                    if let flown = flight.engineHoursFlown {
+                    if let formatted = flight.engineHoursFlownFormatted {
                         HStack {
                             Image(systemName: "clock.badge.checkmark")
                                 .foregroundColor(.aviationGreen)
@@ -894,7 +906,7 @@ struct FlightDetailView: View {
                                 .font(.bodyText)
                                 .foregroundColor(.secondaryText)
                             Spacer()
-                            Text(String(format: "%.1f", flown))
+                            Text(formatted)
                                 .font(.system(size: 16, weight: .medium, design: .monospaced))
                                 .foregroundColor(.aviationGreen)
                         }
@@ -1172,6 +1184,52 @@ struct DetailRow: View {
             Text(value)
                 .font(.system(size: 16, weight: .medium, design: .monospaced))
                 .foregroundColor(.primaryText)
+        }
+    }
+}
+
+// MARK: - Toggleable Hours Row
+
+/// A row that toggles between decimal and time format on tap
+struct ToggleableHoursRow: View {
+    let label: String
+    let hours: Double
+    let inputFormat: String? // "decimal" or "time"
+    let icon: String
+    let color: Color
+
+    @State private var showTimeFormat: Bool = false
+
+    private var displayValue: String {
+        if showTimeFormat {
+            return Flight.formatHoursTime(hours)
+        } else {
+            return Flight.formatHoursDecimal(hours)
+        }
+    }
+
+    var body: some View {
+        Button(action: { showTimeFormat.toggle() }) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .frame(width: 24)
+
+                Text(label)
+                    .font(.bodyText)
+                    .foregroundColor(.secondaryText)
+
+                Spacer()
+
+                Text(displayValue)
+                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .foregroundColor(.primaryText)
+            }
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            // Default to the format the user used during input
+            showTimeFormat = (inputFormat == "time")
         }
     }
 }

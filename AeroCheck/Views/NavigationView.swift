@@ -2929,9 +2929,20 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
             }
 
-            // Configure callout
+            // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
             annotationView.leftCalloutAccessoryView = nil
+
+            if let freqLines = annotation.frequencyLines {
+                let detailLabel = UILabel()
+                detailLabel.numberOfLines = 0
+                detailLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+                detailLabel.textColor = .secondaryLabel
+                detailLabel.text = freqLines
+                annotationView.detailCalloutAccessoryView = detailLabel
+            } else {
+                annotationView.detailCalloutAccessoryView = nil
+            }
 
             return annotationView
         }
@@ -3761,9 +3772,20 @@ struct SwissMapView: UIViewRepresentable {
                 annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
             }
 
-            // Configure callout
+            // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
             annotationView.leftCalloutAccessoryView = nil
+
+            if let freqLines = annotation.frequencyLines {
+                let detailLabel = UILabel()
+                detailLabel.numberOfLines = 0
+                detailLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+                detailLabel.textColor = .secondaryLabel
+                detailLabel.text = freqLines
+                annotationView.detailCalloutAccessoryView = detailLabel
+            } else {
+                annotationView.detailCalloutAccessoryView = nil
+            }
 
             return annotationView
         }

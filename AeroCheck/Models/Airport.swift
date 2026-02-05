@@ -322,9 +322,6 @@ class AirportAnnotation: NSObject, MKAnnotation {
     }
 
     var subtitle: String? {
-        if let freqs = frequencyLines {
-            return "\(airport.name)\n\(freqs)"
-        }
-        return airport.name
+        airport.name
     }
 }

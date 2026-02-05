@@ -11,6 +11,37 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.3.0** - Flight Events, Map Frequencies & Nav Plan Timing
+*Released February 05, 2026*
+
+### New Features
+
+- **Nav Plan Auto-Timing**: Timing fields in the navigation plan are now auto-populated from flight data when a flight ends (Block Off/On, Time On/Off, Counter Start/Stop, Engine Time, Landings).
+
+### Improvements
+
+- **Airport Frequencies on Map**: Tapping an airport on the map now shows all available frequencies, one per line, with the airport name displayed above.
+- **Flight Event Detection**: Rewritten flight event detection using a state machine for more reliable go-around and touch-and-go detection.
+- **Nav Plan Timing Layout**: Time On/Off order swapped in the UI (Time On first). Engine time now displays in HH:MM format.
+
+### Bug Fixes
+
+- **Flight Log**: Fixed elapsed time display showing negatives for short flights, fixed empty state layout.
+- **Navigation/Map**: Fixed heading indicator alignment, fixed frequency panel layout, fixed map overlay toggle persistence.
+- **Flight Planning**: Fixed terrain profile rendering, fixed route editing sheet environment objects.
+- **General**: Fixed phase names wrapping incorrectly, fixed checklist long-press reset behavior.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.2.3...3.3.0
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.3.0)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.2.3** - Engine Hours Improvements
 *Released February 04, 2026*
 
@@ -26,10 +57,6 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 **Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.2.2...3.2.3
 
 [Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.2.3)
-
-<br>
-
-________
 
 <br>
 
@@ -428,7 +455,6 @@ Give it a try and let us know what you think!
 
 <br>
 
-### `Initial Release`
 ## **Version 1.0.0** - Take Off Check completed !
 *Released December 07, 2025*
 

@@ -189,6 +189,11 @@ struct FlightView: View {
             Button(L10n.Button.cancel, role: .cancel) { }
             Button(L10n.Button.endFlight, role: .destructive) {
                 locationManager.stopTracking()
+                // Populate timing fields on the active flight plan from the current flight
+                if let activePlan = flightPlanManager.activeFlightPlan,
+                   let flight = appState.currentFlight {
+                    flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight)
+                }
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
             }

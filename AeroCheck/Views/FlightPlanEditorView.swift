@@ -529,7 +529,7 @@ struct FlightPlanEditorView: View {
                 Spacer()
             }
 
-            // First row: Counter Start, Block OFF, Time OFF, Time ON, Block ON, Counter Stop
+            // First row: Counter Start, Block OFF, Time ON, Time OFF, Block ON, Counter Stop
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
                     label: L10n.Nav.counterStart,
@@ -541,8 +541,8 @@ struct FlightPlanEditorView: View {
                 )
 
                 OptionalTimeFormField(label: L10n.Nav.blockOff, time: $flightPlan.blockOff)
-                OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
                 OptionalTimeFormField(label: L10n.Nav.timeOn, time: $flightPlan.timeOn)
+                OptionalTimeFormField(label: L10n.Nav.timeOff, time: $flightPlan.timeOff)
                 OptionalTimeFormField(label: L10n.Nav.blockOn, time: $flightPlan.blockOn)
 
                 NumberFormField(
@@ -573,7 +573,7 @@ struct FlightPlanEditorView: View {
                     )
                 )
 
-                // Engine Time display (MMMMM.ZZ format)
+                // Engine Time display (HH:MM format)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.Nav.engineTime)
                         .font(.system(size: 11))
@@ -755,9 +755,7 @@ struct FlightPlanEditorView: View {
     // MARK: - Computed Properties for Auto-Population
 
     /// Calculate Counter Stop based on Counter Start + Engine Time
-    /// Engine Time = Block ON - Block OFF (when both are set)
-    /// Block OFF = when plane starts moving (after engine start)
-    /// Block ON = when plane stops moving (before engine shutdown)
+    /// Engine Time = Time OFF (engine stop) - Time ON (engine start)
     private var calculatedCounterStop: Double {
         // If explicitly set, use that value
         if let counterStop = flightPlan.counterStop, counterStop > 0 {
@@ -766,36 +764,33 @@ struct FlightPlanEditorView: View {
 
         // Otherwise, try to calculate from counter start + engine time
         guard let counterStart = flightPlan.counterStart,
-              let blockOff = flightPlan.blockOff,
-              let blockOn = flightPlan.blockOn else {
+              let timeOn = flightPlan.timeOn,
+              let timeOff = flightPlan.timeOff else {
             return flightPlan.counterStop ?? 0
         }
 
         // Engine time in hours (Hobbs meter is in decimal hours)
-        // Block ON happens after Block OFF, so this gives positive time
-        let engineTimeSeconds = blockOn.timeIntervalSince(blockOff)
+        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
         let engineTimeHours = engineTimeSeconds / 3600.0
 
         return counterStart + engineTimeHours
     }
 
-    /// Format engine time as MMMMM.ZZ (minutes with decimal 60ths)
-    /// Example: 90.50 = 90 minutes and 30 seconds
+    /// Format engine time as HH:MM (from Time ON = engine start to Time OFF = engine stop)
+    /// Same format as Flight Log detail view duration
     private var formattedEngineTime: String {
-        guard let blockOff = flightPlan.blockOff,
-              let blockOn = flightPlan.blockOn else {
-            return "--"
+        guard let timeOn = flightPlan.timeOn,
+              let timeOff = flightPlan.timeOff else {
+            return "--:--"
         }
 
-        let engineTimeSeconds = blockOn.timeIntervalSince(blockOff)
-        if engineTimeSeconds < 0 { return "--" }
+        let engineTimeSeconds = timeOff.timeIntervalSince(timeOn)
+        if engineTimeSeconds < 0 { return "--:--" }
 
-        let totalMinutes = Int(engineTimeSeconds / 60)
-        let remainingSeconds = Int(engineTimeSeconds) % 60
-        // Convert seconds to decimal 60ths (0-59 -> 0.00-0.98)
-        let decimalSeconds = Double(remainingSeconds) / 60.0 * 100.0
+        let hours = Int(engineTimeSeconds) / 3600
+        let minutes = (Int(engineTimeSeconds) % 3600) / 60
 
-        return String(format: "%d.%02d", totalMinutes, Int(decimalSeconds))
+        return String(format: "%02d:%02d", hours, minutes)
     }
 
     /// Calculate Total Landings from current flight if available

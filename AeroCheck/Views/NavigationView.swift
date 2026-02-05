@@ -1314,14 +1314,15 @@ struct NavigationMapView: View {
         )
     }
 
-    /// Primary frequency for each visible airport (ICAO code -> formatted frequency string)
-    private var airportPrimaryFrequencies: [String: String] {
+    /// All frequencies for each visible airport (ICAO code -> newline-separated frequency lines)
+    private var airportFrequencyLines: [String: String] {
         guard airportDataService.isDataAvailable else { return [:] }
         var result: [String: String] = [:]
         for airport in visibleAirports {
             let frequencies = airportDataService.getFrequencies(for: airport.ident)
-            if let primary = Self.primaryFrequency(from: frequencies) {
-                result[airport.ident] = primary
+            if !frequencies.isEmpty {
+                let lines = frequencies.map { "\($0.type) \($0.formattedFrequency)" }
+                result[airport.ident] = lines.joined(separator: "\n")
             }
         }
         return result
@@ -1365,7 +1366,7 @@ struct NavigationMapView: View {
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
                 visibleAirports: visibleAirports,
-                airportPrimaryFrequencies: airportPrimaryFrequencies
+                airportFrequencyLines: airportFrequencyLines
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1378,7 +1379,7 @@ struct NavigationMapView: View {
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
                 visibleAirports: visibleAirports,
-                airportPrimaryFrequencies: airportPrimaryFrequencies
+                airportFrequencyLines: airportFrequencyLines
             )
         }
     }
@@ -2487,7 +2488,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var visibleAirports: [Airport] = []  // Airports to display on map
-    var airportPrimaryFrequencies: [String: String] = [:]  // ICAO -> primary frequency
+    var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2574,7 +2575,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Add new annotations
         let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
         for airport in toAdd {
-            let annotation = AirportAnnotation(airport: airport, primaryFrequency: airportPrimaryFrequencies[airport.ident])
+            let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
         }
     }
@@ -3085,7 +3086,7 @@ struct SwissMapView: UIViewRepresentable {
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var visibleAirports: [Airport] = []  // Airports to display on map
-    var airportPrimaryFrequencies: [String: String] = [:]  // ICAO -> primary frequency
+    var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -3312,7 +3313,7 @@ struct SwissMapView: UIViewRepresentable {
         // Add new annotations
         let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
         for airport in toAdd {
-            let annotation = AirportAnnotation(airport: airport, primaryFrequency: airportPrimaryFrequencies[airport.ident])
+            let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
         }
     }

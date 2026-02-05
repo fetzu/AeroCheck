@@ -323,7 +323,7 @@ class FlightPlanExportService {
         }
 
         // Fuel calculation section - matching template layout exactly
-        let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftType)
+        let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
         let tripFuel = plan.tripFuel ?? 0
         let reserveFuel = plan.reserveFuel ?? 0
         let additionalFuel = plan.additionalFuel ?? (fuelFlow * 0.75)
@@ -629,7 +629,7 @@ class FlightPlanExportService {
         }
 
         // Fuel calculation section - matching MODEL layout exactly
-        let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftType)
+        let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
         let tripFuel = plan.tripFuel ?? 0
         let reserveFuel = plan.reserveFuel ?? 0
         let additionalFuel = plan.additionalFuel ?? (fuelFlow * 0.75)

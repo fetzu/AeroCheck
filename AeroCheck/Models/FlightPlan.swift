@@ -161,8 +161,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
     var waypoints: [FlightPlanWaypoint]
-    var aircraftType: AircraftType
+    var aircraftTypeId: String
     var aircraftRegistration: String
+    var aircraftModelName: String
 
     // Crew information
     var pilot: String
@@ -210,8 +211,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         id: UUID = UUID(),
         name: String = "",
         waypoints: [FlightPlanWaypoint] = [],
-        aircraftType: AircraftType = .wt9Dynamic,
-        aircraftRegistration: String? = nil,
+        aircraftTypeId: String = "WT9",
+        aircraftRegistration: String = "F-HVXA",
+        aircraftModelName: String = "WT9 Dynamic",
         pilot: String = "",
         instructor: String? = nil,
         flightType: FlightType = .vfr,
@@ -244,8 +246,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.id = id
         self.name = name
         self.waypoints = waypoints
-        self.aircraftType = aircraftType
-        self.aircraftRegistration = aircraftRegistration ?? aircraftType.registration
+        self.aircraftTypeId = aircraftTypeId
+        self.aircraftRegistration = aircraftRegistration
+        self.aircraftModelName = aircraftModelName
         self.pilot = pilot
         self.instructor = instructor
         self.flightType = flightType
@@ -276,6 +279,115 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.chronometerStartTime = chronometerStartTime
     }
 
+    // MARK: - Codable Migration
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, waypoints
+        case aircraftTypeId, aircraftRegistration, aircraftModelName
+        case aircraftType // Legacy key for migration
+        case pilot, instructor, flightType, runwayInUse
+        case plannedDepartureTime, announcementDate, announcementTime
+        case fuelFlow, tripFuel, reserveFuel, additionalFuel, extraFuel, fuelOnBoard
+        case blockOff, timeOff, timeOn, blockOn
+        case counterStart, counterStop, landingsAtBase, totalLandings
+        case remarks, debriefing, createdAt, updatedAt
+        case isActive, currentWaypointIndex, chronometerStartTime
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        waypoints = try container.decode([FlightPlanWaypoint].self, forKey: .waypoints)
+
+        // Migration: try new aircraftTypeId first, fall back to legacy aircraftType enum
+        if let typeId = try container.decodeIfPresent(String.self, forKey: .aircraftTypeId) {
+            aircraftTypeId = typeId
+        } else if let legacyType = try container.decodeIfPresent(AircraftType.self, forKey: .aircraftType) {
+            aircraftTypeId = legacyType.rawValue
+        } else {
+            aircraftTypeId = "WT9"
+        }
+
+        aircraftRegistration = try container.decodeIfPresent(String.self, forKey: .aircraftRegistration) ?? "F-HVXA"
+
+        // Migration: aircraftModelName may not exist in old data
+        if let modelName = try container.decodeIfPresent(String.self, forKey: .aircraftModelName) {
+            aircraftModelName = modelName
+        } else if let legacyType = AircraftType(rawValue: aircraftTypeId) {
+            aircraftModelName = legacyType.modelName
+        } else {
+            aircraftModelName = aircraftTypeId
+        }
+
+        pilot = try container.decode(String.self, forKey: .pilot)
+        instructor = try container.decodeIfPresent(String.self, forKey: .instructor)
+        flightType = try container.decode(FlightType.self, forKey: .flightType)
+        runwayInUse = try container.decodeIfPresent(String.self, forKey: .runwayInUse)
+        plannedDepartureTime = try container.decodeIfPresent(Date.self, forKey: .plannedDepartureTime)
+        announcementDate = try container.decodeIfPresent(Date.self, forKey: .announcementDate)
+        announcementTime = try container.decodeIfPresent(Date.self, forKey: .announcementTime)
+        fuelFlow = try container.decodeIfPresent(Double.self, forKey: .fuelFlow)
+        tripFuel = try container.decodeIfPresent(Double.self, forKey: .tripFuel)
+        reserveFuel = try container.decodeIfPresent(Double.self, forKey: .reserveFuel)
+        additionalFuel = try container.decodeIfPresent(Double.self, forKey: .additionalFuel)
+        extraFuel = try container.decodeIfPresent(Double.self, forKey: .extraFuel)
+        fuelOnBoard = try container.decodeIfPresent(Double.self, forKey: .fuelOnBoard)
+        blockOff = try container.decodeIfPresent(Date.self, forKey: .blockOff)
+        timeOff = try container.decodeIfPresent(Date.self, forKey: .timeOff)
+        timeOn = try container.decodeIfPresent(Date.self, forKey: .timeOn)
+        blockOn = try container.decodeIfPresent(Date.self, forKey: .blockOn)
+        counterStart = try container.decodeIfPresent(Double.self, forKey: .counterStart)
+        counterStop = try container.decodeIfPresent(Double.self, forKey: .counterStop)
+        landingsAtBase = try container.decodeIfPresent(Int.self, forKey: .landingsAtBase)
+        totalLandings = try container.decodeIfPresent(Int.self, forKey: .totalLandings)
+        remarks = try container.decodeIfPresent(String.self, forKey: .remarks) ?? ""
+        debriefing = try container.decodeIfPresent(String.self, forKey: .debriefing) ?? ""
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        isActive = try container.decode(Bool.self, forKey: .isActive)
+        currentWaypointIndex = try container.decode(Int.self, forKey: .currentWaypointIndex)
+        chronometerStartTime = try container.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(waypoints, forKey: .waypoints)
+        try container.encode(aircraftTypeId, forKey: .aircraftTypeId)
+        try container.encode(aircraftRegistration, forKey: .aircraftRegistration)
+        try container.encode(aircraftModelName, forKey: .aircraftModelName)
+        try container.encode(pilot, forKey: .pilot)
+        try container.encodeIfPresent(instructor, forKey: .instructor)
+        try container.encode(flightType, forKey: .flightType)
+        try container.encodeIfPresent(runwayInUse, forKey: .runwayInUse)
+        try container.encodeIfPresent(plannedDepartureTime, forKey: .plannedDepartureTime)
+        try container.encodeIfPresent(announcementDate, forKey: .announcementDate)
+        try container.encodeIfPresent(announcementTime, forKey: .announcementTime)
+        try container.encodeIfPresent(fuelFlow, forKey: .fuelFlow)
+        try container.encodeIfPresent(tripFuel, forKey: .tripFuel)
+        try container.encodeIfPresent(reserveFuel, forKey: .reserveFuel)
+        try container.encodeIfPresent(additionalFuel, forKey: .additionalFuel)
+        try container.encodeIfPresent(extraFuel, forKey: .extraFuel)
+        try container.encodeIfPresent(fuelOnBoard, forKey: .fuelOnBoard)
+        try container.encodeIfPresent(blockOff, forKey: .blockOff)
+        try container.encodeIfPresent(timeOff, forKey: .timeOff)
+        try container.encodeIfPresent(timeOn, forKey: .timeOn)
+        try container.encodeIfPresent(blockOn, forKey: .blockOn)
+        try container.encodeIfPresent(counterStart, forKey: .counterStart)
+        try container.encodeIfPresent(counterStop, forKey: .counterStop)
+        try container.encodeIfPresent(landingsAtBase, forKey: .landingsAtBase)
+        try container.encodeIfPresent(totalLandings, forKey: .totalLandings)
+        try container.encode(remarks, forKey: .remarks)
+        try container.encode(debriefing, forKey: .debriefing)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(isActive, forKey: .isActive)
+        try container.encode(currentWaypointIndex, forKey: .currentWaypointIndex)
+        try container.encodeIfPresent(chronometerStartTime, forKey: .chronometerStartTime)
+    }
+
     // MARK: - Computed Properties
 
     /// Total route distance in nautical miles
@@ -304,7 +416,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         guard let trip = tripFuel else { return nil }
         let reserve = reserveFuel ?? 0
         // Use 45-minute fuel reserve (0.75 hours of fuel flow) as default if not set
-        let additional = additionalFuel ?? (fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftType)) * 0.75
+        let additional = additionalFuel ?? (fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftTypeId)) * 0.75
         let extra = extraFuel ?? 0
         return trip + reserve + additional + extra
     }
@@ -323,17 +435,19 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         return String(format: "%d:%02d", hours, minutes)
     }
 
-    /// Default fuel flow based on aircraft type
-    static func defaultFuelFlow(for aircraftType: AircraftType) -> Double {
-        switch aircraftType {
-        case .wt9Dynamic: return 20.0  // L/h
+    /// Default fuel flow based on aircraft type ID
+    static func defaultFuelFlow(for aircraftTypeId: String) -> Double {
+        switch aircraftTypeId {
+        case "WT9": return 20.0  // L/h
+        default: return 25.0  // L/h - reasonable default
         }
     }
 
-    /// Default cruise speed based on aircraft type
-    static func defaultCruiseSpeed(for aircraftType: AircraftType) -> Int {
-        switch aircraftType {
-        case .wt9Dynamic: return 100  // knots
+    /// Default cruise speed based on aircraft type ID
+    static func defaultCruiseSpeed(for aircraftTypeId: String) -> Int {
+        switch aircraftTypeId {
+        case "WT9": return 100  // knots
+        default: return 100  // knots - reasonable default
         }
     }
 
@@ -393,7 +507,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 waypoints[i].magneticCourse = magneticCourse
 
                 // Calculate EET for this leg (time to next waypoint only)
-                let groundSpeed = waypoints[i].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftType)
+                let groundSpeed = waypoints[i].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
                 var legEET: TimeInterval = 0
                 if groundSpeed > 0 {
                     let legTimeHours = distanceNM / Double(groundSpeed)
@@ -430,7 +544,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         }
 
         // Calculate trip fuel based on total time
-        if let flow = fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftType) as Double? {
+        if let flow = fuelFlow ?? FlightPlan.defaultFuelFlow(for: aircraftTypeId) as Double? {
             let tripTimeHours = totalEET / 3600
             tripFuel = tripTimeHours * flow
         }
@@ -493,7 +607,7 @@ extension FlightPlan {
 
         gpx += """
 
-                <ac:aircraftType>\(aircraftType.rawValue)</ac:aircraftType>
+                <ac:aircraftType>\(escapeXML(aircraftTypeId))</ac:aircraftType>
                 <ac:aircraftRegistration>\(escapeXML(aircraftRegistration))</ac:aircraftRegistration>
                 <ac:flightType>\(flightType.rawValue)</ac:flightType>
         """
@@ -703,9 +817,7 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         case "instructor":
             flightPlan?.instructor = text
         case "aircraftType":
-            if let type = AircraftType(rawValue: text) {
-                flightPlan?.aircraftType = type
-            }
+            flightPlan?.aircraftTypeId = text
         case "aircraftRegistration":
             flightPlan?.aircraftRegistration = text
         case "flightType":

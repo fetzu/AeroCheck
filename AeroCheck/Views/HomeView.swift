@@ -176,6 +176,8 @@ struct HomeView: View {
         .sheet(isPresented: $showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
@@ -185,6 +187,9 @@ struct HomeView: View {
                 .environmentObject(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(aircraftDataService)
         }
         .onAppear {
             syncSelectedAircraftIndex()

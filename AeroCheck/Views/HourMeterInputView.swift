@@ -26,9 +26,11 @@ struct HourMeterInputView: View {
     let phase: HourMeterPhase
     let onSubmit: (Double, String) -> Void // (hours, inputFormat: "decimal" or "time")
     var initialValue: String = ""
+    var startHours: Double? = nil // Only used for .stop phase to validate end >= start
 
     @State private var inputValue: String = ""
     @State private var showInvalidAlert = false
+    @State private var showEndBeforeStartAlert = false
 
     var body: some View {
         NavigationView {
@@ -105,13 +107,14 @@ struct HourMeterInputView: View {
                     .padding(.horizontal, 48)
 
                     // Action buttons
-                    HStack(spacing: 16) {
+                    HStack(spacing: 12) {
                         // Backspace
                         Button(action: backspace) {
                             Image(systemName: "delete.left")
                                 .font(.title2)
                                 .foregroundColor(.secondaryText)
-                                .frame(width: 60, height: 50)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
                                 .background(Color.panelBackground)
                                 .cornerRadius(10)
                         }
@@ -121,19 +124,19 @@ struct HourMeterInputView: View {
                             Text(L10n.HourMeter.clear)
                                 .font(.headline)
                                 .foregroundColor(.secondaryText)
-                                .frame(width: 80, height: 50)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
                                 .background(Color.panelBackground)
                                 .cornerRadius(10)
                         }
-
-                        Spacer()
 
                         // Skip
                         Button(action: { isPresented = false }) {
                             Text(L10n.HourMeter.skip)
                                 .font(.headline)
                                 .foregroundColor(.secondaryText)
-                                .frame(width: 80, height: 50)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
                                 .background(Color.panelBackground)
                                 .cornerRadius(10)
                         }
@@ -143,7 +146,8 @@ struct HourMeterInputView: View {
                             Text(L10n.HourMeter.save)
                                 .font(.headline)
                                 .foregroundColor(.white)
-                                .frame(width: 100, height: 50)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
                                 .background(inputValue.isEmpty ? Color.gray : Color.aviationGreen)
                                 .cornerRadius(10)
                         }
@@ -174,6 +178,11 @@ struct HourMeterInputView: View {
             Button(L10n.Subscription.ok, role: .cancel) { }
         } message: {
             Text(L10n.HourMeter.invalidFormatMessage)
+        }
+        .alert(L10n.HourMeter.endBeforeStartTitle, isPresented: $showEndBeforeStartAlert) {
+            Button(L10n.Subscription.ok, role: .cancel) { }
+        } message: {
+            Text(L10n.HourMeter.endBeforeStartMessage)
         }
     }
 
@@ -224,6 +233,11 @@ struct HourMeterInputView: View {
     private func saveValue() {
         guard let hours = parseInput() else {
             showInvalidAlert = true
+            return
+        }
+        // Validate that end hours >= start hours
+        if phase == .stop, let start = startHours, hours < start {
+            showEndBeforeStartAlert = true
             return
         }
         let format = inputValue.contains(":") ? "time" : "decimal"

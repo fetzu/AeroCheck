@@ -154,6 +154,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -343,6 +344,10 @@ struct NavigationMapView: View {
             // Start GPS updates when navigation view opens
             locationManager.startLocationUpdates()
             centerOnAircraft()
+            // Ensure airport data is loaded if setting is enabled
+            if appState.settings.showAirportsOnMap {
+                Task { await airportDataService.ensureLoaded() }
+            }
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
@@ -550,6 +555,8 @@ struct NavigationMapView: View {
                     FlightPlanningView()
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
+                        .environmentObject(aircraftDataService)
                 }
             }
 
@@ -1307,6 +1314,33 @@ struct NavigationMapView: View {
         )
     }
 
+    /// Primary frequency for each visible airport (ICAO code -> formatted frequency string)
+    private var airportPrimaryFrequencies: [String: String] {
+        guard airportDataService.isDataAvailable else { return [:] }
+        var result: [String: String] = [:]
+        for airport in visibleAirports {
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            if let primary = Self.primaryFrequency(from: frequencies) {
+                result[airport.ident] = primary
+            }
+        }
+        return result
+    }
+
+    /// Pick the most relevant frequency from a list (TWR > ATIS > APP > first available)
+    static func primaryFrequency(from frequencies: [AirportFrequency]) -> String? {
+        let priorityTypes = ["TWR", "ATIS", "APP", "GND"]
+        for type in priorityTypes {
+            if let freq = frequencies.first(where: { $0.type.uppercased().contains(type) }) {
+                return "\(type) \(freq.formattedFrequency)"
+            }
+        }
+        if let first = frequencies.first {
+            return "\(first.type) \(first.formattedFrequency)"
+        }
+        return nil
+    }
+
     @ViewBuilder
     private var mapContent: some View {
         // Track the current waypoint index to force map updates when it changes
@@ -1330,7 +1364,8 @@ struct NavigationMapView: View {
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
-                visibleAirports: visibleAirports
+                visibleAirports: visibleAirports,
+                airportPrimaryFrequencies: airportPrimaryFrequencies
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1342,7 +1377,8 @@ struct NavigationMapView: View {
                 isFollowingAircraft: $isFollowingAircraft,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
-                visibleAirports: visibleAirports
+                visibleAirports: visibleAirports,
+                airportPrimaryFrequencies: airportPrimaryFrequencies
             )
         }
     }
@@ -1392,6 +1428,8 @@ struct NavigationMapView: View {
                     FlightPlanningView()
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
+                        .environmentObject(aircraftDataService)
                 }
             }
 
@@ -2449,6 +2487,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var airportPrimaryFrequencies: [String: String] = [:]  // ICAO -> primary frequency
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2535,7 +2574,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Add new annotations
         let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
         for airport in toAdd {
-            let annotation = AirportAnnotation(airport: airport)
+            let annotation = AirportAnnotation(airport: airport, primaryFrequency: airportPrimaryFrequencies[airport.ident])
             mapView.addAnnotation(annotation)
         }
     }
@@ -3046,6 +3085,7 @@ struct SwissMapView: UIViewRepresentable {
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var airportPrimaryFrequencies: [String: String] = [:]  // ICAO -> primary frequency
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -3272,7 +3312,7 @@ struct SwissMapView: UIViewRepresentable {
         // Add new annotations
         let toAdd = visibleAirports.filter { !existingIds.contains($0.id) }
         for airport in toAdd {
-            let annotation = AirportAnnotation(airport: airport)
+            let annotation = AirportAnnotation(airport: airport, primaryFrequency: airportPrimaryFrequencies[airport.ident])
             mapView.addAnnotation(annotation)
         }
     }

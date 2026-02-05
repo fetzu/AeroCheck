@@ -178,7 +178,8 @@ struct FlightView: View {
                     appState.currentFlight?.engineHourEnd = hours
                     appState.currentFlight?.engineHourEndInputFormat = format
                 },
-                initialValue: hourMeterStopInitialValue
+                initialValue: hourMeterStopInitialValue,
+                startHours: appState.currentFlight?.engineHourStart
             )
         }
         .fullScreenCover(isPresented: $showNavigationMode) {

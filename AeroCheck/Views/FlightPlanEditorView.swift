@@ -40,6 +40,7 @@ struct FlightPlanExportItem: Identifiable {
 struct FlightPlanEditorView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) var dismiss
 
     @State private var flightPlan: FlightPlan
@@ -47,6 +48,7 @@ struct FlightPlanEditorView: View {
     @State private var showingAddWaypoint = false
     @State private var showingTerrainProfile = false
     @State private var showingMapPicker = false
+    @State private var showingICAOSearch = false
     @State private var exportItem: FlightPlanExportItem?
     @State private var showingAddWaypointChoice = false
     @State private var routeRefreshToken = UUID() // Forces route table refresh
@@ -110,7 +112,7 @@ struct FlightPlanEditorView: View {
             .sheet(item: $showingWaypointEditor) { waypoint in
                 WaypointEditorSheet(
                     waypoint: waypoint,
-                    aircraftType: flightPlan.aircraftType,
+                    aircraftType: flightPlan.aircraftTypeId,
                     onSave: { updatedWaypoint in
                         updateWaypoint(updatedWaypoint)
                     },
@@ -122,7 +124,7 @@ struct FlightPlanEditorView: View {
                 )
             }
             .sheet(isPresented: $showingAddWaypoint) {
-                AddWaypointSheet(aircraftType: flightPlan.aircraftType) { newWaypoint in
+                AddWaypointSheet(aircraftTypeId: flightPlan.aircraftTypeId) { newWaypoint in
                     addWaypoint(newWaypoint)
                 }
             }
@@ -135,7 +137,21 @@ struct FlightPlanEditorView: View {
                     let waypoint = FlightPlanWaypoint(
                         name: name,
                         coordinate: coordinate,
-                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftType)
+                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
+                    )
+                    addWaypoint(waypoint)
+                }
+                .environmentObject(airportDataService)
+                .environmentObject(appState)
+            }
+            .sheet(isPresented: $showingICAOSearch) {
+                ICAOSearchSheet(airportDataService: airportDataService) { airport, primaryFrequency in
+                    let waypoint = FlightPlanWaypoint(
+                        name: airport.ident,
+                        coordinate: airport.coordinate,
+                        altitude: airport.elevation.map { Double($0) },
+                        frequency: primaryFrequency,
+                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
                     )
                     addWaypoint(waypoint)
                 }
@@ -257,6 +273,11 @@ struct FlightPlanEditorView: View {
                 Menu {
                     Button(action: { showingAddWaypoint = true }) {
                         Label(L10n.Nav.addWaypointManually, systemImage: "plus")
+                    }
+                    if airportDataService.isDataAvailable {
+                        Button(action: { showingICAOSearch = true }) {
+                            Label(L10n.Nav.addWithICAO, systemImage: "magnifyingglass")
+                        }
                     }
                     Button(action: { showingMapPicker = true }) {
                         Label(L10n.Nav.addFromMap, systemImage: "map")
@@ -433,7 +454,7 @@ struct FlightPlanEditorView: View {
                 NumberFormField(
                     label: L10n.Nav.fuelFlow,
                     value: Binding(
-                        get: { flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftType) },
+                        get: { flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftTypeId) },
                         set: { flightPlan.fuelFlow = $0 }
                     ),
                     format: "%.0f"
@@ -465,7 +486,7 @@ struct FlightPlanEditorView: View {
                             if let additional = flightPlan.additionalFuel, additional > 0 {
                                 return additional
                             }
-                            let fuelFlow = flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftType)
+                            let fuelFlow = flightPlan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: flightPlan.aircraftTypeId)
                             return fuelFlow * 0.75 // 45 minutes = 0.75 hours
                         },
                         set: { flightPlan.additionalFuel = $0 }
@@ -1285,7 +1306,7 @@ struct IntFormField: View {
 struct AddWaypointSheet: View {
     @Environment(\.dismiss) var dismiss
 
-    let aircraftType: AircraftType
+    let aircraftTypeId: String
     let onAdd: (FlightPlanWaypoint) -> Void
 
     private let elevationService = ElevationService()
@@ -1413,7 +1434,7 @@ struct AddWaypointSheet: View {
             altitude: Double(altitude),
             frequency: frequency.isEmpty ? nil : frequency,
             remarks: remarks,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: aircraftType)
+            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
         )
 
         onAdd(waypoint)
@@ -1443,6 +1464,8 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
 
 struct MapWaypointPickerView: View {
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var appState: AppState
 
     let onSelect: (CLLocationCoordinate2D, String) -> Void
 
@@ -1452,6 +1475,26 @@ struct MapWaypointPickerView: View {
     )
     @State private var waypointName: String = ""
     @State private var selectedLayer: WaypointPickerMapLayer = .apple
+    @State private var selectedAirport: Airport?
+    @State private var selectedAirportFrequency: String?
+    @State private var showAirportConfirmation = false
+
+    /// Airports visible in current map region
+    private var visibleAirports: [Airport] {
+        guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
+            return []
+        }
+        let halfLatSpan = region.span.latitudeDelta / 2
+        let halfLonSpan = region.span.longitudeDelta / 2
+        return airportDataService.getAirportsInRegion(
+            minLat: region.center.latitude - halfLatSpan,
+            maxLat: region.center.latitude + halfLatSpan,
+            minLon: region.center.longitude - halfLonSpan,
+            maxLon: region.center.longitude + halfLonSpan,
+            types: [.largeAirport, .mediumAirport, .smallAirport],
+            limit: 100
+        )
+    }
 
     var body: some View {
         NavigationView {
@@ -1459,7 +1502,16 @@ struct MapWaypointPickerView: View {
                 // Map view based on selected layer
                 WaypointPickerMapViewRepresentable(
                     region: $region,
-                    mapLayer: selectedLayer
+                    mapLayer: selectedLayer,
+                    airports: visibleAirports,
+                    onAirportTapped: { airport in
+                        selectedAirport = airport
+                        let frequencies = airportDataService.getFrequencies(for: airport.ident)
+                        selectedAirportFrequency = frequencies.first(where: { $0.type.uppercased().contains("TWR") })?.formattedFrequency
+                            ?? frequencies.first(where: { $0.type.uppercased().contains("ATIS") })?.formattedFrequency
+                            ?? frequencies.first?.formattedFrequency
+                        showAirportConfirmation = true
+                    }
                 )
                 .ignoresSafeArea()
 
@@ -1533,6 +1585,19 @@ struct MapWaypointPickerView: View {
                     Button(L10n.Button.cancel) { dismiss() }
                 }
             }
+            .alert(L10n.Nav.addAirportToRoute, isPresented: $showAirportConfirmation) {
+                Button(L10n.Nav.add) {
+                    if let airport = selectedAirport {
+                        onSelect(airport.coordinate, airport.ident)
+                        dismiss()
+                    }
+                }
+                Button(L10n.Button.cancel, role: .cancel) { }
+            } message: {
+                if let airport = selectedAirport {
+                    Text("\(airport.ident) - \(airport.name)")
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -1543,6 +1608,8 @@ struct MapWaypointPickerView: View {
 struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
     let mapLayer: WaypointPickerMapLayer
+    var airports: [Airport] = []
+    var onAirportTapped: ((Airport) -> Void)?
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -1559,6 +1626,23 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         // Update layer if changed
         context.coordinator.currentLayer = mapLayer
         configureMapLayer(mapView)
+        // Update airport annotations
+        updateAirportAnnotations(mapView)
+    }
+
+    private func updateAirportAnnotations(_ mapView: MKMapView) {
+        let existingAirportAnnotations = mapView.annotations.compactMap { $0 as? AirportAnnotation }
+        let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
+        let newIds = Set(airports.map { $0.id })
+
+        let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
+        mapView.removeAnnotations(toRemove)
+
+        let toAdd = airports.filter { !existingIds.contains($0.id) }
+        for airport in toAdd {
+            let annotation = AirportAnnotation(airport: airport)
+            mapView.addAnnotation(annotation)
+        }
     }
 
     private func configureMapLayer(_ mapView: MKMapView) {
@@ -1609,6 +1693,40 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
                 return MKTileOverlayRenderer(tileOverlay: tileOverlay)
             }
             return MKOverlayRenderer(overlay: overlay)
+        }
+
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            guard let airportAnnotation = annotation as? AirportAnnotation else { return nil }
+
+            let identifier = "WaypointPickerAirport"
+            let annotationView: MKAnnotationView
+
+            if let reusedView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+                reusedView.annotation = annotation
+                annotationView = reusedView
+            } else {
+                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
+
+            annotationView.canShowCallout = true
+
+            let size: CGFloat = 14
+            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
+            let color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9)
+            if let image = UIImage(systemName: "airplane", withConfiguration: config) {
+                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+            }
+
+            // Add a tap button as right callout accessory to add to route
+            let addButton = UIButton(type: .contactAdd)
+            annotationView.rightCalloutAccessoryView = addButton
+
+            return annotationView
+        }
+
+        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+            guard let airportAnnotation = view.annotation as? AirportAnnotation else { return }
+            parent.onAirportTapped?(airportAnnotation.airport)
         }
     }
 }
@@ -1759,10 +1877,147 @@ struct ExportFile: Transferable {
     }
 }
 
+// MARK: - ICAO Search Sheet
+
+/// Sheet for searching and adding airports by ICAO code
+struct ICAOSearchSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let airportDataService: AirportDataService
+    let onSelect: (Airport, String?) -> Void  // (airport, primaryFrequency)
+
+    @State private var searchText: String = ""
+    @State private var searchResults: [Airport] = []
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                searchField
+                searchContent
+            }
+            .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Nav.addWithICAO)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.cancel) { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onChange(of: searchText) { _, newValue in
+            updateSearchResults(query: newValue)
+        }
+    }
+
+    private var searchField: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondaryText)
+            TextField(L10n.Nav.icaoSearchPlaceholder, text: $searchText)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+        }
+        .padding(12)
+        .background(Color.panelBackground)
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var searchContent: some View {
+        if searchResults.isEmpty && !searchText.isEmpty {
+            Spacer()
+            VStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 40))
+                    .foregroundColor(.dimText)
+                Text(L10n.Nav.noAirportsFound)
+                    .font(.bodyText)
+                    .foregroundColor(.dimText)
+            }
+            Spacer()
+        } else if searchResults.isEmpty {
+            Spacer()
+            VStack(spacing: 12) {
+                Image(systemName: "airplane")
+                    .font(.system(size: 40))
+                    .foregroundColor(.dimText)
+                Text(L10n.Nav.icaoSearchHint)
+                    .font(.bodyText)
+                    .foregroundColor(.dimText)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
+            Spacer()
+        } else {
+            airportResultsList
+        }
+    }
+
+    private var airportResultsList: some View {
+        List {
+            ForEach(Array(searchResults), id: \.id) { airport in
+                Button {
+                    selectAirport(airport)
+                } label: {
+                    airportRow(airport)
+                }
+                .listRowBackground(Color.panelBackground)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private func airportRow(_ airport: Airport) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(airport.ident)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.bold)
+                    .foregroundColor(.primaryText)
+                Text(airport.name)
+                    .font(.caption)
+                    .foregroundColor(.secondaryText)
+            }
+            Spacer()
+            Text(airport.type.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)
+                .font(.caption2)
+                .foregroundColor(.dimText)
+        }
+    }
+
+    private func updateSearchResults(query: String) {
+        guard query.count >= 2 else {
+            searchResults = []
+            return
+        }
+        searchResults = airportDataService.searchAirports(query: query, limit: 30)
+    }
+
+    private func selectAirport(_ airport: Airport) {
+        let frequencies = airportDataService.getFrequencies(for: airport.ident)
+        let primaryFreq = NavigationMapView.primaryFrequency(from: frequencies)
+        // Extract just the frequency number for the waypoint field
+        let freqValue: String? = {
+            let priorityTypes = ["TWR", "ATIS", "APP", "GND"]
+            for type in priorityTypes {
+                if let freq = frequencies.first(where: { $0.type.uppercased().contains(type) }) {
+                    return freq.formattedFrequency
+                }
+            }
+            return frequencies.first?.formattedFrequency
+        }()
+        onSelect(airport, freqValue)
+        dismiss()
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     FlightPlanEditorView(flightPlan: FlightPlan(name: "Test Flight"))
         .environmentObject(AppState())
         .environmentObject(FlightPlanManager())
+        .environmentObject(AirportDataService())
 }

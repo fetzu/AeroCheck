@@ -30,14 +30,17 @@ class FlightPlanManager: ObservableObject {
     /// Create a new flight plan
     func createFlightPlan(
         name: String = "New Flight Plan",
-        aircraftType: AircraftType = .wt9Dynamic
+        aircraftTypeId: String = "WT9",
+        aircraftRegistration: String = "F-HVXA",
+        aircraftModelName: String = "WT9 Dynamic"
     ) -> FlightPlan {
-        var plan = FlightPlan(
+        let plan = FlightPlan(
             name: name,
-            aircraftType: aircraftType,
-            fuelFlow: FlightPlan.defaultFuelFlow(for: aircraftType)
+            aircraftTypeId: aircraftTypeId,
+            aircraftRegistration: aircraftRegistration,
+            aircraftModelName: aircraftModelName,
+            fuelFlow: FlightPlan.defaultFuelFlow(for: aircraftTypeId)
         )
-        plan.aircraftRegistration = aircraftType.registration
         flightPlans.insert(plan, at: 0)
         saveFlightPlans()
         return plan
@@ -98,8 +101,9 @@ class FlightPlanManager: ObservableObject {
         newPlan = FlightPlan(
             name: "\(plan.name) (Copy)",
             waypoints: plan.waypoints,
-            aircraftType: plan.aircraftType,
+            aircraftTypeId: plan.aircraftTypeId,
             aircraftRegistration: plan.aircraftRegistration,
+            aircraftModelName: plan.aircraftModelName,
             pilot: plan.pilot,
             instructor: plan.instructor,
             flightType: plan.flightType,
@@ -126,7 +130,7 @@ class FlightPlanManager: ObservableObject {
         let waypoint = FlightPlanWaypoint(
             name: name.isEmpty ? "WPT\(plan.waypoints.count + 1)" : name,
             coordinate: coordinate,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftType)
+            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
         )
 
         plan.waypoints.append(waypoint)
@@ -141,7 +145,7 @@ class FlightPlanManager: ObservableObject {
         let waypoint = FlightPlanWaypoint(
             name: name.isEmpty ? "WPT" : name,
             coordinate: coordinate,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftType)
+            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: plan.aircraftTypeId)
         )
 
         plan.waypoints.insert(waypoint, at: min(index, plan.waypoints.count))

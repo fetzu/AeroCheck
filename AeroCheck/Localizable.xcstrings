@@ -7634,6 +7634,91 @@
         }
       }
     },
+    "nav.addWithICAO": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add with ICAO Code"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter par code OACI"
+          }
+        }
+      }
+    },
+    "nav.icaoSearchPlaceholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search ICAO code or airport name..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher un code OACI ou un aérodrome..."
+          }
+        }
+      }
+    },
+    "nav.icaoSearchHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an ICAO code or airport name to search"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrez un code OACI ou un nom d'aérodrome pour rechercher"
+          }
+        }
+      }
+    },
+    "nav.noAirportsFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No airports found"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun aérodrome trouvé"
+          }
+        }
+      }
+    },
+    "nav.addAirportToRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Airport to Route?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter l'aérodrome à la route ?"
+          }
+        }
+      }
+    },
     "nav.addFirstWaypoint": {
       "extractionState": "manual",
       "localizations": {
@@ -9959,6 +10044,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Veuillez entrer un relevé d'heures valide (ex: 1234.5 ou 1234:30)"
+          }
+        }
+      }
+    },
+    "hourMeter.endBeforeStart.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid Reading"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relevé invalide"
+          }
+        }
+      }
+    },
+    "hourMeter.endBeforeStart.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End hours cannot be less than start hours. Please check your reading."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les heures de fin ne peuvent pas être inférieures aux heures de début. Veuillez vérifier votre relevé."
           }
         }
       }

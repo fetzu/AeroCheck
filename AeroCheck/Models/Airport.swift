@@ -305,9 +305,11 @@ import MapKit
 /// Annotation for displaying airports on the map
 class AirportAnnotation: NSObject, MKAnnotation {
     let airport: Airport
+    let primaryFrequency: String?
 
-    init(airport: Airport) {
+    init(airport: Airport, primaryFrequency: String? = nil) {
         self.airport = airport
+        self.primaryFrequency = primaryFrequency
         super.init()
     }
 
@@ -320,6 +322,9 @@ class AirportAnnotation: NSObject, MKAnnotation {
     }
 
     var subtitle: String? {
-        airport.name
+        if let freq = primaryFrequency {
+            return "\(airport.name) - \(freq)"
+        }
+        return airport.name
     }
 }

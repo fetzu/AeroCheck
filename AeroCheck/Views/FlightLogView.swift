@@ -589,6 +589,7 @@ struct FlightRowView: View {
 struct FlightDetailView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var airportDataService: AirportDataService
     @Environment(\.dismiss) var dismiss
     let flight: Flight
 
@@ -789,7 +790,7 @@ struct FlightDetailView: View {
                 .foregroundColor(.secondaryText)
 
             VStack(spacing: 12) {
-                DetailRow(label: L10n.FlightDetail.aircraft, value: flight.airplane, icon: "airplane")
+                DetailRow(label: L10n.FlightDetail.aircraft, value: flight.aircraftRegistration ?? flight.airplane, icon: "airplane")
                 if let aircraftType = flight.aircraftType {
                     DetailRow(label: L10n.FlightDetail.aircraftType, value: aircraftType, icon: "info.circle")
                 }
@@ -813,8 +814,8 @@ struct FlightDetailView: View {
             .cardStyle()
 
             // Route
-            if flight.departureAirportIdent != nil || flight.arrivalAirportIdent != nil {
-                Text(L10n.FlightDetail.route)
+            if flight.departureAirportIdent != nil || flight.arrivalAirportIdent != nil || flight.flightPlan != nil {
+                Text(L10n.FlightDetail.route.uppercased())
                     .font(.captionText)
                     .foregroundColor(.secondaryText)
                     .padding(.top, 8)
@@ -822,6 +823,11 @@ struct FlightDetailView: View {
                 VStack(spacing: 12) {
                     if let dep = flight.departureAirportIdent {
                         DetailRow(label: L10n.FlightDetail.departure, value: dep, icon: "airplane.departure")
+                    }
+                    if let waypoints = flight.flightPlan?.waypoints, !waypoints.isEmpty {
+                        ForEach(waypoints) { wp in
+                            DetailRow(label: wp.name, value: wp.formattedCoordinate, icon: "mappin")
+                        }
                     }
                     if let arr = flight.arrivalAirportIdent {
                         DetailRow(label: L10n.FlightDetail.arrival, value: arr, icon: "airplane.arrival")
@@ -837,16 +843,16 @@ struct FlightDetailView: View {
                 .padding(.top, 8)
 
             VStack(spacing: 12) {
-                if let blockOff = flight.blockOffTime {
-                    TimelineRow(label: L10n.FlightDetail.blockOff, time: timeString(from: blockOff), icon: "door.left.hand.open", color: .dimText)
-                }
-
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
                 }
 
                 if let engineStart = flight.engineStartTime {
                     TimelineRow(label: L10n.FlightDetail.engineStart, time: timeString(from: engineStart), icon: "engine.combustion", color: .aviationGreen)
+                }
+
+                if let blockOff = flight.blockOffTime {
+                    TimelineRow(label: L10n.FlightDetail.blockOff, time: timeString(from: blockOff), icon: "door.left.hand.open", color: .dimText)
                 }
 
                 if let lineUp = flight.lineUpTime {
@@ -857,16 +863,16 @@ struct FlightDetailView: View {
                     TimelineRow(label: L10n.FlightDetail.landing, time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
                 }
 
+                if let blockOn = flight.blockOnTime {
+                    TimelineRow(label: L10n.FlightDetail.blockOn, time: timeString(from: blockOn), icon: "door.left.hand.closed", color: .dimText)
+                }
+
                 if let shutdown = flight.engineShutdownTime {
                     TimelineRow(label: L10n.FlightDetail.engineShutdown, time: timeString(from: shutdown), icon: "engine.combustion.fill", color: .aviationRed)
                 }
 
                 if let stop = flight.stopTime {
                     TimelineRow(label: L10n.FlightDetail.sessionEnd, time: timeString(from: stop), icon: "stop.fill", color: .dimText)
-                }
-
-                if let blockOn = flight.blockOnTime {
-                    TimelineRow(label: L10n.FlightDetail.blockOn, time: timeString(from: blockOn), icon: "door.left.hand.closed", color: .dimText)
                 }
             }
             .cardStyle()
@@ -963,15 +969,17 @@ struct FlightDetailView: View {
     // MARK: - Actions Section
 
     private var actionsSection: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 8) {
             // Flight Plan button (only shown if flight has saved flight plan data)
             if let savedFlightPlan = flight.flightPlan {
                 Button(action: {
                     showFlightPlan = true
                 }) {
-                    HStack {
+                    HStack(spacing: 4) {
                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                         Text(L10n.FlightDetail.navPlan)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -980,22 +988,27 @@ struct FlightDetailView: View {
                     FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
                 }
             }
 
             Button(action: { showExportOptions = true }) {
-                HStack {
+                HStack(spacing: 4) {
                     Image(systemName: "square.and.arrow.up")
                     Text(L10n.FlightDetail.export)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(SecondaryButtonStyle())
 
             Button(action: { showDeleteAlert = true }) {
-                HStack {
+                HStack(spacing: 4) {
                     Image(systemName: "trash")
                     Text(L10n.FlightDetail.delete)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity)
             }

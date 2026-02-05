@@ -782,6 +782,8 @@ enum L10n {
         static let save = String(localized: "hourMeter.save")
         static let invalidFormatTitle = String(localized: "hourMeter.invalidFormat.title")
         static let invalidFormatMessage = String(localized: "hourMeter.invalidFormat.message")
+        static let endBeforeStartTitle = String(localized: "hourMeter.endBeforeStart.title")
+        static let endBeforeStartMessage = String(localized: "hourMeter.endBeforeStart.message")
     }
 
     // MARK: - Flight Log Detail
@@ -946,6 +948,11 @@ enum L10n {
         static let add = String(localized: "nav.add")
         static let addWaypointManually = String(localized: "nav.addWaypointManually")
         static let addFromMap = String(localized: "nav.addFromMap")
+        static let addWithICAO = String(localized: "nav.addWithICAO")
+        static let icaoSearchPlaceholder = String(localized: "nav.icaoSearchPlaceholder")
+        static let icaoSearchHint = String(localized: "nav.icaoSearchHint")
+        static let noAirportsFound = String(localized: "nav.noAirportsFound")
+        static let addAirportToRoute = String(localized: "nav.addAirportToRoute")
         static let addFirstWaypoint = String(localized: "nav.addFirstWaypoint")
         static let noWaypoints = String(localized: "nav.noWaypoints")
         static let waypoint = String(localized: "nav.waypoint")

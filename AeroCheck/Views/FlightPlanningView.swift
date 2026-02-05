@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 struct FlightPlanningView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
 
     @State private var showingNewPlanSheet = false
@@ -66,6 +68,7 @@ struct FlightPlanningView: View {
                 FlightPlanEditorView(flightPlan: plan)
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
+                    .environmentObject(airportDataService)
             }
             .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
                 Button(L10n.Button.cancel, role: .cancel) { }
@@ -484,12 +487,27 @@ struct ActiveFlightPlanRow: View {
 struct NewFlightPlanSheet: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.dismiss) var dismiss
 
     @State private var name: String = ""
-    @State private var selectedAircraft: AircraftType = .wt9Dynamic
+    @State private var selectedAircraftId: String = "WT9"
 
     var onCreated: (FlightPlan) -> Void
+
+    /// All available aircraft options (bundled + visible remote with access)
+    private var availableAircraft: [AircraftOption] {
+        var options: [AircraftOption] = []
+        for aircraft in AircraftType.allCases {
+            options.append(.bundled(aircraft))
+        }
+        for remote in aircraftDataService.availableAircraft where remote.hasAccess && !remote.isBundled {
+            if appState.settings.isAircraftVisible(aircraftId: remote.id, aeroclub: remote.aeroclub) {
+                options.append(.remote(remote))
+            }
+        }
+        return options
+    }
 
     var body: some View {
         NavigationView {
@@ -497,15 +515,15 @@ struct NewFlightPlanSheet: View {
                 Section {
                     TextField(L10n.Nav.flightPlanName, text: $name)
 
-                    Picker(L10n.Nav.aircraft, selection: $selectedAircraft) {
-                        ForEach(AircraftType.allCases) { aircraft in
+                    Picker(L10n.Nav.aircraft, selection: $selectedAircraftId) {
+                        ForEach(availableAircraft) { option in
                             HStack {
-                                Text(aircraft.registration)
+                                Text(option.registration)
                                     .font(.system(.body, design: .monospaced))
-                                Text("(\(aircraft.shortModelName))")
+                                Text("(\(option.modelName))")
                                     .foregroundColor(.secondary)
                             }
-                            .tag(aircraft)
+                            .tag(option.aircraftType)
                         }
                     }
                 } header: {
@@ -521,9 +539,12 @@ struct NewFlightPlanSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(L10n.Nav.create) {
+                        let selected = availableAircraft.first { $0.aircraftType == selectedAircraftId }
                         let plan = flightPlanManager.createFlightPlan(
                             name: name.isEmpty ? L10n.Nav.newFlightPlan : name,
-                            aircraftType: selectedAircraft
+                            aircraftTypeId: selectedAircraftId,
+                            aircraftRegistration: selected?.registration ?? "",
+                            aircraftModelName: selected?.modelName ?? selectedAircraftId
                         )
                         dismiss()
                         onCreated(plan)
@@ -531,7 +552,7 @@ struct NewFlightPlanSheet: View {
                 }
             }
             .onAppear {
-                selectedAircraft = appState.settings.selectedAircraft
+                selectedAircraftId = appState.settings.selectedAircraft.rawValue
             }
         }
         .preferredColorScheme(.dark)

@@ -6,15 +6,15 @@ struct WaypointEditorSheet: View {
     @Environment(\.dismiss) var dismiss
 
     @State private var waypoint: FlightPlanWaypoint
-    let aircraftType: AircraftType
+    let aircraftTypeId: String
     let onSave: (FlightPlanWaypoint) -> Void
     let onDelete: (() -> Void)?
 
     private let elevationService = ElevationService()
 
-    init(waypoint: FlightPlanWaypoint, aircraftType: AircraftType, onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
+    init(waypoint: FlightPlanWaypoint, aircraftType aircraftTypeId: String, onSave: @escaping (FlightPlanWaypoint) -> Void, onDelete: (() -> Void)? = nil) {
         _waypoint = State(initialValue: waypoint)
-        self.aircraftType = aircraftType
+        self.aircraftTypeId = aircraftTypeId
         self.onSave = onSave
         self.onDelete = onDelete
     }
@@ -130,7 +130,7 @@ struct WaypointEditorSheet: View {
                             Text(L10n.Nav.groundSpeed)
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondaryText)
-                            TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftType))", text: $groundSpeedString)
+                            TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))", text: $groundSpeedString)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 14, design: .monospaced))
                         }
@@ -339,7 +339,7 @@ struct WaypointEditorSheet: View {
         frequency = waypoint.frequency ?? ""
         callSign = waypoint.callSign ?? ""
         remarks = waypoint.remarks
-        groundSpeedString = waypoint.plannedGroundSpeed.map { "\($0)" } ?? "\(FlightPlan.defaultCruiseSpeed(for: aircraftType))"
+        groundSpeedString = waypoint.plannedGroundSpeed.map { "\($0)" } ?? "\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))"
         windDirectionString = waypoint.windDirection.map { String(format: "%.0f", $0) } ?? ""
         windSpeedString = waypoint.windSpeed.map { String(format: "%.0f", $0) } ?? ""
     }
@@ -528,7 +528,7 @@ struct CoordinatePickerView: View {
             coordinate: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
             altitude: 5000
         ),
-        aircraftType: .wt9Dynamic,
+        aircraftType: "WT9",
         onSave: { _ in },
         onDelete: { print("Delete tapped") }
     )

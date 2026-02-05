@@ -2936,9 +2936,22 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
                 detailLabel.numberOfLines = 0
-                detailLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-                detailLabel.textColor = .secondaryLabel
-                detailLabel.text = freqLines
+
+                let attributed = NSMutableAttributedString()
+                // Airport name line
+                let nameAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .medium),
+                    .foregroundColor: UIColor.label
+                ]
+                attributed.append(NSAttributedString(string: annotation.airport.name + "\n", attributes: nameAttrs))
+                // Frequency lines
+                let freqAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular),
+                    .foregroundColor: UIColor.secondaryLabel
+                ]
+                attributed.append(NSAttributedString(string: freqLines, attributes: freqAttrs))
+
+                detailLabel.attributedText = attributed
                 annotationView.detailCalloutAccessoryView = detailLabel
             } else {
                 annotationView.detailCalloutAccessoryView = nil
@@ -3779,9 +3792,22 @@ struct SwissMapView: UIViewRepresentable {
             if let freqLines = annotation.frequencyLines {
                 let detailLabel = UILabel()
                 detailLabel.numberOfLines = 0
-                detailLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-                detailLabel.textColor = .secondaryLabel
-                detailLabel.text = freqLines
+
+                let attributed = NSMutableAttributedString()
+                // Airport name line
+                let nameAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .medium),
+                    .foregroundColor: UIColor.label
+                ]
+                attributed.append(NSAttributedString(string: annotation.airport.name + "\n", attributes: nameAttrs))
+                // Frequency lines
+                let freqAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular),
+                    .foregroundColor: UIColor.secondaryLabel
+                ]
+                attributed.append(NSAttributedString(string: freqLines, attributes: freqAttrs))
+
+                detailLabel.attributedText = attributed
                 annotationView.detailCalloutAccessoryView = detailLabel
             } else {
                 annotationView.detailCalloutAccessoryView = nil

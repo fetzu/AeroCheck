@@ -9844,19 +9844,19 @@
         }
       }
     },
-    "eventConfirmation.autoDismiss": {
+    "eventConfirmation.autoConfirm": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auto-dismisses in 30 seconds"
+            "value": "Auto-confirms in %d seconds"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disparaît automatiquement dans 30 secondes"
+            "value": "Confirmation automatique dans %d secondes"
           }
         }
       }

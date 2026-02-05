@@ -6,7 +6,9 @@ struct EventConfirmationView: View {
     let onConfirm: () -> Void
     let onDismiss: () -> Void
 
-    @State private var autoDismissTask: Task<Void, Never>?
+    @State private var autoConfirmTask: Task<Void, Never>?
+    @State private var countdownTask: Task<Void, Never>?
+    @State private var secondsRemaining: Int = 20
 
     var body: some View {
         VStack(spacing: 24) {
@@ -43,7 +45,7 @@ struct EventConfirmationView: View {
             // Action buttons
             HStack(spacing: 16) {
                 Button(action: {
-                    autoDismissTask?.cancel()
+                    cancelTimers()
                     onDismiss()
                 }) {
                     Text(L10n.EventConfirmation.dismiss)
@@ -56,7 +58,7 @@ struct EventConfirmationView: View {
                 }
 
                 Button(action: {
-                    autoDismissTask?.cancel()
+                    cancelTimers()
                     onConfirm()
                 }) {
                     Text(L10n.EventConfirmation.confirm)
@@ -70,8 +72,8 @@ struct EventConfirmationView: View {
             }
             .padding(.horizontal)
 
-            // Auto-dismiss note
-            Text(L10n.EventConfirmation.autoDismiss)
+            // Auto-confirm countdown
+            Text(L10n.EventConfirmation.autoConfirm(secondsRemaining))
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -86,10 +88,11 @@ struct EventConfirmationView: View {
         )
         .padding(.horizontal, 32)
         .onAppear {
-            startAutoDismissTimer()
+            startAutoConfirmTimer()
+            startCountdown()
         }
         .onDisappear {
-            autoDismissTask?.cancel()
+            cancelTimers()
         }
     }
 
@@ -137,17 +140,35 @@ struct EventConfirmationView: View {
         return formatter.string(from: event.timestamp)
     }
 
-    // MARK: - Auto Dismiss
+    // MARK: - Timers
 
-    private func startAutoDismissTimer() {
-        autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(30))
+    private func startAutoConfirmTimer() {
+        autoConfirmTask = Task {
+            try? await Task.sleep(for: .seconds(20))
             if !Task.isCancelled {
                 await MainActor.run {
-                    onDismiss()
+                    onConfirm()
                 }
             }
         }
+    }
+
+    private func startCountdown() {
+        countdownTask = Task {
+            while !Task.isCancelled && secondsRemaining > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        secondsRemaining -= 1
+                    }
+                }
+            }
+        }
+    }
+
+    private func cancelTimers() {
+        autoConfirmTask?.cancel()
+        countdownTask?.cancel()
     }
 }
 

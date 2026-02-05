@@ -766,7 +766,9 @@ enum L10n {
     enum EventConfirmation {
         static let dismiss = String(localized: "eventConfirmation.dismiss")
         static let confirm = String(localized: "eventConfirmation.confirm")
-        static let autoDismiss = String(localized: "eventConfirmation.autoDismiss")
+        static func autoConfirm(_ seconds: Int) -> String {
+            String(format: String(localized: "eventConfirmation.autoConfirm"), seconds)
+        }
     }
 
     // MARK: - Hour Meter

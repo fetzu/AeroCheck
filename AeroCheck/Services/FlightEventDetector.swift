@@ -16,7 +16,21 @@ struct DetectedFlightEvent: Identifiable {
     let message: String
 }
 
-/// Detects go-arounds and touch-and-goes during flight using GPS data and airport proximity
+/// Internal state for the detection state machine
+private enum DetectorState {
+    case idle
+    case airportZone
+    case lowApproach
+    case touchdown
+}
+
+/// Detects go-arounds and touch-and-goes during flight using GPS data and airport proximity.
+///
+/// Uses a finite state machine with four states:
+/// - **idle**: Not near any airport
+/// - **airportZone**: Within 2 NM of airport and below 500 ft AGL
+/// - **lowApproach**: Within 1 NM and below 100 ft AGL (go-around detection zone)
+/// - **touchdown**: Speed dropped below 40 kts near airport (touch-and-go detection zone)
 @MainActor
 class FlightEventDetector: ObservableObject {
     // MARK: - Published Properties
@@ -27,57 +41,59 @@ class FlightEventDetector: ObservableObject {
     /// Pending touch-and-go event awaiting user confirmation
     @Published var pendingTouchAndGo: DetectedFlightEvent?
 
-    // MARK: - Detection State
+    // MARK: - State Machine
 
-    /// Whether the aircraft is currently on approach
-    private var isApproaching = false
+    private var state: DetectorState = .idle
+    private var stateAirport: Airport?
+    private var stateEntryTime: Date?
 
-    /// The airport being approached
-    private var approachAirport: Airport?
+    // MARK: - Speed Tracking
 
-    /// Minimum speed recorded during approach (m/s)
-    private var minSpeedDuringApproach: Double = .infinity
+    /// Speed history for smoothing (last 5 readings)
+    private var speedHistory: [(timestamp: Date, speedKts: Double)] = []
 
-    /// Whether touchdown has been detected (speed dropped significantly)
-    private var touchdownDetected = false
+    /// Minimum speed recorded during low approach (knots)
+    private var minSpeedInLowApproach: Double = .infinity
 
-    /// Time when ground roll started (stable low speed after touchdown)
-    private var groundRollStartTime: Date?
+    /// Minimum speed recorded during touchdown (knots)
+    private var minSpeedInTouchdown: Double = .infinity
 
-    /// Previous altitude readings for trend detection
-    private var altitudeHistory: [(timestamp: Date, altitude: Double)] = []
+    /// Number of GPS readings below touchdown speed threshold
+    private var touchdownSpeedReadings: Int = 0
 
-    /// Previous distance to approach airport
-    private var previousDistanceToAirport: Double = .infinity
+    /// Time when touchdown state was entered
+    private var touchdownEntryTime: Date?
 
-    /// Whether we're tracking for a potential go-around
-    private var trackingGoAround = false
+    // MARK: - Cooldown
 
-    /// Whether we're tracking for a potential touch-and-go
-    private var trackingTouchAndGo = false
+    /// Timestamp of last detected event (for cooldown)
+    private var lastEventTime: Date?
 
     // MARK: - Detection Thresholds
 
-    /// Maximum distance from airport to consider as approach (nautical miles)
-    private let approachDistanceNm: Double = 3.0
+    // Airport zone entry/exit (with hysteresis to prevent oscillation)
+    private let airportZoneEntryDistanceNm: Double = 2.0
+    private let airportZoneExitDistanceNm: Double = 2.5
+    private let airportZoneEntryAltAglFt: Double = 500.0
+    private let airportZoneExitAltAglFt: Double = 600.0
 
-    /// Maximum altitude AGL to consider as approach (feet)
-    private let approachAltitudeFt: Double = 2000.0
+    // Low approach zone entry/exit (with hysteresis)
+    private let lowApproachEntryDistanceNm: Double = 1.0
+    private let lowApproachExitDistanceNm: Double = 1.5
+    private let lowApproachEntryAltAglFt: Double = 100.0
+    private let lowApproachExitAltAglFt: Double = 150.0
 
-    /// Speed threshold for touchdown detection (knots)
-    private let touchdownSpeedKts: Double = 50.0
+    // Speed thresholds (calibrated from real flight data)
+    private let touchdownSpeedKts: Double = 40.0         // Below this = on/near ground
+    private let goAroundMinSpeedKts: Double = 25.0       // If never below this in low approach = go-around
+    private let touchAndGoAccelSpeedKts: Double = 35.0   // Acceleration back above this after touchdown = T&G
+    private let minTouchdownReadings: Int = 1            // At least 1 GPS reading below 40 kts (~5-7 sec)
 
-    /// Minimum speed that indicates no touchdown occurred (knots) - go-around indicator
-    private let noTouchdownSpeedKts: Double = 30.0
+    // Cooldown between events
+    private let eventCooldownSeconds: TimeInterval = 45.0
 
-    /// Speed threshold for takeoff after touch-and-go (knots)
-    private let takeoffSpeedKts: Double = 60.0
-
-    /// Minimum ground roll duration before acceleration indicates touch-and-go (seconds)
-    private let minGroundRollDuration: TimeInterval = 5.0
-
-    /// Altitude increase that indicates climb after go-around (meters)
-    private let climbAltitudeThreshold: Double = 30.0 // ~100 feet
+    // Touchdown timeout (full stop detection handled elsewhere)
+    private let touchdownTimeoutSeconds: TimeInterval = 120.0
 
     // MARK: - Conversion Constants
 
@@ -92,88 +108,52 @@ class FlightEventDetector: ObservableObject {
     ///   - location: Current GPS location
     ///   - nearbyAirports: Airports near the current position (from AirportDataService)
     func processLocation(_ location: CLLocation, nearbyAirports: [Airport]) {
-        let speedKts = location.speed * metersPerSecondToKnots
-        let altitudeM = location.altitude
-
-        // Update altitude history (keep last 10 readings for trend detection)
+        let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
         let now = Date()
-        altitudeHistory.append((timestamp: now, altitude: altitudeM))
-        if altitudeHistory.count > 10 {
-            altitudeHistory.removeFirst()
+
+        // Update speed history (keep last 5 readings)
+        speedHistory.append((timestamp: now, speedKts: rawSpeedKts))
+        if speedHistory.count > 5 {
+            speedHistory.removeFirst()
         }
 
-        // Find nearest airport within approach distance
-        let nearestAirport = nearbyAirports.first
-        let distanceToAirport: Double
-        if let airport = nearestAirport {
-            let airportLocation = CLLocation(latitude: airport.latitude, longitude: airport.longitude)
-            distanceToAirport = location.distance(from: airportLocation) / nauticalMilesToMeters
-        } else {
-            distanceToAirport = .infinity
+        let speedKts = smoothedSpeedKts()
+
+        // Check cooldown - skip detection if too soon after last event
+        if let lastEvent = lastEventTime, now.timeIntervalSince(lastEvent) < eventCooldownSeconds {
+            return
         }
 
-        // Calculate altitude AGL (approximate - using airport elevation if available)
-        let fieldElevationM = Double(nearestAirport?.elevation ?? 0) * feetToMeters
-        let altitudeAglM = altitudeM - fieldElevationM
-        let altitudeAglFt = altitudeAglM / feetToMeters
-
-        // Detect approach phase
-        let wasApproaching = isApproaching
-        if distanceToAirport <= approachDistanceNm && altitudeAglFt < approachAltitudeFt && isDescending() {
-            if !isApproaching {
-                // Starting new approach
-                startApproach(airport: nearestAirport)
-            }
-            isApproaching = true
-            approachAirport = nearestAirport
-
-            // Track minimum speed during approach
-            if speedKts < minSpeedDuringApproach {
-                minSpeedDuringApproach = speedKts
-            }
-
-            // Check for touchdown (speed drops below threshold)
-            if speedKts < touchdownSpeedKts && !touchdownDetected {
-                touchdownDetected = true
-                groundRollStartTime = now
-                print("[FlightEventDetector] Touchdown detected at \(speedKts) kts")
-            }
-
-            // Check for ground roll (stable speed after touchdown)
-            if touchdownDetected && speedKts < touchdownSpeedKts && speedKts > 10 {
-                // Still in ground roll
-                if groundRollStartTime == nil {
-                    groundRollStartTime = now
-                }
-            }
-
-            previousDistanceToAirport = distanceToAirport
-        } else if wasApproaching {
-            // Just exited approach phase
-            evaluateApproachOutcome(currentSpeed: speedKts, currentAltitudeAgl: altitudeAglFt, distanceToAirport: distanceToAirport)
+        // Find nearest airport and calculate distance + AGL
+        guard let nearestAirport = nearbyAirports.first else {
+            if state != .idle { transitionToIdle() }
+            return
         }
 
-        // Touch-and-go detection: acceleration after ground roll
-        if touchdownDetected, let rollStart = groundRollStartTime {
-            let rollDuration = now.timeIntervalSince(rollStart)
-            if rollDuration >= minGroundRollDuration && speedKts > takeoffSpeedKts && isClimbing() {
-                // Touch-and-go detected!
-                detectTouchAndGo()
-            }
+        let airportLocation = CLLocation(latitude: nearestAirport.latitude, longitude: nearestAirport.longitude)
+        let distanceNm = location.distance(from: airportLocation) / nauticalMilesToMeters
+        let fieldElevationM = Double(nearestAirport.elevation ?? 0) * feetToMeters
+        let altAglM = location.altitude - fieldElevationM
+        let altAglFt = altAglM / feetToMeters
+
+        // State machine dispatch
+        switch state {
+        case .idle:
+            handleIdle(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
+        case .airportZone:
+            handleAirportZone(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
+        case .lowApproach:
+            handleLowApproach(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
+        case .touchdown:
+            handleTouchdown(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
         }
     }
 
     /// Reset all detection state (call when flight ends)
     func reset() {
-        isApproaching = false
-        approachAirport = nil
-        minSpeedDuringApproach = .infinity
-        touchdownDetected = false
-        groundRollStartTime = nil
-        altitudeHistory = []
-        previousDistanceToAirport = .infinity
-        trackingGoAround = false
-        trackingTouchAndGo = false
+        transitionToIdle()
+        speedHistory = []
+        lastEventTime = nil
         pendingGoAround = nil
         pendingTouchAndGo = nil
     }
@@ -181,115 +161,172 @@ class FlightEventDetector: ObservableObject {
     /// Dismiss pending go-around without recording
     func dismissGoAround() {
         pendingGoAround = nil
-        resetApproachState()
     }
 
     /// Dismiss pending touch-and-go without recording
     func dismissTouchAndGo() {
         pendingTouchAndGo = nil
-        resetApproachState()
     }
 
-    // MARK: - Private Methods
+    // MARK: - State Handlers
 
-    private func startApproach(airport: Airport?) {
-        minSpeedDuringApproach = .infinity
-        touchdownDetected = false
-        groundRollStartTime = nil
-        trackingGoAround = false
-        trackingTouchAndGo = false
-        print("[FlightEventDetector] Approach started to \(airport?.ident ?? "unknown")")
+    private func handleIdle(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
+        if distanceNm <= airportZoneEntryDistanceNm && altAglFt < airportZoneEntryAltAglFt {
+            state = .airportZone
+            stateAirport = airport
+            stateEntryTime = now
+            print("[FlightEventDetector] Entered airport zone for \(airport.ident) (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
+        }
     }
 
-    private func resetApproachState() {
-        isApproaching = false
-        approachAirport = nil
-        minSpeedDuringApproach = .infinity
-        touchdownDetected = false
-        groundRollStartTime = nil
-        trackingGoAround = false
-        trackingTouchAndGo = false
-    }
-
-    private func evaluateApproachOutcome(currentSpeed: Double, currentAltitudeAgl: Double, distanceToAirport: Double) {
-        // Check if this was a go-around (never touched down and climbing away)
-        if minSpeedDuringApproach > noTouchdownSpeedKts && isClimbing() && distanceToAirport > previousDistanceToAirport {
-            detectGoAround()
+    private func handleAirportZone(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
+        // Check for exit (with hysteresis)
+        if distanceNm > airportZoneExitDistanceNm || altAglFt > airportZoneExitAltAglFt {
+            print("[FlightEventDetector] Exited airport zone (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
+            transitionToIdle()
+            return
         }
 
-        // If we had a touchdown but didn't detect touch-and-go, it might be a full stop
-        // (handled elsewhere in the app flow)
+        // Check for descent into low approach zone
+        if distanceNm <= lowApproachEntryDistanceNm && altAglFt < lowApproachEntryAltAglFt {
+            state = .lowApproach
+            stateEntryTime = now
+            minSpeedInLowApproach = speedKts
+            print("[FlightEventDetector] Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
+            return
+        }
 
-        resetApproachState()
+        // Speed-based fallback: detect touchdown even if altitude AGL is inaccurate
+        // (GPS altitude can have significant error, but speed is reliable)
+        if speedKts < touchdownSpeedKts && distanceNm <= lowApproachEntryDistanceNm {
+            state = .touchdown
+            stateEntryTime = now
+            touchdownEntryTime = now
+            minSpeedInTouchdown = speedKts
+            touchdownSpeedReadings = 1
+            print("[FlightEventDetector] Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
+        }
     }
 
-    private func detectGoAround() {
-        guard pendingGoAround == nil else { return } // Don't overwrite existing pending event
+    private func handleLowApproach(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
+        // Track minimum speed
+        minSpeedInLowApproach = min(minSpeedInLowApproach, speedKts)
+
+        // Check for touchdown (speed drops below threshold)
+        if speedKts < touchdownSpeedKts {
+            state = .touchdown
+            stateEntryTime = now
+            touchdownEntryTime = now
+            minSpeedInTouchdown = speedKts
+            touchdownSpeedReadings = 1
+            print("[FlightEventDetector] Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
+            return
+        }
+
+        // Check for go-around: exiting low approach zone without touching down
+        // AND minimum speed stayed above go-around threshold (never slowed to landing speed)
+        if distanceNm > lowApproachExitDistanceNm || altAglFt > lowApproachExitAltAglFt {
+            if minSpeedInLowApproach > goAroundMinSpeedKts {
+                emitGoAround(airport: stateAirport)
+            }
+            // Transition back to airport zone if still within it, otherwise idle
+            if distanceNm <= airportZoneExitDistanceNm && altAglFt < airportZoneExitAltAglFt {
+                state = .airportZone
+                stateEntryTime = now
+            } else {
+                transitionToIdle()
+            }
+        }
+    }
+
+    private func handleTouchdown(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
+        minSpeedInTouchdown = min(minSpeedInTouchdown, speedKts)
+
+        // Count readings below touchdown speed
+        if speedKts < touchdownSpeedKts {
+            touchdownSpeedReadings += 1
+        }
+
+        // Check for touch-and-go: speed increases back above acceleration threshold
+        // after having at least minTouchdownReadings below touchdownSpeedKts
+        if speedKts >= touchAndGoAccelSpeedKts && touchdownSpeedReadings >= minTouchdownReadings {
+            emitTouchAndGo(airport: stateAirport)
+            // Transition back to airport zone (aircraft will likely do another circuit)
+            state = .airportZone
+            stateEntryTime = now
+            touchdownEntryTime = nil
+            touchdownSpeedReadings = 0
+            minSpeedInTouchdown = .infinity
+            return
+        }
+
+        // Check for exit from airport zone entirely
+        if distanceNm > airportZoneExitDistanceNm {
+            transitionToIdle()
+            return
+        }
+
+        // Safety timeout: if in touchdown state for too long, it's likely a full stop
+        // (full stop landing is handled by AppState separately)
+        if let entry = touchdownEntryTime, now.timeIntervalSince(entry) > touchdownTimeoutSeconds {
+            print("[FlightEventDetector] Touchdown timeout - likely full stop")
+            transitionToIdle()
+        }
+    }
+
+    // MARK: - Speed Smoothing
+
+    /// Returns smoothed speed (average of last 3 readings) to reduce GPS noise
+    private func smoothedSpeedKts() -> Double {
+        let count = min(3, speedHistory.count)
+        guard count > 0 else { return 0 }
+        let recent = speedHistory.suffix(count)
+        return recent.map { $0.speedKts }.reduce(0, +) / Double(count)
+    }
+
+    // MARK: - Event Emission
+
+    private func emitGoAround(airport: Airport?) {
+        guard pendingGoAround == nil else { return }
 
         let message: String
-        if let airport = approachAirport {
+        if let airport = airport {
             message = String(localized: "Go-around detected at \(airport.name)")
         } else {
             message = String(localized: "Go-around detected")
         }
 
-        let event = DetectedFlightEvent(
-            type: .goAround,
-            timestamp: Date(),
-            airport: approachAirport,
-            message: message
-        )
+        let event = DetectedFlightEvent(type: .goAround, timestamp: Date(), airport: airport, message: message)
         pendingGoAround = event
-        print("[FlightEventDetector] Go-around detected: \(message)")
+        lastEventTime = Date()
+        print("[FlightEventDetector] GO-AROUND: \(message)")
     }
 
-    private func detectTouchAndGo() {
-        guard pendingTouchAndGo == nil else { return } // Don't overwrite existing pending event
+    private func emitTouchAndGo(airport: Airport?) {
+        guard pendingTouchAndGo == nil else { return }
 
         let message: String
-        if let airport = approachAirport {
+        if let airport = airport {
             message = String(localized: "Touch-and-go detected at \(airport.name)")
         } else {
             message = String(localized: "Touch-and-go detected")
         }
 
-        let event = DetectedFlightEvent(
-            type: .touchAndGo,
-            timestamp: Date(),
-            airport: approachAirport,
-            message: message
-        )
+        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: airport, message: message)
         pendingTouchAndGo = event
-        print("[FlightEventDetector] Touch-and-go detected: \(message)")
-
-        // Reset approach state after detecting touch-and-go
-        touchdownDetected = false
-        groundRollStartTime = nil
+        lastEventTime = Date()
+        print("[FlightEventDetector] TOUCH-AND-GO: \(message)")
     }
 
-    /// Check if aircraft is descending based on altitude history
-    private func isDescending() -> Bool {
-        guard altitudeHistory.count >= 3 else { return false }
+    // MARK: - State Transitions
 
-        let recent = altitudeHistory.suffix(3)
-        let altitudes = recent.map { $0.altitude }
-
-        // Check if generally descending (allowing for small fluctuations)
-        let first = altitudes.first ?? 0
-        let last = altitudes.last ?? 0
-        return last < first - 5 // At least 5 meters lower
-    }
-
-    /// Check if aircraft is climbing based on altitude history
-    private func isClimbing() -> Bool {
-        guard altitudeHistory.count >= 3 else { return false }
-
-        let recent = altitudeHistory.suffix(3)
-        let altitudes = recent.map { $0.altitude }
-
-        // Check if generally climbing
-        let first = altitudes.first ?? 0
-        let last = altitudes.last ?? 0
-        return last > first + climbAltitudeThreshold
+    private func transitionToIdle() {
+        state = .idle
+        stateAirport = nil
+        stateEntryTime = nil
+        minSpeedInLowApproach = .infinity
+        minSpeedInTouchdown = .infinity
+        touchdownEntryTime = nil
+        touchdownSpeedReadings = 0
     }
 }

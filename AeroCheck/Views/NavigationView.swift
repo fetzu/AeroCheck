@@ -424,23 +424,6 @@ struct NavigationMapView: View {
                 // Top bar with close button and layer picker
                 topBar
 
-                // "Next Check" indicator when flight is active (iPad)
-                if appState.isFlightActive {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 12))
-                        Text("Next: \(appState.currentPhase.title)")
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundColor(.aviationGold)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
-                }
-
                 Spacer()
 
                 // Bottom controls with scale bar
@@ -496,23 +479,6 @@ struct NavigationMapView: View {
                 compactTopBar
                     .padding(.horizontal, 12)
                     .padding(.top, topSafeArea + (topSafeArea > 50 ? 8 : 4)) // Account for Dynamic Island/notch
-
-                // "Next Check" indicator when flight is active
-                if appState.isFlightActive {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 10))
-                        Text("Next: \(appState.currentPhase.title)")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(.aviationGold)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
-                }
 
                 Spacer()
             }
@@ -614,46 +580,65 @@ struct NavigationMapView: View {
             Spacer()
 
             // Compact time/speed/altitude/heading display
-            HStack(spacing: 6) {
-                // Time
-                Text(formattedTime)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.primaryText)
-                    .id(timeDisplayId)
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    // Time
+                    Text(formattedTime)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .id(timeDisplayId)
 
-                Rectangle()
-                    .fill(Color.dimText)
-                    .frame(width: 1, height: 16)
+                    Rectangle()
+                        .fill(Color.dimText)
+                        .frame(width: 1, height: 16)
 
-                // Speed
-                HStack(spacing: 1) {
-                    Text("\(Int(locationManager.currentSpeedKnots))")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    Text("kt")
-                        .font(.system(size: 8))
+                    // Speed
+                    HStack(spacing: 1) {
+                        Text("\(Int(locationManager.currentSpeedKnots))")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text("kt")
+                            .font(.system(size: 8))
+                    }
+                    .foregroundColor(speedColor)
+
+                    // Altitude
+                    HStack(spacing: 1) {
+                        Text("\(Int(locationManager.currentAltitudeFeet))")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text("ft")
+                            .font(.system(size: 8))
+                    }
+                    .foregroundColor(.altimeterBlue)
+
+                    // Heading
+                    HStack(spacing: 1) {
+                        Text(String(format: "%03d", currentHeading))
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text("°")
+                            .font(.system(size: 8))
+                    }
+                    .foregroundColor(.aviationGold)
                 }
-                .foregroundColor(speedColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
 
-                // Altitude
-                HStack(spacing: 1) {
-                    Text("\(Int(locationManager.currentAltitudeFeet))")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    Text("ft")
-                        .font(.system(size: 8))
-                }
-                .foregroundColor(.altimeterBlue)
+                // "Next Check" line integrated in the info box
+                if appState.isFlightActive {
+                    Rectangle()
+                        .fill(Color.dimText.opacity(0.3))
+                        .frame(height: 0.5)
 
-                // Heading
-                HStack(spacing: 1) {
-                    Text(String(format: "%03d", currentHeading))
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    Text("°")
-                        .font(.system(size: 8))
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 9))
+                        Text("Next: \(appState.currentPhase.title)")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(.aviationGold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
                 }
-                .foregroundColor(.aviationGold)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.panelBackground.opacity(0.9))
@@ -766,12 +751,13 @@ struct NavigationMapView: View {
                         if mapOrientationMode == .northUp {
                             CompassView(heading: mapState.cameraHeading)
                                 .scaleEffect(0.8)
+                                .frame(width: 40, height: 40)
                         } else {
                             Image(systemName: "location.north.line.fill")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.aviationGold)
                                 .rotationEffect(.degrees(-mapState.cameraHeading))
-                                .frame(width: 36, height: 36)
+                                .frame(width: 40, height: 40)
                                 .background(
                                     Circle()
                                         .fill(Color.panelBackground.opacity(0.9))
@@ -1502,92 +1488,130 @@ struct NavigationMapView: View {
             // On iPhone (compact), use stacked layout; on iPad, use horizontal
             if isCompactWidth {
                 // Stacked layout for iPhone
-                VStack(spacing: 4) {
-                    // Time on first row
-                    Text(formattedTime)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                        .id(timeDisplayId)
+                VStack(spacing: 0) {
+                    VStack(spacing: 4) {
+                        // Time on first row
+                        Text(formattedTime)
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .id(timeDisplayId)
 
-                    // Speed, Altitude, Heading on second row
-                    HStack(spacing: 10) {
-                        // Speed (color-coded based on target)
-                        HStack(spacing: 2) {
-                            Text("\(Int(locationManager.currentSpeedKnots))")
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            Text("kt")
-                                .font(.system(size: 10, weight: .medium))
+                        // Speed, Altitude, Heading on second row
+                        HStack(spacing: 10) {
+                            // Speed (color-coded based on target)
+                            HStack(spacing: 2) {
+                                Text("\(Int(locationManager.currentSpeedKnots))")
+                                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                Text("kt")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(speedColor)
+
+                            // Altitude
+                            HStack(spacing: 2) {
+                                Text("\(Int(locationManager.currentAltitudeFeet))")
+                                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                Text("ft")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(.altimeterBlue)
+
+                            // Heading
+                            HStack(spacing: 2) {
+                                Text(String(format: "%03d", currentHeading))
+                                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                Text("°")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(.aviationGold)
                         }
-                        .foregroundColor(speedColor)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
 
-                        // Altitude
-                        HStack(spacing: 2) {
-                            Text("\(Int(locationManager.currentAltitudeFeet))")
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            Text("ft")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .foregroundColor(.altimeterBlue)
+                    // "Next Check" integrated in info box
+                    if appState.isFlightActive {
+                        Rectangle()
+                            .fill(Color.dimText.opacity(0.3))
+                            .frame(height: 0.5)
 
-                        // Heading
-                        HStack(spacing: 2) {
-                            Text(String(format: "%03d", currentHeading))
-                                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            Text("°")
-                                .font(.system(size: 10, weight: .medium))
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 10))
+                            Text("Next: \(appState.currentPhase.title)")
+                                .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundColor(.aviationGold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.panelBackground.opacity(0.9))
                 )
             } else {
                 // Horizontal layout for iPad
-                HStack(spacing: 16) {
-                    // Current time - use id to force refresh
-                    Text(formattedTime)
-                        .font(.system(size: 16, weight: .medium, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                        .id(timeDisplayId)
+                VStack(spacing: 0) {
+                    HStack(spacing: 16) {
+                        // Current time - use id to force refresh
+                        Text(formattedTime)
+                            .font(.system(size: 16, weight: .medium, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .id(timeDisplayId)
 
-                    // Divider
-                    Rectangle()
-                        .fill(Color.dimText)
-                        .frame(width: 1, height: 20)
+                        // Divider
+                        Rectangle()
+                            .fill(Color.dimText)
+                            .frame(width: 1, height: 20)
 
-                    // Speed (color-coded based on target)
-                    HStack(spacing: 4) {
-                        Text("\(Int(locationManager.currentSpeedKnots))")
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        Text("kt")
-                            .font(.system(size: 12, weight: .medium))
+                        // Speed (color-coded based on target)
+                        HStack(spacing: 4) {
+                            Text("\(Int(locationManager.currentSpeedKnots))")
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                            Text("kt")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(speedColor)
+
+                        // Altitude
+                        HStack(spacing: 4) {
+                            Text("\(Int(locationManager.currentAltitudeFeet))")
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                            Text("ft")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.altimeterBlue)
+
+                        // Heading
+                        HStack(spacing: 4) {
+                            Text(String(format: "%03d", currentHeading))
+                                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                            Text("°")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.aviationGold)
                     }
-                    .foregroundColor(speedColor)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
 
-                    // Altitude
-                    HStack(spacing: 4) {
-                        Text("\(Int(locationManager.currentAltitudeFeet))")
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        Text("ft")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(.altimeterBlue)
+                    // "Next Check" integrated in info box
+                    if appState.isFlightActive {
+                        Rectangle()
+                            .fill(Color.dimText.opacity(0.3))
+                            .frame(height: 0.5)
 
-                    // Heading
-                    HStack(spacing: 4) {
-                        Text(String(format: "%03d", currentHeading))
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        Text("°")
-                            .font(.system(size: 12, weight: .medium))
+                        HStack(spacing: 5) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 11))
+                            Text("Next: \(appState.currentPhase.title)")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.aviationGold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
                     }
-                    .foregroundColor(.aviationGold)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.panelBackground.opacity(0.9))

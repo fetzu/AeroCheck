@@ -1644,57 +1644,18 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 // MARK: - Image Share Sheet
 
-/// A share sheet specifically for UIImage that properly registers as an image
-/// This ensures iOS recognizes the content as an image for Save to Photos and other image-specific actions
+/// A share sheet specifically for UIImage that ensures "Save Image" appears
+/// by passing the UIImage directly to UIActivityViewController
 struct ImageShareSheet: UIViewControllerRepresentable {
     let image: UIImage
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        // Create a ShareableImage item source for proper JPEG sharing with Save to Photos support
-        let shareableImage = ShareableImage(image: image)
-        let controller = UIActivityViewController(activityItems: [shareableImage], applicationActivities: nil)
+        // Pass UIImage directly — this is the most reliable way to get "Save Image" to appear
+        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
         return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// MARK: - Shareable Image for Activity Controller
-
-/// A UIActivityItemProvider that shares images as JPEG data for smaller file sizes
-/// while still supporting Save to Photos and other image-specific share actions.
-/// NOTE: UIActivityItemProvider callbacks run on background threads — do NOT use @MainActor.
-class ShareableImage: UIActivityItemProvider, @unchecked Sendable {
-    private let _image: UIImage
-
-    init(image: UIImage) {
-        self._image = image
-        // Use the image as placeholder for quick preview
-        super.init(placeholderItem: image)
-    }
-
-    override var item: Any {
-        // Return the UIImage directly so iOS recognizes it for "Save Image"
-        return _image
-    }
-
-    override func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "public.jpeg"
-    }
-
-    override func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        // For file-based activities (AirDrop, Files, etc.), provide JPEG data as a file
-        if activityType == .airDrop || activityType == .copyToPasteboard {
-            if let jpegData = _image.jpegData(compressionQuality: 0.85) {
-                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("AeroCheck_Flight.jpg")
-                try? jpegData.write(to: tempURL)
-                return tempURL
-            }
-        }
-
-        // For Save to Photos and other activities, return the image directly
-        return _image
-    }
 }
 
 // MARK: - GPX File for Sharing

@@ -878,6 +878,10 @@ struct FlightPlanEditorView: View {
 
     private func recalculateRoute() {
         var updatedPlan = flightPlan
+        // Clear ATO fields when recalculating
+        for i in updatedPlan.waypoints.indices {
+            updatedPlan.waypoints[i].actualTimeOver = nil
+        }
         updatedPlan.calculateRouteData()
         flightPlan = updatedPlan
         routeRefreshToken = UUID() // Force UI refresh

@@ -141,6 +141,12 @@ class SharedMapState: ObservableObject {
 
 // MARK: - Navigation Map View
 
+/// Map orientation mode
+enum MapOrientationMode {
+    case northUp    // Map always shows north at top
+    case trackUp    // Map rotates so heading is always up
+}
+
 /// Tab selection for compact navigation panel
 enum CompactNavigationTab: String, CaseIterable {
     case plan = "PLAN"
@@ -164,6 +170,8 @@ struct NavigationMapView: View {
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
     @State private var showRadioFrequencyWindow: Bool = false
+    @State private var mapOrientationMode: MapOrientationMode = .northUp
+    @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
     // Compact layout state (for small devices)
     @State private var showCompactPanel: Bool = false
@@ -360,9 +368,18 @@ struct NavigationMapView: View {
             refreshTrigger.toggle()
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
+            // Increment counter to force map view updates (ensures aircraft annotation moves)
+            locationUpdateCounter += 1
+
             if isFollowingAircraft, let location = newLocation {
                 updateMapStateForLocation(location)
             }
+
+            // In track-up mode, update heading to match course
+            if mapOrientationMode == .trackUp, let location = newLocation, location.course >= 0 {
+                mapState.cameraHeading = location.course
+            }
+
             // Auto-advance waypoint when within proximity threshold
             if appState.settings.enableFlightPlanning,
                let location = newLocation {
@@ -406,6 +423,23 @@ struct NavigationMapView: View {
             VStack {
                 // Top bar with close button and layer picker
                 topBar
+
+                // "Next Check" indicator when flight is active (iPad)
+                if appState.isFlightActive {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 12))
+                        Text("Next: \(appState.currentPhase.title)")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(.aviationGold)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+                }
 
                 Spacer()
 
@@ -463,6 +497,23 @@ struct NavigationMapView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, topSafeArea + (topSafeArea > 50 ? 8 : 4)) // Account for Dynamic Island/notch
 
+                // "Next Check" indicator when flight is active
+                if appState.isFlightActive {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 10))
+                        Text("Next: \(appState.currentPhase.title)")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.aviationGold)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
+                }
+
                 Spacer()
             }
 
@@ -513,9 +564,9 @@ struct NavigationMapView: View {
                     )
             }
 
-            // Flight Plan button (toggles bottom panel) - shown when flight plan is active
+            // Flight Plan button (toggles bottom panel) - shown when flight plan is active and not completed
             // Opens the flight planning view when tapped, toggles panel with long press or when panel visible
-            if hasActiveFlightPlan {
+            if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showCompactPanel.toggle()
@@ -710,13 +761,22 @@ struct NavigationMapView: View {
 
                 // Compass and center button row
                 HStack(spacing: 8) {
-                    // Compass button - only show when map is rotated
-                    if abs(mapState.cameraHeading) > 0.5 {
-                        Button(action: resetToNorth) {
+                    // Compass / orientation toggle button
+                    Button(action: toggleOrientation) {
+                        if mapOrientationMode == .northUp {
                             CompassView(heading: mapState.cameraHeading)
                                 .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "location.north.line.fill")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.aviationGold)
+                                .rotationEffect(.degrees(-mapState.cameraHeading))
+                                .frame(width: 36, height: 36)
+                                .background(
+                                    Circle()
+                                        .fill(Color.panelBackground.opacity(0.9))
+                                )
                         }
-                        .transition(.scale.combined(with: .opacity))
                     }
 
                     // Center on aircraft button
@@ -1365,6 +1425,7 @@ struct NavigationMapView: View {
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
+                locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 airportFrequencyLines: airportFrequencyLines
             )
@@ -1378,6 +1439,7 @@ struct NavigationMapView: View {
                 isFollowingAircraft: $isFollowingAircraft,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 currentWaypointIndex: currentWaypointIndex,
+                locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 airportFrequencyLines: airportFrequencyLines
             )
@@ -1637,14 +1699,35 @@ struct NavigationMapView: View {
                     }
                 }
 
-                // Compass and center button row
+                // Orientation toggle and center button row
                 HStack(spacing: 12) {
-                    // Compass button - only show when map is rotated
-                    if abs(mapState.cameraHeading) > 0.5 {
-                        Button(action: resetToNorth) {
-                            CompassView(heading: mapState.cameraHeading)
+                    // Orientation mode button (north-up / track-up toggle)
+                    Button(action: toggleOrientation) {
+                        if mapOrientationMode == .northUp {
+                            // Show compass when in north-up mode and map is rotated
+                            if abs(mapState.cameraHeading) > 0.5 {
+                                CompassView(heading: mapState.cameraHeading)
+                            } else {
+                                Image(systemName: "location.north.line.fill")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(.primaryText)
+                                    .frame(width: 50, height: 50)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.panelBackground.opacity(0.9))
+                                    )
+                            }
+                        } else {
+                            // Track-up mode indicator
+                            Image(systemName: "location.north.line")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.aviationGold)
+                                .frame(width: 50, height: 50)
+                                .background(
+                                    Circle()
+                                        .fill(Color.panelBackground.opacity(0.9))
+                                )
                         }
-                        .transition(.scale.combined(with: .opacity))
                     }
 
                     // Center on aircraft button
@@ -1677,13 +1760,25 @@ struct NavigationMapView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
         )
         mapState.updateFromRegion(newRegion)
-        mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        // Respect orientation mode: only set heading for track-up
+        if mapOrientationMode == .trackUp {
+            mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        }
         mapState.cameraDistance = 10000
     }
 
-    private func resetToNorth() {
-        // Request the map to reset heading to north
-        mapState.requestHeadingReset()
+    private func toggleOrientation() {
+        switch mapOrientationMode {
+        case .northUp:
+            mapOrientationMode = .trackUp
+            // Set heading to current course
+            if let location = locationManager.currentLocation, location.course >= 0 {
+                mapState.cameraHeading = location.course
+            }
+        case .trackUp:
+            mapOrientationMode = .northUp
+            mapState.requestHeadingReset()
+        }
     }
 }
 
@@ -2487,6 +2582,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     @Binding var isFollowingAircraft: Bool
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
+    var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
 
@@ -3109,6 +3205,7 @@ struct SwissMapView: UIViewRepresentable {
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
     var currentWaypointIndex: Int = 0  // Track separately to force updates
+    var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
 

@@ -11799,6 +11799,23 @@
         }
       }
     },
+    "flightPlan.overlay.departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Départ"
+          }
+        }
+      }
+    },
     "flightPlan.overlay.chrono": {
       "extractionState": "manual",
       "localizations": {

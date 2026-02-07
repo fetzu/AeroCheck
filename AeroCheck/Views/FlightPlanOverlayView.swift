@@ -284,6 +284,10 @@ struct FlightPlanOverlayView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.3)) { isExpanded = true }
+        }
     }
 
     // MARK: - Sections
@@ -479,28 +483,34 @@ struct FlightPlanOverlayView: View {
                 .id(refreshTrigger) // Force refresh every second
 
             // EET to next waypoint (planned EET from flight plan, in MM format)
-            // This shows the same value as in the Route table
+            // First waypoint is the departure airport — show "Departure" label, no EET
             if let plan = flightPlanManager.activeFlightPlan,
-               let nextWaypoint = plan.nextWaypoint,
-               let eet = nextWaypoint.estimatedElapsedTime {
-                let minutes = Int(eet / 60)
-                let extra = nextWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
-                HStack(spacing: 4) {
-                    Text("EET")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.dimText)
-                    if extra > 0 {
-                        Text(String(format: "%d + %d", minutes, extra))
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundColor(.aviationGold)
-                    } else {
-                        Text(String(format: "%d", minutes))
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundColor(.aviationGold)
-                    }
-                    Text("min")
-                        .font(.system(size: 10))
+               let nextWaypoint = plan.nextWaypoint {
+                if plan.currentWaypointIndex == 0 {
+                    // First waypoint = departure airport
+                    Text(L10n.FlightPlan.departure)
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
+                } else if let eet = nextWaypoint.estimatedElapsedTime {
+                    let minutes = Int(eet / 60)
+                    let extra = nextWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
+                    HStack(spacing: 4) {
+                        Text("EET")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        if extra > 0 {
+                            Text(String(format: "%d + %d", minutes, extra))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(.aviationGold)
+                        } else {
+                            Text(String(format: "%d", minutes))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(.aviationGold)
+                        }
+                        Text("min")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
+                    }
                 }
             }
 

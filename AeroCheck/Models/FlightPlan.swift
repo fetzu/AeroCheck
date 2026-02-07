@@ -421,10 +421,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         return trip + reserve + additional + extra
     }
 
-    /// Endurance in hours based on FOB and fuel flow
+    /// Endurance in hours based on FOB (or fuel required if FOB not set) and fuel flow
     var endurance: Double? {
-        guard let fob = fuelOnBoard, let flow = fuelFlow, flow > 0 else { return nil }
-        return fob / flow
+        guard let flow = fuelFlow, flow > 0 else { return nil }
+        // Use FOB if set, otherwise fall back to fuel required
+        let fuel = fuelOnBoard ?? fuelRequired
+        guard let fuelAmount = fuel, fuelAmount > 0 else { return nil }
+        return fuelAmount / flow
     }
 
     /// Formatted endurance string

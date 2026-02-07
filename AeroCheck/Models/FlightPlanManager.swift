@@ -298,13 +298,11 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
-    /// Advance to the next waypoint
+    /// Advance to the next waypoint (manual advance — does not auto-set ATO)
     func advanceToNextWaypoint() {
         guard var plan = activeFlightPlan else { return }
         guard plan.currentWaypointIndex < plan.waypoints.count else { return }
 
-        // Record ATO for current waypoint
-        plan.waypoints[plan.currentWaypointIndex].actualTimeOver = Date()
         plan.currentWaypointIndex += 1
 
         activeFlightPlan = plan
@@ -316,6 +314,30 @@ class FlightPlanManager: ObservableObject {
 
         saveFlightPlans()
         saveActiveFlightPlan()
+    }
+
+    /// Record ATO for the current waypoint (called on GPS proximity detection)
+    func recordATOForCurrentWaypoint() {
+        guard var plan = activeFlightPlan else { return }
+        guard plan.currentWaypointIndex < plan.waypoints.count else { return }
+        // Only record if not already set
+        guard plan.waypoints[plan.currentWaypointIndex].actualTimeOver == nil else { return }
+
+        plan.waypoints[plan.currentWaypointIndex].actualTimeOver = Date()
+        activeFlightPlan = plan
+
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
+            flightPlans[index] = plan
+        }
+
+        saveFlightPlans()
+        saveActiveFlightPlan()
+    }
+
+    /// Whether the active flight plan has been completed (all waypoints reached)
+    var isFlightPlanCompleted: Bool {
+        guard let plan = activeFlightPlan else { return false }
+        return plan.currentWaypointIndex >= plan.waypoints.count
     }
 
     /// Go back to the previous waypoint
@@ -352,9 +374,10 @@ class FlightPlanManager: ObservableObject {
         return distance <= threshold
     }
 
-    /// Auto-advance waypoint if within proximity
+    /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
     func autoAdvanceWaypointIfNeeded(currentLocation: CLLocation, threshold: Double) {
         if checkWaypointProximity(currentLocation: currentLocation, threshold: threshold) {
+            recordATOForCurrentWaypoint()
             advanceToNextWaypoint()
         }
     }

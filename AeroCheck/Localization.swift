@@ -891,6 +891,9 @@ enum L10n {
         static let setDepartureTimeToNow = String(localized: "flightPlan.overlay.setDepartureTimeToNow")
         static let departureTime = String(localized: "flightPlan.overlay.departureTime")
 
+        // Chrono label for departure waypoint
+        static let departure = String(localized: "flightPlan.overlay.departure")
+
         // Editor
         static let waypointNameHint = String(localized: "flightPlan.editor.waypointNameHint")
         static let altitudePlaceholder = String(localized: "flightPlan.editor.altitudePlaceholder")

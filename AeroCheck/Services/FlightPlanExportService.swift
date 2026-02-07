@@ -283,7 +283,7 @@ class FlightPlanExportService {
                 let wind = ""
                 let gs = isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "")
                 let eet = isFirstWaypoint ? "" : (waypoint.formattedEET ?? "")
-                let eto = waypoint.formattedETO ?? ""
+                let eto = isFirstWaypoint ? "" : (waypoint.formattedETO ?? "")
                 let ato = waypoint.formattedATO ?? ""
 
                 xml += """
@@ -606,7 +606,7 @@ class FlightPlanExportService {
                     "", // Wind
                     isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? ""),
                     isFirstWaypoint ? "" : (waypoint.formattedEET ?? ""),
-                    waypoint.formattedETO ?? "",
+                    isFirstWaypoint ? "" : (waypoint.formattedETO ?? ""),  // First waypoint: no ETO, only ATO
                     waypoint.formattedATO ?? "",
                     waypoint.remarks
                 ]

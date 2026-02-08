@@ -1058,12 +1058,10 @@ struct FlightDetailView: View {
                     colorScheme: appState.settings.shareCardColorScheme
                 )
                 let renderer = ImageRenderer(content: shareCard)
-                // Use 2.0 scale for better file size while maintaining quality
-                // Results in 2160x3840 image (4K) which is high quality but reasonable size
                 renderer.scale = 2.0
+                renderer.proposedSize = ProposedViewSize(width: 1080, height: 1920)
 
                 if let uiImage = renderer.uiImage {
-                    // Compress the image to JPEG for better file size (quality 0.85)
                     if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
                        let compressedImage = UIImage(data: jpegData) {
                         shareImage = compressedImage
@@ -1270,9 +1268,9 @@ struct FlightDetailView: View {
                 return CGPoint(x: px, y: py)
             }
 
-            // Draw polyline
+            // Draw polyline (thicker since Swiss tiles render at raw pixel resolution)
             context.setStrokeColor(UIColor(accentColor).cgColor)
-            context.setLineWidth(6)
+            context.setLineWidth(14)
             context.setLineCap(.round)
             context.setLineJoin(.round)
 
@@ -1287,11 +1285,11 @@ struct FlightDetailView: View {
 
             // Draw start marker
             if let firstCoord = coordinates.first {
-                self.drawMarker(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+                self.drawMarker(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 2.0)
             }
             // Draw end marker
             if let lastCoord = coordinates.last {
-                self.drawMarker(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+                self.drawMarker(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 2.0)
             }
         }
 
@@ -2382,7 +2380,7 @@ struct ShareCardCustomizationView: View {
                 .foregroundColor(.secondaryText)
                 .tracking(1.5)
 
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 ForEach(ShareCardColorScheme.allCases) { scheme in
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -2415,6 +2413,8 @@ struct ShareCardCustomizationView: View {
                             Text(scheme.displayName)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(selectedScheme == scheme ? .aviationGold : .secondaryText)
+                                .lineLimit(1)
+                                .fixedSize()
                         }
                     }
                 }
@@ -2557,19 +2557,32 @@ struct ShareCardCustomizationView: View {
         )
         let renderer = ImageRenderer(content: shareCard)
         renderer.scale = 2.0
+        // Propose explicit size to help ImageRenderer resolve the layout
+        renderer.proposedSize = ProposedViewSize(width: 1080, height: 1920)
 
-        guard let uiImage = renderer.uiImage else {
+        // ImageRenderer can return nil on first invocation for complex views.
+        // Retry up to 3 times with brief yields to let the rendering pipeline warm up.
+        var uiImage: UIImage?
+        for attempt in 0..<3 {
+            uiImage = renderer.uiImage
+            if uiImage != nil { break }
+            if attempt < 2 {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+            }
+        }
+
+        guard let renderedImage = uiImage else {
             isGeneratingShare = false
             return
         }
 
         // Compress to JPEG on a background thread to not block UI
         let finalImage: UIImage = await Task.detached(priority: .userInitiated) {
-            if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
+            if let jpegData = renderedImage.jpegData(compressionQuality: 0.85),
                let compressed = UIImage(data: jpegData) {
                 return compressed
             }
-            return uiImage
+            return renderedImage
         }.value
 
         isGeneratingShare = false
@@ -2797,7 +2810,7 @@ struct ShareCardCustomizationView: View {
             }
 
             context.setStrokeColor(UIColor(accentColor).cgColor)
-            context.setLineWidth(6)
+            context.setLineWidth(14)
             context.setLineCap(.round)
             context.setLineJoin(.round)
 
@@ -2811,10 +2824,10 @@ struct ShareCardCustomizationView: View {
             context.strokePath()
 
             if let firstCoord = coordinates.first {
-                drawMarkerStandalone(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+                drawMarkerStandalone(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 2.0)
             }
             if let lastCoord = coordinates.last {
-                drawMarkerStandalone(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+                drawMarkerStandalone(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 2.0)
             }
         }
     }
@@ -3412,42 +3425,97 @@ struct ShareCardAltitudeChart: View {
         return lowerBound...upperBound
     }
 
+    /// Interpolate terrain elevation at a given time
+    private func terrainElevation(at time: Date) -> Double? {
+        guard terrainData.count >= 2 else { return terrainData.first?.elevationFeet }
+        let t = time.timeIntervalSince1970
+
+        // Find surrounding terrain points
+        for i in 0..<(terrainData.count - 1) {
+            let t0 = terrainData[i].time.timeIntervalSince1970
+            let t1 = terrainData[i + 1].time.timeIntervalSince1970
+            if t >= t0 && t <= t1 {
+                let fraction = (t1 - t0) > 0 ? (t - t0) / (t1 - t0) : 0
+                let e0 = terrainData[i].elevationFeet
+                let e1 = terrainData[i + 1].elevationFeet
+                return e0 + fraction * (e1 - e0)
+            }
+        }
+
+        // Outside range — clamp to nearest
+        if t < terrainData.first!.time.timeIntervalSince1970 {
+            return terrainData.first!.elevationFeet
+        }
+        return terrainData.last!.elevationFeet
+    }
+
     var body: some View {
         if altitudeData.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
                 .font(.system(size: 18))
                 .foregroundColor(sparklineColor.opacity(0.4))
-        } else {
+        } else if !terrainData.isEmpty {
+            // Terrain mode: brown ground + blue sky gap between terrain and altitude
             Chart {
-                // Terrain fill (drawn first, behind everything)
-                if !terrainData.isEmpty {
-                    ForEach(terrainData, id: \.time) { point in
-                        AreaMark(
-                            x: .value("Time", point.time),
-                            yStart: .value("Baseline", altitudeRange.lowerBound),
-                            yEnd: .value("Terrain", point.elevationFeet)
+                // 1) Terrain fill: baseline → terrain elevation (brown)
+                ForEach(terrainData, id: \.time) { point in
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        yStart: .value("Baseline", altitudeRange.lowerBound),
+                        yEnd: .value("Terrain", point.elevationFeet)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Self.terrainColor.opacity(0.8), Self.terrainColor.opacity(0.5)],
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Self.terrainColor.opacity(0.7), Self.terrainColor.opacity(0.4)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    }
-
-                    // Terrain outline
-                    ForEach(terrainData, id: \.time) { point in
-                        LineMark(
-                            x: .value("Time", point.time),
-                            y: .value("Terrain", point.elevationFeet)
-                        )
-                        .foregroundStyle(Self.terrainColor.opacity(0.9))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                    }
+                    )
                 }
 
-                // Altitude area fill
+                // 2) Sky gap fill: terrain elevation → flight altitude (blue)
+                ForEach(altitudeData, id: \.time) { point in
+                    let groundElev = terrainElevation(at: point.time) ?? altitudeRange.lowerBound
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        yStart: .value("Ground", groundElev),
+                        yEnd: .value("Altitude", point.altitude)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [sparklineColor.opacity(0.35), sparklineColor.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+
+                // 3) Terrain outline
+                ForEach(terrainData, id: \.time) { point in
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("TerrainLine", point.elevationFeet)
+                    )
+                    .foregroundStyle(Self.terrainColor)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
+                }
+
+                // 4) Altitude line
+                ForEach(altitudeData, id: \.time) { point in
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("Altitude", point.altitude)
+                    )
+                    .foregroundStyle(sparklineColor.opacity(0.9))
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                }
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartYScale(domain: altitudeRange)
+        } else {
+            // No terrain: original style
+            Chart {
                 ForEach(altitudeData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
@@ -3463,7 +3531,6 @@ struct ShareCardAltitudeChart: View {
                     )
                 }
 
-                // Altitude line
                 ForEach(altitudeData, id: \.time) { point in
                     LineMark(
                         x: .value("Time", point.time),

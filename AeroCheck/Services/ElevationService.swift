@@ -254,6 +254,223 @@ actor ElevationService {
 
         return nil
     }
+
+    // MARK: - GPS Track Terrain Profile (for Share Card)
+
+    /// Fetch ground elevation along a recorded GPS track for terrain visualization.
+    /// Returns an array of (timestamp, ground elevation in meters) aligned to the GPS track timestamps.
+    /// Uses swisstopo for Swiss flights and Open-Meteo for flights elsewhere.
+    func fetchTrackTerrainProfile(
+        gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)],
+        targetSamples: Int = 80
+    ) async -> [(time: Date, elevationMeters: Double)] {
+        guard gpsTrack.count >= 2 else { return [] }
+
+        // Determine if flight is in Switzerland by checking first and last points
+        let firstCoord = gpsTrack.first!.coordinate
+        let lastCoord = gpsTrack.last!.coordinate
+        let flightIsSwiss = isInSwitzerland(firstCoord) && isInSwitzerland(lastCoord)
+
+        if flightIsSwiss {
+            return await fetchTrackTerrainViaSwisstopo(gpsTrack: gpsTrack, targetSamples: targetSamples)
+        } else {
+            return await fetchTrackTerrainViaOpenMeteo(gpsTrack: gpsTrack, targetSamples: targetSamples)
+        }
+    }
+
+    /// Check if a GPS track is eligible for terrain data
+    func isTerrainAvailable(for gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)]) -> Bool {
+        // Terrain is available everywhere — swisstopo for Swiss flights, Open-Meteo globally
+        return gpsTrack.count >= 2
+    }
+
+    // MARK: - Swisstopo Track Terrain (POST with multi-coordinate LineString)
+
+    /// Fetch terrain profile along a GPS track using swisstopo profile API via POST.
+    /// Sends a simplified version of the track as a multi-coordinate LineString.
+    private func fetchTrackTerrainViaSwisstopo(
+        gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)],
+        targetSamples: Int
+    ) async -> [(time: Date, elevationMeters: Double)] {
+        // Simplify the track: sample evenly to keep the LineString manageable
+        // Max ~200 coordinates in the geometry to stay well within the 5000 limit
+        let maxGeomPoints = min(200, gpsTrack.count)
+        let sampledTrack = strideSample(gpsTrack, count: maxGeomPoints)
+
+        // Convert sampled coordinates to LV95 for the LineString
+        let lv95Coords = sampledTrack.map { wgs84ToLV95($0.coordinate) }
+
+        // Build GeoJSON LineString with all sampled points
+        let coordStrings = lv95Coords.map { "[\($0.easting),\($0.northing)]" }
+        let geom = "{\"type\":\"LineString\",\"coordinates\":[\(coordStrings.joined(separator: ","))]}"
+
+        // Use POST to avoid URL length limits
+        guard let url = URL(string: "https://api3.geo.admin.ch/rest/services/profile.json") else { return [] }
+
+        // Request nb_points aligned with our target samples
+        let nbPoints = min(targetSamples, 500)
+        let body = "geom=\(geom)&sr=2056&nb_points=\(nbPoints)"
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body.data(using: .utf8)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...203).contains(httpResponse.statusCode) else {
+                print("[AéroCheck] Swisstopo profile POST failed: \(String(describing: (try? JSONSerialization.jsonObject(with: data))))")
+                return []
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+
+            // Parse distance-based elevation points
+            let profilePoints: [(dist: Double, elevation: Double)] = json.compactMap { point in
+                guard let dist = point["dist"] as? Double,
+                      let alts = point["alts"] as? [String: Any],
+                      let elevation = alts["COMB"] as? Double else { return nil }
+                return (dist: dist, elevation: elevation)
+            }
+
+            guard !profilePoints.isEmpty else { return [] }
+
+            // Map distance-based results back to timestamps
+            return mapProfileToTimestamps(profilePoints: profilePoints, gpsTrack: gpsTrack)
+        } catch {
+            print("[AéroCheck] Swisstopo track terrain error: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    // MARK: - Open-Meteo Track Terrain (batch coordinate queries)
+
+    /// Fetch terrain profile along a GPS track using the Open-Meteo Elevation API.
+    /// Batches coordinates into requests of up to 100 points each.
+    private func fetchTrackTerrainViaOpenMeteo(
+        gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)],
+        targetSamples: Int
+    ) async -> [(time: Date, elevationMeters: Double)] {
+        // Sample the track to the target number of points
+        let sampled = strideSample(gpsTrack, count: targetSamples)
+
+        // Open-Meteo accepts up to 100 coordinates per request
+        let batchSize = 100
+        let batches = stride(from: 0, to: sampled.count, by: batchSize).map {
+            Array(sampled[$0..<min($0 + batchSize, sampled.count)])
+        }
+
+        var allElevations: [Double] = []
+
+        for batch in batches {
+            let lats = batch.map { String(format: "%.5f", $0.coordinate.latitude) }.joined(separator: ",")
+            let lons = batch.map { String(format: "%.5f", $0.coordinate.longitude) }.joined(separator: ",")
+
+            guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else {
+                // Fill with zeros if URL fails
+                allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
+                continue
+            }
+
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
+                    continue
+                }
+
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let elevations = json["elevation"] as? [Double] {
+                    allElevations.append(contentsOf: elevations)
+                } else {
+                    allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
+                }
+            } catch {
+                print("[AéroCheck] Open-Meteo elevation error: \(error.localizedDescription)")
+                allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
+            }
+        }
+
+        // Pair elevations with timestamps from sampled points
+        guard allElevations.count == sampled.count else { return [] }
+
+        return zip(sampled, allElevations).map { (point, elevation) in
+            (time: point.timestamp, elevationMeters: elevation)
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// Evenly sample N points from an array, always including first and last
+    private func strideSample<T>(_ array: [T], count: Int) -> [T] {
+        guard array.count > count, count >= 2 else { return array }
+        var result: [T] = [array.first!]
+        let step = Double(array.count - 1) / Double(count - 1)
+        for i in 1..<(count - 1) {
+            let index = Int(round(Double(i) * step))
+            result.append(array[index])
+        }
+        result.append(array.last!)
+        return result
+    }
+
+    /// Map distance-based profile points back to GPS track timestamps.
+    /// Walks the track cumulatively to match each profile distance to the nearest timestamp.
+    private func mapProfileToTimestamps(
+        profilePoints: [(dist: Double, elevation: Double)],
+        gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)]
+    ) -> [(time: Date, elevationMeters: Double)] {
+        guard gpsTrack.count >= 2 else { return [] }
+
+        // Build cumulative distance array along the GPS track (in meters)
+        var cumulativeDistances: [Double] = [0]
+        for i in 1..<gpsTrack.count {
+            let prev = CLLocation(latitude: gpsTrack[i - 1].coordinate.latitude, longitude: gpsTrack[i - 1].coordinate.longitude)
+            let curr = CLLocation(latitude: gpsTrack[i].coordinate.latitude, longitude: gpsTrack[i].coordinate.longitude)
+            cumulativeDistances.append(cumulativeDistances.last! + prev.distance(from: curr))
+        }
+
+        let totalTrackDistance = cumulativeDistances.last!
+        let totalProfileDistance = profilePoints.last?.dist ?? 1
+
+        guard totalTrackDistance > 0, totalProfileDistance > 0 else { return [] }
+
+        var results: [(time: Date, elevationMeters: Double)] = []
+        var trackIndex = 0
+
+        for point in profilePoints {
+            // Scale profile distance to track distance (they may differ slightly)
+            let scaledDist = (point.dist / totalProfileDistance) * totalTrackDistance
+
+            // Advance the track index to find the closest position
+            while trackIndex < cumulativeDistances.count - 1 &&
+                  cumulativeDistances[trackIndex + 1] < scaledDist {
+                trackIndex += 1
+            }
+
+            // Interpolate timestamp between trackIndex and trackIndex+1
+            if trackIndex < gpsTrack.count - 1 {
+                let d0 = cumulativeDistances[trackIndex]
+                let d1 = cumulativeDistances[trackIndex + 1]
+                let segmentLength = d1 - d0
+                let fraction = segmentLength > 0 ? (scaledDist - d0) / segmentLength : 0
+
+                let t0 = gpsTrack[trackIndex].timestamp.timeIntervalSince1970
+                let t1 = gpsTrack[trackIndex + 1].timestamp.timeIntervalSince1970
+                let interpolatedTime = t0 + fraction * (t1 - t0)
+
+                results.append((time: Date(timeIntervalSince1970: interpolatedTime), elevationMeters: point.elevation))
+            } else {
+                results.append((time: gpsTrack.last!.timestamp, elevationMeters: point.elevation))
+            }
+        }
+
+        return results
+    }
 }
 
 // MARK: - Terrain Profile Data

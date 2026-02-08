@@ -658,17 +658,18 @@ struct FlightDetailView: View {
                 ImageShareSheet(image: image)
             }
         }
-        .sheet(isPresented: $showShareCustomization) {
+        .sheet(isPresented: $showShareCustomization, onDismiss: {
+            // Present share sheet after customization sheet fully dismisses
+            if shareImage != nil {
+                showShareSheet = true
+            }
+        }) {
             ShareCardCustomizationView(
                 flight: flight,
                 appState: appState,
                 onShare: { image in
-                    showShareCustomization = false
                     shareImage = image
-                    // Small delay to allow the sheet to dismiss before showing share sheet
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showShareSheet = true
-                    }
+                    showShareCustomization = false
                 }
             )
         }
@@ -1115,6 +1116,7 @@ struct FlightDetailView: View {
 
         // For Swiss layers, use WMTS tile compositing since MKMapSnapshotter doesn't support custom overlays
         if mapLayer.isSwissOnly, let layerId = mapLayer.swisstopoLayerIdentifier {
+            let pathColor = mapLayer.pathColorOverride ?? cardColorScheme.accentColor
             return await generateSwissLayerSnapshot(
                 layerIdentifier: layerId,
                 tileExtension: mapLayer.tileExtension,
@@ -1122,7 +1124,7 @@ struct FlightDetailView: View {
                 paddedRect: paddedRect,
                 coordinates: coordinates,
                 targetSize: CGSize(width: targetWidth, height: targetHeight),
-                accentColor: cardColorScheme.accentColor
+                accentColor: pathColor
             )
         }
 
@@ -2183,6 +2185,14 @@ enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Path color override for layers where the default accent (gold) isn't visible
+    var pathColorOverride: Color? {
+        switch self {
+        case .icao, .segelflugkarte: return Color(red: 0.9, green: 0.0, blue: 0.6) // Magenta
+        case .standard, .satellite, .swissimage: return nil
+        }
+    }
+
     /// Recommended zoom level for share card snapshots
     var snapshotZoomLevel: Int {
         switch self {
@@ -2207,9 +2217,14 @@ struct ShareCardCustomizationView: View {
 
     @State private var selectedScheme: ShareCardColorScheme
     @State private var selectedMapLayer: ShareCardMapLayer
+    @State private var showTerrain: Bool = false
+    @State private var terrainData: [(time: Date, elevationFeet: Double)] = []
+    @State private var isLoadingTerrain = false
     @State private var previewMapImage: UIImage?
     @State private var isLoadingMap = false
     @State private var isGeneratingShare = false
+
+    private let elevationService = ElevationService()
 
     init(flight: Flight, appState: AppState, onShare: @escaping (UIImage) -> Void) {
         self.flight = flight
@@ -2237,10 +2252,17 @@ struct ShareCardCustomizationView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
 
-                    // Color scheme dots
-                    colorSchemePicker
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
+                    // Color scheme dots + terrain toggle
+                    HStack {
+                        colorSchemePicker
+
+                        Spacer()
+
+                        // Terrain toggle
+                        terrainToggle
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
 
                     // Share button
                     shareButton
@@ -2269,6 +2291,11 @@ struct ShareCardCustomizationView: View {
                 Task { await loadMapPreview() }
             }
         }
+        .onChange(of: showTerrain) { _, newValue in
+            if newValue && terrainData.isEmpty {
+                Task { await loadTerrainData() }
+            }
+        }
     }
 
     // MARK: - Card Preview
@@ -2286,7 +2313,8 @@ struct ShareCardCustomizationView: View {
                     flight: flight,
                     mapImage: previewMapImage,
                     useUTC: appState.settings.alwaysUseUTC,
-                    colorScheme: selectedScheme
+                    colorScheme: selectedScheme,
+                    terrainData: showTerrain ? terrainData : []
                 )
                 .scaleEffect(previewWidth / 1080.0)
                 .frame(width: previewWidth, height: previewHeight)
@@ -2390,9 +2418,55 @@ struct ShareCardCustomizationView: View {
                         }
                     }
                 }
-
-                Spacer()
             }
+        }
+    }
+
+    // MARK: - Terrain Toggle
+
+    private var terrainToggle: some View {
+        VStack(alignment: .center, spacing: 8) {
+            Text("TERRAIN")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.secondaryText)
+                .tracking(1.5)
+
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showTerrain.toggle()
+                }
+            }) {
+                VStack(spacing: 6) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(showTerrain ? Color(red: 0.45, green: 0.32, blue: 0.18) : Color.cardBackground)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Group {
+                                    if isLoadingTerrain {
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "mountain.2.fill")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(showTerrain ? .white : .secondaryText)
+                                    }
+                                }
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(showTerrain ? Color(red: 0.45, green: 0.32, blue: 0.18) : Color.white.opacity(0.2), lineWidth: showTerrain ? 2.5 : 1)
+                            )
+                    }
+                    .frame(width: 44, height: 44)
+
+                    Text(isLoadingTerrain ? "..." : (showTerrain ? "On" : "Off"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(showTerrain ? Color(red: 0.65, green: 0.48, blue: 0.28) : .secondaryText)
+                }
+            }
+            .disabled(isLoadingTerrain)
         }
     }
 
@@ -2438,35 +2512,72 @@ struct ShareCardCustomizationView: View {
         }
     }
 
+    private func loadTerrainData() async {
+        isLoadingTerrain = true
+
+        let trackPoints = flight.gpsTrack.map { point in
+            (coordinate: point.coordinate, timestamp: point.timestamp)
+        }
+
+        let results = await elevationService.fetchTrackTerrainProfile(
+            gpsTrack: trackPoints,
+            targetSamples: 80
+        )
+
+        await MainActor.run {
+            // Convert meters to feet
+            terrainData = results.map { (time: $0.time, elevationFeet: $0.elevationMeters * 3.28084) }
+            isLoadingTerrain = false
+            // If terrain data couldn't be fetched, turn off the toggle
+            if terrainData.isEmpty {
+                showTerrain = false
+            }
+        }
+    }
+
+    @MainActor
     private func generateAndShare() async {
         isGeneratingShare = true
 
         // Reuse the already-loaded preview map image to avoid re-downloading tiles
         let mapImage = previewMapImage
+        let scheme = selectedScheme
+        let currentTerrainData = showTerrain ? terrainData : []
+        let utc = appState.settings.alwaysUseUTC
+        let flightData = flight
 
-        await MainActor.run {
-            let shareCard = FlightShareCard(
-                flight: flight,
-                mapImage: mapImage,
-                useUTC: appState.settings.alwaysUseUTC,
-                colorScheme: selectedScheme
-            )
-            let renderer = ImageRenderer(content: shareCard)
-            renderer.scale = 2.0
+        // Render the share card image
+        // ImageRenderer must run on MainActor but we capture all values first
+        let shareCard = FlightShareCard(
+            flight: flightData,
+            mapImage: mapImage,
+            useUTC: utc,
+            colorScheme: scheme,
+            terrainData: currentTerrainData
+        )
+        let renderer = ImageRenderer(content: shareCard)
+        renderer.scale = 2.0
 
-            if let uiImage = renderer.uiImage {
-                if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
-                   let compressedImage = UIImage(data: jpegData) {
-                    isGeneratingShare = false
-                    onShare(compressedImage)
-                } else {
-                    isGeneratingShare = false
-                    onShare(uiImage)
-                }
-            } else {
-                isGeneratingShare = false
-            }
+        guard let uiImage = renderer.uiImage else {
+            isGeneratingShare = false
+            return
         }
+
+        // Compress to JPEG on a background thread to not block UI
+        let finalImage: UIImage = await Task.detached(priority: .userInitiated) {
+            if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
+               let compressed = UIImage(data: jpegData) {
+                return compressed
+            }
+            return uiImage
+        }.value
+
+        isGeneratingShare = false
+
+        // Yield to allow UI to update before triggering sheet transitions
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+
+        onShare(finalImage)
     }
 
     /// Standalone map snapshot generator for the customization view
@@ -2506,6 +2617,7 @@ struct ShareCardCustomizationView: View {
 
         // Swiss layers: WMTS tile compositing
         if mapLayer.isSwissOnly, let layerId = mapLayer.swisstopoLayerIdentifier {
+            let pathColor = mapLayer.pathColorOverride ?? cardColorScheme.accentColor
             return await generateSwissLayerSnapshotStandalone(
                 layerIdentifier: layerId,
                 tileExtension: mapLayer.tileExtension,
@@ -2513,7 +2625,7 @@ struct ShareCardCustomizationView: View {
                 paddedRect: paddedRect,
                 coordinates: coordinates,
                 targetSize: CGSize(width: targetWidth, height: targetHeight),
-                accentColor: cardColorScheme.accentColor
+                accentColor: pathColor
             )
         }
 
@@ -2727,6 +2839,7 @@ struct FlightShareCard: View {
     let mapImage: UIImage?
     let useUTC: Bool
     var colorScheme: ShareCardColorScheme = .darkBlue
+    var terrainData: [(time: Date, elevationFeet: Double)] = []
 
     // Card dimensions (9:16 aspect ratio for Instagram/WhatsApp/Signal stories)
     private let cardWidth: CGFloat = 1080
@@ -3000,7 +3113,7 @@ struct FlightShareCard: View {
                             .tracking(3)
                         Spacer()
                     }
-                    .padding(.bottom, 14)
+                    .padding(.bottom, 16)
 
                     // Combined dots, lines, and waypoint names
                     HStack(spacing: 0) {
@@ -3010,43 +3123,43 @@ struct FlightShareCard: View {
                                 VStack(spacing: 0) {
                                     Rectangle()
                                         .fill(colorScheme.routeLineColor)
-                                        .frame(height: 3)
-                                        .padding(.bottom, 26)
+                                        .frame(height: 4)
+                                        .padding(.bottom, 30)
                                 }
                             }
 
                             let isFirst = index == 0
                             let isLast = index == displayWaypoints.count - 1
                             let isEllipsis = name == "···"
-                            let dotSize: CGFloat = (isFirst || isLast) ? 16 : 12
+                            let dotSize: CGFloat = (isFirst || isLast) ? 18 : 14
                             let wpDotColor: Color = isFirst ? .aviationGreen :
                                                   isLast ? .aviationRed :
                                                   isEllipsis ? .clear :
                                                   colorScheme.routeDotColor
 
                             if isEllipsis {
-                                VStack(spacing: 6) {
+                                VStack(spacing: 8) {
                                     Text("···")
-                                        .font(.system(size: 20, weight: .bold))
+                                        .font(.system(size: 22, weight: .bold))
                                         .foregroundColor(colorScheme.tertiaryTextColor)
                                     Text("")
-                                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
                                 }
-                                .frame(width: 30)
+                                .frame(width: 34)
                             } else {
                                 // Dot + name stacked vertically
-                                VStack(spacing: 6) {
+                                VStack(spacing: 8) {
                                     Circle()
                                         .fill(wpDotColor)
                                         .frame(width: dotSize, height: dotSize)
 
                                     Text(name)
-                                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
                                         .foregroundColor(isFirst || isLast ? colorScheme.primaryTextColor : colorScheme.secondaryTextColor)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.5)
                                 }
-                                .frame(minWidth: (isFirst || isLast) ? 50 : 30)
+                                .frame(minWidth: (isFirst || isLast) ? 56 : 34)
                             }
                         }
                     }
@@ -3151,7 +3264,7 @@ struct FlightShareCard: View {
             }
 
             if !altitudeData.isEmpty {
-                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack, sparklineColor: colorScheme.sparklineColor)
+                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack, sparklineColor: colorScheme.sparklineColor, terrainData: terrainData)
                     .frame(height: 160)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 10)
@@ -3279,6 +3392,9 @@ struct FlightShareCard: View {
 struct ShareCardAltitudeChart: View {
     let gpsTrack: [GPSPoint]
     var sparklineColor: Color = .altimeterBlue
+    var terrainData: [(time: Date, elevationFeet: Double)] = []
+
+    private static let terrainColor = Color(red: 0.45, green: 0.32, blue: 0.18)
 
     private var altitudeData: [(time: Date, altitude: Double)] {
         gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
@@ -3287,7 +3403,9 @@ struct ShareCardAltitudeChart: View {
     private var altitudeRange: ClosedRange<Double> {
         guard !altitudeData.isEmpty else { return 0...1000 }
         let altitudes = altitudeData.map { $0.altitude }
-        let minAlt = altitudes.min() ?? 0
+        let terrainElevations = terrainData.map { $0.elevationFeet }
+        let allValues = altitudes + terrainElevations
+        let minAlt = allValues.min() ?? 0
         let maxAlt = altitudes.max() ?? 1000
         let lowerBound = max(0, floor((minAlt - 200) / 100) * 100)
         let upperBound = ceil((maxAlt + 200) / 100) * 100
@@ -3301,6 +3419,35 @@ struct ShareCardAltitudeChart: View {
                 .foregroundColor(sparklineColor.opacity(0.4))
         } else {
             Chart {
+                // Terrain fill (drawn first, behind everything)
+                if !terrainData.isEmpty {
+                    ForEach(terrainData, id: \.time) { point in
+                        AreaMark(
+                            x: .value("Time", point.time),
+                            yStart: .value("Baseline", altitudeRange.lowerBound),
+                            yEnd: .value("Terrain", point.elevationFeet)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Self.terrainColor.opacity(0.7), Self.terrainColor.opacity(0.4)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    }
+
+                    // Terrain outline
+                    ForEach(terrainData, id: \.time) { point in
+                        LineMark(
+                            x: .value("Time", point.time),
+                            y: .value("Terrain", point.elevationFeet)
+                        )
+                        .foregroundStyle(Self.terrainColor.opacity(0.9))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
+                    }
+                }
+
+                // Altitude area fill
                 ForEach(altitudeData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
@@ -3316,6 +3463,7 @@ struct ShareCardAltitudeChart: View {
                     )
                 }
 
+                // Altitude line
                 ForEach(altitudeData, id: \.time) { point in
                     LineMark(
                         x: .value("Time", point.time),

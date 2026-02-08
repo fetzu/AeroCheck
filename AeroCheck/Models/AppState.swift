@@ -50,6 +50,10 @@ struct AppSettings: Codable, Equatable {
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
 
+    // Share card customization
+    var shareCardColorScheme: ShareCardColorScheme = .darkBlue
+    var shareCardMapLayer: ShareCardMapLayer = .standard
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -109,6 +113,8 @@ struct AppSettings: Codable, Equatable {
         case showAirportsOnMap
         case logEngineHours
         case hasCompletedOnboarding
+        case shareCardColorScheme
+        case shareCardMapLayer
         // marketingMode is intentionally excluded
     }
 
@@ -141,6 +147,8 @@ struct AppSettings: Codable, Equatable {
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
+        shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
         // marketingMode intentionally excluded - always defaults to false
     }
 }

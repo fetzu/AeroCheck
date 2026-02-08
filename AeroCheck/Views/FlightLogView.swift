@@ -604,6 +604,7 @@ struct FlightDetailView: View {
     @State private var shareImage: UIImage?
     @State private var isGeneratingImage = false
     @State private var showFlightPlan = false
+    @State private var showShareCustomization = false
 
     enum ExportType {
         case gpx
@@ -639,14 +640,9 @@ struct FlightDetailView: View {
                     Button(L10n.Button.close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: { generateAndShareImage() }) {
-                        if isGeneratingImage {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "square.and.arrow.up")
-                        }
+                    Button(action: { showShareCustomization = true }) {
+                        Image(systemName: "square.and.arrow.up")
                     }
-                    .disabled(isGeneratingImage)
                 }
             }
         }
@@ -661,6 +657,20 @@ struct FlightDetailView: View {
             if let image = shareImage {
                 ImageShareSheet(image: image)
             }
+        }
+        .sheet(isPresented: $showShareCustomization) {
+            ShareCardCustomizationView(
+                flight: flight,
+                appState: appState,
+                onShare: { image in
+                    showShareCustomization = false
+                    shareImage = image
+                    // Small delay to allow the sheet to dismiss before showing share sheet
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showShareSheet = true
+                    }
+                }
+            )
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {
@@ -1033,11 +1043,19 @@ struct FlightDetailView: View {
 
         Task {
             // First, generate map snapshot if we have GPS data
-            let mapImage: UIImage? = await generateMapSnapshot()
+            let mapImage: UIImage? = await generateMapSnapshot(
+                mapLayer: appState.settings.shareCardMapLayer,
+                cardColorScheme: appState.settings.shareCardColorScheme
+            )
 
             // Then render the share card on main thread
             await MainActor.run {
-                let shareCard = FlightShareCard(flight: flight, mapImage: mapImage, useUTC: appState.settings.alwaysUseUTC)
+                let shareCard = FlightShareCard(
+                    flight: flight,
+                    mapImage: mapImage,
+                    useUTC: appState.settings.alwaysUseUTC,
+                    colorScheme: appState.settings.shareCardColorScheme
+                )
                 let renderer = ImageRenderer(content: shareCard)
                 // Use 2.0 scale for better file size while maintaining quality
                 // Results in 2160x3840 image (4K) which is high quality but reasonable size
@@ -1060,7 +1078,7 @@ struct FlightDetailView: View {
         }
     }
 
-    private func generateMapSnapshot() async -> UIImage? {
+    private func generateMapSnapshot(mapLayer: ShareCardMapLayer = .standard, cardColorScheme: ShareCardColorScheme = .darkBlue) async -> UIImage? {
         guard flight.gpsTrack.count >= 2 else { return nil }
 
         let coordinates = flight.gpsTrack.map { $0.coordinate }
@@ -1084,75 +1102,272 @@ struct FlightDetailView: View {
         // Adjust rect to match target aspect ratio
         let currentAspectRatio = paddedRect.size.width / paddedRect.size.height
         if currentAspectRatio > targetAspectRatio {
-            // Map is wider than target - expand height
             let newHeight = paddedRect.size.width / targetAspectRatio
             let heightDiff = newHeight - paddedRect.size.height
             paddedRect.origin.y -= heightDiff / 2
             paddedRect.size.height = newHeight
         } else {
-            // Map is taller than target - expand width
             let newWidth = paddedRect.size.height * targetAspectRatio
             let widthDiff = newWidth - paddedRect.size.width
             paddedRect.origin.x -= widthDiff / 2
             paddedRect.size.width = newWidth
         }
 
+        // For Swiss layers, use WMTS tile compositing since MKMapSnapshotter doesn't support custom overlays
+        if mapLayer.isSwissOnly, let layerId = mapLayer.swisstopoLayerIdentifier {
+            return await generateSwissLayerSnapshot(
+                layerIdentifier: layerId,
+                tileExtension: mapLayer.tileExtension,
+                zoomLevel: mapLayer.snapshotZoomLevel,
+                paddedRect: paddedRect,
+                coordinates: coordinates,
+                targetSize: CGSize(width: targetWidth, height: targetHeight),
+                accentColor: cardColorScheme.accentColor
+            )
+        }
+
+        // Standard and Satellite: use MKMapSnapshotter
         let options = MKMapSnapshotter.Options()
         options.mapRect = paddedRect
         options.size = CGSize(width: targetWidth, height: targetHeight)
-        // Use UIScreen.main.scale for proper device scaling
         options.scale = UIScreen.main.scale
-        options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
+        options.traitCollection = UITraitCollection(userInterfaceStyle: cardColorScheme.mapTraitStyle)
+
+        if mapLayer == .satellite {
+            options.mapType = .satellite
+        } else {
+            options.mapType = .standard
+        }
 
         let snapshotter = MKMapSnapshotter(options: options)
 
         do {
             let snapshot = try await snapshotter.start()
-
-            // Draw the route on the snapshot using modern UIGraphicsImageRenderer
-            let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
-            let finalImage = renderer.image { rendererContext in
-                // Draw the base map
-                snapshot.image.draw(at: .zero)
-
-                let context = rendererContext.cgContext
-
-                // Draw polyline with thicker line for visibility
-                context.setStrokeColor(UIColor(Color.aviationGold).cgColor)
-                context.setLineWidth(6 * UIScreen.main.scale)
-                context.setLineCap(.round)
-                context.setLineJoin(.round)
-
-                let path = UIBezierPath()
-                for (index, coordinate) in coordinates.enumerated() {
-                    let point = snapshot.point(for: coordinate)
-                    if index == 0 {
-                        path.move(to: point)
-                    } else {
-                        path.addLine(to: point)
-                    }
-                }
-                context.addPath(path.cgPath)
-                context.strokePath()
-
-                // Draw start marker (green circle)
-                if let firstCoord = coordinates.first {
-                    let startPoint = snapshot.point(for: firstCoord)
-                    self.drawMarker(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UIScreen.main.scale)
-                }
-
-                // Draw end marker (red circle)
-                if let lastCoord = coordinates.last {
-                    let endPoint = snapshot.point(for: lastCoord)
-                    self.drawMarker(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UIScreen.main.scale)
-                }
-            }
-
-            return finalImage
+            return drawRouteOnSnapshot(snapshot: snapshot, coordinates: coordinates, accentColor: cardColorScheme.accentColor)
         } catch {
             print("Map snapshot error: \(error)")
             return nil
         }
+    }
+
+    /// Generate a map snapshot using Swiss WMTS tiles (ICAO, Segelflugkarte, SWISSIMAGE, etc.)
+    private func generateSwissLayerSnapshot(
+        layerIdentifier: String,
+        tileExtension: String,
+        zoomLevel: Int,
+        paddedRect: MKMapRect,
+        coordinates: [CLLocationCoordinate2D],
+        targetSize: CGSize,
+        accentColor: Color
+    ) async -> UIImage? {
+        // Convert MKMapRect corners to lat/lon
+        let topLeft = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
+        let bottomRight = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
+
+        let z = zoomLevel
+
+        // Calculate tile ranges using Web Mercator math
+        let minTileX = longitudeToTileX(lon: topLeft.longitude, zoom: z)
+        let maxTileX = longitudeToTileX(lon: bottomRight.longitude, zoom: z)
+        let minTileY = latitudeToTileY(lat: topLeft.latitude, zoom: z)
+        let maxTileY = latitudeToTileY(lat: bottomRight.latitude, zoom: z)
+
+        let tileXRange = min(minTileX, maxTileX)...max(minTileX, maxTileX)
+        let tileYRange = min(minTileY, maxTileY)...max(minTileY, maxTileY)
+
+        let tileSize: CGFloat = 256
+        let tilesWide = CGFloat(tileXRange.count)
+        let tilesHigh = CGFloat(tileYRange.count)
+
+        // Download all tiles concurrently
+        var tileImages: [String: UIImage] = [:]
+
+        await withTaskGroup(of: (String, UIImage?).self) { group in
+            for tileX in tileXRange {
+                for tileY in tileYRange {
+                    let key = "\(tileX)-\(tileY)"
+                    group.addTask {
+                        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(z)/\(tileX)/\(tileY).\(tileExtension)"
+                        guard let url = URL(string: urlString),
+                              let (data, response) = try? await URLSession.shared.data(from: url),
+                              let httpResponse = response as? HTTPURLResponse,
+                              httpResponse.statusCode == 200,
+                              let image = UIImage(data: data) else {
+                            return (key, nil)
+                        }
+                        return (key, image)
+                    }
+                }
+            }
+
+            for await (key, image) in group {
+                if let image = image {
+                    tileImages[key] = image
+                }
+            }
+        }
+
+        // If we got no tiles, fall back to standard map
+        if tileImages.isEmpty {
+            return nil
+        }
+
+        // Composite tiles into a single large image
+        let compositeWidth = tilesWide * tileSize
+        let compositeHeight = tilesHigh * tileSize
+        let compositeSize = CGSize(width: compositeWidth, height: compositeHeight)
+
+        let compositeRenderer = UIGraphicsImageRenderer(size: compositeSize)
+        let compositeImage = compositeRenderer.image { ctx in
+            for tileX in tileXRange {
+                for tileY in tileYRange {
+                    let key = "\(tileX)-\(tileY)"
+                    if let tileImg = tileImages[key] {
+                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize
+                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize
+                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize, height: tileSize))
+                    }
+                }
+            }
+        }
+
+        // Now we need to crop the composite to match our paddedRect
+        // Calculate where our paddedRect falls within the tile grid
+        let firstTileX = tileXRange.lowerBound
+        let firstTileY = tileYRange.lowerBound
+        let tileOriginLon = tileXToLongitude(tileX: firstTileX, zoom: z)
+        let tileOriginLat = tileYToLatitude(tileY: firstTileY, zoom: z)
+        let tileEndLon = tileXToLongitude(tileX: tileXRange.upperBound + 1, zoom: z)
+        let tileEndLat = tileYToLatitude(tileY: tileYRange.upperBound + 1, zoom: z)
+
+        // Map our paddedRect bounds to pixel positions in the composite
+        let lonRange = tileEndLon - tileOriginLon
+        let latRange = tileOriginLat - tileEndLat // Note: latitude decreases going down
+
+        let cropXStart = ((topLeft.longitude - tileOriginLon) / lonRange) * compositeWidth
+        let cropXEnd = ((bottomRight.longitude - tileOriginLon) / lonRange) * compositeWidth
+        let cropYStart = ((tileOriginLat - topLeft.latitude) / latRange) * compositeHeight
+        let cropYEnd = ((tileOriginLat - bottomRight.latitude) / latRange) * compositeHeight
+
+        let cropRect = CGRect(
+            x: max(0, cropXStart),
+            y: max(0, cropYStart),
+            width: min(compositeWidth, cropXEnd - cropXStart),
+            height: min(compositeHeight, cropYEnd - cropYStart)
+        )
+
+        guard let croppedCGImage = compositeImage.cgImage?.cropping(to: cropRect) else {
+            return nil
+        }
+
+        // Scale the cropped image to our target size and draw the route on top
+        let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
+        let finalImage = finalRenderer.image { ctx in
+            let croppedImage = UIImage(cgImage: croppedCGImage)
+            croppedImage.draw(in: CGRect(origin: .zero, size: targetSize))
+
+            let context = ctx.cgContext
+            let scaleX = targetSize.width / cropRect.width
+            let scaleY = targetSize.height / cropRect.height
+
+            // Draw polyline
+            context.setStrokeColor(UIColor(accentColor).cgColor)
+            context.setLineWidth(6)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+
+            let path = UIBezierPath()
+            for (index, coordinate) in coordinates.enumerated() {
+                // Convert coordinate to pixel position in composite, then to final image coordinates
+                let pixelX = ((coordinate.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let pixelY = ((tileOriginLat - coordinate.latitude) / latRange) * compositeHeight
+                let finalX = (pixelX - cropRect.minX) * scaleX
+                let finalY = (pixelY - cropRect.minY) * scaleY
+
+                if index == 0 {
+                    path.move(to: CGPoint(x: finalX, y: finalY))
+                } else {
+                    path.addLine(to: CGPoint(x: finalX, y: finalY))
+                }
+            }
+            context.addPath(path.cgPath)
+            context.strokePath()
+
+            // Draw start marker
+            if let firstCoord = coordinates.first {
+                let px = ((firstCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let py = ((tileOriginLat - firstCoord.latitude) / latRange) * compositeHeight
+                let point = CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY)
+                self.drawMarker(at: point, color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+            }
+
+            // Draw end marker
+            if let lastCoord = coordinates.last {
+                let px = ((lastCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let py = ((tileOriginLat - lastCoord.latitude) / latRange) * compositeHeight
+                let point = CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY)
+                self.drawMarker(at: point, color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+            }
+        }
+
+        return finalImage
+    }
+
+    /// Draw route polyline and markers on an MKMapSnapshotter result
+    private func drawRouteOnSnapshot(snapshot: MKMapSnapshotter.Snapshot, coordinates: [CLLocationCoordinate2D], accentColor: Color) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
+        return renderer.image { rendererContext in
+            snapshot.image.draw(at: .zero)
+
+            let context = rendererContext.cgContext
+
+            context.setStrokeColor(UIColor(accentColor).cgColor)
+            context.setLineWidth(6 * UIScreen.main.scale)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+
+            let path = UIBezierPath()
+            for (index, coordinate) in coordinates.enumerated() {
+                let point = snapshot.point(for: coordinate)
+                if index == 0 {
+                    path.move(to: point)
+                } else {
+                    path.addLine(to: point)
+                }
+            }
+            context.addPath(path.cgPath)
+            context.strokePath()
+
+            if let firstCoord = coordinates.first {
+                let startPoint = snapshot.point(for: firstCoord)
+                self.drawMarker(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UIScreen.main.scale)
+            }
+
+            if let lastCoord = coordinates.last {
+                let endPoint = snapshot.point(for: lastCoord)
+                self.drawMarker(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UIScreen.main.scale)
+            }
+        }
+    }
+
+    // MARK: - Web Mercator Tile Math
+
+    private func longitudeToTileX(lon: Double, zoom: Int) -> Int {
+        Int(floor((lon + 180.0) / 360.0 * pow(2.0, Double(zoom))))
+    }
+
+    private func latitudeToTileY(lat: Double, zoom: Int) -> Int {
+        let latRad = lat * .pi / 180.0
+        return Int(floor((1.0 - log(tan(latRad) + 1.0 / cos(latRad)) / .pi) / 2.0 * pow(2.0, Double(zoom))))
+    }
+
+    private func tileXToLongitude(tileX: Int, zoom: Int) -> Double {
+        Double(tileX) / pow(2.0, Double(zoom)) * 360.0 - 180.0
+    }
+
+    private func tileYToLatitude(tileY: Int, zoom: Int) -> Double {
+        let n = .pi - 2.0 * .pi * Double(tileY) / pow(2.0, Double(zoom))
+        return 180.0 / .pi * atan(0.5 * (exp(n) - exp(-n)))
     }
 
     private func drawMarker(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat = 1.0) {
@@ -1758,6 +1973,765 @@ class ZIPFile: NSObject, UIActivityItemSource {
     }
 }
 
+// MARK: - Share Card Color Scheme
+
+/// Color scheme options for the flight share card
+enum ShareCardColorScheme: String, Codable, CaseIterable, Identifiable {
+    case light        // White/light gray background
+    case lightBlue    // Aviation blue (pre-redesign look)
+    case darkBlue     // Current dark navy (default)
+    case dark         // Pure black OLED
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .lightBlue: return "Aviation"
+        case .darkBlue: return "Navy"
+        case .dark: return "Dark"
+        }
+    }
+
+    var backgroundColor: Color {
+        switch self {
+        case .light: return Color(red: 0.96, green: 0.96, blue: 0.97)
+        case .lightBlue: return Color(red: 0.1, green: 0.2, blue: 0.4) // aviationBlue
+        case .darkBlue: return Color(red: 0.04, green: 0.05, blue: 0.09)
+        case .dark: return .black
+        }
+    }
+
+    var primaryTextColor: Color {
+        switch self {
+        case .light: return Color(red: 0.1, green: 0.1, blue: 0.12)
+        case .lightBlue, .darkBlue, .dark: return .white
+        }
+    }
+
+    var secondaryTextColor: Color {
+        switch self {
+        case .light: return Color(red: 0.4, green: 0.4, blue: 0.45)
+        case .lightBlue: return .white.opacity(0.6)
+        case .darkBlue: return .white.opacity(0.5)
+        case .dark: return .white.opacity(0.5)
+        }
+    }
+
+    var tertiaryTextColor: Color {
+        switch self {
+        case .light: return Color(red: 0.55, green: 0.55, blue: 0.6)
+        case .lightBlue: return .white.opacity(0.4)
+        case .darkBlue: return .white.opacity(0.35)
+        case .dark: return .white.opacity(0.35)
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .light: return .aviationBlue
+        case .lightBlue: return .aviationGold
+        case .darkBlue: return .aviationGold
+        case .dark: return .aviationGold
+        }
+    }
+
+    var cardOverlayColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.04)
+        case .lightBlue: return .white.opacity(0.08)
+        case .darkBlue: return .white.opacity(0.05)
+        case .dark: return .white.opacity(0.06)
+        }
+    }
+
+    var cardBorderColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.06)
+        case .lightBlue: return .white.opacity(0.1)
+        case .darkBlue: return .white.opacity(0.06)
+        case .dark: return .white.opacity(0.08)
+        }
+    }
+
+    var sparklineColor: Color {
+        switch self {
+        case .light: return .aviationBlue
+        case .lightBlue: return .altimeterBlue
+        case .darkBlue: return .altimeterBlue
+        case .dark: return .altimeterBlue
+        }
+    }
+
+    var mapBorderColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.08)
+        case .lightBlue: return .white.opacity(0.12)
+        case .darkBlue: return .white.opacity(0.08)
+        case .dark: return .white.opacity(0.1)
+        }
+    }
+
+    var routeDotColor: Color {
+        switch self {
+        case .light: return Color(red: 0.3, green: 0.3, blue: 0.35)
+        case .lightBlue, .darkBlue, .dark: return .white.opacity(0.6)
+        }
+    }
+
+    var routeLineColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.15)
+        case .lightBlue, .darkBlue, .dark: return .white.opacity(0.2)
+        }
+    }
+
+    var footerTextColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.25)
+        case .lightBlue, .darkBlue, .dark: return .white.opacity(0.4)
+        }
+    }
+
+    var footerUrlColor: Color {
+        switch self {
+        case .light: return Color.black.opacity(0.18)
+        case .lightBlue, .darkBlue, .dark: return .white.opacity(0.25)
+        }
+    }
+
+    var footerIconColor: Color {
+        switch self {
+        case .light: return .aviationBlue.opacity(0.5)
+        case .lightBlue, .darkBlue, .dark: return .aviationGold.opacity(0.6)
+        }
+    }
+
+    var mapTraitStyle: UIUserInterfaceStyle {
+        switch self {
+        case .light: return .light
+        case .lightBlue, .darkBlue, .dark: return .dark
+        }
+    }
+
+    /// The color shown as a dot in the color scheme selector
+    var dotColor: Color {
+        switch self {
+        case .light: return Color(red: 0.92, green: 0.92, blue: 0.94)
+        case .lightBlue: return Color(red: 0.1, green: 0.2, blue: 0.4)
+        case .darkBlue: return Color(red: 0.06, green: 0.08, blue: 0.18)
+        case .dark: return .black
+        }
+    }
+}
+
+// MARK: - Share Card Map Layer
+
+/// Map layer options for the flight share card
+enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
+    case standard
+    case satellite
+    case icao
+    case segelflugkarte
+    case swissimage
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .standard: return "Standard"
+        case .satellite: return "Satellite"
+        case .icao: return "ICAO Chart"
+        case .segelflugkarte: return "Segelflugkarte"
+        case .swissimage: return "SWISSIMAGE"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .standard: return "map"
+        case .satellite: return "globe.americas"
+        case .icao: return "airplane"
+        case .segelflugkarte: return "map.fill"
+        case .swissimage: return "photo"
+        }
+    }
+
+    var isSwissOnly: Bool {
+        switch self {
+        case .standard, .satellite: return false
+        case .icao, .segelflugkarte, .swissimage: return true
+        }
+    }
+
+    /// WMTS layer identifier for swisstopo
+    var swisstopoLayerIdentifier: String? {
+        switch self {
+        case .standard, .satellite: return nil
+        case .icao: return "ch.bazl.luftfahrtkarten-icao"
+        case .segelflugkarte: return "ch.bazl.segelflugkarte"
+        case .swissimage: return "ch.swisstopo.swissimage"
+        }
+    }
+
+    /// File extension for WMTS tiles
+    var tileExtension: String {
+        switch self {
+        case .standard, .satellite, .icao, .segelflugkarte: return "png"
+        case .swissimage: return "jpeg"
+        }
+    }
+
+    /// Recommended zoom level for share card snapshots
+    var snapshotZoomLevel: Int {
+        switch self {
+        case .standard, .satellite: return 10
+        case .icao: return 10
+        case .segelflugkarte: return 11
+        case .swissimage: return 12
+        }
+    }
+}
+
+// MARK: - Share Card Customization View
+
+/// Spotify-style customization view for share cards.
+/// Shows a live preview with color scheme dots and map layer picker.
+struct ShareCardCustomizationView: View {
+    let flight: Flight
+    @ObservedObject var appState: AppState
+    let onShare: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedScheme: ShareCardColorScheme
+    @State private var selectedMapLayer: ShareCardMapLayer
+    @State private var previewMapImage: UIImage?
+    @State private var isLoadingMap = false
+    @State private var isGeneratingShare = false
+
+    init(flight: Flight, appState: AppState, onShare: @escaping (UIImage) -> Void) {
+        self.flight = flight
+        self.appState = appState
+        self.onShare = onShare
+        _selectedScheme = State(initialValue: appState.settings.shareCardColorScheme)
+        _selectedMapLayer = State(initialValue: appState.settings.shareCardMapLayer)
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Card preview (scaled down)
+                    cardPreview
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+
+                    Spacer(minLength: 16)
+
+                    // Map layer picker
+                    mapLayerPicker
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+
+                    // Color scheme dots
+                    colorSchemePicker
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
+
+                    // Share button
+                    shareButton
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                }
+            }
+            .navigationTitle("Share Card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.close) { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            await loadMapPreview()
+        }
+        .onChange(of: selectedMapLayer) { _, _ in
+            Task { await loadMapPreview() }
+        }
+        .onChange(of: selectedScheme) { _, _ in
+            // For standard/satellite, regenerate with new trait style
+            if !selectedMapLayer.isSwissOnly {
+                Task { await loadMapPreview() }
+            }
+        }
+    }
+
+    // MARK: - Card Preview
+
+    private var cardPreview: some View {
+        GeometryReader { geometry in
+            let maxWidth = geometry.size.width
+            let maxHeight = geometry.size.height
+            let cardAspect: CGFloat = 1080.0 / 1920.0
+            let previewWidth = min(maxWidth, maxHeight * cardAspect)
+            let previewHeight = previewWidth / cardAspect
+
+            ZStack {
+                FlightShareCard(
+                    flight: flight,
+                    mapImage: previewMapImage,
+                    useUTC: appState.settings.alwaysUseUTC,
+                    colorScheme: selectedScheme
+                )
+                .scaleEffect(previewWidth / 1080.0)
+                .frame(width: previewWidth, height: previewHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                if isLoadingMap {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.4))
+                        .frame(width: previewWidth, height: previewHeight)
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    // MARK: - Map Layer Picker
+
+    private var mapLayerPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("MAP STYLE")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.secondaryText)
+                .tracking(1.5)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(ShareCardMapLayer.allCases) { layer in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedMapLayer = layer
+                                appState.settings.shareCardMapLayer = layer
+                                appState.saveSettings()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: layer.icon)
+                                    .font(.system(size: 13, weight: .medium))
+
+                                Text(layer.displayName)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(selectedMapLayer == layer ? Color.aviationGold : Color.cardBackground)
+                            )
+                            .foregroundColor(selectedMapLayer == layer ? .black : .white)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Color Scheme Picker
+
+    private var colorSchemePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("COLOR THEME")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.secondaryText)
+                .tracking(1.5)
+
+            HStack(spacing: 16) {
+                ForEach(ShareCardColorScheme.allCases) { scheme in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedScheme = scheme
+                            appState.settings.shareCardColorScheme = scheme
+                            appState.saveSettings()
+                        }
+                    }) {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .fill(scheme.dotColor)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                scheme == .dark || scheme == .darkBlue ? Color.white.opacity(0.2) : Color.black.opacity(0.1),
+                                                lineWidth: 1
+                                            )
+                                    )
+
+                                if selectedScheme == scheme {
+                                    Circle()
+                                        .stroke(Color.aviationGold, lineWidth: 2.5)
+                                        .frame(width: 40, height: 40)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+
+                            Text(scheme.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(selectedScheme == scheme ? .aviationGold : .secondaryText)
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+        }
+    }
+
+    // MARK: - Share Button
+
+    private var shareButton: some View {
+        Button(action: {
+            Task { await generateAndShare() }
+        }) {
+            HStack(spacing: 8) {
+                if isGeneratingShare {
+                    ProgressView()
+                        .tint(.black)
+                } else {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                Text("Share")
+                    .font(.system(size: 18, weight: .bold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.aviationGold)
+            )
+            .foregroundColor(.black)
+        }
+        .disabled(isGeneratingShare)
+    }
+
+    // MARK: - Helpers
+
+    private func loadMapPreview() async {
+        isLoadingMap = true
+        let image = await generateMapSnapshotForCustomization(
+            flight: flight,
+            mapLayer: selectedMapLayer,
+            cardColorScheme: selectedScheme
+        )
+        await MainActor.run {
+            previewMapImage = image
+            isLoadingMap = false
+        }
+    }
+
+    private func generateAndShare() async {
+        isGeneratingShare = true
+
+        let mapImage = await generateMapSnapshotForCustomization(
+            flight: flight,
+            mapLayer: selectedMapLayer,
+            cardColorScheme: selectedScheme
+        )
+
+        await MainActor.run {
+            let shareCard = FlightShareCard(
+                flight: flight,
+                mapImage: mapImage,
+                useUTC: appState.settings.alwaysUseUTC,
+                colorScheme: selectedScheme
+            )
+            let renderer = ImageRenderer(content: shareCard)
+            renderer.scale = 2.0
+
+            if let uiImage = renderer.uiImage {
+                if let jpegData = uiImage.jpegData(compressionQuality: 0.85),
+                   let compressedImage = UIImage(data: jpegData) {
+                    isGeneratingShare = false
+                    onShare(compressedImage)
+                } else {
+                    isGeneratingShare = false
+                    onShare(uiImage)
+                }
+            } else {
+                isGeneratingShare = false
+            }
+        }
+    }
+
+    /// Standalone map snapshot generator for the customization view
+    private func generateMapSnapshotForCustomization(
+        flight: Flight,
+        mapLayer: ShareCardMapLayer,
+        cardColorScheme: ShareCardColorScheme
+    ) async -> UIImage? {
+        guard flight.gpsTrack.count >= 2 else { return nil }
+
+        let coordinates = flight.gpsTrack.map { $0.coordinate }
+        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+        let mapRect = polyline.boundingMapRect
+
+        let targetWidth: CGFloat = 2032
+        let targetHeight: CGFloat = 1500
+        let targetAspectRatio = targetWidth / targetHeight
+
+        let paddingFactor = 0.15
+        var paddedRect = mapRect.insetBy(
+            dx: -mapRect.size.width * paddingFactor,
+            dy: -mapRect.size.height * paddingFactor
+        )
+
+        let currentAspectRatio = paddedRect.size.width / paddedRect.size.height
+        if currentAspectRatio > targetAspectRatio {
+            let newHeight = paddedRect.size.width / targetAspectRatio
+            let heightDiff = newHeight - paddedRect.size.height
+            paddedRect.origin.y -= heightDiff / 2
+            paddedRect.size.height = newHeight
+        } else {
+            let newWidth = paddedRect.size.height * targetAspectRatio
+            let widthDiff = newWidth - paddedRect.size.width
+            paddedRect.origin.x -= widthDiff / 2
+            paddedRect.size.width = newWidth
+        }
+
+        // Swiss layers: WMTS tile compositing
+        if mapLayer.isSwissOnly, let layerId = mapLayer.swisstopoLayerIdentifier {
+            return await generateSwissLayerSnapshotStandalone(
+                layerIdentifier: layerId,
+                tileExtension: mapLayer.tileExtension,
+                zoomLevel: mapLayer.snapshotZoomLevel,
+                paddedRect: paddedRect,
+                coordinates: coordinates,
+                targetSize: CGSize(width: targetWidth, height: targetHeight),
+                accentColor: cardColorScheme.accentColor
+            )
+        }
+
+        // Standard / Satellite
+        let options = MKMapSnapshotter.Options()
+        options.mapRect = paddedRect
+        options.size = CGSize(width: targetWidth, height: targetHeight)
+        options.scale = UIScreen.main.scale
+        options.traitCollection = UITraitCollection(userInterfaceStyle: cardColorScheme.mapTraitStyle)
+        options.mapType = mapLayer == .satellite ? .satellite : .standard
+
+        let snapshotter = MKMapSnapshotter(options: options)
+
+        do {
+            let snapshot = try await snapshotter.start()
+            return drawRouteOnSnapshotStandalone(
+                snapshot: snapshot,
+                coordinates: coordinates,
+                accentColor: cardColorScheme.accentColor
+            )
+        } catch {
+            print("Map snapshot error: \(error)")
+            return nil
+        }
+    }
+
+    private func drawRouteOnSnapshotStandalone(snapshot: MKMapSnapshotter.Snapshot, coordinates: [CLLocationCoordinate2D], accentColor: Color) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
+        return renderer.image { rendererContext in
+            snapshot.image.draw(at: .zero)
+            let context = rendererContext.cgContext
+
+            context.setStrokeColor(UIColor(accentColor).cgColor)
+            context.setLineWidth(6 * UIScreen.main.scale)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+
+            let path = UIBezierPath()
+            for (index, coordinate) in coordinates.enumerated() {
+                let point = snapshot.point(for: coordinate)
+                if index == 0 {
+                    path.move(to: point)
+                } else {
+                    path.addLine(to: point)
+                }
+            }
+            context.addPath(path.cgPath)
+            context.strokePath()
+
+            if let firstCoord = coordinates.first {
+                let startPoint = snapshot.point(for: firstCoord)
+                drawMarkerStandalone(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UIScreen.main.scale)
+            }
+            if let lastCoord = coordinates.last {
+                let endPoint = snapshot.point(for: lastCoord)
+                drawMarkerStandalone(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UIScreen.main.scale)
+            }
+        }
+    }
+
+    private func generateSwissLayerSnapshotStandalone(
+        layerIdentifier: String,
+        tileExtension: String,
+        zoomLevel: Int,
+        paddedRect: MKMapRect,
+        coordinates: [CLLocationCoordinate2D],
+        targetSize: CGSize,
+        accentColor: Color
+    ) async -> UIImage? {
+        let topLeft = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
+        let bottomRight = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
+
+        let z = zoomLevel
+        let minTileX = lonToTileX(lon: topLeft.longitude, zoom: z)
+        let maxTileX = lonToTileX(lon: bottomRight.longitude, zoom: z)
+        let minTileY = latToTileY(lat: topLeft.latitude, zoom: z)
+        let maxTileY = latToTileY(lat: bottomRight.latitude, zoom: z)
+
+        let tileXRange = min(minTileX, maxTileX)...max(minTileX, maxTileX)
+        let tileYRange = min(minTileY, maxTileY)...max(minTileY, maxTileY)
+
+        let tileSize: CGFloat = 256
+
+        var tileImages: [String: UIImage] = [:]
+        await withTaskGroup(of: (String, UIImage?).self) { group in
+            for tileX in tileXRange {
+                for tileY in tileYRange {
+                    let key = "\(tileX)-\(tileY)"
+                    group.addTask {
+                        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(z)/\(tileX)/\(tileY).\(tileExtension)"
+                        guard let url = URL(string: urlString),
+                              let (data, response) = try? await URLSession.shared.data(from: url),
+                              let httpResponse = response as? HTTPURLResponse,
+                              httpResponse.statusCode == 200,
+                              let image = UIImage(data: data) else {
+                            return (key, nil)
+                        }
+                        return (key, image)
+                    }
+                }
+            }
+            for await (key, image) in group {
+                if let image = image { tileImages[key] = image }
+            }
+        }
+
+        if tileImages.isEmpty { return nil }
+
+        let compositeWidth = CGFloat(tileXRange.count) * tileSize
+        let compositeHeight = CGFloat(tileYRange.count) * tileSize
+
+        let compositeRenderer = UIGraphicsImageRenderer(size: CGSize(width: compositeWidth, height: compositeHeight))
+        let compositeImage = compositeRenderer.image { _ in
+            for tileX in tileXRange {
+                for tileY in tileYRange {
+                    let key = "\(tileX)-\(tileY)"
+                    if let tileImg = tileImages[key] {
+                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize
+                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize
+                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize, height: tileSize))
+                    }
+                }
+            }
+        }
+
+        let firstTileX = tileXRange.lowerBound
+        let firstTileY = tileYRange.lowerBound
+        let tileOriginLon = tileXToLon(tileX: firstTileX, zoom: z)
+        let tileOriginLat = tileYToLat(tileY: firstTileY, zoom: z)
+        let tileEndLon = tileXToLon(tileX: tileXRange.upperBound + 1, zoom: z)
+        let tileEndLat = tileYToLat(tileY: tileYRange.upperBound + 1, zoom: z)
+
+        let lonRange = tileEndLon - tileOriginLon
+        let latRange = tileOriginLat - tileEndLat
+
+        let cropXStart = ((topLeft.longitude - tileOriginLon) / lonRange) * compositeWidth
+        let cropXEnd = ((bottomRight.longitude - tileOriginLon) / lonRange) * compositeWidth
+        let cropYStart = ((tileOriginLat - topLeft.latitude) / latRange) * compositeHeight
+        let cropYEnd = ((tileOriginLat - bottomRight.latitude) / latRange) * compositeHeight
+
+        let cropRect = CGRect(
+            x: max(0, cropXStart), y: max(0, cropYStart),
+            width: min(compositeWidth, cropXEnd - cropXStart),
+            height: min(compositeHeight, cropYEnd - cropYStart)
+        )
+
+        guard let croppedCGImage = compositeImage.cgImage?.cropping(to: cropRect) else { return nil }
+
+        let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
+        return finalRenderer.image { ctx in
+            UIImage(cgImage: croppedCGImage).draw(in: CGRect(origin: .zero, size: targetSize))
+            let context = ctx.cgContext
+            let scaleX = targetSize.width / cropRect.width
+            let scaleY = targetSize.height / cropRect.height
+
+            context.setStrokeColor(UIColor(accentColor).cgColor)
+            context.setLineWidth(6)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+
+            let path = UIBezierPath()
+            for (index, coordinate) in coordinates.enumerated() {
+                let pixelX = ((coordinate.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let pixelY = ((tileOriginLat - coordinate.latitude) / latRange) * compositeHeight
+                let finalX = (pixelX - cropRect.minX) * scaleX
+                let finalY = (pixelY - cropRect.minY) * scaleY
+                if index == 0 { path.move(to: CGPoint(x: finalX, y: finalY)) }
+                else { path.addLine(to: CGPoint(x: finalX, y: finalY)) }
+            }
+            context.addPath(path.cgPath)
+            context.strokePath()
+
+            if let firstCoord = coordinates.first {
+                let px = ((firstCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let py = ((tileOriginLat - firstCoord.latitude) / latRange) * compositeHeight
+                drawMarkerStandalone(at: CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+            }
+            if let lastCoord = coordinates.last {
+                let px = ((lastCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
+                let py = ((tileOriginLat - lastCoord.latitude) / latRange) * compositeHeight
+                drawMarkerStandalone(at: CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+            }
+        }
+    }
+
+    // MARK: - Tile Math Helpers
+
+    private func lonToTileX(lon: Double, zoom: Int) -> Int {
+        Int(floor((lon + 180.0) / 360.0 * pow(2.0, Double(zoom))))
+    }
+
+    private func latToTileY(lat: Double, zoom: Int) -> Int {
+        let latRad = lat * .pi / 180.0
+        return Int(floor((1.0 - log(tan(latRad) + 1.0 / cos(latRad)) / .pi) / 2.0 * pow(2.0, Double(zoom))))
+    }
+
+    private func tileXToLon(tileX: Int, zoom: Int) -> Double {
+        Double(tileX) / pow(2.0, Double(zoom)) * 360.0 - 180.0
+    }
+
+    private func tileYToLat(tileY: Int, zoom: Int) -> Double {
+        let n = .pi - 2.0 * .pi * Double(tileY) / pow(2.0, Double(zoom))
+        return 180.0 / .pi * atan(0.5 * (exp(n) - exp(-n)))
+    }
+
+    private func drawMarkerStandalone(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat) {
+        let markerSize: CGFloat = 20 * scale
+        let rect = CGRect(x: point.x - markerSize / 2, y: point.y - markerSize / 2, width: markerSize, height: markerSize)
+        context.setFillColor(color.cgColor)
+        context.fillEllipse(in: rect)
+        context.setStrokeColor(UIColor.white.cgColor)
+        context.setLineWidth(2 * scale)
+        context.strokeEllipse(in: rect)
+    }
+}
+
 // MARK: - Flight Share Card
 
 /// A portrait card view designed for sharing flight summaries on mobile
@@ -1766,6 +2740,7 @@ struct FlightShareCard: View {
     let flight: Flight
     let mapImage: UIImage?
     let useUTC: Bool
+    var colorScheme: ShareCardColorScheme = .darkBlue
 
     // Card dimensions (9:16 aspect ratio for Instagram/WhatsApp/Signal stories)
     private let cardWidth: CGFloat = 1080
@@ -1844,6 +2819,25 @@ struct FlightShareCard: View {
         return formatter.string(from: start).uppercased()
     }
 
+    /// Route waypoints for the route strip (departure → waypoints → arrival)
+    private var routeWaypoints: [String]? {
+        var names: [String] = []
+        if let dep = flight.departureAirportIdent {
+            names.append(dep)
+        }
+        if let waypoints = flight.flightPlan?.waypoints {
+            let wpNames = waypoints.compactMap { $0.name.isEmpty ? nil : $0.name }
+            names.append(contentsOf: wpNames)
+        }
+        if let arr = flight.arrivalAirportIdent {
+            // Avoid duplicating if arrival is already the last waypoint
+            if names.last != arr {
+                names.append(arr)
+            }
+        }
+        return names.count >= 2 ? names : nil
+    }
+
     // Altitude chart data
     private var altitudeData: [(time: Date, altitude: Double)] {
         flight.gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
@@ -1863,8 +2857,8 @@ struct FlightShareCard: View {
 
     var body: some View {
         ZStack {
-            // Deep dark background
-            Color(red: 0.04, green: 0.05, blue: 0.09)
+            // Background
+            colorScheme.backgroundColor
 
             VStack(spacing: 0) {
                 // Top bar: date + aircraft info
@@ -1876,6 +2870,13 @@ struct FlightShareCard: View {
                 titleSection
                     .padding(.top, 24)
                     .padding(.horizontal, 48)
+
+                // Route strip (waypoints)
+                if routeWaypoints != nil {
+                    routeStripSection
+                        .padding(.top, 16)
+                        .padding(.horizontal, 48)
+                }
 
                 // Hero map (no overlaid stats)
                 heroMapSection
@@ -1915,7 +2916,7 @@ struct FlightShareCard: View {
             // Date
             Text(formattedDate)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(colorScheme.secondaryTextColor)
                 .tracking(2)
 
             Spacer()
@@ -1925,21 +2926,21 @@ struct FlightShareCard: View {
                 if let type = aircraftTypeDisplay {
                     Text(type)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(colorScheme.secondaryTextColor)
                 }
 
                 Text(aircraftIdentifier)
                     .font(.system(size: 20, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(colorScheme.accentColor)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(Color.aviationGold.opacity(0.15))
+                    .fill(colorScheme.accentColor.opacity(0.15))
                     .overlay(
                         Capsule()
-                            .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
+                            .stroke(colorScheme.accentColor.opacity(0.3), lineWidth: 1)
                     )
             )
         }
@@ -1953,7 +2954,7 @@ struct FlightShareCard: View {
                 // Title (route, flight name, or aircraft)
                 Text(displayTitle)
                     .font(.system(size: 52, weight: .bold, design: .default))
-                    .foregroundColor(.white)
+                    .foregroundColor(colorScheme.primaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
 
@@ -1962,7 +2963,7 @@ struct FlightShareCard: View {
                 // Flight time
                 Text(formattedExportFlightTime)
                     .font(.system(size: 46, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(colorScheme.accentColor)
                     .lineLimit(1)
             }
 
@@ -1972,7 +2973,7 @@ struct FlightShareCard: View {
                 if routeString != nil && !flight.name.isEmpty {
                     Text(flight.name)
                         .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(colorScheme.tertiaryTextColor)
                         .lineLimit(1)
                 }
 
@@ -1980,11 +2981,87 @@ struct FlightShareCard: View {
 
                 Text("FLIGHT TIME")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(colorScheme.tertiaryTextColor)
                     .tracking(2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Route Strip
+
+    private var routeStripSection: some View {
+        Group {
+            if let waypoints = routeWaypoints {
+                let displayWaypoints: [String] = {
+                    if waypoints.count <= 7 {
+                        return waypoints
+                    } else {
+                        // Abbreviate: show first 2, "...", last 2
+                        return [waypoints[0], waypoints[1], "···"] + waypoints.suffix(2)
+                    }
+                }()
+
+                VStack(spacing: 6) {
+                    // Dots and connecting lines
+                    HStack(spacing: 0) {
+                        ForEach(Array(displayWaypoints.enumerated()), id: \.offset) { index, name in
+                            if index > 0 {
+                                // Connecting line
+                                Rectangle()
+                                    .fill(colorScheme.routeLineColor)
+                                    .frame(height: 1.5)
+                            }
+
+                            // Waypoint dot
+                            let isFirst = index == 0
+                            let isLast = index == displayWaypoints.count - 1
+                            let isEllipsis = name == "···"
+                            let dotSize: CGFloat = (isFirst || isLast) ? 10 : 8
+                            let wpDotColor: Color = isFirst ? .aviationGreen :
+                                                  isLast ? .aviationRed :
+                                                  isEllipsis ? .clear :
+                                                  colorScheme.routeDotColor
+
+                            if isEllipsis {
+                                Text("···")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(colorScheme.tertiaryTextColor)
+                                    .frame(width: 20)
+                            } else {
+                                Circle()
+                                    .fill(wpDotColor)
+                                    .frame(width: dotSize, height: dotSize)
+                            }
+                        }
+                    }
+
+                    // Waypoint names below
+                    HStack(spacing: 0) {
+                        ForEach(Array(displayWaypoints.enumerated()), id: \.offset) { index, name in
+                            if index > 0 {
+                                Spacer(minLength: 0)
+                            }
+
+                            if name == "···" {
+                                Text("")
+                                    .frame(width: 20)
+                            } else {
+                                Text(name)
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(colorScheme.secondaryTextColor)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                            }
+
+                            if index < displayWaypoints.count - 1 {
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Hero Map (clean, no overlays)
@@ -1999,20 +3076,20 @@ struct FlightShareCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .overlay(
                         RoundedRectangle(cornerRadius: 24)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(colorScheme.mapBorderColor, lineWidth: 1)
                     )
             } else {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(colorScheme.cardOverlayColor)
                     .frame(height: 750)
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")
                                 .font(.system(size: 60))
-                                .foregroundColor(.white.opacity(0.15))
+                                .foregroundColor(colorScheme.tertiaryTextColor)
                             Text(L10n.FlightDetail.noGPSData)
                                 .font(.system(size: 24))
-                                .foregroundColor(.white.opacity(0.25))
+                                .foregroundColor(colorScheme.tertiaryTextColor)
                         }
                     )
             }
@@ -2037,27 +3114,27 @@ struct FlightShareCard: View {
         VStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 17, weight: .medium))
-                .foregroundColor(.aviationGold)
+                .foregroundColor(colorScheme.accentColor)
 
             Text(value)
                 .font(.system(size: 21, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(colorScheme.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(label)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.white.opacity(0.45))
+                .foregroundColor(colorScheme.secondaryTextColor)
                 .tracking(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.05))
+                .fill(colorScheme.cardOverlayColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(colorScheme.cardBorderColor, lineWidth: 1)
                 )
         )
     }
@@ -2070,7 +3147,7 @@ struct FlightShareCard: View {
             HStack {
                 Text("ALTITUDE PROFILE")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(colorScheme.tertiaryTextColor)
                     .tracking(2)
 
                 Spacer()
@@ -2078,18 +3155,18 @@ struct FlightShareCard: View {
                 if let maxAlt = maxAltitudeFt {
                     Text("PEAK \(maxAlt) FT")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.altimeterBlue.opacity(0.7))
+                        .foregroundColor(colorScheme.sparklineColor.opacity(0.7))
                 }
             }
 
             if !altitudeData.isEmpty {
-                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
+                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack, sparklineColor: colorScheme.sparklineColor)
                     .frame(height: 160)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.03))
+                            .fill(colorScheme.cardOverlayColor.opacity(0.6))
                     )
             }
         }
@@ -2140,10 +3217,10 @@ struct FlightShareCard: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.04))
+                .fill(colorScheme.cardOverlayColor)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(colorScheme.cardBorderColor, lineWidth: 1)
                 )
         )
     }
@@ -2156,13 +3233,13 @@ struct FlightShareCard: View {
 
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(colorScheme.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(label)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(colorScheme.tertiaryTextColor)
                 .tracking(1)
         }
         .frame(maxWidth: .infinity)
@@ -2175,14 +3252,20 @@ struct FlightShareCard: View {
             Spacer()
 
             // App branding
-            HStack(spacing: 8) {
-                Image(systemName: "airplane.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.aviationGold.opacity(0.6))
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 8) {
+                    Image(systemName: "airplane.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(colorScheme.footerIconColor)
 
-                Text("AéroCheck")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.4))
+                    Text("AéroCheck")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(colorScheme.footerTextColor)
+                }
+
+                Text("https://aerocheck.app")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(colorScheme.footerUrlColor)
             }
         }
     }
@@ -2204,6 +3287,7 @@ struct FlightShareCard: View {
 /// A minimal altitude sparkline chart for the share card
 struct ShareCardAltitudeChart: View {
     let gpsTrack: [GPSPoint]
+    var sparklineColor: Color = .altimeterBlue
 
     private var altitudeData: [(time: Date, altitude: Double)] {
         gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
@@ -2223,7 +3307,7 @@ struct ShareCardAltitudeChart: View {
         if altitudeData.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
                 .font(.system(size: 18))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(sparklineColor.opacity(0.4))
         } else {
             Chart {
                 ForEach(altitudeData, id: \.time) { point in
@@ -2234,7 +3318,7 @@ struct ShareCardAltitudeChart: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color.altimeterBlue.opacity(0.3), Color.altimeterBlue.opacity(0.02)],
+                            colors: [sparklineColor.opacity(0.3), sparklineColor.opacity(0.02)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -2246,7 +3330,7 @@ struct ShareCardAltitudeChart: View {
                         x: .value("Time", point.time),
                         y: .value("Altitude", point.altitude)
                     )
-                    .foregroundStyle(Color.altimeterBlue.opacity(0.8))
+                    .foregroundStyle(sparklineColor.opacity(0.8))
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
                 }
             }

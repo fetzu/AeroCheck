@@ -178,6 +178,7 @@ struct NavigationMapView: View {
     @State private var selectedCompactTab: CompactNavigationTab = .plan
     @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
+    @State private var showGPSStatusModal: Bool = false
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -354,7 +355,19 @@ struct NavigationMapView: View {
             mapOrientationMode = appState.navigationOrientationMode
             // Start GPS updates when navigation view opens
             locationManager.startLocationUpdates()
-            centerOnAircraft()
+            // Center on aircraft location immediately (synchronous, not via async dispatch)
+            // so the map renders at the correct position from the first frame
+            if let location = locationManager.currentLocation {
+                mapState.region = MKCoordinateRegion(
+                    center: location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+                )
+                mapState.cameraDistance = 10000
+                if mapOrientationMode == .trackUp, location.course >= 0 {
+                    mapState.cameraHeading = location.course
+                }
+            }
+            isFollowingAircraft = true
             // Ensure airport data is loaded if setting is enabled
             if appState.settings.showAirportsOnMap {
                 Task { await airportDataService.ensureLoaded() }
@@ -712,19 +725,24 @@ struct NavigationMapView: View {
 
             // Right side: GPS status, FREQ button (when no flight plan), and center button
             VStack(alignment: .trailing, spacing: 8) {
-                // GPS Status
-                HStack(spacing: 4) {
-                    Text("GPS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(gpsStatusColor)
-                    StatusIndicator(gpsStatusIndicator, size: 6)
+                // GPS Status (tappable for info modal)
+                Button(action: { showGPSStatusModal = true }) {
+                    HStack(spacing: 4) {
+                        Text("GPS")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(gpsStatusColor)
+                        StatusIndicator(gpsStatusIndicator, size: 6)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
+                .sheet(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                }
 
                 // FREQ button - only shown when no flight plan is active (to toggle frequency drawer)
                 if !hasActiveFlightPlan {
@@ -1613,10 +1631,11 @@ struct NavigationMapView: View {
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundColor(.aviationGold)
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 5)
                     }
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.panelBackground.opacity(0.9))
@@ -1695,19 +1714,24 @@ struct NavigationMapView: View {
 
             // Right side: GPS status, compass and center button
             VStack(alignment: .trailing, spacing: 12) {
-                // GPS Status
-                HStack(spacing: 6) {
-                    Text("GPS")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(gpsStatusColor)
-                    StatusIndicator(gpsStatusIndicator, size: 8)
+                // GPS Status (tappable for info modal)
+                Button(action: { showGPSStatusModal = true }) {
+                    HStack(spacing: 6) {
+                        Text("GPS")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(gpsStatusColor)
+                        StatusIndicator(gpsStatusIndicator, size: 8)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.panelBackground.opacity(0.9))
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
+                .sheet(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                }
 
                 // Radio Frequency button (always shown when flight planning is enabled)
                 if appState.settings.enableFlightPlanning {
@@ -4207,6 +4231,116 @@ struct NavigationModeButton: View {
                             .fill(Color.aviationBlue.opacity(0.2))
                     )
             )
+        }
+    }
+}
+
+// MARK: - GPS Status Info Sheet
+
+/// Modal sheet explaining GPS status indicators
+struct GPSStatusInfoSheet: View {
+    let currentStatus: GPSSignalStatus
+    @Environment(\.dismiss) var dismiss
+
+    private var currentStatusText: String {
+        switch currentStatus {
+        case .good: return L10n.GPS.signalGood
+        case .degraded: return L10n.GPS.signalDegraded
+        case .lost: return L10n.GPS.signalLost
+        }
+    }
+
+    private var currentStatusColor: Color {
+        switch currentStatus {
+        case .good: return .aviationGreen
+        case .degraded: return .orange
+        case .lost: return .aviationRed
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+                // Header icon
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 40))
+                    .foregroundColor(.aviationGold)
+                    .padding(.top, 20)
+
+                // Title
+                Text(L10n.GPS.statusTitle)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Current status
+                HStack {
+                    Text(L10n.GPS.currentStatus)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondaryText)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(currentStatusColor)
+                            .frame(width: 10, height: 10)
+                        Text(currentStatusText)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(currentStatusColor)
+                    }
+                }
+                .padding(.horizontal, 20)
+
+                Divider()
+                    .padding(.horizontal, 16)
+
+                // Status explanations
+                VStack(spacing: 14) {
+                    statusRow(
+                        color: .aviationGreen,
+                        title: L10n.GPS.signalGood,
+                        description: L10n.GPS.statusGoodDesc
+                    )
+                    statusRow(
+                        color: .orange,
+                        title: L10n.GPS.signalDegraded,
+                        description: L10n.GPS.statusDegradedDesc
+                    )
+                    statusRow(
+                        color: .aviationRed,
+                        title: L10n.GPS.signalLost,
+                        description: L10n.GPS.statusLostDesc
+                    )
+                }
+                .padding(.horizontal, 20)
+
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func statusRow(color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(color)
+                .frame(width: 12, height: 12)
+                .shadow(color: color.opacity(0.5), radius: 4)
+                .padding(.top, 3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(description)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

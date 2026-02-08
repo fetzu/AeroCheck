@@ -545,6 +545,91 @@
         }
       }
     },
+    "gps.status.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS Status"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statut GPS"
+          }
+        }
+      }
+    },
+    "gps.status.current": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current status"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statut actuel"
+          }
+        }
+      }
+    },
+    "gps.status.good.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS is working normally. Position accuracy is within 100 meters and a position update was received within the last 45 seconds."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le GPS fonctionne normalement. La précision de la position est inférieure à 100 mètres et une mise à jour a été reçue au cours des 45 dernières secondes."
+          }
+        }
+      }
+    },
+    "gps.status.degraded.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS signal is weak. Position accuracy exceeds 100 meters, or no update has been received for more than 15 seconds. Your location may be approximate."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le signal GPS est faible. La précision de la position dépasse 100 mètres, ou aucune mise à jour n'a été reçue depuis plus de 15 secondes. Votre position peut être approximative."
+          }
+        }
+      }
+    },
+    "gps.status.lost.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No GPS signal. No position update received for more than 90 seconds. Check that location services are enabled in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun signal GPS. Aucune mise à jour de position reçue depuis plus de 90 secondes. Vérifiez que les services de localisation sont activés dans les Réglages."
+          }
+        }
+      }
+    },
     "gps.points": {
       "extractionState": "manual",
       "localizations": {

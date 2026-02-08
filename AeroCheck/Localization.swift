@@ -72,6 +72,13 @@ enum L10n {
         static let signalInactive = String(localized: "gps.signal.inactive")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
+
+        // GPS Status Modal
+        static let statusTitle = String(localized: "gps.status.title")
+        static let currentStatus = String(localized: "gps.status.current")
+        static let statusGoodDesc = String(localized: "gps.status.good.description")
+        static let statusDegradedDesc = String(localized: "gps.status.degraded.description")
+        static let statusLostDesc = String(localized: "gps.status.lost.description")
     }
 
     // MARK: - Flight

@@ -3172,29 +3172,18 @@ struct ShareCardAltitudeChart: View {
                 .font(.system(size: 18))
                 .foregroundColor(sparklineColor.opacity(0.4))
         } else if !terrainData.isEmpty {
-            // Terrain mode: all series use unifiedData for identical x-coordinates
+            // Terrain mode: draw altitude fill FIRST (behind), then terrain fill ON TOP.
+            // Both AreaMarks start from the same baseline. Since terrain ≤ altitude,
+            // the brown terrain covers the lower portion of the blue altitude fill,
+            // creating a layered visual: brown ground, blue sky, altitude line on top.
+            // NOTE: SwiftUI Charts stacks AreaMark series by default — drawing both
+            // from the same baseline and relying on draw order avoids this issue.
             Chart {
-                // 1) Terrain fill: baseline → terrain elevation (brown)
+                // 1) Altitude fill: baseline → flight altitude (blue, drawn FIRST = behind)
                 ForEach(unifiedData) { point in
                     AreaMark(
                         x: .value("Time", point.time),
                         yStart: .value("Baseline", altitudeRange.lowerBound),
-                        yEnd: .value("Terrain", point.terrain)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Self.terrainColor.opacity(0.8), Self.terrainColor.opacity(0.5)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                }
-
-                // 2) Sky gap fill: terrain elevation → flight altitude (blue)
-                ForEach(unifiedData) { point in
-                    AreaMark(
-                        x: .value("Time", point.time),
-                        yStart: .value("Ground", point.terrain),
                         yEnd: .value("Altitude", point.altitude)
                     )
                     .foregroundStyle(
@@ -3206,7 +3195,23 @@ struct ShareCardAltitudeChart: View {
                     )
                 }
 
-                // 3) Terrain outline
+                // 2) Terrain fill: baseline → terrain (brown, drawn SECOND = on top)
+                ForEach(unifiedData) { point in
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        yStart: .value("Baseline", altitudeRange.lowerBound),
+                        yEnd: .value("TerrainFill", point.terrain)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Self.terrainColor.opacity(0.9), Self.terrainColor.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+
+                // 3) Terrain outline (brown line)
                 ForEach(unifiedData) { point in
                     LineMark(
                         x: .value("Time", point.time),
@@ -3216,7 +3221,7 @@ struct ShareCardAltitudeChart: View {
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
                 }
 
-                // 4) Altitude line
+                // 4) Altitude line (blue, on top of everything)
                 ForEach(unifiedData) { point in
                     LineMark(
                         x: .value("Time", point.time),

@@ -1068,9 +1068,9 @@ struct FlightDetailView: View {
         let mapRect = polyline.boundingMapRect
 
         // Target size for the snapshot (matching card map dimensions at 2x scale for the renderer)
-        // Card hero map section is 1016x780 points, we render at 2x = 2032x1560
+        // Card hero map section is 1016x750 points, we render at 2x = 2032x1500
         let targetWidth: CGFloat = 2032
-        let targetHeight: CGFloat = 1560
+        let targetHeight: CGFloat = 1500
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
@@ -1778,12 +1778,27 @@ struct FlightShareCard: View {
         flight.aircraftRegistration ?? flight.airplane
     }
 
-    /// Route string: "LSGG → LSZB" or just the identifier if no airports
+    /// Aircraft type display name (e.g. "PA-28-181", "WT9 Dynamic")
+    private var aircraftTypeDisplay: String? {
+        flight.aircraftType
+    }
+
+    /// Route string: "LSGG → LSZB" or nil if no airports
     private var routeString: String? {
         guard let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent else {
             return nil
         }
         return "\(dep) → \(arr)"
+    }
+
+    /// Display title: route, flight name, or aircraft identifier
+    private var displayTitle: String {
+        if let route = routeString {
+            return route
+        } else if !flight.name.isEmpty {
+            return flight.name
+        }
+        return aircraftIdentifier
     }
 
     /// Flight time between takeoff and landing, with fallback times.
@@ -1852,36 +1867,41 @@ struct FlightShareCard: View {
             Color(red: 0.04, green: 0.05, blue: 0.09)
 
             VStack(spacing: 0) {
-                // Top bar: date + branding
+                // Top bar: date + aircraft info
                 topBarSection
                     .padding(.top, 50)
                     .padding(.horizontal, 48)
 
-                // Route / Title area
-                routeSection
-                    .padding(.top, 32)
+                // Title + flight time on same line
+                titleSection
+                    .padding(.top, 24)
                     .padding(.horizontal, 48)
 
-                // Hero map with overlaid stats
+                // Hero map (no overlaid stats)
                 heroMapSection
-                    .padding(.top, 32)
+                    .padding(.top, 24)
+                    .padding(.horizontal, 32)
+
+                // Stat pills row (below the map)
+                statPillsRow
+                    .padding(.top, 16)
                     .padding(.horizontal, 32)
 
                 // Altitude sparkline
                 altitudeSparkline
-                    .padding(.top, 24)
+                    .padding(.top, 20)
                     .padding(.horizontal, 48)
 
-                // Bottom stats row
+                // Bottom stats row (takeoff/landing times)
                 bottomStatsRow
-                    .padding(.top, 28)
+                    .padding(.top, 20)
                     .padding(.horizontal, 48)
 
-                Spacer()
+                Spacer(minLength: 16)
 
                 // Footer branding
                 footerSection
-                    .padding(.bottom, 50)
+                    .padding(.bottom, 40)
                     .padding(.horizontal, 48)
             }
         }
@@ -1900,83 +1920,83 @@ struct FlightShareCard: View {
 
             Spacer()
 
-            // Aircraft identifier pill
-            Text(aircraftIdentifier)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundColor(.aviationGold)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color.aviationGold.opacity(0.15))
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
-                        )
-                )
+            // Aircraft identifier pill with type
+            HStack(spacing: 10) {
+                if let type = aircraftTypeDisplay {
+                    Text(type)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Text(aircraftIdentifier)
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(Color.aviationGold.opacity(0.15))
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
+                    )
+            )
         }
     }
 
-    // MARK: - Route Section
+    // MARK: - Title Section (name left, flight time right)
 
-    private var routeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let route = routeString {
-                // Airport-to-airport route
-                Text(route)
-                    .font(.system(size: 56, weight: .heavy, design: .default))
+    private var titleSection: some View {
+        VStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                // Title (route, flight name, or aircraft)
+                Text(displayTitle)
+                    .font(.system(size: 52, weight: .bold, design: .default))
                     .foregroundColor(.white)
-                    .tracking(1)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            } else if !flight.name.isEmpty {
-                // Flight name as main title
-                Text(flight.name)
-                    .font(.system(size: 48, weight: .bold, design: .default))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.5)
+
+                Spacer(minLength: 16)
+
+                // Flight time
+                Text(formattedExportFlightTime)
+                    .font(.system(size: 46, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+                    .lineLimit(1)
             }
 
-            // Hero number: flight time
-            HStack(alignment: .firstTextBaseline, spacing: 16) {
-                Text(formattedExportFlightTime)
-                    .font(.system(size: 72, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGold)
+            // FLIGHT TIME label aligned right
+            HStack {
+                // Show flight name below if route is the main title
+                if routeString != nil && !flight.name.isEmpty {
+                    Text(flight.name)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .lineLimit(1)
+                }
+
+                Spacer()
 
                 Text("FLIGHT TIME")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white.opacity(0.35))
                     .tracking(2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Hero Map with Overlaid Stats
+    // MARK: - Hero Map (clean, no overlays)
 
     private var heroMapSection: some View {
-        ZStack(alignment: .bottom) {
-            // Map image
+        Group {
             if let mapImg = mapImage {
                 Image(uiImage: mapImg)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 780)
+                    .frame(height: 750)
                     .clipShape(RoundedRectangle(cornerRadius: 24))
-                    .overlay(
-                        // Subtle gradient at bottom for stat readability
-                        VStack {
-                            Spacer()
-                            LinearGradient(
-                                colors: [.clear, Color.black.opacity(0.6)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 200)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
-                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 24)
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
@@ -1984,7 +2004,7 @@ struct FlightShareCard: View {
             } else {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(Color.white.opacity(0.04))
-                    .frame(height: 780)
+                    .frame(height: 750)
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")
@@ -1996,58 +2016,60 @@ struct FlightShareCard: View {
                         }
                     )
             }
+        }
+    }
 
-            // Overlaid stat pills at the bottom of the map
-            if mapImage != nil {
-                HStack(spacing: 12) {
-                    mapStatPill(icon: "arrow.up.to.line", value: maxAltitudeFt.map { "\($0) ft" } ?? "—", label: "MAX ALT")
+    // MARK: - Stat Pills Row (below the map)
 
-                    mapStatPill(icon: "point.topleft.down.to.point.bottomright.curvepath.fill", value: distanceNM, label: "DISTANCE")
+    private var statPillsRow: some View {
+        HStack(spacing: 12) {
+            mapStatPill(icon: "arrow.up.to.line", value: maxAltitudeFt.map { "\($0) ft" } ?? "—", label: "MAX ALT")
 
-                    if landingsCount > 0 {
-                        mapStatPill(icon: "airplane.arrival", value: "\(landingsCount)", label: landingsCount == 1 ? "LANDING" : "LANDINGS")
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+            mapStatPill(icon: "point.topleft.down.to.point.bottomright.curvepath.fill", value: distanceNM, label: "DISTANCE")
+
+            if landingsCount > 0 {
+                mapStatPill(icon: "airplane.arrival", value: "\(landingsCount)", label: landingsCount == 1 ? "LANDING" : "LANDINGS")
             }
         }
     }
 
     private func mapStatPill(icon: String, value: String, label: String) -> some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundColor(.aviationGold)
 
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .font(.system(size: 21, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(label)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.white.opacity(0.45))
                 .tracking(1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
         )
     }
 
     // MARK: - Altitude Sparkline
 
     private var altitudeSparkline: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             // Section label
             HStack {
                 Text("ALTITUDE PROFILE")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white.opacity(0.35))
                     .tracking(2)
 
@@ -2055,18 +2077,18 @@ struct FlightShareCard: View {
 
                 if let maxAlt = maxAltitudeFt {
                     Text("PEAK \(maxAlt) FT")
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(.altimeterBlue.opacity(0.7))
                 }
             }
 
             if !altitudeData.isEmpty {
                 ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
-                    .frame(height: 180)
+                    .frame(height: 160)
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 14)
                             .fill(Color.white.opacity(0.03))
                     )
             }
@@ -2114,22 +2136,22 @@ struct FlightShareCard: View {
                 )
             }
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, 16)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(Color.white.opacity(0.04))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 14)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
                 )
         )
     }
 
     private func bottomStatItem(icon: String, value: String, label: String, color: Color) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 22))
+                .font(.system(size: 20))
                 .foregroundColor(color)
 
             Text(value)
@@ -2139,7 +2161,7 @@ struct FlightShareCard: View {
                 .minimumScaleFactor(0.7)
 
             Text(label)
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.white.opacity(0.4))
                 .tracking(1)
         }
@@ -2150,14 +2172,6 @@ struct FlightShareCard: View {
 
     private var footerSection: some View {
         HStack {
-            // Flight name (if we have a route, show the name here)
-            if routeString != nil && !flight.name.isEmpty {
-                Text(flight.name)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white.opacity(0.3))
-                    .lineLimit(1)
-            }
-
             Spacer()
 
             // App branding

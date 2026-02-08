@@ -3166,74 +3166,89 @@ struct ShareCardAltitudeChart: View {
         return terrainData.last!.elevationFeet
     }
 
+    // MARK: - Coordinate Mapping Helpers
+
+    private func xPosition(for time: Date, in size: CGSize) -> CGFloat {
+        guard let first = altitudeData.first?.time, let last = altitudeData.last?.time else { return 0 }
+        let span = last.timeIntervalSince(first)
+        guard span > 0 else { return 0 }
+        return CGFloat(time.timeIntervalSince(first) / span) * size.width
+    }
+
+    private func yPosition(for value: Double, in size: CGSize) -> CGFloat {
+        let range = altitudeRange.upperBound - altitudeRange.lowerBound
+        guard range > 0 else { return size.height }
+        return size.height - CGFloat((value - altitudeRange.lowerBound) / range) * size.height
+    }
+
     var body: some View {
         if altitudeData.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
                 .font(.system(size: 18))
                 .foregroundColor(sparklineColor.opacity(0.4))
         } else if !terrainData.isEmpty {
-            // Terrain mode: draw altitude fill FIRST (behind), then terrain fill ON TOP.
-            // Both AreaMarks start from the same baseline. Since terrain ≤ altitude,
-            // the brown terrain covers the lower portion of the blue altitude fill,
-            // creating a layered visual: brown ground, blue sky, altitude line on top.
-            // NOTE: SwiftUI Charts stacks AreaMark series by default — drawing both
-            // from the same baseline and relying on draw order avoids this issue.
-            Chart {
-                // 1) Altitude fill: baseline → flight altitude (blue, drawn FIRST = behind)
-                ForEach(unifiedData) { point in
-                    AreaMark(
-                        x: .value("Time", point.time),
-                        yStart: .value("Baseline", altitudeRange.lowerBound),
-                        yEnd: .value("Altitude", point.altitude)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [sparklineColor.opacity(0.35), sparklineColor.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                }
+            // Path-based terrain rendering — SwiftUI Charts AreaMark always stacks
+            // multiple series, so we use GeometryReader + ZStack + Path for true
+            // painter's model layering (matching TerrainProfileView.swift pattern).
+            GeometryReader { geometry in
+                let size = geometry.size
 
-                // 2) Terrain fill: baseline → terrain (brown, drawn SECOND = on top)
-                ForEach(unifiedData) { point in
-                    AreaMark(
-                        x: .value("Time", point.time),
-                        yStart: .value("Baseline", altitudeRange.lowerBound),
-                        yEnd: .value("TerrainFill", point.terrain)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Self.terrainColor.opacity(0.9), Self.terrainColor.opacity(0.6)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                }
+                ZStack {
+                    // 1) Altitude fill: baseline → flight altitude (blue, behind)
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: size.height))
+                        for point in unifiedData {
+                            path.addLine(to: CGPoint(
+                                x: xPosition(for: point.time, in: size),
+                                y: yPosition(for: point.altitude, in: size)
+                            ))
+                        }
+                        path.addLine(to: CGPoint(x: size.width, y: size.height))
+                        path.closeSubpath()
+                    }
+                    .fill(LinearGradient(
+                        colors: [sparklineColor.opacity(0.35), sparklineColor.opacity(0.05)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
 
-                // 3) Terrain outline (brown line)
-                ForEach(unifiedData) { point in
-                    LineMark(
-                        x: .value("Time", point.time),
-                        y: .value("TerrainLine", point.terrain)
-                    )
-                    .foregroundStyle(Self.terrainColor)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
+                    // 2) Terrain fill: baseline → terrain (brown, on top of blue)
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: size.height))
+                        for point in unifiedData {
+                            path.addLine(to: CGPoint(
+                                x: xPosition(for: point.time, in: size),
+                                y: yPosition(for: point.terrain, in: size)
+                            ))
+                        }
+                        path.addLine(to: CGPoint(x: size.width, y: size.height))
+                        path.closeSubpath()
+                    }
+                    .fill(LinearGradient(
+                        colors: [Self.terrainColor.opacity(0.9), Self.terrainColor.opacity(0.6)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
 
-                // 4) Altitude line (blue, on top of everything)
-                ForEach(unifiedData) { point in
-                    LineMark(
-                        x: .value("Time", point.time),
-                        y: .value("AltLine", point.altitude)
-                    )
-                    .foregroundStyle(sparklineColor.opacity(0.9))
-                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    // 3) Terrain outline
+                    Path { path in
+                        for (i, point) in unifiedData.enumerated() {
+                            let pt = CGPoint(x: xPosition(for: point.time, in: size),
+                                             y: yPosition(for: point.terrain, in: size))
+                            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+                        }
+                    }
+                    .stroke(Self.terrainColor, lineWidth: 1.5)
+
+                    // 4) Altitude line (on top of everything)
+                    Path { path in
+                        for (i, point) in unifiedData.enumerated() {
+                            let pt = CGPoint(x: xPosition(for: point.time, in: size),
+                                             y: yPosition(for: point.altitude, in: size))
+                            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+                        }
+                    }
+                    .stroke(sparklineColor.opacity(0.9), lineWidth: 2.5)
                 }
             }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .chartYScale(domain: altitudeRange)
         } else {
             // No terrain: original style
             Chart {

@@ -4,9 +4,9 @@ import Combine
 
 /// GPS signal quality status
 enum GPSSignalStatus {
-    case good       // Green: accurate signal
-    case degraded   // Orange: inaccurate or stale signal (>2.5s since last update)
-    case lost       // Red: no signal for 10+ seconds
+    case good       // Green: GPS functioning, accurate position available
+    case degraded   // Orange: GPS working but accuracy poor or updates infrequent
+    case lost       // Red: GPS truly lost — no position data available
 
     var color: String {
         switch self {
@@ -41,9 +41,11 @@ class LocationManager: NSObject, ObservableObject {
     // GPS accuracy tracking
     private var lastGoodSignalTime: Date?
     private var lastLocationUpdateTime: Date?
-    private let signalDegradedThreshold: TimeInterval = 2.5  // 2.5 seconds without update = degraded
-    private let signalLostThreshold: TimeInterval = 10.0  // 10 seconds without update = lost
-    private let horizontalAccuracyThreshold: CLLocationAccuracy = 50.0  // 50 meters
+    private var lastKnownAccuracy: CLLocationAccuracy = -1  // Last received horizontal accuracy (-1 = unknown)
+    private let signalDegradedThreshold: TimeInterval = 15.0  // 15 seconds without update = degraded
+    private let signalLostThreshold: TimeInterval = 45.0  // 45 seconds without update = degraded (even with good last accuracy)
+    private let signalTrulyLostThreshold: TimeInterval = 90.0  // 90 seconds = truly lost (red)
+    private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
 
     // GPS status override (for marketing mode)
@@ -146,7 +148,10 @@ class LocationManager: NSObject, ObservableObject {
     // MARK: - Signal Quality Monitoring
 
     private func startSignalCheckTimer() {
-        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        // Invalidate existing timer to prevent duplicates (e.g. if startTracking and
+        // startLocationUpdates are both called)
+        signalCheckTimer?.invalidate()
+        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkSignalStatus()
             }
@@ -167,23 +172,36 @@ class LocationManager: NSObject, ObservableObject {
             return
         }
 
+        guard let lastUpdate = lastLocationUpdateTime else {
+            // Never received a location update — GPS truly lost
+            gpsSignalStatus = .lost
+            return
+        }
+
         let now = Date()
+        let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
+        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
 
-        // Check time since last location update
-        if let lastUpdate = lastLocationUpdateTime {
-            let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
-
-            // Lost: no update for 10+ seconds
-            if timeSinceLastUpdate >= signalLostThreshold {
-                if gpsSignalStatus != .lost {
-                    gpsSignalStatus = .lost
-                }
+        // Truly lost: no update for 90+ seconds regardless of last accuracy
+        if timeSinceLastUpdate >= signalTrulyLostThreshold {
+            gpsSignalStatus = .lost
+        }
+        // Degraded: no update for 45+ seconds (even if last accuracy was good,
+        // something is wrong after this long)
+        else if timeSinceLastUpdate >= signalLostThreshold {
+            if gpsSignalStatus == .good {
+                gpsSignalStatus = .degraded
             }
-            // Degraded: no update for 2.5+ seconds (but not yet lost)
-            else if timeSinceLastUpdate >= signalDegradedThreshold {
-                if gpsSignalStatus == .good {
-                    gpsSignalStatus = .degraded
-                }
+        }
+        // If last accuracy was good, stay good — the distance filter (50m) may simply
+        // not have triggered yet because the device hasn't moved enough
+        else if lastAccuracyWasGood {
+            gpsSignalStatus = .good
+        }
+        // Last accuracy was poor and no fresh update for 15+ seconds
+        else if timeSinceLastUpdate >= signalDegradedThreshold {
+            if gpsSignalStatus == .good {
+                gpsSignalStatus = .degraded
             }
         }
     }
@@ -197,8 +215,9 @@ class LocationManager: NSObject, ObservableObject {
         let now = Date()
         let accuracy = location.horizontalAccuracy
 
-        // Always update the last location update time when we receive any location
+        // Always update the last location update time and accuracy when we receive any location
         lastLocationUpdateTime = now
+        lastKnownAccuracy = accuracy
 
         // Negative accuracy means invalid - mark as degraded
         if accuracy < 0 {

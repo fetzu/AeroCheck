@@ -261,7 +261,11 @@ class AppState: ObservableObject {
     @Published var flights: [Flight] = []
     @Published var settings: AppSettings = AppSettings()
     @Published var showFlightLog: Bool = false
-    
+
+    // Navigation view session state (not persisted to disk — resets on app restart)
+    @Published var navigationSelectedLayer: MapLayerType = .icao
+    @Published var navigationOrientationMode: MapOrientationMode = .northUp
+
     // Recorded times during flight
     @Published var engineStartTime: Date?
     @Published var lineUpTime: Date?

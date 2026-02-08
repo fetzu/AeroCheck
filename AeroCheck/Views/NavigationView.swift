@@ -349,6 +349,9 @@ struct NavigationMapView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            // Restore map settings from session state
+            selectedLayer = appState.navigationSelectedLayer
+            mapOrientationMode = appState.navigationOrientationMode
             // Start GPS updates when navigation view opens
             locationManager.startLocationUpdates()
             centerOnAircraft()
@@ -391,6 +394,8 @@ struct NavigationMapView: View {
             }
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
+            // Save to session state
+            appState.navigationSelectedLayer = newLayer
             // When switching layers, force a tile refresh for Swiss layers
             if newLayer.isSwissLayer {
                 // Trigger a small region update to force tile loading
@@ -1803,6 +1808,8 @@ struct NavigationMapView: View {
             mapOrientationMode = .northUp
             mapState.requestHeadingReset()
         }
+        // Save to session state
+        appState.navigationOrientationMode = mapOrientationMode
     }
 }
 
@@ -3435,6 +3442,15 @@ struct SwissMapView: UIViewRepresentable {
         // Update aircraft annotation
         updateAircraftAnnotation(mapView, context: context)
 
+        // When layer changes, force-refresh track overlay so the renderer uses the correct color
+        if overlayChanged {
+            let existingTrackPolylines = mapView.overlays.compactMap { overlay -> MKPolyline? in
+                if overlay is FlightPlanRoutePolyline || overlay is MKTileOverlay { return nil }
+                return overlay as? MKPolyline
+            }
+            mapView.removeOverlays(existingTrackPolylines)
+        }
+
         // Update track overlay
         updateTrackOverlay(mapView, context: context)
 
@@ -3706,11 +3722,17 @@ struct SwissMapView: UIViewRepresentable {
                 return renderer
             }
 
-            // GPS track (gold)
+            // GPS track - use magenta on ICAO/Segelflugkarte layers for visibility,
+            // gold on other layers
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                // Use explicit UIColor for gold
-                renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+                let isICAOLayer = (currentLayerType ?? parent.layerType) == .icao
+                if isICAOLayer {
+                    // Bright magenta for visibility on aeronautical charts
+                    renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
+                } else {
+                    renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
+                }
                 renderer.lineWidth = 3
                 return renderer
             }
@@ -3942,8 +3964,8 @@ struct SwissMapView: UIViewRepresentable {
 // MARK: - Aircraft Annotation
 
 class AircraftAnnotation: NSObject, MKAnnotation {
-    var coordinate: CLLocationCoordinate2D
-    var heading: Double
+    @objc dynamic var coordinate: CLLocationCoordinate2D
+    @objc dynamic var heading: Double
 
     init(coordinate: CLLocationCoordinate2D, heading: Double) {
         self.coordinate = coordinate

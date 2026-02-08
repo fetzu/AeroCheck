@@ -1924,16 +1924,7 @@ struct FlightShareCard: View {
                 .tracking(2)
 
             if !flight.gpsTrack.isEmpty {
-                ShareCardAltitudeChart(
-                    gpsTrack: flight.gpsTrack,
-                    engineStartTime: flight.engineStartTime,
-                    lineUpTime: flight.lineUpTime,
-                    landingTime: flight.landingTime,
-                    engineShutdownTime: flight.engineShutdownTime,
-                    goAroundTimes: flight.goAroundTimes,
-                    touchAndGoTimes: flight.touchAndGoTimes,
-                    fullStopTimes: flight.fullStopTimes
-                )
+                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
                     .frame(height: 280)
                     .padding(16)
                     .background(
@@ -2145,16 +2136,9 @@ struct FlightShareCard: View {
 
 // MARK: - Share Card Altitude Chart
 
-/// A simplified altitude chart for the share card, with flight event annotations
+/// A simplified altitude chart for the share card
 struct ShareCardAltitudeChart: View {
     let gpsTrack: [GPSPoint]
-    var engineStartTime: Date? = nil
-    var lineUpTime: Date? = nil
-    var landingTime: Date? = nil
-    var engineShutdownTime: Date? = nil
-    var goAroundTimes: [Date] = []
-    var touchAndGoTimes: [Date] = []
-    var fullStopTimes: [Date] = []
 
     private var altitudeData: [(time: Date, altitude: Double)] {
         gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
@@ -2168,35 +2152,6 @@ struct ShareCardAltitudeChart: View {
         let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
         let upperBound = ceil((maxAlt + 500) / 100) * 100
         return lowerBound...upperBound
-    }
-
-    /// Flight event annotations matching the detail view
-    private var eventAnnotations: [(time: Date, icon: String, color: Color)] {
-        var annotations: [(time: Date, icon: String, color: Color)] = []
-
-        if let engineStart = engineStartTime {
-            annotations.append((time: engineStart, icon: "engine.combustion", color: .aviationGreen))
-        }
-        if let lineUp = lineUpTime {
-            annotations.append((time: lineUp, icon: "airplane.departure", color: .aviationAmber))
-        }
-        for goAroundTime in goAroundTimes {
-            annotations.append((time: goAroundTime, icon: "arrow.up.right.circle.fill", color: .aviationAmber))
-        }
-        for touchAndGoTime in touchAndGoTimes {
-            annotations.append((time: touchAndGoTime, icon: "arrow.triangle.2.circlepath", color: .aviationBlue))
-        }
-        for fullStopTime in fullStopTimes {
-            annotations.append((time: fullStopTime, icon: "stop.circle.fill", color: .aviationAmber))
-        }
-        if let landing = landingTime {
-            annotations.append((time: landing, icon: "airplane.arrival", color: .aviationBlue))
-        }
-        if let shutdown = engineShutdownTime {
-            annotations.append((time: shutdown, icon: "engine.combustion.fill", color: .aviationRed))
-        }
-
-        return annotations
     }
 
     var body: some View {
@@ -2228,24 +2183,6 @@ struct ShareCardAltitudeChart: View {
                             endPoint: .bottom
                         )
                     )
-                }
-
-                // Event annotations with dashed vertical lines and icons
-                ForEach(Array(eventAnnotations.enumerated()), id: \.offset) { _, event in
-                    RuleMark(x: .value("Event", event.time))
-                        .foregroundStyle(event.color.opacity(0.7))
-                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 3]))
-                        .annotation(position: .top, alignment: .center) {
-                            Image(systemName: event.icon)
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(event.color)
-                                .padding(6)
-                                .background(
-                                    Circle()
-                                        .fill(Color(red: 0.08, green: 0.10, blue: 0.18))
-                                        .shadow(color: event.color.opacity(0.3), radius: 3)
-                                )
-                        }
                 }
             }
             .chartXAxis {

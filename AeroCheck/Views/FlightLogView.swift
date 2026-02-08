@@ -1161,27 +1161,31 @@ struct FlightDetailView: View {
         accentColor: Color
     ) async -> UIImage? {
         // Convert MKMapRect corners to lat/lon
-        let topLeft = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
-        let bottomRight = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
+        // In MKMapRect: minY = north (top), maxY = south (bottom)
+        let northWest = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
+        let southEast = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
 
-        let z = zoomLevel
+        // Determine optimal zoom level based on bounding box
+        let z = Self.optimalZoomLevel(
+            minLat: southEast.latitude, maxLat: northWest.latitude,
+            minLon: northWest.longitude, maxLon: southEast.longitude,
+            targetWidth: targetSize.width, tileSize: 256,
+            layerMinZoom: 7, layerMaxZoom: zoomLevel
+        )
 
-        // Calculate tile ranges using Web Mercator math
-        let minTileX = longitudeToTileX(lon: topLeft.longitude, zoom: z)
-        let maxTileX = longitudeToTileX(lon: bottomRight.longitude, zoom: z)
-        let minTileY = latitudeToTileY(lat: topLeft.latitude, zoom: z)
-        let maxTileY = latitudeToTileY(lat: bottomRight.latitude, zoom: z)
+        // Calculate tile ranges
+        let minTileX = Self.lonToTileX(lon: northWest.longitude, zoom: z)
+        let maxTileX = Self.lonToTileX(lon: southEast.longitude, zoom: z)
+        let minTileY = Self.latToTileY(lat: northWest.latitude, zoom: z)
+        let maxTileY = Self.latToTileY(lat: southEast.latitude, zoom: z)
 
         let tileXRange = min(minTileX, maxTileX)...max(minTileX, maxTileX)
         let tileYRange = min(minTileY, maxTileY)...max(minTileY, maxTileY)
 
         let tileSize: CGFloat = 256
-        let tilesWide = CGFloat(tileXRange.count)
-        let tilesHigh = CGFloat(tileYRange.count)
 
         // Download all tiles concurrently
         var tileImages: [String: UIImage] = [:]
-
         await withTaskGroup(of: (String, UIImage?).self) { group in
             for tileX in tileXRange {
                 for tileY in tileYRange {
@@ -1199,76 +1203,70 @@ struct FlightDetailView: View {
                     }
                 }
             }
-
             for await (key, image) in group {
-                if let image = image {
-                    tileImages[key] = image
-                }
+                if let image = image { tileImages[key] = image }
             }
         }
 
-        // If we got no tiles, fall back to standard map
-        if tileImages.isEmpty {
-            return nil
-        }
+        if tileImages.isEmpty { return nil }
 
-        // Composite tiles into a single large image
-        let compositeWidth = tilesWide * tileSize
-        let compositeHeight = tilesHigh * tileSize
-        let compositeSize = CGSize(width: compositeWidth, height: compositeHeight)
+        // Calculate tile grid geo-bounds
+        let tileOriginLon = Self.tileXToLon(tileX: tileXRange.lowerBound, zoom: z)
+        let tileOriginLat = Self.tileYToLat(tileY: tileYRange.lowerBound, zoom: z) // north edge
+        let tileEndLon = Self.tileXToLon(tileX: tileXRange.upperBound + 1, zoom: z)
+        let tileEndLat = Self.tileYToLat(tileY: tileYRange.upperBound + 1, zoom: z) // south edge
 
-        let compositeRenderer = UIGraphicsImageRenderer(size: compositeSize)
-        let compositeImage = compositeRenderer.image { ctx in
+        let lonRange = tileEndLon - tileOriginLon
+        let latRange = tileOriginLat - tileEndLat // positive, north to south
+
+        guard lonRange > 0, latRange > 0 else { return nil }
+
+        // Draw directly at target size, mapping coordinates from geo-space
+        let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
+        let finalImage = finalRenderer.image { ctx in
+            let context = ctx.cgContext
+
+            // Calculate the sub-region of the tile grid that corresponds to our padded rect
+            let cropFracXStart = (northWest.longitude - tileOriginLon) / lonRange
+            let cropFracXEnd = (southEast.longitude - tileOriginLon) / lonRange
+            let cropFracYStart = (tileOriginLat - northWest.latitude) / latRange
+            let cropFracYEnd = (tileOriginLat - southEast.latitude) / latRange
+
+            let cropFracWidth = cropFracXEnd - cropFracXStart
+            let cropFracHeight = cropFracYEnd - cropFracYStart
+
+            guard cropFracWidth > 0, cropFracHeight > 0 else { return }
+
+            let tilesWide = CGFloat(tileXRange.count)
+            let tilesHigh = CGFloat(tileYRange.count)
+            let compositeWidth = tilesWide * tileSize
+            let compositeHeight = tilesHigh * tileSize
+
+            let scaleX = targetSize.width / (cropFracWidth * compositeWidth)
+            let scaleY = targetSize.height / (cropFracHeight * compositeHeight)
+            let offsetX = -cropFracXStart * compositeWidth * scaleX
+            let offsetY = -cropFracYStart * compositeHeight * scaleY
+
+            // Draw each tile at the correct position in the final image
             for tileX in tileXRange {
                 for tileY in tileYRange {
                     let key = "\(tileX)-\(tileY)"
                     if let tileImg = tileImages[key] {
-                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize
-                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize
-                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize, height: tileSize))
+                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize * scaleX + offsetX
+                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize * scaleY + offsetY
+                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize * scaleX, height: tileSize * scaleY))
                     }
                 }
             }
-        }
 
-        // Now we need to crop the composite to match our paddedRect
-        // Calculate where our paddedRect falls within the tile grid
-        let firstTileX = tileXRange.lowerBound
-        let firstTileY = tileYRange.lowerBound
-        let tileOriginLon = tileXToLongitude(tileX: firstTileX, zoom: z)
-        let tileOriginLat = tileYToLatitude(tileY: firstTileY, zoom: z)
-        let tileEndLon = tileXToLongitude(tileX: tileXRange.upperBound + 1, zoom: z)
-        let tileEndLat = tileYToLatitude(tileY: tileYRange.upperBound + 1, zoom: z)
-
-        // Map our paddedRect bounds to pixel positions in the composite
-        let lonRange = tileEndLon - tileOriginLon
-        let latRange = tileOriginLat - tileEndLat // Note: latitude decreases going down
-
-        let cropXStart = ((topLeft.longitude - tileOriginLon) / lonRange) * compositeWidth
-        let cropXEnd = ((bottomRight.longitude - tileOriginLon) / lonRange) * compositeWidth
-        let cropYStart = ((tileOriginLat - topLeft.latitude) / latRange) * compositeHeight
-        let cropYEnd = ((tileOriginLat - bottomRight.latitude) / latRange) * compositeHeight
-
-        let cropRect = CGRect(
-            x: max(0, cropXStart),
-            y: max(0, cropYStart),
-            width: min(compositeWidth, cropXEnd - cropXStart),
-            height: min(compositeHeight, cropYEnd - cropYStart)
-        )
-
-        guard let croppedCGImage = compositeImage.cgImage?.cropping(to: cropRect) else {
-            return nil
-        }
-
-        // Scale the cropped image to our target size and draw the route on top
-        let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
-        let finalImage = finalRenderer.image { ctx in
-            let croppedImage = UIImage(cgImage: croppedCGImage)
-            croppedImage.draw(in: CGRect(origin: .zero, size: targetSize))
-
-            let context = ctx.cgContext
-            let scaleX = targetSize.width / cropRect.width
-            let scaleY = targetSize.height / cropRect.height
+            // Helper: convert geo-coordinate to final image point
+            func geoToPoint(_ coord: CLLocationCoordinate2D) -> CGPoint {
+                let fracX = (coord.longitude - tileOriginLon) / lonRange
+                let fracY = (tileOriginLat - coord.latitude) / latRange
+                let px = fracX * compositeWidth * scaleX + offsetX
+                let py = fracY * compositeHeight * scaleY + offsetY
+                return CGPoint(x: px, y: py)
+            }
 
             // Draw polyline
             context.setStrokeColor(UIColor(accentColor).cgColor)
@@ -1278,35 +1276,20 @@ struct FlightDetailView: View {
 
             let path = UIBezierPath()
             for (index, coordinate) in coordinates.enumerated() {
-                // Convert coordinate to pixel position in composite, then to final image coordinates
-                let pixelX = ((coordinate.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let pixelY = ((tileOriginLat - coordinate.latitude) / latRange) * compositeHeight
-                let finalX = (pixelX - cropRect.minX) * scaleX
-                let finalY = (pixelY - cropRect.minY) * scaleY
-
-                if index == 0 {
-                    path.move(to: CGPoint(x: finalX, y: finalY))
-                } else {
-                    path.addLine(to: CGPoint(x: finalX, y: finalY))
-                }
+                let point = geoToPoint(coordinate)
+                if index == 0 { path.move(to: point) }
+                else { path.addLine(to: point) }
             }
             context.addPath(path.cgPath)
             context.strokePath()
 
             // Draw start marker
             if let firstCoord = coordinates.first {
-                let px = ((firstCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let py = ((tileOriginLat - firstCoord.latitude) / latRange) * compositeHeight
-                let point = CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY)
-                self.drawMarker(at: point, color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+                self.drawMarker(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
             }
-
             // Draw end marker
             if let lastCoord = coordinates.last {
-                let px = ((lastCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let py = ((tileOriginLat - lastCoord.latitude) / latRange) * compositeHeight
-                let point = CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY)
-                self.drawMarker(at: point, color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+                self.drawMarker(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
             }
         }
 
@@ -1352,22 +1335,40 @@ struct FlightDetailView: View {
 
     // MARK: - Web Mercator Tile Math
 
-    private func longitudeToTileX(lon: Double, zoom: Int) -> Int {
+    fileprivate static func lonToTileX(lon: Double, zoom: Int) -> Int {
         Int(floor((lon + 180.0) / 360.0 * pow(2.0, Double(zoom))))
     }
 
-    private func latitudeToTileY(lat: Double, zoom: Int) -> Int {
+    fileprivate static func latToTileY(lat: Double, zoom: Int) -> Int {
         let latRad = lat * .pi / 180.0
         return Int(floor((1.0 - log(tan(latRad) + 1.0 / cos(latRad)) / .pi) / 2.0 * pow(2.0, Double(zoom))))
     }
 
-    private func tileXToLongitude(tileX: Int, zoom: Int) -> Double {
+    fileprivate static func tileXToLon(tileX: Int, zoom: Int) -> Double {
         Double(tileX) / pow(2.0, Double(zoom)) * 360.0 - 180.0
     }
 
-    private func tileYToLatitude(tileY: Int, zoom: Int) -> Double {
+    fileprivate static func tileYToLat(tileY: Int, zoom: Int) -> Double {
         let n = .pi - 2.0 * .pi * Double(tileY) / pow(2.0, Double(zoom))
         return 180.0 / .pi * atan(0.5 * (exp(n) - exp(-n)))
+    }
+
+    /// Calculate optimal zoom level so the bounding box fits within the target width
+    fileprivate static func optimalZoomLevel(
+        minLat: Double, maxLat: Double,
+        minLon: Double, maxLon: Double,
+        targetWidth: CGFloat, tileSize: CGFloat,
+        layerMinZoom: Int, layerMaxZoom: Int
+    ) -> Int {
+        let lonSpan = maxLon - minLon
+        for z in stride(from: layerMaxZoom, through: layerMinZoom, by: -1) {
+            let tilesNeeded = lonSpan / 360.0 * pow(2.0, Double(z))
+            let pixelsNeeded = tilesNeeded * Double(tileSize)
+            if pixelsNeeded <= Double(targetWidth) * 1.5 {
+                return z
+            }
+        }
+        return layerMinZoom
     }
 
     private func drawMarker(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat = 1.0) {
@@ -2440,11 +2441,8 @@ struct ShareCardCustomizationView: View {
     private func generateAndShare() async {
         isGeneratingShare = true
 
-        let mapImage = await generateMapSnapshotForCustomization(
-            flight: flight,
-            mapLayer: selectedMapLayer,
-            cardColorScheme: selectedScheme
-        )
+        // Reuse the already-loaded preview map image to avoid re-downloading tiles
+        let mapImage = previewMapImage
 
         await MainActor.run {
             let shareCard = FlightShareCard(
@@ -2585,14 +2583,20 @@ struct ShareCardCustomizationView: View {
         targetSize: CGSize,
         accentColor: Color
     ) async -> UIImage? {
-        let topLeft = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
-        let bottomRight = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
+        let northWest = MKMapPoint(x: paddedRect.minX, y: paddedRect.minY).coordinate
+        let southEast = MKMapPoint(x: paddedRect.maxX, y: paddedRect.maxY).coordinate
 
-        let z = zoomLevel
-        let minTileX = lonToTileX(lon: topLeft.longitude, zoom: z)
-        let maxTileX = lonToTileX(lon: bottomRight.longitude, zoom: z)
-        let minTileY = latToTileY(lat: topLeft.latitude, zoom: z)
-        let maxTileY = latToTileY(lat: bottomRight.latitude, zoom: z)
+        let z = FlightDetailView.optimalZoomLevel(
+            minLat: southEast.latitude, maxLat: northWest.latitude,
+            minLon: northWest.longitude, maxLon: southEast.longitude,
+            targetWidth: targetSize.width, tileSize: 256,
+            layerMinZoom: 7, layerMaxZoom: zoomLevel
+        )
+
+        let minTileX = FlightDetailView.lonToTileX(lon: northWest.longitude, zoom: z)
+        let maxTileX = FlightDetailView.lonToTileX(lon: southEast.longitude, zoom: z)
+        let minTileY = FlightDetailView.latToTileY(lat: northWest.latitude, zoom: z)
+        let maxTileY = FlightDetailView.latToTileY(lat: southEast.latitude, zoom: z)
 
         let tileXRange = min(minTileX, maxTileX)...max(minTileX, maxTileX)
         let tileYRange = min(minTileY, maxTileY)...max(minTileY, maxTileY)
@@ -2624,52 +2628,61 @@ struct ShareCardCustomizationView: View {
 
         if tileImages.isEmpty { return nil }
 
-        let compositeWidth = CGFloat(tileXRange.count) * tileSize
-        let compositeHeight = CGFloat(tileYRange.count) * tileSize
-
-        let compositeRenderer = UIGraphicsImageRenderer(size: CGSize(width: compositeWidth, height: compositeHeight))
-        let compositeImage = compositeRenderer.image { _ in
-            for tileX in tileXRange {
-                for tileY in tileYRange {
-                    let key = "\(tileX)-\(tileY)"
-                    if let tileImg = tileImages[key] {
-                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize
-                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize
-                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize, height: tileSize))
-                    }
-                }
-            }
-        }
-
-        let firstTileX = tileXRange.lowerBound
-        let firstTileY = tileYRange.lowerBound
-        let tileOriginLon = tileXToLon(tileX: firstTileX, zoom: z)
-        let tileOriginLat = tileYToLat(tileY: firstTileY, zoom: z)
-        let tileEndLon = tileXToLon(tileX: tileXRange.upperBound + 1, zoom: z)
-        let tileEndLat = tileYToLat(tileY: tileYRange.upperBound + 1, zoom: z)
+        // Calculate tile grid geo-bounds
+        let tileOriginLon = FlightDetailView.tileXToLon(tileX: tileXRange.lowerBound, zoom: z)
+        let tileOriginLat = FlightDetailView.tileYToLat(tileY: tileYRange.lowerBound, zoom: z)
+        let tileEndLon = FlightDetailView.tileXToLon(tileX: tileXRange.upperBound + 1, zoom: z)
+        let tileEndLat = FlightDetailView.tileYToLat(tileY: tileYRange.upperBound + 1, zoom: z)
 
         let lonRange = tileEndLon - tileOriginLon
         let latRange = tileOriginLat - tileEndLat
 
-        let cropXStart = ((topLeft.longitude - tileOriginLon) / lonRange) * compositeWidth
-        let cropXEnd = ((bottomRight.longitude - tileOriginLon) / lonRange) * compositeWidth
-        let cropYStart = ((tileOriginLat - topLeft.latitude) / latRange) * compositeHeight
-        let cropYEnd = ((tileOriginLat - bottomRight.latitude) / latRange) * compositeHeight
+        guard lonRange > 0, latRange > 0 else { return nil }
 
-        let cropRect = CGRect(
-            x: max(0, cropXStart), y: max(0, cropYStart),
-            width: min(compositeWidth, cropXEnd - cropXStart),
-            height: min(compositeHeight, cropYEnd - cropYStart)
-        )
+        let tilesWide = CGFloat(tileXRange.count)
+        let tilesHigh = CGFloat(tileYRange.count)
+        let compositeWidth = tilesWide * tileSize
+        let compositeHeight = tilesHigh * tileSize
 
-        guard let croppedCGImage = compositeImage.cgImage?.cropping(to: cropRect) else { return nil }
+        // Calculate fractional crop within the tile grid
+        let cropFracXStart = (northWest.longitude - tileOriginLon) / lonRange
+        let cropFracXEnd = (southEast.longitude - tileOriginLon) / lonRange
+        let cropFracYStart = (tileOriginLat - northWest.latitude) / latRange
+        let cropFracYEnd = (tileOriginLat - southEast.latitude) / latRange
+        let cropFracWidth = cropFracXEnd - cropFracXStart
+        let cropFracHeight = cropFracYEnd - cropFracYStart
+
+        guard cropFracWidth > 0, cropFracHeight > 0 else { return nil }
+
+        let scaleX = targetSize.width / (cropFracWidth * compositeWidth)
+        let scaleY = targetSize.height / (cropFracHeight * compositeHeight)
+        let offsetX = -cropFracXStart * compositeWidth * scaleX
+        let offsetY = -cropFracYStart * compositeHeight * scaleY
 
         let finalRenderer = UIGraphicsImageRenderer(size: targetSize)
         return finalRenderer.image { ctx in
-            UIImage(cgImage: croppedCGImage).draw(in: CGRect(origin: .zero, size: targetSize))
             let context = ctx.cgContext
-            let scaleX = targetSize.width / cropRect.width
-            let scaleY = targetSize.height / cropRect.height
+
+            // Draw tiles
+            for tileX in tileXRange {
+                for tileY in tileYRange {
+                    let key = "\(tileX)-\(tileY)"
+                    if let tileImg = tileImages[key] {
+                        let xPos = CGFloat(tileX - tileXRange.lowerBound) * tileSize * scaleX + offsetX
+                        let yPos = CGFloat(tileY - tileYRange.lowerBound) * tileSize * scaleY + offsetY
+                        tileImg.draw(in: CGRect(x: xPos, y: yPos, width: tileSize * scaleX, height: tileSize * scaleY))
+                    }
+                }
+            }
+
+            func geoToPoint(_ coord: CLLocationCoordinate2D) -> CGPoint {
+                let fracX = (coord.longitude - tileOriginLon) / lonRange
+                let fracY = (tileOriginLat - coord.latitude) / latRange
+                return CGPoint(
+                    x: fracX * compositeWidth * scaleX + offsetX,
+                    y: fracY * compositeHeight * scaleY + offsetY
+                )
+            }
 
             context.setStrokeColor(UIColor(accentColor).cgColor)
             context.setLineWidth(6)
@@ -2678,47 +2691,20 @@ struct ShareCardCustomizationView: View {
 
             let path = UIBezierPath()
             for (index, coordinate) in coordinates.enumerated() {
-                let pixelX = ((coordinate.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let pixelY = ((tileOriginLat - coordinate.latitude) / latRange) * compositeHeight
-                let finalX = (pixelX - cropRect.minX) * scaleX
-                let finalY = (pixelY - cropRect.minY) * scaleY
-                if index == 0 { path.move(to: CGPoint(x: finalX, y: finalY)) }
-                else { path.addLine(to: CGPoint(x: finalX, y: finalY)) }
+                let point = geoToPoint(coordinate)
+                if index == 0 { path.move(to: point) }
+                else { path.addLine(to: point) }
             }
             context.addPath(path.cgPath)
             context.strokePath()
 
             if let firstCoord = coordinates.first {
-                let px = ((firstCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let py = ((tileOriginLat - firstCoord.latitude) / latRange) * compositeHeight
-                drawMarkerStandalone(at: CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
+                drawMarkerStandalone(at: geoToPoint(firstCoord), color: UIColor(Color.aviationGreen), in: context, scale: 1.0)
             }
             if let lastCoord = coordinates.last {
-                let px = ((lastCoord.longitude - tileOriginLon) / lonRange) * compositeWidth
-                let py = ((tileOriginLat - lastCoord.latitude) / latRange) * compositeHeight
-                drawMarkerStandalone(at: CGPoint(x: (px - cropRect.minX) * scaleX, y: (py - cropRect.minY) * scaleY), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
+                drawMarkerStandalone(at: geoToPoint(lastCoord), color: UIColor(Color.aviationRed), in: context, scale: 1.0)
             }
         }
-    }
-
-    // MARK: - Tile Math Helpers
-
-    private func lonToTileX(lon: Double, zoom: Int) -> Int {
-        Int(floor((lon + 180.0) / 360.0 * pow(2.0, Double(zoom))))
-    }
-
-    private func latToTileY(lat: Double, zoom: Int) -> Int {
-        let latRad = lat * .pi / 180.0
-        return Int(floor((1.0 - log(tan(latRad) + 1.0 / cos(latRad)) / .pi) / 2.0 * pow(2.0, Double(zoom))))
-    }
-
-    private func tileXToLon(tileX: Int, zoom: Int) -> Double {
-        Double(tileX) / pow(2.0, Double(zoom)) * 360.0 - 180.0
-    }
-
-    private func tileYToLat(tileY: Int, zoom: Int) -> Double {
-        let n = .pi - 2.0 * .pi * Double(tileY) / pow(2.0, Double(zoom))
-        return 180.0 / .pi * atan(0.5 * (exp(n) - exp(-n)))
     }
 
     private func drawMarkerStandalone(at point: CGPoint, color: UIColor, in context: CGContext, scale: CGFloat) {
@@ -2822,19 +2808,23 @@ struct FlightShareCard: View {
     /// Route waypoints for the route strip (departure → waypoints → arrival)
     private var routeWaypoints: [String]? {
         var names: [String] = []
-        if let dep = flight.departureAirportIdent {
-            names.append(dep)
+
+        // If there's a flight plan with waypoints, use those directly
+        // (the flight plan already includes departure and arrival)
+        if let waypoints = flight.flightPlan?.waypoints, !waypoints.isEmpty {
+            names = waypoints.compactMap { $0.name.isEmpty ? nil : $0.name }
         }
-        if let waypoints = flight.flightPlan?.waypoints {
-            let wpNames = waypoints.compactMap { $0.name.isEmpty ? nil : $0.name }
-            names.append(contentsOf: wpNames)
-        }
-        if let arr = flight.arrivalAirportIdent {
-            // Avoid duplicating if arrival is already the last waypoint
-            if names.last != arr {
+
+        // If no flight plan waypoints, fall back to dep/arr airports
+        if names.isEmpty {
+            if let dep = flight.departureAirportIdent {
+                names.append(dep)
+            }
+            if let arr = flight.arrivalAirportIdent, names.last != arr {
                 names.append(arr)
             }
         }
+
         return names.count >= 2 ? names : nil
     }
 
@@ -2874,7 +2864,7 @@ struct FlightShareCard: View {
                 // Route strip (waypoints)
                 if routeWaypoints != nil {
                     routeStripSection
-                        .padding(.top, 16)
+                        .padding(.top, 20)
                         .padding(.horizontal, 48)
                 }
 
@@ -2997,65 +2987,66 @@ struct FlightShareCard: View {
                     if waypoints.count <= 7 {
                         return waypoints
                     } else {
-                        // Abbreviate: show first 2, "...", last 2
                         return [waypoints[0], waypoints[1], "···"] + waypoints.suffix(2)
                     }
                 }()
 
-                VStack(spacing: 6) {
-                    // Dots and connecting lines
+                VStack(spacing: 0) {
+                    // "ROUTE" label
+                    HStack {
+                        Text("ROUTE")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(colorScheme.tertiaryTextColor)
+                            .tracking(3)
+                        Spacer()
+                    }
+                    .padding(.bottom, 14)
+
+                    // Combined dots, lines, and waypoint names
                     HStack(spacing: 0) {
                         ForEach(Array(displayWaypoints.enumerated()), id: \.offset) { index, name in
                             if index > 0 {
-                                // Connecting line
-                                Rectangle()
-                                    .fill(colorScheme.routeLineColor)
-                                    .frame(height: 1.5)
+                                // Connecting line (flexible width)
+                                VStack(spacing: 0) {
+                                    Rectangle()
+                                        .fill(colorScheme.routeLineColor)
+                                        .frame(height: 3)
+                                        .padding(.bottom, 26)
+                                }
                             }
 
-                            // Waypoint dot
                             let isFirst = index == 0
                             let isLast = index == displayWaypoints.count - 1
                             let isEllipsis = name == "···"
-                            let dotSize: CGFloat = (isFirst || isLast) ? 10 : 8
+                            let dotSize: CGFloat = (isFirst || isLast) ? 16 : 12
                             let wpDotColor: Color = isFirst ? .aviationGreen :
                                                   isLast ? .aviationRed :
                                                   isEllipsis ? .clear :
                                                   colorScheme.routeDotColor
 
                             if isEllipsis {
-                                Text("···")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(colorScheme.tertiaryTextColor)
-                                    .frame(width: 20)
+                                VStack(spacing: 6) {
+                                    Text("···")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(colorScheme.tertiaryTextColor)
+                                    Text("")
+                                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                }
+                                .frame(width: 30)
                             } else {
-                                Circle()
-                                    .fill(wpDotColor)
-                                    .frame(width: dotSize, height: dotSize)
-                            }
-                        }
-                    }
+                                // Dot + name stacked vertically
+                                VStack(spacing: 6) {
+                                    Circle()
+                                        .fill(wpDotColor)
+                                        .frame(width: dotSize, height: dotSize)
 
-                    // Waypoint names below
-                    HStack(spacing: 0) {
-                        ForEach(Array(displayWaypoints.enumerated()), id: \.offset) { index, name in
-                            if index > 0 {
-                                Spacer(minLength: 0)
-                            }
-
-                            if name == "···" {
-                                Text("")
-                                    .frame(width: 20)
-                            } else {
-                                Text(name)
-                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(colorScheme.secondaryTextColor)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.7)
-                            }
-
-                            if index < displayWaypoints.count - 1 {
-                                Spacer(minLength: 0)
+                                    Text(name)
+                                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                                        .foregroundColor(isFirst || isLast ? colorScheme.primaryTextColor : colorScheme.secondaryTextColor)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                }
+                                .frame(minWidth: (isFirst || isLast) ? 50 : 30)
                             }
                         }
                     }
@@ -3264,7 +3255,7 @@ struct FlightShareCard: View {
                 }
 
                 Text("https://aerocheck.app")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(colorScheme.footerUrlColor)
             }
         }

@@ -198,6 +198,15 @@ struct HomeView: View {
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
         }
+        .onChange(of: subscriptionManager.subscriptionStatus) { oldValue, newValue in
+            // Re-fetch aircraft list when subscription becomes active to fix race condition
+            // where the initial fetch completed before the server-side subscription was verified
+            if newValue.isSubscribed && !oldValue.isSubscribed {
+                Task {
+                    await aircraftDataService.fetchAvailableAircraft()
+                }
+            }
+        }
         .onChange(of: selectedAircraftIndex) { _, newIndex in
             updateAppStateAircraft(index: newIndex)
             updateCachedItemCount()

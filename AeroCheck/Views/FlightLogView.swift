@@ -1644,14 +1644,21 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 // MARK: - Image Share Sheet
 
-/// A share sheet specifically for UIImage that ensures "Save Image" appears
-/// by passing the UIImage directly to UIActivityViewController
+/// A share sheet for UIImage that saves to a temporary JPEG file and shares the URL.
+/// Sharing a file URL (instead of raw UIImage) reliably surfaces "Save Image" in the share sheet,
+/// provided NSPhotoLibraryAddUsageDescription is set in Info.plist.
 struct ImageShareSheet: UIViewControllerRepresentable {
     let image: UIImage
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        // Pass UIImage directly — this is the most reliable way to get "Save Image" to appear
-        let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        // Write image to a temporary JPEG file — sharing a file URL is the most
+        // reliable way to get iOS to show "Save Image" and proper preview thumbnails
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg")
+        if let jpegData = image.jpegData(compressionQuality: 0.9) {
+            try? jpegData.write(to: tempURL)
+        }
+        let controller = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
         return controller
     }
 

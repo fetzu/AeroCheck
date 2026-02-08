@@ -35,6 +35,8 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>AéroCheck needs access to save flight log images to your photo library.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

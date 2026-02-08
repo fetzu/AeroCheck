@@ -11,6 +11,37 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
+# **Version 3.4.0** - Share Cards, Navigation Fixes & Terrain Charts
+*Released February 08, 2026*
+
+### New Features
+
+- **Flight Share Cards**: Redesigned flight share card for social media stories (1080×1920) with customizable color themes, route strip with map layers (Standard, SwissTopo ICAO, Segelflugkarte), real terrain elevation data, and aircraft/flight statistics.
+
+### Improvements
+
+- **Share Card Terrain Chart**: Altitude chart now shows real terrain elevation profile beneath the flight path using Path-based rendering for accurate layering.
+- **Share Card Export**: Share card export uses direct UIKit presentation for reliable first-export behavior.
+- **Subscription Refresh**: Aircraft list is now re-fetched automatically when a subscription becomes active.
+
+### Bug Fixes
+
+- **Navigation/Map**: Fixed map centering, top bar width, aircraft icon movement, track visibility, GPS status, compass size, and settings persistence.
+- **Flight Planning**: Fixed next check display and image export issues.
+- **Share Card**: Fixed route strip rendering, footer layout, map tile loading, share speed, path thickness, color theme label truncation.
+- **General**: Resolved 13 navigation and flight plan issues, added photo library permission for share sheet save.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.3.0...3.4.0
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.4.0)
+
+<br>
+
+________
+
+<br>
+
+### `Initial Release`
 # **Version 3.3.0** - Flight Events, Map Frequencies & Nav Plan Timing
 *Released February 05, 2026*
 
@@ -37,12 +68,7 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 
 <br>
 
-________
-
-<br>
-
-### `Initial Release`
-# **Version 3.2.3** - Engine Hours Improvements
+## **Version 3.2.3** - Engine Hours Improvements
 *Released February 04, 2026*
 
 ### Improvements

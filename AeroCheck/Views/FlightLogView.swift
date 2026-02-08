@@ -1068,9 +1068,9 @@ struct FlightDetailView: View {
         let mapRect = polyline.boundingMapRect
 
         // Target size for the snapshot (matching card map dimensions at 2x scale for the renderer)
-        // Card map section is 1000x620 points, we render at 2x = 2000x1240
-        let targetWidth: CGFloat = 2000
-        let targetHeight: CGFloat = 1240
+        // Card hero map section is 1016x780 points, we render at 2x = 2032x1560
+        let targetWidth: CGFloat = 2032
+        let targetHeight: CGFloat = 1560
         let targetAspectRatio = targetWidth / targetHeight
 
         // Calculate padded rect that maintains aspect ratio
@@ -1767,22 +1767,26 @@ struct FlightShareCard: View {
     let mapImage: UIImage?
     let useUTC: Bool
 
-    // Card dimensions (9:16 aspect ratio for mobile viewing and stories)
+    // Card dimensions (9:16 aspect ratio for Instagram/WhatsApp/Signal stories)
     private let cardWidth: CGFloat = 1080
     private let cardHeight: CGFloat = 1920
 
-    /// Display title: registration (or airplane ID) + flight name
-    private var displayTitle: String {
-        let identifier = flight.aircraftRegistration ?? flight.airplane
-        if flight.name.isEmpty {
-            return identifier
+    // MARK: - Computed Properties
+
+    /// Aircraft registration or airplane ID
+    private var aircraftIdentifier: String {
+        flight.aircraftRegistration ?? flight.airplane
+    }
+
+    /// Route string: "LSGG → LSZB" or just the identifier if no airports
+    private var routeString: String? {
+        guard let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent else {
+            return nil
         }
-        return "\(identifier) - \(flight.name)"
+        return "\(dep) → \(arr)"
     }
 
     /// Flight time between takeoff and landing, with fallback times.
-    /// Takeoff priority: lineUpTime > blockOffTime > engineStartTime > startTime
-    /// Landing priority: landingTime > blockOnTime > engineShutdownTime > stopTime
     private var exportFlightTime: TimeInterval? {
         let takeoff = flight.lineUpTime ?? flight.blockOffTime ?? flight.engineStartTime ?? flight.startTime
         let landing = flight.landingTime ?? flight.blockOnTime ?? flight.engineShutdownTime ?? flight.stopTime
@@ -1794,329 +1798,377 @@ struct FlightShareCard: View {
         guard let ft = exportFlightTime else { return "--:--" }
         let hours = Int(ft) / 3600
         let minutes = (Int(ft) % 3600) / 60
-        return String(format: "%02d:%02d", hours, minutes)
+        return String(format: "%dh%02d", hours, minutes)
     }
+
+    /// Max altitude in feet from GPS track
+    private var maxAltitudeFt: Int? {
+        guard let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() else { return nil }
+        return Int(maxAlt)
+    }
+
+    /// Distance in nautical miles
+    private var distanceNM: String {
+        let nm = flight.distanceKilometers / 1.852
+        if nm < 1 {
+            return String(format: "%.1f NM", nm)
+        }
+        return String(format: "%.0f NM", nm)
+    }
+
+    /// Total landings count
+    private var landingsCount: Int {
+        flight.totalLandings
+    }
+
+    /// Formatted flight date
+    private var formattedDate: String {
+        guard let start = flight.startTime else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM yyyy"
+        return formatter.string(from: start).uppercased()
+    }
+
+    // Altitude chart data
+    private var altitudeData: [(time: Date, altitude: Double)] {
+        flight.gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
+    }
+
+    private var altitudeRange: ClosedRange<Double> {
+        guard !altitudeData.isEmpty else { return 0...1000 }
+        let altitudes = altitudeData.map { $0.altitude }
+        let minAlt = altitudes.min() ?? 0
+        let maxAlt = altitudes.max() ?? 1000
+        let lowerBound = max(0, floor((minAlt - 200) / 100) * 100)
+        let upperBound = ceil((maxAlt + 200) / 100) * 100
+        return lowerBound...upperBound
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.08, blue: 0.15),
-                    Color(red: 0.08, green: 0.10, blue: 0.18),
-                    Color(red: 0.1, green: 0.12, blue: 0.2)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            // Deep dark background
+            Color(red: 0.04, green: 0.05, blue: 0.09)
 
             VStack(spacing: 0) {
-                // Header section
-                headerSection
-                    .padding(.top, 60)
-                    .padding(.horizontal, 40)
+                // Top bar: date + branding
+                topBarSection
+                    .padding(.top, 50)
+                    .padding(.horizontal, 48)
 
-                // Map section
-                mapSection
-                    .padding(.top, 40)
-                    .padding(.horizontal, 40)
+                // Route / Title area
+                routeSection
+                    .padding(.top, 32)
+                    .padding(.horizontal, 48)
 
-                // Altitude graph section
-                altitudeSection
-                    .padding(.top, 40)
-                    .padding(.horizontal, 40)
+                // Hero map with overlaid stats
+                heroMapSection
+                    .padding(.top, 32)
+                    .padding(.horizontal, 32)
 
-                // Stats section
-                statsSection
-                    .padding(.top, 40)
-                    .padding(.horizontal, 40)
+                // Altitude sparkline
+                altitudeSparkline
+                    .padding(.top, 24)
+                    .padding(.horizontal, 48)
 
-                // Timeline section
-                timelineSection
-                    .padding(.top, 40)
-                    .padding(.horizontal, 40)
+                // Bottom stats row
+                bottomStatsRow
+                    .padding(.top, 28)
+                    .padding(.horizontal, 48)
 
                 Spacer()
 
-                // Footer
+                // Footer branding
                 footerSection
                     .padding(.bottom, 50)
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, 48)
             }
         }
         .frame(width: cardWidth, height: cardHeight)
     }
 
-    // MARK: - Header Section
+    // MARK: - Top Bar
 
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Title line: airplane and flight name
-            Text(displayTitle)
-                .font(.system(size: 52, weight: .bold, design: .default))
-                .foregroundColor(.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+    private var topBarSection: some View {
+        HStack {
+            // Date
+            Text(formattedDate)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.white.opacity(0.5))
+                .tracking(2)
 
-            // Date and flight time
-            HStack {
-                Text(flight.formattedDate)
-                    .font(.system(size: 28, weight: .regular))
-                    .foregroundColor(.white.opacity(0.7))
+            Spacer()
 
-                Spacer()
+            // Aircraft identifier pill
+            Text(aircraftIdentifier)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundColor(.aviationGold)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.aviationGold.opacity(0.15))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
+                        )
+                )
+        }
+    }
 
-                // Flight time (takeoff to landing with fallbacks)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(L10n.FlightDetail.flightTime.uppercased())
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .tracking(2)
+    // MARK: - Route Section
 
-                    Text(formattedExportFlightTime)
-                        .font(.system(size: 48, weight: .bold, design: .monospaced))
-                        .foregroundColor(.aviationGold)
-                }
+    private var routeSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let route = routeString {
+                // Airport-to-airport route
+                Text(route)
+                    .font(.system(size: 56, weight: .heavy, design: .default))
+                    .foregroundColor(.white)
+                    .tracking(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            } else if !flight.name.isEmpty {
+                // Flight name as main title
+                Text(flight.name)
+                    .font(.system(size: 48, weight: .bold, design: .default))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            }
+
+            // Hero number: flight time
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                Text(formattedExportFlightTime)
+                    .font(.system(size: 72, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGold)
+
+                Text("FLIGHT TIME")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white.opacity(0.4))
+                    .tracking(2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Map Section
+    // MARK: - Hero Map with Overlaid Stats
 
-    private var mapSection: some View {
-        Group {
+    private var heroMapSection: some View {
+        ZStack(alignment: .bottom) {
+            // Map image
             if let mapImg = mapImage {
                 Image(uiImage: mapImg)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(height: 620)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .frame(height: 780)
+                    .clipShape(RoundedRectangle(cornerRadius: 24))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        // Subtle gradient at bottom for stat readability
+                        VStack {
+                            Spacer()
+                            LinearGradient(
+                                colors: [.clear, Color.black.opacity(0.6)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 200)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
             } else {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.05))
-                    .frame(height: 620)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.white.opacity(0.04))
+                    .frame(height: 780)
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "map")
-                                .font(.system(size: 50))
-                                .foregroundColor(.white.opacity(0.3))
+                                .font(.system(size: 60))
+                                .foregroundColor(.white.opacity(0.15))
                             Text(L10n.FlightDetail.noGPSData)
                                 .font(.system(size: 24))
-                                .foregroundColor(.white.opacity(0.4))
+                                .foregroundColor(.white.opacity(0.25))
                         }
                     )
             }
+
+            // Overlaid stat pills at the bottom of the map
+            if mapImage != nil {
+                HStack(spacing: 12) {
+                    mapStatPill(icon: "arrow.up.to.line", value: maxAltitudeFt.map { "\($0) ft" } ?? "—", label: "MAX ALT")
+
+                    mapStatPill(icon: "point.topleft.down.to.point.bottomright.curvepath.fill", value: distanceNM, label: "DISTANCE")
+
+                    if landingsCount > 0 {
+                        mapStatPill(icon: "airplane.arrival", value: "\(landingsCount)", label: landingsCount == 1 ? "LANDING" : "LANDINGS")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
         }
     }
 
-    // MARK: - Altitude Section
+    private func mapStatPill(icon: String, value: String, label: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.aviationGold)
 
-    private var altitudeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.FlightDetail.altitudeProfile.uppercased())
-                .font(.system(size: 16, weight: .bold))
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.white.opacity(0.5))
-                .tracking(2)
-
-            if !flight.gpsTrack.isEmpty {
-                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
-                    .frame(height: 280)
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white.opacity(0.05))
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.05))
-                    .frame(height: 280)
-                    .overlay(
-                        Text(L10n.FlightDetail.noAltitudeData)
-                            .font(.system(size: 20))
-                            .foregroundColor(.white.opacity(0.4))
-                    )
-            }
+                .tracking(1)
         }
-    }
-
-    // MARK: - Stats Section
-
-    private var statsSection: some View {
-        HStack(spacing: 0) {
-            // Distance
-            statItem(
-                icon: "point.topleft.down.to.point.bottomright.curvepath.fill",
-                label: "DISTANCE",
-                value: flight.formattedDistance
-            )
-
-            Spacer()
-
-            // Max Altitude
-            if let maxAlt = flight.gpsTrack.map({ $0.altitude * 3.28084 }).max() {
-                statItem(
-                    icon: "arrow.up.to.line",
-                    label: "MAX ALT",
-                    value: "\(Int(maxAlt)) ft"
-                )
-            }
-
-            Spacer()
-
-            // Go-arounds or Touch-and-goes (show whichever is non-zero, or GPS points)
-            if flight.goAroundCount > 0 {
-                statItem(
-                    icon: "arrow.up.right.circle.fill",
-                    label: "GO-AROUNDS",
-                    value: "\(flight.goAroundCount)"
-                )
-            } else if flight.touchAndGoCount > 0 {
-                statItem(
-                    icon: "arrow.triangle.2.circlepath",
-                    label: "TOUCH & GO",
-                    value: "\(flight.touchAndGoCount)"
-                )
-            } else {
-                statItem(
-                    icon: "location.fill",
-                    label: "GPS POINTS",
-                    value: "\(flight.gpsTrack.count)"
-                )
-            }
-        }
-        .padding(.vertical, 28)
-        .padding(.horizontal, 25)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
         )
     }
 
-    private func statItem(icon: String, label: String, value: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 36))
-                .foregroundColor(.aviationGold)
+    // MARK: - Altitude Sparkline
 
-            Text(label)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.white.opacity(0.5))
-                .tracking(1)
+    private var altitudeSparkline: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Section label
+            HStack {
+                Text("ALTITUDE PROFILE")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white.opacity(0.35))
+                    .tracking(2)
 
-            Text(value)
-                .font(.system(size: 30, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                Spacer()
+
+                if let maxAlt = maxAltitudeFt {
+                    Text("PEAK \(maxAlt) FT")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundColor(.altimeterBlue.opacity(0.7))
+                }
+            }
+
+            if !altitudeData.isEmpty {
+                ShareCardAltitudeChart(gpsTrack: flight.gpsTrack)
+                    .frame(height: 180)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.white.opacity(0.03))
+                    )
+            }
         }
-        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Timeline Section
+    // MARK: - Bottom Stats Row
 
-    private var timelineSection: some View {
+    private var bottomStatsRow: some View {
         HStack(spacing: 0) {
-            // Engine Start
-            if let time = flight.engineStartTime {
-                timelineItem(
-                    icon: "engine.combustion",
-                    label: "Start",
-                    time: formatTime(time),
+            // Takeoff time
+            if let takeoff = flight.lineUpTime {
+                bottomStatItem(
+                    icon: "airplane.departure",
+                    value: formatTime(takeoff),
+                    label: "TAKEOFF",
                     color: .aviationGreen
                 )
             }
 
-            timelineConnector
-
-            // Take-off
-            if let time = flight.lineUpTime {
-                timelineItem(
-                    icon: "airplane.departure",
-                    label: "Takeoff",
-                    time: formatTime(time),
+            // Landing time
+            if let landing = flight.landingTime {
+                bottomStatItem(
+                    icon: "airplane.arrival",
+                    value: formatTime(landing),
+                    label: "LANDING",
                     color: .aviationAmber
                 )
             }
 
-            timelineConnector
-
-            // Landing
-            if let time = flight.landingTime {
-                timelineItem(
-                    icon: "airplane.arrival",
-                    label: "Landing",
-                    time: formatTime(time),
-                    color: .aviationBlue
-                )
-            }
-
-            timelineConnector
-
-            // Engine Shutdown
-            if let time = flight.engineShutdownTime {
-                timelineItem(
-                    icon: "engine.combustion.fill",
-                    label: "Shutdown",
-                    time: formatTime(time),
+            // Activity count (go-arounds or touch-and-gos)
+            if flight.goAroundCount > 0 {
+                bottomStatItem(
+                    icon: "arrow.up.right.circle.fill",
+                    value: "\(flight.goAroundCount)",
+                    label: "GO-AROUNDS",
                     color: .aviationRed
+                )
+            } else if flight.touchAndGoCount > 0 {
+                bottomStatItem(
+                    icon: "arrow.triangle.2.circlepath",
+                    value: "\(flight.touchAndGoCount)",
+                    label: "TOUCH & GO",
+                    color: .altimeterBlue
                 )
             }
         }
-        .padding(.vertical, 28)
-        .padding(.horizontal, 15)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
         )
     }
 
-    private func timelineItem(icon: String, label: String, time: String, color: Color) -> some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.2))
-                    .frame(width: 54, height: 54)
+    private func bottomStatItem(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 22))
+                .foregroundColor(color)
 
-                Image(systemName: icon)
-                    .font(.system(size: 22))
-                    .foregroundColor(color)
-            }
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Text(label)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
-
-            Text(time)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white.opacity(0.4))
+                .tracking(1)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private var timelineConnector: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.2))
-            .frame(width: 20, height: 2)
     }
 
     // MARK: - Footer Section
 
     private var footerSection: some View {
         HStack {
+            // Flight name (if we have a route, show the name here)
+            if routeString != nil && !flight.name.isEmpty {
+                Text(flight.name)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+                    .lineLimit(1)
+            }
+
             Spacer()
 
-            // App branding (right-aligned)
-            HStack(spacing: 10) {
+            // App branding
+            HStack(spacing: 8) {
                 Image(systemName: "airplane.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.aviationGold)
+                    .font(.system(size: 24))
+                    .foregroundColor(.aviationGold.opacity(0.6))
 
                 Text("AéroCheck")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.6))
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.4))
             }
         }
     }
@@ -2125,10 +2177,9 @@ struct FlightShareCard: View {
 
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
+        formatter.dateFormat = "HH:mm"
         if useUTC {
             formatter.timeZone = TimeZone(identifier: "UTC")
-            return formatter.string(from: date) + " (UTC)"
         }
         return formatter.string(from: date)
     }
@@ -2136,7 +2187,7 @@ struct FlightShareCard: View {
 
 // MARK: - Share Card Altitude Chart
 
-/// A simplified altitude chart for the share card
+/// A minimal altitude sparkline chart for the share card
 struct ShareCardAltitudeChart: View {
     let gpsTrack: [GPSPoint]
 
@@ -2149,8 +2200,8 @@ struct ShareCardAltitudeChart: View {
         let altitudes = altitudeData.map { $0.altitude }
         let minAlt = altitudes.min() ?? 0
         let maxAlt = altitudes.max() ?? 1000
-        let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
-        let upperBound = ceil((maxAlt + 500) / 100) * 100
+        let lowerBound = max(0, floor((minAlt - 200) / 100) * 100)
+        let upperBound = ceil((maxAlt + 200) / 100) * 100
         return lowerBound...upperBound
     }
 
@@ -2162,15 +2213,6 @@ struct ShareCardAltitudeChart: View {
         } else {
             Chart {
                 ForEach(altitudeData, id: \.time) { point in
-                    LineMark(
-                        x: .value("Time", point.time),
-                        y: .value("Altitude", point.altitude)
-                    )
-                    .foregroundStyle(Color.altimeterBlue)
-                    .lineStyle(StrokeStyle(lineWidth: 3))
-                }
-
-                ForEach(altitudeData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
                         yStart: .value("Baseline", altitudeRange.lowerBound),
@@ -2178,35 +2220,24 @@ struct ShareCardAltitudeChart: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [Color.altimeterBlue.opacity(0.4), Color.altimeterBlue.opacity(0.05)],
+                            colors: [Color.altimeterBlue.opacity(0.3), Color.altimeterBlue.opacity(0.02)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
                 }
-            }
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Color.white.opacity(0.2))
-                    AxisValueLabel()
-                        .foregroundStyle(Color.white.opacity(0.6))
-                        .font(.system(size: 12))
+
+                ForEach(altitudeData, id: \.time) { point in
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("Altitude", point.altitude)
+                    )
+                    .foregroundStyle(Color.altimeterBlue.opacity(0.8))
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Color.white.opacity(0.2))
-                    AxisValueLabel {
-                        if let altitude = value.as(Double.self) {
-                            Text("\(Int(altitude)) ft")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.white.opacity(0.6))
-                        }
-                    }
-                }
-            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
             .chartYScale(domain: altitudeRange)
         }
     }

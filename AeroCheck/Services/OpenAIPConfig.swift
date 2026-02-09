@@ -94,7 +94,11 @@ enum OpenAIPConfig {
         "AE": (minLat: 22.60, minLon: 51.00, maxLat: 26.20, maxLon: 56.40),
         "IL": (minLat: 29.50, minLon: 34.20, maxLat: 33.30, maxLon: 35.90),
         // Africa
+        "DZ": (minLat: 18.97, minLon: -8.67, maxLat: 37.09, maxLon: 11.98),
         "KE": (minLat: -4.70, minLon: 33.90, maxLat: 4.90, maxLon: 41.90),
+        "LY": (minLat: 19.50, minLon: 9.39, maxLat: 33.17, maxLon: 25.15),
+        "MA": (minLat: 27.67, minLon: -13.17, maxLat: 35.92, maxLon: -0.99),
+        "TN": (minLat: 30.23, minLon: 7.52, maxLat: 37.54, maxLon: 11.60),
         "ZA": (minLat: -34.80, minLon: 16.50, maxLat: -22.10, maxLon: 32.90),
     ]
 
@@ -123,7 +127,7 @@ enum OpenAIPConfig {
         Continent(id: "middleEast", name: "Middle East", icon: "globe.europe.africa",
                   countries: ["AE", "IL"]),
         Continent(id: "africa", name: "Africa", icon: "globe.europe.africa",
-                  countries: ["KE", "ZA"]),
+                  countries: ["DZ", "KE", "LY", "MA", "TN", "ZA"]),
     ]
 
     /// Display name for a country code (localized via system)

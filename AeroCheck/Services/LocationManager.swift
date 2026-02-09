@@ -53,6 +53,11 @@ class LocationManager: NSObject, ObservableObject {
 
     // Marketing mode flag - when true, ignores real GPS updates
     private var marketingModeActive: Bool = false
+
+    // Dynamic distance filter: ground mode uses no filter for precise low-speed tracking,
+    // flight mode uses 50m filter for battery efficiency
+    private var isGroundMode: Bool = true
+    private let flightModeDistanceFilter: CLLocationDistance = 50
     
     // MARK: - Initialization
     
@@ -64,7 +69,7 @@ class LocationManager: NSObject, ObservableObject {
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        locationManager.distanceFilter = 50 // meters — reduces wakeups at flight speeds while keeping map responsive
+        locationManager.distanceFilter = kCLDistanceFilterNone // Start in ground mode; switches to 50m in flight mode
         locationManager.activityType = .airborne
 
         // Background location configuration:
@@ -117,6 +122,20 @@ class LocationManager: NSObject, ObservableObject {
         airportDataService = nil
         flightEventDetector?.reset()
         flightEventDetector = nil
+        // Reset to ground mode for next flight
+        isGroundMode = true
+        locationManager.distanceFilter = kCLDistanceFilterNone
+    }
+
+    /// Switch between ground mode (no distance filter, precise low-speed tracking)
+    /// and flight mode (50m distance filter, battery-efficient for cruise).
+    /// Ground mode should be active during taxi and after landing.
+    /// Flight mode should be active during airborne phases.
+    func setGroundMode(_ onGround: Bool) {
+        guard onGround != isGroundMode else { return }
+        isGroundMode = onGround
+        locationManager.distanceFilter = onGround ? kCLDistanceFilterNone : flightModeDistanceFilter
+        print("[LocationManager] Distance filter: \(onGround ? "ground mode (none)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
     }
 
     /// Start location updates without recording (for navigation view)
@@ -307,6 +326,18 @@ extension LocationManager: CLLocationManagerDelegate {
                 shouldRecord = now.timeIntervalSince(lastTime) >= self.recordingInterval
             } else {
                 shouldRecord = true
+            }
+
+            // Auto-switch ground/flight mode based on speed for battery optimization
+            // Ground mode: no distance filter (precise low-speed tracking for block on detection)
+            // Flight mode: 50m filter (battery-efficient during airborne phases)
+            if self.isTracking && location.speed >= 0 {
+                let speedKts = location.speed * 1.94384
+                if self.isGroundMode && speedKts > 40 {
+                    self.setGroundMode(false)
+                } else if !self.isGroundMode && speedKts < 20 {
+                    self.setGroundMode(true)
+                }
             }
 
             if shouldRecord, let appState = self.appState {

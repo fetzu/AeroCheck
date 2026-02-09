@@ -295,12 +295,13 @@ class AppState: ObservableObject {
 
     // Block time detection
     private var consecutiveMovingReadings: Int = 0
-    private var consecutiveStoppedReadings: Int = 0
+    private var recentStoppedTimestamps: [Date] = [] // Time-window approach for block on
     private var lastStopLocation: (latitude: Double, longitude: Double)?
     private let blockOffSpeedThreshold: Double = 2.0 // m/s (about 4 knots) - sustained movement
-    private let blockOnSpeedThreshold: Double = 0.5 // m/s (about 1 knot) - nearly stopped
+    private let blockOnSpeedThreshold: Double = 2.0 // m/s (about 4 knots) - matches GPS noise floor for parked aircraft
     private let requiredMovingReadings: Int = 2 // At 5-second intervals, this is ~10 seconds
-    private let requiredStoppedReadings: Int = 2 // At 5-second intervals, this is ~10 seconds
+    private let blockOnTimeWindow: TimeInterval = 30.0 // 30-second window for block on detection
+    private let requiredStoppedInWindow: Int = 2 // 2 low-speed readings within window = stopped
 
     // Circuit mode - skips CRUISE and DESCENT phases
     @Published var isCircuitMode: Bool = false
@@ -438,7 +439,7 @@ class AppState: ObservableObject {
         hasLandingBeenDetected = false
         consecutiveLowSpeedReadings = 0
         consecutiveMovingReadings = 0
-        consecutiveStoppedReadings = 0
+        recentStoppedTimestamps = []
         lastStopLocation = nil
         currentHighlightedItem = [:] // Reset highlighting
     }
@@ -469,7 +470,7 @@ class AppState: ObservableObject {
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
-        consecutiveStoppedReadings = 0
+        recentStoppedTimestamps = []
         lastStopLocation = nil
 
         // Clear saved flight state since flight ended normally
@@ -488,7 +489,7 @@ class AppState: ObservableObject {
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
-        consecutiveStoppedReadings = 0
+        recentStoppedTimestamps = []
         lastStopLocation = nil
         currentHighlightedItem = [:]
 
@@ -561,6 +562,17 @@ class AppState: ObservableObject {
     func recordEngineShutdown() {
         engineShutdownTime = Date()
         currentFlight?.engineShutdownTime = engineShutdownTime
+
+        // Fallback: if no block on was detected but block off exists, use engine shutdown time
+        // The aircraft is definitely stopped when the pilot records engine shutdown
+        if currentFlight?.blockOnTime == nil && currentFlight?.blockOffTime != nil {
+            currentFlight?.blockOnTime = engineShutdownTime
+            if let lastPoint = currentFlight?.gpsTrack.last {
+                currentFlight?.blockOnLatitude = lastPoint.latitude
+                currentFlight?.blockOnLongitude = lastPoint.longitude
+            }
+            print("[AéroCheck] Block on time set from engine shutdown (fallback)")
+        }
     }
 
     /// Record a go-around and return to climb phase, resetting subsequent phases
@@ -637,7 +649,8 @@ class AppState: ObservableObject {
     }
     
     private func checkForLanding(speed: Double) {
-        if speed >= 0 && speed < lowSpeedThreshold {
+        // speed < 0 (CLLocation returns -1 for indeterminate speed) indicates stationary
+        if speed < 0 || speed < lowSpeedThreshold {
             consecutiveLowSpeedReadings += 1
             if consecutiveLowSpeedReadings >= requiredLowSpeedReadings {
                 // Plane has stopped - record landing time (minus 1 minute)
@@ -678,12 +691,23 @@ class AppState: ObservableObject {
     }
 
     /// Check for block on time (sustained stop before ENGINE STOP)
+    /// Uses a time-window approach: if enough low-speed readings occur within a window,
+    /// the aircraft is considered stopped. This handles GPS gaps and noise gracefully.
+    /// CLLocation speed of -1 (indeterminate) is treated as stopped since it typically
+    /// occurs when the device is stationary.
     private func checkForBlockOn(point: GPSPoint, airportDataService: AirportDataService?) {
-        if point.speed >= 0 && point.speed < blockOnSpeedThreshold {
-            consecutiveStoppedReadings += 1
-            if consecutiveStoppedReadings >= requiredStoppedReadings {
+        let now = Date()
+
+        if point.speed < 0 || point.speed < blockOnSpeedThreshold {
+            // Low speed or indeterminate (-1) — record as a stopped reading
+            recentStoppedTimestamps.append(now)
+
+            // Prune timestamps older than the time window
+            recentStoppedTimestamps = recentStoppedTimestamps.filter { now.timeIntervalSince($0) <= blockOnTimeWindow }
+
+            if recentStoppedTimestamps.count >= requiredStoppedInWindow {
                 // Aircraft has stopped - update block on time (keep updating until engine shutdown)
-                let blockOnTime = Date()
+                let blockOnTime = now
                 currentFlight?.blockOnTime = blockOnTime
                 currentFlight?.blockOnLatitude = point.latitude
                 currentFlight?.blockOnLongitude = point.longitude
@@ -700,11 +724,10 @@ class AppState: ObservableObject {
                         }
                     }
                 }
-                // Don't reset counter - keep tracking last stop
             }
         } else {
-            // Aircraft started moving again, reset counter but keep last block on if set
-            consecutiveStoppedReadings = 0
+            // Aircraft is moving — clear stopped timestamps
+            recentStoppedTimestamps = []
         }
     }
     

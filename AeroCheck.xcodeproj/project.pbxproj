@@ -75,6 +75,12 @@
 		I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000005 /* SyncDataSettingsView.swift */; };
 		I1000001211111110000006 /* AboutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000006 /* AboutSettingsView.swift */; };
 		I1000001211111110000007 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000007 /* OnboardingView.swift */; };
+		AA000001211111110000001 /* OpenAIPConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000001 /* OpenAIPConfig.swift */; };
+		AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000002 /* OpenAIPTileOverlay.swift */; };
+		AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000003 /* OpenAIPCacheManager.swift */; };
+		AA000001211111110000004 /* OpenAIPDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000004 /* OpenAIPDataService.swift */; };
+		AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000005 /* AirspaceAnalyzer.swift */; };
+		AA000001211111110000006 /* Airspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000006 /* Airspace.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -191,6 +197,12 @@
 		I1000001111111110000005 /* SyncDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDataSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000006 /* AboutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000007 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		AA000001111111110000001 /* OpenAIPConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPConfig.swift; sourceTree = "<group>"; };
+		AA000001111111110000002 /* OpenAIPTileOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPTileOverlay.swift; sourceTree = "<group>"; };
+		AA000001111111110000003 /* OpenAIPCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPCacheManager.swift; sourceTree = "<group>"; };
+		AA000001111111110000004 /* OpenAIPDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPDataService.swift; sourceTree = "<group>"; };
+		AA000001111111110000005 /* AirspaceAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzer.swift; sourceTree = "<group>"; };
+		AA000001111111110000006 /* Airspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airspace.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -320,6 +332,7 @@
 				A1000001111111110000016 /* WT9ChecklistData.swift */,
 				A1000001111111110000009 /* AppState.swift */,
 				B3000001111111110000003 /* RemoteAircraft.swift */,
+				AA000001111111110000006 /* Airspace.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -341,6 +354,11 @@
 				E1000001111111110000002 /* AirportDataService.swift */,
 				F1000001111111110000001 /* FlightEventDetector.swift */,
 				D1000001111111110000001 /* BundledChecklistService.swift */,
+				AA000001111111110000001 /* OpenAIPConfig.swift */,
+				AA000001111111110000002 /* OpenAIPTileOverlay.swift */,
+				AA000001111111110000003 /* OpenAIPCacheManager.swift */,
+				AA000001111111110000004 /* OpenAIPDataService.swift */,
+				AA000001111111110000005 /* AirspaceAnalyzer.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -578,6 +596,12 @@
 				I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */,
 				I1000001211111110000006 /* AboutSettingsView.swift in Sources */,
 				I1000001211111110000007 /* OnboardingView.swift in Sources */,
+				AA000001211111110000001 /* OpenAIPConfig.swift in Sources */,
+				AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */,
+				AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */,
+				AA000001211111110000004 /* OpenAIPDataService.swift in Sources */,
+				AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */,
+				AA000001211111110000006 /* Airspace.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

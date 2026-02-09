@@ -161,6 +161,8 @@ struct NavigationMapView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -666,6 +668,23 @@ struct NavigationMapView: View {
             )
 
             Spacer()
+
+            // OpenAIP overlay toggle
+            Button(action: {
+                appState.settings.showOpenAIPOverlay.toggle()
+                appState.saveSettings()
+            }) {
+                Image(systemName: "shield")
+                    .font(.system(size: 14))
+                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(appState.settings.showOpenAIPOverlay
+                                  ? Color.panelBackground.opacity(0.95)
+                                  : Color.panelBackground.opacity(0.7))
+                    )
+            }
 
             // Layer picker button
             Button(action: {
@@ -1400,6 +1419,29 @@ struct NavigationMapView: View {
         return result
     }
 
+    /// Airspace polygons to display on the map (converted from OpenAIP data)
+    private var visibleAirspacePolygons: [AirspacePolygon] {
+        guard appState.settings.showOpenAIPOverlay, openAIPDataService.isDataAvailable else {
+            return []
+        }
+        let region = mapState.region
+        let airspaces = openAIPDataService.airspacesInBounds(region)
+
+        // Limit to 100 polygons for performance, prioritizing restrictive airspaces
+        let sorted = airspaces.sorted { a, b in
+            if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
+            return a.airspaceType.rawValue < b.airspaceType.rawValue
+        }
+        let limited = Array(sorted.prefix(100))
+
+        return limited.compactMap { airspace in
+            let coords = airspace.polygonCoordinates
+            guard coords.count >= 3 else { return nil }
+            var mutableCoords = coords
+            return AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+        }
+    }
+
     /// Pick the most relevant frequency from a list (TWR > ATIS > APP > first available)
     static func primaryFrequency(from frequencies: [AirportFrequency]) -> String? {
         let priorityTypes = ["TWR", "ATIS", "APP", "GND"]
@@ -1436,6 +1478,9 @@ struct NavigationMapView: View {
                 isStrictOfflineMode: isOfflineMode,
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
+                showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                openAIPCacheManager: openAIPCacheManager,
+                airspacePolygons: visibleAirspacePolygons,
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
@@ -1455,7 +1500,10 @@ struct NavigationMapView: View {
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 airportFrequencyLines: airportFrequencyLines,
-                cachedHeading: locationManager.currentCourseDegrees
+                cachedHeading: locationManager.currentCourseDegrees,
+                showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                openAIPCacheManager: openAIPCacheManager,
+                airspacePolygons: visibleAirspacePolygons
             )
         }
     }
@@ -1648,6 +1696,24 @@ struct NavigationMapView: View {
             }
 
             Spacer()
+
+            // OpenAIP overlay toggle
+            Button(action: {
+                appState.settings.showOpenAIPOverlay.toggle()
+                appState.saveSettings()
+            }) {
+                Image(systemName: "shield")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(appState.settings.showOpenAIPOverlay
+                                  ? Color.panelBackground.opacity(0.95)
+                                  : Color.panelBackground.opacity(0.7))
+                    )
+            }
 
             // Layer picker button (shows info modal in offline mode)
             Button(action: {
@@ -2646,6 +2712,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
+    var showOpenAIPOverlay: Bool = false
+    var openAIPCacheManager: OpenAIPCacheManager?
+    var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2657,6 +2726,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
+
+        // Add OpenAIP tile overlay if enabled
+        if showOpenAIPOverlay {
+            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        }
 
         // Set initial camera from shared state (preserves heading)
         let camera = MKMapCamera(
@@ -2676,6 +2751,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         if mapView.mapType != expectedType {
             mapView.mapType = expectedType
         }
+
+        // Update OpenAIP tile overlay
+        updateOpenAIPOverlay(mapView, context: context)
+
+        // Update airspace polygon overlays
+        updateAirspaceOverlays(mapView, context: context)
 
         // Handle heading reset request (user tapped compass)
         if mapState.pendingHeadingReset {
@@ -2862,6 +2943,32 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
     }
 
+    private func updateOpenAIPOverlay(_ mapView: MKMapView, context: Context) {
+        let hasOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+
+        if showOpenAIPOverlay && !hasOverlay {
+            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        } else if !showOpenAIPOverlay && hasOverlay {
+            let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
+            mapView.removeOverlays(overlaysToRemove)
+        }
+    }
+
+    private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
+        // Remove existing airspace polygons
+        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
+        let newIds = Set(airspacePolygons.map { $0.airspaceId })
+
+        if existingIds != newIds {
+            mapView.removeOverlays(existingAirspaceOverlays)
+            for polygon in airspacePolygons {
+                mapView.addOverlay(polygon, level: .aboveLabels)
+            }
+        }
+    }
+
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapViewUIKit
         var isUserInteracting = false
@@ -2899,6 +3006,24 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // OpenAIP tile overlay
+            if let tileOverlay = overlay as? OpenAIPTileOverlay {
+                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+            }
+
+            // Airspace polygon overlay
+            if let airspacePolygon = overlay as? AirspacePolygon {
+                let renderer = MKPolygonRenderer(polygon: airspacePolygon)
+                let color = airspacePolygon.overlayColor
+                renderer.fillColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.15)
+                renderer.strokeColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.8)
+                renderer.lineWidth = 1.5
+                if airspacePolygon.isDashed {
+                    renderer.lineDashPattern = [8, 4]
+                }
+                return renderer
+            }
+
             // Flight plan route (magenta - high visibility on aviation charts)
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
@@ -3293,6 +3418,9 @@ struct SwissMapView: UIViewRepresentable {
     var isStrictOfflineMode: Bool = false
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
+    var showOpenAIPOverlay: Bool = false
+    var openAIPCacheManager: OpenAIPCacheManager?
+    var airspacePolygons: [AirspacePolygon] = []
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
@@ -3467,6 +3595,30 @@ struct SwissMapView: UIViewRepresentable {
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
         if mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
+        }
+
+        // Update OpenAIP tile overlay
+        let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+        if showOpenAIPOverlay && !hasOpenAIPOverlay {
+            let openAIPOverlay = OpenAIPTileOverlay(
+                cacheManager: openAIPCacheManager,
+                isStrictOfflineMode: isStrictOfflineMode
+            )
+            mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+        } else if !showOpenAIPOverlay && hasOpenAIPOverlay {
+            let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
+            mapView.removeOverlays(overlaysToRemove)
+        }
+
+        // Update airspace polygon overlays
+        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
+        let newIds = Set(airspacePolygons.map { $0.airspaceId })
+        if existingIds != newIds {
+            mapView.removeOverlays(existingAirspaceOverlays)
+            for polygon in airspacePolygons {
+                mapView.addOverlay(polygon, level: .aboveLabels)
+            }
         }
 
         // Update camera from shared state (preserves heading)
@@ -3785,6 +3937,19 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // Airspace polygon overlay (check before generic MKTileOverlay)
+            if let airspacePolygon = overlay as? AirspacePolygon {
+                let renderer = MKPolygonRenderer(polygon: airspacePolygon)
+                let color = airspacePolygon.overlayColor
+                renderer.fillColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.15)
+                renderer.strokeColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.8)
+                renderer.lineWidth = 1.5
+                if airspacePolygon.isDashed {
+                    renderer.lineDashPattern = [8, 4]
+                }
+                return renderer
+            }
+
             if let tileOverlay = overlay as? MKTileOverlay {
                 let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
                 return renderer
@@ -4584,6 +4749,41 @@ struct CacheInfoSheet: View {
     }
 }
 
+// MARK: - Airspace Polygon Overlay
+
+/// MKPolygon subclass that carries airspace metadata for rendering
+class AirspacePolygon: MKPolygon {
+    var airspaceId: String = ""
+    var airspaceName: String = ""
+    var airspaceTypeCategory: AirspaceTypeCategory = .other
+    var airspaceClassCategory: AirspaceClassCategory?
+    var upperCeilingDisplay: String = ""
+    var lowerCeilingDisplay: String = ""
+    var overlayColor: (red: Double, green: Double, blue: Double) = (0.5, 0.5, 0.5)
+    var isDashed: Bool = false
+
+    convenience init(airspace: Airspace, coordinates: inout [CLLocationCoordinate2D], count: Int) {
+        self.init(coordinates: &coordinates, count: count)
+        self.airspaceId = airspace.id
+        self.airspaceName = airspace.name
+        self.airspaceTypeCategory = airspace.airspaceType
+        self.airspaceClassCategory = airspace.airspaceClass
+        self.upperCeilingDisplay = airspace.upperCeiling.displayString
+        self.lowerCeilingDisplay = airspace.lowerCeiling.displayString
+        self.overlayColor = airspace.mapColor
+
+        // Dashed border for certain types
+        switch airspace.airspaceType {
+        case .tmz, .rmz, .fir, .uir:
+            self.isDashed = true
+        default:
+            if airspace.airspaceClass == .classE || airspace.airspaceClass == .classG {
+                self.isDashed = true
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -4591,4 +4791,6 @@ struct CacheInfoSheet: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
+        .environmentObject(OpenAIPCacheManager())
+        .environmentObject(OpenAIPDataService())
 }

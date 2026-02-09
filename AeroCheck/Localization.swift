@@ -343,6 +343,34 @@ enum L10n {
         static let chartsCached = String(localized: "settings.offlineMaps.chartsCached")
         static let downloadDesc = String(localized: "settings.offlineMaps.downloadDesc")
 
+        // OpenAIP
+        static let openAIPAirspace = String(localized: "settings.openAIP.airspace")
+        static let airspaceOverlay = String(localized: "settings.openAIP.airspaceOverlay")
+        static let downloadingAirspaceData = String(localized: "settings.openAIP.downloadingAirspace")
+        static func airspacesLoaded(_ count: Int) -> String {
+            String(format: String(localized: "settings.openAIP.airspacesLoaded"), count)
+        }
+        static func updatedDate(_ date: String) -> String {
+            String(format: String(localized: "settings.openAIP.updated"), date)
+        }
+        static let tileCache = String(localized: "settings.openAIP.tileCache")
+        static let updateData = String(localized: "settings.openAIP.updateData")
+        static let downloadData = String(localized: "settings.openAIP.downloadData")
+        static let deleteOpenAIPData = String(localized: "settings.openAIP.deleteData")
+        static let deleteOpenAIPTitle = String(localized: "settings.openAIP.deleteTitle")
+        static let deleteOpenAIPMessage = String(localized: "settings.openAIP.deleteMessage")
+        static let openAIPFooter = String(localized: "settings.openAIP.footer")
+        static let openAIPDataTitle = String(localized: "settings.openAIP.dataTitle")
+        static let selectCountries = String(localized: "settings.openAIP.selectCountries")
+        static func estimatedTileCache(_ size: String) -> String {
+            String(format: String(localized: "settings.openAIP.estimatedTileCache"), size)
+        }
+        static func tileCountLabel(_ count: Int) -> String {
+            String(format: String(localized: "settings.openAIP.tileCount"), count)
+        }
+        static let downloadingTiles = String(localized: "settings.openAIP.downloadingTiles")
+        static let download = String(localized: "settings.openAIP.download")
+
         // Checklist
         static let checklist = String(localized: "settings.checklist")
         static let stepByStep = String(localized: "settings.checklist.stepByStep")
@@ -1044,6 +1072,14 @@ enum L10n {
         static let nearbyAirportFrequencies = String(localized: "nav.nearbyAirportFrequencies")
         static let noFrequenciesInFlightPlan = String(localized: "nav.noFrequenciesInFlightPlan")
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
+
+        // Airspace Conflicts
+        static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")
+        static let airspaceAlongRoute = String(localized: "nav.airspaceAlongRoute")
+        static let airspaceConflictsTitle = String(localized: "nav.airspaceConflictsTitle")
+        static func legNumber(_ n: Int) -> String {
+            String(format: String(localized: "nav.legNumber"), n)
+        }
 
         // Navigation View - Waypoint Info
         static let nextWaypoint = String(localized: "nav.nextWaypoint")

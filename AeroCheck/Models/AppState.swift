@@ -44,6 +44,10 @@ struct AppSettings: Codable, Equatable {
     // Airport data overlay
     var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
 
+    // OpenAIP aviation data overlay
+    var showOpenAIPOverlay: Bool = false // When true, shows OpenAIP airspace tiles on navigation map
+    var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
+
     // Flight logging
     var logEngineHours: Bool = false // When true, prompts for hour meter reading at engine start and stop
 
@@ -119,6 +123,8 @@ struct AppSettings: Codable, Equatable {
         case gpsPriority
         case shareCardColorScheme
         case shareCardMapLayer
+        case showOpenAIPOverlay
+        case openAIPOfflineCountries
         // marketingMode is intentionally excluded
     }
 
@@ -154,6 +160,8 @@ struct AppSettings: Codable, Equatable {
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
         shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
+        showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
+        openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         // marketingMode intentionally excluded - always defaults to false
     }
 }

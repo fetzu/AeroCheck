@@ -1,0 +1,318 @@
+import Foundation
+import CoreLocation
+import MapKit
+
+/// Service for managing OpenAIP airspace data
+/// Downloads, caches, and queries airspace data for flight planning and navigation
+@MainActor
+class OpenAIPDataService: ObservableObject {
+    // MARK: - Published Properties
+
+    @Published var isDownloading = false
+    @Published var downloadProgress: Double = 0
+    @Published var downloadError: String?
+    @Published var lastUpdated: Date?
+    @Published var isDataAvailable: Bool = false
+    @Published var airspaceCount: Int = 0
+    @Published var downloadedCountries: [String] = []
+
+    // MARK: - Private Properties
+
+    private var airspaces: [Airspace] = []
+    private var airspacesByCountry: [String: [Airspace]] = [:]
+    private var isLoaded = false
+
+    private let fileManager = FileManager.default
+    private var dataDirectory: URL {
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("OpenAIPData", isDirectory: true)
+    }
+
+    private var metadataFileURL: URL { dataDirectory.appendingPathComponent("metadata.json") }
+
+    private func airspaceFileURL(for country: String) -> URL {
+        dataDirectory.appendingPathComponent("airspaces_\(country).json")
+    }
+
+    // MARK: - Initialization
+
+    init() {
+        // Check if data files exist without loading into memory
+        if fileManager.fileExists(atPath: metadataFileURL.path),
+           let data = try? Data(contentsOf: metadataFileURL),
+           let metadata = try? JSONDecoder().decode(OpenAIPCacheMetadata.self, from: data) {
+            downloadedCountries = Array(metadata.lastSyncDates.keys).sorted()
+            airspaceCount = metadata.airspaceCounts.values.reduce(0, +)
+            lastUpdated = metadata.lastSyncDates.values.max()
+            isDataAvailable = !downloadedCountries.isEmpty
+        }
+    }
+
+    /// Load airspace data into memory if not already loaded
+    func ensureLoaded() async {
+        guard !isLoaded else { return }
+        await loadFromLocal()
+    }
+
+    // MARK: - Data Loading
+
+    private func loadFromLocal() async {
+        guard fileManager.fileExists(atPath: metadataFileURL.path),
+              let metaData = try? Data(contentsOf: metadataFileURL),
+              let metadata = try? JSONDecoder().decode(OpenAIPCacheMetadata.self, from: metaData) else {
+            return
+        }
+
+        let decoder = JSONDecoder()
+        var loadedAirspaces: [Airspace] = []
+        var byCountry: [String: [Airspace]] = [:]
+
+        for country in metadata.lastSyncDates.keys {
+            let fileURL = airspaceFileURL(for: country)
+            guard fileManager.fileExists(atPath: fileURL.path),
+                  let data = try? Data(contentsOf: fileURL),
+                  let countryAirspaces = try? decoder.decode([Airspace].self, from: data) else {
+                continue
+            }
+            loadedAirspaces.append(contentsOf: countryAirspaces)
+            byCountry[country] = countryAirspaces
+        }
+
+        airspaces = loadedAirspaces
+        airspacesByCountry = byCountry
+        airspaceCount = loadedAirspaces.count
+        isLoaded = true
+    }
+
+    // MARK: - Data Download
+
+    /// Check if data needs updating (older than cache expiration)
+    var needsUpdate: Bool {
+        guard let lastUpdate = lastUpdated else { return true }
+        return Date().timeIntervalSince(lastUpdate) > OpenAIPConfig.airspaceCacheExpirationInterval
+    }
+
+    /// Download airspace data for selected countries from OpenAIP Core API
+    func downloadData(for countries: [String]) async {
+        guard !isDownloading else { return }
+
+        isDownloading = true
+        downloadProgress = 0
+        downloadError = nil
+
+        do {
+            try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        } catch {
+            downloadError = "Failed to create data directory"
+            isDownloading = false
+            return
+        }
+
+        // Load existing metadata
+        var metadata: OpenAIPCacheMetadata
+        if let data = try? Data(contentsOf: metadataFileURL),
+           let existing = try? JSONDecoder().decode(OpenAIPCacheMetadata.self, from: data) {
+            metadata = existing
+        } else {
+            metadata = OpenAIPCacheMetadata()
+        }
+
+        var allAirspaces: [Airspace] = []
+        var byCountry: [String: [Airspace]] = [:]
+        let totalCountries = Double(countries.count)
+
+        for (index, country) in countries.enumerated() {
+            downloadProgress = Double(index) / totalCountries
+
+            do {
+                let countryAirspaces = try await fetchAirspaces(for: country)
+                allAirspaces.append(contentsOf: countryAirspaces)
+                byCountry[country] = countryAirspaces
+
+                // Save per-country file
+                let encoded = try JSONEncoder().encode(countryAirspaces)
+                try encoded.write(to: airspaceFileURL(for: country))
+
+                // Update metadata
+                metadata.lastSyncDates[country] = Date()
+                metadata.airspaceCounts[country] = countryAirspaces.count
+
+                print("[OpenAIP] Downloaded \(countryAirspaces.count) airspaces for \(country)")
+            } catch {
+                print("[OpenAIP] Failed to download airspaces for \(country): \(error)")
+                downloadError = "Failed to download data for \(OpenAIPConfig.countryName(for: country)): \(error.localizedDescription)"
+            }
+
+            if Task.isCancelled { break }
+        }
+
+        // Remove countries that are no longer selected
+        let removedCountries = Set(metadata.lastSyncDates.keys).subtracting(countries)
+        for country in removedCountries {
+            metadata.lastSyncDates.removeValue(forKey: country)
+            metadata.airspaceCounts.removeValue(forKey: country)
+            try? fileManager.removeItem(at: airspaceFileURL(for: country))
+        }
+
+        // Save metadata
+        metadata.lastFullRefresh = Date()
+        if let metaEncoded = try? JSONEncoder().encode(metadata) {
+            try? metaEncoded.write(to: metadataFileURL)
+        }
+
+        // Update in-memory data
+        airspaces = allAirspaces
+        airspacesByCountry = byCountry
+        airspaceCount = allAirspaces.count
+        downloadedCountries = countries.sorted()
+        lastUpdated = Date()
+        isDataAvailable = !allAirspaces.isEmpty
+        isLoaded = true
+
+        downloadProgress = 1.0
+        isDownloading = false
+    }
+
+    /// Fetch all airspaces for a given country from OpenAIP API with pagination
+    private func fetchAirspaces(for country: String) async throws -> [Airspace] {
+        var allAirspaces: [Airspace] = []
+        var page = 1
+        let limit = OpenAIPConfig.airspacePageLimit
+
+        while true {
+            let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?country=\(country)&limit=\(limit)&page=\(page)"
+            guard let url = URL(string: urlString) else {
+                throw OpenAIPError.invalidURL
+            }
+
+            var request = URLRequest(url: url)
+            request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw OpenAIPError.apiError(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
+            }
+
+            let decoded = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: data)
+            allAirspaces.append(contentsOf: decoded.items)
+
+            // Check if there are more pages
+            if page >= decoded.totalPages {
+                break
+            }
+            page += 1
+        }
+
+        return allAirspaces
+    }
+
+    // MARK: - Spatial Queries
+
+    /// Find airspaces near a coordinate within a given radius
+    func airspacesNear(_ coordinate: CLLocationCoordinate2D, withinNM distance: Double) -> [Airspace] {
+        guard isLoaded else { return [] }
+
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let distanceMeters = distance * 1852 // 1 NM = 1852 meters
+
+        return airspaces.filter { airspace in
+            // Quick check: is the airspace centroid within range?
+            let coords = airspace.polygonCoordinates
+            guard !coords.isEmpty else { return false }
+
+            // Use the centroid as a rough proximity check
+            let avgLat = coords.map(\.latitude).reduce(0, +) / Double(coords.count)
+            let avgLon = coords.map(\.longitude).reduce(0, +) / Double(coords.count)
+            let centroid = CLLocation(latitude: avgLat, longitude: avgLon)
+
+            return location.distance(from: centroid) <= distanceMeters * 2 // generous filter, refine later
+        }
+    }
+
+    /// Find airspaces that intersect a map region
+    func airspacesInBounds(_ region: MKCoordinateRegion) -> [Airspace] {
+        guard isLoaded else { return [] }
+
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+
+        return airspaces.filter { airspace in
+            let coords = airspace.polygonCoordinates
+            guard !coords.isEmpty else { return false }
+
+            // Check if any vertex of the polygon falls within the region
+            return coords.contains { coord in
+                coord.latitude >= minLat && coord.latitude <= maxLat &&
+                coord.longitude >= minLon && coord.longitude <= maxLon
+            }
+        }
+    }
+
+    /// Find airspaces along a flight route (for flight plan analysis)
+    func airspacesAlongRoute(_ waypoints: [CLLocationCoordinate2D]) -> [Airspace] {
+        guard isLoaded, waypoints.count >= 2 else { return [] }
+
+        // Create a bounding box that encompasses the entire route with a buffer
+        let lats = waypoints.map(\.latitude)
+        let lons = waypoints.map(\.longitude)
+        guard let minLat = lats.min(), let maxLat = lats.max(),
+              let minLon = lons.min(), let maxLon = lons.max() else { return [] }
+
+        let buffer = 0.2 // ~12 NM buffer around route
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLon + maxLon) / 2
+            ),
+            span: MKCoordinateSpan(
+                latitudeDelta: (maxLat - minLat) + buffer * 2,
+                longitudeDelta: (maxLon - minLon) + buffer * 2
+            )
+        )
+
+        return airspacesInBounds(region)
+    }
+
+    // MARK: - Cache Management
+
+    /// Delete all cached airspace data
+    func deleteData() {
+        do {
+            if fileManager.fileExists(atPath: dataDirectory.path) {
+                try fileManager.removeItem(at: dataDirectory)
+            }
+            airspaces = []
+            airspacesByCountry = [:]
+            airspaceCount = 0
+            downloadedCountries = []
+            lastUpdated = nil
+            isDataAvailable = false
+            isLoaded = false
+        } catch {
+            downloadError = "Failed to delete data: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - Errors
+
+enum OpenAIPError: LocalizedError {
+    case invalidURL
+    case apiError(statusCode: Int)
+    case decodingError
+    case noData
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "Invalid API URL"
+        case .apiError(let code): return "API error (HTTP \(code))"
+        case .decodingError: return "Failed to parse API response"
+        case .noData: return "No data received"
+        }
+    }
+}

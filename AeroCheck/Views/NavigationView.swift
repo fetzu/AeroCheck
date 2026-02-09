@@ -269,6 +269,11 @@ struct NavigationMapView: View {
     private var speedColor: Color {
         let speedKnots = Int(locationManager.currentSpeedKnots)
 
+        // Don't show stall color based on unreliable GPS data
+        if locationManager.gpsSignalStatus != .good {
+            return .dimText
+        }
+
         // If below stall speed, always red
         if speedKnots < stallSpeed {
             return .aviationRed
@@ -318,12 +323,10 @@ struct NavigationMapView: View {
         return formatter.string(from: Date())
     }
 
-    /// Current heading from location
+    /// Current heading from location (cached to prevent snapping to 0° during GPS gaps)
     private var currentHeading: Int {
-        guard let location = locationManager.currentLocation, location.course >= 0 else {
-            return 0
-        }
-        return Int(location.course)
+        if let course = locationManager.currentCourseDegrees { return Int(course) }
+        return 0
     }
 
     /// Determine if we should use compact layout for small devices
@@ -363,8 +366,8 @@ struct NavigationMapView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
                 )
                 mapState.cameraDistance = 10000
-                if mapOrientationMode == .trackUp, location.course >= 0 {
-                    mapState.cameraHeading = location.course
+                if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+                    mapState.cameraHeading = course
                 }
             }
             isFollowingAircraft = true
@@ -391,9 +394,9 @@ struct NavigationMapView: View {
                 updateMapStateForLocation(location)
             }
 
-            // In track-up mode, update heading to match course
-            if mapOrientationMode == .trackUp, let location = newLocation, location.course >= 0 {
-                mapState.cameraHeading = location.course
+            // In track-up mode, update heading to match course (using cached heading)
+            if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+                mapState.cameraHeading = course
             }
 
             // Auto-advance waypoint when within proximity threshold

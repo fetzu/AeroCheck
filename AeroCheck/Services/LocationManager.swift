@@ -58,7 +58,18 @@ class LocationManager: NSObject, ObservableObject {
     // flight mode uses 50m filter for battery efficiency
     private var isGroundMode: Bool = true
     private let flightModeDistanceFilter: CLLocationDistance = 50
-    
+
+    // Speed and heading caching/smoothing
+    // Prevents false stall warnings from GPS -1 (invalid) speed values by holding the last
+    // valid smoothed speed. Uses EMA (exponential moving average) to smooth GPS noise (~1-2 kt).
+    private var lastValidSpeedMPS: Double = 0
+    private var lastValidSpeedTime: Date?
+    private var smoothedSpeedMPS: Double = 0
+    private var lastValidCourse: Double?
+    private var lastValidCourseTime: Date?
+    private let speedSmoothingAlpha: Double = 0.3       // EMA factor: responsive to real changes, smooths noise
+    private let cachedValueStalenessLimit: TimeInterval = 15.0  // Matches signalDegradedThreshold
+
     // MARK: - Initialization
     
     override init() {
@@ -125,6 +136,12 @@ class LocationManager: NSObject, ObservableObject {
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = kCLDistanceFilterNone
+        // Reset smoothed/cached values for next flight
+        smoothedSpeedMPS = 0
+        lastValidSpeedMPS = 0
+        lastValidSpeedTime = nil
+        lastValidCourse = nil
+        lastValidCourseTime = nil
     }
 
     /// Switch between ground mode (no distance filter, precise low-speed tracking)
@@ -225,6 +242,31 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
 
+    /// Update smoothed speed (EMA) and cached heading from a new location update.
+    /// Invalid values (speed/course = -1) are skipped, preserving the last valid reading.
+    private func updateSmoothedValues(from location: CLLocation) {
+        let now = Date()
+
+        // Speed: apply exponential moving average, skip invalid (-1) readings
+        if location.speed >= 0 {
+            if lastValidSpeedTime != nil {
+                // EMA: new_value = α * raw + (1-α) * previous
+                smoothedSpeedMPS = speedSmoothingAlpha * location.speed + (1.0 - speedSmoothingAlpha) * smoothedSpeedMPS
+            } else {
+                // First valid reading — initialize without smoothing
+                smoothedSpeedMPS = location.speed
+            }
+            lastValidSpeedMPS = location.speed
+            lastValidSpeedTime = now
+        }
+
+        // Course: cache last valid value (no smoothing needed for heading)
+        if location.course >= 0 {
+            lastValidCourse = location.course
+            lastValidCourseTime = now
+        }
+    }
+
     private func updateSignalQuality(from location: CLLocation) {
         // If GPS status is overridden (marketing mode), don't update from real signal
         if gpsStatusOverride != nil {
@@ -262,16 +304,34 @@ class LocationManager: NSObject, ObservableObject {
         currentLocation?.coordinate
     }
     
-    /// Current speed in knots (converted from m/s)
+    /// Current speed in knots (smoothed, with caching for GPS -1 values)
     var currentSpeedKnots: Double {
-        guard let speed = currentLocation?.speed, speed >= 0 else { return 0 }
-        return speed * 1.94384 // m/s to knots
+        currentSpeedMPS * 1.94384 // m/s to knots
     }
-    
-    /// Current speed in m/s (raw GPS value)
+
+    /// Current speed in m/s (smoothed, with caching for GPS -1 values)
+    /// Returns the EMA-smoothed speed if a valid reading was received within the staleness limit.
+    /// Falls back to raw CLLocation speed, then 0.
     var currentSpeedMPS: Double {
-        guard let speed = currentLocation?.speed, speed >= 0 else { return 0 }
-        return speed
+        if let lastTime = lastValidSpeedTime,
+           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+            return smoothedSpeedMPS
+        }
+        // Stale or no valid reading yet: try raw current location
+        if let speed = currentLocation?.speed, speed >= 0 { return speed }
+        return 0
+    }
+
+    /// Current course/heading in degrees (cached for GPS -1 values)
+    /// Returns the last valid course if received within the staleness limit.
+    /// Returns nil if no valid course is available (consumer can fall back to 0 or "---").
+    var currentCourseDegrees: Double? {
+        if let course = lastValidCourse, let lastTime = lastValidCourseTime,
+           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+            return course
+        }
+        if let course = currentLocation?.course, course >= 0 { return course }
+        return nil
     }
 
     /// Current altitude in meters (raw GPS value)
@@ -314,6 +374,9 @@ extension LocationManager: CLLocationManagerDelegate {
 
             // Update current location
             self.currentLocation = location
+
+            // Update smoothed speed and cached heading
+            self.updateSmoothedValues(from: location)
 
             // Update signal quality based on accuracy
             self.updateSignalQuality(from: location)

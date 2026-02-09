@@ -243,7 +243,7 @@ struct FlightPlanOverlayView: View {
                             }
 
                             // EET to waypoint
-                            let groundSpeedKnots = max((locationManager.currentLocation?.speed ?? 0) * 1.94384, 1)
+                            let groundSpeedKnots = max(locationManager.currentSpeedKnots, 1)
                             if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
                                 let minutes = Int(eta / 60)
                                 let seconds = Int(eta) % 60
@@ -387,7 +387,7 @@ struct FlightPlanOverlayView: View {
 
     /// ETO display row
     private func etoRow(clLocation: CLLocation) -> some View {
-        let groundSpeedKnots = max((locationManager.currentLocation?.speed ?? 0) * 1.94384, 1)
+        let groundSpeedKnots = max(locationManager.currentSpeedKnots, 1)
         let eet = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots)
         let etoString = eet.map { eet -> String in
             let etoDate = Date().addingTimeInterval(eet)

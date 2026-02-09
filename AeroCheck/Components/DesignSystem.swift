@@ -312,6 +312,14 @@ struct SpeedIndicatorView: View {
 
     // Speed state categories
     private var speedState: SpeedState {
+        // Don't trigger stall warning based on unreliable GPS data —
+        // the InstrumentFailureFlag overlay already communicates GPS issues
+        if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
+            let speedInt = Int(displaySpeed)
+            if abs(speedInt - targetSpeed) <= 5 { return .onTarget }
+            return .offTarget
+        }
+
         let speedInt = Int(displaySpeed)
         if speedInt < stallSpeed {
             return .stall

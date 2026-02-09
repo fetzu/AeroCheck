@@ -16,6 +16,14 @@ struct Airspace: Codable, Identifiable {
     let geometry: AirspaceGeometry
     let activity: Int?                   // Activity type code
 
+    // OpenAIP API returns _id, upperLimit, lowerLimit
+    enum CodingKeys: String, CodingKey {
+        case id = "_id"
+        case name, type, icaoClass, country, geometry, activity
+        case upperCeiling = "upperLimit"
+        case lowerCeiling = "lowerLimit"
+    }
+
     /// Decoded polygon coordinates for map rendering
     var polygonCoordinates: [CLLocationCoordinate2D] {
         guard let firstRing = geometry.coordinates.first else { return [] }

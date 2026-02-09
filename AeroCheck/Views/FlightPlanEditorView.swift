@@ -173,8 +173,8 @@ struct FlightPlanEditorView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: routeRefreshToken) { _, _ in analyzeAirspaceConflicts() }
-        .task { analyzeAirspaceConflicts() }
+        .onChange(of: routeRefreshToken) { _, _ in Task { await analyzeAirspaceConflicts() } }
+        .task { await analyzeAirspaceConflicts() }
         .sheet(isPresented: $showingAirspaceConflicts) {
             AirspaceConflictDetailSheet(conflicts: airspaceConflicts)
         }
@@ -227,11 +227,14 @@ struct FlightPlanEditorView: View {
         }
     }
 
-    private func analyzeAirspaceConflicts() {
+    private func analyzeAirspaceConflicts() async {
         guard openAIPDataService.isDataAvailable, flightPlan.waypoints.count >= 2 else {
             airspaceConflicts = []
             return
         }
+
+        // Ensure airspace data is loaded into memory (lazy loading pattern)
+        await openAIPDataService.ensureLoaded()
 
         let waypoints = flightPlan.waypoints.map { wp in
             (coordinate: wp.coordinate, altitude: wp.altitude)

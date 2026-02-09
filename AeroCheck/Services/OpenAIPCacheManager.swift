@@ -320,8 +320,8 @@ class OpenAIPCacheManager: ObservableObject {
     /// Estimated download size for given countries (rough approximation)
     func estimatedDownloadSize(for countries: [String]) -> String {
         let tiles = calculateTilesForCountries(countries)
-        // Average tile size ~15KB for OpenAIP raster tiles
-        let estimatedBytes = Int64(tiles.count) * 15_000
+        // Average tile size ~5.5KB for OpenAIP raster tiles (sparse aviation data)
+        let estimatedBytes = Int64(tiles.count) * 5_500
         return ByteCountFormatter.string(fromByteCount: estimatedBytes, countStyle: .file)
     }
 

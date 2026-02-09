@@ -1439,7 +1439,8 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
-                airportFrequencyLines: airportFrequencyLines
+                airportFrequencyLines: airportFrequencyLines,
+                cachedHeading: locationManager.currentCourseDegrees
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1453,7 +1454,8 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
-                airportFrequencyLines: airportFrequencyLines
+                airportFrequencyLines: airportFrequencyLines,
+                cachedHeading: locationManager.currentCourseDegrees
             )
         }
     }
@@ -1816,9 +1818,9 @@ struct NavigationMapView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
         )
         mapState.updateFromRegion(newRegion)
-        // Respect orientation mode: only set heading for track-up
-        if mapOrientationMode == .trackUp {
-            mapState.cameraHeading = location.course >= 0 ? location.course : 0
+        // Respect orientation mode: only set heading for track-up (use cached heading)
+        if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
+            mapState.cameraHeading = course
         }
         mapState.cameraDistance = 10000
     }
@@ -1827,9 +1829,9 @@ struct NavigationMapView: View {
         switch mapOrientationMode {
         case .northUp:
             mapOrientationMode = .trackUp
-            // Set heading to current course
-            if let location = locationManager.currentLocation, location.course >= 0 {
-                mapState.cameraHeading = location.course
+            // Set heading to current course (use cached heading for stability)
+            if let course = locationManager.currentCourseDegrees {
+                mapState.cameraHeading = course
             }
         case .trackUp:
             mapOrientationMode = .northUp
@@ -2643,6 +2645,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
+    var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2781,7 +2784,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let existingAnnotation = mapView.annotations.compactMap { $0 as? AircraftAnnotation }.first
 
         if let location = currentLocation {
-            let newHeading = location.course >= 0 ? location.course : 0
+            // Use cached heading (survives GPS gaps) instead of raw location.course
+            let newHeading = cachedHeading ?? (location.course >= 0 ? location.course : 0)
 
             if let existing = existingAnnotation {
                 // Update existing annotation in place to avoid blinking
@@ -2789,16 +2793,24 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                                    abs(existing.coordinate.longitude - location.coordinate.longitude) > 0.00001
                 let headingChanged = abs(existing.heading - newHeading) > 0.5
 
-                if coordChanged || headingChanged {
-                    existing.coordinate = location.coordinate
-                    existing.heading = newHeading
+                // Always reapply transform: camera heading may have changed (track-up mode)
+                existing.coordinate = location.coordinate
+                existing.heading = newHeading
 
-                    // Update the annotation view's transform for new heading
-                    if let view = mapView.view(for: existing) {
-                        let headingRadians = (newHeading - 90.0) * .pi / 180.0
+                // Update the annotation view's transform for new heading
+                // MKAnnotationView is screen-relative, so subtract camera heading
+                // to compensate for map rotation in track-up mode.
+                // In north-up mode, camera heading is 0 so this is a no-op.
+                if let view = mapView.view(for: existing) {
+                    let effectiveHeading = newHeading - mapView.camera.heading
+                    let headingRadians = (effectiveHeading - 90.0) * .pi / 180.0
+                    if coordChanged || headingChanged {
                         UIView.animate(withDuration: 0.1) {
                             view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
                         }
+                    } else {
+                        // Camera rotation changed but position/heading didn't — update without animation
+                        view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
                     }
                 }
             } else {
@@ -2961,7 +2973,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Apply rotation for heading
             // SF Symbol "airplane" points to the right (90°/East) by default
             // Subtract 90° so that heading 0° (North) shows plane pointing up
-            let headingRadians = (aircraftAnnotation.heading - 90.0) * .pi / 180.0
+            // Also subtract camera heading: MKAnnotationView is screen-relative, so in
+            // track-up mode we must compensate for the map's rotation.
+            let effectiveHeading = aircraftAnnotation.heading - mapView.camera.heading
+            let headingRadians = (effectiveHeading - 90.0) * .pi / 180.0
             annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
             // Additional shadow for depth
@@ -3266,6 +3281,7 @@ struct SwissMapView: UIViewRepresentable {
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
+    var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -3587,7 +3603,8 @@ struct SwissMapView: UIViewRepresentable {
         let existingAnnotation = mapView.annotations.compactMap { $0 as? AircraftAnnotation }.first
 
         if let location = currentLocation {
-            let newHeading = location.course >= 0 ? location.course : 0
+            // Use cached heading (survives GPS gaps) instead of raw location.course
+            let newHeading = cachedHeading ?? (location.course >= 0 ? location.course : 0)
 
             if let existing = existingAnnotation {
                 // Update existing annotation in place to avoid blinking
@@ -3595,16 +3612,24 @@ struct SwissMapView: UIViewRepresentable {
                                    abs(existing.coordinate.longitude - location.coordinate.longitude) > 0.00001
                 let headingChanged = abs(existing.heading - newHeading) > 0.5
 
-                if coordChanged || headingChanged {
-                    existing.coordinate = location.coordinate
-                    existing.heading = newHeading
+                // Always reapply transform: camera heading may have changed (track-up mode)
+                existing.coordinate = location.coordinate
+                existing.heading = newHeading
 
-                    // Update the annotation view's transform for new heading
-                    if let view = mapView.view(for: existing) {
-                        let headingRadians = (newHeading - 90.0) * .pi / 180.0
+                // Update the annotation view's transform for new heading
+                // MKAnnotationView is screen-relative, so subtract camera heading
+                // to compensate for map rotation in track-up mode.
+                // In north-up mode, camera heading is 0 so this is a no-op.
+                if let view = mapView.view(for: existing) {
+                    let effectiveHeading = newHeading - mapView.camera.heading
+                    let headingRadians = (effectiveHeading - 90.0) * .pi / 180.0
+                    if coordChanged || headingChanged {
                         UIView.animate(withDuration: 0.1) {
                             view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
                         }
+                    } else {
+                        // Camera rotation changed but position/heading didn't — update without animation
+                        view.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
                     }
                 }
             } else {
@@ -3833,7 +3858,10 @@ struct SwissMapView: UIViewRepresentable {
             // Apply rotation for heading
             // SF Symbol "airplane" points to the right (90°/East) by default
             // Subtract 90° so that heading 0° (North) shows plane pointing up
-            let headingRadians = (aircraftAnnotation.heading - 90.0) * .pi / 180.0
+            // Also subtract camera heading: MKAnnotationView is screen-relative, so in
+            // track-up mode we must compensate for the map's rotation.
+            let effectiveHeading = aircraftAnnotation.heading - mapView.camera.heading
+            let headingRadians = (effectiveHeading - 90.0) * .pi / 180.0
             annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(headingRadians))
 
             // Additional shadow for depth

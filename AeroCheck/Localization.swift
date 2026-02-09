@@ -370,6 +370,17 @@ enum L10n {
         }
         static let downloadingTiles = String(localized: "settings.openAIP.downloadingTiles")
         static let download = String(localized: "settings.openAIP.download")
+        static func openAIPCountriesSelected(_ count: Int) -> String {
+            String(format: String(localized: "settings.openAIP.countriesSelected"), count)
+        }
+        static let openAIPClearSelection = String(localized: "settings.openAIP.clearSelection")
+        static func openAIPContinentCountryCount(_ count: Int) -> String {
+            String(format: String(localized: "settings.openAIP.continentCountryCount"), count)
+        }
+        static let openAIPDeselectAll = String(localized: "settings.openAIP.deselectAll")
+        static func openAIPSelectAll(_ continent: String) -> String {
+            String(format: String(localized: "settings.openAIP.selectAll"), continent)
+        }
 
         // Checklist
         static let checklist = String(localized: "settings.checklist")

@@ -35,6 +35,25 @@ enum OpenAIPConfig {
     /// Cache expiration interval for airspace data (90 days)
     static let airspaceCacheExpirationInterval: TimeInterval = 90 * 24 * 60 * 60
 
+    // MARK: - Streaming CTR Fallback
+
+    /// Search radius for streaming CTR queries (20 NM in meters)
+    static let streamingFetchRadiusMeters: Int = 37040
+    /// Maximum CTRs per streaming API request
+    static let streamingFetchLimit: Int = 10
+    /// Time-to-live for streaming cache (5 minutes)
+    static let streamingCacheTTL: TimeInterval = 300
+    /// Distance threshold to invalidate cache (pilot moved >10nm from cache origin)
+    static let streamingCacheInvalidationDistanceNM: Double = 10.0
+    /// Minimum interval between streaming API requests (60 seconds)
+    static let streamingMinFetchInterval: TimeInterval = 60
+    /// Base backoff interval on error (2 minutes)
+    static let streamingErrorBackoff: TimeInterval = 120
+    /// Maximum backoff interval on repeated errors (5 minutes)
+    static let streamingMaxErrorBackoff: TimeInterval = 300
+    /// Request timeout for streaming API calls (10 seconds)
+    static let streamingRequestTimeout: TimeInterval = 10
+
     /// Predefined country bounding boxes for tile downloads
     /// Format: (minLat, minLon, maxLat, maxLon)
     /// Coverage: 119 countries with confirmed OpenAIP airspace data

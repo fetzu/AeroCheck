@@ -346,6 +346,7 @@ enum L10n {
         // OpenAIP
         static let openAIPAirspace = String(localized: "settings.openAIP.airspace")
         static let airspaceOverlay = String(localized: "settings.openAIP.airspaceOverlay")
+        static let airspaceStreaming = String(localized: "settings.openAIP.airspaceStreaming")
         static let downloadingAirspaceData = String(localized: "settings.openAIP.downloadingAirspace")
         static func airspacesLoaded(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.airspacesLoaded"), count)
@@ -575,6 +576,12 @@ enum L10n {
         static let flightPlanningPlanRoutes = String(localized: "warning.flightPlanning.planRoutes")
         static let flightPlanningAutoAdvance = String(localized: "warning.flightPlanning.autoAdvance")
         static let flightPlanningTerrainViz = String(localized: "warning.flightPlanning.terrainViz")
+
+        // Online Airspace Streaming
+        static let onlineAirspaceTitle = String(localized: "warning.onlineAirspace.title")
+        static let onlineAirspaceRequiresInternet = String(localized: "warning.onlineAirspace.requiresInternet")
+        static let onlineAirspaceFetches = String(localized: "warning.onlineAirspace.fetches")
+        static let onlineAirspaceDownloadRecommended = String(localized: "warning.onlineAirspace.downloadRecommended")
 
         // Estimated Airspeed
         static let estimatedAirspeedCalculated = String(localized: "warning.estimatedAirspeed.calculated")

@@ -16,11 +16,26 @@ class OpenAIPDataService: ObservableObject {
     @Published var airspaceCount: Int = 0
     @Published var downloadedCountries: [String] = []
 
+    // MARK: - Streaming CTR Properties
+
+    @Published var streamingCTRs: [(airspace: Airspace, distanceNM: Double)] = []
+    @Published var isStreamingFetchInProgress: Bool = false
+
     // MARK: - Private Properties
 
     private var airspaces: [Airspace] = []
     private var airspacesByCountry: [String: [Airspace]] = [:]
     private var isLoaded = false
+
+    // Streaming cache
+    private struct StreamingCTRCache {
+        let airspaces: [Airspace]
+        let fetchCoordinate: CLLocationCoordinate2D
+        let fetchTime: Date
+    }
+    private var streamingCache: StreamingCTRCache?
+    private var lastStreamingFetchAttempt: Date?
+    private var consecutiveStreamingErrors: Int = 0
 
     private let fileManager = FileManager.default
     private var dataDirectory: URL {
@@ -295,6 +310,125 @@ class OpenAIPDataService: ObservableObject {
                 let distanceMeters = location.distance(from: centroidLocation)
                 guard distanceMeters <= maxDistanceMeters else { return nil }
                 return (airspace: airspace, distanceNM: distanceMeters / 1852.0)
+            }
+            .sorted { $0.distanceNM < $1.distanceNM }
+            .prefix(8)
+            .map { $0 }
+    }
+
+    // MARK: - Streaming CTR Fallback
+
+    /// Fetch nearby CTRs from the API if needed (when no downloaded data is available)
+    /// Uses aggressive caching and throttling to minimize API load
+    func fetchStreamingCTRsIfNeeded(from coordinate: CLLocationCoordinate2D) async {
+        // Skip if full downloaded data is available
+        guard !isDataAvailable else { return }
+
+        let now = Date()
+        let currentLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+
+        // Check if cache is still valid
+        if let cache = streamingCache {
+            let cacheAge = now.timeIntervalSince(cache.fetchTime)
+            let cacheLocation = CLLocation(latitude: cache.fetchCoordinate.latitude, longitude: cache.fetchCoordinate.longitude)
+            let distanceFromCacheNM = currentLocation.distance(from: cacheLocation) / 1852.0
+
+            if cacheAge < OpenAIPConfig.streamingCacheTTL
+                && distanceFromCacheNM < OpenAIPConfig.streamingCacheInvalidationDistanceNM {
+                // Cache valid — just recalculate distances from current position
+                updateStreamingDistances(from: coordinate)
+                return
+            }
+        }
+
+        // Check cooldown (exponential backoff on errors)
+        let backoff = min(
+            OpenAIPConfig.streamingMinFetchInterval * pow(2.0, Double(consecutiveStreamingErrors)),
+            OpenAIPConfig.streamingMaxErrorBackoff
+        )
+        if let lastAttempt = lastStreamingFetchAttempt,
+           now.timeIntervalSince(lastAttempt) < backoff {
+            return
+        }
+
+        await performStreamingFetch(from: coordinate)
+    }
+
+    /// Perform the actual API call to fetch nearby CTRs
+    private func performStreamingFetch(from coordinate: CLLocationCoordinate2D) async {
+        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?pos=\(coordinate.latitude),\(coordinate.longitude)&dist=\(OpenAIPConfig.streamingFetchRadiusMeters)&type=4&limit=\(OpenAIPConfig.streamingFetchLimit)"
+
+        guard let url = URL(string: urlString) else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = OpenAIPConfig.streamingRequestTimeout
+
+        isStreamingFetchInProgress = true
+        lastStreamingFetchAttempt = Date()
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                consecutiveStreamingErrors += 1
+                isStreamingFetchInProgress = false
+                return
+            }
+
+            if httpResponse.statusCode == 429 {
+                // Rate limited — force maximum backoff
+                consecutiveStreamingErrors = max(consecutiveStreamingErrors, 3)
+                print("[OpenAIP Streaming] Rate limited (429), backing off")
+                isStreamingFetchInProgress = false
+                return
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                consecutiveStreamingErrors += 1
+                print("[OpenAIP Streaming] API error: HTTP \(httpResponse.statusCode)")
+                isStreamingFetchInProgress = false
+                return
+            }
+
+            let decoded = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: data)
+
+            // Cache the raw airspaces
+            streamingCache = StreamingCTRCache(
+                airspaces: decoded.items,
+                fetchCoordinate: coordinate,
+                fetchTime: Date()
+            )
+            consecutiveStreamingErrors = 0
+
+            // Calculate distances and update published property
+            updateStreamingDistances(from: coordinate)
+
+            print("[OpenAIP Streaming] Fetched \(decoded.items.count) CTRs near (\(String(format: "%.2f", coordinate.latitude)), \(String(format: "%.2f", coordinate.longitude)))")
+        } catch {
+            consecutiveStreamingErrors += 1
+            print("[OpenAIP Streaming] Fetch failed: \(error.localizedDescription)")
+        }
+
+        isStreamingFetchInProgress = false
+    }
+
+    /// Recalculate distances from a new position using cached airspaces (no API call)
+    private func updateStreamingDistances(from coordinate: CLLocationCoordinate2D) {
+        guard let cache = streamingCache else {
+            streamingCTRs = []
+            return
+        }
+
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+
+        streamingCTRs = cache.airspaces
+            .compactMap { airspace -> (airspace: Airspace, distanceNM: Double)? in
+                guard let centroid = airspace.centroid else { return nil }
+                let centroidLocation = CLLocation(latitude: centroid.latitude, longitude: centroid.longitude)
+                let distanceNM = location.distance(from: centroidLocation) / 1852.0
+                return (airspace: airspace, distanceNM: distanceNM)
             }
             .sorted { $0.distanceNM < $1.distanceNM }
             .prefix(8)

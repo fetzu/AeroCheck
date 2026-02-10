@@ -200,6 +200,70 @@ struct EstimatedAirspeedWarningSheet: View {
     }
 }
 
+// MARK: - Airspace Streaming Warning Sheet
+
+struct AirspaceStreamingWarningSheet: View {
+    @Binding var isPresented: Bool
+    @Binding var enableAirspaceStreaming: Bool
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 60))
+                    .foregroundColor(.aviationAmber)
+                    .padding(.top, 40)
+
+                Text(L10n.Warning.onlineAirspaceTitle)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                VStack(alignment: .leading, spacing: 16) {
+                    WarningItem(icon: "wifi", text: L10n.Warning.onlineAirspaceRequiresInternet)
+                    WarningItem(icon: "antenna.radiowaves.left.and.right", text: L10n.Warning.onlineAirspaceFetches)
+                    WarningItem(icon: "arrow.down.circle", text: L10n.Warning.onlineAirspaceDownloadRecommended)
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button(action: {
+                        enableAirspaceStreaming = true
+                        isPresented = false
+                    }) {
+                        Text(L10n.Warning.iUnderstandEnable)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.aviationAmber)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+
+                    Button(action: { isPresented = false }) {
+                        Text(L10n.Warning.cancel)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.secondaryText)
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .background(Color.cockpitBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.cancel) { isPresented = false }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 struct WarningItem: View {
     let icon: String
     let text: String

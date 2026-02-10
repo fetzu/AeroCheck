@@ -12,6 +12,8 @@ struct NavigationMapsSettingsView: View {
     @State private var offlineMode: Bool = false
     @State private var showAirportsOnMap: Bool = false
     @State private var showOpenAIPOverlay: Bool = false
+    @State private var enableAirspaceStreaming: Bool = false
+    @State private var showAirspaceStreamingWarning: Bool = false
     @State private var showDownloadModal: Bool = false
     @State private var showDeleteConfirmation: Bool = false
     @State private var showOpenAIPDownloadSheet: Bool = false
@@ -33,6 +35,13 @@ struct NavigationMapsSettingsView: View {
         .onChange(of: offlineMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showAirportsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showOpenAIPOverlay) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: enableAirspaceStreaming) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .sheet(isPresented: $showAirspaceStreamingWarning) {
+            AirspaceStreamingWarningSheet(
+                isPresented: $showAirspaceStreamingWarning,
+                enableAirspaceStreaming: $enableAirspaceStreaming
+            )
+        }
         .sheet(isPresented: $showDownloadModal) {
             OfflineMapDownloadSheet(offlineMode: $offlineMode)
                 .environmentObject(offlineMapManager)
@@ -161,6 +170,17 @@ struct NavigationMapsSettingsView: View {
     private var openAIPSection: some View {
         Section {
             Toggle(L10n.Settings.airspaceOverlay, isOn: $showOpenAIPOverlay)
+
+            Toggle(L10n.Settings.airspaceStreaming, isOn: Binding(
+                get: { enableAirspaceStreaming },
+                set: { newValue in
+                    if newValue {
+                        showAirspaceStreamingWarning = true
+                    } else {
+                        enableAirspaceStreaming = false
+                    }
+                }
+            ))
 
             if openAIPDataService.isDownloading {
                 VStack(alignment: .leading, spacing: 8) {
@@ -335,6 +355,7 @@ struct NavigationMapsSettingsView: View {
         offlineMode = appState.settings.offlineMode
         showAirportsOnMap = appState.settings.showAirportsOnMap
         showOpenAIPOverlay = appState.settings.showOpenAIPOverlay
+        enableAirspaceStreaming = appState.settings.enableAirspaceStreaming
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -345,6 +366,7 @@ struct NavigationMapsSettingsView: View {
         appState.settings.offlineMode = offlineMode
         appState.settings.showAirportsOnMap = showAirportsOnMap
         appState.settings.showOpenAIPOverlay = showOpenAIPOverlay
+        appState.settings.enableAirspaceStreaming = enableAirspaceStreaming
         appState.saveSettings()
     }
 }

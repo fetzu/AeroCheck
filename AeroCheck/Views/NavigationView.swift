@@ -181,6 +181,7 @@ struct NavigationMapView: View {
     @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
+    @State private var streamingCTRCheckTask: Task<Void, Never>?
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -381,10 +382,17 @@ struct NavigationMapView: View {
             if openAIPDataService.isDataAvailable {
                 Task { await openAIPDataService.ensureLoaded() }
             }
+            // Trigger streaming CTR fetch if enabled and no downloaded data
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+               let coord = locationManager.currentLocation?.coordinate {
+                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+            }
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
             locationManager.stopLocationUpdates()
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = nil
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
@@ -413,6 +421,16 @@ struct NavigationMapView: View {
                     currentLocation: clLocation,
                     threshold: appState.settings.waypointProximityThreshold
                 )
+            }
+
+            // Debounced streaming CTR fetch (5s delay)
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+                streamingCTRCheckTask?.cancel()
+                streamingCTRCheckTask = Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+                }
             }
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
@@ -1265,11 +1283,18 @@ struct NavigationMapView: View {
         }
     }
 
-    // Helper to get nearby CTRs from OpenAIP data
+    // Helper to get nearby CTRs from OpenAIP data (downloaded or streamed)
     private func getNearbyCTRsForCompact() -> [(airspace: Airspace, distanceNM: Double)] {
-        guard let location = locationManager.currentLocation,
-              openAIPDataService.isDataAvailable else { return [] }
-        return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        guard let location = locationManager.currentLocation else { return [] }
+        // Primary: full downloaded data
+        if openAIPDataService.isDataAvailable {
+            return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        }
+        // Streaming fallback (when enabled)
+        if appState.settings.enableAirspaceStreaming {
+            return Array(openAIPDataService.streamingCTRs.prefix(5))
+        }
+        return []
     }
 
     /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
@@ -1290,11 +1315,12 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Compact "Nearby Controlled Airspace" section — OpenAIP primary, OurAirports TWR fallback
+    /// Compact "Nearby Controlled Airspace" section — OpenAIP primary (downloaded or streamed), OurAirports TWR fallback
     @ViewBuilder
     private var compactControlledAirspaceSection: some View {
         let ctrs = getNearbyCTRsForCompact()
-        let fallback = openAIPDataService.isDataAvailable ? [] : compactFallbackTWRAirports
+        // OurAirports fallback only if no OpenAIP data (downloaded or streamed) available
+        let fallback = (!ctrs.isEmpty || openAIPDataService.isDataAvailable) ? [] : compactFallbackTWRAirports
 
         if !ctrs.isEmpty || !fallback.isEmpty {
             Divider()
@@ -2021,8 +2047,11 @@ struct RadioFrequencyOverlayView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var appState: AppState
     @Binding var isPresented: Bool
     let containerSize: CGSize
+
+    @State private var streamingCTRCheckTask: Task<Void, Never>?
 
     /// Fixed position at middle-right (same area as the flight plan overlay)
     private var fixedPosition: CGPoint {
@@ -2154,6 +2183,28 @@ struct RadioFrequencyOverlayView: View {
                 .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
         )
         .position(fixedPosition)
+        .onAppear {
+            // Trigger streaming CTR fetch if enabled and no downloaded data
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+               let coord = locationManager.currentLocation?.coordinate {
+                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+            }
+        }
+        .onDisappear {
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = nil
+        }
+        .onChange(of: locationManager.currentLocation) { _, newLocation in
+            // Debounced streaming CTR fetch (5s delay)
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+                streamingCTRCheckTask?.cancel()
+                streamingCTRCheckTask = Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+                }
+            }
+        }
     }
 
     /// Whether the pilot is currently within Swiss airspace (for showing area frequencies)
@@ -2307,16 +2358,23 @@ struct RadioFrequencyOverlayView: View {
         }
     }
 
-    /// Whether OpenAIP CTR data is available for the controlled airspace section
+    /// Whether OpenAIP CTR data is available for the controlled airspace section (downloaded or streamed)
     private var hasOpenAIPCTRData: Bool {
-        openAIPDataService.isDataAvailable
+        openAIPDataService.isDataAvailable || (appState.settings.enableAirspaceStreaming && !openAIPDataService.streamingCTRs.isEmpty)
     }
 
-    /// Get nearby CTRs from OpenAIP airspace data
+    /// Get nearby CTRs from OpenAIP airspace data (downloaded or streamed)
     private var nearbyCTRs: [(airspace: Airspace, distanceNM: Double)] {
-        guard let location = locationManager.currentLocation,
-              openAIPDataService.isDataAvailable else { return [] }
-        return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        guard let location = locationManager.currentLocation else { return [] }
+        // Primary: full downloaded data
+        if openAIPDataService.isDataAvailable {
+            return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        }
+        // Streaming fallback (when enabled)
+        if appState.settings.enableAirspaceStreaming {
+            return Array(openAIPDataService.streamingCTRs.prefix(5))
+        }
+        return []
     }
 
     /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
@@ -2337,11 +2395,12 @@ struct RadioFrequencyOverlayView: View {
         }
     }
 
-    /// The "Nearby Controlled Airspace" section — uses OpenAIP if available, OurAirports TWR as fallback
+    /// The "Nearby Controlled Airspace" section — uses OpenAIP if available (downloaded or streamed), OurAirports TWR as fallback
     @ViewBuilder
     private var controlledAirspaceSection: some View {
         let ctrs = nearbyCTRs
-        let fallback = hasOpenAIPCTRData ? [] : fallbackTWRAirports
+        // OurAirports fallback only if no OpenAIP data (downloaded or streamed) available
+        let fallback = (!ctrs.isEmpty || openAIPDataService.isDataAvailable) ? [] : fallbackTWRAirports
 
         if !ctrs.isEmpty || !fallback.isEmpty {
             Divider()

@@ -32,11 +32,6 @@ struct HourMeterInputView: View {
     @State private var showInvalidAlert = false
     @State private var showEndBeforeStartAlert = false
 
-    // ⚠️ DO NOT CHANGE this presentation logic unless explicitly asked by the user.
-    private var isIPad: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
-    }
-
     var body: some View {
         NavigationView {
             ScrollView {
@@ -174,9 +169,6 @@ struct HourMeterInputView: View {
             }
         }
         .preferredColorScheme(.dark)
-        // ⚠️ DO NOT CHANGE this presentation logic unless explicitly asked by the user.
-        // iPad: fixed height to show all content expanded. iPhone: default full-sheet.
-        .presentationDetents(isIPad ? [.height(640)] : [.large])
         .onAppear {
             if !initialValue.isEmpty {
                 inputValue = initialValue

@@ -157,7 +157,11 @@ struct FlightView: View {
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
         }
-        .sheet(isPresented: $showHourMeterStart) {
+        // ⚠️ DO NOT CHANGE the presentation style (.fullScreenCover) unless explicitly asked
+        // by the user. Using .fullScreenCover guarantees all content is visible on both iPad
+        // and iPhone. iPad ignores .presentationDetents on form sheets, so .sheet cannot
+        // reliably show all HourMeterInputView content. Dismiss is handled by Cancel/Skip/Save.
+        .fullScreenCover(isPresented: $showHourMeterStart) {
             HourMeterInputView(
                 isPresented: $showHourMeterStart,
                 phase: .start,
@@ -168,7 +172,7 @@ struct FlightView: View {
                 initialValue: hourMeterStartInitialValue
             )
         }
-        .sheet(isPresented: $showHourMeterStop) {
+        .fullScreenCover(isPresented: $showHourMeterStop) {
             HourMeterInputView(
                 isPresented: $showHourMeterStop,
                 phase: .stop,

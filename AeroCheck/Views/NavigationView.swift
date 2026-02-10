@@ -1388,8 +1388,11 @@ struct NavigationMapView: View {
     // MARK: - Map Content
 
     /// Airports visible in the current map region (when airport overlay is enabled)
+    /// Hidden automatically when OpenAIP overlay is active (OpenAIP provides its own airport symbols)
     private var visibleAirports: [Airport] {
-        guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
+        guard appState.settings.showAirportsOnMap,
+              !appState.settings.showOpenAIPOverlay,
+              airportDataService.isDataAvailable else {
             return []
         }
         let region = mapState.region

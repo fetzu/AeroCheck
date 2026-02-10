@@ -169,6 +169,7 @@ struct HourMeterInputView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .presentationDetents([.medium, .large])
         .onAppear {
             if !initialValue.isEmpty {
                 inputValue = initialValue

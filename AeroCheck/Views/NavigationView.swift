@@ -2702,6 +2702,22 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             mapView.setCamera(camera, animated: true)
         }
 
+        // Apply heading changes independently of region (for track-up mode).
+        // When only heading changed but not region, the above block won't fire.
+        if !regionChanged && !context.coordinator.isUserInteracting {
+            let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
+            let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
+            if normalizedDelta > 0.5 {
+                let camera = MKMapCamera(
+                    lookingAtCenter: mapView.camera.centerCoordinate,
+                    fromDistance: mapView.camera.centerCoordinateDistance,
+                    pitch: 0,
+                    heading: mapState.cameraHeading
+                )
+                mapView.setCamera(camera, animated: true)
+            }
+        }
+
         // Update aircraft annotation
         updateAircraftAnnotation(mapView, context: context)
 
@@ -3479,6 +3495,22 @@ struct SwissMapView: UIViewRepresentable {
                         mapView.setCamera(camera, animated: false)
                     }
                 }
+            }
+        }
+
+        // Apply heading changes independently of region (for track-up mode).
+        // When only heading changed but not region/overlay, the above block won't fire.
+        if !regionChanged && !overlayChanged {
+            let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
+            let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
+            if normalizedDelta > 0.5 {
+                let camera = MKMapCamera(
+                    lookingAtCenter: mapView.camera.centerCoordinate,
+                    fromDistance: mapView.camera.centerCoordinateDistance,
+                    pitch: 0,
+                    heading: mapState.cameraHeading
+                )
+                mapView.setCamera(camera, animated: true)
             }
         }
 
@@ -4291,60 +4323,62 @@ struct GPSStatusInfoSheet: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 16) {
-                // Header icon
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 40))
-                    .foregroundColor(.aviationGold)
-                    .padding(.top, 20)
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Header icon
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 40))
+                        .foregroundColor(.aviationGold)
+                        .padding(.top, 20)
 
-                // Title
-                Text(L10n.GPS.statusTitle)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primaryText)
+                    // Title
+                    Text(L10n.GPS.statusTitle)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primaryText)
 
-                // Current status
-                HStack {
-                    Text(L10n.GPS.currentStatus)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondaryText)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(currentStatusColor)
-                            .frame(width: 10, height: 10)
-                        Text(currentStatusText)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(currentStatusColor)
+                    // Current status
+                    HStack {
+                        Text(L10n.GPS.currentStatus)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(currentStatusColor)
+                                .frame(width: 10, height: 10)
+                            Text(currentStatusText)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(currentStatusColor)
+                        }
                     }
+                    .padding(.horizontal, 20)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // Status explanations
+                    VStack(spacing: 14) {
+                        statusRow(
+                            color: .aviationGreen,
+                            title: L10n.GPS.signalGood,
+                            description: L10n.GPS.statusGoodDesc
+                        )
+                        statusRow(
+                            color: .orange,
+                            title: L10n.GPS.signalDegraded,
+                            description: L10n.GPS.statusDegradedDesc
+                        )
+                        statusRow(
+                            color: .aviationRed,
+                            title: L10n.GPS.signalLost,
+                            description: L10n.GPS.statusLostDesc
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 20)
-
-                Divider()
-                    .padding(.horizontal, 16)
-
-                // Status explanations
-                VStack(spacing: 14) {
-                    statusRow(
-                        color: .aviationGreen,
-                        title: L10n.GPS.signalGood,
-                        description: L10n.GPS.statusGoodDesc
-                    )
-                    statusRow(
-                        color: .orange,
-                        title: L10n.GPS.signalDegraded,
-                        description: L10n.GPS.statusDegradedDesc
-                    )
-                    statusRow(
-                        color: .aviationRed,
-                        title: L10n.GPS.signalLost,
-                        description: L10n.GPS.statusLostDesc
-                    )
-                }
-                .padding(.horizontal, 20)
-
-                Spacer()
             }
+            .scrollBounceBehavior(.basedOnSize)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -4352,7 +4386,7 @@ struct GPSStatusInfoSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 
     private func statusRow(color: Color, title: String, description: String) -> some View {

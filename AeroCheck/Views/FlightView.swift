@@ -66,7 +66,7 @@ struct FlightView: View {
     private var estimatedAirspeed: Double? {
         guard appState.settings.showEstimatedAirspeed else { return nil }
         return windDataService.calculateEstimatedAirspeed(
-            groundSpeedKnots: locationManager.currentSpeedMPS * 1.94384,
+            groundSpeedKnots: locationManager.displaySpeedKnots,
             trackDegrees: currentTrackDegrees,
             coordinate: locationManager.getCurrentCoordinate()
         )
@@ -711,7 +711,7 @@ struct FlightView: View {
             // Speed indicator (compact)
             if let targetSpeed = appState.currentPhase.targetSpeed {
                 CompactSpeedView(
-                    speedKnots: locationManager.currentSpeedMPS * 1.94384,
+                    speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: targetSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
                     estimatedAirspeed: estimatedAirspeed
@@ -1085,7 +1085,7 @@ struct FlightView: View {
             // Speed indicator (only during flight phases that need it)
             if appState.currentPhase.showsSpeedIndicator {
                 FlightSpeedIndicator(
-                    gpsSpeedMetersPerSecond: locationManager.currentSpeedMPS,
+                    gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
                     targetSpeed: appState.currentPhase.targetSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
                     estimatedAirspeed: estimatedAirspeed

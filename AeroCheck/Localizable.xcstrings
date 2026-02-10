@@ -3945,6 +3945,74 @@
         }
       }
     },
+    "settings.gps.priority": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPS Priority"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Priorité GPS"
+          }
+        }
+      }
+    },
+    "settings.gps.precision": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precision"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précision"
+          }
+        }
+      }
+    },
+    "settings.gps.batterySaver": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery Saver"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Économie de batterie"
+          }
+        }
+      }
+    },
+    "settings.gps.priorityFooter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precision uses maximum GPS accuracy. Battery Saver reduces accuracy and update frequency to extend battery life."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Précision utilise la précision GPS maximale. Économie de batterie réduit la précision et la fréquence de mise à jour pour prolonger l'autonomie."
+          }
+        }
+      }
+    },
     "settings.experimental.whenEnabled": {
       "extractionState": "manual",
       "localizations": {

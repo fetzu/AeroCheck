@@ -366,7 +366,8 @@ struct GPSPoint: Codable, Identifiable {
     let timestamp: Date
     let speed: Double
     let course: Double
-    
+    let horizontalAccuracy: Double?
+
     init(
         id: UUID = UUID(),
         latitude: Double,
@@ -374,7 +375,8 @@ struct GPSPoint: Codable, Identifiable {
         altitude: Double,
         timestamp: Date = Date(),
         speed: Double = 0,
-        course: Double = 0
+        course: Double = 0,
+        horizontalAccuracy: Double? = nil
     ) {
         self.id = id
         self.latitude = latitude
@@ -383,8 +385,9 @@ struct GPSPoint: Codable, Identifiable {
         self.timestamp = timestamp
         self.speed = speed
         self.course = course
+        self.horizontalAccuracy = horizontalAccuracy
     }
-    
+
     init(from location: CLLocation) {
         self.id = UUID()
         self.latitude = location.coordinate.latitude
@@ -393,6 +396,7 @@ struct GPSPoint: Codable, Identifiable {
         self.timestamp = location.timestamp
         self.speed = location.speed
         self.course = location.course
+        self.horizontalAccuracy = location.horizontalAccuracy
     }
     
     var coordinate: CLLocationCoordinate2D {
@@ -542,6 +546,7 @@ extension Flight {
                 <extensions>
                   <pc:speed>\(point.speed)</pc:speed>
                   <pc:course>\(point.course)</pc:course>
+                  <pc:horizontalAccuracy>\(point.horizontalAccuracy ?? -1)</pc:horizontalAccuracy>
                 </extensions>
               </trkpt>
             
@@ -772,7 +777,8 @@ class GPXParser: NSObject, XMLParserDelegate {
                         altitude: point.altitude,
                         timestamp: date,
                         speed: point.speed,
-                        course: point.course
+                        course: point.course,
+                        horizontalAccuracy: point.horizontalAccuracy
                     )
                 }
             }
@@ -835,7 +841,8 @@ class GPXParser: NSObject, XMLParserDelegate {
                     altitude: alt,
                     timestamp: point.timestamp,
                     speed: point.speed,
-                    course: point.course
+                    course: point.course,
+                    horizontalAccuracy: point.horizontalAccuracy
                 )
             }
         case "speed":
@@ -847,7 +854,8 @@ class GPXParser: NSObject, XMLParserDelegate {
                     altitude: point.altitude,
                     timestamp: point.timestamp,
                     speed: spd,
-                    course: point.course
+                    course: point.course,
+                    horizontalAccuracy: point.horizontalAccuracy
                 )
             }
         case "course":
@@ -859,7 +867,21 @@ class GPXParser: NSObject, XMLParserDelegate {
                     altitude: point.altitude,
                     timestamp: point.timestamp,
                     speed: point.speed,
-                    course: crs
+                    course: crs,
+                    horizontalAccuracy: point.horizontalAccuracy
+                )
+            }
+        case "horizontalAccuracy":
+            if let point = currentPoint, let acc = Double(text) {
+                currentPoint = GPSPoint(
+                    id: point.id,
+                    latitude: point.latitude,
+                    longitude: point.longitude,
+                    altitude: point.altitude,
+                    timestamp: point.timestamp,
+                    speed: point.speed,
+                    course: point.course,
+                    horizontalAccuracy: acc
                 )
             }
         case "trkpt":

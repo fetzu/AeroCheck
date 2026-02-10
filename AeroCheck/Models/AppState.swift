@@ -50,6 +50,9 @@ struct AppSettings: Codable, Equatable {
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
 
+    // GPS priority
+    var gpsPriority: GPSPriority = .precision
+
     // Share card customization
     var shareCardColorScheme: ShareCardColorScheme = .darkBlue
     var shareCardMapLayer: ShareCardMapLayer = .standard
@@ -113,6 +116,7 @@ struct AppSettings: Codable, Equatable {
         case showAirportsOnMap
         case logEngineHours
         case hasCompletedOnboarding
+        case gpsPriority
         case shareCardColorScheme
         case shareCardMapLayer
         // marketingMode is intentionally excluded
@@ -147,6 +151,7 @@ struct AppSettings: Codable, Equatable {
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
         shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
         // marketingMode intentionally excluded - always defaults to false
@@ -158,6 +163,14 @@ enum TerrainAltitudeUnit: String, Codable, CaseIterable, Identifiable {
     case feet = "Feet"
     case meters = "Meters"
     case dual = "Both"
+
+    var id: String { rawValue }
+}
+
+/// GPS accuracy priority — trades battery usage for positional precision
+enum GPSPriority: String, Codable, CaseIterable, Identifiable {
+    case precision = "Precision"
+    case batterySaver = "BatterySaver"
 
     var id: String { rawValue }
 }

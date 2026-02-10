@@ -42,9 +42,9 @@ class LocationManager: NSObject, ObservableObject {
     private var lastGoodSignalTime: Date?
     private var lastLocationUpdateTime: Date?
     private var lastKnownAccuracy: CLLocationAccuracy = -1  // Last received horizontal accuracy (-1 = unknown)
-    private let signalDegradedThreshold: TimeInterval = 15.0  // 15 seconds without update = degraded
-    private let signalLostThreshold: TimeInterval = 45.0  // 45 seconds without update = degraded (even with good last accuracy)
-    private let signalTrulyLostThreshold: TimeInterval = 90.0  // 90 seconds = truly lost (red)
+    private let signalDegradedThreshold: TimeInterval = 10.0  // 10 seconds without update = degraded
+    private let signalLostThreshold: TimeInterval = 20.0  // 20 seconds without update = long-degraded
+    private let signalTrulyLostThreshold: TimeInterval = 45.0  // 45 seconds = truly lost (red)
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
 
@@ -57,7 +57,7 @@ class LocationManager: NSObject, ObservableObject {
     // Dynamic distance filter: ground mode uses no filter for precise low-speed tracking,
     // flight mode uses 50m filter for battery efficiency
     private var isGroundMode: Bool = true
-    private let flightModeDistanceFilter: CLLocationDistance = 50
+    private var flightModeDistanceFilter: CLLocationDistance = 50
 
     // Speed and heading caching/smoothing
     // Prevents false stall warnings from GPS -1 (invalid) speed values by holding the last
@@ -68,7 +68,13 @@ class LocationManager: NSObject, ObservableObject {
     private var lastValidCourse: Double?
     private var lastValidCourseTime: Date?
     private let speedSmoothingAlpha: Double = 0.3       // EMA factor: responsive to real changes, smooths noise
-    private let cachedValueStalenessLimit: TimeInterval = 15.0  // Matches signalDegradedThreshold
+    private let cachedValueStalenessLimit: TimeInterval = 10.0  // Matches signalDegradedThreshold
+
+    // Display-specific smoothing: slower EMA (α=0.15) + 1-knot minimum change threshold
+    // to prevent visual flickering of speed/IAS indicators between adjacent values.
+    private let displaySmoothingAlpha: Double = 0.15
+    private var displaySmoothedSpeedMPS: Double = 0
+    private var lastDisplayedSpeedKnots: Int = 0
 
     // MARK: - Initialization
     
@@ -79,7 +85,7 @@ class LocationManager: NSObject, ObservableObject {
     
     private func setupLocationManager() {
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = kCLDistanceFilterNone // Start in ground mode; switches to 50m in flight mode
         locationManager.activityType = .airborne
 
@@ -98,8 +104,24 @@ class LocationManager: NSObject, ObservableObject {
         authorizationStatus = locationManager.authorizationStatus
     }
     
+    /// Apply GPS priority setting — adjusts accuracy and distance filter
+    func applyGPSPriority(_ priority: GPSPriority) {
+        switch priority {
+        case .precision:
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            flightModeDistanceFilter = 50
+        case .batterySaver:
+            locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            flightModeDistanceFilter = 100
+        }
+        // Update active distance filter if in flight mode
+        if !isGroundMode {
+            locationManager.distanceFilter = flightModeDistanceFilter
+        }
+    }
+
     // MARK: - Public Methods
-    
+
     func requestAuthorization() {
         locationManager.requestWhenInUseAuthorization()
     }
@@ -121,6 +143,7 @@ class LocationManager: NSObject, ObservableObject {
         }
 
         isTracking = true
+        applyGPSPriority(appState.settings.gpsPriority)
         locationManager.startUpdatingLocation()
         startSignalCheckTimer()
     }
@@ -142,6 +165,8 @@ class LocationManager: NSObject, ObservableObject {
         lastValidSpeedTime = nil
         lastValidCourse = nil
         lastValidCourseTime = nil
+        displaySmoothedSpeedMPS = 0
+        lastDisplayedSpeedKnots = 0
     }
 
     /// Switch between ground mode (no distance filter, precise low-speed tracking)
@@ -161,6 +186,14 @@ class LocationManager: NSObject, ObservableObject {
         guard authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
             requestAuthorization()
+            return
+        }
+
+        // If already tracking a flight, GPS is already active.
+        // Just mark location updates as active without resetting signal state,
+        // so the GPS status indicator remains consistent across views.
+        if isTracking {
+            isLocationUpdatesActive = true
             return
         }
 
@@ -250,14 +283,23 @@ class LocationManager: NSObject, ObservableObject {
         // Speed: apply exponential moving average, skip invalid (-1) readings
         if location.speed >= 0 {
             if lastValidSpeedTime != nil {
-                // EMA: new_value = α * raw + (1-α) * previous
+                // Primary EMA (α=0.3): responsive, used for event detection
                 smoothedSpeedMPS = speedSmoothingAlpha * location.speed + (1.0 - speedSmoothingAlpha) * smoothedSpeedMPS
+                // Display EMA (α=0.15): slower, used for visual stability
+                displaySmoothedSpeedMPS = displaySmoothingAlpha * location.speed + (1.0 - displaySmoothingAlpha) * displaySmoothedSpeedMPS
             } else {
                 // First valid reading — initialize without smoothing
                 smoothedSpeedMPS = location.speed
+                displaySmoothedSpeedMPS = location.speed
             }
             lastValidSpeedMPS = location.speed
             lastValidSpeedTime = now
+
+            // Update display integer with 1-knot hysteresis to prevent flickering
+            let currentDisplayKnots = Int(displaySmoothedSpeedMPS * 1.94384)
+            if abs(currentDisplayKnots - lastDisplayedSpeedKnots) >= 1 {
+                lastDisplayedSpeedKnots = currentDisplayKnots
+            }
         }
 
         // Course: cache last valid value (no smoothing needed for heading)
@@ -305,6 +347,7 @@ class LocationManager: NSObject, ObservableObject {
     }
     
     /// Current speed in knots (smoothed, with caching for GPS -1 values)
+    /// Responsive EMA (α=0.3) — use for event detection, GPS recording, internal logic.
     var currentSpeedKnots: Double {
         currentSpeedMPS * 1.94384 // m/s to knots
     }
@@ -320,6 +363,23 @@ class LocationManager: NSObject, ObservableObject {
         // Stale or no valid reading yet: try raw current location
         if let speed = currentLocation?.speed, speed >= 0 { return speed }
         return 0
+    }
+
+    /// Display speed in m/s (extra-smoothed for visual stability)
+    /// Slower EMA (α=0.15) — use for speed indicator UI only.
+    var displaySpeedMPS: Double {
+        if let lastTime = lastValidSpeedTime,
+           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
+            return displaySmoothedSpeedMPS
+        }
+        if let speed = currentLocation?.speed, speed >= 0 { return speed }
+        return 0
+    }
+
+    /// Display speed in knots with 1-knot hysteresis (extra-smoothed for visual stability)
+    /// Only changes when the speed moves by ≥1 knot, preventing flickering between adjacent values.
+    var displaySpeedKnots: Double {
+        Double(lastDisplayedSpeedKnots)
     }
 
     /// Current course/heading in degrees (cached for GPS -1 values)

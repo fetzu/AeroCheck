@@ -8,6 +8,7 @@ struct SyncDataSettingsView: View {
 
     @State private var iCloudSyncEnabled: Bool = true
     @State private var gpsInterval: Double = 5.0
+    @State private var gpsPriority: GPSPriority = .precision
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -22,6 +23,12 @@ struct SyncDataSettingsView: View {
         .onChange(of: appState.settings) { _, _ in loadSettings() }
         .onChange(of: iCloudSyncEnabled) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: gpsInterval) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: gpsPriority) { _, newValue in
+            if !isLoadingSettings {
+                saveSettings()
+                locationManager.applyGPSPriority(newValue)
+            }
+        }
     }
 
     // MARK: - iCloud Sync Section
@@ -91,6 +98,11 @@ struct SyncDataSettingsView: View {
                     .tint(.aviationGold)
             }
 
+            Picker(L10n.Settings.gpsPriority, selection: $gpsPriority) {
+                Text(L10n.Settings.gpsPrecision).tag(GPSPriority.precision)
+                Text(L10n.Settings.gpsBatterySaver).tag(GPSPriority.batterySaver)
+            }
+
             HStack {
                 Text(L10n.GPS.status)
                 Spacer()
@@ -106,7 +118,10 @@ struct SyncDataSettingsView: View {
         } header: {
             Label(L10n.Settings.gps, systemImage: "location.fill")
         } footer: {
-            Text(L10n.Settings.gpsFooter)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.Settings.gpsFooter)
+                Text(L10n.Settings.gpsPriorityFooter)
+            }
         }
     }
 
@@ -168,6 +183,7 @@ struct SyncDataSettingsView: View {
         isLoadingSettings = true
         iCloudSyncEnabled = appState.settings.iCloudSyncEnabled
         gpsInterval = appState.settings.gpsRecordingInterval
+        gpsPriority = appState.settings.gpsPriority
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -176,6 +192,7 @@ struct SyncDataSettingsView: View {
     private func saveSettings() {
         appState.settings.iCloudSyncEnabled = iCloudSyncEnabled
         appState.settings.gpsRecordingInterval = gpsInterval
+        appState.settings.gpsPriority = gpsPriority
         appState.saveSettings()
     }
 }

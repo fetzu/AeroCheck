@@ -272,6 +272,10 @@ enum L10n {
             String(format: String(localized: "settings.gps.seconds"), n)
         }
         static let gpsFooter = String(localized: "settings.gps.lowerIntervals")
+        static let gpsPriority = String(localized: "settings.gps.priority")
+        static let gpsPrecision = String(localized: "settings.gps.precision")
+        static let gpsBatterySaver = String(localized: "settings.gps.batterySaver")
+        static let gpsPriorityFooter = String(localized: "settings.gps.priorityFooter")
 
         // Experimental
         static let experimental = String(localized: "settings.experimental")

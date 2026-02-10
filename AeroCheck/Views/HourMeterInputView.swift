@@ -112,6 +112,7 @@ struct HourMeterInputView: View {
             .padding(.horizontal, 40)
         }
         .preferredColorScheme(.dark)
+        .presentationBackground(.clear)
         .onAppear { loadInitialValue() }
         .alert(L10n.HourMeter.invalidFormatTitle, isPresented: $showInvalidAlert) {
             Button(L10n.Subscription.ok, role: .cancel) { }

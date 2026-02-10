@@ -2,6 +2,16 @@ import Foundation
 import CoreLocation
 import MapKit
 
+// MARK: - Airspace Frequency
+
+/// A radio frequency associated with an airspace from OpenAIP
+struct AirspaceFrequency: Codable {
+    let value: String       // Frequency MHz as string (e.g., "118.100")
+    let name: String        // Callsign (e.g., "ZUERICH TOWER")
+    let primary: Bool
+    let unit: Int?
+}
+
 // MARK: - Airspace Model
 
 /// Represents an airspace region from OpenAIP
@@ -15,11 +25,12 @@ struct Airspace: Codable, Identifiable {
     let lowerCeiling: AltitudeLimit
     let geometry: AirspaceGeometry
     let activity: Int?                   // Activity type code
+    let frequencies: [AirspaceFrequency]? // Radio frequencies (e.g., tower freq for CTRs)
 
     // OpenAIP API returns _id, upperLimit, lowerLimit
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case name, type, icaoClass, country, geometry, activity
+        case name, type, icaoClass, country, geometry, activity, frequencies
         case upperCeiling = "upperLimit"
         case lowerCeiling = "lowerLimit"
     }
@@ -115,6 +126,41 @@ struct Airspace: Codable, Identifiable {
         let lower = lowerCeiling.asFeetMSL
         let upper = upperCeiling.asFeetMSL
         return altitudeFeetMSL >= lower && altitudeFeetMSL <= upper
+    }
+
+    /// Primary radio frequency for this airspace (e.g., tower frequency for CTRs)
+    var primaryFrequency: AirspaceFrequency? {
+        frequencies?.first(where: { $0.primary }) ?? frequencies?.first
+    }
+
+    /// Whether this is a military airspace (HX suffix in OpenAIP naming)
+    var isMilitary: Bool {
+        name.contains("(HX)")
+    }
+
+    /// Clean display name, stripping the airspace type prefix (e.g., "CTR ZURICH" → "ZURICH")
+    var shortName: String {
+        let prefixes = ["CTR ", "TMA ", "CTA ", "ATZ "]
+        for prefix in prefixes {
+            if name.hasPrefix(prefix) {
+                return String(name.dropFirst(prefix.count))
+            }
+        }
+        return name
+    }
+
+    /// Centroid coordinate of the airspace polygon
+    var centroid: CLLocationCoordinate2D? {
+        let coords = polygonCoordinates
+        guard !coords.isEmpty else { return nil }
+        let avgLat = coords.map(\.latitude).reduce(0, +) / Double(coords.count)
+        let avgLon = coords.map(\.longitude).reduce(0, +) / Double(coords.count)
+        return CLLocationCoordinate2D(latitude: avgLat, longitude: avgLon)
+    }
+
+    /// Altitude range display string (e.g., "GND → 4500 ft MSL")
+    var altitudeRangeString: String {
+        "\(lowerCeiling.displayString) → \(upperCeiling.displayString)"
     }
 }
 

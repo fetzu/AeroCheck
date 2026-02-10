@@ -8198,19 +8198,19 @@
         }
       }
     },
-    "nav.commonSwissFrequencies": {
+    "nav.areaFrequencies": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "COMMON SWISS FREQUENCIES"
+            "value": "AREA FREQUENCIES"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "FRÉQUENCES SUISSES COURANTES"
+            "value": "FRÉQUENCES DE ZONE"
           }
         }
       }

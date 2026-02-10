@@ -1078,7 +1078,7 @@ enum L10n {
 
         // Navigation View - Frequencies
         static let noActiveFlightPlan = String(localized: "nav.noActiveFlightPlan")
-        static let commonSwissFrequencies = String(localized: "nav.commonSwissFrequencies")
+        static let areaFrequencies = String(localized: "nav.areaFrequencies")
         static let nearbyControlledAirspace = String(localized: "nav.nearbyControlledAirspace")
         static let nearbyAirportFrequencies = String(localized: "nav.nearbyAirportFrequencies")
         static let noFrequenciesInFlightPlan = String(localized: "nav.noFrequenciesInFlightPlan")

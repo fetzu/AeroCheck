@@ -278,16 +278,17 @@ class OpenAIPDataService: ObservableObject {
         return airspacesInBounds(region)
     }
 
-    /// Find nearby CTR airspaces with frequencies, sorted by distance
+    /// Find nearby CTR airspaces sorted by distance
     /// Returns all nearby CTRs regardless of altitude — UI handles altitude-based highlighting
-    func nearbyCTRs(from coordinate: CLLocationCoordinate2D, withinNM distance: Double = 20.0) -> [(airspace: Airspace, distanceNM: Double)] {
+    /// When `requireFrequencies` is true (default), only returns CTRs with frequency data
+    func nearbyCTRs(from coordinate: CLLocationCoordinate2D, withinNM distance: Double = 20.0, requireFrequencies: Bool = false) -> [(airspace: Airspace, distanceNM: Double)] {
         guard isLoaded else { return [] }
 
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let maxDistanceMeters = distance * 1852
 
         return airspaces
-            .filter { $0.airspaceType == .ctr && $0.frequencies?.isEmpty == false }
+            .filter { $0.airspaceType == .ctr && (!requireFrequencies || $0.frequencies?.isEmpty == false) }
             .compactMap { airspace -> (airspace: Airspace, distanceNM: Double)? in
                 guard let centroid = airspace.centroid else { return nil }
                 let centroidLocation = CLLocation(latitude: centroid.latitude, longitude: centroid.longitude)

@@ -377,6 +377,10 @@ struct NavigationMapView: View {
             if appState.settings.showAirportsOnMap {
                 Task { await airportDataService.ensureLoaded() }
             }
+            // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
+            if openAIPDataService.isDataAvailable {
+                Task { await openAIPDataService.ensureLoaded() }
+            }
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
@@ -1196,28 +1200,8 @@ struct NavigationMapView: View {
                     }
                 }
 
-                // Nearby CTRs
-                let nearbyCTRs = getNearbyCTRsForCompact()
-                if !nearbyCTRs.isEmpty {
-                    Divider()
-                        .background(Color.dimText)
-                        .padding(.vertical, 4)
-
-                    Text(L10n.Nav.nearbyControlledAirspace)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.dimText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 4)
-
-                    ForEach(nearbyCTRs, id: \.airspace.id) { item in
-                        compactCTRRow(item.airspace, distanceNM: item.distanceNM)
-                        if item.airspace.id != nearbyCTRs.last?.airspace.id {
-                            Divider()
-                                .background(Color.dimText.opacity(0.5))
-                        }
-                    }
-                }
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
             } else {
                 // No active flight plan - show message and common frequencies
                 Text(L10n.Nav.noActiveFlightPlan)
@@ -1248,28 +1232,8 @@ struct NavigationMapView: View {
                     }
                 }
 
-                // Nearby CTRs
-                let nearbyCTRs = getNearbyCTRsForCompact()
-                if !nearbyCTRs.isEmpty {
-                    Divider()
-                        .background(Color.dimText)
-                        .padding(.vertical, 4)
-
-                    Text(L10n.Nav.nearbyControlledAirspace)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.dimText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 4)
-
-                    ForEach(nearbyCTRs, id: \.airspace.id) { item in
-                        compactCTRRow(item.airspace, distanceNM: item.distanceNM)
-                        if item.airspace.id != nearbyCTRs.last?.airspace.id {
-                            Divider()
-                                .background(Color.dimText.opacity(0.5))
-                        }
-                    }
-                }
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
             }
         }
         .padding(.bottom, 16)
@@ -1306,6 +1270,91 @@ struct NavigationMapView: View {
         guard let location = locationManager.currentLocation,
               openAIPDataService.isDataAvailable else { return [] }
         return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+    }
+
+    /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
+    private var compactFallbackTWRAirports: [(airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)] {
+        guard let location = locationManager.currentLocation,
+              airportDataService.isDataAvailable else { return [] }
+        let nearbyAirports = airportDataService.findNearestAirports(
+            to: location.coordinate,
+            limit: 8,
+            maxDistanceNm: 20.0
+        )
+        return nearbyAirports.compactMap { airport -> (airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)? in
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            let twrFreqs = frequencies.filter { $0.type == "TWR" }
+            guard !twrFreqs.isEmpty else { return nil }
+            let distanceNM = airport.distance(from: location.coordinate)
+            return (airport: airport, twrFrequencies: twrFreqs, distanceNM: distanceNM)
+        }
+    }
+
+    /// Compact "Nearby Controlled Airspace" section — OpenAIP primary, OurAirports TWR fallback
+    @ViewBuilder
+    private var compactControlledAirspaceSection: some View {
+        let ctrs = getNearbyCTRsForCompact()
+        let fallback = openAIPDataService.isDataAvailable ? [] : compactFallbackTWRAirports
+
+        if !ctrs.isEmpty || !fallback.isEmpty {
+            Divider()
+                .background(Color.dimText)
+                .padding(.vertical, 4)
+
+            Text(L10n.Nav.nearbyControlledAirspace)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+
+            if !ctrs.isEmpty {
+                ForEach(ctrs, id: \.airspace.id) { item in
+                    compactCTRRow(item.airspace, distanceNM: item.distanceNM)
+                    if item.airspace.id != ctrs.last?.airspace.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            } else {
+                ForEach(fallback, id: \.airport.id) { item in
+                    compactFallbackTWRRow(item.airport, twrFrequencies: item.twrFrequencies, distanceNM: item.distanceNM)
+                    if item.airport.id != fallback.last?.airport.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            }
+        }
+    }
+
+    /// Compact fallback row showing OurAirports TWR frequency
+    private func compactFallbackTWRRow(_ airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= 5.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(airport.ident)
+                    .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
+                    .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                Text(airport.name)
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(twrFrequencies.first?.formattedFrequency ?? "—")
+                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 
     private func compactFrequencyRow(name: String, callSign: String?, frequency: String, isCurrent: Bool) -> some View {
@@ -2054,26 +2103,7 @@ struct RadioFrequencyOverlayView: View {
                         }
 
                         // Nearby Controlled Airspace section
-                        if !nearbyCTRs.isEmpty {
-                            Divider()
-                                .background(Color.dimText)
-                                .padding(.vertical, 4)
-
-                            Text(L10n.Nav.nearbyControlledAirspace)
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.dimText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-
-                            ForEach(nearbyCTRs, id: \.airspace.id) { item in
-                                ctrFrequencyRow(item.airspace, distanceNM: item.distanceNM)
-                                if item.airspace.id != nearbyCTRs.last?.airspace.id {
-                                    Divider()
-                                        .background(Color.dimText.opacity(0.5))
-                                }
-                            }
-                        }
+                        controlledAirspaceSection
                     } else {
                         // No active flight plan - show message and common frequencies
                         Text(L10n.Nav.noActiveFlightPlan)
@@ -2107,26 +2137,7 @@ struct RadioFrequencyOverlayView: View {
                         }
 
                         // Nearby Controlled Airspace section
-                        if !nearbyCTRs.isEmpty {
-                            Divider()
-                                .background(Color.dimText)
-                                .padding(.vertical, 4)
-
-                            Text(L10n.Nav.nearbyControlledAirspace)
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.dimText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-
-                            ForEach(nearbyCTRs, id: \.airspace.id) { item in
-                                ctrFrequencyRow(item.airspace, distanceNM: item.distanceNM)
-                                if item.airspace.id != nearbyCTRs.last?.airspace.id {
-                                    Divider()
-                                        .background(Color.dimText.opacity(0.5))
-                                }
-                            }
-                        }
+                        controlledAirspaceSection
                     }
                 }
             }
@@ -2296,11 +2307,74 @@ struct RadioFrequencyOverlayView: View {
         }
     }
 
+    /// Whether OpenAIP CTR data is available for the controlled airspace section
+    private var hasOpenAIPCTRData: Bool {
+        openAIPDataService.isDataAvailable
+    }
+
     /// Get nearby CTRs from OpenAIP airspace data
     private var nearbyCTRs: [(airspace: Airspace, distanceNM: Double)] {
         guard let location = locationManager.currentLocation,
               openAIPDataService.isDataAvailable else { return [] }
         return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+    }
+
+    /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
+    private var fallbackTWRAirports: [(airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)] {
+        guard let location = locationManager.currentLocation,
+              airportDataService.isDataAvailable else { return [] }
+        let nearbyAirports = airportDataService.findNearestAirports(
+            to: location.coordinate,
+            limit: 8,
+            maxDistanceNm: 20.0
+        )
+        return nearbyAirports.compactMap { airport -> (airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)? in
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            let twrFreqs = frequencies.filter { $0.type == "TWR" }
+            guard !twrFreqs.isEmpty else { return nil }
+            let distanceNM = airport.distance(from: location.coordinate)
+            return (airport: airport, twrFrequencies: twrFreqs, distanceNM: distanceNM)
+        }
+    }
+
+    /// The "Nearby Controlled Airspace" section — uses OpenAIP if available, OurAirports TWR as fallback
+    @ViewBuilder
+    private var controlledAirspaceSection: some View {
+        let ctrs = nearbyCTRs
+        let fallback = hasOpenAIPCTRData ? [] : fallbackTWRAirports
+
+        if !ctrs.isEmpty || !fallback.isEmpty {
+            Divider()
+                .background(Color.dimText)
+                .padding(.vertical, 4)
+
+            Text(L10n.Nav.nearbyControlledAirspace)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+
+            if !ctrs.isEmpty {
+                // OpenAIP CTR data (primary)
+                ForEach(ctrs, id: \.airspace.id) { item in
+                    ctrFrequencyRow(item.airspace, distanceNM: item.distanceNM)
+                    if item.airspace.id != ctrs.last?.airspace.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            } else {
+                // OurAirports TWR fallback
+                ForEach(fallback, id: \.airport.id) { item in
+                    fallbackTWRRow(item.airport, twrFrequencies: item.twrFrequencies, distanceNM: item.distanceNM)
+                    if item.airport.id != fallback.last?.airport.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            }
+        }
     }
 
     private func ctrFrequencyRow(_ airspace: Airspace, distanceNM: Double) -> some View {
@@ -2344,6 +2418,35 @@ struct RadioFrequencyOverlayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(isActive ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    /// Fallback row showing OurAirports TWR frequency when OpenAIP data isn't available
+    private func fallbackTWRRow(_ airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= 5.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(airport.ident)
+                    .font(.system(size: 11, weight: isNearby ? .semibold : .regular))
+                    .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                Text(airport.name)
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(twrFrequencies.first?.formattedFrequency ?? "—")
+                    .font(.system(size: 12, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 }
 

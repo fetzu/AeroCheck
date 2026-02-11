@@ -784,8 +784,8 @@ struct NavigationMapView: View {
                             .fill(Color.panelBackground.opacity(0.9))
                     )
                 }
-                .sheet(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                .fullScreenCover(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
                 }
 
                 // FREQ button - only shown when no flight plan is active (to toggle frequency drawer)
@@ -1894,8 +1894,8 @@ struct NavigationMapView: View {
                             .fill(Color.panelBackground.opacity(0.9))
                     )
                 }
-                .sheet(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                .fullScreenCover(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
                 }
 
                 // Radio Frequency button (always shown when flight planning is enabled)
@@ -4476,9 +4476,10 @@ struct NavigationModeButton: View {
 // MARK: - GPS Status Info Sheet
 
 /// Modal sheet explaining GPS status indicators
+/// GPS Status modal — presented via .fullScreenCover as a centered card over dimmed background
 struct GPSStatusInfoSheet: View {
     let currentStatus: GPSSignalStatus
-    @Environment(\.dismiss) var dismiss
+    @Binding var isPresented: Bool
 
     private var currentStatusText: String {
         switch currentStatus {
@@ -4497,71 +4498,84 @@ struct GPSStatusInfoSheet: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Header icon
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 40))
+        ZStack {
+            // Dimmed background — tap to dismiss
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { isPresented = false }
+
+            // Floating modal card
+            VStack(spacing: 16) {
+                // Header icon
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 40))
+                    .foregroundColor(.aviationGold)
+                    .padding(.top, 24)
+
+                // Title
+                Text(L10n.GPS.statusTitle)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Current status
+                HStack {
+                    Text(L10n.GPS.currentStatus)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondaryText)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(currentStatusColor)
+                            .frame(width: 10, height: 10)
+                        Text(currentStatusText)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(currentStatusColor)
+                    }
+                }
+                .padding(.horizontal, 20)
+
+                Divider()
+                    .padding(.horizontal, 16)
+
+                // Status explanations
+                VStack(spacing: 14) {
+                    statusRow(
+                        color: .aviationGreen,
+                        title: L10n.GPS.signalGood,
+                        description: L10n.GPS.statusGoodDesc
+                    )
+                    statusRow(
+                        color: .orange,
+                        title: L10n.GPS.signalDegraded,
+                        description: L10n.GPS.statusDegradedDesc
+                    )
+                    statusRow(
+                        color: .aviationRed,
+                        title: L10n.GPS.signalLost,
+                        description: L10n.GPS.statusLostDesc
+                    )
+                }
+                .padding(.horizontal, 20)
+
+                // Done button
+                Button(action: { isPresented = false }) {
+                    Text(L10n.Button.done)
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.aviationGold)
-                        .padding(.top, 20)
-
-                    // Title
-                    Text(L10n.GPS.statusTitle)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.primaryText)
-
-                    // Current status
-                    HStack {
-                        Text(L10n.GPS.currentStatus)
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondaryText)
-                        Spacer()
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(currentStatusColor)
-                                .frame(width: 10, height: 10)
-                            Text(currentStatusText)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(currentStatusColor)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
-                    Divider()
-                        .padding(.horizontal, 16)
-
-                    // Status explanations
-                    VStack(spacing: 14) {
-                        statusRow(
-                            color: .aviationGreen,
-                            title: L10n.GPS.signalGood,
-                            description: L10n.GPS.statusGoodDesc
-                        )
-                        statusRow(
-                            color: .orange,
-                            title: L10n.GPS.signalDegraded,
-                            description: L10n.GPS.statusDegradedDesc
-                        )
-                        statusRow(
-                            color: .aviationRed,
-                            title: L10n.GPS.signalLost,
-                            description: L10n.GPS.statusLostDesc
-                        )
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
+            .background(Color.cockpitBackground)
+            .cornerRadius(16)
+            .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+            .frame(maxWidth: 420)
+            .padding(.horizontal, 32)
         }
-        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
+        .presentationBackground(.clear)
     }
 
     private func statusRow(color: Color, title: String, description: String) -> some View {

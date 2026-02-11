@@ -25,7 +25,7 @@ class OpenAIPDataService: ObservableObject {
 
     private var airspaces: [Airspace] = []
     private var airspacesByCountry: [String: [Airspace]] = [:]
-    private var isLoaded = false
+    @Published private(set) var isLoaded = false
 
     // Streaming cache
     private struct StreamingCTRCache {

@@ -13,57 +13,30 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
-# **Version 3.0.0** - Premium Takes Flight
-*Released January 24, 2026*
+# **Version 3.5.0** - Worldwide Airspace Data
+*Released February 11, 2026*
 
-### What's New
+### New Features
 
-#### Premium Subscription
-Unlock additional aircraft with a monthly or yearly subscription:
+- **OpenAIP Airspace Overlay**: Worldwide airspace data overlay covering 119 countries, with support for continent-based downloads for offline use.
+- **Streaming CTR Fallback**: When no airspace data is downloaded, nearby controlled airspace frequencies are fetched on-demand via the OpenAIP API (opt-in in Settings).
+- **Dynamic CTR Frequencies**: The FREQ panel now shows controlled airspace boundaries, altitude limits, and frequencies from OpenAIP data instead of hardcoded Swiss CTR frequencies.
 
-- **Premium Aircraft**: Access detailed checklists for additional aircraft types beyond the free WT9 Dynamic
-- **Seamless Updates**: Premium checklists are downloaded and cached automatically
-- **Subscription Management**: View your subscription status and manage it directly in the app
+### Improvements
 
-#### Apple Watch Companion App
-Keep track of your flight from your wrist:
+- **Continent-Based Downloads**: Download OpenAIP airspace data by region (Europe, Africa, Americas, Asia-Pacific) with per-country granularity.
+- **FREQ Panel Reordering**: Nearby controlled airspace now appears before area frequencies for better visibility.
+- **GPS Status Modal**: Redesigned as a centered card overlay for consistent display on both iPhone and iPad.
 
-- **Real-time Flight Data**: View current phase, speed, and altitude on your Apple Watch
-- **Always Synced**: Flight status updates automatically via WatchConnectivity
-- **Glanceable Design**: Quick access to essential flight information
+### Bug Fixes
 
-#### iCloud Sync
-Your settings and flights, everywhere:
+- **OpenAIP Overlay on First Load**: Fixed OpenAIP tile overlay not rendering when first opening the map view.
+- **FREQ Panel Data Loading**: Fixed CTR data not loading when navigating directly from Home to Navigation view.
+- **OurAirports Fallback**: OurAirports TWR frequencies now correctly serve as fallback when no OpenAIP data is available.
 
-- **Settings Sync**: Preferences sync across all your devices
-- **Flight History**: Access your flight log from any device
-- **Automatic Backup**: Your data is safely stored in iCloud
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.4.0...3.5.0
 
-#### Multi-Language Support
-Now available in French:
-
-- **Complete Translation**: All UI elements translated to French
-- **Language Switching**: Follows your device language settings
-- **Original Phase Names**: Checklist phase names remain in their original language for clarity
-
-#### Flight Plan GPX Export (Beta)
-Export your navigation plan for your avionics:
-
-- **GPX Route Export**: Compatible with Dynon SkyView, Garmin G3X, and other MFDs
-- **Quick Sharing**: Export directly from the flight plan editor
-
-#### Other Improvements
-- Segelflugkarte max zoom level corrected for proper tile display
-- Various UI refinements and stability improvements
-
----
-
-This is a major release featuring our new premium subscription model, Apple Watch support, and iCloud synchronization. The free tier continues to include the full-featured WT9 Dynamic checklist with all navigation and tracking features.
-
-**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/2.7.0...3.0.0
-
-
-[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.0.0)
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.5.0)
 
 <br>
 

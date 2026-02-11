@@ -46,6 +46,18 @@ features:
     description: "Développé avec Swift et SwiftUI. Contribuez sur GitHub ou adaptez-le pour votre propre aéroclub."
     fontawesome_icon_name: "code-branch"
 
+  - title: "Données Aéronautiques Mondiales"
+    description: "Couche d'espaces aériens OpenAIP couvrant 119 pays. Téléchargez les données par continent pour l'utilisation hors ligne ou recevez les espaces contrôlés à proximité en temps réel."
+    fontawesome_icon_name: "globe-europe"
+
+  - title: "Briefings Départ & Approche"
+    description: "Briefings dynamiques avec vitesses de référence, procédures d'urgence et détection des aérodromes à proximité. Données de vent et suggestions de piste basées sur votre position GPS."
+    fontawesome_icon_name: "book-open"
+
+  - title: "Planification de Vol"
+    description: "Planifiez des routes avec waypoints, profils de terrain et calculs de carburant. Exportez votre plan de navigation en GPX pour Dynon, Garmin et autres MFD."
+    fontawesome_icon_name: "route"
+
 # Footer
 footer:
   made_with: "Fait avec"

@@ -3554,6 +3554,15 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.addOverlay(overlay, level: .aboveLabels)
                 }
 
+                // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
+                if self.showOpenAIPOverlay {
+                    let openAIPOverlay = OpenAIPTileOverlay(
+                        cacheManager: self.openAIPCacheManager,
+                        isStrictOfflineMode: self.isStrictOfflineMode
+                    )
+                    mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+                }
+
                 // Force camera update like updateUIView does after overlay change (preserves heading)
                 let adjustedCamera = MKMapCamera(
                     lookingAtCenter: self.mapState.region.center,

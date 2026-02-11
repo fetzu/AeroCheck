@@ -42,6 +42,7 @@ ________
 
 <br>
 
+### `Initial Release`
 # **Version 3.4.0** - Share Cards, Navigation Fixes & Terrain Charts
 *Released February 08, 2026*
 
@@ -68,8 +69,7 @@ ________
 
 <br>
 
-### `Initial Release`
-# **Version 3.3.0** - Flight Events, Map Frequencies & Nav Plan Timing
+## **Version 3.3.0** - Flight Events, Map Frequencies & Nav Plan Timing
 *Released February 05, 2026*
 
 ### New Features

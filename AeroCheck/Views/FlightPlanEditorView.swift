@@ -41,6 +41,7 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
 
     @State private var flightPlan: FlightPlan
@@ -52,6 +53,8 @@ struct FlightPlanEditorView: View {
     @State private var exportItem: FlightPlanExportItem?
     @State private var showingAddWaypointChoice = false
     @State private var routeRefreshToken = UUID() // Forces route table refresh
+    @State private var airspaceConflicts: [AirspaceConflict] = []
+    @State private var showingAirspaceConflicts = false
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -74,6 +77,11 @@ struct FlightPlanEditorView: View {
                 VStack(spacing: 20) {
                     // Header section
                     headerSection
+
+                    // Airspace conflict warning banner
+                    if !airspaceConflicts.isEmpty {
+                        airspaceWarningBanner
+                    }
 
                     // Route table section
                     routeSection
@@ -165,6 +173,80 @@ struct FlightPlanEditorView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: routeRefreshToken) { _, _ in Task { await analyzeAirspaceConflicts() } }
+        .task { await analyzeAirspaceConflicts() }
+        .sheet(isPresented: $showingAirspaceConflicts) {
+            AirspaceConflictDetailSheet(conflicts: airspaceConflicts)
+        }
+    }
+
+    // MARK: - Airspace Warning Banner
+
+    private var airspaceWarningBanner: some View {
+        Button(action: { showingAirspaceConflicts = true }) {
+            HStack(spacing: 10) {
+                let highSeverity = airspaceConflicts.contains { $0.severity == .high }
+                Image(systemName: highSeverity ? "exclamationmark.triangle.fill" : "info.circle.fill")
+                    .foregroundColor(highSeverity ? .aviationRed : .aviationAmber)
+                    .font(.system(size: 18))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(highSeverity ? L10n.Nav.restrictedAirspaceOnRoute : L10n.Nav.airspaceAlongRoute)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primaryText)
+
+                    let summary = airspaceConflicts.prefix(3)
+                        .map { $0.airspace.name }
+                        .joined(separator: ", ")
+                    Text(summary + (airspaceConflicts.count > 3 ? " +\(airspaceConflicts.count - 3) more" : ""))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(
+                                airspaceConflicts.contains(where: { $0.severity == .high })
+                                    ? Color.aviationRed.opacity(0.5)
+                                    : Color.aviationAmber.opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
+            )
+        }
+    }
+
+    private func analyzeAirspaceConflicts() async {
+        guard openAIPDataService.isDataAvailable, flightPlan.waypoints.count >= 2 else {
+            airspaceConflicts = []
+            return
+        }
+
+        // Ensure airspace data is loaded into memory (lazy loading pattern)
+        await openAIPDataService.ensureLoaded()
+
+        let waypoints = flightPlan.waypoints.map { wp in
+            (coordinate: wp.coordinate, altitude: wp.altitude)
+        }
+
+        let routeCoords = flightPlan.waypoints.map(\.coordinate)
+        let nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
+
+        airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
+            waypoints: waypoints,
+            airspaces: nearbyAirspaces
+        )
     }
 
     // MARK: - Header Section
@@ -2012,6 +2094,77 @@ struct ICAOSearchSheet: View {
     }
 }
 
+// MARK: - Airspace Conflict Detail Sheet
+
+/// Shows detailed list of airspace conflicts along a flight plan route
+struct AirspaceConflictDetailSheet: View {
+    let conflicts: [AirspaceConflict]
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(conflicts) { conflict in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            // Severity indicator
+                            Circle()
+                                .fill(severityColor(conflict.severity))
+                                .frame(width: 10, height: 10)
+
+                            Text(conflict.airspace.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.primaryText)
+                        }
+
+                        HStack(spacing: 16) {
+                            Label(conflict.airspace.typeDisplayString, systemImage: "shield")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondaryText)
+
+                            Text(L10n.Nav.legNumber(conflict.legIndex + 1))
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(.secondaryText)
+                        }
+
+                        HStack(spacing: 12) {
+                            Text("\(conflict.airspace.lowerCeiling.displayString) → \(conflict.airspace.upperCeiling.displayString)")
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(.dimText)
+
+                            Spacer()
+
+                            Text(conflict.conflictType.displayString)
+                                .font(.system(size: 12))
+                                .foregroundColor(severityColor(conflict.severity))
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .listRowBackground(Color.panelBackground)
+                }
+            }
+            .listStyle(.plain)
+            .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Nav.airspaceConflictsTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func severityColor(_ severity: AirspaceConflict.ConflictSeverity) -> Color {
+        switch severity {
+        case .high: return .aviationRed
+        case .medium: return .aviationAmber
+        case .low: return .aviationGold
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -2019,4 +2172,5 @@ struct ICAOSearchSheet: View {
         .environmentObject(AppState())
         .environmentObject(FlightPlanManager())
         .environmentObject(AirportDataService())
+        .environmentObject(OpenAIPDataService())
 }

@@ -161,6 +161,8 @@ struct NavigationMapView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -179,6 +181,7 @@ struct NavigationMapView: View {
     @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
+    @State private var streamingCTRCheckTask: Task<Void, Never>?
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -375,10 +378,21 @@ struct NavigationMapView: View {
             if appState.settings.showAirportsOnMap {
                 Task { await airportDataService.ensureLoaded() }
             }
+            // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
+            if openAIPDataService.isDataAvailable {
+                Task { await openAIPDataService.ensureLoaded() }
+            }
+            // Trigger streaming CTR fetch if enabled and no downloaded data
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+               let coord = locationManager.currentLocation?.coordinate {
+                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+            }
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
             locationManager.stopLocationUpdates()
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = nil
         }
         .onReceive(clockTimer) { _ in
             // Force the time display to update by changing its ID
@@ -407,6 +421,16 @@ struct NavigationMapView: View {
                     currentLocation: clLocation,
                     threshold: appState.settings.waypointProximityThreshold
                 )
+            }
+
+            // Debounced streaming CTR fetch (5s delay)
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+                streamingCTRCheckTask?.cancel()
+                streamingCTRCheckTask = Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+                }
             }
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
@@ -667,6 +691,23 @@ struct NavigationMapView: View {
 
             Spacer()
 
+            // OpenAIP overlay toggle
+            Button(action: {
+                appState.settings.showOpenAIPOverlay.toggle()
+                appState.saveSettings()
+            }) {
+                Image(systemName: "shield")
+                    .font(.system(size: 14))
+                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(appState.settings.showOpenAIPOverlay
+                                  ? Color.panelBackground.opacity(0.95)
+                                  : Color.panelBackground.opacity(0.7))
+                    )
+            }
+
             // Layer picker button
             Button(action: {
                 if isOfflineMode {
@@ -743,8 +784,8 @@ struct NavigationMapView: View {
                             .fill(Color.panelBackground.opacity(0.9))
                     )
                 }
-                .sheet(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                .fullScreenCover(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
                 }
 
                 // FREQ button - only shown when no flight plan is active (to toggle frequency drawer)
@@ -1154,44 +1195,26 @@ struct NavigationMapView: View {
                         .padding()
                 }
 
-                // Common Swiss frequencies section
-                Divider()
-                    .background(Color.dimText)
-                    .padding(.vertical, 4)
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
 
-                Text(L10n.Nav.commonSwissFrequencies)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(.dimText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-
-                ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
-                    let isHighlighted = shouldHighlightCommonFrequency(freq)
-                    compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
-                    if freq != SwissCommonFrequency.allCases.last {
-                        Divider()
-                            .background(Color.dimText.opacity(0.5))
-                    }
-                }
-
-                // Nearby CTRs
-                let nearbyCTRs = getNearbyCTRsForCompact()
-                if !nearbyCTRs.isEmpty {
+                // Area frequencies section (Swiss only)
+                if isInSwissAirspace {
                     Divider()
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text(L10n.Nav.nearbyControlledAirspace)
+                    Text(L10n.Nav.areaFrequencies)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 4)
 
-                    ForEach(nearbyCTRs, id: \.ctr.id) { item in
-                        compactCTRRow(item.ctr, distanceNM: item.distanceNM)
-                        if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                    ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                        let isHighlighted = shouldHighlightCommonFrequency(freq)
+                        compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
+                        if freq != SwissCommonFrequency.allCases.last {
                             Divider()
                                 .background(Color.dimText.opacity(0.5))
                         }
@@ -1204,44 +1227,26 @@ struct NavigationMapView: View {
                     .foregroundColor(.secondaryText)
                     .padding()
 
-                // Common Swiss frequencies section
-                Divider()
-                    .background(Color.dimText)
-                    .padding(.vertical, 4)
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
 
-                Text(L10n.Nav.commonSwissFrequencies)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(.dimText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-
-                ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
-                    let isHighlighted = shouldHighlightCommonFrequency(freq)
-                    compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
-                    if freq != SwissCommonFrequency.allCases.last {
-                        Divider()
-                            .background(Color.dimText.opacity(0.5))
-                    }
-                }
-
-                // Nearby CTRs
-                let nearbyCTRs = getNearbyCTRsForCompact()
-                if !nearbyCTRs.isEmpty {
+                // Area frequencies section (Swiss only)
+                if isInSwissAirspace {
                     Divider()
                         .background(Color.dimText)
                         .padding(.vertical, 4)
 
-                    Text(L10n.Nav.nearbyControlledAirspace)
+                    Text(L10n.Nav.areaFrequencies)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 4)
 
-                    ForEach(nearbyCTRs, id: \.ctr.id) { item in
-                        compactCTRRow(item.ctr, distanceNM: item.distanceNM)
-                        if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                    ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                        let isHighlighted = shouldHighlightCommonFrequency(freq)
+                        compactCommonFrequencyRow(freq, isHighlighted: isHighlighted)
+                        if freq != SwissCommonFrequency.allCases.last {
                             Divider()
                                 .background(Color.dimText.opacity(0.5))
                         }
@@ -1250,6 +1255,12 @@ struct NavigationMapView: View {
             }
         }
         .padding(.bottom, 16)
+    }
+
+    /// Whether the pilot is currently within Swiss airspace (for showing area frequencies)
+    private var isInSwissAirspace: Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        return SwissAirspaceSectors.isInSwitzerland(location.coordinate)
     }
 
     // Helper to check if common frequency should be highlighted
@@ -1272,10 +1283,104 @@ struct NavigationMapView: View {
         }
     }
 
-    // Helper to get nearby CTRs
-    private func getNearbyCTRsForCompact() -> [(ctr: SwissCTR, distanceNM: Double)] {
+    // Helper to get nearby CTRs from OpenAIP data (downloaded or streamed)
+    private func getNearbyCTRsForCompact() -> [(airspace: Airspace, distanceNM: Double)] {
         guard let location = locationManager.currentLocation else { return [] }
-        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
+        // Primary: full downloaded data
+        if openAIPDataService.isDataAvailable {
+            return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        }
+        // Streaming fallback (when enabled)
+        if appState.settings.enableAirspaceStreaming {
+            return Array(openAIPDataService.streamingCTRs.prefix(5))
+        }
+        return []
+    }
+
+    /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
+    private var compactFallbackTWRAirports: [(airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)] {
+        guard let location = locationManager.currentLocation,
+              airportDataService.isDataAvailable else { return [] }
+        let nearbyAirports = airportDataService.findNearestAirports(
+            to: location.coordinate,
+            limit: 8,
+            maxDistanceNm: 20.0
+        )
+        return nearbyAirports.compactMap { airport -> (airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)? in
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            let twrFreqs = frequencies.filter { $0.type == "TWR" }
+            guard !twrFreqs.isEmpty else { return nil }
+            let distanceNM = airport.distance(from: location.coordinate)
+            return (airport: airport, twrFrequencies: twrFreqs, distanceNM: distanceNM)
+        }
+    }
+
+    /// Compact "Nearby Controlled Airspace" section — OpenAIP primary (downloaded or streamed), OurAirports TWR fallback
+    @ViewBuilder
+    private var compactControlledAirspaceSection: some View {
+        let ctrs = getNearbyCTRsForCompact()
+        // OurAirports fallback only if no OpenAIP data (downloaded or streamed) available
+        let fallback = (!ctrs.isEmpty || openAIPDataService.isDataAvailable) ? [] : compactFallbackTWRAirports
+
+        if !ctrs.isEmpty || !fallback.isEmpty {
+            Divider()
+                .background(Color.dimText)
+                .padding(.vertical, 4)
+
+            Text(L10n.Nav.nearbyControlledAirspace)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+
+            if !ctrs.isEmpty {
+                ForEach(ctrs, id: \.airspace.id) { item in
+                    compactCTRRow(item.airspace, distanceNM: item.distanceNM)
+                    if item.airspace.id != ctrs.last?.airspace.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            } else {
+                ForEach(fallback, id: \.airport.id) { item in
+                    compactFallbackTWRRow(item.airport, twrFrequencies: item.twrFrequencies, distanceNM: item.distanceNM)
+                    if item.airport.id != fallback.last?.airport.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            }
+        }
+    }
+
+    /// Compact fallback row showing OurAirports TWR frequency
+    private func compactFallbackTWRRow(_ airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= 5.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(airport.ident)
+                    .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
+                    .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                Text(airport.name)
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(twrFrequencies.first?.formattedFrequency ?? "—")
+                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 
     private func compactFrequencyRow(name: String, callSign: String?, frequency: String, isCurrent: Bool) -> some View {
@@ -1316,16 +1421,16 @@ struct NavigationMapView: View {
         .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 
-    private func compactCTRRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
-        let isNearby = distanceNM <= ctr.radiusNM + 3.0
+    private func compactCTRRow(_ airspace: Airspace, distanceNM: Double) -> some View {
+        let isActive = distanceNM <= 5.0 && airspace.containsAltitude(locationManager.currentAltitudeFeet)
 
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(ctr.name)
-                        .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
-                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
-                    if ctr.isMilitary {
+                    Text(airspace.shortName)
+                        .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                        .foregroundColor(isActive ? .primaryText : .secondaryText)
+                    if airspace.isMilitary {
                         Text("MIL")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(.orange)
@@ -1335,15 +1440,20 @@ struct NavigationMapView: View {
                             .cornerRadius(3)
                     }
                 }
-                Text(ctr.callSign)
-                    .font(.system(size: 10))
+                if let freq = airspace.primaryFrequency {
+                    Text(freq.name)
+                        .font(.system(size: 10))
+                        .foregroundColor(.dimText)
+                }
+                Text(airspace.altitudeRangeString)
+                    .font(.system(size: 8))
                     .foregroundColor(.dimText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(ctr.frequency)
-                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
-                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
+                Text(airspace.primaryFrequency?.value ?? "—")
+                    .font(.system(size: 14, weight: isActive ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isActive ? .aviationGold : .secondaryText)
                 Text(String(format: "%.0fnm", distanceNM))
                     .font(.system(size: 10))
                     .foregroundColor(.dimText)
@@ -1351,7 +1461,7 @@ struct NavigationMapView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
+        .background(isActive ? Color.aviationGold.opacity(0.1) : Color.clear)
     }
 
     // MARK: - State Update Helper
@@ -1369,8 +1479,11 @@ struct NavigationMapView: View {
     // MARK: - Map Content
 
     /// Airports visible in the current map region (when airport overlay is enabled)
+    /// Hidden automatically when OpenAIP overlay is active (OpenAIP provides its own airport symbols)
     private var visibleAirports: [Airport] {
-        guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
+        guard appState.settings.showAirportsOnMap,
+              !appState.settings.showOpenAIPOverlay,
+              airportDataService.isDataAvailable else {
             return []
         }
         let region = mapState.region
@@ -1398,6 +1511,29 @@ struct NavigationMapView: View {
             }
         }
         return result
+    }
+
+    /// Airspace polygons to display on the map (converted from OpenAIP data)
+    private var visibleAirspacePolygons: [AirspacePolygon] {
+        guard appState.settings.showOpenAIPOverlay, openAIPDataService.isDataAvailable else {
+            return []
+        }
+        let region = mapState.region
+        let airspaces = openAIPDataService.airspacesInBounds(region)
+
+        // Limit to 100 polygons for performance, prioritizing restrictive airspaces
+        let sorted = airspaces.sorted { a, b in
+            if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
+            return a.airspaceType.rawValue < b.airspaceType.rawValue
+        }
+        let limited = Array(sorted.prefix(100))
+
+        return limited.compactMap { airspace in
+            let coords = airspace.polygonCoordinates
+            guard coords.count >= 3 else { return nil }
+            var mutableCoords = coords
+            return AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+        }
     }
 
     /// Pick the most relevant frequency from a list (TWR > ATIS > APP > first available)
@@ -1436,6 +1572,9 @@ struct NavigationMapView: View {
                 isStrictOfflineMode: isOfflineMode,
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
+                showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                openAIPCacheManager: openAIPCacheManager,
+                airspacePolygons: visibleAirspacePolygons,
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
@@ -1455,7 +1594,10 @@ struct NavigationMapView: View {
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 airportFrequencyLines: airportFrequencyLines,
-                cachedHeading: locationManager.currentCourseDegrees
+                cachedHeading: locationManager.currentCourseDegrees,
+                showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                openAIPCacheManager: openAIPCacheManager,
+                airspacePolygons: visibleAirspacePolygons
             )
         }
     }
@@ -1649,6 +1791,24 @@ struct NavigationMapView: View {
 
             Spacer()
 
+            // OpenAIP overlay toggle
+            Button(action: {
+                appState.settings.showOpenAIPOverlay.toggle()
+                appState.saveSettings()
+            }) {
+                Image(systemName: "shield")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(appState.settings.showOpenAIPOverlay
+                                  ? Color.panelBackground.opacity(0.95)
+                                  : Color.panelBackground.opacity(0.7))
+                    )
+            }
+
             // Layer picker button (shows info modal in offline mode)
             Button(action: {
                 if isOfflineMode {
@@ -1734,8 +1894,8 @@ struct NavigationMapView: View {
                             .fill(Color.panelBackground.opacity(0.9))
                     )
                 }
-                .sheet(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus)
+                .fullScreenCover(isPresented: $showGPSStatusModal) {
+                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
                 }
 
                 // Radio Frequency button (always shown when flight planning is enabled)
@@ -1886,8 +2046,12 @@ struct RadioFrequencyOverlayView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var appState: AppState
     @Binding var isPresented: Bool
     let containerSize: CGSize
+
+    @State private var streamingCTRCheckTask: Task<Void, Never>?
 
     /// Fixed position at middle-right (same area as the flight plan overlay)
     private var fixedPosition: CGPoint {
@@ -1945,42 +2109,25 @@ struct RadioFrequencyOverlayView: View {
                         // Nearby airport frequencies section
                         nearbyAirportFrequenciesSection
 
-                        // Common Swiss frequencies section
-                        Divider()
-                            .background(Color.dimText)
-                            .padding(.vertical, 4)
-
-                        Text(L10n.Nav.commonSwissFrequencies)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-
-                        ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
-                            commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
-                            if freq != SwissCommonFrequency.allCases.last {
-                                Divider()
-                                    .background(Color.dimText.opacity(0.5))
-                            }
-                        }
-
                         // Nearby Controlled Airspace section
-                        if !nearbyCTRs.isEmpty {
+                        controlledAirspaceSection
+
+                        // Area frequencies section (Swiss only)
+                        if isInSwissAirspace {
                             Divider()
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text(L10n.Nav.nearbyControlledAirspace)
+                            Text(L10n.Nav.areaFrequencies)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 4)
 
-                            ForEach(nearbyCTRs, id: \.ctr.id) { item in
-                                ctrFrequencyRow(item.ctr, distanceNM: item.distanceNM)
-                                if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                            ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                                commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
+                                if freq != SwissCommonFrequency.allCases.last {
                                     Divider()
                                         .background(Color.dimText.opacity(0.5))
                                 }
@@ -1996,42 +2143,25 @@ struct RadioFrequencyOverlayView: View {
                         // Nearby airport frequencies section
                         nearbyAirportFrequenciesSection
 
-                        // Common Swiss frequencies section
-                        Divider()
-                            .background(Color.dimText)
-                            .padding(.vertical, 4)
-
-                        Text(L10n.Nav.commonSwissFrequencies)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-
-                        ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
-                            commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
-                            if freq != SwissCommonFrequency.allCases.last {
-                                Divider()
-                                    .background(Color.dimText.opacity(0.5))
-                            }
-                        }
-
                         // Nearby Controlled Airspace section
-                        if !nearbyCTRs.isEmpty {
+                        controlledAirspaceSection
+
+                        // Area frequencies section (Swiss only)
+                        if isInSwissAirspace {
                             Divider()
                                 .background(Color.dimText)
                                 .padding(.vertical, 4)
 
-                            Text(L10n.Nav.nearbyControlledAirspace)
+                            Text(L10n.Nav.areaFrequencies)
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.dimText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 4)
 
-                            ForEach(nearbyCTRs, id: \.ctr.id) { item in
-                                ctrFrequencyRow(item.ctr, distanceNM: item.distanceNM)
-                                if item.ctr.id != nearbyCTRs.last?.ctr.id {
+                            ForEach(SwissCommonFrequency.allCases, id: \.self) { freq in
+                                commonFrequencyRow(freq, isHighlighted: shouldHighlightFrequency(freq))
+                                if freq != SwissCommonFrequency.allCases.last {
                                     Divider()
                                         .background(Color.dimText.opacity(0.5))
                                 }
@@ -2053,6 +2183,34 @@ struct RadioFrequencyOverlayView: View {
                 .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
         )
         .position(fixedPosition)
+        .onAppear {
+            // Trigger streaming CTR fetch if enabled and no downloaded data
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,
+               let coord = locationManager.currentLocation?.coordinate {
+                Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
+            }
+        }
+        .onDisappear {
+            streamingCTRCheckTask?.cancel()
+            streamingCTRCheckTask = nil
+        }
+        .onChange(of: locationManager.currentLocation) { _, newLocation in
+            // Debounced streaming CTR fetch (5s delay)
+            if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable {
+                streamingCTRCheckTask?.cancel()
+                streamingCTRCheckTask = Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled, let coord = newLocation?.coordinate else { return }
+                    await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord)
+                }
+            }
+        }
+    }
+
+    /// Whether the pilot is currently within Swiss airspace (for showing area frequencies)
+    private var isInSwissAirspace: Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        return SwissAirspaceSectors.isInSwitzerland(location.coordinate)
     }
 
     /// Determine if a common frequency should be highlighted based on aircraft position
@@ -2200,24 +2358,94 @@ struct RadioFrequencyOverlayView: View {
         }
     }
 
-    /// Get nearby CTRs based on current location
-    /// Major airports show up to 15nm, minor airports up to 10nm
-    private var nearbyCTRs: [(ctr: SwissCTR, distanceNM: Double)] {
-        guard let location = locationManager.currentLocation else { return [] }
-        // Get CTRs within display radius, limited to closest 5
-        return Array(SwissCTRProximity.getNearbyCTRs(from: location).prefix(5))
+    /// Whether OpenAIP CTR data is available for the controlled airspace section (downloaded or streamed)
+    private var hasOpenAIPCTRData: Bool {
+        openAIPDataService.isDataAvailable || (appState.settings.enableAirspaceStreaming && !openAIPDataService.streamingCTRs.isEmpty)
     }
 
-    private func ctrFrequencyRow(_ ctr: SwissCTR, distanceNM: Double) -> some View {
-        let isNearby = distanceNM <= ctr.radiusNM + 3.0 // Highlight if within CTR + 3nm buffer
+    /// Get nearby CTRs from OpenAIP airspace data (downloaded or streamed)
+    private var nearbyCTRs: [(airspace: Airspace, distanceNM: Double)] {
+        guard let location = locationManager.currentLocation else { return [] }
+        // Primary: full downloaded data
+        if openAIPDataService.isDataAvailable {
+            return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
+        }
+        // Streaming fallback (when enabled)
+        if appState.settings.enableAirspaceStreaming {
+            return Array(openAIPDataService.streamingCTRs.prefix(5))
+        }
+        return []
+    }
+
+    /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
+    private var fallbackTWRAirports: [(airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)] {
+        guard let location = locationManager.currentLocation,
+              airportDataService.isDataAvailable else { return [] }
+        let nearbyAirports = airportDataService.findNearestAirports(
+            to: location.coordinate,
+            limit: 8,
+            maxDistanceNm: 20.0
+        )
+        return nearbyAirports.compactMap { airport -> (airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)? in
+            let frequencies = airportDataService.getFrequencies(for: airport.ident)
+            let twrFreqs = frequencies.filter { $0.type == "TWR" }
+            guard !twrFreqs.isEmpty else { return nil }
+            let distanceNM = airport.distance(from: location.coordinate)
+            return (airport: airport, twrFrequencies: twrFreqs, distanceNM: distanceNM)
+        }
+    }
+
+    /// The "Nearby Controlled Airspace" section — uses OpenAIP if available (downloaded or streamed), OurAirports TWR as fallback
+    @ViewBuilder
+    private var controlledAirspaceSection: some View {
+        let ctrs = nearbyCTRs
+        // OurAirports fallback only if no OpenAIP data (downloaded or streamed) available
+        let fallback = (!ctrs.isEmpty || openAIPDataService.isDataAvailable) ? [] : fallbackTWRAirports
+
+        if !ctrs.isEmpty || !fallback.isEmpty {
+            Divider()
+                .background(Color.dimText)
+                .padding(.vertical, 4)
+
+            Text(L10n.Nav.nearbyControlledAirspace)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.dimText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+
+            if !ctrs.isEmpty {
+                // OpenAIP CTR data (primary)
+                ForEach(ctrs, id: \.airspace.id) { item in
+                    ctrFrequencyRow(item.airspace, distanceNM: item.distanceNM)
+                    if item.airspace.id != ctrs.last?.airspace.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            } else {
+                // OurAirports TWR fallback
+                ForEach(fallback, id: \.airport.id) { item in
+                    fallbackTWRRow(item.airport, twrFrequencies: item.twrFrequencies, distanceNM: item.distanceNM)
+                    if item.airport.id != fallback.last?.airport.id {
+                        Divider()
+                            .background(Color.dimText.opacity(0.5))
+                    }
+                }
+            }
+        }
+    }
+
+    private func ctrFrequencyRow(_ airspace: Airspace, distanceNM: Double) -> some View {
+        let isActive = distanceNM <= 5.0 && airspace.containsAltitude(locationManager.currentAltitudeFeet)
 
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text(ctr.name)
-                        .font(.system(size: 11, weight: isNearby ? .semibold : .regular))
-                        .foregroundColor(isNearby ? .primaryText : .secondaryText)
-                    if ctr.isMilitary {
+                    Text(airspace.shortName)
+                        .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                        .foregroundColor(isActive ? .primaryText : .secondaryText)
+                    if airspace.isMilitary {
                         Text("MIL")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(.orange)
@@ -2227,13 +2455,47 @@ struct RadioFrequencyOverlayView: View {
                             .cornerRadius(3)
                     }
                 }
-                Text(ctr.callSign)
-                    .font(.system(size: 9))
+                if let freq = airspace.primaryFrequency {
+                    Text(freq.name)
+                        .font(.system(size: 9))
+                        .foregroundColor(.dimText)
+                }
+                Text(airspace.altitudeRangeString)
+                    .font(.system(size: 8))
                     .foregroundColor(.dimText)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(ctr.frequency)
+                Text(airspace.primaryFrequency?.value ?? "—")
+                    .font(.system(size: 12, weight: isActive ? .bold : .medium, design: .monospaced))
+                    .foregroundColor(isActive ? .aviationGold : .secondaryText)
+                Text(String(format: "%.0fnm", distanceNM))
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isActive ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    /// Fallback row showing OurAirports TWR frequency when OpenAIP data isn't available
+    private func fallbackTWRRow(_ airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double) -> some View {
+        let isNearby = distanceNM <= 5.0
+
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(airport.ident)
+                    .font(.system(size: 11, weight: isNearby ? .semibold : .regular))
+                    .foregroundColor(isNearby ? .primaryText : .secondaryText)
+                Text(airport.name)
+                    .font(.system(size: 9))
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(twrFrequencies.first?.formattedFrequency ?? "—")
                     .font(.system(size: 12, weight: isNearby ? .bold : .medium, design: .monospaced))
                     .foregroundColor(isNearby ? .aviationGold : .secondaryText)
                 Text(String(format: "%.0fnm", distanceNM))
@@ -2288,6 +2550,12 @@ enum SwissAirspaceSector {
 /// Rough polygons for Swiss airspace sectors
 /// Based on CTA zones from https://www.geocat.ch/geonetwork/srv/eng/catalog.search#/metadata/5fd1a95b-8f2c-4fff-8038-a7b2922488ad
 struct SwissAirspaceSectors {
+    /// Check if a coordinate is within Swiss airspace bounds (approximate)
+    static func isInSwitzerland(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        coordinate.latitude >= 45.8 && coordinate.latitude <= 47.9 &&
+        coordinate.longitude >= 5.9 && coordinate.longitude <= 10.6
+    }
+
     /// Get the airspace sector for a given coordinate
     static func getSector(for coordinate: CLLocationCoordinate2D) -> SwissAirspaceSector {
         let lon = coordinate.longitude
@@ -2321,198 +2589,6 @@ struct SwissAirspaceSectors {
             // - Includes western Switzerland and parts of the Alps
             return .geneva
         }
-    }
-}
-
-// MARK: - Swiss CTR (Control Zones) Data
-
-/// Swiss CTR zones with coordinates and frequencies
-/// Data from swisstopo / Swiss AIP and IVAO Switzerland
-/// FIS Zurich: LSZH, LSZA, LSZB, LSZC, LSZG, LSZR, LSZS, EDNY, LFSB
-/// FIS Geneva: LSGG, LSGS, LSGC, LSMP
-enum SwissCTR: CaseIterable, Identifiable {
-    // FIS Zurich airports
-    case zurich           // LSZH - Zurich Airport
-    case basel            // LFSB - EuroAirport Basel-Mulhouse-Freiburg
-    case lugano           // LSZA - Lugano-Agno
-    case bern             // LSZB - Bern-Belp
-    case buochs           // LSZC - Buochs (military)
-    case grenchen         // LSZG - Grenchen
-    case stGallen         // LSZR - St. Gallen-Altenrhein
-    case samedan          // LSZS - Samedan/Engadin
-    case friedrichshafen  // EDNY - Friedrichshafen (Germany)
-
-    // FIS Geneva airports
-    case geneva           // LSGG - Geneva-Cointrin
-    case sion             // LSGS - Sion
-    case lesEplatures     // LSGC - Les Eplatures (La Chaux-de-Fonds)
-    case payerne          // LSMP - Payerne (military)
-
-    var id: String { icaoCode }
-
-    /// ICAO airport code
-    var icaoCode: String {
-        switch self {
-        case .zurich: return "LSZH"
-        case .basel: return "LFSB"
-        case .lugano: return "LSZA"
-        case .bern: return "LSZB"
-        case .buochs: return "LSZC"
-        case .grenchen: return "LSZG"
-        case .stGallen: return "LSZR"
-        case .samedan: return "LSZS"
-        case .friedrichshafen: return "EDNY"
-        case .geneva: return "LSGG"
-        case .sion: return "LSGS"
-        case .lesEplatures: return "LSGC"
-        case .payerne: return "LSMP"
-        }
-    }
-
-    var name: String {
-        switch self {
-        case .zurich: return "Zurich"
-        case .basel: return "Basel"
-        case .lugano: return "Lugano"
-        case .bern: return "Bern"
-        case .buochs: return "Buochs"
-        case .grenchen: return "Grenchen"
-        case .stGallen: return "St. Gallen"
-        case .samedan: return "Samedan"
-        case .friedrichshafen: return "Friedrichshafen"
-        case .geneva: return "Geneva"
-        case .sion: return "Sion"
-        case .lesEplatures: return "Les Eplatures"
-        case .payerne: return "Payerne"
-        }
-    }
-
-    /// Primary frequency (Tower or Info)
-    var frequency: String {
-        switch self {
-        case .zurich: return "118.100"          // Zurich Tower
-        case .basel: return "118.300"           // Basel Tower
-        case .lugano: return "118.550"          // Lugano Tower
-        case .bern: return "126.075"            // Bern Tower
-        case .buochs: return "120.425"          // Buochs Tower (military)
-        case .grenchen: return "128.525"        // Grenchen Tower
-        case .stGallen: return "119.900"        // Altenrhein Tower
-        case .samedan: return "135.325"         // Samedan Info
-        case .friedrichshafen: return "120.080" // Friedrichshafen Tower
-        case .geneva: return "118.700"          // Geneva Tower
-        case .sion: return "118.275"            // Sion Tower
-        case .lesEplatures: return "118.125"    // Les Eplatures Tower
-        case .payerne: return "131.225"         // Payerne Tower (military)
-        }
-    }
-
-    /// Callsign for the frequency
-    var callSign: String {
-        switch self {
-        case .zurich: return "ZURICH TOWER"
-        case .basel: return "BASEL TOWER"
-        case .lugano: return "LUGANO TOWER"
-        case .bern: return "BERN TOWER"
-        case .buochs: return "BUOCHS TOWER"
-        case .grenchen: return "GRENCHEN TOWER"
-        case .stGallen: return "ALTENRHEIN TOWER"
-        case .samedan: return "SAMEDAN INFO"
-        case .friedrichshafen: return "FRIEDRICHSHAFEN TWR"
-        case .geneva: return "GENEVA TOWER"
-        case .sion: return "SION TOWER"
-        case .lesEplatures: return "LES EPLATURES TWR"
-        case .payerne: return "PAYERNE TOWER"
-        }
-    }
-
-    /// Center coordinate of the CTR
-    var center: CLLocationCoordinate2D {
-        switch self {
-        case .zurich: return CLLocationCoordinate2D(latitude: 47.4647, longitude: 8.5492)
-        case .basel: return CLLocationCoordinate2D(latitude: 47.5896, longitude: 7.5299)
-        case .lugano: return CLLocationCoordinate2D(latitude: 46.0040, longitude: 8.9106)
-        case .bern: return CLLocationCoordinate2D(latitude: 46.9141, longitude: 7.4975)
-        case .buochs: return CLLocationCoordinate2D(latitude: 46.9744, longitude: 8.3969)
-        case .grenchen: return CLLocationCoordinate2D(latitude: 47.1815, longitude: 7.4171)
-        case .stGallen: return CLLocationCoordinate2D(latitude: 47.4850, longitude: 9.5608)
-        case .samedan: return CLLocationCoordinate2D(latitude: 46.5340, longitude: 9.8841)
-        case .friedrichshafen: return CLLocationCoordinate2D(latitude: 47.6713, longitude: 9.5115)
-        case .geneva: return CLLocationCoordinate2D(latitude: 46.2381, longitude: 6.1089)
-        case .sion: return CLLocationCoordinate2D(latitude: 46.2196, longitude: 7.3270)
-        case .lesEplatures: return CLLocationCoordinate2D(latitude: 47.0839, longitude: 6.7936)
-        case .payerne: return CLLocationCoordinate2D(latitude: 46.8430, longitude: 6.9156)
-        }
-    }
-
-    /// Approximate radius of the CTR in nautical miles (for proximity detection)
-    var radiusNM: Double {
-        switch self {
-        case .zurich: return 12.0
-        case .basel: return 10.0
-        case .lugano: return 5.0
-        case .bern: return 5.0
-        case .buochs: return 3.0
-        case .grenchen: return 3.0
-        case .stGallen: return 4.0
-        case .samedan: return 5.0
-        case .friedrichshafen: return 5.0
-        case .geneva: return 10.0
-        case .sion: return 4.0
-        case .lesEplatures: return 3.0
-        case .payerne: return 5.0
-        }
-    }
-
-    /// Whether this is a major airport (for display radius filtering)
-    /// Major airports show up to 15nm, minor airports up to 10nm
-    var isMajor: Bool {
-        switch self {
-        case .zurich, .basel, .geneva: return true
-        default: return false
-        }
-    }
-
-    /// Whether this is a military CTR
-    var isMilitary: Bool {
-        switch self {
-        case .buochs, .payerne: return true
-        default: return false
-        }
-    }
-}
-
-/// Helper to find nearby CTRs
-struct SwissCTRProximity {
-    /// Get CTRs within display distance from a location
-    /// Major airports (LSZH, LFSB, LSGG) show up to 15nm
-    /// Minor airports show up to 10nm
-    /// Returns list sorted by distance, closest first
-    static func getNearbyCTRs(from location: CLLocation) -> [(ctr: SwissCTR, distanceNM: Double)] {
-        var nearby: [(ctr: SwissCTR, distanceNM: Double)] = []
-
-        for ctr in SwissCTR.allCases {
-            let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
-            let distanceMeters = location.distance(from: ctrLocation)
-            let distanceNM = distanceMeters / 1852.0
-
-            // Major airports show up to 15nm, minor airports up to 10nm
-            let displayRadius = ctr.isMajor ? 15.0 : 10.0
-            if distanceNM <= displayRadius {
-                nearby.append((ctr: ctr, distanceNM: distanceNM))
-            }
-        }
-
-        return nearby.sorted { $0.distanceNM < $1.distanceNM }
-    }
-
-    /// Check if location is inside or very close to a CTR
-    static func isNearCTR(_ ctr: SwissCTR, from location: CLLocation) -> Bool {
-        let ctrLocation = CLLocation(latitude: ctr.center.latitude, longitude: ctr.center.longitude)
-        let distanceMeters = location.distance(from: ctrLocation)
-        let distanceNM = distanceMeters / 1852.0
-
-        // Consider "near" if within CTR radius + 3nm buffer
-        return distanceNM <= (ctr.radiusNM + 3.0)
     }
 }
 
@@ -2646,6 +2722,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
+    var showOpenAIPOverlay: Bool = false
+    var openAIPCacheManager: OpenAIPCacheManager?
+    var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -2657,6 +2736,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
+
+        // Add OpenAIP tile overlay if enabled
+        if showOpenAIPOverlay {
+            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        }
 
         // Set initial camera from shared state (preserves heading)
         let camera = MKMapCamera(
@@ -2676,6 +2761,12 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         if mapView.mapType != expectedType {
             mapView.mapType = expectedType
         }
+
+        // Update OpenAIP tile overlay
+        updateOpenAIPOverlay(mapView, context: context)
+
+        // Update airspace polygon overlays
+        updateAirspaceOverlays(mapView, context: context)
 
         // Handle heading reset request (user tapped compass)
         if mapState.pendingHeadingReset {
@@ -2862,6 +2953,32 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
     }
 
+    private func updateOpenAIPOverlay(_ mapView: MKMapView, context: Context) {
+        let hasOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+
+        if showOpenAIPOverlay && !hasOverlay {
+            let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
+            mapView.addOverlay(overlay, level: .aboveLabels)
+        } else if !showOpenAIPOverlay && hasOverlay {
+            let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
+            mapView.removeOverlays(overlaysToRemove)
+        }
+    }
+
+    private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
+        // Remove existing airspace polygons
+        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
+        let newIds = Set(airspacePolygons.map { $0.airspaceId })
+
+        if existingIds != newIds {
+            mapView.removeOverlays(existingAirspaceOverlays)
+            for polygon in airspacePolygons {
+                mapView.addOverlay(polygon, level: .aboveLabels)
+            }
+        }
+    }
+
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapViewUIKit
         var isUserInteracting = false
@@ -2899,6 +3016,24 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // OpenAIP tile overlay
+            if let tileOverlay = overlay as? OpenAIPTileOverlay {
+                return MKTileOverlayRenderer(tileOverlay: tileOverlay)
+            }
+
+            // Airspace polygon overlay
+            if let airspacePolygon = overlay as? AirspacePolygon {
+                let renderer = MKPolygonRenderer(polygon: airspacePolygon)
+                let color = airspacePolygon.overlayColor
+                renderer.fillColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.15)
+                renderer.strokeColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.8)
+                renderer.lineWidth = 1.5
+                if airspacePolygon.isDashed {
+                    renderer.lineDashPattern = [8, 4]
+                }
+                return renderer
+            }
+
             // Flight plan route (magenta - high visibility on aviation charts)
             if let flightPlanPolyline = overlay as? FlightPlanRoutePolyline {
                 let renderer = MKPolylineRenderer(polyline: flightPlanPolyline)
@@ -3293,6 +3428,9 @@ struct SwissMapView: UIViewRepresentable {
     var isStrictOfflineMode: Bool = false
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
+    var showOpenAIPOverlay: Bool = false
+    var openAIPCacheManager: OpenAIPCacheManager?
+    var airspacePolygons: [AirspacePolygon] = []
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
@@ -3416,6 +3554,15 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.addOverlay(overlay, level: .aboveLabels)
                 }
 
+                // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
+                if self.showOpenAIPOverlay {
+                    let openAIPOverlay = OpenAIPTileOverlay(
+                        cacheManager: self.openAIPCacheManager,
+                        isStrictOfflineMode: self.isStrictOfflineMode
+                    )
+                    mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+                }
+
                 // Force camera update like updateUIView does after overlay change (preserves heading)
                 let adjustedCamera = MKMapCamera(
                     lookingAtCenter: self.mapState.region.center,
@@ -3467,6 +3614,30 @@ struct SwissMapView: UIViewRepresentable {
         let newZoomRange = cameraZoomRange(for: layerType, forceICAO: forceICAOLayer)
         if mapView.cameraZoomRange != newZoomRange {
             mapView.cameraZoomRange = newZoomRange
+        }
+
+        // Update OpenAIP tile overlay
+        let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+        if showOpenAIPOverlay && !hasOpenAIPOverlay {
+            let openAIPOverlay = OpenAIPTileOverlay(
+                cacheManager: openAIPCacheManager,
+                isStrictOfflineMode: isStrictOfflineMode
+            )
+            mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+        } else if !showOpenAIPOverlay && hasOpenAIPOverlay {
+            let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
+            mapView.removeOverlays(overlaysToRemove)
+        }
+
+        // Update airspace polygon overlays
+        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
+        let newIds = Set(airspacePolygons.map { $0.airspaceId })
+        if existingIds != newIds {
+            mapView.removeOverlays(existingAirspaceOverlays)
+            for polygon in airspacePolygons {
+                mapView.addOverlay(polygon, level: .aboveLabels)
+            }
         }
 
         // Update camera from shared state (preserves heading)
@@ -3785,6 +3956,19 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // Airspace polygon overlay (check before generic MKTileOverlay)
+            if let airspacePolygon = overlay as? AirspacePolygon {
+                let renderer = MKPolygonRenderer(polygon: airspacePolygon)
+                let color = airspacePolygon.overlayColor
+                renderer.fillColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.15)
+                renderer.strokeColor = UIColor(red: color.red, green: color.green, blue: color.blue, alpha: 0.8)
+                renderer.lineWidth = 1.5
+                if airspacePolygon.isDashed {
+                    renderer.lineDashPattern = [8, 4]
+                }
+                return renderer
+            }
+
             if let tileOverlay = overlay as? MKTileOverlay {
                 let renderer = MKTileOverlayRenderer(tileOverlay: tileOverlay)
                 return renderer
@@ -4301,9 +4485,10 @@ struct NavigationModeButton: View {
 // MARK: - GPS Status Info Sheet
 
 /// Modal sheet explaining GPS status indicators
+/// GPS Status modal — presented via .fullScreenCover as a centered card over dimmed background
 struct GPSStatusInfoSheet: View {
     let currentStatus: GPSSignalStatus
-    @Environment(\.dismiss) var dismiss
+    @Binding var isPresented: Bool
 
     private var currentStatusText: String {
         switch currentStatus {
@@ -4322,71 +4507,84 @@ struct GPSStatusInfoSheet: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Header icon
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 40))
+        ZStack {
+            // Dimmed background — tap to dismiss
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { isPresented = false }
+
+            // Floating modal card
+            VStack(spacing: 16) {
+                // Header icon
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 40))
+                    .foregroundColor(.aviationGold)
+                    .padding(.top, 24)
+
+                // Title
+                Text(L10n.GPS.statusTitle)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.primaryText)
+
+                // Current status
+                HStack {
+                    Text(L10n.GPS.currentStatus)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondaryText)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(currentStatusColor)
+                            .frame(width: 10, height: 10)
+                        Text(currentStatusText)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(currentStatusColor)
+                    }
+                }
+                .padding(.horizontal, 20)
+
+                Divider()
+                    .padding(.horizontal, 16)
+
+                // Status explanations
+                VStack(spacing: 14) {
+                    statusRow(
+                        color: .aviationGreen,
+                        title: L10n.GPS.signalGood,
+                        description: L10n.GPS.statusGoodDesc
+                    )
+                    statusRow(
+                        color: .orange,
+                        title: L10n.GPS.signalDegraded,
+                        description: L10n.GPS.statusDegradedDesc
+                    )
+                    statusRow(
+                        color: .aviationRed,
+                        title: L10n.GPS.signalLost,
+                        description: L10n.GPS.statusLostDesc
+                    )
+                }
+                .padding(.horizontal, 20)
+
+                // Done button
+                Button(action: { isPresented = false }) {
+                    Text(L10n.Button.done)
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.aviationGold)
-                        .padding(.top, 20)
-
-                    // Title
-                    Text(L10n.GPS.statusTitle)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.primaryText)
-
-                    // Current status
-                    HStack {
-                        Text(L10n.GPS.currentStatus)
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondaryText)
-                        Spacer()
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(currentStatusColor)
-                                .frame(width: 10, height: 10)
-                            Text(currentStatusText)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(currentStatusColor)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
-                    Divider()
-                        .padding(.horizontal, 16)
-
-                    // Status explanations
-                    VStack(spacing: 14) {
-                        statusRow(
-                            color: .aviationGreen,
-                            title: L10n.GPS.signalGood,
-                            description: L10n.GPS.statusGoodDesc
-                        )
-                        statusRow(
-                            color: .orange,
-                            title: L10n.GPS.signalDegraded,
-                            description: L10n.GPS.statusDegradedDesc
-                        )
-                        statusRow(
-                            color: .aviationRed,
-                            title: L10n.GPS.signalLost,
-                            description: L10n.GPS.statusLostDesc
-                        )
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
+            .background(Color.cockpitBackground)
+            .cornerRadius(16)
+            .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+            .frame(maxWidth: 420)
+            .padding(.horizontal, 32)
         }
-        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
+        .presentationBackground(.clear)
     }
 
     private func statusRow(color: Color, title: String, description: String) -> some View {
@@ -4584,6 +4782,41 @@ struct CacheInfoSheet: View {
     }
 }
 
+// MARK: - Airspace Polygon Overlay
+
+/// MKPolygon subclass that carries airspace metadata for rendering
+class AirspacePolygon: MKPolygon {
+    var airspaceId: String = ""
+    var airspaceName: String = ""
+    var airspaceTypeCategory: AirspaceTypeCategory = .other
+    var airspaceClassCategory: AirspaceClassCategory?
+    var upperCeilingDisplay: String = ""
+    var lowerCeilingDisplay: String = ""
+    var overlayColor: (red: Double, green: Double, blue: Double) = (0.5, 0.5, 0.5)
+    var isDashed: Bool = false
+
+    convenience init(airspace: Airspace, coordinates: inout [CLLocationCoordinate2D], count: Int) {
+        self.init(coordinates: &coordinates, count: count)
+        self.airspaceId = airspace.id
+        self.airspaceName = airspace.name
+        self.airspaceTypeCategory = airspace.airspaceType
+        self.airspaceClassCategory = airspace.airspaceClass
+        self.upperCeilingDisplay = airspace.upperCeiling.displayString
+        self.lowerCeilingDisplay = airspace.lowerCeiling.displayString
+        self.overlayColor = airspace.mapColor
+
+        // Dashed border for certain types
+        switch airspace.airspaceType {
+        case .tmz, .rmz, .fir, .uir:
+            self.isDashed = true
+        default:
+            if airspace.airspaceClass == .classE || airspace.airspaceClass == .classG {
+                self.isDashed = true
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -4591,4 +4824,6 @@ struct CacheInfoSheet: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
+        .environmentObject(OpenAIPCacheManager())
+        .environmentObject(OpenAIPDataService())
 }

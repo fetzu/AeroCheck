@@ -1195,6 +1195,9 @@ struct NavigationMapView: View {
                         .padding()
                 }
 
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
+
                 // Area frequencies section (Swiss only)
                 if isInSwissAirspace {
                     Divider()
@@ -1217,9 +1220,6 @@ struct NavigationMapView: View {
                         }
                     }
                 }
-
-                // Nearby Controlled Airspace
-                compactControlledAirspaceSection
             } else {
                 // No active flight plan - show message and common frequencies
                 Text(L10n.Nav.noActiveFlightPlan)
@@ -1227,6 +1227,9 @@ struct NavigationMapView: View {
                     .foregroundColor(.secondaryText)
                     .padding()
 
+                // Nearby Controlled Airspace
+                compactControlledAirspaceSection
+
                 // Area frequencies section (Swiss only)
                 if isInSwissAirspace {
                     Divider()
@@ -1249,9 +1252,6 @@ struct NavigationMapView: View {
                         }
                     }
                 }
-
-                // Nearby Controlled Airspace
-                compactControlledAirspaceSection
             }
         }
         .padding(.bottom, 16)
@@ -2109,6 +2109,9 @@ struct RadioFrequencyOverlayView: View {
                         // Nearby airport frequencies section
                         nearbyAirportFrequenciesSection
 
+                        // Nearby Controlled Airspace section
+                        controlledAirspaceSection
+
                         // Area frequencies section (Swiss only)
                         if isInSwissAirspace {
                             Divider()
@@ -2130,9 +2133,6 @@ struct RadioFrequencyOverlayView: View {
                                 }
                             }
                         }
-
-                        // Nearby Controlled Airspace section
-                        controlledAirspaceSection
                     } else {
                         // No active flight plan - show message and common frequencies
                         Text(L10n.Nav.noActiveFlightPlan)
@@ -2143,6 +2143,9 @@ struct RadioFrequencyOverlayView: View {
                         // Nearby airport frequencies section
                         nearbyAirportFrequenciesSection
 
+                        // Nearby Controlled Airspace section
+                        controlledAirspaceSection
+
                         // Area frequencies section (Swiss only)
                         if isInSwissAirspace {
                             Divider()
@@ -2164,9 +2167,6 @@ struct RadioFrequencyOverlayView: View {
                                 }
                             }
                         }
-
-                        // Nearby Controlled Airspace section
-                        controlledAirspaceSection
                     }
                 }
             }

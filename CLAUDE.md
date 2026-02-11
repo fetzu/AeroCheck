@@ -55,6 +55,7 @@ AeroCheck/
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
 │   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
 │   ├── Airport.swift          # Airport, AirportFrequency, and Runway data models
+│   ├── Airspace.swift         # OpenAIP airspace model (CTR boundaries, frequencies, altitude limits)
 │   └── BriefingData.swift     # Dynamic departure and approach briefing context builder
 ├── Services/
 │   ├── LocationManager.swift       # GPS tracking (CLLocationManagerDelegate)
@@ -65,6 +66,9 @@ AeroCheck/
 │   ├── OfflineMapManager.swift     # ICAO chart caching for offline use
 │   ├── FlightEventDetector.swift   # Automatic detection of go-arounds, touch-and-gos, full-stop landings
 │   ├── AirportDataService.swift    # OurAirports data management (download, cache, query ~40K airports)
+│   ├── OpenAIPDataService.swift    # OpenAIP airspace data (download, cache, spatial queries, streaming fallback)
+│   ├── OpenAIPConfig.swift         # OpenAIP API configuration and constants
+│   ├── OpenAIPTileOverlay.swift    # Custom MKTileOverlay for OpenAIP map tiles
 │   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
 │   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
 │   ├── ElevationService.swift      # Terrain elevation from swisstopo (Beta)
@@ -95,6 +99,7 @@ AeroCheckWatch/
 - `AircraftDataService`: Remote aircraft fetching with subscription validation
 - `SyncManager`: iCloud CloudKit sync for settings and flights
 - `FlightPlanManager`: Flight plan CRUD, waypoint management (Beta)
+- `OpenAIPDataService`: OpenAIP airspace data management (download by country/continent, tile overlay, streaming CTR fallback)
 - Views observe state via `@EnvironmentObject`
 
 **Data Persistence:**
@@ -116,7 +121,7 @@ AeroCheckWatch/
 | Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
 | Estimated Airspeed | `WindDataService` + MeteoSwiss API (experimental, Switzerland only) |
 | Navigation Mode | `NavigationView` with SwissTopo layers |
-| Radio Frequencies | Frequency drawer in NavigationView (Swiss CTR, FIS, common) |
+| Radio Frequencies | Frequency drawer in NavigationView (OpenAIP CTR worldwide, FIS, common; OurAirports TWR fallback) |
 | Offline Maps | `OfflineMapManager` for ICAO/Segelflug chart caching |
 | Timing Events | Engine start, line up (+2min), landing, shutdown |
 | Circuit Mode | Streamlined phases for pattern training |
@@ -131,6 +136,10 @@ AeroCheckWatch/
 | Airport Frequencies | `AirportDataService` - OurAirports FREQ panel (nearby airports within 15nm) |
 | Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
 | Flight Event Detection | `FlightEventDetector` - automatic go-around, touch-and-go, full-stop detection |
+| OpenAIP Airspace Overlay | `OpenAIPTileOverlay` + `OpenAIPDataService` - 119 countries worldwide |
+| Nearby CTR Frequencies | `OpenAIPDataService.nearbyCTRs()` with streaming fallback |
+| Continent-based Download | `OpenAIPDataService` - download airspace data by region |
+| Airspace Conflict Warning | `OpenAIPDataService.airspacesContaining()` for altitude alerts |
 
 ## Code Patterns
 
@@ -258,7 +267,7 @@ if subscriptionManager.isSubscribed {
 Settings are organized into 4 groups following Apple HIG:
 1. **Aircraft & Subscription** - Aircraft selection, subscription management
 2. **Flight** - Circuit mode, learning mode, flight preferences
-3. **Navigation & Data** - Map layers, offline maps, airport data, wind data
+3. **Navigation & Data** - Map layers, offline maps, OpenAIP airspace overlay & data, airport data, wind data, online airspace streaming
 4. **About & Advanced** - Version info, developer options, debug tools
 
 ## Development Notes

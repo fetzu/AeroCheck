@@ -5,6 +5,7 @@ import CoreLocation
 enum FlightEventType: String {
     case goAround = "Go-Around"
     case touchAndGo = "Touch-and-Go"
+    case fullStop = "Full Stop"
 }
 
 /// A detected flight event awaiting confirmation
@@ -24,13 +25,84 @@ private enum DetectorState {
     case touchdown
 }
 
-/// Detects go-arounds and touch-and-goes during flight using GPS data and airport proximity.
+/// Aircraft-specific speed thresholds for event detection.
+/// Derived from the aircraft's published speeds (Vso, Vr, etc.)
+struct AircraftSpeedConfig {
+    let touchdownSpeedKts: Double       // Below this = on/near ground
+    let goAroundMinSpeedKts: Double     // If never below this in low approach = go-around
+    let touchAndGoAccelSpeedKts: Double // Acceleration above this after touchdown = T&G
+    let taxiSpeedKts: Double            // Below this for extended time = full stop
+
+    /// Default thresholds (fallback when no aircraft data available)
+    static let defaults = AircraftSpeedConfig(
+        touchdownSpeedKts: 40.0,
+        goAroundMinSpeedKts: 25.0,
+        touchAndGoAccelSpeedKts: 35.0,
+        taxiSpeedKts: 10.0
+    )
+
+    /// Create configuration from aircraft speed references
+    /// - Parameters:
+    ///   - speeds: Array of SpeedReference from the aircraft checklist
+    ///   - stallSpeed: Aircraft's clean stall speed (Vs) in KIAS
+    init(speeds: [SpeedReference], stallSpeed: Int) {
+        let vso = AircraftSpeedConfig.extractSpeed(named: "Vso", from: speeds)
+        let vr = AircraftSpeedConfig.extractSpeed(named: "Vr", from: speeds)
+
+        let vsoValue = vso ?? Double(stallSpeed) * 0.85
+        let vrValue = vr ?? Double(stallSpeed) * 1.1
+
+        // Touchdown threshold: Vr + 5 kts
+        // During a touch-and-go, the plane briefly decelerates below rotation speed.
+        // Using Vr + margin ensures we detect touchdown even with GPS smoothing.
+        self.touchdownSpeedKts = vrValue + 5.0
+
+        // Go-around minimum speed: Vso + 5 kts
+        // If the plane's minimum speed during low approach never drops below this,
+        // it was never configured for landing = go-around.
+        self.goAroundMinSpeedKts = vsoValue + 5.0
+
+        // Touch-and-go acceleration: touchdownSpeed - 5 kts
+        self.touchAndGoAccelSpeedKts = self.touchdownSpeedKts - 5.0
+
+        // Taxi speed: universal across aircraft types
+        self.taxiSpeedKts = 10.0
+    }
+
+    private init(touchdownSpeedKts: Double, goAroundMinSpeedKts: Double, touchAndGoAccelSpeedKts: Double, taxiSpeedKts: Double) {
+        self.touchdownSpeedKts = touchdownSpeedKts
+        self.goAroundMinSpeedKts = goAroundMinSpeedKts
+        self.touchAndGoAccelSpeedKts = touchAndGoAccelSpeedKts
+        self.taxiSpeedKts = taxiSpeedKts
+    }
+
+    /// Extract a numeric speed value from the speeds array by name.
+    /// Handles range values like "60-55" by taking the first (higher) value.
+    /// Handles slash values like "70/66" by taking the first value.
+    private static func extractSpeed(named name: String, from speeds: [SpeedReference]) -> Double? {
+        guard let ref = speeds.first(where: { $0.name == name }) else { return nil }
+        let value = ref.value
+        if let dashRange = value.range(of: "-"), dashRange.lowerBound != value.startIndex {
+            let first = String(value[value.startIndex..<dashRange.lowerBound])
+            return Double(first.trimmingCharacters(in: .whitespaces))
+        }
+        if value.contains("/") {
+            let parts = value.components(separatedBy: "/")
+            return Double(parts[0].trimmingCharacters(in: .whitespaces))
+        }
+        return Double(value.trimmingCharacters(in: .whitespaces))
+    }
+}
+
+/// Detects go-arounds, touch-and-goes, and full-stop landings during flight using GPS data and airport proximity.
 ///
 /// Uses a finite state machine with four states:
 /// - **idle**: Not near any airport
 /// - **airportZone**: Within 2 NM of airport and below 500 ft AGL
 /// - **lowApproach**: Within 1 NM and below 100 ft AGL (go-around detection zone)
-/// - **touchdown**: Speed dropped below 40 kts near airport (touch-and-go detection zone)
+/// - **touchdown**: Speed dropped below touchdown threshold near airport
+///
+/// Speed thresholds are aircraft-specific when configured via `configure(speeds:stallSpeed:)`.
 @MainActor
 class FlightEventDetector: ObservableObject {
     // MARK: - Published Properties
@@ -40,6 +112,9 @@ class FlightEventDetector: ObservableObject {
 
     /// Pending touch-and-go event awaiting user confirmation
     @Published var pendingTouchAndGo: DetectedFlightEvent?
+
+    /// Pending full-stop event awaiting user confirmation
+    @Published var pendingFullStop: DetectedFlightEvent?
 
     // MARK: - State Machine
 
@@ -69,7 +144,36 @@ class FlightEventDetector: ObservableObject {
     /// Timestamp of last detected event (for cooldown)
     private var lastEventTime: Date?
 
+    // MARK: - Takeoff Suppression
+
+    /// Time of last takeoff (line-up or post-T&G/go-around departure).
+    /// Events are suppressed for a window after takeoff to prevent false positives.
+    private var lastTakeoffTime: Date?
+
+    /// Suppression window after takeoff (seconds).
+    /// A touch-and-go cannot occur this soon after departure.
+    private let takeoffSuppressionSeconds: TimeInterval = 90.0
+
+    // MARK: - Full-Stop Detection
+
+    /// Number of consecutive readings at taxi speed or below in touchdown state
+    private var consecutiveTaxiSpeedReadings: Int = 0
+
+    /// Readings at taxi speed needed to declare full stop (at 5-sec GPS interval, ~30 seconds)
+    private let requiredTaxiSpeedReadings: Int = 6
+
+    /// Extended cooldown after a full-stop landing (seconds).
+    /// Prevents subsequent taxi + takeoff from being classified as T&G.
+    private let fullStopCooldownSeconds: TimeInterval = 180.0
+
+    /// End time of full-stop cooldown period
+    private var fullStopCooldownUntil: Date?
+
     // MARK: - Detection Thresholds
+
+    // Speed thresholds (configured per-aircraft, with sensible defaults)
+    private var speedConfig: AircraftSpeedConfig = .defaults
+    private let minTouchdownReadings: Int = 1
 
     // Airport zone entry/exit (with hysteresis to prevent oscillation)
     private let airportZoneEntryDistanceNm: Double = 2.0
@@ -83,16 +187,10 @@ class FlightEventDetector: ObservableObject {
     private let lowApproachEntryAltAglFt: Double = 100.0
     private let lowApproachExitAltAglFt: Double = 150.0
 
-    // Speed thresholds (calibrated from real flight data)
-    private let touchdownSpeedKts: Double = 40.0         // Below this = on/near ground
-    private let goAroundMinSpeedKts: Double = 25.0       // If never below this in low approach = go-around
-    private let touchAndGoAccelSpeedKts: Double = 35.0   // Acceleration back above this after touchdown = T&G
-    private let minTouchdownReadings: Int = 1            // At least 1 GPS reading below 40 kts (~5-7 sec)
-
     // Cooldown between events
     private let eventCooldownSeconds: TimeInterval = 45.0
 
-    // Touchdown timeout (full stop detection handled elsewhere)
+    // Touchdown timeout (full stop fallback)
     private let touchdownTimeoutSeconds: TimeInterval = 120.0
 
     // MARK: - Conversion Constants
@@ -102,6 +200,21 @@ class FlightEventDetector: ObservableObject {
     private let feetToMeters: Double = 0.3048
 
     // MARK: - Public Methods
+
+    /// Configure detection thresholds based on the current aircraft's speed data.
+    /// Call this when a flight starts, after the checklist is loaded.
+    /// - Parameters:
+    ///   - speeds: Speed reference data from the aircraft checklist
+    ///   - stallSpeed: Aircraft's clean stall speed (Vs) in KIAS
+    func configure(speeds: [SpeedReference], stallSpeed: Int) {
+        speedConfig = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
+        print("[FlightEventDetector] Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts")
+    }
+
+    /// Set the takeoff time (call when line-up or first departure occurs)
+    func setTakeoffTime(_ time: Date) {
+        lastTakeoffTime = time
+    }
 
     /// Process a new location update to detect flight events
     /// - Parameters:
@@ -121,6 +234,14 @@ class FlightEventDetector: ObservableObject {
 
         // Check cooldown - skip detection if too soon after last event
         if let lastEvent = lastEventTime, now.timeIntervalSince(lastEvent) < eventCooldownSeconds {
+            return
+        }
+
+        // Check full-stop cooldown - longer cooldown after confirmed full stop
+        if let fullStopUntil = fullStopCooldownUntil, now < fullStopUntil {
+            if state == .touchdown {
+                transitionToIdle()
+            }
             return
         }
 
@@ -156,6 +277,10 @@ class FlightEventDetector: ObservableObject {
         lastEventTime = nil
         pendingGoAround = nil
         pendingTouchAndGo = nil
+        pendingFullStop = nil
+        lastTakeoffTime = nil
+        fullStopCooldownUntil = nil
+        speedConfig = .defaults
     }
 
     /// Dismiss pending go-around without recording
@@ -166,6 +291,11 @@ class FlightEventDetector: ObservableObject {
     /// Dismiss pending touch-and-go without recording
     func dismissTouchAndGo() {
         pendingTouchAndGo = nil
+    }
+
+    /// Dismiss pending full-stop without recording
+    func dismissFullStop() {
+        pendingFullStop = nil
     }
 
     // MARK: - State Handlers
@@ -198,12 +328,13 @@ class FlightEventDetector: ObservableObject {
 
         // Speed-based fallback: detect touchdown even if altitude AGL is inaccurate
         // (GPS altitude can have significant error, but speed is reliable)
-        if speedKts < touchdownSpeedKts && distanceNm <= lowApproachEntryDistanceNm {
+        if speedKts < speedConfig.touchdownSpeedKts && distanceNm <= lowApproachEntryDistanceNm {
             state = .touchdown
             stateEntryTime = now
             touchdownEntryTime = now
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
+            consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
             print("[FlightEventDetector] Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
         }
     }
@@ -213,12 +344,13 @@ class FlightEventDetector: ObservableObject {
         minSpeedInLowApproach = min(minSpeedInLowApproach, speedKts)
 
         // Check for touchdown (speed drops below threshold)
-        if speedKts < touchdownSpeedKts {
+        if speedKts < speedConfig.touchdownSpeedKts {
             state = .touchdown
             stateEntryTime = now
             touchdownEntryTime = now
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
+            consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
             print("[FlightEventDetector] Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
             return
         }
@@ -226,7 +358,7 @@ class FlightEventDetector: ObservableObject {
         // Check for go-around: exiting low approach zone without touching down
         // AND minimum speed stayed above go-around threshold (never slowed to landing speed)
         if distanceNm > lowApproachExitDistanceNm || altAglFt > lowApproachExitAltAglFt {
-            if minSpeedInLowApproach > goAroundMinSpeedKts {
+            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts {
                 emitGoAround(airport: stateAirport)
             }
             // Transition back to airport zone if still within it, otherwise idle
@@ -243,13 +375,29 @@ class FlightEventDetector: ObservableObject {
         minSpeedInTouchdown = min(minSpeedInTouchdown, speedKts)
 
         // Count readings below touchdown speed
-        if speedKts < touchdownSpeedKts {
+        if speedKts < speedConfig.touchdownSpeedKts {
             touchdownSpeedReadings += 1
+        }
+
+        // Track consecutive taxi-speed readings for full-stop detection
+        if speedKts < speedConfig.taxiSpeedKts {
+            consecutiveTaxiSpeedReadings += 1
+        } else {
+            consecutiveTaxiSpeedReadings = 0
+        }
+
+        // Full-stop detection: sustained very low speed = the plane has stopped
+        if consecutiveTaxiSpeedReadings >= requiredTaxiSpeedReadings {
+            print("[FlightEventDetector] Full stop detected (speed < \(Int(speedConfig.taxiSpeedKts)) kts for \(consecutiveTaxiSpeedReadings) readings)")
+            emitFullStop(airport: stateAirport)
+            fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
+            transitionToIdle()
+            return
         }
 
         // Check for touch-and-go: speed increases back above acceleration threshold
         // after having at least minTouchdownReadings below touchdownSpeedKts
-        if speedKts >= touchAndGoAccelSpeedKts && touchdownSpeedReadings >= minTouchdownReadings {
+        if speedKts >= speedConfig.touchAndGoAccelSpeedKts && touchdownSpeedReadings >= minTouchdownReadings {
             emitTouchAndGo(airport: stateAirport)
             // Transition back to airport zone (aircraft will likely do another circuit)
             state = .airportZone
@@ -257,6 +405,7 @@ class FlightEventDetector: ObservableObject {
             touchdownEntryTime = nil
             touchdownSpeedReadings = 0
             minSpeedInTouchdown = .infinity
+            consecutiveTaxiSpeedReadings = 0
             return
         }
 
@@ -267,9 +416,10 @@ class FlightEventDetector: ObservableObject {
         }
 
         // Safety timeout: if in touchdown state for too long, it's likely a full stop
-        // (full stop landing is handled by AppState separately)
         if let entry = touchdownEntryTime, now.timeIntervalSince(entry) > touchdownTimeoutSeconds {
             print("[FlightEventDetector] Touchdown timeout - likely full stop")
+            emitFullStop(airport: stateAirport)
+            fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
             transitionToIdle()
         }
     }
@@ -289,6 +439,13 @@ class FlightEventDetector: ObservableObject {
     private func emitGoAround(airport: Airport?) {
         guard pendingGoAround == nil else { return }
 
+        // Suppress events within the takeoff suppression window
+        if let takeoffTime = lastTakeoffTime,
+           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+            print("[FlightEventDetector] Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            return
+        }
+
         let message: String
         if let airport = airport {
             message = String(localized: "Go-around detected at \(airport.name)")
@@ -299,11 +456,19 @@ class FlightEventDetector: ObservableObject {
         let event = DetectedFlightEvent(type: .goAround, timestamp: Date(), airport: airport, message: message)
         pendingGoAround = event
         lastEventTime = Date()
+        lastTakeoffTime = Date()
         print("[FlightEventDetector] GO-AROUND: \(message)")
     }
 
     private func emitTouchAndGo(airport: Airport?) {
         guard pendingTouchAndGo == nil else { return }
+
+        // Suppress events within the takeoff suppression window
+        if let takeoffTime = lastTakeoffTime,
+           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+            print("[FlightEventDetector] Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            return
+        }
 
         let message: String
         if let airport = airport {
@@ -315,7 +480,31 @@ class FlightEventDetector: ObservableObject {
         let event = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: airport, message: message)
         pendingTouchAndGo = event
         lastEventTime = Date()
+        lastTakeoffTime = Date()
         print("[FlightEventDetector] TOUCH-AND-GO: \(message)")
+    }
+
+    private func emitFullStop(airport: Airport?) {
+        guard pendingFullStop == nil else { return }
+
+        // Suppress events within the takeoff suppression window
+        if let takeoffTime = lastTakeoffTime,
+           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+            print("[FlightEventDetector] Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            return
+        }
+
+        let message: String
+        if let airport = airport {
+            message = String(localized: "Full-stop landing detected at \(airport.name)")
+        } else {
+            message = String(localized: "Full-stop landing detected")
+        }
+
+        let event = DetectedFlightEvent(type: .fullStop, timestamp: Date(), airport: airport, message: message)
+        pendingFullStop = event
+        lastEventTime = Date()
+        print("[FlightEventDetector] FULL STOP: \(message)")
     }
 
     // MARK: - State Transitions
@@ -328,5 +517,6 @@ class FlightEventDetector: ObservableObject {
         minSpeedInTouchdown = .infinity
         touchdownEntryTime = nil
         touchdownSpeedReadings = 0
+        consecutiveTaxiSpeedReadings = 0
     }
 }

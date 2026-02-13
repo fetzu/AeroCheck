@@ -299,6 +299,26 @@ struct FlightView: View {
                 )
             }
         }
+        .overlay {
+            if let fullStopEvent = flightEventDetector.pendingFullStop {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Tap outside dismisses
+                        flightEventDetector.dismissFullStop()
+                    }
+                EventConfirmationView(
+                    event: fullStopEvent,
+                    onConfirm: {
+                        appState.recordFullStop()
+                        flightEventDetector.dismissFullStop()
+                    },
+                    onDismiss: {
+                        flightEventDetector.dismissFullStop()
+                    }
+                )
+            }
+        }
     }
     
     // MARK: - Main Checklist Area

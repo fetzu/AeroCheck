@@ -104,6 +104,8 @@ struct EventConfirmationView: View {
             return "arrow.up.right.circle.fill"
         case .touchAndGo:
             return "arrow.down.forward.and.arrow.up.backward.circle.fill"
+        case .fullStop:
+            return "stop.circle.fill"
         }
     }
 
@@ -113,6 +115,8 @@ struct EventConfirmationView: View {
             return .orange
         case .touchAndGo:
             return .blue
+        case .fullStop:
+            return .aviationAmber
         }
     }
 
@@ -122,6 +126,8 @@ struct EventConfirmationView: View {
             return .orange
         case .touchAndGo:
             return .blue
+        case .fullStop:
+            return .aviationAmber
         }
     }
 
@@ -131,6 +137,8 @@ struct EventConfirmationView: View {
             return .orange.opacity(0.5)
         case .touchAndGo:
             return .blue.opacity(0.5)
+        case .fullStop:
+            return Color.aviationAmber.opacity(0.5)
         }
     }
 

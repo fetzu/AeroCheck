@@ -37,6 +37,8 @@ class LocationManager: NSObject, ObservableObject {
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
+    private var hasNotifiedTakeoffTime: Bool = false
+    private var hasConfiguredDetector: Bool = false
 
     // GPS accuracy tracking
     private var lastGoodSignalTime: Date?
@@ -156,6 +158,8 @@ class LocationManager: NSObject, ObservableObject {
         airportDataService = nil
         flightEventDetector?.reset()
         flightEventDetector = nil
+        hasNotifiedTakeoffTime = false
+        hasConfiguredDetector = false
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = kCLDistanceFilterNone
@@ -468,10 +472,27 @@ extension LocationManager: CLLocationManagerDelegate {
                 appState.addGPSPoint(point, airportDataService: self.airportDataService)
                 self.lastRecordedTime = now
 
-                // Process location for flight event detection (go-arounds, touch-and-gos)
+                // Process location for flight event detection (go-arounds, touch-and-gos, full stops)
                 if let detector = self.flightEventDetector,
                    let airportService = self.airportDataService,
-                   appState.engineStartTime != nil {
+                   (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
+                    // Auto-configure detector with aircraft speeds on first activation
+                    if !self.hasConfiguredDetector {
+                        if let remote = ChecklistData.currentRemoteChecklist {
+                            detector.configure(speeds: remote.localSpeeds, stallSpeed: remote.stallSpeed)
+                        } else {
+                            let aircraft = ChecklistData.currentAircraft
+                            detector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed)
+                        }
+                        self.hasConfiguredDetector = true
+                    }
+
+                    // Notify detector of takeoff time once for initial suppression
+                    if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
+                        detector.setTakeoffTime(lineUpTime)
+                        self.hasNotifiedTakeoffTime = true
+                    }
+
                     // Get nearby airports for event detection
                     let nearbyAirports = airportService.findNearestAirports(
                         to: location.coordinate,

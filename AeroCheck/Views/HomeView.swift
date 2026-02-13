@@ -594,6 +594,9 @@ struct HomeView: View {
             // Ensure airport data is loaded for FREQ panel and flight event detection
             await airportDataService.ensureLoaded()
 
+            // Configure flight event detector with aircraft-specific speeds
+            configureFlightEventDetector()
+
             // Pass the active flight plan ID to the flight if one is active
             let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
             appState.startFlight(
@@ -621,6 +624,9 @@ struct HomeView: View {
             // Ensure airport data is loaded for FREQ panel and flight event detection
             await airportDataService.ensureLoaded()
 
+            // Configure flight event detector with aircraft-specific speeds
+            configureFlightEventDetector()
+
             // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
             appState.startFlight(
                 withAircraft: appState.settings.defaultAirplane,
@@ -636,6 +642,16 @@ struct HomeView: View {
                 airportDataService: airportDataService,
                 flightEventDetector: flightEventDetector
             )
+        }
+    }
+
+    /// Configure the flight event detector with the current aircraft's speed data
+    private func configureFlightEventDetector() {
+        if let remoteChecklist = ChecklistData.currentRemoteChecklist {
+            flightEventDetector.configure(speeds: remoteChecklist.localSpeeds, stallSpeed: remoteChecklist.stallSpeed)
+        } else {
+            let aircraft = appState.settings.selectedAircraft
+            flightEventDetector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed)
         }
     }
 }

@@ -624,48 +624,58 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Compact time/speed/altitude/heading display
+            // Compact time/speed/altitude/heading display (two rows)
             VStack(spacing: 0) {
-                HStack(spacing: 6) {
-                    // Time
-                    Text(formattedTime)
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                        .id(timeDisplayId)
+                VStack(spacing: 2) {
+                    // Row 1: Time + Speed
+                    HStack(spacing: 6) {
+                        // Time
+                        Text(formattedTime)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .id(timeDisplayId)
 
-                    Rectangle()
-                        .fill(Color.dimText)
-                        .frame(width: 1, height: 16)
+                        Rectangle()
+                            .fill(Color.dimText)
+                            .frame(width: 1, height: 14)
 
-                    // Speed
-                    HStack(spacing: 1) {
-                        Text("\(Int(locationManager.currentSpeedKnots))")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        Text("kt")
-                            .font(.system(size: 8))
+                        // Speed
+                        HStack(spacing: 1) {
+                            Text("\(Int(locationManager.currentSpeedKnots))")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            Text("kt")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(speedColor)
                     }
-                    .foregroundColor(speedColor)
 
-                    // Altitude
-                    HStack(spacing: 1) {
-                        Text("\(Int(locationManager.currentAltitudeFeet))")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        Text("ft")
-                            .font(.system(size: 8))
-                    }
-                    .foregroundColor(.altimeterBlue)
+                    // Row 2: Altitude + Heading
+                    HStack(spacing: 6) {
+                        // Altitude
+                        HStack(spacing: 1) {
+                            Text("\(Int(locationManager.currentAltitudeFeet))")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            Text("ft")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.altimeterBlue)
 
-                    // Heading
-                    HStack(spacing: 1) {
-                        Text(String(format: "%03d", currentHeading))
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        Text("°")
-                            .font(.system(size: 8))
+                        Rectangle()
+                            .fill(Color.dimText)
+                            .frame(width: 1, height: 14)
+
+                        // Heading
+                        HStack(spacing: 1) {
+                            Text(String(format: "%03d", currentHeading))
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            Text("°")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundColor(.aviationGold)
                     }
-                    .foregroundColor(.aviationGold)
                 }
                 .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.vertical, 5)
 
                 // "Next Check" line integrated in the info box
                 if appState.isFlightActive {

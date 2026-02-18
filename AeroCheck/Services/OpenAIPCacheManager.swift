@@ -63,7 +63,8 @@ class OpenAIPCacheManager: ObservableObject {
         let totalSize = await Task.detached { [fileManager] () -> Int64 in
             var size: Int64 = 0
             if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: [.fileSizeKey]) {
-                for case let fileURL as URL in enumerator {
+                let fileURLs = enumerator.allObjects.compactMap { $0 as? URL }
+                for fileURL in fileURLs {
                     if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
                         size += Int64(fileSize)
                     }

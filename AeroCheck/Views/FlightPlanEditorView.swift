@@ -1865,7 +1865,7 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard let airportAnnotation = annotation as? AirportAnnotation else { return nil }
+            guard annotation is AirportAnnotation else { return nil }
 
             let identifier = "WaypointPickerAirport"
             let annotationView: MKAnnotationView
@@ -2166,7 +2166,6 @@ struct ICAOSearchSheet: View {
 
     private func selectAirport(_ airport: Airport) {
         let frequencies = airportDataService.getFrequencies(for: airport.ident)
-        let primaryFreq = NavigationMapView.primaryFrequency(from: frequencies)
         // Extract just the frequency number for the waypoint field
         let freqValue: String? = {
             let priorityTypes = ["TWR", "ATIS", "APP", "GND"]

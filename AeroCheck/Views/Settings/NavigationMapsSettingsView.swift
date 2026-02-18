@@ -432,10 +432,15 @@ struct OpenAIPDownloadSheet: View {
                     downloadProgressView
                 }
 
-                // Download button
+                // Download buttons
                 if !openAIPCacheManager.isDownloading && !openAIPDataService.isDownloading {
-                    Button(action: startDownload) {
-                        Text(L10n.Settings.download)
+                    VStack(spacing: 8) {
+                        Button(action: { startDownload(tilesAndData: true) }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.down.on.square")
+                                    .font(.system(size: 14))
+                                Text(L10n.Settings.downloadAll)
+                            }
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -444,8 +449,22 @@ struct OpenAIPDownloadSheet: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(selectedCountries.isEmpty ? Color.gray : Color.aviationGold)
                             )
+                        }
+                        .disabled(selectedCountries.isEmpty)
+
+                        Button(action: { startDownload(tilesAndData: false) }) {
+                            HStack {
+                                Image(systemName: "shield.checkered")
+                                    .font(.system(size: 14))
+                                Text(L10n.Settings.downloadAirspaceOnly)
+                            }
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.aviationGold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .disabled(selectedCountries.isEmpty)
                     }
-                    .disabled(selectedCountries.isEmpty)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                 }
@@ -528,20 +547,26 @@ struct OpenAIPDownloadSheet: View {
 
     // MARK: - Actions
 
-    private func startDownload() {
+    private func startDownload(tilesAndData: Bool) {
         let countries = Array(selectedCountries).sorted()
         appState.settings.openAIPOfflineCountries = countries
         appState.saveSettings()
 
         Task {
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    await openAIPCacheManager.downloadTiles(for: countries)
+            if tilesAndData {
+                // Download both tiles and airspace data in parallel
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await openAIPCacheManager.downloadTiles(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPDataService.downloadData(for: countries)
+                    }
+                    await group.waitForAll()
                 }
-                group.addTask {
-                    await openAIPDataService.downloadData(for: countries)
-                }
-                await group.waitForAll()
+            } else {
+                // Download airspace data only (much faster, ~100 KB)
+                await openAIPDataService.downloadData(for: countries)
             }
         }
     }

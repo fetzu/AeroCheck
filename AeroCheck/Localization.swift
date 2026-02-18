@@ -371,6 +371,8 @@ enum L10n {
         }
         static let downloadingTiles = String(localized: "settings.openAIP.downloadingTiles")
         static let download = String(localized: "settings.openAIP.download")
+        static let downloadAll = String(localized: "settings.openAIP.downloadAll")
+        static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
         }
@@ -1096,6 +1098,7 @@ enum L10n {
         static let airspaceAlongRoute = String(localized: "nav.airspaceAlongRoute")
         static let airspaceConflictsTitle = String(localized: "nav.airspaceConflictsTitle")
         static let airspaceDataRequired = String(localized: "nav.airspaceDataRequired")
+        static let airspaceCheckFailed = String(localized: "nav.airspaceCheckFailed")
         static func legNumber(_ n: Int) -> String {
             String(format: String(localized: "nav.legNumber"), n)
         }

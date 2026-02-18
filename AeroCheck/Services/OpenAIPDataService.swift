@@ -299,6 +299,75 @@ class OpenAIPDataService: ObservableObject {
         return airspacesInBounds(region)
     }
 
+    /// Fetch airspaces along a route on-demand from the OpenAIP API
+    /// Used when no downloaded data is available — makes API calls along the route
+    /// Returns airspaces near the route for conflict analysis
+    func fetchAirspacesAlongRoute(_ waypoints: [CLLocationCoordinate2D]) async throws -> [Airspace] {
+        guard waypoints.count >= 2 else { return [] }
+
+        // Calculate the route bounding box center and a search radius that covers the route
+        let lats = waypoints.map(\.latitude)
+        let lons = waypoints.map(\.longitude)
+        guard let minLat = lats.min(), let maxLat = lats.max(),
+              let minLon = lons.min(), let maxLon = lons.max() else { return [] }
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLon + maxLon) / 2
+        )
+
+        // Calculate the maximum distance from center to any waypoint, plus buffer
+        let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+        let maxDistance = waypoints.map { wp in
+            CLLocation(latitude: wp.latitude, longitude: wp.longitude).distance(from: centerLocation)
+        }.max() ?? 0
+
+        // Add 5 NM buffer, cap at 100km to stay within API limits
+        let searchRadius = min(Int(maxDistance) + 9260, 100_000) // 5 NM = 9260m
+
+        // Fetch all airspace types (no type filter) within the radius
+        let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?pos=\(center.latitude),\(center.longitude)&dist=\(searchRadius)&limit=\(OpenAIPConfig.airspacePageLimit)&page=1"
+        guard let url = URL(string: urlString) else {
+            throw OpenAIPError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 15
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw OpenAIPError.apiError(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        let decoded = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: data)
+
+        // If there are more pages, fetch them too
+        var allAirspaces = decoded.items
+        if decoded.totalPages > 1 {
+            for page in 2...decoded.totalPages {
+                let pageURL = "\(OpenAIPConfig.coreAPIBaseURL)/airspaces?pos=\(center.latitude),\(center.longitude)&dist=\(searchRadius)&limit=\(OpenAIPConfig.airspacePageLimit)&page=\(page)"
+                guard let url = URL(string: pageURL) else { continue }
+                var pageRequest = URLRequest(url: url)
+                pageRequest.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
+                pageRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+                pageRequest.timeoutInterval = 15
+
+                if let (pageData, pageResp) = try? await URLSession.shared.data(for: pageRequest),
+                   let httpResp = pageResp as? HTTPURLResponse, httpResp.statusCode == 200,
+                   let pageDecoded = try? JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: pageData) {
+                    allAirspaces.append(contentsOf: pageDecoded.items)
+                }
+            }
+        }
+
+        print("[OpenAIP] On-demand route fetch: \(allAirspaces.count) airspaces within \(searchRadius / 1000)km of route center")
+        return allAirspaces
+    }
+
     /// Find nearby CTR airspaces sorted by distance
     /// Returns all nearby CTRs regardless of altitude — UI handles altitude-based highlighting
     /// When `requireFrequencies` is true (default), only returns CTRs with frequency data

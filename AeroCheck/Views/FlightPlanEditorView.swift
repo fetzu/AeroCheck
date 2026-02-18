@@ -79,16 +79,15 @@ struct FlightPlanEditorView: View {
                     // Header section
                     headerSection
 
-                    // Airspace conflict warning banner
+                    // Airspace conflict warning banner (or data unavailable hint)
                     if !airspaceConflicts.isEmpty {
                         airspaceWarningBanner
+                    } else if airspaceDataUnavailable && flightPlan.waypoints.count >= 2 {
+                        airspaceDataHint
                     }
 
                     // Route table section
                     routeSection
-
-                    // Airspace conflicts inline section
-                    airspaceConflictsSection
 
                     // Fuel calculation section
                     fuelSection
@@ -238,23 +237,29 @@ struct FlightPlanEditorView: View {
             return
         }
 
-        guard openAIPDataService.isDataAvailable else {
-            airspaceConflicts = []
-            airspaceDataUnavailable = true
-            return
-        }
-
-        airspaceDataUnavailable = false
-
-        // Ensure airspace data is loaded into memory (lazy loading pattern)
-        await openAIPDataService.ensureLoaded()
-
         let waypoints = flightPlan.waypoints.map { wp in
             (coordinate: wp.coordinate, altitude: wp.altitude)
         }
-
         let routeCoords = flightPlan.waypoints.map(\.coordinate)
-        let nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
+
+        // Use downloaded data if available, otherwise fetch on-demand from API
+        let nearbyAirspaces: [Airspace]
+        if openAIPDataService.isDataAvailable {
+            airspaceDataUnavailable = false
+            await openAIPDataService.ensureLoaded()
+            nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
+        } else {
+            // On-demand fetch from API — works without downloading the full dataset
+            do {
+                nearbyAirspaces = try await openAIPDataService.fetchAirspacesAlongRoute(routeCoords)
+                airspaceDataUnavailable = false
+            } catch {
+                print("[Airspace] On-demand fetch failed: \(error.localizedDescription)")
+                airspaceConflicts = []
+                airspaceDataUnavailable = true
+                return
+            }
+        }
 
         airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
             waypoints: waypoints,
@@ -262,123 +267,23 @@ struct FlightPlanEditorView: View {
         )
     }
 
-    // MARK: - Airspace Conflicts Section
+    // MARK: - Airspace Data Hint
 
-    @ViewBuilder
-    private var airspaceConflictsSection: some View {
-        if airspaceDataUnavailable && flightPlan.waypoints.count >= 2 {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondaryText)
-                Text(L10n.Nav.airspaceDataRequired)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondaryText)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.panelBackground)
-            )
-        } else if !airspaceConflicts.isEmpty {
-            VStack(spacing: 12) {
-                // Section header — tappable to open full detail sheet
-                Button(action: { showingAirspaceConflicts = true }) {
-                    HStack {
-                        Label(L10n.Nav.airspaceConflictsTitle, systemImage: "exclamationmark.triangle")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(
-                                airspaceConflicts.contains(where: { $0.severity == .high })
-                                ? .aviationRed : .aviationAmber
-                            )
-                        Spacer()
-                        Text("\(airspaceConflicts.count)")
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundColor(.secondaryText)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondaryText)
-                    }
-                }
-
-                // Conflict rows
-                ForEach(Array(airspaceConflicts.enumerated()), id: \.element.id) { index, conflict in
-                    airspaceConflictRow(conflict)
-
-                    if index < airspaceConflicts.count - 1 {
-                        Divider()
-                            .background(Color.aviationDarkBlue.opacity(0.3))
-                    }
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.panelBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(
-                                airspaceConflicts.contains(where: { $0.severity == .high })
-                                ? Color.aviationRed.opacity(0.3)
-                                : Color.aviationAmber.opacity(0.2),
-                                lineWidth: 1
-                            )
-                    )
-            )
+    private var airspaceDataHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 14))
+                .foregroundColor(.secondaryText)
+            Text(L10n.Nav.airspaceCheckFailed)
+                .font(.system(size: 13))
+                .foregroundColor(.secondaryText)
         }
-    }
-
-    private func airspaceConflictRow(_ conflict: AirspaceConflict) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(severityColor(conflict.severity))
-                .frame(width: 8, height: 8)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(conflict.airspace.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(L10n.Nav.legNumber(conflict.legIndex + 1))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.dimText)
-                }
-
-                HStack(spacing: 12) {
-                    Text(conflict.airspace.typeDisplayString)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondaryText)
-
-                    Text("\(conflict.airspace.lowerCeiling.displayString) → \(conflict.airspace.upperCeiling.displayString)")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.dimText)
-
-                    Spacer()
-
-                    Text(conflict.conflictType == .transit ? "CROSSES" : "NEAR")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(severityColor(conflict.severity))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(severityColor(conflict.severity).opacity(0.15))
-                        )
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private func severityColor(_ severity: AirspaceConflict.ConflictSeverity) -> Color {
-        switch severity {
-        case .high: return .aviationRed
-        case .medium: return .aviationAmber
-        case .low: return .aviationGold
-        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.panelBackground)
+        )
     }
 
     // MARK: - Header Section

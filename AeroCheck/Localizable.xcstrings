@@ -5998,6 +5998,23 @@
         }
       }
     },
+    "nav.airspaceCheckFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to check airspace conflicts. Verify your internet connection or download airspace data for offline use."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de vérifier les conflits d'espace aérien. Vérifiez votre connexion internet ou téléchargez les données pour une utilisation hors ligne."
+          }
+        }
+      }
+    },
     "nav.allFlightPlans" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12213,6 +12230,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Télécharger"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadAll" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download All (Tiles + Data)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout télécharger (tuiles + données)"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadAirspaceOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airspace Data Only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données d'espace aérien uniquement"
           }
         }
       }

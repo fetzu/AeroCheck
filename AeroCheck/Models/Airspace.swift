@@ -175,33 +175,37 @@ struct AirspaceGeometry: Codable {
 
 struct AltitudeLimit: Codable {
     let value: Int
-    let unit: Int                        // 0 = FT, 1 = FL, 6 = M
+    let unit: Int                        // 0 = M, 1 = FT, 6 = FL (OpenAIP schema)
     let referenceDatum: Int              // 0 = GND, 1 = MSL, 2 = STD
 
     /// Convert to feet MSL for comparison (approximate for GND reference)
     var asFeetMSL: Double {
         let feetValue: Double
         switch unit {
-        case 1: // Flight Level
-            feetValue = Double(value) * 100
-        case 6: // Meters
+        case 0: // Meters (OpenAIP unit code 0)
             feetValue = Double(value) * 3.28084
-        default: // Feet
+        case 6: // Flight Level (OpenAIP unit code 6)
+            feetValue = Double(value) * 100
+        default: // Feet (OpenAIP unit code 1, and fallback)
             feetValue = Double(value)
         }
 
-        // STD (standard pressure) is effectively MSL for comparison
+        // For GND (AGL) reference, we can't convert to MSL without terrain data.
+        // Return the raw feet value as an approximation — for a lower limit of
+        // "0 ft GND" this correctly returns 0, and for non-zero AGL values this
+        // is a reasonable conservative estimate.
+        // STD (standard pressure) is effectively MSL for comparison purposes.
         return feetValue
     }
 
     /// Human-readable display string
     var displayString: String {
         switch unit {
-        case 1: // Flight Level
-            return "FL \(value)"
-        case 6: // Meters
+        case 0: // Meters
             let datum = referenceDatum == 0 ? "AGL" : "MSL"
             return "\(value) m \(datum)"
+        case 6: // Flight Level
+            return "FL \(value)"
         default: // Feet
             if value == 0 && referenceDatum == 0 {
                 return "GND"

@@ -42,8 +42,7 @@ ________
 
 <br>
 
-### `Initial Release`
-# **Version 3.4.0** - Share Cards, Navigation Fixes & Terrain Charts
+## **Version 3.4.0** - Share Cards, Navigation Fixes & Terrain Charts
 *Released February 08, 2026*
 
 ### New Features
@@ -508,6 +507,7 @@ Give it a try and let us know what you think!
 
 <br>
 
+### `Initial Release`
 ## **Version 1.0.0** - Take Off Check completed !
 *Released December 07, 2025*
 

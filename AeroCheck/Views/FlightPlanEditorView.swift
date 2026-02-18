@@ -231,6 +231,7 @@ struct FlightPlanEditorView: View {
     }
 
     private func analyzeAirspaceConflicts() async {
+        print("[Airspace] Service identity: \(ObjectIdentifier(openAIPDataService)), countries=\(openAIPDataService.downloadedCountries), count=\(openAIPDataService.airspaceCount)")
         guard openAIPDataService.isDataAvailable, flightPlan.waypoints.count >= 2 else {
             print("[Airspace] Analysis skipped: available=\(openAIPDataService.isDataAvailable), waypoints=\(flightPlan.waypoints.count)")
             airspaceConflicts = []

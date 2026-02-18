@@ -60,6 +60,9 @@ class OpenAIPDataService: ObservableObject {
             airspaceCount = metadata.airspaceCounts.values.reduce(0, +)
             lastUpdated = metadata.lastSyncDates.values.max()
             isDataAvailable = !downloadedCountries.isEmpty
+            print("[OpenAIP] Init \(ObjectIdentifier(self)): available=\(isDataAvailable), countries=\(downloadedCountries), count=\(airspaceCount)")
+        } else {
+            print("[OpenAIP] Init \(ObjectIdentifier(self)): no metadata found at \(metadataFileURL.path)")
         }
     }
 

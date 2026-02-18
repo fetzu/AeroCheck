@@ -590,6 +590,7 @@ struct FlightDetailView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
     let flight: Flight
 
@@ -981,6 +982,7 @@ struct FlightDetailView: View {
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
+                        .environmentObject(openAIPDataService)
                 }
             }
 

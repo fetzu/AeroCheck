@@ -7,6 +7,7 @@ struct FlightPlanningView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
 
     @State private var showingNewPlanSheet = false
@@ -69,6 +70,7 @@ struct FlightPlanningView: View {
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
+                    .environmentObject(openAIPDataService)
             }
             .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
                 Button(L10n.Button.cancel, role: .cancel) { }

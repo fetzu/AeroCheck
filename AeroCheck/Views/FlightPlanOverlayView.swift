@@ -35,6 +35,7 @@ struct FlightPlanOverlayView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
 
     @State private var currentPresetPosition: FlightPlanOverlayPosition = .middleLeft
     @State private var customPosition: CGPoint? = nil
@@ -98,6 +99,7 @@ struct FlightPlanOverlayView: View {
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
+                    .environmentObject(openAIPDataService)
             }
         }
         .onReceive(refreshTimer) { _ in

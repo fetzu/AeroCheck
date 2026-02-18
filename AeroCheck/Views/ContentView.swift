@@ -6,6 +6,8 @@ struct ContentView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var windDataService: WindDataService
+    @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -85,6 +87,9 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(openAIPDataService)
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {

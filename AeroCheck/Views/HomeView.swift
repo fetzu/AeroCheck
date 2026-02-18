@@ -97,6 +97,8 @@ struct HomeView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var flightEventDetector: FlightEventDetector
+    @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @State private var showSettings = false
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
@@ -178,6 +180,7 @@ struct HomeView: View {
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
+                .environmentObject(openAIPDataService)
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
@@ -190,6 +193,8 @@ struct HomeView: View {
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
+                .environmentObject(openAIPCacheManager)
+                .environmentObject(openAIPDataService)
         }
         .onAppear {
             syncSelectedAircraftIndex()

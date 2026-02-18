@@ -619,6 +619,7 @@ struct NavigationMapView: View {
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(aircraftDataService)
+                        .environmentObject(openAIPDataService)
                 }
             }
 
@@ -1659,6 +1660,7 @@ struct NavigationMapView: View {
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(aircraftDataService)
+                        .environmentObject(openAIPDataService)
                 }
             }
 

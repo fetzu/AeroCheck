@@ -55,6 +55,7 @@ struct FlightPlanEditorView: View {
     @State private var routeRefreshToken = UUID() // Forces route table refresh
     @State private var airspaceConflicts: [AirspaceConflict] = []
     @State private var showingAirspaceConflicts = false
+    @State private var airspaceDataUnavailable = false
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -231,16 +232,22 @@ struct FlightPlanEditorView: View {
     }
 
     private func analyzeAirspaceConflicts() async {
-        print("[Airspace] Service identity: \(ObjectIdentifier(openAIPDataService)), countries=\(openAIPDataService.downloadedCountries), count=\(openAIPDataService.airspaceCount)")
-        guard openAIPDataService.isDataAvailable, flightPlan.waypoints.count >= 2 else {
-            print("[Airspace] Analysis skipped: available=\(openAIPDataService.isDataAvailable), waypoints=\(flightPlan.waypoints.count)")
+        guard flightPlan.waypoints.count >= 2 else {
             airspaceConflicts = []
+            airspaceDataUnavailable = false
             return
         }
 
+        guard openAIPDataService.isDataAvailable else {
+            airspaceConflicts = []
+            airspaceDataUnavailable = true
+            return
+        }
+
+        airspaceDataUnavailable = false
+
         // Ensure airspace data is loaded into memory (lazy loading pattern)
         await openAIPDataService.ensureLoaded()
-        print("[Airspace] Data loaded: isLoaded=\(openAIPDataService.isLoaded), total airspaces=\(openAIPDataService.airspaceCount)")
 
         let waypoints = flightPlan.waypoints.map { wp in
             (coordinate: wp.coordinate, altitude: wp.altitude)
@@ -248,20 +255,33 @@ struct FlightPlanEditorView: View {
 
         let routeCoords = flightPlan.waypoints.map(\.coordinate)
         let nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
-        print("[Airspace] Nearby airspaces along route: \(nearbyAirspaces.count)")
 
         airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
             waypoints: waypoints,
             airspaces: nearbyAirspaces
         )
-        print("[Airspace] Conflicts found: \(airspaceConflicts.count)")
     }
 
     // MARK: - Airspace Conflicts Section
 
     @ViewBuilder
     private var airspaceConflictsSection: some View {
-        if !airspaceConflicts.isEmpty {
+        if airspaceDataUnavailable && flightPlan.waypoints.count >= 2 {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondaryText)
+                Text(L10n.Nav.airspaceDataRequired)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondaryText)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.panelBackground)
+            )
+        } else if !airspaceConflicts.isEmpty {
             VStack(spacing: 12) {
                 // Section header — tappable to open full detail sheet
                 Button(action: { showingAirspaceConflicts = true }) {

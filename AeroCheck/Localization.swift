@@ -1095,6 +1095,7 @@ enum L10n {
         static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")
         static let airspaceAlongRoute = String(localized: "nav.airspaceAlongRoute")
         static let airspaceConflictsTitle = String(localized: "nav.airspaceConflictsTitle")
+        static let airspaceDataRequired = String(localized: "nav.airspaceDataRequired")
         static func legNumber(_ n: Int) -> String {
             String(format: String(localized: "nav.legNumber"), n)
         }

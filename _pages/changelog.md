@@ -11,7 +11,38 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
-# **Version 3.5.0** - Worldwide Airspace Data
+# **Version 3.6.0** - Flight Plan Airspace Conflicts
+*Released February 18, 2026*
+
+### New Features
+
+- **On-Demand Airspace Conflict Analysis**: Flight plans now check for airspace conflicts even without downloaded data, using live OpenAIP API requests along the route.
+- **Separate Airspace Data Download**: New option in Settings → Navigation & Maps to download airspace data independently from map tiles.
+
+### Improvements
+
+- **Flight Plan Performance**: Removed duplicate airspace conflict display (was shown both as banner and inline list), significantly improving scroll performance on iPad.
+- **Streamlined Conflict UI**: Airspace conflicts are now shown only as a clickable banner above the route table, opening a detail sheet on tap.
+- **Graceful Offline Fallback**: When both cached data and API are unavailable, a clear message guides users to check connectivity or download data.
+
+### Bug Fixes
+
+- **OpenAIP Download Failure**: Fixed airspace data download failing for countries with airspaces that omit frequency callsign names (e.g., Swiss restricted areas).
+- **Environment Object Injection**: Fixed missing `openAIPDataService` injection across multiple sheet presentations, resolving crashes when accessing airspace features.
+- **Airspace Detection for Large Zones**: Fixed detection of large airspaces (like FIRs) that fully surround the route bounding box.
+- **Compiler Warnings**: Resolved all Swift compiler warnings for a clean build.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.5.0...3.6.0
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.6.0)
+
+<br>
+
+________
+
+<br>
+
+## **Version 3.5.0** - Worldwide Airspace Data
 *Released February 11, 2026*
 
 ### New Features
@@ -35,10 +66,6 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 **Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.4.0...3.5.0
 
 [Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.5.0)
-
-<br>
-
-________
 
 <br>
 

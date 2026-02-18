@@ -86,6 +86,9 @@ struct FlightPlanEditorView: View {
                     // Route table section
                     routeSection
 
+                    // Airspace conflicts inline section
+                    airspaceConflictsSection
+
                     // Fuel calculation section
                     fuelSection
 
@@ -247,6 +250,110 @@ struct FlightPlanEditorView: View {
             waypoints: waypoints,
             airspaces: nearbyAirspaces
         )
+    }
+
+    // MARK: - Airspace Conflicts Section
+
+    @ViewBuilder
+    private var airspaceConflictsSection: some View {
+        if !airspaceConflicts.isEmpty {
+            VStack(spacing: 12) {
+                // Section header — tappable to open full detail sheet
+                Button(action: { showingAirspaceConflicts = true }) {
+                    HStack {
+                        Label(L10n.Nav.airspaceConflictsTitle, systemImage: "exclamationmark.triangle")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(
+                                airspaceConflicts.contains(where: { $0.severity == .high })
+                                ? .aviationRed : .aviationAmber
+                            )
+                        Spacer()
+                        Text("\(airspaceConflicts.count)")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondaryText)
+                    }
+                }
+
+                // Conflict rows
+                ForEach(Array(airspaceConflicts.enumerated()), id: \.element.id) { index, conflict in
+                    airspaceConflictRow(conflict)
+
+                    if index < airspaceConflicts.count - 1 {
+                        Divider()
+                            .background(Color.aviationDarkBlue.opacity(0.3))
+                    }
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                airspaceConflicts.contains(where: { $0.severity == .high })
+                                ? Color.aviationRed.opacity(0.3)
+                                : Color.aviationAmber.opacity(0.2),
+                                lineWidth: 1
+                            )
+                    )
+            )
+        }
+    }
+
+    private func airspaceConflictRow(_ conflict: AirspaceConflict) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(severityColor(conflict.severity))
+                .frame(width: 8, height: 8)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(conflict.airspace.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(L10n.Nav.legNumber(conflict.legIndex + 1))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.dimText)
+                }
+
+                HStack(spacing: 12) {
+                    Text(conflict.airspace.typeDisplayString)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondaryText)
+
+                    Text("\(conflict.airspace.lowerCeiling.displayString) → \(conflict.airspace.upperCeiling.displayString)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.dimText)
+
+                    Spacer()
+
+                    Text(conflict.conflictType == .transit ? "CROSSES" : "NEAR")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(severityColor(conflict.severity))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(severityColor(conflict.severity).opacity(0.15))
+                        )
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func severityColor(_ severity: AirspaceConflict.ConflictSeverity) -> Color {
+        switch severity {
+        case .high: return .aviationRed
+        case .medium: return .aviationAmber
+        case .low: return .aviationGold
+        }
     }
 
     // MARK: - Header Section
@@ -1559,22 +1666,31 @@ struct MapWaypointPickerView: View {
     @State private var selectedAirport: Airport?
     @State private var selectedAirportFrequency: String?
     @State private var showAirportConfirmation = false
+    @State private var visibleAirports: [Airport] = []
+    @State private var airportUpdateTask: Task<Void, Never>?
 
-    /// Airports visible in current map region
-    private var visibleAirports: [Airport] {
-        guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
-            return []
+    private func scheduleAirportUpdate() {
+        airportUpdateTask?.cancel()
+        airportUpdateTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            guard !Task.isCancelled else { return }
+            guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
+                await MainActor.run { visibleAirports = [] }
+                return
+            }
+            let currentRegion = region
+            let halfLatSpan = currentRegion.span.latitudeDelta / 2
+            let halfLonSpan = currentRegion.span.longitudeDelta / 2
+            let airports = airportDataService.getAirportsInRegion(
+                minLat: currentRegion.center.latitude - halfLatSpan,
+                maxLat: currentRegion.center.latitude + halfLatSpan,
+                minLon: currentRegion.center.longitude - halfLonSpan,
+                maxLon: currentRegion.center.longitude + halfLonSpan,
+                types: [.largeAirport, .mediumAirport, .smallAirport],
+                limit: 100
+            )
+            await MainActor.run { visibleAirports = airports }
         }
-        let halfLatSpan = region.span.latitudeDelta / 2
-        let halfLonSpan = region.span.longitudeDelta / 2
-        return airportDataService.getAirportsInRegion(
-            minLat: region.center.latitude - halfLatSpan,
-            maxLat: region.center.latitude + halfLatSpan,
-            minLon: region.center.longitude - halfLonSpan,
-            maxLon: region.center.longitude + halfLonSpan,
-            types: [.largeAirport, .mediumAirport, .smallAirport],
-            limit: 100
-        )
     }
 
     var body: some View {
@@ -1681,6 +1797,9 @@ struct MapWaypointPickerView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear { scheduleAirportUpdate() }
+        .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
+        .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
     }
 }
 
@@ -1700,14 +1819,40 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         mapView.showsCompass = true
         mapView.showsScale = true
         configureMapLayer(mapView)
+        mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
         return mapView
     }
 
+    private func cameraZoomRange(for layer: WaypointPickerMapLayer) -> MKMapView.CameraZoomRange? {
+        switch layer {
+        case .apple:
+            return MKMapView.CameraZoomRange(
+                minCenterCoordinateDistance: 100,
+                maxCenterCoordinateDistance: 10_000_000
+            )
+        case .icao:
+            // ICAO + Segelflugkarte: zoom 7-12, matching NavigationView values
+            return MKMapView.CameraZoomRange(
+                minCenterCoordinateDistance: 65_000,
+                maxCenterCoordinateDistance: 600_000
+            )
+        case .swissimage:
+            // SWISSIMAGE: zoom 7-18
+            return MKMapView.CameraZoomRange(
+                minCenterCoordinateDistance: 1_500,
+                maxCenterCoordinateDistance: 600_000
+            )
+        }
+    }
+
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Update layer if changed
-        context.coordinator.currentLayer = mapLayer
-        configureMapLayer(mapView)
-        // Update airport annotations
+        // Only reconfigure tiles when layer actually changes
+        if context.coordinator.currentLayer != mapLayer {
+            context.coordinator.currentLayer = mapLayer
+            configureMapLayer(mapView)
+            mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
+        }
+        // Update airport annotations (already uses diff logic)
         updateAirportAnnotations(mapView)
     }
 
@@ -1759,13 +1904,26 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: WaypointPickerMapViewRepresentable
         var currentLayer: WaypointPickerMapLayer
+        var isUserInteracting = false
 
         init(_ parent: WaypointPickerMapViewRepresentable) {
             self.parent = parent
             self.currentLayer = parent.mapLayer
         }
 
+        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
+                for recognizer in gestureRecognizers {
+                    if recognizer.state == .began || recognizer.state == .changed {
+                        isUserInteracting = true
+                        return
+                    }
+                }
+            }
+        }
+
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            isUserInteracting = false
             parent.region = mapView.region
         }
 

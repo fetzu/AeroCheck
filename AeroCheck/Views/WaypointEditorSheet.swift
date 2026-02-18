@@ -422,7 +422,7 @@ struct CoordinatePickerView: View {
     let onSelect: (CLLocationCoordinate2D) -> Void
 
     @State private var region: MKCoordinateRegion
-    @State private var cameraPosition: MapCameraPosition
+    @State private var selectedLayer: WaypointPickerMapLayer = .apple
 
     init(initialCoordinate: CLLocationCoordinate2D, onSelect: @escaping (CLLocationCoordinate2D) -> Void) {
         self.initialCoordinate = initialCoordinate
@@ -432,18 +432,18 @@ struct CoordinatePickerView: View {
             span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)
         )
         _region = State(initialValue: initialRegion)
-        _cameraPosition = State(initialValue: .region(initialRegion))
     }
 
     var body: some View {
         NavigationView {
             ZStack {
-                Map(position: $cameraPosition, interactionModes: .all) {
-                }
+                WaypointPickerMapViewRepresentable(
+                    region: $region,
+                    mapLayer: selectedLayer,
+                    airports: [],
+                    onAirportTapped: nil
+                )
                 .ignoresSafeArea()
-                .onMapCameraChange { context in
-                    region = context.region
-                }
 
                 // Crosshair
                 VStack {
@@ -455,6 +455,25 @@ struct CoordinatePickerView: View {
                             .foregroundColor(.aviationGold)
                             .shadow(color: .black, radius: 2)
                         Spacer()
+                    }
+                    Spacer()
+                }
+
+                // Layer selector at top-right
+                VStack {
+                    HStack {
+                        Spacer()
+                        Picker(L10n.Nav.layer, selection: $selectedLayer) {
+                            ForEach(WaypointPickerMapLayer.allCases) { layer in
+                                Label(layer.rawValue, systemImage: layer.icon)
+                                    .tag(layer)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .padding(8)
+                        .background(Color.panelBackground.opacity(0.9))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding()
                     }
                     Spacer()
                 }

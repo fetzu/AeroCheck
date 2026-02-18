@@ -3652,36 +3652,44 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
-        if regionChanged || overlayChanged {
+        if overlayChanged {
+            // Always reposition camera on overlay change (layer switch)
             let camera = MKMapCamera(
                 lookingAtCenter: mapState.region.center,
                 fromDistance: mapState.cameraDistance,
                 pitch: 0,
                 heading: mapState.cameraHeading
             )
-            mapView.setCamera(camera, animated: !overlayChanged)
+            mapView.setCamera(camera, animated: false)
 
             // Force tile reload after overlay change for Swiss layers
-            if overlayChanged {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    // Trigger a redraw by slightly adjusting the camera distance
-                    let adjustedCamera = MKMapCamera(
-                        lookingAtCenter: mapState.region.center,
-                        fromDistance: mapState.cameraDistance * 1.0001,
-                        pitch: 0,
-                        heading: mapState.cameraHeading
-                    )
-                    mapView.setCamera(adjustedCamera, animated: false)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        mapView.setCamera(camera, animated: false)
-                    }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                // Trigger a redraw by slightly adjusting the camera distance
+                let adjustedCamera = MKMapCamera(
+                    lookingAtCenter: mapState.region.center,
+                    fromDistance: mapState.cameraDistance * 1.0001,
+                    pitch: 0,
+                    heading: mapState.cameraHeading
+                )
+                mapView.setCamera(adjustedCamera, animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    mapView.setCamera(camera, animated: false)
                 }
             }
+        } else if regionChanged && !context.coordinator.isUserInteracting {
+            // Only reposition camera when NOT user-driven (matches NativeMapViewUIKit pattern)
+            let camera = MKMapCamera(
+                lookingAtCenter: mapState.region.center,
+                fromDistance: mapState.cameraDistance,
+                pitch: 0,
+                heading: mapState.cameraHeading
+            )
+            mapView.setCamera(camera, animated: true)
         }
 
         // Apply heading changes independently of region (for track-up mode).
         // When only heading changed but not region/overlay, the above block won't fire.
-        if !regionChanged && !overlayChanged {
+        if !regionChanged && !overlayChanged && !context.coordinator.isUserInteracting {
             let headingDelta = abs(mapView.camera.heading - mapState.cameraHeading)
             let normalizedDelta = min(headingDelta, 360.0 - headingDelta)
             if normalizedDelta > 0.5 {
@@ -3888,6 +3896,7 @@ struct SwissMapView: UIViewRepresentable {
         var isStrictOfflineMode: Bool = false
         var hasSegelflugCache: Bool = false
         private var isUpdatingRegion = false
+        var isUserInteracting = false
 
         init(_ parent: SwissMapView) {
             self.parent = parent
@@ -3948,6 +3957,7 @@ struct SwissMapView: UIViewRepresentable {
             if let gestureRecognizers = mapView.subviews.first?.gestureRecognizers {
                 for recognizer in gestureRecognizers {
                     if recognizer.state == .began || recognizer.state == .changed {
+                        isUserInteracting = true
                         parent.isFollowingAircraft = false
                         return
                     }
@@ -3957,6 +3967,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Sync region changes back to shared state
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            isUserInteracting = false
             guard !isUpdatingRegion else { return }
             isUpdatingRegion = true
             parent.mapState.updateFromRegion(mapView.region)

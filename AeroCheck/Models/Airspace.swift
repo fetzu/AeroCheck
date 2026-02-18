@@ -128,6 +128,24 @@ struct Airspace: Codable, Identifiable {
         return altitudeFeetMSL >= lower && altitudeFeetMSL <= upper
     }
 
+    /// Check if a coordinate falls within this airspace's polygon using ray casting algorithm
+    func containsPoint(_ point: CLLocationCoordinate2D) -> Bool {
+        let polygon = polygonCoordinates
+        guard polygon.count >= 3 else { return false }
+        var inside = false
+        var j = polygon.count - 1
+        for i in 0..<polygon.count {
+            let xi = polygon[i].longitude, yi = polygon[i].latitude
+            let xj = polygon[j].longitude, yj = polygon[j].latitude
+            if ((yi > point.latitude) != (yj > point.latitude)) &&
+                (point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi) {
+                inside = !inside
+            }
+            j = i
+        }
+        return inside
+    }
+
     /// Primary radio frequency for this airspace (e.g., tower frequency for CTRs)
     var primaryFrequency: AirspaceFrequency? {
         frequencies?.first(where: { $0.primary }) ?? frequencies?.first

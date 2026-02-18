@@ -34,11 +34,10 @@ enum AirspaceAnalyzer {
                 if airspace.airspaceType == .fir || airspace.airspaceType == .uir { continue }
 
                 // Check if any sample point falls within the airspace polygon
-                let polygon = airspace.polygonCoordinates
-                guard polygon.count >= 3 else { continue }
+                guard airspace.polygonCoordinates.count >= 3 else { continue }
 
                 let intersects = samplePoints.contains { point in
-                    pointInPolygon(point: point, polygon: polygon)
+                    airspace.containsPoint(point)
                 }
 
                 if intersects {
@@ -57,7 +56,7 @@ enum AirspaceAnalyzer {
                 } else {
                     // Check proximity (within ~1 NM of boundary)
                     let isNearby = samplePoints.contains { point in
-                        minimumDistanceToPolygon(point: point, polygon: polygon) < 1852 // 1 NM in meters
+                        minimumDistanceToPolygon(point: point, polygon: airspace.polygonCoordinates) < 1852 // 1 NM in meters
                     }
 
                     if isNearby {
@@ -103,27 +102,6 @@ enum AirspaceAnalyzer {
         }
         points.append(to)
         return points
-    }
-
-    /// Point-in-polygon test using ray casting algorithm
-    private static func pointInPolygon(point: CLLocationCoordinate2D, polygon: [CLLocationCoordinate2D]) -> Bool {
-        var inside = false
-        var j = polygon.count - 1
-
-        for i in 0..<polygon.count {
-            let xi = polygon[i].longitude, yi = polygon[i].latitude
-            let xj = polygon[j].longitude, yj = polygon[j].latitude
-
-            let intersect = ((yi > point.latitude) != (yj > point.latitude)) &&
-                (point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi)
-
-            if intersect {
-                inside = !inside
-            }
-            j = i
-        }
-
-        return inside
     }
 
     /// Minimum distance from a point to any edge of a polygon (in meters)

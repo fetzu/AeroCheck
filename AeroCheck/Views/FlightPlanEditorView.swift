@@ -232,12 +232,14 @@ struct FlightPlanEditorView: View {
 
     private func analyzeAirspaceConflicts() async {
         guard openAIPDataService.isDataAvailable, flightPlan.waypoints.count >= 2 else {
+            print("[Airspace] Analysis skipped: available=\(openAIPDataService.isDataAvailable), waypoints=\(flightPlan.waypoints.count)")
             airspaceConflicts = []
             return
         }
 
         // Ensure airspace data is loaded into memory (lazy loading pattern)
         await openAIPDataService.ensureLoaded()
+        print("[Airspace] Data loaded: isLoaded=\(openAIPDataService.isLoaded), total airspaces=\(openAIPDataService.airspaceCount)")
 
         let waypoints = flightPlan.waypoints.map { wp in
             (coordinate: wp.coordinate, altitude: wp.altitude)
@@ -245,11 +247,13 @@ struct FlightPlanEditorView: View {
 
         let routeCoords = flightPlan.waypoints.map(\.coordinate)
         let nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
+        print("[Airspace] Nearby airspaces along route: \(nearbyAirspaces.count)")
 
         airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
             waypoints: waypoints,
             airspaces: nearbyAirspaces
         )
+        print("[Airspace] Conflicts found: \(airspaceConflicts.count)")
     }
 
     // MARK: - Airspace Conflicts Section

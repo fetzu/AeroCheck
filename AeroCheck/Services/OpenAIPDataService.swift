@@ -84,13 +84,15 @@ class OpenAIPDataService: ObservableObject {
 
         for country in metadata.lastSyncDates.keys {
             let fileURL = airspaceFileURL(for: country)
-            guard fileManager.fileExists(atPath: fileURL.path),
-                  let data = try? Data(contentsOf: fileURL),
-                  let countryAirspaces = try? decoder.decode([Airspace].self, from: data) else {
-                continue
+            guard fileManager.fileExists(atPath: fileURL.path) else { continue }
+            do {
+                let data = try Data(contentsOf: fileURL)
+                let countryAirspaces = try decoder.decode([Airspace].self, from: data)
+                loadedAirspaces.append(contentsOf: countryAirspaces)
+                byCountry[country] = countryAirspaces
+            } catch {
+                print("[OpenAIP] Failed to load airspaces for \(country): \(error)")
             }
-            loadedAirspaces.append(contentsOf: countryAirspaces)
-            byCountry[country] = countryAirspaces
         }
 
         airspaces = loadedAirspaces
@@ -260,11 +262,15 @@ class OpenAIPDataService: ObservableObject {
             let coords = airspace.polygonCoordinates
             guard !coords.isEmpty else { return false }
 
-            // Check if any vertex of the polygon falls within the region
-            return coords.contains { coord in
+            // Check 1: Any polygon vertex inside the bounding box (catches small airspaces)
+            let vertexInBounds = coords.contains { coord in
                 coord.latitude >= minLat && coord.latitude <= maxLat &&
                 coord.longitude >= minLon && coord.longitude <= maxLon
             }
+            if vertexInBounds { return true }
+
+            // Check 2: Bounding box center inside the polygon (catches large surrounding airspaces)
+            return airspace.containsPoint(region.center)
         }
     }
 

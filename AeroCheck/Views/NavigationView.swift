@@ -1452,7 +1452,7 @@ struct NavigationMapView: View {
                     }
                 }
                 if let freq = airspace.primaryFrequency {
-                    Text(freq.name)
+                    Text(freq.name ?? freq.value)
                         .font(.system(size: 10))
                         .foregroundColor(.dimText)
                 }
@@ -2468,7 +2468,7 @@ struct RadioFrequencyOverlayView: View {
                     }
                 }
                 if let freq = airspace.primaryFrequency {
-                    Text(freq.name)
+                    Text(freq.name ?? freq.value)
                         .font(.system(size: 9))
                         .foregroundColor(.dimText)
                 }

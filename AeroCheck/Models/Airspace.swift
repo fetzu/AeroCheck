@@ -7,7 +7,7 @@ import MapKit
 /// A radio frequency associated with an airspace from OpenAIP
 struct AirspaceFrequency: Codable {
     let value: String       // Frequency MHz as string (e.g., "118.100")
-    let name: String        // Callsign (e.g., "ZUERICH TOWER")
+    let name: String?       // Callsign (e.g., "ZUERICH TOWER") — optional, some airspaces omit this
     let primary: Bool
     let unit: Int?
 }

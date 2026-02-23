@@ -1029,6 +1029,10 @@ enum L10n {
         static let mc = String(localized: "nav.mc")
         static let moveUp = String(localized: "nav.moveUp")
         static let moveDown = String(localized: "nav.moveDown")
+        static let setAltitude = String(localized: "nav.setAltitude")
+        static let allWaypoints = String(localized: "nav.allWaypoints")
+        static let emptyOnly = String(localized: "nav.emptyOnly")
+        static let setAltitudeMessage = String(localized: "nav.setAltitudeMessage")
 
         // Fuel Calculation
         static let fuelCalculation = String(localized: "nav.fuelCalculation")
@@ -1155,6 +1159,18 @@ enum L10n {
         static let atoRecorded = String(localized: "nav.atoRecorded")
         static let selectedCoordinates = String(localized: "nav.selectedCoordinates")
         static let useThisLocation = String(localized: "nav.useThisLocation")
+
+        // ICAO Flight Plan
+        static let icaoDetails = String(localized: "nav.icaoDetails")
+        static let icaoAircraftType = String(localized: "nav.icaoAircraftType")
+        static let wakeTurbulence = String(localized: "nav.wakeTurbulence")
+        static let equipmentCodes = String(localized: "nav.equipmentCodes")
+        static let surveillanceCodes = String(localized: "nav.surveillanceCodes")
+        static let alternateAerodrome = String(localized: "nav.alternateAerodrome")
+        static let personsOnBoard = String(localized: "nav.personsOnBoard")
+        static let aircraftColour = String(localized: "nav.aircraftColour")
+        static let copyICAOFlightPlan = String(localized: "nav.copyICAOFlightPlan")
+        static let icaoCopied = String(localized: "nav.icaoCopied")
     }
 }
 

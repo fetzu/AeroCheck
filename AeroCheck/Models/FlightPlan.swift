@@ -202,6 +202,15 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var createdAt: Date
     var updatedAt: Date
 
+    // ICAO flight plan fields
+    var icaoAircraftType: String?        // e.g., "DY20", "P28A"
+    var wakeTurbulenceCategory: String?  // "L" (light), "M" (medium), "H" (heavy)
+    var equipmentCodes: String?          // e.g., "S" (standard VHF/VOR/ILS)
+    var surveillanceCodes: String?       // e.g., "N" (nil) or "S" (Mode S)
+    var alternateAerodrome: String?      // ICAO ident of alternate
+    var personsOnBoard: Int?             // POB count
+    var aircraftColour: String?          // e.g., "WHITE RED"
+
     // Active flight tracking
     var isActive: Bool
     var currentWaypointIndex: Int
@@ -239,6 +248,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         debriefing: String = "",
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        icaoAircraftType: String? = nil,
+        wakeTurbulenceCategory: String? = nil,
+        equipmentCodes: String? = nil,
+        surveillanceCodes: String? = nil,
+        alternateAerodrome: String? = nil,
+        personsOnBoard: Int? = nil,
+        aircraftColour: String? = nil,
         isActive: Bool = false,
         currentWaypointIndex: Int = 0,
         chronometerStartTime: Date? = nil
@@ -274,6 +290,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.debriefing = debriefing
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.icaoAircraftType = icaoAircraftType
+        self.wakeTurbulenceCategory = wakeTurbulenceCategory
+        self.equipmentCodes = equipmentCodes
+        self.surveillanceCodes = surveillanceCodes
+        self.alternateAerodrome = alternateAerodrome
+        self.personsOnBoard = personsOnBoard
+        self.aircraftColour = aircraftColour
         self.isActive = isActive
         self.currentWaypointIndex = currentWaypointIndex
         self.chronometerStartTime = chronometerStartTime
@@ -291,6 +314,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case blockOff, timeOff, timeOn, blockOn
         case counterStart, counterStop, landingsAtBase, totalLandings
         case remarks, debriefing, createdAt, updatedAt
+        case icaoAircraftType, wakeTurbulenceCategory, equipmentCodes, surveillanceCodes
+        case alternateAerodrome, personsOnBoard, aircraftColour
         case isActive, currentWaypointIndex, chronometerStartTime
     }
 
@@ -345,6 +370,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         debriefing = try container.decodeIfPresent(String.self, forKey: .debriefing) ?? ""
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        icaoAircraftType = try container.decodeIfPresent(String.self, forKey: .icaoAircraftType)
+        wakeTurbulenceCategory = try container.decodeIfPresent(String.self, forKey: .wakeTurbulenceCategory)
+        equipmentCodes = try container.decodeIfPresent(String.self, forKey: .equipmentCodes)
+        surveillanceCodes = try container.decodeIfPresent(String.self, forKey: .surveillanceCodes)
+        alternateAerodrome = try container.decodeIfPresent(String.self, forKey: .alternateAerodrome)
+        personsOnBoard = try container.decodeIfPresent(Int.self, forKey: .personsOnBoard)
+        aircraftColour = try container.decodeIfPresent(String.self, forKey: .aircraftColour)
         isActive = try container.decode(Bool.self, forKey: .isActive)
         currentWaypointIndex = try container.decode(Int.self, forKey: .currentWaypointIndex)
         chronometerStartTime = try container.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
@@ -383,6 +415,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encode(debriefing, forKey: .debriefing)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(icaoAircraftType, forKey: .icaoAircraftType)
+        try container.encodeIfPresent(wakeTurbulenceCategory, forKey: .wakeTurbulenceCategory)
+        try container.encodeIfPresent(equipmentCodes, forKey: .equipmentCodes)
+        try container.encodeIfPresent(surveillanceCodes, forKey: .surveillanceCodes)
+        try container.encodeIfPresent(alternateAerodrome, forKey: .alternateAerodrome)
+        try container.encodeIfPresent(personsOnBoard, forKey: .personsOnBoard)
+        try container.encodeIfPresent(aircraftColour, forKey: .aircraftColour)
         try container.encode(isActive, forKey: .isActive)
         try container.encode(currentWaypointIndex, forKey: .currentWaypointIndex)
         try container.encodeIfPresent(chronometerStartTime, forKey: .chronometerStartTime)
@@ -568,6 +607,170 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         bearing = (bearing + 360).truncatingRemainder(dividingBy: 360)
 
         return bearing
+    }
+}
+
+// MARK: - ICAO Type Mapping
+
+extension FlightPlan {
+    /// Known ICAO type designators for common GA aircraft
+    static let icaoTypeMap: [String: String] = [
+        "WT9": "DY20",
+        "wt9-dynamic": "DY20",
+        "pa28-181": "P28A",
+        "ps28-cruiser": "P28A",
+        "c172": "C172",
+        "c152": "C152",
+        "c182": "C182",
+        "dr400": "DR40",
+        "pa28-161": "P28A",
+        "pa28r-201": "P28R",
+    ]
+
+    /// Resolve the ICAO aircraft type designator
+    var resolvedICAOType: String {
+        if let explicit = icaoAircraftType, !explicit.isEmpty {
+            return explicit.uppercased()
+        }
+        return FlightPlan.icaoTypeMap[aircraftTypeId] ?? "ZZZZ"
+    }
+
+    /// Generate ICAO flight plan text message (ICAO Doc 4444 format)
+    func toICAOFlightPlan() -> String {
+        // Field 7 - Aircraft identification (registration without hyphen)
+        let acId = aircraftRegistration.replacingOccurrences(of: "-", with: "")
+
+        // Field 8 - Flight rules and type
+        let flightRules: String
+        switch flightType {
+        case .vfr, .training, .local, .crossCountry, .checkFlight:
+            flightRules = "VG" // VFR General aviation
+        }
+
+        // Field 9 - Number and type of aircraft, wake turbulence category
+        let acType = resolvedICAOType
+        let wtc = (wakeTurbulenceCategory ?? "L").uppercased()
+
+        // Field 10 - Equipment and surveillance
+        let equip = (equipmentCodes ?? "S").uppercased()
+        let surv = (surveillanceCodes ?? "N").uppercased()
+
+        // Field 13 - Departure aerodrome and time
+        let depAerodrome: String
+        if let firstWP = waypoints.first, !firstWP.name.isEmpty {
+            depAerodrome = firstWP.name.count == 4 ? firstWP.name.uppercased() : "ZZZZ"
+        } else {
+            depAerodrome = "ZZZZ"
+        }
+
+        let depTime: String
+        if let dep = plannedDepartureTime {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "HHmm"
+            fmt.timeZone = TimeZone(identifier: "UTC")
+            depTime = fmt.string(from: dep)
+        } else {
+            depTime = "0000"
+        }
+
+        // Field 15 - Cruising speed, level, and route
+        // Speed: "N" + 4-digit TAS in knots
+        let avgGS = waypoints.compactMap { $0.plannedGroundSpeed }.first
+            ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+        let speedStr = String(format: "N%04d", avgGS)
+
+        // Level: "VFR" or "A" + 3-digit altitude in hundreds of feet
+        let levelStr: String
+        let cruiseAlt = waypoints.dropFirst().dropLast().compactMap { $0.altitude }.first
+        if let alt = cruiseAlt {
+            let hundreds = Int(alt) / 100
+            levelStr = String(format: "A%03d", hundreds)
+        } else {
+            levelStr = "VFR"
+        }
+
+        // Route string: waypoint names joined by DCT
+        let routeWaypoints = waypoints.dropFirst().dropLast()
+        let routeStr: String
+        if routeWaypoints.isEmpty {
+            routeStr = "DCT"
+        } else {
+            let names = routeWaypoints.map { wp -> String in
+                let name = wp.name.uppercased()
+                    .replacingOccurrences(of: " ", with: "")
+                return name.isEmpty ? "ZZZZ" : String(name.prefix(11))
+            }
+            routeStr = "DCT " + names.joined(separator: " DCT ") + " DCT"
+        }
+
+        // Field 16 - Destination aerodrome, total EET, alternate(s)
+        let destAerodrome: String
+        if let lastWP = waypoints.last, !lastWP.name.isEmpty {
+            destAerodrome = lastWP.name.count == 4 ? lastWP.name.uppercased() : "ZZZZ"
+        } else {
+            destAerodrome = "ZZZZ"
+        }
+
+        // EET in HHMM format
+        let totalSeconds = Int(totalEET)
+        let eetHours = totalSeconds / 3600
+        let eetMinutes = (totalSeconds % 3600) / 60
+        let eetStr = String(format: "%02d%02d", eetHours, eetMinutes)
+
+        // Alternate(s)
+        let altAerodrome = (alternateAerodrome ?? "").uppercased()
+        let altStr = altAerodrome.isEmpty ? "" : " \(altAerodrome)"
+
+        // Field 18 - Other information
+        var otherInfo: [String] = []
+        if depAerodrome == "ZZZZ", let firstWP = waypoints.first {
+            otherInfo.append("DEP/\(firstWP.name.uppercased())")
+        }
+        if destAerodrome == "ZZZZ", let lastWP = waypoints.last {
+            otherInfo.append("DEST/\(lastWP.name.uppercased())")
+        }
+        if let pob = personsOnBoard {
+            otherInfo.append("0/\(pob)")
+        }
+        let pic = pilot.isEmpty ? "UNKNOWN" : pilot.uppercased()
+        otherInfo.append("PIC/\(pic)")
+
+        // Field 19 - Supplementary information
+        var suppInfo: [String] = []
+        if let endur = endurance {
+            let endurHours = Int(endur)
+            let endurMinutes = Int((endur - Double(endurHours)) * 60)
+            suppInfo.append(String(format: "E/%02d%02d", endurHours, endurMinutes))
+        }
+        if let pob = personsOnBoard {
+            suppInfo.append("P/\(pob)")
+        }
+        if let colour = aircraftColour, !colour.isEmpty {
+            suppInfo.append("A/\(colour.uppercased())")
+        }
+        suppInfo.append("C/\(pic)")
+
+        // Build the FPL message
+        var fpl = "(FPL-\(acId)-\(flightRules)\n"
+        fpl += "-\(acType)/\(wtc)-\(equip)/\(surv)\n"
+        fpl += "-\(depAerodrome)\(depTime)\n"
+        fpl += "-\(speedStr)\(levelStr)\n"
+        fpl += "-\(routeStr)\n"
+        fpl += "-\(destAerodrome)\(eetStr)\(altStr)\n"
+
+        if !otherInfo.isEmpty {
+            fpl += "-\(otherInfo.joined(separator: " "))\n"
+        } else {
+            fpl += "-0\n"
+        }
+
+        if !suppInfo.isEmpty {
+            fpl += "-\(suppInfo.joined(separator: " ")))"
+        } else {
+            fpl += "-)"
+        }
+
+        return fpl
     }
 }
 

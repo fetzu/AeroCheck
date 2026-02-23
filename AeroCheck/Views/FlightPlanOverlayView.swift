@@ -44,6 +44,8 @@ struct FlightPlanOverlayView: View {
     @State private var showingDepartureTimePicker = false
     @State private var showingFlightPlanDetail = false
     @State private var refreshTrigger = false // Triggers view refresh
+    /// Preview index for browsing waypoints without affecting flight state (nil = showing real active waypoint)
+    @State private var previewIndex: Int? = nil
 
     // Timer for refreshing values every second
     let refreshTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -106,6 +108,10 @@ struct FlightPlanOverlayView: View {
             // Trigger view refresh every second for real-time values
             refreshTrigger.toggle()
         }
+        .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) {
+            // Reset preview when GPS auto-advances the real waypoint
+            previewIndex = nil
+        }
     }
 
     /// Calculate the current position based on expanded/collapsed state
@@ -164,11 +170,16 @@ struct FlightPlanOverlayView: View {
 
             // Main content
             VStack(spacing: 12) {
-                // Next waypoint info - tappable to open flight plan detail
+                // Waypoint info - shows preview or active waypoint
                 if let plan = flightPlanManager.activeFlightPlan,
-                   let nextWaypoint = plan.nextWaypoint {
+                   !plan.waypoints.isEmpty {
+                    let displayIndex = previewIndex ?? plan.currentWaypointIndex
+                    let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                    let displayWaypoint = plan.waypoints[clampedIndex]
+                    let isPreview = previewIndex != nil && previewIndex != plan.currentWaypointIndex
+
                     Button(action: { showingFlightPlanDetail = true }) {
-                        nextWaypointSection(plan: plan, waypoint: nextWaypoint)
+                        waypointSection(plan: plan, waypoint: displayWaypoint, index: clampedIndex, isPreview: isPreview)
                     }
                     .buttonStyle(PlainButtonStyle())
                 } else {
@@ -210,54 +221,53 @@ struct FlightPlanOverlayView: View {
 
     private var compactContent: some View {
         HStack(spacing: 12) {
-            // Next waypoint
+            // Waypoint info (preview or active)
             if let plan = flightPlanManager.activeFlightPlan,
-               let nextWaypoint = plan.nextWaypoint {
+               !plan.waypoints.isEmpty {
+                let displayIndex = previewIndex ?? plan.currentWaypointIndex
+                let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                let displayWaypoint = plan.waypoints[clampedIndex]
+                let isPreview = previewIndex != nil && previewIndex != plan.currentWaypointIndex
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.Nav.next)
+                    Text(isPreview ? "PREVIEW" : L10n.Nav.next)
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(.dimText)
-                    Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                        .foregroundColor(isPreview ? .aviationBlue : .dimText)
+                    Text(displayWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(clampedIndex + 1)" : displayWaypoint.name)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
                 }
 
-                // Distance, bearing & EET
-                if let location = locationManager.currentLocation {
-                    let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-                    if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation),
-                       let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
-                        VStack(alignment: .center, spacing: 2) {
-                            HStack(spacing: 8) {
-                                // Distance
-                                Text(String(format: "%.1f", distance))
-                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.aviationGold)
-                                + Text(" NM")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.secondaryText)
+                // Planned MC & DIST from preceding waypoint
+                VStack(alignment: .center, spacing: 2) {
+                    HStack(spacing: 8) {
+                        if clampedIndex > 0, let dist = displayWaypoint.distance {
+                            Text(String(format: "%.1f", dist))
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundColor(.aviationGold)
+                            + Text(" NM")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondaryText)
+                        }
 
-                                // Heading
-                                Text(String(format: "%03d°", Int(bearing)))
-                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                            }
+                        if clampedIndex > 0, let mc = displayWaypoint.magneticCourse {
+                            Text(String(format: "%03d°", Int(mc)))
+                                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                        }
+                    }
 
-                            // EET to waypoint
-                            let groundSpeedKnots = max(locationManager.currentSpeedKnots, 1)
-                            if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
-                                let minutes = Int(eta / 60)
-                                let seconds = Int(eta) % 60
-                                HStack(spacing: 4) {
-                                    Text("EET")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.dimText)
-                                    Text(String(format: "%d:%02d", minutes, seconds))
-                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                        .foregroundColor(.secondaryText)
-                                }
-                            }
+                    // EET from preceding waypoint
+                    if clampedIndex > 0, let eet = displayWaypoint.estimatedElapsedTime {
+                        let minutes = Int(eet / 60)
+                        HStack(spacing: 4) {
+                            Text("EET")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.dimText)
+                            Text(String(format: "%d min", minutes))
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondaryText)
                         }
                     }
                 }
@@ -294,15 +304,17 @@ struct FlightPlanOverlayView: View {
 
     // MARK: - Sections
 
-    private func nextWaypointSection(plan: FlightPlan, waypoint: FlightPlanWaypoint) -> some View {
+    private func waypointSection(plan: FlightPlan, waypoint: FlightPlanWaypoint, index: Int, isPreview: Bool) -> some View {
         VStack(spacing: 8) {
-            // Waypoint name
+            // Waypoint name with preview indicator
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.Nav.nextWaypoint)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.dimText)
-                    Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : waypoint.name)
+                    HStack(spacing: 4) {
+                        Text(isPreview ? "PREVIEW" : L10n.Nav.nextWaypoint)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(isPreview ? .aviationBlue : .dimText)
+                    }
+                    Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
@@ -310,64 +322,21 @@ struct FlightPlanOverlayView: View {
 
                 Spacer()
 
-                Text("\(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
+                Text("\(index + 1)/\(plan.waypoints.count)")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(.secondaryText)
             }
 
-            // Navigation data - Heading and Distance to next waypoint
-            // Displayed prominently with real-time updates
+            // PRIMARY: Planned waypoint-to-waypoint data (MC, DIST, EET from preceding waypoint)
+            plannedLegDataRow(waypoint: waypoint, index: index)
+
+            // ATO status
+            atoStatusRow(waypoint: waypoint)
+
+            // SECONDARY: Live GPS data to real next waypoint (always shown)
             if let location = locationManager.currentLocation {
                 let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-
-                // Heading and Distance row - more prominent display
-                HStack(spacing: 20) {
-                    // Heading TO waypoint
-                    VStack(spacing: 2) {
-                        Text(L10n.Nav.hdgTo)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                        if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
-                            HStack(alignment: .firstTextBaseline, spacing: 1) {
-                                Text(String(format: "%03d", Int(bearing)))
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.aviationGold)
-                                Text("°")
-                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.aviationGold)
-                            }
-                        } else {
-                            Text("---°")
-                                .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                .foregroundColor(.dimText)
-                        }
-                    }
-
-                    // Distance TO waypoint
-                    VStack(spacing: 2) {
-                        Text(L10n.Nav.distTo)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                        if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
-                            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text(String(format: "%.1f", distance))
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.aviationGold)
-                                Text("NM")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondaryText)
-                            }
-                        } else {
-                            Text("-- NM")
-                                .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                .foregroundColor(.dimText)
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-
-                // ETO row (Estimated Time Over = current time + EET)
-                etoRow(clLocation: clLocation)
+                liveGPSDataRow(clLocation: clLocation, plan: plan, isPreview: isPreview)
 
                 // Total flight time (from takeoff)
                 flightTimeRow
@@ -387,25 +356,126 @@ struct FlightPlanOverlayView: View {
         }
     }
 
-    /// ETO display row
-    private func etoRow(clLocation: CLLocation) -> some View {
-        let groundSpeedKnots = max(locationManager.currentSpeedKnots, 1)
-        let eet = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots)
-        let etoString = eet.map { eet -> String in
-            let etoDate = Date().addingTimeInterval(eet)
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: etoDate)
-        }
+    /// PRIMARY display: Planned leg data (MC, DIST, EET) from the preceding waypoint
+    private func plannedLegDataRow(waypoint: FlightPlanWaypoint, index: Int) -> some View {
+        HStack(spacing: 20) {
+            // Planned MC (magnetic course from preceding waypoint)
+            VStack(spacing: 2) {
+                Text(L10n.Nav.mc)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.dimText)
+                if index > 0, let mc = waypoint.magneticCourse {
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                        Text(String(format: "%03d", Int(mc)))
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                        Text("°")
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                    }
+                } else {
+                    Text("---°")
+                        .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        .foregroundColor(.dimText)
+                }
+            }
 
-        return HStack(spacing: 12) {
+            // Planned DIST (distance from preceding waypoint)
+            VStack(spacing: 2) {
+                Text(L10n.Nav.dist)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.dimText)
+                if index > 0, let dist = waypoint.distance {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(String(format: "%.1f", dist))
+                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                        Text("NM")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondaryText)
+                    }
+                } else {
+                    Text("-- NM")
+                        .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        .foregroundColor(.dimText)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// ATO status display
+    private func atoStatusRow(waypoint: FlightPlanWaypoint) -> some View {
+        HStack(spacing: 12) {
+            Text("ATO:")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.dimText)
+            if let ato = waypoint.actualTimeOver {
+                let formatter = DateFormatter()
+                let _ = formatter.dateFormat = "HH:mm"
+                Text(formatter.string(from: ato))
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGreen)
+            } else {
+                Text("--:--")
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.dimText)
+            }
+
+            Spacer()
+
+            // Planned ETO
             Text("ETO:")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.dimText)
+            if let eto = waypoint.estimatedTimeOver {
+                let formatter = DateFormatter()
+                let _ = formatter.dateFormat = "HH:mm"
+                Text(formatter.string(from: eto))
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+            } else {
+                Text("--:--")
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.dimText)
+            }
+        }
+    }
 
-            Text(etoString ?? "--:--")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(etoString != nil ? .primaryText : .dimText)
+    /// SECONDARY display: Live GPS heading, distance, ETA to real next waypoint
+    private func liveGPSDataRow(clLocation: CLLocation, plan: FlightPlan, isPreview: Bool) -> some View {
+        VStack(spacing: 2) {
+            // Label shows context
+            Text(isPreview ? "\(L10n.Nav.hdgTo) \(L10n.Nav.nextWaypoint)" : L10n.Nav.hdgTo)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(.dimText)
+
+            HStack(spacing: 12) {
+                // Live heading to real next waypoint
+                if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
+                    Text(String(format: "%03d°", Int(bearing)))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                }
+
+                // Live distance
+                if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
+                    Text(String(format: "%.1f NM", distance))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                }
+
+                // Live ETA
+                let groundSpeedKnots = max(locationManager.currentSpeedKnots, 1)
+                if let eta = flightPlanManager.etaToNextWaypoint(from: clLocation, groundSpeedKnots: groundSpeedKnots) {
+                    let etoDate = Date().addingTimeInterval(eta)
+                    let formatter = DateFormatter()
+                    let _ = formatter.dateFormat = "HH:mm"
+                    Text(formatter.string(from: etoDate))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                }
+            }
         }
     }
 
@@ -484,34 +554,37 @@ struct FlightPlanOverlayView: View {
                 .foregroundColor(.aviationGreen)
                 .id(refreshTrigger) // Force refresh every second
 
-            // EET to next waypoint (planned EET from flight plan, in MM format)
-            // First waypoint is the departure airport — show "Departure" label, no EET
-            if let plan = flightPlanManager.activeFlightPlan,
-               let nextWaypoint = plan.nextWaypoint {
-                if plan.currentWaypointIndex == 0 {
-                    // First waypoint = departure airport
-                    Text(L10n.FlightPlan.departure)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.secondaryText)
-                } else if let eet = nextWaypoint.estimatedElapsedTime {
-                    let minutes = Int(eet / 60)
-                    let extra = nextWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
-                    HStack(spacing: 4) {
-                        Text("EET")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                        if extra > 0 {
-                            Text(String(format: "%d + %d", minutes, extra))
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.aviationGold)
-                        } else {
-                            Text(String(format: "%d", minutes))
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundColor(.aviationGold)
-                        }
-                        Text("min")
-                            .font(.system(size: 10))
+            // EET to displayed waypoint (planned EET from flight plan, in MM format)
+            if let plan = flightPlanManager.activeFlightPlan {
+                let displayIndex = previewIndex ?? plan.currentWaypointIndex
+                let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                if clampedIndex < plan.waypoints.count {
+                    let displayWaypoint = plan.waypoints[clampedIndex]
+                    if clampedIndex == 0 {
+                        // First waypoint = departure airport
+                        Text(L10n.FlightPlan.departure)
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.secondaryText)
+                    } else if let eet = displayWaypoint.estimatedElapsedTime {
+                        let minutes = Int(eet / 60)
+                        let extra = displayWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
+                        HStack(spacing: 4) {
+                            Text("EET")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.dimText)
+                            if extra > 0 {
+                                Text(String(format: "%d + %d", minutes, extra))
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                            } else {
+                                Text(String(format: "%d", minutes))
+                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                            }
+                            Text("min")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondaryText)
+                        }
                     }
                 }
             }
@@ -537,35 +610,54 @@ struct FlightPlanOverlayView: View {
 
     private var quickActionsSection: some View {
         VStack(spacing: 8) {
-            // Waypoint navigation
-            HStack(spacing: 12) {
-                Button(action: {
-                    flightPlanManager.goToPreviousWaypoint()
-                }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primaryText)
-                        .frame(width: 36, height: 28)
-                        .background(Color.aviationBlue)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .disabled(flightPlanManager.activeFlightPlan?.currentWaypointIndex == 0)
+            // Waypoint preview navigation (does NOT affect flight state)
+            if let plan = flightPlanManager.activeFlightPlan {
+                let displayIndex = previewIndex ?? plan.currentWaypointIndex
+                let isPreview = previewIndex != nil && previewIndex != plan.currentWaypointIndex
 
-                Text(L10n.Nav.wpt)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondaryText)
+                HStack(spacing: 12) {
+                    Button(action: {
+                        let current = previewIndex ?? plan.currentWaypointIndex
+                        previewIndex = max(0, current - 1)
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 36, height: 28)
+                            .background(Color.aviationBlue)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .disabled(displayIndex == 0)
 
-                Button(action: {
-                    flightPlanManager.advanceToNextWaypoint()
-                }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primaryText)
-                        .frame(width: 36, height: 28)
-                        .background(Color.aviationGreen)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    if isPreview {
+                        // Return to active waypoint button
+                        Button(action: { previewIndex = nil }) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 36, height: 28)
+                                .background(Color.aviationGold)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    } else {
+                        Text(L10n.Nav.wpt)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondaryText)
+                    }
+
+                    Button(action: {
+                        let current = previewIndex ?? plan.currentWaypointIndex
+                        previewIndex = Swift.min(plan.waypoints.count - 1, current + 1)
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 36, height: 28)
+                            .background(Color.aviationGreen)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .disabled(displayIndex >= plan.waypoints.count - 1)
                 }
-                .disabled(flightPlanManager.activeFlightPlan?.currentWaypointIndex == (flightPlanManager.activeFlightPlan?.waypoints.count ?? 0))
             }
 
             // Departure time adjustment - only show on first waypoint

@@ -182,6 +182,8 @@ struct NavigationMapView: View {
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
+    /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
+    @State private var compactPreviewIndex: Int? = nil
 
     /// Whether offline mode is active (requires at least ICAO cache)
     private var isOfflineMode: Bool {
@@ -417,10 +419,15 @@ struct NavigationMapView: View {
             if appState.settings.enableFlightPlanning,
                let location = newLocation {
                 let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                let prevIndex = flightPlanManager.activeFlightPlan?.currentWaypointIndex
                 flightPlanManager.autoAdvanceWaypointIfNeeded(
                     currentLocation: clLocation,
                     threshold: appState.settings.waypointProximityThreshold
                 )
+                // Reset compact preview when GPS auto-advances
+                if flightPlanManager.activeFlightPlan?.currentWaypointIndex != prevIndex {
+                    compactPreviewIndex = nil
+                }
             }
 
             // Debounced streaming CTR fetch (5s delay)
@@ -961,14 +968,19 @@ struct NavigationMapView: View {
     private var compactFlightPlanContent: some View {
         VStack(spacing: 8) {
             if let plan = flightPlanManager.activeFlightPlan,
-               let nextWaypoint = plan.nextWaypoint {
-                // Next waypoint header
+               !plan.waypoints.isEmpty {
+                let displayIndex = compactPreviewIndex ?? plan.currentWaypointIndex
+                let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                let displayWaypoint = plan.waypoints[clampedIndex]
+                let isPreview = compactPreviewIndex != nil && compactPreviewIndex != plan.currentWaypointIndex
+
+                // Waypoint header
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.Nav.nextWaypoint)
+                        Text(isPreview ? "PREVIEW" : L10n.Nav.nextWaypoint)
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.dimText)
-                        Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
+                            .foregroundColor(isPreview ? .aviationBlue : .dimText)
+                        Text(displayWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(clampedIndex + 1)" : displayWaypoint.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
@@ -976,80 +988,99 @@ struct NavigationMapView: View {
 
                     Spacer()
 
-                    Text("\(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
+                    Text("\(clampedIndex + 1)/\(plan.waypoints.count)")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.secondaryText)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-                // Navigation data
+                // PRIMARY: Planned waypoint-to-waypoint MC, DIST, EET
+                HStack(spacing: 24) {
+                    // Planned MC
+                    VStack(spacing: 2) {
+                        Text(L10n.Nav.mc)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        if clampedIndex > 0, let mc = displayWaypoint.magneticCourse {
+                            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                                Text(String(format: "%03d", Int(mc)))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                Text("°")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.aviationGold)
+                            }
+                        } else {
+                            Text("---°")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                .foregroundColor(.dimText)
+                        }
+                    }
+
+                    // Planned DIST
+                    VStack(spacing: 2) {
+                        Text(L10n.Nav.dist)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        if clampedIndex > 0, let dist = displayWaypoint.distance {
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text(String(format: "%.1f", dist))
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                Text("NM")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondaryText)
+                            }
+                        } else {
+                            Text("-- NM")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                .foregroundColor(.dimText)
+                        }
+                    }
+
+                    // Planned EET
+                    VStack(spacing: 2) {
+                        Text("EET")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.dimText)
+                        if clampedIndex > 0, let eet = displayWaypoint.estimatedElapsedTime {
+                            let minutes = Int(eet / 60)
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text("\(minutes)")
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                Text("min")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondaryText)
+                            }
+                        } else {
+                            Text("--")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                .foregroundColor(.dimText)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                // SECONDARY: Live GPS data to real next waypoint
                 if let location = locationManager.currentLocation {
                     let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-
-                    HStack(spacing: 24) {
-                        // Heading TO waypoint
-                        VStack(spacing: 2) {
+                    HStack(spacing: 12) {
+                        if isPreview {
                             Text(L10n.Nav.hdgTo)
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 8, weight: .bold))
                                 .foregroundColor(.dimText)
-                            if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
-                                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                                    Text(String(format: "%03d", Int(bearing)))
-                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.aviationGold)
-                                    Text("°")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.aviationGold)
-                                }
-                            } else {
-                                Text("---°")
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.dimText)
-                            }
                         }
-
-                        // Distance TO waypoint
-                        VStack(spacing: 2) {
-                            Text(L10n.Nav.distTo)
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.dimText)
-                            if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
-                                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                    Text(String(format: "%.1f", distance))
-                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.aviationGold)
-                                    Text("NM")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(.secondaryText)
-                                }
-                            } else {
-                                Text("-- NM")
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.dimText)
-                            }
+                        if let bearing = flightPlanManager.bearingToNextWaypoint(from: clLocation) {
+                            Text(String(format: "%03d°", Int(bearing)))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondaryText)
                         }
-
-                        // EET
-                        VStack(spacing: 2) {
-                            Text("EET")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.dimText)
-                            if let eet = nextWaypoint.estimatedElapsedTime {
-                                let minutes = Int(eet / 60)
-                                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                    Text("\(minutes)")
-                                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.aviationGold)
-                                    Text("min")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(.secondaryText)
-                                }
-                            } else {
-                                Text("--")
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.dimText)
-                            }
+                        if let distance = flightPlanManager.distanceToNextWaypoint(from: clLocation) {
+                            Text(String(format: "%.1f NM", distance))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondaryText)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1135,10 +1166,11 @@ struct NavigationMapView: View {
                     .background(Color.dimText)
                     .padding(.horizontal, 16)
 
-                // Waypoint navigation
+                // Waypoint preview navigation (does NOT affect flight state)
                 HStack(spacing: 16) {
                     Button(action: {
-                        flightPlanManager.goToPreviousWaypoint()
+                        let current = compactPreviewIndex ?? plan.currentWaypointIndex
+                        compactPreviewIndex = max(0, current - 1)
                     }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .bold))
@@ -1147,14 +1179,26 @@ struct NavigationMapView: View {
                             .background(Color.aviationBlue)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .disabled(plan.currentWaypointIndex == 0)
+                    .disabled(clampedIndex == 0)
 
-                    Text(L10n.Nav.wpt)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.secondaryText)
+                    if isPreview {
+                        Button(action: { compactPreviewIndex = nil }) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 44, height: 36)
+                                .background(Color.aviationGold)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    } else {
+                        Text(L10n.Nav.wpt)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondaryText)
+                    }
 
                     Button(action: {
-                        flightPlanManager.advanceToNextWaypoint()
+                        let current = compactPreviewIndex ?? plan.currentWaypointIndex
+                        compactPreviewIndex = Swift.min(plan.waypoints.count - 1, current + 1)
                     }) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 16, weight: .bold))
@@ -1163,7 +1207,7 @@ struct NavigationMapView: View {
                             .background(Color.aviationGreen)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .disabled(plan.currentWaypointIndex == plan.waypoints.count)
+                    .disabled(clampedIndex >= plan.waypoints.count - 1)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
@@ -1590,7 +1634,10 @@ struct NavigationMapView: View {
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 airportFrequencyLines: airportFrequencyLines,
-                cachedHeading: locationManager.currentCourseDegrees
+                cachedHeading: locationManager.currentCourseDegrees,
+                onWaypointATOTap: { index in
+                    flightPlanManager.recordATO(forWaypointAt: index)
+                }
             )
         } else {
             // Use UIKit-wrapped MKMapView for standard/satellite to avoid gesture issues
@@ -1608,7 +1655,10 @@ struct NavigationMapView: View {
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
                 openAIPCacheManager: openAIPCacheManager,
-                airspacePolygons: visibleAirspacePolygons
+                airspacePolygons: visibleAirspacePolygons,
+                onWaypointATOTap: { index in
+                    flightPlanManager.recordATO(forWaypointAt: index)
+                }
             )
         }
     }
@@ -2737,6 +2787,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var showOpenAIPOverlay: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
+    var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -3215,6 +3266,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 2
 
+            // Add long-press gesture for ATO recording
+            addLongPressToWaypointView(annotationView)
+
             return annotationView
         }
 
@@ -3290,6 +3344,29 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             return annotationView
+        }
+
+        // MARK: - Waypoint ATO Tap/Long-Press
+
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
+            mapView.deselectAnnotation(annotation, animated: false)
+            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        func addLongPressToWaypointView(_ annotationView: MKAnnotationView) {
+            annotationView.gestureRecognizers?.removeAll { $0 is UILongPressGestureRecognizer }
+            let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleWaypointLongPress(_:)))
+            longPress.minimumPressDuration = 1.0
+            annotationView.addGestureRecognizer(longPress)
+        }
+
+        @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
+            guard gesture.state == .began,
+                  let annotationView = gesture.view as? MKAnnotationView,
+                  let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
+            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
     }
 }
@@ -3448,6 +3525,7 @@ struct SwissMapView: UIViewRepresentable {
     var visibleAirports: [Airport] = []  // Airports to display on map
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
+    var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
 
     /// Get the camera zoom range for the current layer
     /// This locks the map view to only allow zooming within the valid tile range
@@ -4176,6 +4254,9 @@ struct SwissMapView: UIViewRepresentable {
             annotationView.layer.shadowOpacity = 0.5
             annotationView.layer.shadowRadius = 2
 
+            // Add long-press gesture for ATO recording
+            addLongPressToWaypointView(annotationView)
+
             return annotationView
         }
 
@@ -4251,6 +4332,36 @@ struct SwissMapView: UIViewRepresentable {
             }
 
             return annotationView
+        }
+
+        // MARK: - Waypoint ATO Tap/Long-Press
+
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            guard let waypointAnnotation = annotation as? FlightPlanWaypointAnnotation else { return }
+            // Deselect so user can tap again later
+            mapView.deselectAnnotation(annotation, animated: false)
+            // Record ATO on tap
+            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+        }
+
+        /// Add long-press gesture recognizer to waypoint annotation views
+        func addLongPressToWaypointView(_ annotationView: MKAnnotationView) {
+            // Remove any existing long-press recognizers to avoid duplicates
+            annotationView.gestureRecognizers?.removeAll { $0 is UILongPressGestureRecognizer }
+
+            let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleWaypointLongPress(_:)))
+            longPress.minimumPressDuration = 1.0
+            annotationView.addGestureRecognizer(longPress)
+        }
+
+        @objc private func handleWaypointLongPress(_ gesture: UILongPressGestureRecognizer) {
+            guard gesture.state == .began,
+                  let annotationView = gesture.view as? MKAnnotationView,
+                  let waypointAnnotation = annotationView.annotation as? FlightPlanWaypointAnnotation else { return }
+            parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
+            // Haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
         }
     }
 }

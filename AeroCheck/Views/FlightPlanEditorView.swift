@@ -53,9 +53,13 @@ struct FlightPlanEditorView: View {
     @State private var exportItem: FlightPlanExportItem?
     @State private var showingAddWaypointChoice = false
     @State private var routeRefreshToken = UUID() // Forces route table refresh
+    @State private var showingBulkAltitude = false
+    @State private var bulkAltitudeString = ""
     @State private var airspaceConflicts: [AirspaceConflict] = []
     @State private var showingAirspaceConflicts = false
     @State private var airspaceDataUnavailable = false
+    @State private var icaoSectionExpanded = false
+    @State private var showingICAOCopied = false
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -97,6 +101,9 @@ struct FlightPlanEditorView: View {
 
                     // Notes section
                     notesSection
+
+                    // ICAO Details section (collapsible)
+                    icaoDetailsSection
 
                     // Actions section
                     actionsSection
@@ -142,6 +149,31 @@ struct FlightPlanEditorView: View {
             .sheet(isPresented: $showingTerrainProfile) {
                 TerrainProfileView(waypoints: flightPlan.waypoints)
                     .environmentObject(appState)
+            }
+            .alert(L10n.Nav.setAltitude, isPresented: $showingBulkAltitude) {
+                TextField("ft", text: $bulkAltitudeString)
+                    .keyboardType(.numberPad)
+                Button(L10n.Nav.allWaypoints) {
+                    if let alt = Double(bulkAltitudeString) {
+                        for i in 0..<flightPlan.waypoints.count {
+                            flightPlan.waypoints[i].altitude = alt
+                        }
+                        routeRefreshToken = UUID()
+                    }
+                }
+                Button(L10n.Nav.emptyOnly) {
+                    if let alt = Double(bulkAltitudeString) {
+                        for i in 0..<flightPlan.waypoints.count {
+                            if flightPlan.waypoints[i].altitude == nil {
+                                flightPlan.waypoints[i].altitude = alt
+                            }
+                        }
+                        routeRefreshToken = UUID()
+                    }
+                }
+                Button(L10n.Button.cancel, role: .cancel) {}
+            } message: {
+                Text(L10n.Nav.setAltitudeMessage)
             }
             .sheet(isPresented: $showingMapPicker) {
                 MapWaypointPickerView { coordinate, name in
@@ -401,6 +433,15 @@ struct FlightPlanEditorView: View {
                     Button(action: { showingMapPicker = true }) {
                         Label(L10n.Nav.addFromMap, systemImage: "map")
                     }
+                    if !flightPlan.waypoints.isEmpty {
+                        Divider()
+                        Button(action: {
+                            bulkAltitudeString = ""
+                            showingBulkAltitude = true
+                        }) {
+                            Label(L10n.Nav.setAltitude, systemImage: "arrow.up.and.down")
+                        }
+                    }
                 } label: {
                     Label(L10n.Nav.add, systemImage: "plus.circle")
                         .font(.system(size: 12))
@@ -466,7 +507,7 @@ struct FlightPlanEditorView: View {
                         .stroke(Color.aviationDarkBlue.opacity(0.5), lineWidth: 1)
                 )
             } else {
-                // iPad: Original implementation - flexible waypoint column, standard styling
+                // iPad: Flexible waypoint column with drag-and-reorder support
                 VStack(spacing: 0) {
                     // Table header
                     HStack(spacing: 0) {
@@ -483,23 +524,36 @@ struct FlightPlanEditorView: View {
                     }
                     .background(Color.aviationDarkBlue)
 
-                    // Table rows
-                    ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                        WaypointTableRow(
-                            index: index,
-                            waypoint: waypoint,
-                            isLast: index == flightPlan.waypoints.count - 1,
-                            isCompact: false,
-                            onTap: {
-                                showingWaypointEditor = waypoint
-                            },
-                            onDelete: {
-                                deleteWaypoint(at: index)
-                            },
-                            onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
-                            onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
-                        )
+                    // Table rows with drag-and-reorder
+                    List {
+                        ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
+                            WaypointTableRow(
+                                index: index,
+                                waypoint: waypoint,
+                                isLast: index == flightPlan.waypoints.count - 1,
+                                isCompact: false,
+                                onTap: {
+                                    showingWaypointEditor = waypoint
+                                },
+                                onDelete: {
+                                    deleteWaypoint(at: index)
+                                },
+                                onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
+                                onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
+                            )
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        }
+                        .onMove { source, destination in
+                            guard let from = source.first else { return }
+                            moveWaypoint(from: from, to: destination > from ? destination - 1 : destination)
+                        }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: CGFloat(flightPlan.waypoints.count) * 36, maxHeight: CGFloat(flightPlan.waypoints.count) * 36)
+                    .environment(\.editMode, .constant(.active))
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
@@ -765,6 +819,113 @@ struct FlightPlanEditorView: View {
         )
     }
 
+    // MARK: - ICAO Details Section
+
+    private var icaoDetailsSection: some View {
+        VStack(spacing: 12) {
+            Button(action: { withAnimation { icaoSectionExpanded.toggle() } }) {
+                HStack {
+                    Label(L10n.Nav.icaoDetails, systemImage: "doc.plaintext")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.aviationGold)
+
+                    Spacer()
+
+                    Image(systemName: icaoSectionExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if icaoSectionExpanded {
+                icaoFieldsContent
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground)
+        )
+    }
+
+    private var icaoFieldsContent: some View {
+        VStack(spacing: 12) {
+            icaoFieldRow(label: L10n.Nav.icaoAircraftType, placeholder: flightPlan.resolvedICAOType, binding: Binding(
+                get: { flightPlan.icaoAircraftType ?? "" },
+                set: { flightPlan.icaoAircraftType = $0.isEmpty ? nil : $0 }
+            ))
+
+            // Wake turbulence category picker
+            HStack {
+                Text(L10n.Nav.wakeTurbulence)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .frame(width: 140, alignment: .leading)
+
+                Picker("", selection: Binding(
+                    get: { flightPlan.wakeTurbulenceCategory ?? "L" },
+                    set: { flightPlan.wakeTurbulenceCategory = $0 }
+                )) {
+                    Text("L").tag("L")
+                    Text("M").tag("M")
+                    Text("H").tag("H")
+                }
+                .pickerStyle(.segmented)
+            }
+
+            icaoFieldRow(label: L10n.Nav.equipmentCodes, placeholder: "S", binding: Binding(
+                get: { flightPlan.equipmentCodes ?? "" },
+                set: { flightPlan.equipmentCodes = $0.isEmpty ? nil : $0 }
+            ))
+
+            icaoFieldRow(label: L10n.Nav.surveillanceCodes, placeholder: "N", binding: Binding(
+                get: { flightPlan.surveillanceCodes ?? "" },
+                set: { flightPlan.surveillanceCodes = $0.isEmpty ? nil : $0 }
+            ))
+
+            icaoFieldRow(label: L10n.Nav.alternateAerodrome, placeholder: "LFGB", binding: Binding(
+                get: { flightPlan.alternateAerodrome ?? "" },
+                set: { flightPlan.alternateAerodrome = $0.isEmpty ? nil : $0 }
+            ))
+
+            // Persons on board
+            HStack {
+                Text(L10n.Nav.personsOnBoard)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .frame(width: 140, alignment: .leading)
+
+                TextField("1", text: Binding(
+                    get: { flightPlan.personsOnBoard.map { String($0) } ?? "" },
+                    set: { flightPlan.personsOnBoard = Int($0) }
+                ))
+                .keyboardType(.numberPad)
+                .font(.system(size: 14, design: .monospaced))
+                .textFieldStyle(.roundedBorder)
+            }
+
+            icaoFieldRow(label: L10n.Nav.aircraftColour, placeholder: "WHITE RED", binding: Binding(
+                get: { flightPlan.aircraftColour ?? "" },
+                set: { flightPlan.aircraftColour = $0.isEmpty ? nil : $0 }
+            ))
+        }
+    }
+
+    private func icaoFieldRow(label: String, placeholder: String, binding: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.secondaryText)
+                .frame(width: 140, alignment: .leading)
+
+            TextField(placeholder, text: binding)
+                .font(.system(size: 14, design: .monospaced))
+                .textFieldStyle(.roundedBorder)
+                .autocapitalization(.allCharacters)
+        }
+    }
+
     // MARK: - Actions Section
 
     private var actionsSection: some View {
@@ -868,6 +1029,28 @@ struct FlightPlanEditorView: View {
                 }
                 .buttonStyle(.bordered)
             }
+
+            // ICAO FPL copy button
+            Button(action: {
+                let fplText = flightPlan.toICAOFlightPlan()
+                UIPasteboard.general.string = fplText
+                showingICAOCopied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    showingICAOCopied = false
+                }
+            }) {
+                HStack {
+                    Image(systemName: showingICAOCopied ? "checkmark.circle.fill" : "doc.on.clipboard")
+                        .font(.system(size: 16))
+                    Text(showingICAOCopied ? L10n.Nav.icaoCopied : L10n.Nav.copyICAOFlightPlan)
+                        .font(.system(size: 12))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
+            .buttonStyle(.bordered)
+            .tint(showingICAOCopied ? .green : .aviationGold)
+            .disabled(flightPlan.waypoints.count < 2)
         }
     }
 

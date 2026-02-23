@@ -5944,6 +5944,23 @@
         }
       }
     },
+    "nav.aircraftColour" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aircraft Colour"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couleur avion"
+          }
+        }
+      }
+    },
     "nav.airspaceAlongRoute" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6029,6 +6046,23 @@
         }
       }
     },
+    "nav.allWaypoints" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Waypoints"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les waypoints"
+          }
+        }
+      }
+    },
     "nav.alt" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6059,6 +6093,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Altitude (ft)"
+          }
+        }
+      }
+    },
+    "nav.alternateAerodrome" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dégagement"
           }
         }
       }
@@ -6297,6 +6348,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Horamètre fin"
+          }
+        }
+      }
+    },
+    "nav.copyICAOFlightPlan" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy ICAO Flight Plan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier plan de vol OACI"
           }
         }
       }
@@ -6658,6 +6726,23 @@
         }
       }
     },
+    "nav.emptyOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty Only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vides uniquement"
+          }
+        }
+      }
+    },
     "nav.endurance" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6688,6 +6773,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temps moteur"
+          }
+        }
+      }
+    },
+    "nav.equipmentCodes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Equipment"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Équipement"
           }
         }
       }
@@ -7049,6 +7151,23 @@
         }
       }
     },
+    "nav.icaoAircraftType" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ICAO Aircraft Type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type OACI"
+          }
+        }
+      }
+    },
     "nav.icaoChart" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7062,6 +7181,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Carte OACI :"
+          }
+        }
+      }
+    },
+    "nav.icaoCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copié !"
+          }
+        }
+      }
+    },
+    "nav.icaoDetails" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ICAO Flight Plan Details"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails plan de vol OACI"
           }
         }
       }
@@ -7763,6 +7916,23 @@
         }
       }
     },
+    "nav.personsOnBoard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persons on Board"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personnes à bord"
+          }
+        }
+      }
+    },
     "nav.pilot" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8103,6 +8273,40 @@
         }
       }
     },
+    "nav.setAltitude" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Altitude..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Définir l'altitude..."
+          }
+        }
+      }
+    },
+    "nav.setAltitudeMessage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter altitude in feet to apply to waypoints."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrez l'altitude en pieds à appliquer aux waypoints."
+          }
+        }
+      }
+    },
     "nav.share" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8150,6 +8354,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rester hors ligne"
+          }
+        }
+      }
+    },
+    "nav.surveillanceCodes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surveillance"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surveillance"
           }
         }
       }
@@ -8439,6 +8660,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%d waypoints"
+          }
+        }
+      }
+    },
+    "nav.wakeTurbulence" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wake Turbulence"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turbulence de sillage"
           }
         }
       }

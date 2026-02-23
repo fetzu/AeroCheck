@@ -374,11 +374,34 @@ class FlightPlanManager: ObservableObject {
         return distance <= threshold
     }
 
+    /// Record ATO for a specific waypoint by index (used for map tap/long-press and GPS proximity)
+    func recordATO(forWaypointAt index: Int) {
+        guard var plan = activeFlightPlan,
+              index >= 0, index < plan.waypoints.count,
+              plan.waypoints[index].actualTimeOver == nil else { return }
+
+        plan.waypoints[index].actualTimeOver = Date()
+
+        // If recording ATO for the current waypoint, also advance to next
+        if index == plan.currentWaypointIndex {
+            plan.currentWaypointIndex += 1
+        }
+
+        activeFlightPlan = plan
+
+        if let planIndex = flightPlans.firstIndex(where: { $0.id == plan.id }) {
+            flightPlans[planIndex] = plan
+        }
+
+        saveFlightPlans()
+        saveActiveFlightPlan()
+    }
+
     /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
     func autoAdvanceWaypointIfNeeded(currentLocation: CLLocation, threshold: Double) {
         if checkWaypointProximity(currentLocation: currentLocation, threshold: threshold) {
-            recordATOForCurrentWaypoint()
-            advanceToNextWaypoint()
+            guard let plan = activeFlightPlan else { return }
+            recordATO(forWaypointAt: plan.currentWaypointIndex)
         }
     }
 

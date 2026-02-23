@@ -450,6 +450,8 @@ enum L10n {
         static let flightPlanningSubtitle = String(localized: "settings.hub.flightPlanningSubtitle")
         static let syncAndData = String(localized: "settings.hub.syncAndData")
         static let syncAndDataSubtitle = String(localized: "settings.hub.syncAndDataSubtitle")
+        static let companionMode = String(localized: "settings.hub.companionMode")
+        static let companionModeSubtitle = String(localized: "settings.hub.companionModeSubtitle")
         static let aboutSubtitle = String(localized: "settings.hub.aboutSubtitle")
     }
 
@@ -1171,6 +1173,41 @@ enum L10n {
         static let aircraftColour = String(localized: "nav.aircraftColour")
         static let copyICAOFlightPlan = String(localized: "nav.copyICAOFlightPlan")
         static let icaoCopied = String(localized: "nav.icaoCopied")
+    }
+
+    // MARK: - Companion Mode
+    enum Companion {
+        static let companionMode = String(localized: "companion.companionMode")
+        static let enableCompanionMode = String(localized: "companion.enableCompanionMode")
+        static let enableDescription = String(localized: "companion.enableDescription")
+        static let deviceRole = String(localized: "companion.deviceRole")
+        static let roleAuto = String(localized: "companion.roleAuto")
+        static let rolePrimary = String(localized: "companion.rolePrimary")
+        static let roleCompanion = String(localized: "companion.roleCompanion")
+        static let roleDescriptionMaster = String(localized: "companion.roleDescriptionMaster")
+        static let roleDescriptionViewer = String(localized: "companion.roleDescriptionViewer")
+        static let connection = String(localized: "companion.connection")
+        static let connected = String(localized: "companion.connected")
+        static let disconnected = String(localized: "companion.disconnected")
+        static let searching = String(localized: "companion.searching")
+        static let connecting = String(localized: "companion.connecting")
+        static let reconnecting = String(localized: "companion.reconnecting")
+        static let connectedTo = String(localized: "companion.connectedTo")
+        static let disconnect = String(localized: "companion.disconnect")
+        static let connectToiPad = String(localized: "companion.connectToiPad")
+        static let startAdvertising = String(localized: "companion.startAdvertising")
+        static let waitingForCompanion = String(localized: "companion.waitingForCompanion")
+        static let connectionLost = String(localized: "companion.connectionLost")
+        static let switchToStandalone = String(localized: "companion.switchToStandalone")
+        static let keepTrying = String(localized: "companion.keepTrying")
+        static let recordATO = String(localized: "companion.recordATO")
+        static let noFlightPlan = String(localized: "companion.noFlightPlan")
+        static let requiresWiFi = String(localized: "companion.requiresWiFi")
+        static let requiresSameNetwork = String(localized: "companion.requiresSameNetwork")
+        static let searchingForDevices = String(localized: "companion.searchingForDevices")
+        static let searchingDescription = String(localized: "companion.searchingDescription")
+        static let availableDevices = String(localized: "companion.availableDevices")
+        static let tapToConnect = String(localized: "companion.tapToConnect")
     }
 }
 

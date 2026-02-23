@@ -10,6 +10,7 @@ struct FlightView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
+    @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @State private var showPhaseSelector = false
     @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
@@ -993,6 +994,16 @@ struct FlightView: View {
             
             Spacer()
             
+            // Companion connected indicator
+            if companionConnectivityManager.connectionState == .connected {
+                HStack(spacing: 4) {
+                    Image(systemName: "iphone")
+                        .font(.system(size: 12))
+                    StatusIndicator(.active, size: 8)
+                }
+                .foregroundColor(.aviationGreen)
+            }
+
             // Flight duration (updates with timer)
             HStack(spacing: 8) {
                 StatusIndicator(.active)

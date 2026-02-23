@@ -62,6 +62,10 @@ struct AppSettings: Codable, Equatable {
     var shareCardColorScheme: ShareCardColorScheme = .darkBlue
     var shareCardMapLayer: ShareCardMapLayer = .standard
 
+    // Companion mode
+    var enableCompanionMode: Bool = false // When true, companion connectivity is available
+    var companionRole: CompanionRoleSetting = .auto // Device role for companion mode
+
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
 
@@ -127,6 +131,8 @@ struct AppSettings: Codable, Equatable {
         case showOpenAIPOverlay
         case openAIPOfflineCountries
         case enableAirspaceStreaming
+        case enableCompanionMode
+        case companionRole
         // marketingMode is intentionally excluded
     }
 
@@ -165,6 +171,8 @@ struct AppSettings: Codable, Equatable {
         showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
+        enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
+        companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
         // marketingMode intentionally excluded - always defaults to false
     }
 }

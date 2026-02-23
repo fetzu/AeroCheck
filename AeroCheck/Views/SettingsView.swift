@@ -49,6 +49,14 @@ struct SettingsView: View {
                         )
                     }
 
+                    NavigationLink(destination: CompanionSettingsView()) {
+                        SettingsRow(
+                            icon: "ipad.and.iphone",
+                            title: L10n.Settings.companionMode,
+                            subtitle: L10n.Settings.companionModeSubtitle
+                        )
+                    }
+
                     NavigationLink(destination: AboutSettingsView()) {
                         SettingsRow(
                             icon: "info.circle",

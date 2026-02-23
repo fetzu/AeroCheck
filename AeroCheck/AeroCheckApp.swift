@@ -10,6 +10,7 @@ struct AeroCheckApp: App {
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
+    @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
     @StateObject private var airportDataService = AirportDataService()
@@ -36,6 +37,7 @@ struct AeroCheckApp: App {
                 .environmentObject(windDataService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(watchConnectivityManager)
+                .environmentObject(companionConnectivityManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
@@ -155,9 +157,26 @@ struct AeroCheckApp: App {
                 locationManager: locationManager,
                 flightPlanManager: flightPlanManager
             )
+
+            // Start companion advertising/updates if enabled
+            if appState.settings.enableCompanionMode {
+                let role = appState.settings.companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
+                if role == .master {
+                    companionConnectivityManager.startAdvertising()
+                    companionConnectivityManager.startUpdates(
+                        appState: appState,
+                        locationManager: locationManager,
+                        flightPlanManager: flightPlanManager
+                    )
+                }
+            }
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()
+
+            // Stop companion mode
+            companionConnectivityManager.stopUpdates()
+            companionConnectivityManager.stopAdvertising()
         }
     }
 }

@@ -81,6 +81,12 @@
 		AA000001211111110000004 /* OpenAIPDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000004 /* OpenAIPDataService.swift */; };
 		AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000005 /* AirspaceAnalyzer.swift */; };
 		AA000001211111110000006 /* Airspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000006 /* Airspace.swift */; };
+		EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */; };
+		62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */; };
+		0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */; };
+		3C226443148C497A84702219 /* CompanionFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */; };
+		8E583809D3E14BD5A518010F /* CompanionPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */; };
+		E47A0B7E1F564DBD8E48AF14 /* CompanionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E25D9E77A5545DFBFE6D89D /* CompanionSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -203,6 +209,11 @@
 		AA000001111111110000004 /* OpenAIPDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPDataService.swift; sourceTree = "<group>"; };
 		AA000001111111110000005 /* AirspaceAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzer.swift; sourceTree = "<group>"; };
 		AA000001111111110000006 /* Airspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airspace.swift; sourceTree = "<group>"; };
+		92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityManager.swift; sourceTree = "<group>"; };
+		58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityData.swift; sourceTree = "<group>"; };
+		D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionFlightView.swift; sourceTree = "<group>"; };
+		E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionPairingView.swift; sourceTree = "<group>"; };
+		2E25D9E77A5545DFBFE6D89D /* CompanionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -290,6 +301,8 @@
 				A1000001111111110000002 /* ContentView.swift */,
 				A1000001111111110000003 /* HomeView.swift */,
 				A1000001111111110000004 /* FlightView.swift */,
+				D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */,
+				E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */,
 				A1000001111111110000005 /* FlightLogView.swift */,
 				A1000001111111110000018 /* NavigationView.swift */,
 				I1000001111111110000007 /* OnboardingView.swift */,
@@ -315,6 +328,7 @@
 				I1000001111111110000004 /* FlightPlanningSettingsView.swift */,
 				I1000001111111110000003 /* NavigationMapsSettingsView.swift */,
 				I1000001111111110000005 /* SyncDataSettingsView.swift */,
+				2E25D9E77A5545DFBFE6D89D /* CompanionSettingsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -349,6 +363,7 @@
 				04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */,
 				04F1C7052F0A111100192A14 /* SyncManager.swift */,
 				A3000001111111110000001 /* WatchConnectivityManager.swift */,
+				92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */,
 				B3000001111111110000001 /* SubscriptionManager.swift */,
 				B3000001111111110000002 /* AircraftDataService.swift */,
 				E1000001111111110000002 /* AirportDataService.swift */,
@@ -395,6 +410,7 @@
 			isa = PBXGroup;
 			children = (
 				A3000001111111110000002 /* WatchConnectivityData.swift */,
+				58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -577,6 +593,11 @@
 				A1000001211111110000018 /* NavigationView.swift in Sources */,
 				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
+				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
+				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
+				3C226443148C497A84702219 /* CompanionFlightView.swift in Sources */,
+				8E583809D3E14BD5A518010F /* CompanionPairingView.swift in Sources */,
+				E47A0B7E1F564DBD8E48AF14 /* CompanionSettingsView.swift in Sources */,
 				B3000001211111110000001 /* SubscriptionManager.swift in Sources */,
 				B3000001211111110000002 /* AircraftDataService.swift in Sources */,
 				B3000001211111110000003 /* RemoteAircraft.swift in Sources */,
@@ -621,6 +642,7 @@
 				A4000001211111110000002 /* WatchContentView.swift in Sources */,
 				A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */,
 				A4000001211111110000004 /* WatchConnectivityData.swift in Sources */,
+				0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

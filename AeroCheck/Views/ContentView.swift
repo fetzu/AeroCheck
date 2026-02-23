@@ -8,6 +8,7 @@ struct ContentView: View {
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -23,8 +24,14 @@ struct ContentView: View {
                     OnboardingView()
                         .transition(.opacity)
                 } else if appState.isFlightActive {
-                    FlightView()
-                        .transition(.opacity)
+                    if companionConnectivityManager.currentRole == .viewer &&
+                       companionConnectivityManager.connectionState == .connected {
+                        CompanionFlightView()
+                            .transition(.opacity)
+                    } else {
+                        FlightView()
+                            .transition(.opacity)
+                    }
                 } else {
                     HomeView()
                         .transition(.opacity)

@@ -37,12 +37,16 @@
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>AéroCheck needs access to save flight log images to your photo library.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_aerocheck._tcp</string>
-	</array>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>AéroCheck uses the local network to connect your iPhone as a companion device to your iPad for real-time flight plan navigation.</string>
+	<key>WiFiAwareServices</key>
+	<dict>
+		<key>_aerocheck._tcp</key>
+		<dict>
+			<key>Publishable</key>
+			<true/>
+			<key>Subscribable</key>
+			<true/>
+		</dict>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

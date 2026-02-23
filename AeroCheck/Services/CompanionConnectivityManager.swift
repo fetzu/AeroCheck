@@ -1,10 +1,29 @@
 import Foundation
 import Network
+import WiFiAware
 import CoreLocation
 import UIKit
 
-/// Manages companion device connectivity using Network Framework (NWBrowser / NWListener)
-/// iPad acts as Master (advertises), iPhone acts as Viewer (discovers and connects)
+// MARK: - Wi-Fi Aware Service Extensions
+
+extension WAPublishableService {
+    static var aerocheck: WAPublishableService {
+        allServices["_aerocheck._tcp"]!
+    }
+}
+
+extension WASubscribableService {
+    static var aerocheck: WASubscribableService {
+        allServices["_aerocheck._tcp"]!
+    }
+}
+
+/// Manages companion device connectivity using Wi-Fi Aware (iOS 26+)
+/// iPad acts as Master (publisher/listener), iPhone acts as Viewer (subscriber/browser)
+///
+/// Pairing is a one-time operation handled by DeviceDiscoveryUI views
+/// (DevicePairingView on iPad, DevicePicker on iPhone).
+/// After pairing, devices reconnect automatically whenever in proximity.
 @MainActor
 class CompanionConnectivityManager: NSObject, ObservableObject {
     static let shared = CompanionConnectivityManager()
@@ -16,80 +35,141 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var connectedDeviceName: String?
     @Published var lastReceivedData: CompanionFlightData?
     @Published var lastFlightPlanSnapshot: CompanionFlightPlanSnapshot?
-    @Published var discoveredPeers: [DiscoveredPeer] = []
     @Published var latencyMs: Int?
+    @Published var pairedDevices: [WAPairedDevice] = []
+    @Published var isWiFiAwareSupported: Bool = false
 
     // MARK: - Private Properties
 
-    private var listener: NWListener?
-    private var browser: NWBrowser?
-    private var connection: NWConnection?
+    /// Closure to send framed data over the active connection (avoids storing generic NetworkConnection)
+    private var sendHandler: (@Sendable (Data) async throws -> Void)?
     private var updateTimer: Timer?
-    private var reconnectTimer: Timer?
-    private var reconnectAttempts: Int = 0
-    private let maxReconnectAttempts = 20  // 20 * 3s = 60s
-    private var lastSessionId: UUID?
-    private var currentSessionId: UUID = UUID()
     private var lastSentFlightPlanId: UUID?
+
+    // Task management
+    private var listenerTask: Task<Void, any Error>?
+    private var browserTask: Task<Void, any Error>?
+    private var receiveTask: Task<Void, any Error>?
+    private var pairedDevicesTask: Task<Void, any Error>?
 
     // References for data creation (set during startUpdates)
     private weak var appState: AppState?
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
 
-    // Data buffer for receiving length-prefixed messages
-    private var receiveBuffer = Data()
-
-    private let serviceType = "_aerocheck._tcp"
-
     private override init() {
         super.init()
+        isWiFiAwareSupported = WACapabilities.supportedFeatures.contains(.wifiAware)
+        startMonitoringPairedDevices()
+    }
+
+    // MARK: - Paired Device Monitoring
+
+    /// Continuously monitor the list of paired devices
+    private func startMonitoringPairedDevices() {
+        pairedDevicesTask = Task { [weak self] in
+            do {
+                for try await devices in WAPairedDevice.allDevices {
+                    await MainActor.run {
+                        self?.pairedDevices = Array(devices.values)
+                    }
+                }
+            } catch {
+                print("[AéroCheck Companion] Paired devices monitoring error: \(error)")
+            }
+        }
+    }
+
+    /// Whether any devices have been paired for companion mode
+    var hasPairedDevices: Bool {
+        !pairedDevices.isEmpty
     }
 
     // MARK: - Master (iPad) Methods
 
-    /// Start advertising as a master device
-    func startAdvertising() {
-        stopAdvertising()
+    /// Start listening for incoming companion connections via Wi-Fi Aware
+    func startListening() {
+        stopListening()
 
         currentRole = .master
-        currentSessionId = UUID()
+        connectionState = .connecting
 
         do {
-            let parameters = NWParameters.tcp
-            parameters.includePeerToPeer = true
+            let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
 
-            listener = try NWListener(using: parameters)
-            listener?.service = NWListener.Service(type: serviceType)
+            let listener = try NetworkListener(
+                for: .wifiAware(.connecting(to: .aerocheck, from: .matching(deviceFilter))),
+                using: .parameters {
+                    TLS()
+                }
+                .wifiAware { $0.performanceMode = .realtime }
+                .serviceClass(.interactiveVideo)
+            )
 
-            listener?.stateUpdateHandler = { [weak self] state in
-                Task { @MainActor in
-                    self?.handleListenerStateChange(state)
+            listenerTask = Task { [weak self] in
+                try await listener.run { connection in
+                    guard let self else { return }
+
+                    // Capture send capability before entering main actor
+                    let send: @Sendable (Data) async throws -> Void = { data in
+                        try await connection.send(data)
+                    }
+
+                    // New companion connected — update state on main actor
+                    await MainActor.run {
+                        self.receiveTask?.cancel()
+                        self.sendHandler = send
+                        self.connectionState = .connected
+                        self.connectedDeviceName = L10n.Companion.companionDevice
+                        print("[AéroCheck Companion] Companion connected")
+                    }
+
+                    // Send initial flight data and plan
+                    await self.sendInitialData(send: send)
+
+                    // Receive messages until connection ends
+                    do {
+                        while !Task.isCancelled {
+                            let lengthData = try await connection.receive(exactly: 4).content
+                            let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+
+                            guard length > 0 && length < 1_000_000 else {
+                                print("[AéroCheck Companion] Invalid message length: \(length)")
+                                break
+                            }
+
+                            let messageData = try await connection.receive(exactly: Int(length)).content
+
+                            if let message = try? JSONDecoder().decode(CompanionMessage.self, from: messageData) {
+                                await MainActor.run {
+                                    self.handleReceivedMessage(message)
+                                }
+                            }
+                        }
+                    } catch {
+                        if !Task.isCancelled {
+                            print("[AéroCheck Companion] Receive error: \(error)")
+                        }
+                    }
+
+                    // Connection ended
+                    await MainActor.run {
+                        self.handleDisconnection()
+                    }
                 }
             }
 
-            listener?.newConnectionHandler = { [weak self] newConnection in
-                Task { @MainActor in
-                    self?.handleNewConnection(newConnection)
-                }
-            }
-
-            listener?.start(queue: .main)
-            connectionState = .advertising
-            print("[AéroCheck Companion] Started advertising as master")
+            print("[AéroCheck Companion] Started Wi-Fi Aware listener")
         } catch {
-            print("[AéroCheck Companion] Failed to start listener: \(error.localizedDescription)")
+            print("[AéroCheck Companion] Failed to create listener: \(error)")
             connectionState = .disconnected
         }
     }
 
-    /// Stop advertising
-    func stopAdvertising() {
-        listener?.cancel()
-        listener = nil
-        if connectionState == .advertising {
-            connectionState = .disconnected
-        }
+    /// Stop listening for connections
+    func stopListening() {
+        listenerTask?.cancel()
+        listenerTask = nil
     }
 
     /// Start sending periodic updates to the companion
@@ -99,12 +179,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         self.flightPlanManager = flightPlanManager
 
         stopUpdates()
-
-        // Send initial update immediately if connected
-        if connectionState == .connected {
-            sendFlightPlanSnapshot()
-            sendFlightData()
-        }
 
         // Start periodic updates (every 1 second)
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -124,73 +198,105 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Viewer (iPhone) Methods
 
-    /// Start browsing for master devices
-    func startBrowsing() {
-        stopBrowsing()
+    /// Connect to a paired master device via Wi-Fi Aware
+    func connectToPairedDevice() {
+        browserTask?.cancel()
 
         currentRole = .viewer
-        discoveredPeers = []
-
-        let parameters = NWParameters.tcp
-        parameters.includePeerToPeer = true
-
-        browser = NWBrowser(for: .bonjour(type: serviceType, domain: nil), using: parameters)
-
-        browser?.stateUpdateHandler = { [weak self] state in
-            Task { @MainActor in
-                self?.handleBrowserStateChange(state)
-            }
-        }
-
-        browser?.browseResultsChangedHandler = { [weak self] results, changes in
-            Task { @MainActor in
-                self?.handleBrowseResults(results)
-            }
-        }
-
-        browser?.start(queue: .main)
-        connectionState = .searching
-        print("[AéroCheck Companion] Started browsing for masters")
-    }
-
-    /// Stop browsing
-    func stopBrowsing() {
-        browser?.cancel()
-        browser = nil
-        discoveredPeers = []
-        if connectionState == .searching {
-            connectionState = .disconnected
-        }
-    }
-
-    /// Connect to a discovered peer
-    func connectToPeer(_ peer: DiscoveredPeer) {
-        // Find the matching NWBrowseResult endpoint
-        guard let results = browser?.browseResults,
-              let result = results.first(where: { peerFromResult($0)?.id == peer.id }) else {
-            print("[AéroCheck Companion] Could not find endpoint for peer: \(peer.name)")
-            return
-        }
-
         connectionState = .connecting
 
-        let parameters = NWParameters.tcp
-        parameters.includePeerToPeer = true
+        let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
 
-        let nwConnection = NWConnection(to: result.endpoint, using: parameters)
-        setupConnection(nwConnection)
+        browserTask = Task { [weak self] in
+            do {
+                let browser = NetworkBrowser(
+                    for: .wifiAware(.connecting(to: .matching(deviceFilter), from: .aerocheck))
+                )
+
+                // Browse for the master device
+                let endpoint = try await browser.run { waEndpoints in
+                    if let endpoint = waEndpoints.first {
+                        return .finish(endpoint)
+                    }
+                    return .continue
+                }
+
+                // Create connection to the master
+                let connection = NetworkConnection(to: endpoint, using: .parameters {
+                    TLS()
+                }
+                .wifiAware { $0.performanceMode = .realtime }
+                .serviceClass(.interactiveVideo))
+
+                // Capture send capability
+                let send: @Sendable (Data) async throws -> Void = { data in
+                    try await connection.send(data)
+                }
+
+                await MainActor.run {
+                    self?.sendHandler = send
+                    self?.connectionState = .connected
+                    self?.connectedDeviceName = self?.pairedDevices.first?.name ?? L10n.Companion.masterDevice
+                    print("[AéroCheck Companion] Connected to master")
+                }
+
+                // Receive messages until connection ends
+                do {
+                    while !Task.isCancelled {
+                        let lengthData = try await connection.receive(exactly: 4).content
+                        let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+
+                        guard length > 0 && length < 1_000_000 else {
+                            print("[AéroCheck Companion] Invalid message length: \(length)")
+                            break
+                        }
+
+                        let messageData = try await connection.receive(exactly: Int(length)).content
+
+                        if let message = try? JSONDecoder().decode(CompanionMessage.self, from: messageData) {
+                            await MainActor.run { [weak self] in
+                                self?.handleReceivedMessage(message)
+                            }
+                        }
+                    }
+                } catch {
+                    if !Task.isCancelled {
+                        print("[AéroCheck Companion] Receive error: \(error)")
+                    }
+                }
+
+                // Connection ended
+                await MainActor.run {
+                    self?.handleDisconnection()
+                }
+            } catch {
+                await MainActor.run {
+                    print("[AéroCheck Companion] Browser/connection error: \(error)")
+                    self?.connectionState = .reconnecting
+                    // Auto-retry after delay
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(3))
+                        if self?.connectionState == .reconnecting {
+                            self?.connectToPairedDevice()
+                        }
+                    }
+                }
+            }
+        }
+
+        print("[AéroCheck Companion] Browsing for paired master device...")
     }
 
     /// Send a command to the master device
     func sendCommand(_ command: CompanionCommand) {
-        guard connectionState == .connected, let connection else { return }
+        guard connectionState == .connected, sendHandler != nil else { return }
 
         do {
             let payload = try JSONEncoder().encode(command)
             let message = CompanionMessage(type: .command, payload: payload)
-            sendMessage(message, on: connection)
+            sendMessage(message)
         } catch {
-            print("[AéroCheck Companion] Failed to encode command: \(error.localizedDescription)")
+            print("[AéroCheck Companion] Failed to encode command: \(error)")
         }
     }
 
@@ -199,13 +305,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Disconnect from the current companion
     func disconnect() {
         // Send graceful disconnect message
-        if let connection, connectionState == .connected {
+        if connectionState == .connected, sendHandler != nil {
             let message = CompanionMessage(type: .disconnect, payload: Data())
-            sendMessage(message, on: connection)
+            sendMessage(message)
         }
 
         cleanupConnection()
-        stopReconnectTimer()
+        stopListening()
+        browserTask?.cancel()
+        browserTask = nil
         connectionState = .disconnected
         connectedDeviceName = nil
         currentRole = .none
@@ -214,230 +322,82 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         print("[AéroCheck Companion] Disconnected")
     }
 
-    // MARK: - Listener State Handling (Master)
-
-    private func handleListenerStateChange(_ state: NWListener.State) {
-        switch state {
-        case .ready:
-            print("[AéroCheck Companion] Listener ready")
-        case .failed(let error):
-            print("[AéroCheck Companion] Listener failed: \(error.localizedDescription)")
-            connectionState = .disconnected
-        case .cancelled:
-            print("[AéroCheck Companion] Listener cancelled")
-        default:
-            break
-        }
+    /// Switch from companion mode back to standalone
+    func switchToStandalone() {
+        disconnect()
     }
 
-    private func handleNewConnection(_ newConnection: NWConnection) {
-        // Accept only one connection at a time
-        if let existing = connection {
-            existing.cancel()
-        }
-
-        print("[AéroCheck Companion] New connection from companion")
-        setupConnection(newConnection)
-    }
-
-    // MARK: - Browser State Handling (Viewer)
-
-    private func handleBrowserStateChange(_ state: NWBrowser.State) {
-        switch state {
-        case .ready:
-            print("[AéroCheck Companion] Browser ready")
-        case .failed(let error):
-            print("[AéroCheck Companion] Browser failed: \(error.localizedDescription)")
-            connectionState = .disconnected
-        case .cancelled:
-            print("[AéroCheck Companion] Browser cancelled")
-        default:
-            break
-        }
-    }
-
-    private func handleBrowseResults(_ results: Set<NWBrowser.Result>) {
-        discoveredPeers = results.compactMap { peerFromResult($0) }
-        print("[AéroCheck Companion] Found \(discoveredPeers.count) peers")
-    }
-
-    private func peerFromResult(_ result: NWBrowser.Result) -> DiscoveredPeer? {
-        switch result.endpoint {
-        case .service(let name, _, _, _):
-            return DiscoveredPeer(
-                id: UUID(uuidString: name) ?? UUID(),
-                name: name,
-                endpoint: "\(result.endpoint)"
-            )
-        default:
-            return nil
-        }
-    }
-
-    // MARK: - Connection Management
-
-    private func setupConnection(_ nwConnection: NWConnection) {
-        connection = nwConnection
-
-        nwConnection.stateUpdateHandler = { [weak self] state in
-            Task { @MainActor in
-                self?.handleConnectionStateChange(state)
-            }
-        }
-
-        nwConnection.start(queue: .main)
-        startReceiving(on: nwConnection)
-    }
-
-    private func handleConnectionStateChange(_ state: NWConnection.State) {
-        switch state {
-        case .ready:
-            connectionState = .connected
-            reconnectAttempts = 0
-            stopReconnectTimer()
-            print("[AéroCheck Companion] Connection established")
-
-            // Send handshake
-            sendHandshake()
-
-            // If master, send current flight data
-            if currentRole == .master {
-                sendFlightPlanSnapshot()
-                sendFlightData()
-            }
-
-        case .failed(let error):
-            print("[AéroCheck Companion] Connection failed: \(error.localizedDescription)")
-            handleDisconnection()
-
-        case .cancelled:
-            print("[AéroCheck Companion] Connection cancelled")
-
-        case .waiting(let error):
-            print("[AéroCheck Companion] Connection waiting: \(error.localizedDescription)")
-
-        default:
-            break
-        }
-    }
+    // MARK: - Connection Lifecycle
 
     private func handleDisconnection() {
         cleanupConnection()
 
-        if currentRole == .viewer {
+        if currentRole == .viewer && connectionState != .disconnected {
             connectionState = .reconnecting
-            startReconnectTimer()
-        } else {
-            connectionState = currentRole == .master ? .advertising : .disconnected
+            // Auto-reconnect
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                if connectionState == .reconnecting {
+                    connectToPairedDevice()
+                }
+            }
+        } else if currentRole == .master {
+            // Master stays in connecting state, listener continues accepting
+            connectionState = .connecting
             connectedDeviceName = nil
         }
     }
 
     private func cleanupConnection() {
-        connection?.cancel()
-        connection = nil
-        receiveBuffer = Data()
+        receiveTask?.cancel()
+        receiveTask = nil
+        sendHandler = nil
     }
 
-    // MARK: - Message Framing (Length-Prefixed)
+    // MARK: - Message Sending (Length-Prefixed JSON)
 
-    private func sendMessage(_ message: CompanionMessage, on connection: NWConnection) {
+    private func sendMessage(_ message: CompanionMessage) {
+        guard let sendHandler else { return }
+
         do {
             let data = try JSONEncoder().encode(message)
             var length = UInt32(data.count).bigEndian
             var frame = Data(bytes: &length, count: 4)
             frame.append(data)
 
-            connection.send(content: frame, completion: .contentProcessed { error in
-                if let error {
-                    print("[AéroCheck Companion] Send failed: \(error.localizedDescription)")
-                }
-            })
+            Task {
+                try? await sendHandler(frame)
+            }
         } catch {
-            print("[AéroCheck Companion] Failed to encode message: \(error.localizedDescription)")
-        }
-    }
-
-    private func startReceiving(on connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] content, _, isComplete, error in
-            Task { @MainActor in
-                guard let self else { return }
-
-                if let data = content {
-                    self.receiveBuffer.append(data)
-                    self.processReceiveBuffer()
-                }
-
-                if isComplete {
-                    self.handleDisconnection()
-                } else if let error {
-                    print("[AéroCheck Companion] Receive error: \(error.localizedDescription)")
-                    self.handleDisconnection()
-                } else {
-                    // Continue receiving
-                    self.startReceiving(on: connection)
-                }
-            }
-        }
-    }
-
-    private func processReceiveBuffer() {
-        while receiveBuffer.count >= 4 {
-            let lengthData = receiveBuffer.prefix(4)
-            let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-
-            guard receiveBuffer.count >= 4 + Int(length) else {
-                // Not enough data yet, wait for more
-                break
-            }
-
-            let messageData = receiveBuffer.subdata(in: 4..<(4 + Int(length)))
-            receiveBuffer = receiveBuffer.subdata(in: (4 + Int(length))..<receiveBuffer.count)
-
-            handleReceivedMessage(messageData)
+            print("[AéroCheck Companion] Failed to encode message: \(error)")
         }
     }
 
     // MARK: - Message Handling
 
-    private func handleReceivedMessage(_ data: Data) {
-        do {
-            let message = try JSONDecoder().decode(CompanionMessage.self, from: data)
-
-            switch message.type {
-            case .handshake:
-                let handshake = try JSONDecoder().decode(CompanionHandshake.self, from: message.payload)
-                handleHandshake(handshake)
-
-            case .flightData:
-                let flightData = try JSONDecoder().decode(CompanionFlightData.self, from: message.payload)
+    private func handleReceivedMessage(_ message: CompanionMessage) {
+        switch message.type {
+        case .flightData:
+            if let flightData = try? JSONDecoder().decode(CompanionFlightData.self, from: message.payload) {
                 lastReceivedData = flightData
-
-            case .flightPlanUpdate:
-                let snapshot = try JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: message.payload)
-                lastFlightPlanSnapshot = snapshot
-
-            case .command:
-                let command = try JSONDecoder().decode(CompanionCommand.self, from: message.payload)
-                handleCommand(command)
-
-            case .disconnect:
-                print("[AéroCheck Companion] Received disconnect message")
-                cleanupConnection()
-                connectionState = .disconnected
-                connectedDeviceName = nil
             }
-        } catch {
-            print("[AéroCheck Companion] Failed to decode message: \(error.localizedDescription)")
-        }
-    }
 
-    private func handleHandshake(_ handshake: CompanionHandshake) {
-        connectedDeviceName = handshake.deviceName
-        if let sessionId = handshake.sessionId {
-            lastSessionId = sessionId
+        case .flightPlanUpdate:
+            if let snapshot = try? JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: message.payload) {
+                lastFlightPlanSnapshot = snapshot
+            }
+
+        case .command:
+            if let command = try? JSONDecoder().decode(CompanionCommand.self, from: message.payload) {
+                handleCommand(command)
+            }
+
+        case .disconnect:
+            print("[AéroCheck Companion] Received disconnect message")
+            cleanupConnection()
+            connectionState = .disconnected
+            connectedDeviceName = nil
         }
-        print("[AéroCheck Companion] Handshake from \(handshake.deviceName) (role: \(handshake.role))")
     }
 
     private func handleCommand(_ command: CompanionCommand) {
@@ -467,34 +427,47 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             flightPlanManager.resetChronometer()
 
         case .ping:
-            // Could send pong for latency measurement
             break
         }
     }
 
     // MARK: - Data Sending (Master)
 
-    private func sendHandshake() {
-        guard let connection else { return }
+    /// Send initial flight data and plan when a companion first connects
+    private nonisolated func sendInitialData(send: @Sendable (Data) async throws -> Void) async {
+        // Create snapshots on main actor
+        let (flightData, planSnapshot) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?) in
+            guard let self else { return (nil, nil) }
+            let fd = self.createCurrentFlightData()
+            let ps = self.createCurrentFlightPlanSnapshot()
+            return (fd, ps)
+        }
 
-        let handshake = CompanionHandshake(
-            deviceName: UIDevice.current.name,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown",
-            role: currentRole,
-            sessionId: currentRole == .viewer ? lastSessionId : currentSessionId
-        )
+        // Send flight plan snapshot first
+        if let planSnapshot, let payload = try? JSONEncoder().encode(planSnapshot) {
+            let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
+            if let data = try? JSONEncoder().encode(message) {
+                var length = UInt32(data.count).bigEndian
+                var frame = Data(bytes: &length, count: 4)
+                frame.append(data)
+                try? await send(frame)
+            }
+        }
 
-        do {
-            let payload = try JSONEncoder().encode(handshake)
-            let message = CompanionMessage(type: .handshake, payload: payload)
-            sendMessage(message, on: connection)
-        } catch {
-            print("[AéroCheck Companion] Failed to encode handshake: \(error.localizedDescription)")
+        // Send current flight data
+        if let flightData, let payload = try? JSONEncoder().encode(flightData) {
+            let message = CompanionMessage(type: .flightData, payload: payload)
+            if let data = try? JSONEncoder().encode(message) {
+                var length = UInt32(data.count).bigEndian
+                var frame = Data(bytes: &length, count: 4)
+                frame.append(data)
+                try? await send(frame)
+            }
         }
     }
 
     private func sendFlightData() {
-        guard let connection, connectionState == .connected,
+        guard sendHandler != nil, connectionState == .connected,
               let appState, let locationManager, let flightPlanManager else { return }
 
         let data = createCompanionFlightData(
@@ -506,14 +479,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         do {
             let payload = try JSONEncoder().encode(data)
             let message = CompanionMessage(type: .flightData, payload: payload)
-            sendMessage(message, on: connection)
+            sendMessage(message)
         } catch {
-            print("[AéroCheck Companion] Failed to encode flight data: \(error.localizedDescription)")
+            print("[AéroCheck Companion] Failed to encode flight data: \(error)")
         }
     }
 
     private func sendFlightPlanSnapshot() {
-        guard let connection, connectionState == .connected,
+        guard sendHandler != nil, connectionState == .connected,
               let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
 
         let snapshot = createFlightPlanSnapshot(plan)
@@ -521,25 +494,36 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         do {
             let payload = try JSONEncoder().encode(snapshot)
             let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
-            sendMessage(message, on: connection)
+            sendMessage(message)
             lastSentFlightPlanId = plan.id
         } catch {
-            print("[AéroCheck Companion] Failed to encode flight plan snapshot: \(error.localizedDescription)")
+            print("[AéroCheck Companion] Failed to encode flight plan: \(error)")
         }
     }
 
     private func checkForFlightPlanChanges() {
         guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return }
 
-        // Resend if plan changed (new plan or waypoint updates like ATO)
         if plan.id != lastSentFlightPlanId || plan.waypoints.contains(where: { $0.actualTimeOver != nil }) {
-            // Simple change detection: resend every time there's a connected companion
-            // The snapshot is small enough that sending it periodically (at most 1Hz) is fine
             sendFlightPlanSnapshot()
         }
     }
 
-    // MARK: - Data Creation
+    // MARK: - Data Creation Helpers
+
+    private func createCurrentFlightData() -> CompanionFlightData? {
+        guard let appState, let locationManager, let flightPlanManager else { return nil }
+        return createCompanionFlightData(
+            appState: appState,
+            locationManager: locationManager,
+            flightPlanManager: flightPlanManager
+        )
+    }
+
+    private func createCurrentFlightPlanSnapshot() -> CompanionFlightPlanSnapshot? {
+        guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return nil }
+        return createFlightPlanSnapshot(plan)
+    }
 
     private func createCompanionFlightData(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) -> CompanionFlightData {
         let location = locationManager.currentLocation
@@ -602,50 +586,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             plannedDepartureTime: plan.plannedDepartureTime,
             chronometerStartTime: plan.chronometerStartTime
         )
-    }
-
-    // MARK: - Auto-Reconnect (Viewer)
-
-    private func startReconnectTimer() {
-        stopReconnectTimer()
-        reconnectAttempts = 0
-
-        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                self.reconnectAttempts += 1
-
-                if self.reconnectAttempts >= self.maxReconnectAttempts {
-                    self.stopReconnectTimer()
-                    // Stay in .reconnecting state — UI will show "Go Standalone" option
-                    print("[AéroCheck Companion] Max reconnect attempts reached")
-                    return
-                }
-
-                // Re-browse and try to find the same master
-                if self.browser == nil {
-                    self.startBrowsing()
-                    self.connectionState = .reconnecting
-                }
-
-                // Auto-connect to first available peer
-                if let peer = self.discoveredPeers.first {
-                    print("[AéroCheck Companion] Auto-reconnecting to \(peer.name) (attempt \(self.reconnectAttempts))")
-                    self.connectToPeer(peer)
-                }
-            }
-        }
-    }
-
-    private func stopReconnectTimer() {
-        reconnectTimer?.invalidate()
-        reconnectTimer = nil
-        reconnectAttempts = 0
-    }
-
-    /// Switch from companion mode back to standalone (called from UI when user gives up on reconnection)
-    func switchToStandalone() {
-        disconnect()
     }
 }
 

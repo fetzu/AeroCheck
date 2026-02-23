@@ -1322,19 +1322,19 @@
     "CACHED" : {
 
     },
-    "companion.availableDevices" : {
+    "companion.companionDevice" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Available Devices"
+            "value" : "Companion"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appareils disponibles"
+            "value" : "Compagnon"
           }
         }
       }
@@ -1611,40 +1611,6 @@
         }
       }
     },
-    "companion.requiresSameNetwork" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Both devices must be on the same Wi-Fi network or personal hotspot."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les deux appareils doivent être sur le même réseau Wi-Fi ou partage de connexion."
-          }
-        }
-      }
-    },
-    "companion.requiresWiFi" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Requires a local Wi-Fi connection between devices."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nécessite une connexion Wi-Fi locale entre les appareils."
-          }
-        }
-      }
-    },
     "companion.roleAuto" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1730,70 +1696,36 @@
         }
       }
     },
-    "companion.searching" : {
+    "companion.scanForDevices" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Searching..."
+            "value" : "Scan for Devices"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recherche en cours..."
+            "value" : "Rechercher des appareils"
           }
         }
       }
     },
-    "companion.searchingDescription" : {
+    "companion.startListening" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Make sure companion mode is enabled on your iPad and both devices are on the same Wi-Fi network."
+            "value" : "Start Listening"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Assurez-vous que le mode compagnon est activé sur votre iPad et que les deux appareils sont sur le même réseau Wi-Fi."
-          }
-        }
-      }
-    },
-    "companion.searchingForDevices" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Searching for devices..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recherche d'appareils..."
-          }
-        }
-      }
-    },
-    "companion.startAdvertising" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start Broadcasting"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Démarrer la diffusion"
+            "value" : "Démarrer l'écoute"
           }
         }
       }
@@ -1815,36 +1747,274 @@
         }
       }
     },
-    "companion.tapToConnect" : {
+    "companion.unknownDevice" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap a device to connect."
+            "value" : "Unknown Device"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur un appareil pour vous connecter."
+            "value" : "Appareil inconnu"
           }
         }
       }
     },
-    "companion.waitingForCompanion" : {
+    "companion.waitingForPairing" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Waiting for companion..."
+            "value" : "Waiting for Pairing"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En attente du compagnon..."
+            "value" : "En attente de l'appairage"
+          }
+        }
+      }
+    },
+    "companion.wifiAwareInfo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses Wi-Fi Aware for direct device-to-device communication."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilise Wi-Fi Aware pour la communication directe entre appareils."
+          }
+        }
+      }
+    },
+    "companion.wifiAwareRequirement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware requires iOS 26 or later on both devices."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware nécessite iOS 26 ou ultérieur sur les deux appareils."
+          }
+        }
+      }
+    },
+    "companion.wifiAwareUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware Unavailable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware indisponible"
+          }
+        }
+      }
+    },
+    "companion.masterDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary iPad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPad principal"
+          }
+        }
+      }
+    },
+    "companion.noNetworkRequired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Wi-Fi network required — devices communicate directly."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun réseau Wi-Fi requis — les appareils communiquent directement."
+          }
+        }
+      }
+    },
+    "companion.noPairedDevices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No paired devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun appareil appairé"
+          }
+        }
+      }
+    },
+    "companion.pairDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair Device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appairer un appareil"
+          }
+        }
+      }
+    },
+    "companion.pairDeviceFirst" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair a device first to enable connection."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appairez d'abord un appareil pour activer la connexion."
+          }
+        }
+      }
+    },
+    "companion.pairNewDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair New Device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appairer un nouvel appareil"
+          }
+        }
+      }
+    },
+    "companion.pairedDevices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired Devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareils appairés"
+          }
+        }
+      }
+    },
+    "companion.pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appairage en cours..."
+          }
+        }
+      }
+    },
+    "companion.pairingMasterDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the companion settings on your iPhone and tap \"Scan for Devices\" to find this iPad."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez les réglages compagnon sur votre iPhone et appuyez sur « Rechercher des appareils » pour trouver cet iPad."
+          }
+        }
+      }
+    },
+    "companion.pairingViewerDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make sure companion mode is enabled on your iPad and tap the button below to find it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assurez-vous que le mode compagnon est activé sur votre iPad et appuyez sur le bouton ci-dessous pour le trouver."
+          }
+        }
+      }
+    },
+    "companion.pairWithiPad" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with iPad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appairer avec l'iPad"
           }
         }
       }

@@ -158,11 +158,11 @@ struct AeroCheckApp: App {
                 flightPlanManager: flightPlanManager
             )
 
-            // Start companion advertising/updates if enabled
+            // Start companion listening/updates if enabled
             if appState.settings.enableCompanionMode {
                 let role = appState.settings.companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
                 if role == .master {
-                    companionConnectivityManager.startAdvertising()
+                    companionConnectivityManager.startListening()
                     companionConnectivityManager.startUpdates(
                         appState: appState,
                         locationManager: locationManager,
@@ -176,7 +176,7 @@ struct AeroCheckApp: App {
 
             // Stop companion mode
             companionConnectivityManager.stopUpdates()
-            companionConnectivityManager.stopAdvertising()
+            companionConnectivityManager.stopListening()
         }
     }
 }

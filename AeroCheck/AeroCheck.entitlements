@@ -17,5 +17,10 @@
 	<array>
 		<string>iCloud.com.fetzu.aerocheck</string>
 	</array>
+	<key>com.apple.developer.wifi-aware</key>
+	<array>
+		<string>publish</string>
+		<string>subscribe</string>
+	</array>
 </dict>
 </plist>

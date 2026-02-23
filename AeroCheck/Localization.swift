@@ -1177,6 +1177,7 @@ enum L10n {
 
     // MARK: - Companion Mode
     enum Companion {
+        // Settings
         static let companionMode = String(localized: "companion.companionMode")
         static let enableCompanionMode = String(localized: "companion.enableCompanionMode")
         static let enableDescription = String(localized: "companion.enableDescription")
@@ -1186,28 +1187,46 @@ enum L10n {
         static let roleCompanion = String(localized: "companion.roleCompanion")
         static let roleDescriptionMaster = String(localized: "companion.roleDescriptionMaster")
         static let roleDescriptionViewer = String(localized: "companion.roleDescriptionViewer")
+
+        // Connection states
         static let connection = String(localized: "companion.connection")
         static let connected = String(localized: "companion.connected")
         static let disconnected = String(localized: "companion.disconnected")
-        static let searching = String(localized: "companion.searching")
         static let connecting = String(localized: "companion.connecting")
         static let reconnecting = String(localized: "companion.reconnecting")
+        static let pairing = String(localized: "companion.pairing")
         static let connectedTo = String(localized: "companion.connectedTo")
         static let disconnect = String(localized: "companion.disconnect")
         static let connectToiPad = String(localized: "companion.connectToiPad")
-        static let startAdvertising = String(localized: "companion.startAdvertising")
-        static let waitingForCompanion = String(localized: "companion.waitingForCompanion")
+        static let startListening = String(localized: "companion.startListening")
+
+        // Pairing
+        static let pairDevice = String(localized: "companion.pairDevice")
+        static let pairNewDevice = String(localized: "companion.pairNewDevice")
+        static let pairedDevices = String(localized: "companion.pairedDevices")
+        static let noPairedDevices = String(localized: "companion.noPairedDevices")
+        static let unknownDevice = String(localized: "companion.unknownDevice")
+        static let companionDevice = String(localized: "companion.companionDevice")
+        static let masterDevice = String(localized: "companion.masterDevice")
+        static let pairDeviceFirst = String(localized: "companion.pairDeviceFirst")
+        static let waitingForPairing = String(localized: "companion.waitingForPairing")
+        static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
+        static let pairWithiPad = String(localized: "companion.pairWithiPad")
+        static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
+        static let scanForDevices = String(localized: "companion.scanForDevices")
+
+        // Wi-Fi Aware
+        static let wifiAwareUnavailable = String(localized: "companion.wifiAwareUnavailable")
+        static let wifiAwareRequirement = String(localized: "companion.wifiAwareRequirement")
+        static let wifiAwareInfo = String(localized: "companion.wifiAwareInfo")
+        static let noNetworkRequired = String(localized: "companion.noNetworkRequired")
+
+        // Flight view
         static let connectionLost = String(localized: "companion.connectionLost")
         static let switchToStandalone = String(localized: "companion.switchToStandalone")
         static let keepTrying = String(localized: "companion.keepTrying")
         static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")
-        static let requiresWiFi = String(localized: "companion.requiresWiFi")
-        static let requiresSameNetwork = String(localized: "companion.requiresSameNetwork")
-        static let searchingForDevices = String(localized: "companion.searchingForDevices")
-        static let searchingDescription = String(localized: "companion.searchingDescription")
-        static let availableDevices = String(localized: "companion.availableDevices")
-        static let tapToConnect = String(localized: "companion.tapToConnect")
     }
 }
 

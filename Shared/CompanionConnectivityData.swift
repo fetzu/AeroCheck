@@ -1,16 +1,15 @@
 import Foundation
 
-// MARK: - iOS-only types (not needed on watchOS)
-
 #if !os(watchOS)
 import UIKit
+
+// MARK: - Connection & Role
 
 /// Connection state for companion mode
 enum CompanionConnectionState: Equatable {
     case disconnected
-    case searching       // iPhone: browsing for iPad
-    case advertising     // iPad: waiting for iPhone
-    case connecting      // Handshake in progress
+    case pairing         // One-time device pairing via system UI
+    case connecting      // Establishing connection to paired device
     case connected       // Active data flow
     case reconnecting    // Temporarily lost, auto-reconnecting
 }
@@ -41,25 +40,6 @@ enum CompanionRoleSetting: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
-
-/// A discovered peer available for connection
-struct DiscoveredPeer: Identifiable, Equatable {
-    let id: UUID
-    let name: String
-    let endpoint: String  // Serialized endpoint description for display
-
-    static func == (lhs: DiscoveredPeer, rhs: DiscoveredPeer) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-/// Exchanged on initial connection to identify devices
-struct CompanionHandshake: Codable {
-    let deviceName: String
-    let appVersion: String
-    let role: CompanionRole
-    let sessionId: UUID?  // Non-nil when reconnecting to existing session
-}
 #endif
 
 // MARK: - Wire Protocol
@@ -67,10 +47,9 @@ struct CompanionHandshake: Codable {
 /// Wrapper for all messages sent between devices
 struct CompanionMessage: Codable {
     enum MessageType: String, Codable {
-        case flightData       // Master → Viewer (periodic 1Hz)
-        case flightPlanUpdate // Master → Viewer (on change)
-        case command          // Viewer → Master
-        case handshake        // Bidirectional (initial connection)
+        case flightData       // Master -> Viewer (periodic 1Hz)
+        case flightPlanUpdate // Master -> Viewer (on change)
+        case command          // Viewer -> Master
         case disconnect       // Either direction (graceful)
     }
 
@@ -85,7 +64,7 @@ struct CompanionMessage: Codable {
     }
 }
 
-// MARK: - Flight Data (Master → Viewer, 1Hz)
+// MARK: - Flight Data (Master -> Viewer, 1Hz)
 
 /// Lightweight periodic update sent from iPad to iPhone at 1Hz
 struct CompanionFlightData: Codable {
@@ -111,7 +90,7 @@ struct CompanionFlightData: Codable {
     let courseDegrees: Double?
     let gpsSignalStatus: String
 
-    // Navigation state (lightweight — full plan sent separately)
+    // Navigation state (lightweight -- full plan sent separately)
     let currentWaypointIndex: Int
     let chronometerStartTime: Date?
     let chronometerElapsed: TimeInterval
@@ -124,7 +103,7 @@ struct CompanionFlightData: Codable {
     let timestamp: Date
 }
 
-// MARK: - Flight Plan Snapshot (Master → Viewer, on connect + on change)
+// MARK: - Flight Plan Snapshot (Master -> Viewer, on connect + on change)
 
 /// Full flight plan state sent when companion connects or plan changes
 struct CompanionFlightPlanSnapshot: Codable, Equatable {
@@ -163,7 +142,7 @@ struct CompanionWaypoint: Codable, Identifiable {
     let remarks: String
 }
 
-// MARK: - Commands (Viewer → Master)
+// MARK: - Commands (Viewer -> Master)
 
 /// Commands sent from iPhone companion to iPad master
 enum CompanionCommand: Codable {
@@ -175,4 +154,3 @@ enum CompanionCommand: Codable {
     case resetChronometer
     case ping
 }
-

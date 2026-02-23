@@ -1,4 +1,5 @@
 import SwiftUI
+import WiFiAware
 
 /// Settings sub-page for companion device mode configuration
 struct CompanionSettingsView: View {
@@ -15,6 +16,7 @@ struct CompanionSettingsView: View {
             enableSection
             if enableCompanionMode {
                 roleSection
+                pairingSection
                 connectionSection
             }
             infoSection
@@ -26,7 +28,7 @@ struct CompanionSettingsView: View {
         .onChange(of: enableCompanionMode) { if !isLoadingSettings { saveSettings() } }
         .onChange(of: companionRole) { if !isLoadingSettings { saveSettings() } }
         .sheet(isPresented: $showPairingSheet) {
-            CompanionPairingView()
+            CompanionPairingView(role: companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom))
                 .environmentObject(companionConnectivityManager)
         }
     }
@@ -55,6 +57,45 @@ struct CompanionSettingsView: View {
         }
     }
 
+    // MARK: - Pairing Section
+
+    private var pairingSection: some View {
+        Section(L10n.Companion.pairedDevices) {
+            if companionConnectivityManager.pairedDevices.isEmpty {
+                HStack {
+                    Image(systemName: "ipad.and.iphone")
+                        .foregroundColor(.secondary)
+                    Text(L10n.Companion.noPairedDevices)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                ForEach(companionConnectivityManager.pairedDevices, id: \.name) { device in
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.aviationGreen)
+                        VStack(alignment: .leading) {
+                            Text(device.name ?? L10n.Companion.unknownDevice)
+                                .foregroundColor(.primary)
+                            if let pairingInfo = device.pairingInfo {
+                                Text(pairingInfo.pairingName ?? "")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button(action: { showPairingSheet = true }) {
+                HStack {
+                    Image(systemName: "plus.circle")
+                    Text(L10n.Companion.pairNewDevice)
+                }
+            }
+            .disabled(!companionConnectivityManager.isWiFiAwareSupported)
+        }
+    }
+
     // MARK: - Connection Section
 
     private var connectionSection: some View {
@@ -63,19 +104,11 @@ struct CompanionSettingsView: View {
             case .disconnected:
                 disconnectedRow
 
-            case .searching:
+            case .pairing:
                 HStack {
                     ProgressView()
                         .padding(.trailing, 8)
-                    Text(L10n.Companion.searching)
-                        .foregroundColor(.secondary)
-                }
-
-            case .advertising:
-                HStack {
-                    ProgressView()
-                        .padding(.trailing, 8)
-                    Text(L10n.Companion.waitingForCompanion)
+                    Text(L10n.Companion.pairing)
                         .foregroundColor(.secondary)
                 }
 
@@ -104,22 +137,29 @@ struct CompanionSettingsView: View {
     private var disconnectedRow: some View {
         Group {
             let resolvedRole = companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
-            if resolvedRole == .viewer {
-                Button(action: { showPairingSheet = true }) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                        Text(L10n.Companion.connectToiPad)
+            if companionConnectivityManager.hasPairedDevices {
+                if resolvedRole == .viewer {
+                    Button(action: {
+                        companionConnectivityManager.connectToPairedDevice()
+                    }) {
+                        HStack {
+                            Image(systemName: "link")
+                            Text(L10n.Companion.connectToiPad)
+                        }
+                    }
+                } else {
+                    Button(action: {
+                        companionConnectivityManager.startListening()
+                    }) {
+                        HStack {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text(L10n.Companion.startListening)
+                        }
                     }
                 }
             } else {
-                Button(action: {
-                    companionConnectivityManager.startAdvertising()
-                }) {
-                    HStack {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                        Text(L10n.Companion.startAdvertising)
-                    }
-                }
+                Text(L10n.Companion.pairDeviceFirst)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -151,7 +191,7 @@ struct CompanionSettingsView: View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Label {
-                    Text(L10n.Companion.requiresWiFi)
+                    Text(L10n.Companion.wifiAwareInfo)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } icon: {
@@ -159,11 +199,11 @@ struct CompanionSettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 Label {
-                    Text(L10n.Companion.requiresSameNetwork)
+                    Text(L10n.Companion.noNetworkRequired)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } icon: {
-                    Image(systemName: "network")
+                    Image(systemName: "wifi.slash")
                         .foregroundColor(.secondary)
                 }
             }

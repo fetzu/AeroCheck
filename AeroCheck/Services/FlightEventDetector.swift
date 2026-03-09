@@ -454,6 +454,12 @@ class FlightEventDetector: ObservableObject {
     // MARK: - Event Emission
 
     private func emitGoAround(airport: Airport?) {
+        // Suppress if aircraft has never been airborne in this session
+        guard hasBeenAirborne else {
+            print("[FlightEventDetector] Go-around suppressed (aircraft has not been airborne)")
+            return
+        }
+
         guard pendingGoAround == nil else { return }
 
         // Suppress events within the takeoff suppression window
@@ -478,6 +484,12 @@ class FlightEventDetector: ObservableObject {
     }
 
     private func emitTouchAndGo(airport: Airport?) {
+        // Suppress if aircraft has never been airborne in this session
+        guard hasBeenAirborne else {
+            print("[FlightEventDetector] Touch-and-go suppressed (aircraft has not been airborne)")
+            return
+        }
+
         guard pendingTouchAndGo == nil else { return }
 
         // Suppress events within the takeoff suppression window

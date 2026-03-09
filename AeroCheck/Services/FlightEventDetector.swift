@@ -122,6 +122,16 @@ class FlightEventDetector: ObservableObject {
     private var stateAirport: Airport?
     private var stateEntryTime: Date?
 
+    // MARK: - Airborne Tracking
+
+    /// Whether the aircraft has exceeded airborne speed at least once during this session.
+    /// Full-stop detection is suppressed until the aircraft has actually flown.
+    private var hasBeenAirborne: Bool = false
+
+    /// Speed threshold (knots) that must be exceeded to consider the aircraft "has been airborne".
+    /// Well above max taxi speed (~15 kts) and well below any aircraft's Vso (~42+ kts).
+    private let airborneEvidenceSpeedKts: Double = 30.0
+
     // MARK: - Speed Tracking
 
     /// Speed history for smoothing (last 5 readings)
@@ -232,6 +242,12 @@ class FlightEventDetector: ObservableObject {
 
         let speedKts = smoothedSpeedKts()
 
+        // Track whether aircraft has been airborne during this session
+        if !hasBeenAirborne && speedKts > airborneEvidenceSpeedKts {
+            hasBeenAirborne = true
+            print("[FlightEventDetector] Aircraft has been airborne (speed: \(Int(speedKts)) kts)")
+        }
+
         // Check cooldown - skip detection if too soon after last event
         if let lastEvent = lastEventTime, now.timeIntervalSince(lastEvent) < eventCooldownSeconds {
             return
@@ -281,6 +297,7 @@ class FlightEventDetector: ObservableObject {
         lastTakeoffTime = nil
         fullStopCooldownUntil = nil
         speedConfig = .defaults
+        hasBeenAirborne = false
     }
 
     /// Dismiss pending go-around without recording
@@ -485,6 +502,13 @@ class FlightEventDetector: ObservableObject {
     }
 
     private func emitFullStop(airport: Airport?) {
+        // Suppress full-stop if aircraft has never been airborne in this session
+        guard hasBeenAirborne else {
+            print("[FlightEventDetector] Full stop suppressed (aircraft has not been airborne)")
+            transitionToIdle()
+            return
+        }
+
         guard pendingFullStop == nil else { return }
 
         // Suppress events within the takeoff suppression window

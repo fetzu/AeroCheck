@@ -243,12 +243,9 @@ struct FlightPlanOverlayView: View {
                 VStack(alignment: .center, spacing: 2) {
                     HStack(spacing: 8) {
                         if clampedIndex > 0, let dist = displayWaypoint.distance {
-                            Text(String(format: "%.1f", dist))
+                            Text("\(String(format: "%.1f", dist)) NM")
                                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                                 .foregroundColor(.aviationGold)
-                            + Text(" NM")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.secondaryText)
                         }
 
                         if clampedIndex > 0, let mc = displayWaypoint.magneticCourse {

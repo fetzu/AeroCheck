@@ -96,23 +96,23 @@ struct AboutSettingsView: View {
                 }
 
                 Link(destination: URL(string: "https://github.com/fetzu/AeroCheck")!) {
-                    Text(L10n.Settings.openSourceDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    + Text(Image(systemName: "arrow.up.forward.square"))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .baselineOffset(4)
+                    HStack(spacing: 2) {
+                        Text(L10n.Settings.openSourceDescription)
+                            .font(.subheadline)
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
                 }
 
                 Link(destination: URL(string: "https://raw.githubusercontent.com/fetzu/AeroCheck/refs/heads/main/LICENSE")!) {
-                    Text(L10n.Settings.mitLicense)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    + Text(Image(systemName: "arrow.up.forward.square"))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .baselineOffset(4)
+                    HStack(spacing: 2) {
+                        Text(L10n.Settings.mitLicense)
+                            .font(.subheadline)
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
                 }
             }
             .padding(.vertical, 4)

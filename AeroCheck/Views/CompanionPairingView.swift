@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(DeviceDiscoveryUI)
 import DeviceDiscoveryUI
+#endif
 import WiFiAware
 
 /// Device pairing sheet for companion mode using Wi-Fi Aware
@@ -13,11 +15,15 @@ struct CompanionPairingView: View {
     var body: some View {
         NavigationStack {
             Group {
+                #if canImport(DeviceDiscoveryUI)
                 if role == .master {
                     masterPairingContent
                 } else {
                     viewerPairingContent
                 }
+                #else
+                unavailableOnPlatformContent
+                #endif
             }
             .navigationTitle(L10n.Companion.pairDevice)
             .navigationBarTitleDisplayMode(.inline)
@@ -31,6 +37,7 @@ struct CompanionPairingView: View {
         }
     }
 
+    #if canImport(DeviceDiscoveryUI)
     // MARK: - Master (iPad) Pairing
 
     /// iPad shows DevicePairingView — waits for a companion to discover and pair
@@ -103,6 +110,7 @@ struct CompanionPairingView: View {
             Spacer()
         }
     }
+    #endif
 
     // MARK: - Fallback Content
 
@@ -127,4 +135,10 @@ struct CompanionPairingView: View {
             Spacer()
         }
     }
+
+    #if !canImport(DeviceDiscoveryUI)
+    private var unavailableOnPlatformContent: some View {
+        wifiAwareUnavailableContent
+    }
+    #endif
 }

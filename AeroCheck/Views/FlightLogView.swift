@@ -2346,7 +2346,7 @@ struct ShareCardCustomizationView: View {
         let options = MKMapSnapshotter.Options()
         options.mapRect = paddedRect
         options.size = CGSize(width: targetWidth, height: targetHeight)
-        options.scale = UIScreen.main.scale
+        options.scale = UITraitCollection.current.displayScale
         options.traitCollection = UITraitCollection(userInterfaceStyle: cardColorScheme.mapTraitStyle)
         options.mapType = mapLayer == .satellite ? .satellite : .standard
 
@@ -2372,7 +2372,7 @@ struct ShareCardCustomizationView: View {
             let context = rendererContext.cgContext
 
             context.setStrokeColor(UIColor(accentColor).cgColor)
-            context.setLineWidth(6 * UIScreen.main.scale)
+            context.setLineWidth(6 * UITraitCollection.current.displayScale)
             context.setLineCap(.round)
             context.setLineJoin(.round)
 
@@ -2390,11 +2390,11 @@ struct ShareCardCustomizationView: View {
 
             if let firstCoord = coordinates.first {
                 let startPoint = snapshot.point(for: firstCoord)
-                drawMarkerStandalone(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UIScreen.main.scale)
+                drawMarkerStandalone(at: startPoint, color: UIColor(Color.aviationGreen), in: context, scale: UITraitCollection.current.displayScale)
             }
             if let lastCoord = coordinates.last {
                 let endPoint = snapshot.point(for: lastCoord)
-                drawMarkerStandalone(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UIScreen.main.scale)
+                drawMarkerStandalone(at: endPoint, color: UIColor(Color.aviationRed), in: context, scale: UITraitCollection.current.displayScale)
             }
         }
     }

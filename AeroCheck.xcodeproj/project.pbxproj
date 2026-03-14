@@ -814,6 +814,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 3.6.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-weak_framework",
+					DeviceDiscoveryUI,
+					"-weak_framework",
+					_DeviceDiscoveryUI_SwiftUI,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck;
 				PRODUCT_NAME = AeroCheck;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -858,6 +865,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 3.6.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-weak_framework",
+					DeviceDiscoveryUI,
+					"-weak_framework",
+					_DeviceDiscoveryUI_SwiftUI,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck;
 				PRODUCT_NAME = AeroCheck;
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -419,6 +419,7 @@ struct FlightView: View {
                             },
                             onLanded: {
                                 appState.recordLanding()
+                                flightEventDetector.dismissFullStop()  // Prevent double-counting
                                 pulseActionButton = false
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {

@@ -800,7 +800,7 @@ struct FlightDetailView: View {
                 if flight.touchAndGoCount > 0 {
                     DetailRow(label: L10n.FlightDetail.touchAndGoes, value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
                 }
-                if flight.fullStopCount > 0 {
+                if flight.fullStopCount > 1 {
                     DetailRow(label: L10n.FlightDetail.fullStops, value: "\(flight.fullStopCount)", icon: "stop.circle.fill")
                 }
             }

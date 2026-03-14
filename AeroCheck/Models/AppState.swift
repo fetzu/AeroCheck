@@ -583,6 +583,12 @@ class AppState: ObservableObject {
         landingTime = Date().addingTimeInterval(-60)
         currentFlight?.landingTime = landingTime
         hasLandingBeenDetected = true
+
+        // The final landing is always a full-stop landing
+        if let time = landingTime {
+            currentFlight?.fullStopCount += 1
+            currentFlight?.fullStopTimes.append(time)
+        }
     }
 
     /// Update landing time to current time minus 1 minute (for long-press update)

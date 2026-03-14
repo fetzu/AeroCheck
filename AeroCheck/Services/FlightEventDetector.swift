@@ -37,7 +37,7 @@ struct AircraftSpeedConfig {
     static let defaults = AircraftSpeedConfig(
         touchdownSpeedKts: 40.0,
         goAroundMinSpeedKts: 25.0,
-        touchAndGoAccelSpeedKts: 35.0,
+        touchAndGoAccelSpeedKts: 40.0,
         taxiSpeedKts: 10.0
     )
 
@@ -62,8 +62,10 @@ struct AircraftSpeedConfig {
         // it was never configured for landing = go-around.
         self.goAroundMinSpeedKts = vsoValue + 5.0
 
-        // Touch-and-go acceleration: touchdownSpeed - 5 kts
-        self.touchAndGoAccelSpeedKts = self.touchdownSpeedKts - 5.0
+        // Touch-and-go acceleration: equal to touchdownSpeed (provides hysteresis)
+        // Previously touchdownSpeed - 5, but the narrow 5 kts gap caused false TGs
+        // from GPS ground speed fluctuations during approach with headwind.
+        self.touchAndGoAccelSpeedKts = self.touchdownSpeedKts
 
         // Taxi speed: universal across aircraft types
         self.taxiSpeedKts = 10.0
@@ -121,6 +123,11 @@ class FlightEventDetector: ObservableObject {
     private var state: DetectorState = .idle
     private var stateAirport: Airport?
     private var stateEntryTime: Date?
+
+    /// Whether touchdown state was entered via low approach (altitude confirmed < 100 ft AGL)
+    /// vs speed-based fallback from airportZone (altitude unconfirmed).
+    /// Used to gate touch-and-go detection: TG from speed-based fallback requires altitude validation.
+    private var touchdownViaLowApproach: Bool = false
 
     // MARK: - Airborne Tracking
 
@@ -183,7 +190,7 @@ class FlightEventDetector: ObservableObject {
 
     // Speed thresholds (configured per-aircraft, with sensible defaults)
     private var speedConfig: AircraftSpeedConfig = .defaults
-    private let minTouchdownReadings: Int = 1
+    private let minTouchdownReadings: Int = 3
 
     // Airport zone entry/exit (with hysteresis to prevent oscillation)
     private let airportZoneEntryDistanceNm: Double = 2.0
@@ -352,6 +359,7 @@ class FlightEventDetector: ObservableObject {
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
+            touchdownViaLowApproach = false  // Altitude not confirmed
             print("[FlightEventDetector] Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
         }
     }
@@ -368,6 +376,7 @@ class FlightEventDetector: ObservableObject {
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
+            touchdownViaLowApproach = true  // Altitude confirmed < 100 ft AGL
             print("[FlightEventDetector] Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
             return
         }
@@ -413,8 +422,12 @@ class FlightEventDetector: ObservableObject {
         }
 
         // Check for touch-and-go: speed increases back above acceleration threshold
-        // after having at least minTouchdownReadings below touchdownSpeedKts
-        if speedKts >= speedConfig.touchAndGoAccelSpeedKts && touchdownSpeedReadings >= minTouchdownReadings {
+        // after having at least minTouchdownReadings below touchdownSpeedKts.
+        // If touchdown was entered via speed-based fallback (not low approach), also require
+        // altitude near ground level to prevent false TGs during approach with headwind.
+        if speedKts >= speedConfig.touchAndGoAccelSpeedKts
+            && touchdownSpeedReadings >= minTouchdownReadings
+            && (touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
             emitTouchAndGo(airport: stateAirport)
             // Transition back to airport zone (aircraft will likely do another circuit)
             state = .airportZone
@@ -554,5 +567,6 @@ class FlightEventDetector: ObservableObject {
         touchdownEntryTime = nil
         touchdownSpeedReadings = 0
         consecutiveTaxiSpeedReadings = 0
+        touchdownViaLowApproach = false
     }
 }

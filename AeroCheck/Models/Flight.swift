@@ -190,13 +190,8 @@ struct Flight: Identifiable, Codable {
         self.fullStopTimes = fullStopTimes
     }
 
-    /// Total landings (touch and go + full stops + final landing)
+    /// Total landings (touch and go + full stops, which now includes the final landing)
     var totalLandings: Int {
-        // If flight has ended (has landing time), count 1 for final landing + all touch and gos + full stops
-        if landingTime != nil {
-            return touchAndGoCount + fullStopCount + 1
-        }
-        // If flight is still in progress, just count touch and gos + full stops
         return touchAndGoCount + fullStopCount
     }
     

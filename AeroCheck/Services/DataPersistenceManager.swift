@@ -33,27 +33,20 @@ class DataPersistenceManager: ObservableObject {
     /// Index file for tracking all navigation plans
     private let plansIndexFileName = "plans_index.json"
 
-    // MARK: - Computed Properties
+    // MARK: - Cached Properties
 
-    /// Documents directory URL (local storage)
-    private var documentsDirectory: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    }
+    /// Documents directory URL (local storage) - cached at init
+    private let documentsDirectory: URL
 
-    /// iCloud Drive container URL (nil if iCloud not available)
-    private var iCloudContainerURL: URL? {
-        FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.fetzu.aerocheck")
-    }
+    /// iCloud Drive container URL (nil if iCloud not available) - cached at init
+    /// IMPORTANT: FileManager.url(forUbiquityContainerIdentifier:) can block the main thread
+    /// for seconds when iCloud is initializing. We call it once at init and cache the result.
+    private let iCloudContainerURL: URL?
 
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
-    /// The NSUbiquitousContainerName in Info.plist sets the display name
-    private var iCloudDocumentsURL: URL? {
-        iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
-    }
+    private let iCloudDocumentsURL: URL?
 
     /// Local Documents directory (On this iPhone/AéroCheck - the app name is shown by iOS)
-    /// Note: iOS Files app shows the app's Documents folder with the app name,
-    /// so we don't need to create an extra subfolder
     var localAppDirectory: URL {
         documentsDirectory
     }
@@ -95,6 +88,13 @@ class DataPersistenceManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
+        // Cache directory URLs once to avoid repeated calls to
+        // url(forUbiquityContainerIdentifier:) which blocks the main thread
+        self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents")
+        self.iCloudContainerURL = FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.fetzu.aerocheck")
+        self.iCloudDocumentsURL = self.iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
+
         createDirectoryStructure()
     }
 

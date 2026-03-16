@@ -38,7 +38,8 @@ class AircraftDataService: ObservableObject {
         self.subscriptionManager = subscriptionManager
 
         // Set up cache directory
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         self.cacheDirectory = appSupport.appendingPathComponent("AeroCheck/Checklists", isDirectory: true)
 
         // Create cache directory if needed

@@ -497,28 +497,26 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         _ context: CKSyncEngine.SendChangesContext,
         syncEngine: CKSyncEngine
     ) -> CKSyncEngine.RecordZoneChangeBatch? {
-        // This must be called synchronously, so we use a dispatch queue
+        // CKSyncEngine calls this synchronously on its own thread.
+        // We use DispatchQueue.main.sync to safely access @MainActor state.
+        // This is safe because CKSyncEngine never calls this from the main thread.
         var result: CKSyncEngine.RecordZoneChangeBatch?
 
-        let semaphore = DispatchSemaphore(value: 0)
-
-        Task { @MainActor in
-            result = await self.createRecordZoneChangeBatch(context, syncEngine: syncEngine)
-            semaphore.signal()
+        DispatchQueue.main.sync {
+            result = self.createRecordZoneChangeBatchSync(syncEngine: syncEngine)
         }
 
-        semaphore.wait()
         return result
     }
 
+    /// Creates the batch synchronously on the main thread.
+    /// Called from DispatchQueue.main.sync in nextRecordZoneChangeBatch.
     @MainActor
-    private func createRecordZoneChangeBatch(
-        _ context: CKSyncEngine.SendChangesContext,
+    private func createRecordZoneChangeBatchSync(
         syncEngine: CKSyncEngine
-    ) async -> CKSyncEngine.RecordZoneChangeBatch? {
+    ) -> CKSyncEngine.RecordZoneChangeBatch? {
         guard let manager = manager else { return nil }
 
-        // Get all pending changes from the sync engine state
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
 
         var recordsToSave: [CKRecord] = []
@@ -529,7 +527,6 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             switch change {
             case .saveRecord(let recordID):
                 if recordID.recordName == "settings" {
-                    // Settings record - only process once per batch, and only if not already on server
                     if !processedSettingsRecord,
                        let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
@@ -539,7 +536,6 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 } else if let flightId = UUID(uuidString: recordID.recordName),
                           let flight = manager.getPendingFlight(for: flightId),
                           let record = manager.createFlightRecord(flight) {
-                    // Flight record
                     recordsToSave.append(record)
                 }
 

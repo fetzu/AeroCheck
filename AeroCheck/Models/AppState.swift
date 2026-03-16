@@ -299,6 +299,7 @@ class AppState: ObservableObject {
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
     @Published var flights: [Flight] = []
+    @Published var isLoadingFlights: Bool = true
     @Published var settings: AppSettings = AppSettings()
     @Published var showFlightLog: Bool = false
 
@@ -348,17 +349,37 @@ class AppState: ObservableObject {
     // MARK: - Initialization
 
     init() {
-        loadFlights()
+        // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
+        syncAircraftType()
+        setupSyncCallbacks()
+
+        // Try to restore active flight state if app was closed during a flight
+        restoreActiveFlightState()
+
+        // Load flights in background - iCloud file enumeration can be slow
+        // and should not block the main thread during startup
+        Task { [weak self] in
+            guard let self = self else { return }
+            await self.loadFlightsAsync()
+        }
+    }
+
+    /// Load flights asynchronously to avoid blocking startup
+    /// The file I/O still runs on MainActor (DataPersistenceManager constraint)
+    /// but yields to the run loop so the UI can render first
+    private func loadFlightsAsync() async {
+        // Yield to let the first frame render before doing I/O
+        await Task.yield()
+
+        flights = persistence.loadFlights()
+        isLoadingFlights = false
+
         // Auto-complete onboarding for existing users (they already know the app)
         if !settings.hasCompletedOnboarding && !flights.isEmpty {
             settings.hasCompletedOnboarding = true
             persistence.saveSettings(settings)
         }
-        syncAircraftType()
-        setupSyncCallbacks()
-        // Try to restore active flight state if app was closed during a flight
-        restoreActiveFlightState()
     }
 
     /// Setup callbacks for sync updates from other devices
@@ -980,8 +1001,13 @@ class AppState: ObservableObject {
         }
     }
 
-    private func loadFlights() {
-        flights = persistence.loadFlights()
+    /// Reload flights from disk (called after sync updates)
+    func reloadFlights() {
+        Task { [weak self] in
+            guard let self = self else { return }
+            await Task.yield()
+            self.flights = self.persistence.loadFlights()
+        }
     }
 
     func saveSettings() {

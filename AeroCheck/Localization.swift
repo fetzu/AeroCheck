@@ -531,6 +531,7 @@ enum L10n {
         static func importErrorZipExtract(_ error: String) -> String {
             String(format: String(localized: "flightLog.importError.zipExtract"), error)
         }
+        static let loading = String(localized: "flightLog.loading")
         static let noFlightsTitle = String(localized: "flightLog.noFlights.title")
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")
         static let importFlight = String(localized: "flightLog.importFlight")

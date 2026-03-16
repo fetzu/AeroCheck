@@ -31,7 +31,8 @@ class AirportDataService: ObservableObject {
     // File storage
     private let fileManager = FileManager.default
     private var dataDirectory: URL {
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         return appSupport.appendingPathComponent("AirportData", isDirectory: true)
     }
 

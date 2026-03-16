@@ -27,7 +27,15 @@ struct FlightLogView: View {
                 Color.cockpitBackground
                     .ignoresSafeArea()
                 
-                if appState.flights.isEmpty {
+                if appState.isLoadingFlights {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .tint(Color.aviationGold)
+                        Text(L10n.FlightLog.loading)
+                            .font(.subheadline)
+                            .foregroundColor(.secondaryText)
+                    }
+                } else if appState.flights.isEmpty {
                     emptyState
                 } else {
                     flightList

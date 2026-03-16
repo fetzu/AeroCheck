@@ -4455,6 +4455,23 @@
         }
       }
     },
+    "flightLog.loading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading flights…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des vols…"
+          }
+        }
+      }
+    },
     "flightLog.noFlights.title" : {
       "extractionState" : "manual",
       "localizations" : {

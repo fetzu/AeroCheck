@@ -126,18 +126,17 @@ class SubscriptionManager: ObservableObject {
     init(apiBaseURL: String = "https://api.aerocheck.app", deferLoadProducts: Bool = false) {
         self.apiBaseURL = apiBaseURL
 
-        // Start listening for transactions
+        // Start listening for transaction updates (renewals, refunds, external purchases)
         updateListenerTask = listenForTransactions()
 
-        // Load products and check current status (unless deferred for faster startup)
-        // Use detached task with utility priority to avoid blocking UI
-        Task.detached(priority: .utility) { [weak self] in
+        // Finish any unfinished transactions from prior sessions and check status
+        Task { [weak self] in
             guard let self = self else { return }
+            await self.finishUnfinishedTransactions()
 
             if !deferLoadProducts {
                 await self.loadProducts()
             }
-            // Check subscription status - this is local and should be quick
             await self.updateSubscriptionStatus()
         }
     }
@@ -150,16 +149,14 @@ class SubscriptionManager: ObservableObject {
 
     /// Loads available subscription products from App Store
     func loadProducts() async {
-        isLoading = true
-        defer { isLoading = false }
-
         do {
             let storeProducts = try await Product.products(for: productIdentifiers)
 
             // Sort by price (monthly first, yearly second)
             products = storeProducts.sorted { $0.price < $1.price }
+            debugLogger.log("Loaded \(storeProducts.count) products", level: .success)
         } catch {
-            errorMessage = "Failed to load products: \(error.localizedDescription)"
+            debugLogger.log("Failed to load products: \(error.localizedDescription)", level: .error)
             print("Failed to load products: \(error)")
         }
     }
@@ -176,24 +173,22 @@ class SubscriptionManager: ObservableObject {
 
             switch result {
             case .success(let verification):
-                // Verify the transaction
                 let transaction = try checkVerified(verification)
 
-                // Verify with our server - pass the VerificationResult
+                // Verify with our server
                 await verifyWithServer(verificationResult: verification)
 
-                // Finish the transaction
+                // Finish the transaction - critical to avoid blocking future purchases
                 await transaction.finish()
+                debugLogger.log("Purchase transaction finished: \(transaction.productID)", level: .success)
 
-                // Update status
+                // Update status immediately
                 await updateSubscriptionStatus()
 
             case .userCancelled:
-                // User cancelled, no error needed
                 break
 
             case .pending:
-                // Transaction is pending (e.g., Ask to Buy)
                 errorMessage = "Purchase is pending approval"
 
             @unknown default:
@@ -205,53 +200,106 @@ class SubscriptionManager: ObservableObject {
         }
     }
 
-    /// Restores previous purchases
+    /// Restores previous purchases by syncing with App Store and re-checking entitlements
     func restorePurchases() async {
         isLoading = true
         errorMessage = nil
 
         defer { isLoading = false }
 
-        do {
-            // Sync with App Store
-            try await AppStore.sync()
+        debugLogger.log("Starting restore purchases", level: .info)
 
-            // Update subscription status
+        do {
+            // AppStore.sync() forces a refresh of transaction data from the App Store
+            // This may prompt the user for App Store credentials
+            try await AppStore.sync()
+            debugLogger.log("AppStore.sync() completed", level: .success)
+
+            // Finish any unfinished transactions that sync may have surfaced
+            await finishUnfinishedTransactions()
+
+            // Re-check subscription status with fresh data
             await updateSubscriptionStatus()
 
+            // If we found a subscription, verify with server
+            if subscriptionStatus.isSubscribed {
+                await syncWithServer()
+                debugLogger.log("Restore successful - subscription active", level: .success)
+            } else {
+                debugLogger.log("Restore completed - no active subscription found", level: .warning)
+            }
         } catch {
             errorMessage = "Failed to restore purchases: \(error.localizedDescription)"
-            print("Failed to restore purchases: \(error)")
+            debugLogger.log("Restore failed: \(error.localizedDescription)", level: .error)
         }
     }
 
-    /// Updates the subscription status by checking current entitlements
+    /// Updates the subscription status by checking current entitlements and subscription info
     func updateSubscriptionStatus() async {
         // Check debug flag first
         if debugForceNotSubscribed {
             subscriptionStatus = .notSubscribed
-            print("[SubscriptionManager] Debug mode: Forcing not subscribed state")
+            debugLogger.log("Debug mode: Forcing not subscribed state", level: .info)
             return
         }
 
-        // Check for active subscription
+        // First, check Transaction.currentEntitlements for active subscriptions
         for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result {
-                if productIdentifiers.contains(transaction.productID) {
-                    // Found an active subscription
-                    if let expirationDate = transaction.expirationDate {
-                        if expirationDate > Date() {
-                            subscriptionStatus = .subscribed(
-                                expiresAt: expirationDate,
-                                productID: transaction.productID
-                            )
+            guard case .verified(let transaction) = result else { continue }
+            guard productIdentifiers.contains(transaction.productID) else { continue }
 
-                            // Verify with server in background - pass the VerificationResult
-                            Task {
-                                await verifyWithServer(verificationResult: result)
+            // Skip revoked transactions
+            if transaction.revocationDate != nil { continue }
+
+            if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+                subscriptionStatus = .subscribed(
+                    expiresAt: expirationDate,
+                    productID: transaction.productID
+                )
+                debugLogger.log("Active subscription found: \(transaction.productID), expires \(expirationDate)", level: .success)
+                return
+            }
+        }
+
+        // If no active entitlement found, check Product.SubscriptionInfo for grace period / billing retry
+        // This catches cases where Transaction.currentEntitlements doesn't report the subscription
+        // but Apple's subscription system still considers it in grace period
+        if !products.isEmpty {
+            for product in products {
+                guard let subscription = product.subscription else { continue }
+                if let statuses = try? await subscription.status, !statuses.isEmpty {
+                    for status in statuses {
+                        switch status.state {
+                        case .subscribed:
+                            if case .verified(let renewalInfo) = status.renewalInfo,
+                               case .verified(let transaction) = status.transaction {
+                                let expiresAt = transaction.expirationDate ?? Date().addingTimeInterval(30 * 24 * 60 * 60)
+                                subscriptionStatus = .subscribed(
+                                    expiresAt: expiresAt,
+                                    productID: transaction.productID
+                                )
+                                debugLogger.log("Subscription active via SubscriptionInfo: \(transaction.productID)", level: .success)
+                                _ = renewalInfo // Silence unused warning
+                                return
                             }
-
-                            return
+                        case .inGracePeriod:
+                            if case .verified(let transaction) = status.transaction {
+                                let expiresAt = transaction.expirationDate ?? Date().addingTimeInterval(gracePeriodDuration)
+                                subscriptionStatus = .subscribed(
+                                    expiresAt: expiresAt,
+                                    productID: transaction.productID
+                                )
+                                debugLogger.log("Subscription in Apple grace period: \(transaction.productID)", level: .warning)
+                                return
+                            }
+                        case .inBillingRetryPeriod:
+                            debugLogger.log("Subscription in billing retry period", level: .warning)
+                        case .expired:
+                            debugLogger.log("Subscription expired", level: .info)
+                        case .revoked:
+                            debugLogger.log("Subscription revoked", level: .warning)
+                        default:
+                            break
                         }
                     }
                 }
@@ -260,6 +308,7 @@ class SubscriptionManager: ObservableObject {
 
         // No active subscription found
         subscriptionStatus = .notSubscribed
+        debugLogger.log("No active subscription found", level: .info)
     }
 
     /// Resets the subscription state (for debugging/testing)
@@ -550,27 +599,52 @@ class SubscriptionManager: ObservableObject {
 
     // MARK: - Private Methods
 
-    /// Listens for transaction updates
+    /// Listens for transaction updates (renewals, refunds, external purchases)
     private func listenForTransactions() -> Task<Void, Error> {
-        Task.detached {
+        Task.detached { [weak self] in
             for await result in Transaction.updates {
+                guard let self = self else { return }
                 do {
                     let transaction = try self.checkVerified(result)
+                    await self.debugLogger.log("Transaction update received: \(transaction.productID)", level: .info)
 
-                    // Handle the transaction - pass the VerificationResult, not just the Transaction
+                    // Verify with server and finish the transaction
                     await self.verifyWithServer(verificationResult: result)
                     await transaction.finish()
 
-                    // Update status on main actor
-                    await MainActor.run {
-                        _ = Task {
-                            await self.updateSubscriptionStatus()
-                        }
-                    }
+                    // Update subscription status
+                    await self.updateSubscriptionStatus()
                 } catch {
-                    print("Transaction verification failed: \(error)")
+                    // Even unverified transactions should be finished to avoid blocking
+                    if case .unverified(let transaction, _) = result {
+                        await transaction.finish()
+                    }
+                    await self.debugLogger.log("Transaction update failed: \(error.localizedDescription)", level: .error)
                 }
             }
+        }
+    }
+
+    /// Finishes any unfinished transactions from prior sessions
+    /// Apple recommends doing this at launch to prevent stuck purchases
+    private func finishUnfinishedTransactions() async {
+        var count = 0
+        for await result in Transaction.unfinished {
+            count += 1
+            switch result {
+            case .verified(let transaction):
+                // Verify with server before finishing
+                await verifyWithServer(verificationResult: result)
+                await transaction.finish()
+                debugLogger.log("Finished unfinished transaction: \(transaction.productID)", level: .success)
+            case .unverified(let transaction, let error):
+                // Finish even unverified transactions to unblock the queue
+                await transaction.finish()
+                debugLogger.log("Finished unverified transaction: \(transaction.productID) (\(error.localizedDescription))", level: .warning)
+            }
+        }
+        if count > 0 {
+            debugLogger.log("Cleared \(count) unfinished transaction(s)", level: .info)
         }
     }
 
@@ -655,13 +729,15 @@ class SubscriptionManager: ObservableObject {
                 return
             }
 
-            // Parse response (for debugging)
+            // Record successful verification to reset grace period and offline timers
+            recordSuccessfulVerification()
+
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                debugLogger.log("Verification successful: \(json)", level: .success)
+                debugLogger.log("Server verification successful: \(json)", level: .success)
             }
 
         } catch {
-            debugLogger.log("Network error: \(error.localizedDescription)", level: .error)
+            debugLogger.log("Network error during server verification: \(error.localizedDescription)", level: .error)
         }
     }
 }

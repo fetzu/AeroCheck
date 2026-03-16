@@ -74,6 +74,12 @@ struct AeroCheckApp: App {
                         await group.waitForAll()
                     }
 
+                    // After aircraft list is loaded, check for checklist updates in background
+                    // This ensures bundled and cached checklists stay up to date automatically
+                    Task.detached(priority: .utility) {
+                        await aircraftDataService.syncBundledAircraft()
+                    }
+
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
                         showUpdateReminder = true

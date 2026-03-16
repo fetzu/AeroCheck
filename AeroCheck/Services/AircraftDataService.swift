@@ -18,6 +18,9 @@ class AircraftDataService: ObservableObject {
     /// Last sync timestamp
     @Published var lastSyncDate: Date?
 
+    /// Incremented when a checklist is updated in the background, so views can reload
+    @Published var checklistUpdateCount: Int = 0
+
     // MARK: - Private Properties
 
     private let apiBaseURL: String
@@ -82,18 +85,17 @@ class AircraftDataService: ObservableObject {
 
         // Check cache first
         if let cached = loadCachedChecklist(aircraftId: cacheKey) {
-            // Check if cache is still valid (24 hours)
             if isCacheValid(aircraftId: cacheKey) {
                 print("[AircraftDataService] Using cached checklist for \(cacheKey)")
 
-                // Check if update is available in background (don't block)
-                Task {
-                    await checkForUpdate(aircraftId: aircraftId, language: language)
+                // Check for updates in background - will increment checklistUpdateCount if found
+                Task { [weak self] in
+                    await self?.checkForUpdate(aircraftId: aircraftId, language: language)
                 }
                 return cached
             } else {
                 print("[AircraftDataService] Cache expired for \(cacheKey), checking for updates")
-                // Cache expired - check for update using checksum
+                // Cache expired - do a blocking update check
                 await checkForUpdate(aircraftId: aircraftId, language: language)
                 // Return the (possibly updated) cached checklist
                 if let updated = loadCachedChecklist(aircraftId: cacheKey) {
@@ -229,24 +231,25 @@ class AircraftDataService: ObservableObject {
                 }
 
                 print("[AircraftDataService] Update available for \(cacheKey), downloading...")
-                // Update available, fetch new version
-                if let updated = try? await fetchChecklistFromServer(aircraftId: aircraftId, language: language) {
+                do {
+                    let updated = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
                     cacheChecklist(updated, aircraftId: cacheKey, checksum: serverVersion.checksum)
 
-                    // Notify that update is available
-                    await MainActor.run {
-                        // Update the metadata to reflect new version
-                        if let index = availableAircraft.firstIndex(where: { $0.id == aircraftId }) {
-                            availableAircraft[index].version = updated.version
-                            availableAircraft[index].lastUpdated = updated.lastUpdated
-                        }
+                    // Update the metadata to reflect new version and signal UI to reload
+                    if let index = availableAircraft.firstIndex(where: { $0.id == aircraftId }) {
+                        availableAircraft[index].version = updated.version
+                        availableAircraft[index].lastUpdated = updated.lastUpdated
                     }
+                    checklistUpdateCount += 1
+                    print("[AircraftDataService] Successfully updated checklist for \(cacheKey) to v\(updated.version)")
+                } catch {
+                    print("[AircraftDataService] Failed to download update for \(cacheKey): \(error.localizedDescription)")
                 }
             } else {
                 print("[AircraftDataService] Checklist for \(cacheKey) is up to date")
             }
         } catch {
-            print("Failed to check for update: \(error)")
+            print("[AircraftDataService] Failed to check for update for \(cacheKey): \(error.localizedDescription)")
         }
     }
 

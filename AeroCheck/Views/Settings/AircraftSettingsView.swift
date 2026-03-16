@@ -126,6 +126,7 @@ struct AircraftSettingsView: View {
             NavigationLink(destination: PremiumAircraftListView(showSubscriptionView: $showSubscriptionView)
                 .environmentObject(appState)
                 .environmentObject(aircraftDataService)
+                .environmentObject(subscriptionManager)
             ) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {

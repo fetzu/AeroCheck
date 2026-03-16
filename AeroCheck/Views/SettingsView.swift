@@ -855,8 +855,10 @@ import SwiftUI
 struct PremiumAircraftListView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) var dismiss
     @Binding var showSubscriptionView: Bool
+    @State private var showLocalSubscriptionView = false
 
     var premiumAircraft: [RemoteAircraftMetadata] {
         aircraftDataService.availableAircraft.filter { !$0.isFree }
@@ -913,10 +915,9 @@ struct PremiumAircraftListView: View {
                                         }
                                         dismiss()
                                     } else {
-                                        dismiss()
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                            showSubscriptionView = true
-                                        }
+                                        // Show subscription view directly from this view
+                                        // instead of dismiss + delay + parent binding (which was fragile)
+                                        showLocalSubscriptionView = true
                                     }
                                 }
                             )
@@ -938,6 +939,16 @@ struct PremiumAircraftListView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             Task { await aircraftDataService.fetchAvailableAircraft() }
+        }
+        .sheet(isPresented: $showLocalSubscriptionView) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
+        }
+        .onChange(of: subscriptionManager.subscriptionStatus) { _, newValue in
+            // When subscription becomes active, refresh the aircraft list to update hasAccess
+            if newValue.isSubscribed {
+                Task { await aircraftDataService.fetchAvailableAircraft() }
+            }
         }
     }
 }
@@ -1003,7 +1014,6 @@ struct PremiumAircraftRow: View {
             }
             .padding(.vertical, 8)
         }
-        .disabled(!aircraft.hasAccess)
         .opacity(aircraft.hasAccess ? 1.0 : 0.7)
     }
 }
@@ -1035,9 +1045,11 @@ struct LanguageFlagView: View {
 }
 
 #Preview("Premium Aircraft List") {
+    let subManager = SubscriptionManager()
     NavigationView {
         PremiumAircraftListView(showSubscriptionView: .constant(false))
             .environmentObject(AppState())
-            .environmentObject(AircraftDataService(subscriptionManager: SubscriptionManager()))
+            .environmentObject(AircraftDataService(subscriptionManager: subManager))
+            .environmentObject(subManager)
     }
 }

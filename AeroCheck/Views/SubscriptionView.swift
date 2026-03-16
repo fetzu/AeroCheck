@@ -8,6 +8,7 @@ struct SubscriptionView: View {
 
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var isLoadingProducts = false
 
     var body: some View {
         NavigationStack {
@@ -45,6 +46,20 @@ struct SubscriptionView: View {
                     }
                     .foregroundColor(Color.aviationGold)
                 }
+            }
+        }
+        .onAppear {
+            // Ensure products are loaded when the view appears
+            if subscriptionManager.products.isEmpty {
+                isLoadingProducts = true
+                Task {
+                    await subscriptionManager.loadProducts()
+                    isLoadingProducts = false
+                }
+            }
+            // Refresh subscription status
+            Task {
+                await subscriptionManager.updateSubscriptionStatus()
             }
         }
         .alert(L10n.Subscription.error, isPresented: $showingError) {
@@ -143,23 +158,27 @@ struct SubscriptionView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(Color.secondaryText)
 
-            if subscriptionManager.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            } else if subscriptionManager.products.isEmpty {
-                Text(L10n.Subscription.unableToLoad)
-                    .font(.subheadline)
-                    .foregroundColor(Color.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding()
+            if subscriptionManager.products.isEmpty {
+                if isLoadingProducts {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                } else {
+                    Text(L10n.Subscription.unableToLoad)
+                        .font(.subheadline)
+                        .foregroundColor(Color.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding()
 
-                Button(L10n.Subscription.retry) {
-                    Task {
-                        await subscriptionManager.loadProducts()
+                    Button(L10n.Subscription.retry) {
+                        isLoadingProducts = true
+                        Task {
+                            await subscriptionManager.loadProducts()
+                            isLoadingProducts = false
+                        }
                     }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
-                .buttonStyle(SecondaryButtonStyle())
             } else {
                 ForEach(subscriptionManager.products) { product in
                     ProductCard(product: product)
@@ -176,15 +195,20 @@ struct SubscriptionView: View {
                 }
             }) {
                 if subscriptionManager.isLoading {
-                    ProgressView()
-                        .tint(Color.aviationBlue)
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .tint(Color.aviationBlue)
+                        Text(L10n.Subscription.restorePurchases)
+                            .font(.subheadline)
+                            .foregroundColor(Color.aviationBlue.opacity(0.5))
+                    }
                 } else {
                     Text(L10n.Subscription.restorePurchases)
                         .font(.subheadline)
                         .foregroundColor(Color.aviationBlue)
                 }
             }
-            .disabled(subscriptionManager.isLoading)
+            .disabled(subscriptionManager.isLoading || subscriptionManager.isPurchasing)
         }
         .padding(.top)
     }

@@ -212,6 +212,13 @@ struct HomeView: View {
                 }
             }
         }
+        .onChange(of: aircraftDataService.checklistUpdateCount) { _, _ in
+            // A checklist was updated in the background - reload active checklist if needed
+            Task {
+                await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+                updateCachedItemCount()
+            }
+        }
         .onChange(of: selectedAircraftIndex) { _, newIndex in
             updateAppStateAircraft(index: newIndex)
             updateCachedItemCount()

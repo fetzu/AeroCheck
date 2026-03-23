@@ -133,11 +133,24 @@ class FlightEventDetector: ObservableObject {
 
     /// Whether the aircraft has exceeded airborne speed at least once during this session.
     /// Full-stop detection is suppressed until the aircraft has actually flown.
+    /// Reset to false after each full stop to require proof of flight before detecting another.
     private var hasBeenAirborne: Bool = false
 
     /// Speed threshold (knots) that must be exceeded to consider the aircraft "has been airborne".
     /// Well above max taxi speed (~15 kts) and well below any aircraft's Vso (~42+ kts).
     private let airborneEvidenceSpeedKts: Double = 30.0
+
+    /// Whether the aircraft has been airborne since the last landing event (full stop or T&G).
+    /// Prevents false positives from ground taxi/parking after a confirmed landing.
+    /// Starts as true so the first landing of the flight can be detected.
+    private var airborneAfterLanding: Bool = true
+
+    /// Altitude (feet MSL) at which the last landing event was detected.
+    /// Used with airborneAfterLanding to require altitude gain before allowing another landing.
+    private var lastLandingAltMsl: Double = 0
+
+    /// Current altitude (feet MSL) from most recent GPS reading. Used by emit functions.
+    private var currentAltMslFt: Double = 0
 
     // MARK: - Speed Tracking
 
@@ -155,6 +168,10 @@ class FlightEventDetector: ObservableObject {
 
     /// Time when touchdown state was entered
     private var touchdownEntryTime: Date?
+
+    /// Altitude AGL (feet) when touchdown state was entered.
+    /// Used for altitude-based go-around detection from touchdown state.
+    private var touchdownAltAglFt: Double = 0
 
     // MARK: - Cooldown
 
@@ -176,8 +193,8 @@ class FlightEventDetector: ObservableObject {
     /// Number of consecutive readings at taxi speed or below in touchdown state
     private var consecutiveTaxiSpeedReadings: Int = 0
 
-    /// Readings at taxi speed needed to declare full stop (at 5-sec GPS interval, ~30 seconds)
-    private let requiredTaxiSpeedReadings: Int = 6
+    /// Readings at taxi speed needed to declare full stop (at 5-sec GPS interval, ~40 seconds)
+    private let requiredTaxiSpeedReadings: Int = 8
 
     /// Extended cooldown after a full-stop landing (seconds).
     /// Prevents subsequent taxi + takeoff from being classified as T&G.
@@ -208,7 +225,7 @@ class FlightEventDetector: ObservableObject {
     private let eventCooldownSeconds: TimeInterval = 45.0
 
     // Touchdown timeout (full stop fallback)
-    private let touchdownTimeoutSeconds: TimeInterval = 120.0
+    private let touchdownTimeoutSeconds: TimeInterval = 300.0
 
     // MARK: - Conversion Constants
 
@@ -253,6 +270,17 @@ class FlightEventDetector: ObservableObject {
         if !hasBeenAirborne && speedKts > airborneEvidenceSpeedKts {
             hasBeenAirborne = true
             print("[FlightEventDetector] Aircraft has been airborne (speed: \(Int(speedKts)) kts)")
+        }
+
+        // Track current altitude for use by emit functions
+        let altMslFt = location.altitude * 3.28084
+        currentAltMslFt = altMslFt
+
+        // Track whether aircraft has been airborne since last landing event.
+        // Requires both speed > 30 kts AND altitude gain > 200 ft above landing altitude.
+        if !airborneAfterLanding && speedKts > airborneEvidenceSpeedKts && altMslFt > lastLandingAltMsl + 200.0 {
+            airborneAfterLanding = true
+            print("[FlightEventDetector] Airborne after landing (speed: \(Int(speedKts)) kts, alt: \(Int(altMslFt)) ft MSL, landing was at \(Int(lastLandingAltMsl)) ft MSL)")
         }
 
         // Check cooldown - skip detection if too soon after last event
@@ -305,6 +333,9 @@ class FlightEventDetector: ObservableObject {
         fullStopCooldownUntil = nil
         speedConfig = .defaults
         hasBeenAirborne = false
+        airborneAfterLanding = true
+        lastLandingAltMsl = 0
+        currentAltMslFt = 0
     }
 
     /// Dismiss pending go-around without recording
@@ -356,6 +387,7 @@ class FlightEventDetector: ObservableObject {
             state = .touchdown
             stateEntryTime = now
             touchdownEntryTime = now
+            touchdownAltAglFt = altAglFt
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
@@ -373,6 +405,7 @@ class FlightEventDetector: ObservableObject {
             state = .touchdown
             stateEntryTime = now
             touchdownEntryTime = now
+            touchdownAltAglFt = altAglFt
             minSpeedInTouchdown = speedKts
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
@@ -410,6 +443,23 @@ class FlightEventDetector: ObservableObject {
             consecutiveTaxiSpeedReadings += 1
         } else {
             consecutiveTaxiSpeedReadings = 0
+        }
+
+        // Go-around from touchdown: aircraft altitude climbing significantly above touchdown level.
+        // This catches go-arounds where speed briefly dipped below touchdown threshold
+        // during approach before the pilot applied full power.
+        let altGainFt = altAglFt - touchdownAltAglFt
+        if altGainFt > 150 && speedKts > speedConfig.goAroundMinSpeedKts {
+            print("[FlightEventDetector] Go-around from touchdown (alt gain: \(Int(altGainFt)) ft, speed: \(Int(speedKts)) kts)")
+            emitGoAround(airport: stateAirport)
+            // Transition back to airport zone
+            state = .airportZone
+            stateEntryTime = now
+            touchdownEntryTime = nil
+            touchdownSpeedReadings = 0
+            minSpeedInTouchdown = .infinity
+            consecutiveTaxiSpeedReadings = 0
+            return
         }
 
         // Full-stop detection: sustained very low speed = the plane has stopped
@@ -503,6 +553,12 @@ class FlightEventDetector: ObservableObject {
             return
         }
 
+        // Suppress if aircraft hasn't been airborne since last landing event
+        guard airborneAfterLanding else {
+            print("[FlightEventDetector] Touch-and-go suppressed (not airborne since last landing)")
+            return
+        }
+
         guard pendingTouchAndGo == nil else { return }
 
         // Suppress events within the takeoff suppression window
@@ -523,6 +579,9 @@ class FlightEventDetector: ObservableObject {
         pendingTouchAndGo = event
         lastEventTime = Date()
         lastTakeoffTime = Date()
+        // Record landing altitude and require airborne evidence before next landing event
+        lastLandingAltMsl = currentAltMslFt
+        airborneAfterLanding = false
         print("[FlightEventDetector] TOUCH-AND-GO: \(message)")
     }
 
@@ -530,6 +589,13 @@ class FlightEventDetector: ObservableObject {
         // Suppress full-stop if aircraft has never been airborne in this session
         guard hasBeenAirborne else {
             print("[FlightEventDetector] Full stop suppressed (aircraft has not been airborne)")
+            transitionToIdle()
+            return
+        }
+
+        // Suppress if aircraft hasn't been airborne since last landing event
+        guard airborneAfterLanding else {
+            print("[FlightEventDetector] Full stop suppressed (not airborne since last landing)")
             transitionToIdle()
             return
         }
@@ -553,6 +619,10 @@ class FlightEventDetector: ObservableObject {
         let event = DetectedFlightEvent(type: .fullStop, timestamp: Date(), airport: airport, message: message)
         pendingFullStop = event
         lastEventTime = Date()
+        // Record landing altitude and require airborne evidence before next landing event
+        lastLandingAltMsl = currentAltMslFt
+        airborneAfterLanding = false
+        hasBeenAirborne = false
         print("[FlightEventDetector] FULL STOP: \(message)")
     }
 
@@ -565,6 +635,7 @@ class FlightEventDetector: ObservableObject {
         minSpeedInLowApproach = .infinity
         minSpeedInTouchdown = .infinity
         touchdownEntryTime = nil
+        touchdownAltAglFt = 0
         touchdownSpeedReadings = 0
         consecutiveTaxiSpeedReadings = 0
         touchdownViaLowApproach = false

@@ -503,11 +503,14 @@ struct HomeView: View {
                 HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: isCompact ? 14 : 18))
+                        .symbolEffect(.rotate, isActive: appState.isLoadingFlights)
                     if !isCompact {
                         Text(L10n.Button.flightLog)
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    if !appState.flights.isEmpty {
+                    if appState.isLoadingFlights {
+                        // Show nothing while loading — the spinning icon is the cue
+                    } else if !appState.flights.isEmpty {
                         Text(isCompact ? "\(appState.flights.count)" : "(\(appState.flights.count))")
                             .font(.system(size: isCompact ? 12 : 14, weight: .semibold))
                             .foregroundColor(.aviationGold)

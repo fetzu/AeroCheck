@@ -683,8 +683,11 @@ class SubscriptionManager: ObservableObject {
         let jwsToken = verificationResult.jwsRepresentation
         debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
-        // Send to server
-        let url = URL(string: "\(apiBaseURL)/api/v3/subscription/verify")!
+        // Send to server (fail safe instead of force-unwrapping — PERF-14)
+        guard let url = URL(string: "\(apiBaseURL)/api/v3/subscription/verify") else {
+            debugLogger.log("Invalid verify URL", level: .error)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

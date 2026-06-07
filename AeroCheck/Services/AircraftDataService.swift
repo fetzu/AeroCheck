@@ -447,7 +447,9 @@ class AircraftDataService: ObservableObject {
     // MARK: - Private Methods
 
     private func fetchAircraftList() async throws -> [RemoteAircraftMetadata] {
-        let url = URL(string: "\(apiBaseURL)/api/v3/aircraft/available")!
+        guard let url = URL(string: "\(apiBaseURL)/api/v3/aircraft/available") else {
+            throw AircraftDataError.invalidURL
+        }
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -500,12 +502,16 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchChecklistFromServer(aircraftId: String, language: String? = nil) async throws -> RemoteAircraftChecklist {
-        // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(aircraftId)/checklist"
-        if let lang = language {
-            urlString += "?lang=\(lang)"
+        // Build URL with optional language parameter. The aircraftId is server-supplied,
+        // so percent-encode it (and the language) and fail safely on an unbuildable URL
+        // rather than force-unwrapping (PERF-14).
+        let encodedId = aircraftId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? aircraftId
+        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/checklist"
+        if let lang = language,
+           let encodedLang = lang.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            urlString += "?lang=\(encodedLang)"
         }
-        let url = URL(string: urlString)!
+        guard let url = URL(string: urlString) else { throw AircraftDataError.invalidURL }
 
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -541,12 +547,14 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
-        // Build URL with optional language parameter
-        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(aircraftId)/version"
-        if let lang = language {
-            urlString += "?lang=\(lang)"
+        // Build URL with optional language parameter (server-supplied id; encode + fail safe).
+        let encodedId = aircraftId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? aircraftId
+        var urlString = "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/version"
+        if let lang = language,
+           let encodedLang = lang.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            urlString += "?lang=\(encodedLang)"
         }
-        let url = URL(string: urlString)!
+        guard let url = URL(string: urlString) else { throw AircraftDataError.invalidURL }
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 10 // Version check should be quick
@@ -697,6 +705,7 @@ enum AircraftDataError: LocalizedError {
     case accessDenied
     case notFound
     case invalidResponse
+    case invalidURL
     case networkError(Error)
 
     var errorDescription: String? {
@@ -709,6 +718,8 @@ enum AircraftDataError: LocalizedError {
             return "Aircraft not found"
         case .invalidResponse:
             return "Invalid response from server"
+        case .invalidURL:
+            return "Could not build a valid request URL"
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }

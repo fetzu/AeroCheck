@@ -7674,6 +7674,23 @@
         }
       }
     },
+    "nav.airspaceAltitudeUncertain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude uncertain — verify vertical separation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude incertaine — vérifiez la séparation verticale"
+          }
+        }
+      }
+    },
     "nav.flightPlans" : {
       "extractionState" : "manual",
       "localizations" : {

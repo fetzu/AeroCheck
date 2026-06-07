@@ -963,6 +963,8 @@ enum L10n {
 
     // MARK: - Navigation / Flight Plans
     enum Nav {
+        // Airspace conflicts
+        static let airspaceAltitudeUncertain = String(localized: "nav.airspaceAltitudeUncertain")
         // Flight Plans List
         static let flightPlans = String(localized: "nav.flightPlans")
         static let allFlightPlans = String(localized: "nav.allFlightPlans")

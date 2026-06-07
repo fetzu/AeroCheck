@@ -922,7 +922,14 @@ extension FlightPlan {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         do {
-            return try decoder.decode(FlightPlan.self, from: data)
+            let plan = try decoder.decode(FlightPlan.self, from: data)
+            // Reject NaN/Inf/out-of-range waypoint coordinates (e.g. a "1e999" overflow that
+            // decodes to Infinity) before the route reaches the map/analyzer/export. (SEC-08)
+            guard plan.waypoints.allSatisfy({ GeoValidation.isValidLatLon($0.latitude, $0.longitude) }) else {
+                print("[AéroCheck] Rejected flight plan import: invalid coordinates")
+                return nil
+            }
+            return plan
         } catch {
             print("[AéroCheck] Failed to decode flight plan from JSON: \(error)")
             return nil
@@ -968,6 +975,9 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     private var currentWaypoint: FlightPlanWaypoint?
     private var waypoints: [FlightPlanWaypoint] = []
     private var attributes: [String: String] = [:]
+    /// Set if any waypoint carries an invalid (NaN/Inf/out-of-range) coordinate, in which
+    /// case the whole import is rejected rather than yielding a partial/garbage route. (SEC-08)
+    private var hasInvalidCoordinate = false
 
     private let dateFormatter = ISO8601DateFormatter()
 
@@ -980,7 +990,7 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return flightPlan
+        return hasInvalidCoordinate ? nil : flightPlan
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String,
@@ -994,10 +1004,14 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
             flightPlan = FlightPlan()
         } else if elementName == "rtept" {
             if let latStr = attributeDict["lat"], let lonStr = attributeDict["lon"],
-               let lat = Double(latStr), let lon = Double(lonStr) {
+               let lat = Double(latStr), let lon = Double(lonStr),
+               GeoValidation.isValidLatLon(lat, lon) {
                 currentWaypoint = FlightPlanWaypoint(
                     coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 )
+            } else {
+                // A rtept with missing/unparseable/out-of-range coordinates invalidates the import.
+                hasInvalidCoordinate = true
             }
         }
     }
@@ -1033,9 +1047,9 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         case "runway":
             flightPlan?.runwayInUse = text
         case "fuelFlow":
-            flightPlan?.fuelFlow = Double(text)
+            flightPlan?.fuelFlow = GeoValidation.finite(Double(text))
         case "fuelOnBoard":
-            flightPlan?.fuelOnBoard = Double(text)
+            flightPlan?.fuelOnBoard = GeoValidation.finite(Double(text))
         case "remarks":
             if currentWaypoint != nil {
                 currentWaypoint?.remarks = text
@@ -1044,19 +1058,19 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
             }
         case "ele":
             // GPX elevation is in meters, convert to feet
-            if let meters = Double(text) {
+            if let meters = Double(text), meters.isFinite {
                 currentWaypoint?.altitude = meters / 0.3048
             }
         case "altitudeFeet":
-            currentWaypoint?.altitude = Double(text)
+            currentWaypoint?.altitude = GeoValidation.finite(Double(text))
         case "frequency":
             currentWaypoint?.frequency = text
         case "callSign":
             currentWaypoint?.callSign = text
         case "magneticCourse":
-            currentWaypoint?.magneticCourse = Double(text)
+            currentWaypoint?.magneticCourse = GeoValidation.finite(Double(text))
         case "distanceNM":
-            currentWaypoint?.distance = Double(text)
+            currentWaypoint?.distance = GeoValidation.finite(Double(text))
         case "groundSpeed":
             currentWaypoint?.plannedGroundSpeed = Int(text)
         case "eet":

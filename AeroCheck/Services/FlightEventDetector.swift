@@ -154,7 +154,7 @@ class FlightEventDetector: ObservableObject {
 
     // MARK: - Speed Tracking
 
-    /// Speed history for smoothing (last 5 readings)
+    /// Speed history for smoothing (last `speedSmoothingReadings`, interval-scaled)
     private var speedHistory: [(timestamp: Date, speedKts: Double)] = []
 
     /// Minimum speed recorded during low approach (knots)
@@ -193,8 +193,30 @@ class FlightEventDetector: ObservableObject {
     /// Number of consecutive readings at taxi speed or below in touchdown state
     private var consecutiveTaxiSpeedReadings: Int = 0
 
-    /// Readings at taxi speed needed to declare full stop (at 5-sec GPS interval, ~40 seconds)
-    private let requiredTaxiSpeedReadings: Int = 8
+    /// GPS recording interval (seconds) the detector is currently tuned for. Set via
+    /// `configure(...)` at flight start. Detection thresholds below are derived from
+    /// wall-clock durations so they are correct at any user-selected interval (1–30 s),
+    /// not just the legacy 5 s cadence (PERF-05). At 5 s these reproduce the previous
+    /// constants exactly (40 s → 8 readings, 15 s → 3 readings).
+    private var recordingInterval: TimeInterval = 5.0
+
+    /// Target dwell at taxi speed to declare a full stop (~40 s).
+    private let fullStopDwellSeconds: TimeInterval = 40.0
+    /// Target dwell below touchdown speed to confirm a touchdown (~15 s).
+    private let touchdownConfirmDwellSeconds: TimeInterval = 15.0
+    /// Speed-smoothing window (~15 s) to reduce GPS noise.
+    private let speedSmoothingSeconds: TimeInterval = 15.0
+
+    /// Number of consecutive readings spanning `seconds` at the current interval (min 2,
+    /// so a single noisy sample can never trigger a transition).
+    private func readings(forSeconds seconds: TimeInterval) -> Int {
+        max(2, Int((seconds / max(recordingInterval, 0.5)).rounded(.up)))
+    }
+
+    /// Readings at taxi speed needed to declare a full stop (≈ `fullStopDwellSeconds`).
+    private var requiredTaxiSpeedReadings: Int { readings(forSeconds: fullStopDwellSeconds) }
+    /// Number of recent readings averaged for speed smoothing (≈ `speedSmoothingSeconds`).
+    private var speedSmoothingReadings: Int { readings(forSeconds: speedSmoothingSeconds) }
 
     /// Extended cooldown after a full-stop landing (seconds).
     /// Prevents subsequent taxi + takeoff from being classified as T&G.
@@ -207,7 +229,8 @@ class FlightEventDetector: ObservableObject {
 
     // Speed thresholds (configured per-aircraft, with sensible defaults)
     private var speedConfig: AircraftSpeedConfig = .defaults
-    private let minTouchdownReadings: Int = 3
+    /// Readings below touchdown speed needed to confirm a touchdown (≈ `touchdownConfirmDwellSeconds`).
+    private var minTouchdownReadings: Int { readings(forSeconds: touchdownConfirmDwellSeconds) }
 
     // Airport zone entry/exit (with hysteresis to prevent oscillation)
     private let airportZoneEntryDistanceNm: Double = 2.0
@@ -240,9 +263,10 @@ class FlightEventDetector: ObservableObject {
     /// - Parameters:
     ///   - speeds: Speed reference data from the aircraft checklist
     ///   - stallSpeed: Aircraft's clean stall speed (Vs) in KIAS
-    func configure(speeds: [SpeedReference], stallSpeed: Int) {
+    func configure(speeds: [SpeedReference], stallSpeed: Int, recordingInterval: TimeInterval = 5.0) {
         speedConfig = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
-        print("[FlightEventDetector] Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts")
+        self.recordingInterval = recordingInterval > 0 ? recordingInterval : 5.0
+        print("[FlightEventDetector] Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts; interval=\(self.recordingInterval)s → fullStop=\(requiredTaxiSpeedReadings) readings, touchdown=\(minTouchdownReadings), smoothing=\(speedSmoothingReadings)")
     }
 
     /// Set the takeoff time (call when line-up or first departure occurs)
@@ -258,9 +282,9 @@ class FlightEventDetector: ObservableObject {
         let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
         let now = Date()
 
-        // Update speed history (keep last 5 readings)
+        // Update speed history (keep enough readings for the interval-scaled smoothing window)
         speedHistory.append((timestamp: now, speedKts: rawSpeedKts))
-        if speedHistory.count > 5 {
+        while speedHistory.count > speedSmoothingReadings {
             speedHistory.removeFirst()
         }
 
@@ -506,9 +530,9 @@ class FlightEventDetector: ObservableObject {
 
     // MARK: - Speed Smoothing
 
-    /// Returns smoothed speed (average of last 3 readings) to reduce GPS noise
+    /// Returns smoothed speed (average of the interval-scaled recent window) to reduce GPS noise
     private func smoothedSpeedKts() -> Double {
-        let count = min(3, speedHistory.count)
+        let count = min(speedSmoothingReadings, speedHistory.count)
         guard count > 0 else { return 0 }
         let recent = speedHistory.suffix(count)
         return recent.map { $0.speedKts }.reduce(0, +) / Double(count)

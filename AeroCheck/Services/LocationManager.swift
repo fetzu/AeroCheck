@@ -479,10 +479,10 @@ extension LocationManager: CLLocationManagerDelegate {
                     // Auto-configure detector with aircraft speeds on first activation
                     if !self.hasConfiguredDetector {
                         if let remote = ChecklistData.currentRemoteChecklist {
-                            detector.configure(speeds: remote.localSpeeds, stallSpeed: remote.stallSpeed)
+                            detector.configure(speeds: remote.localSpeeds, stallSpeed: remote.stallSpeed, recordingInterval: self.recordingInterval)
                         } else {
                             let aircraft = ChecklistData.currentAircraft
-                            detector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed)
+                            detector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed, recordingInterval: self.recordingInterval)
                         }
                         self.hasConfiguredDetector = true
                     }

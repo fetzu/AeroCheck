@@ -200,6 +200,14 @@ struct HomeView: View {
             syncSelectedAircraftIndex()
             updateCachedItemCount()
         }
+        .alert(L10n.Alert.checklistNotReadyTitle, isPresented: Binding(
+            get: { appState.flightStartError != nil },
+            set: { if !$0 { appState.flightStartError = nil } }
+        )) {
+            Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
+        } message: {
+            Text(appState.flightStartError ?? "")
+        }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
         }
@@ -606,6 +614,12 @@ struct HomeView: View {
             // Load remote checklist if needed
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
 
+            // ARCH-01: don't start (or track) if a premium aircraft's checklist failed to load.
+            guard appState.isPremiumChecklistResolved else {
+                appState.flightStartError = L10n.Alert.checklistNotReady
+                return
+            }
+
             // Ensure airport data is loaded for FREQ panel and flight event detection
             await airportDataService.ensureLoaded()
 
@@ -635,6 +649,12 @@ struct HomeView: View {
         Task {
             // Load remote checklist if needed
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+
+            // ARCH-01: don't start (or track) if a premium aircraft's checklist failed to load.
+            guard appState.isPremiumChecklistResolved else {
+                appState.flightStartError = L10n.Alert.checklistNotReady
+                return
+            }
 
             // Ensure airport data is loaded for FREQ panel and flight event detection
             await airportDataService.ensureLoaded()

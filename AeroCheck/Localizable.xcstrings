@@ -298,6 +298,40 @@
         }
       }
     },
+    "alert.checklistNotReady.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This aircraft's checklist couldn't be loaded. Check your connection and subscription, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La checklist de cet avion n'a pas pu être chargée. Vérifiez votre connexion et votre abonnement, puis réessayez."
+          }
+        }
+      }
+    },
+    "alert.checklistNotReady.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklist Not Ready"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklist non disponible"
+          }
+        }
+      }
+    },
     "alert.deleteFlight.title" : {
       "extractionState" : "manual",
       "localizations" : {

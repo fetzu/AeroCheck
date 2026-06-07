@@ -1424,6 +1424,23 @@
         }
       }
     },
+    "companion.dataStale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data stale — values may be frozen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données obsolètes — valeurs possiblement figées"
+          }
+        }
+      }
+    },
     "companion.connectionLost" : {
       "extractionState" : "manual",
       "localizations" : {

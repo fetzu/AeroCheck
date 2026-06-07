@@ -1181,6 +1181,8 @@ enum L10n {
 
     // MARK: - Companion Mode
     enum Companion {
+        // Connectivity
+        static let dataStale = String(localized: "companion.dataStale")
         // Settings
         static let companionMode = String(localized: "companion.companionMode")
         static let enableCompanionMode = String(localized: "companion.enableCompanionMode")

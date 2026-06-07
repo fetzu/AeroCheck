@@ -7,9 +7,18 @@ struct CompanionFlightView: View {
 
     @State private var editingGSWaypointIndex: Int? = nil
     @State private var gsEditText: String = ""
+    @State private var now = Date()
+    private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var flightData: CompanionFlightData? {
         companionConnectivityManager.lastReceivedData
+    }
+
+    /// True when an active flight's live data hasn't refreshed within the stale window — i.e. the
+    /// link is nominally connected but the values are frozen. Re-evaluated each second. (UX-05)
+    private var isDataStale: Bool {
+        guard let data = flightData, data.isFlightActive else { return false }
+        return now.timeIntervalSince(data.timestamp) > 5
     }
 
     private var flightPlan: CompanionFlightPlanSnapshot? {
@@ -24,6 +33,8 @@ struct CompanionFlightView: View {
             if companionConnectivityManager.connectionState == .reconnecting ||
                companionConnectivityManager.connectionState == .disconnected {
                 disconnectedBanner
+            } else if isDataStale {
+                staleBanner
             }
 
             if let plan = flightPlan {
@@ -35,9 +46,25 @@ struct CompanionFlightView: View {
             nextWaypointSummary
             actionBar
             instrumentsStrip
+                .opacity(isDataStale ? 0.4 : 1)
         }
         .background(Color.cockpitBackground)
         .preferredColorScheme(.dark)
+        .onReceive(staleTimer) { now = $0 }
+    }
+
+    /// Shown when the link is connected but live data has gone stale (frozen). (UX-05)
+    private var staleBanner: some View {
+        HStack {
+            Image(systemName: "wifi.exclamationmark")
+            Text(L10n.Companion.dataStale)
+                .font(.system(size: 13, weight: .semibold))
+            Spacer()
+        }
+        .foregroundColor(.black)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.aviationAmber)
     }
 
     // MARK: - Header Bar

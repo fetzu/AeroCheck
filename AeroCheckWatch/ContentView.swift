@@ -5,8 +5,26 @@ import SwiftUI
 /// Uses a TabView for swipe navigation between screens
 struct ContentView: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
+    @State private var now = Date()
+    private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
+        // Staleness is re-evaluated every second so frozen live data is never shown as live. (UX-05)
+        let stale = connectivityManager.isDataStale(asOf: now)
+        ZStack(alignment: .top) {
+            screens
+                .opacity(stale ? 0.35 : 1)
+
+            if stale {
+                StaleBanner()
+                    .padding(.top, 2)
+            }
+        }
+        .onReceive(staleTimer) { now = $0 }
+    }
+
+    @ViewBuilder
+    private var screens: some View {
         if connectivityManager.flightData.isFlightActive {
             // Active flight: show relevant screens
             if connectivityManager.flightData.hasActiveNavPlan {
@@ -29,6 +47,22 @@ struct ContentView: View {
             StandbyScreen()
                 .environmentObject(connectivityManager)
         }
+    }
+}
+
+/// Prominent "stale data" indicator shown over live screens when the phone link drops. (UX-05)
+struct StaleBanner: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 11, weight: .bold))
+            Text("NO DATA")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundColor(.black)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Color.orange))
     }
 }
 

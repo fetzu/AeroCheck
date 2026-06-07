@@ -108,12 +108,17 @@ class WindDataService: ObservableObject {
         let windToRadians = windToDirection * .pi / 180
         let angleDifference = trackRadians - windToRadians
 
-        // Headwind component = wind speed * cos(angle difference)
-        let headwindComponent = windSpeedKnots * cos(angleDifference)
+        // Component of the wind blowing ALONG the ground track. angleDifference is
+        // (track − windToDirection), so cos() is +1 when the wind blows in the direction of
+        // travel (a tailwind) and −1 when it opposes travel (a headwind).
+        let alongTrackWindComponent = windSpeedKnots * cos(angleDifference)
 
-        // Estimated airspeed = ground speed + headwind component
-        // (headwind increases airspeed relative to ground speed)
-        let estimatedAirspeed = groundSpeedKnots + headwindComponent
+        // Ground velocity = air velocity + wind velocity, so TAS = ground speed − tailwind
+        // component. A headwind (negative component) therefore correctly INCREASES the
+        // estimated airspeed; a tailwind decreases it. (Previously this added the component,
+        // which inverted the correction — overstating airspeed in a tailwind, the dangerous
+        // direction. Caught by WindDataServiceTests.testHeadwindIncreasesAirspeed.)
+        let estimatedAirspeed = groundSpeedKnots - alongTrackWindComponent
 
         return max(0, estimatedAirspeed)
     }

@@ -215,6 +215,11 @@ class SubscriptionManager: ObservableObject {
             try await AppStore.sync()
             debugLogger.log("AppStore.sync() completed", level: .success)
 
+            // Drop any cached identity (possibly a stale device-id fallback) so getUserID()
+            // re-derives from the freshly synced entitlements before we re-check and sync
+            // with the server. Without this, a restore rebinds to the wrong id. (ARCH-03)
+            cachedUserID = nil
+
             // Finish any unfinished transactions that sync may have surfaced
             await finishUnfinishedTransactions()
 
@@ -538,7 +543,8 @@ class SubscriptionManager: ObservableObject {
             return cached
         }
 
-        // Try to get user ID from a recent transaction
+        // Derive the durable identity from the StoreKit transaction (originalID is stable
+        // per Apple ID for the subscription). This is what the server binds to. (ARCH-03)
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result {
                 cachedUserID = String(transaction.originalID)
@@ -546,13 +552,10 @@ class SubscriptionManager: ObservableObject {
             }
         }
 
-        // Fall back to device identifier
-        if let deviceID = UIDevice.current.identifierForVendor?.uuidString {
-            cachedUserID = deviceID
-            return deviceID
-        }
-
-        return nil
+        // Last-resort, non-durable fallback. Deliberately NOT cached, so that once a real
+        // transaction is available (e.g. after a restore or first launch with entitlements)
+        // getUserID() re-derives the durable id instead of pinning to this device id. (ARCH-03)
+        return UIDevice.current.identifierForVendor?.uuidString
     }
 
     /// Gets all transactions for debugging

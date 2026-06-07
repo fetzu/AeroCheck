@@ -84,6 +84,16 @@ class AircraftDataService: ObservableObject {
         // Create cache key that includes language
         let cacheKey = language != nil ? "\(aircraftId)_\(language!)" : aircraftId
 
+        // SEC-05 (defense-in-depth — the server gate is authoritative): for a known premium
+        // aircraft, withhold cached/fetched content once the entitlement has lapsed beyond the
+        // grace/offline window, and drop the stale cache so it can't be served offline forever.
+        if let meta = availableAircraft.first(where: { $0.id == aircraftId }), !meta.isFree,
+           !subscriptionManager.shouldAllowPremiumAccess() {
+            print("[AircraftDataService] Premium access not allowed for \(aircraftId); withholding checklist")
+            clearCache(for: cacheKey)
+            return nil
+        }
+
         // Check cache first
         if let cached = loadCachedChecklist(aircraftId: cacheKey) {
             if isCacheValid(aircraftId: cacheKey) {

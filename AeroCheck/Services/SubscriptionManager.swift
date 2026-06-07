@@ -735,11 +735,35 @@ class SubscriptionManager: ObservableObject {
                 return
             }
 
-            // Record successful verification to reset grace period and offline timers
-            recordSuccessfulVerification()
+            // A 200 means the request was processed — NOT that the user is entitled. Only an
+            // "active" status (with a future expiry, if provided) counts as a successful
+            // verification; a 200 carrying status none/expired/cancelled must NOT reset the
+            // grace/offline timers. (SEC-10)
+            struct VerifyResponse: Decodable {
+                struct Payload: Decodable {
+                    let status: String?
+                    let expiresAt: String?
+                    let sku: String?
+                }
+                let success: Bool?
+                let data: Payload?
+            }
+            let decoded = try? JSONDecoder().decode(VerifyResponse.self, from: data)
+            let status = decoded?.data?.status ?? "unknown"
+            let expiresAtOK: Bool = {
+                guard let iso = decoded?.data?.expiresAt else { return true } // none provided
+                let withFractional = ISO8601DateFormatter()
+                withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = withFractional.date(from: iso) { return d > Date() }
+                if let d = ISO8601DateFormatter().date(from: iso) { return d > Date() }
+                return true // unparseable expiry → don't reject on expiry alone
+            }()
 
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                debugLogger.log("Server verification successful: \(json)", level: .success)
+            if decoded?.success == true && status == "active" && expiresAtOK {
+                recordSuccessfulVerification()
+                debugLogger.log("Server verification: active", level: .success)
+            } else {
+                debugLogger.log("Server verification did not confirm entitlement (status=\(status)); not recording success", level: .warning)
             }
 
         } catch {

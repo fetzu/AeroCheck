@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
+		A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000003 /* AirspaceAnalyzerTests.swift */; };
+		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
@@ -90,6 +93,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A5000007111111110000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000006111111110000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1000004111111110000001;
+			remoteInfo = "AéroCheck";
+		};
 		A2000002111111110000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A1000006111111110000001 /* Project object */;
@@ -132,6 +142,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A5000001111111110000000 /* AeroCheckTests.xctest */ = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = AeroCheckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5000008111111110000001 /* GeoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoValidationTests.swift; sourceTree = "<group>"; };
+		A5000008111111110000003 /* AirspaceAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzerTests.swift; sourceTree = "<group>"; };
+		A5000008111111110000005 /* WindDataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataServiceTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
@@ -217,6 +231,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A5000002111111110000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000002111111110000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -244,11 +265,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A5000003111111110000001 /* AeroCheckTests */ = {
+			isa = PBXGroup;
+			children = (
+				A5000008111111110000001 /* GeoValidationTests.swift */,
+				A5000008111111110000003 /* AirspaceAnalyzerTests.swift */,
+				A5000008111111110000005 /* WindDataServiceTests.swift */,
+			);
+			path = AeroCheckTests;
+			sourceTree = "<group>";
+		};
 		A1000003111111110000001 = {
 			isa = PBXGroup;
 			children = (
 				04C457262F1337A20083040B /* AéroCheck.entitlements */,
 				A1000003111111110000002 /* AeroCheck */,
+				A5000003111111110000001 /* AeroCheckTests */,
 				A3000003111111110000001 /* Shared */,
 				A4000003111111110000002 /* AeroCheckWatch */,
 				A2000003111111110000002 /* AeroCheckWidget */,
@@ -288,6 +320,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000001111111110000000 /* AeroCheck.app */,
+				A5000001111111110000000 /* AeroCheckTests.xctest */,
 				A2000001111111110000000 /* AeroCheckWidgetExtension.appex */,
 				A4000001111111110000000 /* AeroCheckWatch.app */,
 			);
@@ -430,6 +463,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A5000004111111110000001 /* AeroCheckTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckTests" */;
+			buildPhases = (
+				A5000004111111110000002 /* Sources */,
+				A5000002111111110000001 /* Frameworks */,
+				A5000004111111110000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A5000006111111110000001 /* PBXTargetDependency */,
+			);
+			name = AeroCheckTests;
+			productName = AeroCheckTests;
+			productReference = A5000001111111110000000 /* AeroCheckTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		A1000004111111110000001 /* AéroCheck */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1000005111111110000003 /* Build configuration list for PBXNativeTarget "AéroCheck" */;
@@ -498,6 +549,10 @@
 					A1000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					A5000004111111110000001 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = A1000004111111110000001;
+					};
 					A2000004111111110000001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -519,6 +574,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A5000004111111110000001 /* AeroCheckTests */,
 				A1000004111111110000001 /* AéroCheck */,
 				A2000004111111110000001 /* AéroCheckWidgetExtension */,
 				A4000004111111110000001 /* AéroCheckWatch */,
@@ -527,6 +583,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A5000004111111110000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000004111111110000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -558,6 +621,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A5000004111111110000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
+				A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */,
+				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1000004111111110000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -649,6 +722,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A5000006111111110000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1000004111111110000001 /* AéroCheck */;
+			targetProxy = A5000007111111110000001 /* PBXContainerItemProxy */;
+		};
 		A2000006111111110000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A2000004111111110000001 /* AéroCheckWidgetExtension */;
@@ -662,6 +740,46 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A5000005111111110000002 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.1;
+				DEVELOPMENT_TEAM = H2N329D9U8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 3.6.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AeroCheck.app/AeroCheck";
+			};
+			name = Debug;
+		};
+		A5000005111111110000003 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.1;
+				DEVELOPMENT_TEAM = H2N329D9U8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 3.6.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AeroCheck.app/AeroCheck";
+			};
+			name = Release;
+		};
 		A1000005211111110000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1016,6 +1134,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A5000005111111110000001 /* Build configuration list for PBXNativeTarget "AeroCheckTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5000005111111110000002 /* Debug */,
+				A5000005111111110000003 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A1000005111111110000001 /* Build configuration list for PBXProject "AeroCheck" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

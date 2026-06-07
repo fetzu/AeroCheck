@@ -5661,6 +5661,23 @@
         }
       }
     },
+    "gps.backgroundLimited" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limited GPS — grant \"Always\" so the track keeps recording in the background"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPS limité — autorisez « Toujours » pour continuer l'enregistrement en arrière-plan"
+          }
+        }
+      }
+    },
     "gps.denied" : {
       "extractionState" : "manual",
       "localizations" : {

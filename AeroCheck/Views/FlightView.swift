@@ -1210,6 +1210,19 @@ struct FlightView: View {
                 StatusIndicator(gpsStatusIndicator)
             }
 
+            // Background-tracking limitation (WhenInUse only) — the track may stop if the app
+            // is backgrounded; prompt the pilot to grant Always. (PERF-04)
+            if locationManager.backgroundTrackingLimited {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.aviationAmber)
+                    Text(L10n.GPS.backgroundLimited)
+                        .font(.captionText)
+                        .foregroundColor(.aviationAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
             // Points recorded
             HStack {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")

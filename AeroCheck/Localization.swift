@@ -56,6 +56,7 @@ enum L10n {
 
     // MARK: - GPS
     enum GPS {
+        static let backgroundLimited = String(localized: "gps.backgroundLimited")
         static let ready = String(localized: "gps.ready")
         static let denied = String(localized: "gps.denied")
         static let restricted = String(localized: "gps.restricted")

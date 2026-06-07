@@ -28,6 +28,9 @@ class LocationManager: NSObject, ObservableObject {
     @Published var isLocationUpdatesActive: Bool = false // True when GPS is active (even without flight tracking)
     @Published var locationError: String?
     @Published var gpsSignalStatus: GPSSignalStatus = .good
+    /// True when GPS is active but only WhenInUse authorization is granted, so the track may
+    /// stop if the app is backgrounded. Drives an in-flight warning banner. (PERF-04)
+    @Published var backgroundTrackingLimited: Bool = false
 
     // MARK: - Private Properties
 
@@ -49,6 +52,10 @@ class LocationManager: NSObject, ObservableObject {
     private let signalTrulyLostThreshold: TimeInterval = 45.0  // 45 seconds = truly lost (red)
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
+    /// Deferred-start intents: set when start is requested before authorization is decided, so
+    /// the start completes automatically once permission is granted. (PERF-03)
+    private var pendingTrackingStart = false
+    private var pendingLocationUpdatesStart = false
 
     // GPS status override (for marketing mode)
     private var gpsStatusOverride: GPSSignalStatus?
@@ -140,14 +147,39 @@ class LocationManager: NSObject, ObservableObject {
 
         guard authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
+            // Permission not yet decided — remember the intent and start once it's granted,
+            // so a flight begun before the prompt is answered still records GPS. (PERF-03)
+            pendingTrackingStart = true
             requestAuthorization()
             return
         }
 
+        pendingTrackingStart = false
+        beginTrackingNow()
+    }
+
+    /// Performs the actual tracking start once authorization is in hand.
+    private func beginTrackingNow() {
+        guard let appState = appState else { return }
         isTracking = true
         applyGPSPriority(appState.settings.gpsPriority)
         locationManager.startUpdatingLocation()
         startSignalCheckTimer()
+        requestAlwaysUpgradeIfNeeded()
+        updateBackgroundTrackingLimited()
+    }
+
+    /// Upgrade WhenInUse -> Always so the GPS track survives backgrounding on long flights. (PERF-04)
+    private func requestAlwaysUpgradeIfNeeded() {
+        if authorizationStatus == .authorizedWhenInUse {
+            locationManager.requestAlwaysAuthorization()
+        }
+    }
+
+    /// Reflects whether background tracking is currently limited (GPS active under WhenInUse only).
+    private func updateBackgroundTrackingLimited() {
+        backgroundTrackingLimited = (isTracking || isLocationUpdatesActive)
+            && authorizationStatus == .authorizedWhenInUse
     }
 
     func stopTracking() {
@@ -189,15 +221,20 @@ class LocationManager: NSObject, ObservableObject {
     func startLocationUpdates() {
         guard authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
+            // Defer until permission is granted (PERF-03)
+            pendingLocationUpdatesStart = true
             requestAuthorization()
             return
         }
+
+        pendingLocationUpdatesStart = false
 
         // If already tracking a flight, GPS is already active.
         // Just mark location updates as active without resetting signal state,
         // so the GPS status indicator remains consistent across views.
         if isTracking {
             isLocationUpdatesActive = true
+            updateBackgroundTrackingLimited()
             return
         }
 
@@ -206,6 +243,7 @@ class LocationManager: NSObject, ObservableObject {
         gpsSignalStatus = .good
         isLocationUpdatesActive = true
         startSignalCheckTimer()
+        updateBackgroundTrackingLimited()
     }
 
     /// Stop location updates when navigation view is closed
@@ -518,10 +556,28 @@ extension LocationManager: CLLocationManagerDelegate {
             switch self.authorizationStatus {
             case .authorizedWhenInUse, .authorizedAlways:
                 self.locationError = nil
-            case .denied:
-                self.locationError = "Location access denied. Please enable in Settings."
-            case .restricted:
-                self.locationError = "Location access restricted."
+                // Complete any deferred start now that permission is granted (PERF-03)
+                if self.pendingTrackingStart {
+                    self.pendingTrackingStart = false
+                    self.beginTrackingNow()
+                }
+                if self.pendingLocationUpdatesStart {
+                    self.startLocationUpdates()
+                }
+                self.updateBackgroundTrackingLimited()
+            case .denied, .restricted:
+                self.locationError = self.authorizationStatus == .denied
+                    ? "Location access denied. Please enable in Settings."
+                    : "Location access restricted."
+                self.pendingTrackingStart = false
+                self.pendingLocationUpdatesStart = false
+                self.backgroundTrackingLimited = false
+                // Permission revoked while active — stop the now-useless updates and surface a
+                // GPS-lost state so the indicator never looks green on a revoked permission. (UX-01)
+                if self.isTracking || self.isLocationUpdatesActive {
+                    self.gpsSignalStatus = .lost
+                    self.locationManager.stopUpdatingLocation()
+                }
             case .notDetermined:
                 self.locationError = nil
             @unknown default:

@@ -281,6 +281,7 @@ enum L10n {
         // Experimental
         static let experimental = String(localized: "settings.experimental")
         static let showEstimatedAirspeed = String(localized: "settings.experimental.showEstimatedAirspeed")
+        static let stallAlertSound = String(localized: "settings.experimental.stallAlertSound")
         static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
         static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 

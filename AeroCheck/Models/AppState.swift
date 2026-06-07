@@ -22,6 +22,7 @@ struct AppSettings: Codable, Equatable {
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
+    var stallAlertSound: Bool = false // When true, plays an aural + haptic stall alert (UX-02)
 
     // Flight Planning (Beta)
     var enableFlightPlanning: Bool = false // Beta feature toggle
@@ -114,6 +115,7 @@ struct AppSettings: Codable, Equatable {
         case offlineMode
         case alwaysUseUTC
         case showEstimatedAirspeed
+        case stallAlertSound
         case enableFlightPlanning
         case waypointProximityThreshold
         case terrainAltitudeUnit
@@ -154,6 +156,7 @@ struct AppSettings: Codable, Equatable {
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
         showEstimatedAirspeed = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedAirspeed) ?? false
+        stallAlertSound = try container.decodeIfPresent(Bool.self, forKey: .stallAlertSound) ?? false
         enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
         waypointProximityThreshold = try container.decodeIfPresent(Double.self, forKey: .waypointProximityThreshold) ?? 500
         terrainAltitudeUnit = try container.decodeIfPresent(TerrainAltitudeUnit.self, forKey: .terrainAltitudeUnit) ?? .feet

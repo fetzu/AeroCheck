@@ -1124,7 +1124,8 @@ struct FlightView: View {
                     gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
                     targetSpeed: appState.currentPhase.targetSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed
+                    estimatedAirspeed: estimatedAirspeed,
+                    stallAlertEnabled: appState.settings.stallAlertSound
                 )
                 .padding(.vertical, 16)
 

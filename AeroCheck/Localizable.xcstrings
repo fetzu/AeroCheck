@@ -11927,6 +11927,23 @@
         }
       }
     },
+    "settings.experimental.stallAlertSound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aural stall alert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerte de décrochage sonore"
+          }
+        }
+      }
+    },
     "settings.experimental.showEstimatedAirspeed" : {
       "extractionState" : "manual",
       "localizations" : {

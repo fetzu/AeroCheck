@@ -8,6 +8,7 @@ struct FlightPlanningSettingsView: View {
     @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
     @State private var showEstimatedAirspeed: Bool = false
+    @State private var stallAlertSound: Bool = false
     @State private var showFlightPlanningWarning: Bool = false
     @State private var showEstimatedAirspeedWarning: Bool = false
     @State private var pendingEstimatedAirspeedValue: Bool = false
@@ -26,6 +27,7 @@ struct FlightPlanningSettingsView: View {
         .onChange(of: waypointProximityThreshold) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: terrainAltitudeUnit) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showEstimatedAirspeed) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: stallAlertSound) { _, _ in if !isLoadingSettings { saveSettings() } }
         .sheet(isPresented: $showFlightPlanningWarning) {
             FlightPlanningWarningSheet(
                 isPresented: $showFlightPlanningWarning,
@@ -114,6 +116,9 @@ struct FlightPlanningSettingsView: View {
                     }
                 }
             ))
+            if showEstimatedAirspeed {
+                Toggle(L10n.Settings.stallAlertSound, isOn: $stallAlertSound)
+            }
         } header: {
             HStack {
                 Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
@@ -149,6 +154,7 @@ struct FlightPlanningSettingsView: View {
         waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
         showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
+        stallAlertSound = appState.settings.stallAlertSound
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -159,6 +165,7 @@ struct FlightPlanningSettingsView: View {
         appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
         appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
+        appState.settings.stallAlertSound = stallAlertSound
         appState.saveSettings()
     }
 }

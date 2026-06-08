@@ -9,6 +9,8 @@ struct ContentView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -117,6 +119,13 @@ struct ContentView: View {
                 // Resume wind data fetching if flight is active and estimated airspeed is enabled
                 if appState.isFlightActive && appState.settings.showEstimatedAirspeed {
                     windDataService.startFetching(locationManager: locationManager)
+                }
+                // Re-check entitlement on foreground and enforce offline/grace expiry by
+                // clearing premium caches when access is no longer allowed. Defense-in-depth;
+                // the server remains the authoritative gate. (SEC-05)
+                Task {
+                    await subscriptionManager.performPeriodicCheck()
+                    _ = aircraftDataService.validatePremiumCaches(subscriptionManager: subscriptionManager)
                 }
             @unknown default:
                 break

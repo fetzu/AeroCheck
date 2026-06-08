@@ -632,6 +632,7 @@ extension Flight {
     enum ImportError: Error, LocalizedError {
         case invalidJSON(underlying: Error)
         case invalidGPX
+        case invalidCoordinates
 
         var errorDescription: String? {
             switch self {
@@ -639,6 +640,8 @@ extension Flight {
                 return "Invalid JSON format: \(underlying.localizedDescription)"
             case .invalidGPX:
                 return "Invalid GPX format"
+            case .invalidCoordinates:
+                return "Import contains invalid coordinates (out of range or not a number)"
             }
         }
     }
@@ -655,27 +658,33 @@ extension Flight {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
+        let imported: Flight
         // Try v2 format first (FlightExportWrapper with metadata)
         if let wrapper = try? decoder.decode(FlightExportWrapper.self, from: data) {
             print("[AéroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
-            return wrapper.flight
-        }
-
-        // Try legacy FlightWithNavigationExport format (no metadata)
-        if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
+            imported = wrapper.flight
+        } else if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
+            // Legacy FlightWithNavigationExport format (no metadata)
             print("[AéroCheck] Imported flight from legacy FlightWithNavigationExport format")
-            return legacyExport.flight
+            imported = legacyExport.flight
+        } else {
+            // v1 format (direct Flight object - oldest format)
+            do {
+                imported = try decoder.decode(Flight.self, from: data)
+                print("[AéroCheck] Imported flight from v1 format (direct Flight object)")
+            } catch {
+                print("[AéroCheck] Failed to decode flight from JSON: \(error)")
+                throw ImportError.invalidJSON(underlying: error)
+            }
         }
 
-        // Try v1 format (direct Flight object - oldest format)
-        do {
-            let flight = try decoder.decode(Flight.self, from: data)
-            print("[AéroCheck] Imported flight from v1 format (direct Flight object)")
-            return flight
-        } catch {
-            print("[AéroCheck] Failed to decode flight from JSON: \(error)")
-            throw ImportError.invalidJSON(underlying: error)
+        // Reject NaN/Inf/out-of-range coordinates (e.g. a "1e999" overflow that decodes to
+        // Infinity) before the flight can reach the map, analyzer, or export. (SEC-08)
+        guard imported.importedCoordinatesAreValid else {
+            print("[AéroCheck] Rejected flight import: invalid coordinates")
+            throw ImportError.invalidCoordinates
         }
+        return imported
     }
 
     /// Import flight from JSON data (non-throwing version for backward compatibility)
@@ -692,6 +701,48 @@ extension Flight {
     }
 }
 
+/// Validation helpers for imported geographic data (SEC-08): reject NaN/Inf/out-of-range
+/// so AirspaceAnalyzer / ElevationService / export never operate on garbage coordinates.
+enum GeoValidation {
+    static func isValidLatLon(_ lat: Double, _ lon: Double) -> Bool {
+        lat.isFinite && lon.isFinite && (-90.0...90.0).contains(lat) && (-180.0...180.0).contains(lon)
+    }
+    /// Returns the latitude if finite and in range, else nil.
+    static func validLatitude(_ v: Double?) -> Double? {
+        guard let v, v.isFinite, (-90.0...90.0).contains(v) else { return nil }
+        return v
+    }
+    /// Returns the longitude if finite and in range, else nil.
+    static func validLongitude(_ v: Double?) -> Double? {
+        guard let v, v.isFinite, (-180.0...180.0).contains(v) else { return nil }
+        return v
+    }
+    /// Returns the value if finite, else nil (for optional numeric fields).
+    static func finite(_ v: Double?) -> Double? {
+        guard let v, v.isFinite else { return nil }
+        return v
+    }
+}
+
+extension Flight {
+    /// True if every imported route coordinate (and any block coordinate pair) is finite
+    /// and in range. Used to reject a whole import rather than yield a silently-clean route.
+    var importedCoordinatesAreValid: Bool {
+        for p in gpsTrack where !GeoValidation.isValidLatLon(p.latitude, p.longitude) {
+            return false
+        }
+        if let lat = blockOffLatitude, let lon = blockOffLongitude,
+           !GeoValidation.isValidLatLon(lat, lon) {
+            return false
+        }
+        if let lat = blockOnLatitude, let lon = blockOnLongitude,
+           !GeoValidation.isValidLatLon(lat, lon) {
+            return false
+        }
+        return true
+    }
+}
+
 /// Simple GPX parser for importing flights
 class GPXParser: NSObject, XMLParserDelegate {
     private var data: Data
@@ -701,6 +752,9 @@ class GPXParser: NSObject, XMLParserDelegate {
     private var currentPoint: GPSPoint?
     private var points: [GPSPoint] = []
     private var attributes: [String: String] = [:]
+    /// Set if any track point carries an invalid (NaN/Inf/out-of-range) coordinate, in which
+    /// case the whole import is rejected rather than yielding a partial/garbage track. (SEC-08)
+    private var hasInvalidCoordinate = false
     private var goAroundTimes: [Date] = []
     private var touchAndGoTimes: [Date] = []
     private var fullStopTimes: [Date] = []
@@ -716,7 +770,7 @@ class GPXParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return flight
+        return hasInvalidCoordinate ? nil : flight
     }
     
     func parser(_ parser: XMLParser, didStartElement elementName: String,
@@ -730,8 +784,12 @@ class GPXParser: NSObject, XMLParserDelegate {
             flight = Flight()
         } else if elementName == "trkpt" {
             if let latStr = attributeDict["lat"], let lonStr = attributeDict["lon"],
-               let lat = Double(latStr), let lon = Double(lonStr) {
+               let lat = Double(latStr), let lon = Double(lonStr),
+               GeoValidation.isValidLatLon(lat, lon) {
                 currentPoint = GPSPoint(latitude: lat, longitude: lon, altitude: 0)
+            } else {
+                // A trkpt with missing/unparseable/out-of-range coordinates invalidates the import.
+                hasInvalidCoordinate = true
             }
         }
     }
@@ -792,15 +850,15 @@ class GPXParser: NSObject, XMLParserDelegate {
         case "blockOffTime":
             flight?.blockOffTime = dateFormatter.date(from: text)
         case "blockOffLatitude":
-            flight?.blockOffLatitude = Double(text)
+            flight?.blockOffLatitude = GeoValidation.validLatitude(Double(text))
         case "blockOffLongitude":
-            flight?.blockOffLongitude = Double(text)
+            flight?.blockOffLongitude = GeoValidation.validLongitude(Double(text))
         case "blockOnTime":
             flight?.blockOnTime = dateFormatter.date(from: text)
         case "blockOnLatitude":
-            flight?.blockOnLatitude = Double(text)
+            flight?.blockOnLatitude = GeoValidation.validLatitude(Double(text))
         case "blockOnLongitude":
-            flight?.blockOnLongitude = Double(text)
+            flight?.blockOnLongitude = GeoValidation.validLongitude(Double(text))
         case "departureAirportIdent":
             flight?.departureAirportIdent = text
         case "arrivalAirportIdent":
@@ -828,7 +886,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 fullStopTimes.append(date)
             }
         case "ele":
-            if let point = currentPoint, let alt = Double(text) {
+            if let point = currentPoint, let alt = Double(text), alt.isFinite {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -841,7 +899,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 )
             }
         case "speed":
-            if let point = currentPoint, let spd = Double(text) {
+            if let point = currentPoint, let spd = Double(text), spd.isFinite {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -854,7 +912,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 )
             }
         case "course":
-            if let point = currentPoint, let crs = Double(text) {
+            if let point = currentPoint, let crs = Double(text), crs.isFinite {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,
@@ -867,7 +925,7 @@ class GPXParser: NSObject, XMLParserDelegate {
                 )
             }
         case "horizontalAccuracy":
-            if let point = currentPoint, let acc = Double(text) {
+            if let point = currentPoint, let acc = Double(text), acc.isFinite {
                 currentPoint = GPSPoint(
                     id: point.id,
                     latitude: point.latitude,

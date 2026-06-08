@@ -22,6 +22,7 @@ struct AppSettings: Codable, Equatable {
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
+    var stallAlertSound: Bool = false // When true, plays an aural + haptic stall alert (UX-02)
 
     // Flight Planning (Beta)
     var enableFlightPlanning: Bool = false // Beta feature toggle
@@ -114,6 +115,7 @@ struct AppSettings: Codable, Equatable {
         case offlineMode
         case alwaysUseUTC
         case showEstimatedAirspeed
+        case stallAlertSound
         case enableFlightPlanning
         case waypointProximityThreshold
         case terrainAltitudeUnit
@@ -154,6 +156,7 @@ struct AppSettings: Codable, Equatable {
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
         showEstimatedAirspeed = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedAirspeed) ?? false
+        stallAlertSound = try container.decodeIfPresent(Bool.self, forKey: .stallAlertSound) ?? false
         enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
         waypointProximityThreshold = try container.decodeIfPresent(Double.self, forKey: .waypointProximityThreshold) ?? 500
         terrainAltitudeUnit = try container.decodeIfPresent(TerrainAltitudeUnit.self, forKey: .terrainAltitudeUnit) ?? .feet
@@ -298,6 +301,15 @@ class AppState: ObservableObject {
     @Published var currentPhase: ChecklistPhase = .preflight
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
+    /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded).
+    /// Observed by the UI to show an explanatory alert. (ARCH-01)
+    @Published var flightStartError: String?
+
+    /// True unless a premium aircraft is selected but its checklist hasn't resolved.
+    /// Callers must not begin a flight (or GPS tracking) when this is false. (ARCH-01)
+    var isPremiumChecklistResolved: Bool {
+        settings.selectedRemoteAircraftId == nil || ChecklistData.currentRemoteChecklist != nil
+    }
     @Published var flights: [Flight] = []
     @Published var isLoadingFlights: Bool = true
     @Published var settings: AppSettings = AppSettings()
@@ -408,6 +420,9 @@ class AppState: ObservableObject {
     /// Sync the current aircraft type to ChecklistData
     private func syncAircraftType() {
         ChecklistData.currentAircraft = settings.selectedAircraft
+        // Track whether a premium checklist is expected, so ChecklistData never falls back to
+        // WT9 content for a premium selection and flight start can be blocked. (ARCH-01)
+        ChecklistData.expectsRemoteChecklist = (settings.selectedRemoteAircraftId != nil)
 
         // Clear remote checklist if not using remote aircraft
         if settings.selectedRemoteAircraftId == nil {
@@ -419,6 +434,7 @@ class AppState: ObservableObject {
     /// Call this before starting a flight
     func loadRemoteChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
         let language = settings.checklistLanguage.resolvedLanguage
+        ChecklistData.expectsRemoteChecklist = (settings.selectedRemoteAircraftId != nil)
 
         // Handle remote (premium) aircraft
         if let remoteId = settings.selectedRemoteAircraftId {
@@ -472,6 +488,15 @@ class AppState: ObservableObject {
     }
 
     func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
+        // ARCH-01: never begin a flight for a premium aircraft without its resolved checklist —
+        // this is the single choke point, so deep-link/widget entry points are covered too. A
+        // blocked start surfaces an explicit error instead of silently showing WT9 content.
+        if ChecklistData.isAwaitingUnresolvedRemoteChecklist {
+            flightStartError = L10n.Alert.checklistNotReady
+            print("[AéroCheck] Flight start blocked: premium checklist not resolved")
+            return
+        }
+        flightStartError = nil
         currentFlight = Flight(
             airplane: aircraft,
             aircraftRegistration: aircraftRegistration,

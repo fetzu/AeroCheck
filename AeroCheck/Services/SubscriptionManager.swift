@@ -215,6 +215,11 @@ class SubscriptionManager: ObservableObject {
             try await AppStore.sync()
             debugLogger.log("AppStore.sync() completed", level: .success)
 
+            // Drop any cached identity (possibly a stale device-id fallback) so getUserID()
+            // re-derives from the freshly synced entitlements before we re-check and sync
+            // with the server. Without this, a restore rebinds to the wrong id. (ARCH-03)
+            cachedUserID = nil
+
             // Finish any unfinished transactions that sync may have surfaced
             await finishUnfinishedTransactions()
 
@@ -538,7 +543,8 @@ class SubscriptionManager: ObservableObject {
             return cached
         }
 
-        // Try to get user ID from a recent transaction
+        // Derive the durable identity from the StoreKit transaction (originalID is stable
+        // per Apple ID for the subscription). This is what the server binds to. (ARCH-03)
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result {
                 cachedUserID = String(transaction.originalID)
@@ -546,13 +552,10 @@ class SubscriptionManager: ObservableObject {
             }
         }
 
-        // Fall back to device identifier
-        if let deviceID = UIDevice.current.identifierForVendor?.uuidString {
-            cachedUserID = deviceID
-            return deviceID
-        }
-
-        return nil
+        // Last-resort, non-durable fallback. Deliberately NOT cached, so that once a real
+        // transaction is available (e.g. after a restore or first launch with entitlements)
+        // getUserID() re-derives the durable id instead of pinning to this device id. (ARCH-03)
+        return UIDevice.current.identifierForVendor?.uuidString
     }
 
     /// Gets all transactions for debugging
@@ -683,8 +686,11 @@ class SubscriptionManager: ObservableObject {
         let jwsToken = verificationResult.jwsRepresentation
         debugLogger.log("JWS token extracted (length: \(jwsToken.count) chars)", level: .success)
 
-        // Send to server
-        let url = URL(string: "\(apiBaseURL)/api/v3/subscription/verify")!
+        // Send to server (fail safe instead of force-unwrapping — PERF-14)
+        guard let url = URL(string: "\(apiBaseURL)/api/v3/subscription/verify") else {
+            debugLogger.log("Invalid verify URL", level: .error)
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -729,11 +735,35 @@ class SubscriptionManager: ObservableObject {
                 return
             }
 
-            // Record successful verification to reset grace period and offline timers
-            recordSuccessfulVerification()
+            // A 200 means the request was processed — NOT that the user is entitled. Only an
+            // "active" status (with a future expiry, if provided) counts as a successful
+            // verification; a 200 carrying status none/expired/cancelled must NOT reset the
+            // grace/offline timers. (SEC-10)
+            struct VerifyResponse: Decodable {
+                struct Payload: Decodable {
+                    let status: String?
+                    let expiresAt: String?
+                    let sku: String?
+                }
+                let success: Bool?
+                let data: Payload?
+            }
+            let decoded = try? JSONDecoder().decode(VerifyResponse.self, from: data)
+            let status = decoded?.data?.status ?? "unknown"
+            let expiresAtOK: Bool = {
+                guard let iso = decoded?.data?.expiresAt else { return true } // none provided
+                let withFractional = ISO8601DateFormatter()
+                withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = withFractional.date(from: iso) { return d > Date() }
+                if let d = ISO8601DateFormatter().date(from: iso) { return d > Date() }
+                return true // unparseable expiry → don't reject on expiry alone
+            }()
 
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                debugLogger.log("Server verification successful: \(json)", level: .success)
+            if decoded?.success == true && status == "active" && expiresAtOK {
+                recordSuccessfulVerification()
+                debugLogger.log("Server verification: active", level: .success)
+            } else {
+                debugLogger.log("Server verification did not confirm entitlement (status=\(status)); not recording success", level: .warning)
             }
 
         } catch {

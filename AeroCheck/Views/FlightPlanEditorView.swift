@@ -2408,6 +2408,12 @@ struct AirspaceConflictDetailSheet: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(severityColor(conflict.severity))
                         }
+
+                        if conflict.altitudeUncertain {
+                            Label(L10n.Nav.airspaceAltitudeUncertain, systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.aviationAmber)
+                        }
                     }
                     .padding(.vertical, 4)
                     .listRowBackground(Color.panelBackground)

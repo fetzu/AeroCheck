@@ -298,6 +298,40 @@
         }
       }
     },
+    "alert.checklistNotReady.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This aircraft's checklist couldn't be loaded. Check your connection and subscription, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La checklist de cet avion n'a pas pu être chargée. Vérifiez votre connexion et votre abonnement, puis réessayez."
+          }
+        }
+      }
+    },
+    "alert.checklistNotReady.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklist Not Ready"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checklist non disponible"
+          }
+        }
+      }
+    },
     "alert.deleteFlight.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1420,6 +1454,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connexion"
+          }
+        }
+      }
+    },
+    "companion.dataStale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data stale — values may be frozen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données obsolètes — valeurs possiblement figées"
           }
         }
       }
@@ -5661,6 +5712,23 @@
         }
       }
     },
+    "gps.backgroundLimited" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limited GPS — grant \"Always\" so the track keeps recording in the background"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPS limité — autorisez « Toujours » pour continuer l'enregistrement en arrière-plan"
+          }
+        }
+      }
+    },
     "gps.denied" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7670,6 +7738,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nom du plan de vol"
+          }
+        }
+      }
+    },
+    "nav.airspaceAltitudeUncertain" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude uncertain — verify vertical separation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude incertaine — vérifiez la séparation verticale"
           }
         }
       }
@@ -11872,6 +11957,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cette fonctionnalité fonctionne uniquement en Suisse et nécessite une connexion cellulaire constante."
+          }
+        }
+      }
+    },
+    "settings.experimental.stallAlertSound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aural stall alert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerte de décrochage sonore"
           }
         }
       }

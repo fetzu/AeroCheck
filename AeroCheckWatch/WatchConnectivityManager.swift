@@ -43,6 +43,17 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         formatTime(Date())
     }
 
+    /// Live data is considered stale after this long without an update from the phone. (UX-05)
+    let staleThresholdSeconds: TimeInterval = 5.0
+
+    /// True when an active flight's live data hasn't refreshed within the stale window, so the
+    /// UI should dim the frozen values and show a clear STALE indication rather than imply live.
+    func isDataStale(asOf now: Date = Date()) -> Bool {
+        guard flightData.isFlightActive else { return false }
+        guard let last = lastUpdateTime else { return true }
+        return now.timeIntervalSince(last) > staleThresholdSeconds
+    }
+
     /// Calculate flight time from line-up (takeoff) to now or landing
     var flightTimeInterval: TimeInterval? {
         guard let lineUp = flightData.lineUpTime else { return nil }
@@ -83,13 +94,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
         }
 
         Task { @MainActor in
-            self.isConnected = activationState == .activated
-            print("[AéroCheck Watch] Session activated: \(activationState == .activated)")
+            // Connection reflects live reachability of the phone, not just activation state,
+            // so the indicator goes red when the phone is gone. (UX-05)
+            self.isConnected = activationState == .activated && session.isReachable
+            print("[AéroCheck Watch] Session activated: \(activationState == .activated), reachable: \(session.isReachable)")
 
             // Load any existing application context
             if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
                 self.processFlightData(flightDataEncoded)
             }
+        }
+    }
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
+        // Drive the connection state from reachability (the phone coming/going). (UX-05)
+        Task { @MainActor in
+            self.isConnected = session.isReachable
         }
     }
 

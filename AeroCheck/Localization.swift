@@ -56,6 +56,7 @@ enum L10n {
 
     // MARK: - GPS
     enum GPS {
+        static let backgroundLimited = String(localized: "gps.backgroundLimited")
         static let ready = String(localized: "gps.ready")
         static let denied = String(localized: "gps.denied")
         static let restricted = String(localized: "gps.restricted")
@@ -121,6 +122,8 @@ enum L10n {
         static let deleteCacheMessage = String(localized: "alert.deleteCache.message")
         static let deleteFlightTitle = String(localized: "alert.deleteFlight.title")
         static let deleteFlightMessage = String(localized: "alert.deleteFlight.message")
+        static let checklistNotReadyTitle = String(localized: "alert.checklistNotReady.title")
+        static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
     }
 
     // MARK: - Phase Titles
@@ -280,6 +283,7 @@ enum L10n {
         // Experimental
         static let experimental = String(localized: "settings.experimental")
         static let showEstimatedAirspeed = String(localized: "settings.experimental.showEstimatedAirspeed")
+        static let stallAlertSound = String(localized: "settings.experimental.stallAlertSound")
         static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
         static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 
@@ -963,6 +967,8 @@ enum L10n {
 
     // MARK: - Navigation / Flight Plans
     enum Nav {
+        // Airspace conflicts
+        static let airspaceAltitudeUncertain = String(localized: "nav.airspaceAltitudeUncertain")
         // Flight Plans List
         static let flightPlans = String(localized: "nav.flightPlans")
         static let allFlightPlans = String(localized: "nav.allFlightPlans")
@@ -1178,6 +1184,8 @@ enum L10n {
 
     // MARK: - Companion Mode
     enum Companion {
+        // Connectivity
+        static let dataStale = String(localized: "companion.dataStale")
         // Settings
         static let companionMode = String(localized: "companion.companionMode")
         static let enableCompanionMode = String(localized: "companion.enableCompanionMode")

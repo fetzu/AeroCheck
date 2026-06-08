@@ -128,6 +128,13 @@ struct Airspace: Codable, Identifiable {
         return altitudeFeetMSL >= lower && altitudeFeetMSL <= upper
     }
 
+    /// True if either vertical limit can't be precisely compared against an MSL altitude
+    /// without terrain/QNH data (AGL or FL referenced). Used to fail safe: such an airspace
+    /// is never silently ruled out vertically — the pilot is asked to verify. (PERF-08)
+    var altitudeIsUncertain: Bool {
+        lowerCeiling.isDatumUncertain || upperCeiling.isDatumUncertain
+    }
+
     /// Check if a coordinate falls within this airspace's polygon using ray casting algorithm
     func containsPoint(_ point: CLLocationCoordinate2D) -> Bool {
         let polygon = polygonCoordinates
@@ -214,6 +221,15 @@ struct AltitudeLimit: Codable {
         // is a reasonable conservative estimate.
         // STD (standard pressure) is effectively MSL for comparison purposes.
         return feetValue
+    }
+
+    /// True when converting this limit to MSL is only approximate without external data:
+    /// a flight level (needs QNH) or an AGL value above ground (needs terrain elevation).
+    /// A 0 ft / GND lower limit is treated as certain (ground ≈ 0 ft MSL for our purposes).
+    var isDatumUncertain: Bool {
+        if unit == 6 { return true }                          // Flight level — needs QNH
+        if referenceDatum == 0 && value != 0 { return true }  // AGL above ground — needs terrain
+        return false
     }
 
     /// Human-readable display string
@@ -378,6 +394,9 @@ struct AirspaceConflict: Identifiable {
     let legIndex: Int                    // Which leg of the flight plan
     let conflictType: ConflictType
     let plannedAltitude: Double?         // Feet MSL, if available
+    /// True when vertical overlap could not be confirmed precisely (AGL/FL limits, or no
+    /// planned altitude) — the pilot must verify the vertical separation manually. (PERF-08)
+    var altitudeUncertain: Bool = false
 
     enum ConflictType {
         case transit                     // Route passes through airspace

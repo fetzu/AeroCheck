@@ -1124,7 +1124,8 @@ struct FlightView: View {
                     gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
                     targetSpeed: appState.currentPhase.targetSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed
+                    estimatedAirspeed: estimatedAirspeed,
+                    stallAlertEnabled: appState.settings.stallAlertSound
                 )
                 .padding(.vertical, 16)
 
@@ -1208,6 +1209,19 @@ struct FlightView: View {
                     .foregroundColor(.secondaryText)
                 Spacer()
                 StatusIndicator(gpsStatusIndicator)
+            }
+
+            // Background-tracking limitation (WhenInUse only) — the track may stop if the app
+            // is backgrounded; prompt the pilot to grant Always. (PERF-04)
+            if locationManager.backgroundTrackingLimited {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.aviationAmber)
+                    Text(L10n.GPS.backgroundLimited)
+                        .font(.captionText)
+                        .foregroundColor(.aviationAmber)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             // Points recorded

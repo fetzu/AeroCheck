@@ -200,6 +200,14 @@ struct HomeView: View {
             syncSelectedAircraftIndex()
             updateCachedItemCount()
         }
+        .alert(L10n.Alert.checklistNotReadyTitle, isPresented: Binding(
+            get: { appState.flightStartError != nil },
+            set: { if !$0 { appState.flightStartError = nil } }
+        )) {
+            Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
+        } message: {
+            Text(appState.flightStartError ?? "")
+        }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
         }
@@ -601,10 +609,24 @@ struct HomeView: View {
         }
     }
     
-    private func startFlight() {
+    private func startFlight() { beginFlight(circuitMode: false) }
+
+    private func startCircuits() { beginFlight(circuitMode: true) }
+
+    /// Unified flight-start path. Loading the checklist, the ARCH-01 resolved-checklist guard,
+    /// airport data, event-detector configuration, the flight start and GPS tracking all live
+    /// in one place so every entry point goes through the same sequence — HomeView's buttons
+    /// today; the deep-link / widget paths can adopt this next. (Task 3 — first step.)
+    private func beginFlight(circuitMode: Bool) {
         Task {
             // Load remote checklist if needed
             await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+
+            // ARCH-01: don't start (or track) if a premium aircraft's checklist failed to load.
+            guard appState.isPremiumChecklistResolved else {
+                appState.flightStartError = L10n.Alert.checklistNotReady
+                return
+            }
 
             // Ensure airport data is loaded for FREQ panel and flight event detection
             await airportDataService.ensureLoaded()
@@ -612,45 +634,20 @@ struct HomeView: View {
             // Configure flight event detector with aircraft-specific speeds
             configureFlightEventDetector()
 
-            // Pass the active flight plan ID to the flight if one is active
-            let activeFlightPlanId = flightPlanManager.activeFlightPlan?.id
+            // A flight plan applies to a normal flight only, not to circuit training.
+            let flightPlanId = circuitMode ? nil : flightPlanManager.activeFlightPlan?.id
             appState.startFlight(
                 withAircraft: appState.settings.defaultAirplane,
                 aircraftRegistration: selectedAircraft?.registration,
                 aircraftType: selectedAircraft?.aircraftType,
                 checklistVersion: selectedAircraft?.version,
-                flightPlanId: activeFlightPlanId,
-                circuitMode: false
+                flightPlanId: flightPlanId,
+                circuitMode: circuitMode
             )
-            locationManager.startTracking(
-                appState: appState,
-                interval: appState.settings.gpsRecordingInterval,
-                airportDataService: airportDataService,
-                flightEventDetector: flightEventDetector
-            )
-        }
-    }
 
-    private func startCircuits() {
-        Task {
-            // Load remote checklist if needed
-            await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-
-            // Ensure airport data is loaded for FREQ panel and flight event detection
-            await airportDataService.ensureLoaded()
-
-            // Configure flight event detector with aircraft-specific speeds
-            configureFlightEventDetector()
-
-            // Start flight in circuit mode (no flight plan, skips CRUISE and DESCENT)
-            appState.startFlight(
-                withAircraft: appState.settings.defaultAirplane,
-                aircraftRegistration: selectedAircraft?.registration,
-                aircraftType: selectedAircraft?.aircraftType,
-                checklistVersion: selectedAircraft?.version,
-                flightPlanId: nil,
-                circuitMode: true
-            )
+            // Only begin GPS tracking if the flight actually started — startFlight() is the
+            // authoritative guard and may have refused it (e.g. unresolved premium checklist).
+            guard appState.isFlightActive else { return }
             locationManager.startTracking(
                 appState: appState,
                 interval: appState.settings.gpsRecordingInterval,

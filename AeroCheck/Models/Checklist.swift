@@ -192,10 +192,23 @@ struct ChecklistData {
     /// Only mutate this from AppState
     nonisolated(unsafe) static var currentRemoteChecklist: RemoteAircraftChecklist? = nil
 
+    /// True when a remote (premium) aircraft is selected, so a remote checklist is expected.
+    /// When this is set but `currentRemoteChecklist` is nil (the load failed), ChecklistData
+    /// must NOT fall back to the bundled WT9 content — a premium flight must never display the
+    /// wrong aircraft's items. Flight start is also blocked in this state. (ARCH-01)
+    nonisolated(unsafe) static var expectsRemoteChecklist: Bool = false
+
+    /// True when a remote checklist is expected but hasn't resolved (load failed/pending).
+    static var isAwaitingUnresolvedRemoteChecklist: Bool {
+        expectsRemoteChecklist && currentRemoteChecklist == nil
+    }
+
     static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
         if let remote = currentRemoteChecklist {
             return remote.items(for: phase)
         }
+        // Never serve bundled WT9 items when a premium checklist was expected. (ARCH-01)
+        if expectsRemoteChecklist { return [] }
         return currentAircraft.items(for: phase)
     }
 
@@ -205,6 +218,7 @@ struct ChecklistData {
         if let remote = currentRemoteChecklist {
             return remote.learningModeVisibleCount(for: phase)
         }
+        if expectsRemoteChecklist { return nil }
         return currentAircraft.learningModeVisibleCount(for: phase)
     }
 
@@ -212,6 +226,7 @@ struct ChecklistData {
         if let remote = currentRemoteChecklist {
             return remote.visibleItems(for: phase, learningMode: learningMode)
         }
+        if expectsRemoteChecklist { return [] }
         return currentAircraft.visibleItems(for: phase, learningMode: learningMode)
     }
 

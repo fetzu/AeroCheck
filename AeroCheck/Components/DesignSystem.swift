@@ -1,4 +1,6 @@
 import SwiftUI
+import AVFoundation
+import UIKit
 
 // MARK: - Aviation Theme Colors
 
@@ -292,6 +294,7 @@ struct SpeedIndicatorView: View {
     let targetSpeed: Int
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
+    var stallAlertEnabled: Bool = false // When true, fire an aural+haptic alert on stall (UX-02)
 
     /// Stall speed from current aircraft type
     private var stallSpeed: Int {
@@ -321,7 +324,11 @@ struct SpeedIndicatorView: View {
         }
 
         let speedInt = Int(displaySpeed)
-        if speedInt < stallSpeed {
+        // Only annunciate a stall from a reliable airspeed estimate. With only ground speed
+        // known, the value can be wrong by the wind component (a tailwind can mask a real
+        // stall, a headwind can fake one), so suppress the red stall and treat it as
+        // off-target — the GND SPD label keeps the source unambiguous. (UX-02)
+        if showingEstimatedAirspeed && speedInt < stallSpeed {
             return .stall
         } else if abs(speedInt - targetSpeed) <= 5 {
             return .onTarget
@@ -362,7 +369,8 @@ struct SpeedIndicatorView: View {
                 // Speed value (hidden when GPS lost)
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 2) {
-                        Text("\(Int(displaySpeed))")
+                        // "~" marks an estimated (wind-derived) value, not a measured airspeed. (UX-12)
+                        Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(displaySpeed))")
                             .font(.system(size: 36, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
 
@@ -396,6 +404,7 @@ struct SpeedIndicatorView: View {
         .onChange(of: speedState) { _, newState in
             if newState == .stall {
                 startFlashing()
+                if stallAlertEnabled { StallAlert.shared.trigger() }
             } else {
                 stopFlashing()
             }
@@ -440,6 +449,7 @@ struct SpeedIndicatorView: View {
     private func startFlashingIfNeeded() {
         if speedState == .stall {
             startFlashing()
+            if stallAlertEnabled { StallAlert.shared.trigger() }
         }
     }
 
@@ -456,6 +466,38 @@ struct SpeedIndicatorView: View {
     }
 }
 
+// MARK: - Stall Aural/Haptic Alert
+
+/// Speaks a "stall" warning (ducking other cockpit audio) plus a warning haptic when the
+/// airspeed indicator enters the stall state. Throttled so it doesn't repeat on every
+/// recompute/flash. Opt-in via Settings. (UX-02)
+final class StallAlert {
+    static let shared = StallAlert()
+    private let synthesizer = AVSpeechSynthesizer()
+    private let haptic = UINotificationFeedbackGenerator()
+    private var lastFired: Date?
+    private let minInterval: TimeInterval = 4.0
+
+    private init() {}
+
+    func trigger() {
+        let now = Date()
+        if let last = lastFired, now.timeIntervalSince(last) < minInterval { return }
+        lastFired = now
+
+        // Play over other cockpit audio (intercom/music), ducking it briefly.
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default, options: [.duckOthers, .mixWithOthers])
+        try? session.setActive(true, options: [])
+
+        let utterance = AVSpeechUtterance(string: "Stall. Stall.")
+        utterance.volume = 1.0
+        synthesizer.speak(utterance)
+
+        haptic.notificationOccurred(.warning)
+    }
+}
+
 // MARK: - Speed Indicator Container (handles GPS speed conversion)
 
 struct FlightSpeedIndicator: View {
@@ -463,6 +505,7 @@ struct FlightSpeedIndicator: View {
     let targetSpeed: Int?
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
+    var stallAlertEnabled: Bool = false
 
     // Convert m/s to knots (1 m/s = 1.94384 knots)
     private var speedInKnots: Double {
@@ -475,7 +518,8 @@ struct FlightSpeedIndicator: View {
                 currentSpeed: max(0, speedInKnots),
                 targetSpeed: target,
                 gpsSignalStatus: gpsSignalStatus,
-                estimatedAirspeed: estimatedAirspeed
+                estimatedAirspeed: estimatedAirspeed,
+                stallAlertEnabled: stallAlertEnabled
             )
         }
     }

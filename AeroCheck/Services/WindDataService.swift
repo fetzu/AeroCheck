@@ -37,8 +37,15 @@ class WindDataService: ObservableObject {
         maxLon: 10.61
     )
 
-    /// MeteoSwiss wind data endpoint (GeoJSON with wind gust and direction)
-    private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-wind-boeenspitze-kmh-10min/ch.meteoschweiz.messwerte-wind-boeenspitze-kmh-10min_en.json"
+    /// MeteoSwiss MEAN-wind endpoint (GeoJSON: 10-minute mean wind speed + direction).
+    /// UX-03: deliberately the mean-wind dataset, NOT the peak-gust feed (boeenspitze) —
+    /// using a 10-minute gust peak as steady wind overstated the headwind correction and could
+    /// suppress a real stall warning (error in the dangerous direction).
+    private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-wind-geschwindigkeit-kmh-10min/ch.meteoschweiz.messwerte-wind-geschwindigkeit-kmh-10min_en.json"
+
+    /// Maximum age of a wind reading before it is considered stale and no longer used for
+    /// airspeed estimation (the readout falls back to ground speed). (UX-04)
+    private let maxWindAgeSeconds: TimeInterval = 20 * 60
 
     // MARK: - Public Methods
 
@@ -84,6 +91,11 @@ class WindDataService: ObservableObject {
             return nil
         }
 
+        // Stale wind must not drive the stall/airspeed readout — fall back to ground speed. (UX-04)
+        guard Date().timeIntervalSince(windData.timestamp) <= maxWindAgeSeconds else {
+            return nil
+        }
+
         // Convert wind speed from km/h to knots
         let windSpeedKnots = windData.speedKmh * 0.539957
 
@@ -96,14 +108,31 @@ class WindDataService: ObservableObject {
         let windToRadians = windToDirection * .pi / 180
         let angleDifference = trackRadians - windToRadians
 
-        // Headwind component = wind speed * cos(angle difference)
-        let headwindComponent = windSpeedKnots * cos(angleDifference)
+        // Component of the wind blowing ALONG the ground track. angleDifference is
+        // (track − windToDirection), so cos() is +1 when the wind blows in the direction of
+        // travel (a tailwind) and −1 when it opposes travel (a headwind).
+        let alongTrackWindComponent = windSpeedKnots * cos(angleDifference)
 
-        // Estimated airspeed = ground speed + headwind component
-        // (headwind increases airspeed relative to ground speed)
-        let estimatedAirspeed = groundSpeedKnots + headwindComponent
+        // Ground velocity = air velocity + wind velocity, so TAS = ground speed − tailwind
+        // component. A headwind (negative component) therefore correctly INCREASES the
+        // estimated airspeed; a tailwind decreases it. (Previously this added the component,
+        // which inverted the correction — overstating airspeed in a tailwind, the dangerous
+        // direction. Caught by WindDataServiceTests.testHeadwindIncreasesAirspeed.)
+        let estimatedAirspeed = groundSpeedKnots - alongTrackWindComponent
 
         return max(0, estimatedAirspeed)
+    }
+
+    /// Age of the current wind reading in seconds, if any (for provenance display).
+    var windDataAgeSeconds: TimeInterval? {
+        guard let w = currentWindData else { return nil }
+        return Date().timeIntervalSince(w.timestamp)
+    }
+
+    /// True if we hold a wind reading that has aged past the usable window.
+    var isWindDataStale: Bool {
+        guard let age = windDataAgeSeconds else { return false }
+        return age > maxWindAgeSeconds
     }
 
     // MARK: - Private Methods
@@ -145,6 +174,8 @@ class WindDataService: ObservableObject {
 
         } catch {
             await MainActor.run {
+                // Age out the last reading on a failed fetch so stale wind is never shown as live. (UX-04)
+                self.currentWindData = nil
                 self.fetchError = error.localizedDescription
             }
         }

@@ -65,10 +65,9 @@ actor ElevationService {
         guard let url = URL(string: urlString) else { return nil }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, httpResponse) = try await ExternalRequest.data(from: url)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
+            guard httpResponse.statusCode == 200 else {
                 return nil
             }
 
@@ -140,10 +139,9 @@ actor ElevationService {
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, httpResponse) = try await ExternalRequest.data(from: url)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
+            guard httpResponse.statusCode == 200 else {
                 return nil
             }
 
@@ -194,16 +192,22 @@ actor ElevationService {
             // Determine number of samples for this leg proportional to its length
             let legSamples = max(5, Int(Double(totalSamples) * (legDistanceNM / totalDistance)))
 
-            if let legProfile = await fetchLegProfileWithSamples(from: from, to: to, samples: legSamples) {
-                // Calculate the leg's total distance in meters for proper scaling
-                let legDistanceMeters = legDistanceNM * 1852.0
+            // The caller (TerrainProfileView) only invokes this when every waypoint is in
+            // Switzerland, so a nil leg here is always a fetch failure — not legitimately-absent
+            // data. Fail the whole profile rather than drawing a continuous fill across the gap that
+            // would hide an unfetched (possibly mountainous) segment. (PERF-16)
+            guard let legProfile = await fetchLegProfileWithSamples(from: from, to: to, samples: legSamples) else {
+                return []
+            }
 
-                for point in legProfile {
-                    // Scale the profile distance to NM and add cumulative offset
-                    let fractionAlongLeg = legDistanceMeters > 0 ? point.distance / legDistanceMeters : 0
-                    let distanceNM = cumulativeDistanceNM + (legDistanceNM * fractionAlongLeg)
-                    results.append((distance: distanceNM, elevation: point.elevation))
-                }
+            // Calculate the leg's total distance in meters for proper scaling
+            let legDistanceMeters = legDistanceNM * 1852.0
+
+            for point in legProfile {
+                // Scale the profile distance to NM and add cumulative offset
+                let fractionAlongLeg = legDistanceMeters > 0 ? point.distance / legDistanceMeters : 0
+                let distanceNM = cumulativeDistanceNM + (legDistanceNM * fractionAlongLeg)
+                results.append((distance: distanceNM, elevation: point.elevation))
             }
 
             cumulativeDistanceNM += legDistanceNM
@@ -231,10 +235,9 @@ actor ElevationService {
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, httpResponse) = try await ExternalRequest.data(from: url)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
+            guard httpResponse.statusCode == 200 else {
                 return nil
             }
 
@@ -317,10 +320,9 @@ actor ElevationService {
         request.httpBody = body.data(using: .utf8)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, httpResponse) = try await ExternalRequest.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...203).contains(httpResponse.statusCode) else {
+            guard (200...203).contains(httpResponse.statusCode) else {
                 print("[AéroCheck] Swisstopo profile POST failed: \(String(describing: (try? JSONSerialization.jsonObject(with: data))))")
                 return []
             }
@@ -349,6 +351,19 @@ actor ElevationService {
 
     /// Fetch terrain profile along a GPS track using the Open-Meteo Elevation API.
     /// Batches coordinates into requests of up to 100 points each.
+    /// Parses an Open-Meteo `/v1/elevation` response into the elevation array, returning nil (never
+    /// a zero-filled placeholder) on malformed JSON, a missing `elevation` field, or a count
+    /// mismatch — so a failed/partial response can never masquerade as flat sea-level terrain.
+    /// (PERF-15 / SEC-14)
+    nonisolated static func parseOpenMeteoElevations(_ data: Data, expectedCount: Int) -> [Double]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let elevations = json["elevation"] as? [Double],
+              elevations.count == expectedCount else {
+            return nil
+        }
+        return elevations
+    }
+
     private func fetchTrackTerrainViaOpenMeteo(
         gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)],
         targetSamples: Int
@@ -364,34 +379,28 @@ actor ElevationService {
 
         var allElevations: [Double] = []
 
+        // SAFETY (PERF-15 / SEC-14): never coerce a missing/failed elevation reading to 0 m — a flat
+        // sea-level band drawn under the altitude trace falsely implies huge ground clearance. On any
+        // failure (URL, non-200, parse, count mismatch, network) return [] so the caller honestly
+        // shows "no terrain" instead of a fabricated flat band.
         for batch in batches {
             let lats = batch.map { String(format: "%.5f", $0.coordinate.latitude) }.joined(separator: ",")
             let lons = batch.map { String(format: "%.5f", $0.coordinate.longitude) }.joined(separator: ",")
 
             guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else {
-                // Fill with zeros if URL fails
-                allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
-                continue
+                return []
             }
 
             do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
-                    allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
-                    continue
+                let (data, httpResponse) = try await ExternalRequest.data(from: url)
+                guard httpResponse.statusCode == 200,
+                      let elevations = Self.parseOpenMeteoElevations(data, expectedCount: batch.count) else {
+                    return []
                 }
-
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let elevations = json["elevation"] as? [Double] {
-                    allElevations.append(contentsOf: elevations)
-                } else {
-                    allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
-                }
+                allElevations.append(contentsOf: elevations)
             } catch {
                 print("[AéroCheck] Open-Meteo elevation error: \(error.localizedDescription)")
-                allElevations.append(contentsOf: Array(repeating: 0.0, count: batch.count))
+                return []
             }
         }
 

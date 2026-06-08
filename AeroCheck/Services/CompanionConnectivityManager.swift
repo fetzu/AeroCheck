@@ -6,16 +6,31 @@ import UIKit
 
 // MARK: - Wi-Fi Aware Service Extensions
 
+@available(iOS 26.0, *)
 extension WAPublishableService {
     static var aerocheck: WAPublishableService {
         allServices["_aerocheck._tcp"]!
     }
 }
 
+@available(iOS 26.0, *)
 extension WASubscribableService {
     static var aerocheck: WASubscribableService {
         allServices["_aerocheck._tcp"]!
     }
+}
+
+/// Version-agnostic snapshot of a paired companion device.
+///
+/// The underlying `WAPairedDevice` type is only available on iOS 26+. To keep
+/// `CompanionConnectivityManager` instantiable on the iOS 17.0 deployment floor
+/// (it is injected as an `@EnvironmentObject` consumed by views that run on
+/// iOS 17–25), we never store `WAPairedDevice` directly — we map it into this
+/// plain struct inside an `if #available(iOS 26.0, *)` block. (ARCH-09)
+struct CompanionPairedDevice: Identifiable, Equatable {
+    var id: String { (name ?? "") + (pairingName ?? "") }
+    let name: String?
+    let pairingName: String?
 }
 
 /// Manages companion device connectivity using Wi-Fi Aware (iOS 26+)
@@ -36,7 +51,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var lastReceivedData: CompanionFlightData?
     @Published var lastFlightPlanSnapshot: CompanionFlightPlanSnapshot?
     @Published var latencyMs: Int?
-    @Published var pairedDevices: [WAPairedDevice] = []
+    @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
 
     // MARK: - Private Properties
@@ -59,19 +74,28 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     private override init() {
         super.init()
-        isWiFiAwareSupported = WACapabilities.supportedFeatures.contains(.wifiAware)
-        startMonitoringPairedDevices()
+        // Wi-Fi Aware is an iOS 26+ capability. On the iOS 17.0 deployment floor
+        // the manager is still instantiated (it is injected as an environment
+        // object) but stays inert: no Wi-Fi Aware symbol is ever touched. (ARCH-09)
+        if #available(iOS 26.0, *) {
+            isWiFiAwareSupported = WACapabilities.supportedFeatures.contains(.wifiAware)
+            startMonitoringPairedDevices()
+        }
     }
 
     // MARK: - Paired Device Monitoring
 
     /// Continuously monitor the list of paired devices
+    @available(iOS 26.0, *)
     private func startMonitoringPairedDevices() {
         pairedDevicesTask = Task { [weak self] in
             do {
                 for try await devices in WAPairedDevice.allDevices {
+                    let mapped = devices.values.map {
+                        CompanionPairedDevice(name: $0.name, pairingName: $0.pairingInfo?.pairingName)
+                    }
                     await MainActor.run {
-                        self?.pairedDevices = Array(devices.values)
+                        self?.pairedDevices = mapped
                     }
                 }
             } catch {
@@ -93,6 +117,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         currentRole = .master
         connectionState = .connecting
+
+        // Wi-Fi Aware listening requires iOS 26+. Below that, stay inert. (ARCH-09)
+        guard #available(iOS 26.0, *) else {
+            connectionState = .disconnected
+            return
+        }
 
         do {
             let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
@@ -204,6 +234,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         currentRole = .viewer
         connectionState = .connecting
+
+        // Wi-Fi Aware browsing requires iOS 26+. Below that, stay inert. (ARCH-09)
+        guard #available(iOS 26.0, *) else {
+            connectionState = .disconnected
+            return
+        }
 
         let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
 

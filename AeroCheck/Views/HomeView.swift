@@ -512,7 +512,7 @@ struct HomeView: View {
                 HStack(spacing: isCompact ? 4 : 8) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: isCompact ? 14 : 18))
-                        .symbolEffect(.rotate, isActive: appState.isLoadingFlights)
+                        .loadingRotationEffect(isActive: appState.isLoadingFlights)
                     if !isCompact {
                         Text(L10n.Button.flightLog)
                             .font(.system(size: 14, weight: .semibold))
@@ -652,6 +652,21 @@ struct QuickStatView: View {
             Text(label)
                 .font(.system(size: isCompact ? 11 : 13))
                 .foregroundColor(.secondaryText)
+        }
+    }
+}
+
+// MARK: - Symbol Effect Compatibility
+
+private extension View {
+    /// Rotating symbol effect used as the "loading flights" cue.
+    /// `.rotate` requires iOS 18+; fall back to `.pulse` on the iOS 17.0 floor. (ARCH-09)
+    @ViewBuilder
+    func loadingRotationEffect(isActive: Bool) -> some View {
+        if #available(iOS 18.0, *) {
+            symbolEffect(.rotate, isActive: isActive)
+        } else {
+            symbolEffect(.pulse, isActive: isActive)
         }
     }
 }

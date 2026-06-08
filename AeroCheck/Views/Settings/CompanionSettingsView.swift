@@ -1,5 +1,4 @@
 import SwiftUI
-import WiFiAware
 
 /// Settings sub-page for companion device mode configuration
 struct CompanionSettingsView: View {
@@ -69,15 +68,15 @@ struct CompanionSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             } else {
-                ForEach(companionConnectivityManager.pairedDevices, id: \.name) { device in
+                ForEach(companionConnectivityManager.pairedDevices) { device in
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.aviationGreen)
                         VStack(alignment: .leading) {
                             Text(device.name ?? L10n.Companion.unknownDevice)
                                 .foregroundColor(.primary)
-                            if let pairingInfo = device.pairingInfo {
-                                Text(pairingInfo.pairingName ?? "")
+                            if let pairingName = device.pairingName {
+                                Text(pairingName)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }

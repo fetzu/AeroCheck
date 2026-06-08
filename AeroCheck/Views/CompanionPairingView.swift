@@ -16,10 +16,16 @@ struct CompanionPairingView: View {
         NavigationStack {
             Group {
                 #if canImport(DeviceDiscoveryUI)
-                if role == .master {
-                    masterPairingContent
+                // Wi-Fi Aware pairing (DevicePairingView / DevicePicker) is iOS 26+ only.
+                // On the iOS 17.0 deployment floor, show the unavailable state. (ARCH-09)
+                if #available(iOS 26.0, *) {
+                    if role == .master {
+                        masterPairingContent
+                    } else {
+                        viewerPairingContent
+                    }
                 } else {
-                    viewerPairingContent
+                    wifiAwareUnavailableContent
                 }
                 #else
                 unavailableOnPlatformContent
@@ -41,6 +47,7 @@ struct CompanionPairingView: View {
     // MARK: - Master (iPad) Pairing
 
     /// iPad shows DevicePairingView — waits for a companion to discover and pair
+    @available(iOS 26.0, *)
     private var masterPairingContent: some View {
         DevicePairingView(
             .wifiAware(.connecting(to: .aerocheck, from: .selected([])))
@@ -68,6 +75,7 @@ struct CompanionPairingView: View {
     // MARK: - Viewer (iPhone) Pairing
 
     /// iPhone shows DevicePicker — discovers nearby iPads and lets user pick one to pair
+    @available(iOS 26.0, *)
     private var viewerPairingContent: some View {
         VStack(spacing: 24) {
             Spacer()

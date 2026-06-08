@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Phase completion status
-enum PhaseCompletionStatus {
+enum PhaseCompletionStatus: String, Codable {
     case notStarted
     case completed       // User pressed NEXT
     case skipped         // User jumped past without pressing NEXT
@@ -197,56 +197,52 @@ enum GPSPriority: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Saved state for an active flight session
-/// Used to restore flight state when app is closed and reopened
+/// Crash-recovery snapshot of an active flight session, restored when the app is relaunched
+/// after being killed (crash/OOM/swipe-close) mid-flight.
+///
+/// The stored maps use the `Codable` enums (`ChecklistPhase`, `PhaseCompletionStatus`) directly,
+/// so the compiler enforces handling of any new enum case — a new phase or status can no longer
+/// be silently dropped through a stringly-typed dictionary. (ARCH-08)
 struct ActiveFlightState: Codable {
+    /// Bumped when the stored shape changes incompatibly. A snapshot with a different version
+    /// (or one that fails to decode) is discarded on restore rather than crashing.
+    static let currentSchemaVersion = 2
+
+    var schemaVersion: Int = ActiveFlightState.currentSchemaVersion
     let flight: Flight
-    let currentPhaseRawValue: Int
+    let currentPhase: ChecklistPhase
     let engineStartTime: Date?
     let lineUpTime: Date?
     let landingTime: Date?
     let engineShutdownTime: Date?
-    let phaseCompletionStatus: [Int: String] // Phase raw value -> status string
-    let highestCompletedPhaseRawValue: Int
-    let currentHighlightedItem: [Int: Int] // Phase raw value -> highlighted item index
+    let phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus]
+    let highestCompletedPhase: ChecklistPhase
+    let currentHighlightedItem: [ChecklistPhase: Int]
     let hasLandingBeenDetected: Bool
     let isCircuitMode: Bool
+    /// Aircraft selection captured at save time so the correct checklist is re-resolved on
+    /// restore — a restored premium flight reloads its own checklist, never the WT9 residue. (ARCH-08)
+    let selectedAircraft: AircraftType
+    let selectedRemoteAircraftId: String?
     let savedAt: Date
 
+    /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
+    /// reach this initializer (replaces the previous `currentFlight!` force-unwrap). (ARCH-08)
     @MainActor
-    init(from appState: AppState) {
-        self.flight = appState.currentFlight!
-        self.currentPhaseRawValue = appState.currentPhase.rawValue
+    init(flight: Flight, from appState: AppState) {
+        self.flight = flight
+        self.currentPhase = appState.currentPhase
         self.engineStartTime = appState.engineStartTime
         self.lineUpTime = appState.lineUpTime
         self.landingTime = appState.landingTime
         self.engineShutdownTime = appState.engineShutdownTime
-
-        // Convert phase completion status to codable format
-        var statusDict: [Int: String] = [:]
-        for (phase, status) in appState.phaseCompletionStatus {
-            let statusString: String
-            switch status {
-            case .notStarted: statusString = "notStarted"
-            case .completed: statusString = "completed"
-            case .skipped: statusString = "skipped"
-            case .missingAction: statusString = "missingAction"
-            }
-            statusDict[phase.rawValue] = statusString
-        }
-        self.phaseCompletionStatus = statusDict
-
-        self.highestCompletedPhaseRawValue = appState.highestCompletedPhase.rawValue
-
-        // Convert highlighted items
-        var highlightedDict: [Int: Int] = [:]
-        for (phase, index) in appState.currentHighlightedItem {
-            highlightedDict[phase.rawValue] = index
-        }
-        self.currentHighlightedItem = highlightedDict
-
+        self.phaseCompletionStatus = appState.phaseCompletionStatus
+        self.highestCompletedPhase = appState.highestCompletedPhase
+        self.currentHighlightedItem = appState.currentHighlightedItem
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
+        self.selectedAircraft = appState.settings.selectedAircraft
+        self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
         self.savedAt = Date()
     }
 
@@ -255,41 +251,22 @@ struct ActiveFlightState: Codable {
     func restore(to appState: AppState) {
         appState.currentFlight = flight
         appState.isFlightActive = true
-        appState.currentPhase = ChecklistPhase(rawValue: currentPhaseRawValue) ?? .preflight
+        appState.currentPhase = currentPhase
         appState.engineStartTime = engineStartTime
         appState.lineUpTime = lineUpTime
         appState.landingTime = landingTime
         appState.engineShutdownTime = engineShutdownTime
-
-        // Restore phase completion status
-        var statusDict: [ChecklistPhase: PhaseCompletionStatus] = [:]
-        for (rawValue, statusString) in phaseCompletionStatus {
-            if let phase = ChecklistPhase(rawValue: rawValue) {
-                let status: PhaseCompletionStatus
-                switch statusString {
-                case "completed": status = .completed
-                case "skipped": status = .skipped
-                case "missingAction": status = .missingAction
-                default: status = .notStarted
-                }
-                statusDict[phase] = status
-            }
-        }
-        appState.phaseCompletionStatus = statusDict
-
-        appState.highestCompletedPhase = ChecklistPhase(rawValue: highestCompletedPhaseRawValue) ?? .preflight
-
-        // Restore highlighted items
-        var highlightedDict: [ChecklistPhase: Int] = [:]
-        for (rawValue, index) in currentHighlightedItem {
-            if let phase = ChecklistPhase(rawValue: rawValue) {
-                highlightedDict[phase] = index
-            }
-        }
-        appState.currentHighlightedItem = highlightedDict
-
+        appState.phaseCompletionStatus = phaseCompletionStatus
+        appState.highestCompletedPhase = highestCompletedPhase
+        appState.currentHighlightedItem = currentHighlightedItem
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
+        // Re-apply the captured aircraft selection so the active checklist resolves to the
+        // restored flight's aircraft. The premium checklist body is re-fetched at launch (see
+        // AeroCheckApp's `.task`); until it resolves, `activeChecklist` reports `.unresolved`
+        // rather than falling back to WT9 content. (ARCH-08 / ARCH-01)
+        appState.settings.selectedAircraft = selectedAircraft
+        appState.settings.selectedRemoteAircraftId = selectedRemoteAircraftId
     }
 }
 
@@ -376,7 +353,19 @@ class AppState: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let activeFlightStateKey = "activeFlightState"
+    /// Small pointer kept in UserDefaults (the durable checkpoint itself is a file). Stores the
+    /// last checkpoint's `savedAt` so existence/age can be checked without decoding the file.
+    private let activeFlightPointerKey = "activeFlightCheckpointSavedAt"
+    /// Pre-4.x UserDefaults blob key — removed on the first clear so it can't linger after upgrade.
+    private let legacyActiveFlightStateKey = "activeFlightState"
+
+    // MARK: - Active flight checkpointing (crash recovery, PERF-02/PERF-13)
+    /// Checkpoint at least every N recorded GPS points…
+    private static let checkpointPointInterval = 20
+    /// …or at least this often, whichever comes first.
+    private static let checkpointTimeInterval: TimeInterval = 30
+    private var pointsSinceCheckpoint = 0
+    private var lastCheckpointAt: Date?
 
     // Reference to persistence manager
     private let persistence = DataPersistenceManager.shared
@@ -671,14 +660,16 @@ class AppState: ObservableObject {
     func recordEngineStart() {
         engineStartTime = Date()
         currentFlight?.engineStartTime = engineStartTime
+        checkpointActiveFlight(force: true)
     }
-    
+
     func recordLineUpTime() {
         // Adds 2 minutes to current time as specified
         lineUpTime = Date().addingTimeInterval(120)
         currentFlight?.lineUpTime = lineUpTime
+        checkpointActiveFlight(force: true)
     }
-    
+
     func recordLanding() {
         // Removes 1 minute (while vacating the runway)
         landingTime = Date().addingTimeInterval(-60)
@@ -690,6 +681,7 @@ class AppState: ObservableObject {
             currentFlight?.fullStopCount += 1
             currentFlight?.fullStopTimes.append(time)
         }
+        checkpointActiveFlight(force: true)
     }
 
     /// Update landing time to current time minus 1 minute (for long-press update)
@@ -712,6 +704,7 @@ class AppState: ObservableObject {
             }
             print("[AéroCheck] Block on time set from engine shutdown (fallback)")
         }
+        checkpointActiveFlight(force: true)
     }
 
     /// Record a go-around and return to climb phase, resetting subsequent phases
@@ -771,6 +764,11 @@ class AppState: ObservableObject {
     func addGPSPoint(_ point: GPSPoint, airportDataService: AirportDataService? = nil) {
         currentFlight?.gpsTrack.append(point)
 
+        // Snapshot the auto-detected event fields so a newly-detected event forces a checkpoint.
+        let hadBlockOff = currentFlight?.blockOffTime != nil
+        let hadBlockOn = currentFlight?.blockOnTime != nil
+        let hadLanding = hasLandingBeenDetected
+
         // Block off detection: after ENGINE START, detect first sustained movement
         if engineStartTime != nil && currentFlight?.blockOffTime == nil {
             checkForBlockOff(point: point, airportDataService: airportDataService)
@@ -785,6 +783,14 @@ class AppState: ObservableObject {
         if currentPhase == .afterLanding && !hasLandingBeenDetected {
             checkForLanding(speed: point.speed)
         }
+
+        // Durable crash-recovery checkpoint: throttled by cadence, but forced immediately when a
+        // major event (block off/on, landing) was just detected so it survives a crash. (PERF-02)
+        pointsSinceCheckpoint += 1
+        let majorEvent = (currentFlight?.blockOffTime != nil && !hadBlockOff)
+            || (currentFlight?.blockOnTime != nil && !hadBlockOn)
+            || (hasLandingBeenDetected && !hadLanding)
+        checkpointActiveFlight(force: majorEvent)
     }
     
     private func checkForLanding(speed: Double) {
@@ -1116,29 +1122,60 @@ class AppState: ObservableObject {
 
     // MARK: - Active Flight State Persistence
 
-    /// Save the current active flight state for restoration on app restart
+    /// Full checkpoint — used on scene-phase transitions (belt-and-suspenders) and whenever an
+    /// immediate, guaranteed write is wanted. A nil current flight clears the file.
     func saveActiveFlightState() {
-        guard currentFlight != nil else {
+        guard let flight = currentFlight else {
             clearActiveFlightState()
             return
         }
+        persistActiveFlightState(flight: flight)
+    }
 
+    /// Throttled crash-recovery checkpoint driven by GPS cadence and major timing events,
+    /// independent of `scenePhase` so a foreground crash/OOM can't lose the in-flight track.
+    /// (PERF-02 / PERF-13)
+    ///
+    /// The write is synchronous and atomic to a **local** file (not iCloud), which keeps it fast
+    /// and — crucially — strictly ordered, so a stale write can never clobber newer track data.
+    /// Throttling (every N points / ~30 s) bounds the main-thread cost; the encode of even a
+    /// multi-hour track is small relative to that interval.
+    func checkpointActiveFlight(force: Bool) {
+        guard isFlightActive, let flight = currentFlight else { return }
+        if !force {
+            let enoughPoints = pointsSinceCheckpoint >= Self.checkpointPointInterval
+            let enoughTime = lastCheckpointAt.map {
+                Date().timeIntervalSince($0) >= Self.checkpointTimeInterval
+            } ?? true
+            guard enoughPoints || enoughTime else { return }
+        }
+        persistActiveFlightState(flight: flight)
+    }
+
+    private func persistActiveFlightState(flight: Flight) {
+        let state = ActiveFlightState(flight: flight, from: self)
+        let url = persistence.activeFlightStateURL
         do {
-            let state = ActiveFlightState(from: self)
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(state)
-            UserDefaults.standard.set(data, forKey: activeFlightStateKey)
+            try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
+            // Reset throttle and update the small UserDefaults pointer only after a successful write.
+            pointsSinceCheckpoint = 0
+            lastCheckpointAt = state.savedAt
+            UserDefaults.standard.set(state.savedAt, forKey: activeFlightPointerKey)
         } catch {
-            print("[AéroCheck] Failed to save active flight state: \(error.localizedDescription)")
+            print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
         }
     }
 
-    /// Restore the active flight state if one was saved
-    /// Returns true if a flight state was restored
+    /// Restore the active flight state if a recent checkpoint exists.
+    /// Returns true if a flight state was restored.
     @discardableResult
     func restoreActiveFlightState() -> Bool {
-        guard let data = UserDefaults.standard.data(forKey: activeFlightStateKey) else {
+        guard let data = persistence.loadActiveFlightStateData() else {
+            // No file checkpoint — drop any pre-4.x UserDefaults blob so it can't linger.
+            clearActiveFlightState()
             return false
         }
 
@@ -1147,32 +1184,44 @@ class AppState: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601
             let state = try decoder.decode(ActiveFlightState.self, from: data)
 
-            // Check if the saved state is recent (within 24 hours)
-            // Old sessions shouldn't be restored
-            let maxAge: TimeInterval = 24 * 60 * 60 // 24 hours
+            // A snapshot from an incompatible build is discarded, not crashed on.
+            guard state.schemaVersion == ActiveFlightState.currentSchemaVersion else {
+                print("[AéroCheck] Discarding active flight state with schema \(state.schemaVersion)")
+                clearActiveFlightState()
+                return false
+            }
+
+            // Old sessions shouldn't be restored (within 24 hours).
+            let maxAge: TimeInterval = 24 * 60 * 60
             if Date().timeIntervalSince(state.savedAt) > maxAge {
                 clearActiveFlightState()
                 return false
             }
 
             state.restore(to: self)
+            lastCheckpointAt = state.savedAt
             print("[AéroCheck] Restored active flight state from \(state.savedAt)")
             return true
         } catch {
+            // Unreadable / old-format snapshot: discard rather than crash. (ARCH-08)
             print("[AéroCheck] Failed to restore active flight state: \(error.localizedDescription)")
             clearActiveFlightState()
             return false
         }
     }
 
-    /// Clear the saved active flight state
+    /// Clear the saved active flight state (file + pointer + legacy blob).
     func clearActiveFlightState() {
-        UserDefaults.standard.removeObject(forKey: activeFlightStateKey)
+        persistence.clearActiveFlightStateFile()
+        UserDefaults.standard.removeObject(forKey: activeFlightPointerKey)
+        UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)
+        pointsSinceCheckpoint = 0
+        lastCheckpointAt = nil
     }
 
-    /// Check if there is a saved active flight state
+    /// Check if there is a saved active flight state.
     var hasActiveFlightState: Bool {
-        UserDefaults.standard.data(forKey: activeFlightStateKey) != nil
+        persistence.hasActiveFlightStateFile
     }
 }
 

@@ -74,6 +74,13 @@ struct AeroCheckApp: App {
                         await group.waitForAll()
                     }
 
+                    // If a flight was restored from a crash-recovery checkpoint, re-resolve its
+                    // checklist now that aircraft data is loaded — a restored premium flight
+                    // reloads its own checklist instead of showing unresolved content. (ARCH-08)
+                    if appState.isFlightActive && appState.resolvedRemoteChecklist == nil {
+                        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+                    }
+
                     // After aircraft list is loaded, check for checklist updates in background
                     // This ensures bundled and cached checklists stay up to date automatically
                     Task.detached(priority: .utility) {

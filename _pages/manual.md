@@ -37,6 +37,10 @@ Each aircraft card shows the registration, type, and number of checklist items. 
 
 Tap **START FLIGHT** to begin a standard flight. The app will guide you through all 16 flight phases, from Preflight to At the Hangar. For pattern training, tap **CIRCUITS** instead -- this activates Circuit Mode, which streamlines the checklist for repeated landings.
 
+### Starting from the Home Screen Widget
+
+Add the **AeroCheck widget** to your iPhone or iPad home screen for one-tap flight starts. The widget shows a start button for each aircraft you own -- the free WT9 Dynamic plus any premium aircraft you have unlocked (aircraft you don't own are never shown). Tapping a button starts that aircraft's flight directly, loading its checklist and beginning GPS tracking, exactly as the in-app START button does. The medium widget also includes a shortcut to your flight log.
+
 ---
 
 ## Checklists

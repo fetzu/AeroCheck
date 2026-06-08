@@ -214,9 +214,10 @@ class FlightEventDetector: ObservableObject {
     }
 
     /// Readings at taxi speed needed to declare a full stop (≈ `fullStopDwellSeconds`).
-    private var requiredTaxiSpeedReadings: Int { readings(forSeconds: fullStopDwellSeconds) }
+    /// `internal` (not `private`) so the interval scaling is unit-testable (PERF-05).
+    var requiredTaxiSpeedReadings: Int { readings(forSeconds: fullStopDwellSeconds) }
     /// Number of recent readings averaged for speed smoothing (≈ `speedSmoothingSeconds`).
-    private var speedSmoothingReadings: Int { readings(forSeconds: speedSmoothingSeconds) }
+    var speedSmoothingReadings: Int { readings(forSeconds: speedSmoothingSeconds) }
 
     /// Extended cooldown after a full-stop landing (seconds).
     /// Prevents subsequent taxi + takeoff from being classified as T&G.
@@ -230,7 +231,7 @@ class FlightEventDetector: ObservableObject {
     // Speed thresholds (configured per-aircraft, with sensible defaults)
     private var speedConfig: AircraftSpeedConfig = .defaults
     /// Readings below touchdown speed needed to confirm a touchdown (≈ `touchdownConfirmDwellSeconds`).
-    private var minTouchdownReadings: Int { readings(forSeconds: touchdownConfirmDwellSeconds) }
+    var minTouchdownReadings: Int { readings(forSeconds: touchdownConfirmDwellSeconds) }
 
     // Airport zone entry/exit (with hysteresis to prevent oscillation)
     private let airportZoneEntryDistanceNm: Double = 2.0

@@ -10,6 +10,7 @@
 		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
 		A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000003 /* AirspaceAnalyzerTests.swift */; };
 		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
+		A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000007 /* FlightEventDetectorTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
@@ -146,6 +147,7 @@
 		A5000008111111110000001 /* GeoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoValidationTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000003 /* AirspaceAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzerTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000005 /* WindDataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataServiceTests.swift; sourceTree = "<group>"; };
+		A5000008111111110000007 /* FlightEventDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightEventDetectorTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
@@ -271,6 +273,7 @@
 				A5000008111111110000001 /* GeoValidationTests.swift */,
 				A5000008111111110000003 /* AirspaceAnalyzerTests.swift */,
 				A5000008111111110000005 /* WindDataServiceTests.swift */,
+				A5000008111111110000007 /* FlightEventDetectorTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -628,6 +631,7 @@
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
 				A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
+				A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

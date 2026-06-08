@@ -226,12 +226,15 @@ class SubscriptionManager: ObservableObject {
             // Re-check subscription status with fresh data
             await updateSubscriptionStatus()
 
-            // If we found a subscription, verify with server
+            // If we found a subscription, verify with server. Otherwise the restore is a definitive
+            // "no entitlement" signal — reconcile downward (close grace, clear verification) instead
+            // of only logging, so a lapsed subscription can't keep premium alive offline. (ARCH-11)
             if subscriptionStatus.isSubscribed {
                 await syncWithServer()
                 debugLogger.log("Restore successful - subscription active", level: .success)
             } else {
-                debugLogger.log("Restore completed - no active subscription found", level: .warning)
+                confirmNoActiveSubscription()
+                debugLogger.log("Restore completed - no active subscription; downgraded locally", level: .warning)
             }
         } catch {
             errorMessage = "Failed to restore purchases: \(error.localizedDescription)"
@@ -389,6 +392,18 @@ class SubscriptionManager: ObservableObject {
         // Clear any grace period since subscription is verified
         clearGracePeriod()
         debugLogger.log("Recorded successful subscription verification", level: .success)
+    }
+
+    /// Authoritatively downgrade when a *definitive* check (e.g. a manual restore) confirms there is
+    /// no active entitlement. Unlike a transient verify failure — which legitimately keeps premium
+    /// alive during the offline grace window — a confirmed "no subscription" closes the grace window
+    /// and clears the last-verification timestamp, so premium content is denied immediately rather
+    /// than served offline on the strength of a stale prior verification. (ARCH-11)
+    func confirmNoActiveSubscription() {
+        subscriptionStatus = .notSubscribed
+        clearGracePeriod()
+        UserDefaults.standard.removeObject(forKey: lastVerificationDateKey)
+        debugLogger.log("Confirmed no active subscription — closed grace period, cleared verification", level: .info)
     }
 
     /// Checks if subscription verification is needed (every 24 hours)

@@ -77,6 +77,9 @@ class OfflineMapManager: ObservableObject {
     @Published var currentDownloadingLayer: CacheableLayer?
     @Published var downloadStartTime: Date?
     @Published var estimatedTimeRemaining: TimeInterval?
+    /// Set when the chart server returned 429 during a bulk download, so genuine throttling is
+    /// surfaced to the UI instead of being masked as ordinary tile failures. (PERF-23)
+    @Published var downloadWasThrottled: Bool = false
 
     // MARK: - Constants
 
@@ -246,14 +249,19 @@ class OfflineMapManager: ObservableObject {
             }
         }
 
-        // Create a custom URLSession with optimized configuration for bulk downloads
+        // Create a custom URLSession with optimized configuration for bulk downloads.
+        // Carries a descriptive User-Agent so swisstopo/BAZL can identify the app. (SEC-15)
         let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 6  // Increase concurrent connections
+        config.httpMaximumConnectionsPerHost = 6
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
         config.urlCache = nil  // Disable URL cache since we're caching to disk
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpAdditionalHeaders = ["User-Agent": ExternalRequest.userAgent]
         let session = URLSession(configuration: config)
+
+        // Reset the throttling signal for this run; set if the server returns 429. (PERF-23)
+        downloadWasThrottled = false
 
         var successCount = 0
         var failCount = 0
@@ -265,8 +273,9 @@ class OfflineMapManager: ObservableObject {
             layerFailCounts[layer] = 0
         }
 
-        // Download in batches - larger batches for better throughput
-        let batchSize = 50  // Increased from 20 for better parallelism
+        // Download in batches. Capped to bound concurrent tile fetches (×6 conns/host) so a burst
+        // can't hammer the server into throttling everyone. (PERF-23)
+        let batchSize = 16
         for batchStart in stride(from: 0, to: allTiles.count, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, allTiles.count)
             let batch = Array(allTiles[batchStart..<batchEnd])
@@ -550,27 +559,43 @@ class OfflineMapManager: ObservableObject {
 
         guard let url = URL(string: urlString) else { return false }
 
-        do {
-            let (data, response) = try await session.data(from: url)
+        // Retry transient 429/5xx with exponential backoff + jitter, honoring Retry-After, instead
+        // of silently dropping a throttled tile as a "normal" failure. (PERF-23)
+        var attempt = 0
+        while true {
+            if Task.isCancelled { return false }
+            do {
+                let (data, response) = try await session.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse else { return false }
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 429 {
+                    downloadWasThrottled = true
+                }
+                if ExternalRequest.shouldRetry(status: httpResponse.statusCode, attempt: attempt) {
+                    let retryAfter = ExternalRequest.parseRetryAfter(httpResponse.value(forHTTPHeaderField: "Retry-After"))
+                    let delay = ExternalRequest.backoffSeconds(attempt: attempt, retryAfter: retryAfter, jitter: Double.random(in: 0...1))
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    attempt += 1
+                    continue
+                }
+                guard httpResponse.statusCode == 200 else { return false }
+
+                // Save tile to disk
+                let tilePath = cacheDirectory(for: layer)
+                    .appendingPathComponent("\(z)", isDirectory: true)
+                    .appendingPathComponent("\(x)", isDirectory: true)
+
+                try FileManager.default.createDirectory(at: tilePath, withIntermediateDirectories: true)
+
+                let fileURL = tilePath.appendingPathComponent("\(y).png")
+                try data.write(to: fileURL)
+
+                return true
+            } catch is CancellationError {
+                return false
+            } catch {
                 return false
             }
-
-            // Save tile to disk
-            let tilePath = cacheDirectory(for: layer)
-                .appendingPathComponent("\(z)", isDirectory: true)
-                .appendingPathComponent("\(x)", isDirectory: true)
-
-            try FileManager.default.createDirectory(at: tilePath, withIntermediateDirectories: true)
-
-            let fileURL = tilePath.appendingPathComponent("\(y).png")
-            try data.write(to: fileURL)
-
-            return true
-        } catch {
-            return false
         }
     }
 }

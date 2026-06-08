@@ -157,10 +157,11 @@ class WindDataService: ObservableObject {
                 throw WindFetchError.invalidURL
             }
 
-            let (data, response) = try await URLSession.shared.data(from: url)
+            // Routed through ExternalRequest for a descriptive User-Agent, a short timeout, and
+            // retry/backoff on transient 429/5xx (MeteoSwiss). (SEC-15 / PERF-23)
+            let (data, httpResponse) = try await ExternalRequest.data(from: url)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
+            guard httpResponse.statusCode == 200 else {
                 throw WindFetchError.invalidResponse
             }
 

@@ -64,6 +64,7 @@ All subscription payments are handled securely through the Apple App Store. See 
 - Scale bar with accurate distance measurement
 - **Offline maps**: Download Swiss ICAO Chart (~100 MB) and/or Segelflugkarte (~150 MB) for offline navigation
 - **Flight Planning** (Beta): Create waypoint routes with terrain profiles and export to PDF
+- **Airspace conflict checks**: Planned routes are checked against OpenAIP airspace along the exact leg geometry; when a ceiling/floor is given as AGL/FL or a leg has no planned altitude, the warning is flagged "verify vertical separation" rather than implying you're clear
 - **Radio Frequencies** (Switzerland): Quick access to common frequencies (Geneva/Zurich Info, FIS), with nearby CTR frequencies based on your position
 - **ETO Display**: Estimated time of arrival to next waypoint shown on chronometer
 
@@ -73,6 +74,8 @@ All subscription payments are handled securely through the Apple App Store. See 
 - Background location tracking support
 - Track visualization on map
 - **GPS failure flags** on speed and altitude indicators when signal is lost or degraded
+- **"Always" permission prompt**: If only "While Using" access is granted, the app offers to upgrade to "Always" when a flight starts, so the track keeps recording when the screen locks or you switch apps
+- **In-flight GPS-lost banner**: A warning appears if the position stops updating (no fix for >90 s) or background tracking is limited — a silent GPS dropout is never mistaken for a valid reading
 
 ### 🎯 Live Speed Indicator
 - Real-time GPS ground speed display during flight phases
@@ -84,12 +87,16 @@ All subscription payments are handled securely through the Apple App Store. See 
 - Target speed guidance based on current flight phase and aircraft type
 - Arrow indicators showing speed trend (up/down/on target)
 - Automatically hidden during ground operations (taxi, parking)
+- **Honest provenance**: The indicator shows GPS **ground speed** ("GND SPD") by default — not true airspeed — so the stall warning is an awareness aid, never a replacement for the aircraft's airspeed indicator
+- **Optional aural stall alert**: An audible warning below stall speed (off by default; see Estimated Airspeed)
 
 ### 🌬️ Experimental: Estimated Airspeed (Switzerland only)
 - **Optional feature** to display estimated indicated airspeed (IAS) calculated from GPS ground speed and wind data
-- Uses real-time wind data from MeteoSwiss automatic weather stations
+- Uses real-time **mean wind** from MeteoSwiss automatic weather stations (steady wind, not peak gusts)
 - Finds nearest weather station and applies wind correction to ground speed
-- Displays "EST. IAS" with amber highlighting when active
+- **Clearly marked as estimated**: shows "EST. IAS" with a `~` prefix (e.g. `~62`) so a derived value is never confused with a measured one
+- **Stale wind aged out**: wind readings that are too old are discarded rather than used, so an outdated observation can't silently drive the estimate
+- **Optional aural stall alert**: once enabled, an "Aural stall alert" toggle (off by default) plays an audible warning below stall speed
 - **Important limitations**:
   - Only works within Switzerland (with ~5 NM margin at borders)
   - Requires constant cellular connection
@@ -212,6 +219,8 @@ The app includes all 16 phases from the official checklists (same structure for 
 3. Tap "START FLIGHT"
 4. GPS tracking begins automatically
 5. Follow the checklists in order
+
+> **Premium aircraft**: If the aircraft's checklist hasn't finished downloading (no connection or an inactive subscription), the app shows a **"Checklist Not Ready"** alert and refuses to start rather than launch with an incomplete or wrong checklist.
 
 ### During Flight
 
@@ -370,7 +379,8 @@ In Settings:
 
 - **Aircraft in use**: Select between F-HVXA (WT9 Dynamic) and HB-PFA (PA-28-181) - this changes checklists, speeds, and stall warnings
 - **GPS Recording Interval**: 1-30 seconds between points
-- **Show Estimated Airspeed** *(Experimental)*: Display estimated IAS calculated from GPS ground speed and MeteoSwiss wind data. Only works in Switzerland with cellular connection. Shows safety warning before enabling.
+- **Show Estimated Airspeed** *(Experimental)*: Display estimated IAS calculated from GPS ground speed and MeteoSwiss mean-wind data. Estimated values are shown as "EST. IAS" with a `~` prefix so they're never mistaken for measured airspeed. Only works in Switzerland with cellular connection. Shows safety warning before enabling.
+- **Aural Stall Alert** *(Experimental)*: Revealed once Estimated Airspeed is enabled. Plays an audible warning below the aircraft's stall speed. Off by default.
 - **Keep Screen On**: Prevents display sleep during use
 - **Always Use UTC Times**: Display all times in UTC with a (UTC) suffix
 - **Force ICAO Chart Layer**: Keep ICAO Chart (1:500,000) at all zoom levels instead of switching to Segelflugkarte

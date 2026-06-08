@@ -8,6 +8,16 @@ import CoreLocation
 /// - v4: Added engine hour meter readings
 let currentExportFormatVersion = 4
 
+/// Hard limits for data ingested from untrusted sources (CloudKit records, GPX/JSON import).
+/// Shared so the CloudKit ingest cap (SEC-17) and the import caps (SEC-13) never diverge.
+enum FlightDataLimits {
+    /// Max GPS points in a single flight. A multi-hour flight at 1 Hz is ~tens of thousands, well
+    /// under this; exceeding it indicates a corrupt or malicious record.
+    static let maxGPSPoints = 100_000
+    /// Max waypoints in an imported route.
+    static let maxRouteWaypoints = 500
+}
+
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
     let id: UUID
@@ -50,6 +60,16 @@ struct Flight: Identifiable, Codable {
     var touchAndGoTimes: [Date]
     var fullStopTimes: [Date]
 
+    // Sync / integrity (v5)
+    /// Monotonic last-local-modification timestamp; the CloudKit conflict tiebreaker. (ARCH-02)
+    var modifiedAt: Date
+    /// Record schema version, for forward-compatible CloudKit/import ingest validation. (SEC-17)
+    var schemaVersion: Int
+
+    /// Current flight record schema version. Records claiming a higher version come from a newer
+    /// app build and are rejected on ingest rather than mis-applied.
+    static let currentSchemaVersion = 1
+
     // MARK: - Coding Keys
 
     enum CodingKeys: String, CodingKey {
@@ -63,6 +83,7 @@ struct Flight: Identifiable, Codable {
         case gpsTrack, notes
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
+        case modifiedAt, schemaVersion
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -116,6 +137,12 @@ struct Flight: Identifiable, Codable {
         touchAndGoTimes = try container.decodeIfPresent([Date].self, forKey: .touchAndGoTimes) ?? []
         // New in v2 - default to empty for backward compatibility
         fullStopTimes = try container.decodeIfPresent([Date].self, forKey: .fullStopTimes) ?? []
+
+        // New in v5 - legacy records default modifiedAt to their stop/start time (a reasonable
+        // "last touched" proxy) and schema version 1.
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt)
+            ?? stopTime ?? startTime ?? Date.distantPast
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
     }
 
     init(
@@ -152,7 +179,9 @@ struct Flight: Identifiable, Codable {
         fullStopCount: Int = 0,
         goAroundTimes: [Date] = [],
         touchAndGoTimes: [Date] = [],
-        fullStopTimes: [Date] = []
+        fullStopTimes: [Date] = [],
+        modifiedAt: Date = Date(),
+        schemaVersion: Int = Flight.currentSchemaVersion
     ) {
         self.id = id
         self.name = name
@@ -188,6 +217,47 @@ struct Flight: Identifiable, Codable {
         self.goAroundTimes = goAroundTimes
         self.touchAndGoTimes = touchAndGoTimes
         self.fullStopTimes = fullStopTimes
+        self.modifiedAt = modifiedAt
+        self.schemaVersion = schemaVersion
+    }
+
+    /// Stamp the flight as locally modified (drives the CloudKit conflict tiebreaker). (ARCH-02)
+    mutating func touch() {
+        modifiedAt = Date()
+    }
+
+    /// Conflict-merge two versions of the same flight. The newer `modifiedAt` wins for scalar
+    /// metadata (name, notes, …), but append-only / monotonic data — the GPS track and landing
+    /// counts/times — keeps the **richer** side, so a metadata edit on one device can never drop a
+    /// longer track or a higher landing count recorded on the other. (ARCH-02)
+    static func merge(_ a: Flight, _ b: Flight) -> Flight {
+        var result = a.modifiedAt >= b.modifiedAt ? a : b
+        result.gpsTrack = a.gpsTrack.count >= b.gpsTrack.count ? a.gpsTrack : b.gpsTrack
+        result.goAroundCount = max(a.goAroundCount, b.goAroundCount)
+        result.touchAndGoCount = max(a.touchAndGoCount, b.touchAndGoCount)
+        result.fullStopCount = max(a.fullStopCount, b.fullStopCount)
+        result.goAroundTimes = a.goAroundTimes.count >= b.goAroundTimes.count ? a.goAroundTimes : b.goAroundTimes
+        result.touchAndGoTimes = a.touchAndGoTimes.count >= b.touchAndGoTimes.count ? a.touchAndGoTimes : b.touchAndGoTimes
+        result.fullStopTimes = a.fullStopTimes.count >= b.fullStopTimes.count ? a.fullStopTimes : b.fullStopTimes
+        result.modifiedAt = max(a.modifiedAt, b.modifiedAt)
+        return result
+    }
+
+    /// Validate a flight decoded from an untrusted source (CloudKit ingest / file import) before it
+    /// is applied to local state. Returns nil when the record is structurally unsafe — a newer
+    /// (unknown) schema, an unbounded point count, or any non-finite/out-of-range coordinate — so a
+    /// corrupt or divergent-schema record can never silently overwrite or persist. (SEC-17)
+    func validatedForIngest() -> Flight? {
+        guard schemaVersion <= Flight.currentSchemaVersion else { return nil }
+        guard gpsTrack.count <= FlightDataLimits.maxGPSPoints else { return nil }
+        for point in gpsTrack {
+            guard point.latitude.isFinite, point.longitude.isFinite, point.altitude.isFinite,
+                  (-90.0...90.0).contains(point.latitude),
+                  (-180.0...180.0).contains(point.longitude) else {
+                return nil
+            }
+        }
+        return self
     }
 
     /// Total landings (touch and go + full stops, which now includes the final landing)

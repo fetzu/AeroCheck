@@ -110,6 +110,8 @@ AeroCheckWatch/
 - `UserDefaults`: Settings and app state (Codable serialization)
 - Local checklist caching with 24-hour expiration
 
+**iCloud sync conflict handling (`SyncManager`):** `Flight` carries `modifiedAt` + `schemaVersion`. Inbound CloudKit records are validated on ingest (unknown schema / oversized / non-finite coordinates are rejected; numeric settings are clamped) and **merged**, not overwritten: newer `modifiedAt` wins for metadata, but append-only data (GPS track, landing counts/times) keeps the richer side, so a concurrent edit never silently drops a logbook entry. `serverRecordChanged` for a flight merges + re-queues; conflicts surface via `AppState.syncConflictNotice` (ARCH-02, SEC-17).
+
 ## Key Features
 
 | Feature | Implementation |

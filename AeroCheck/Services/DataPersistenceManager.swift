@@ -160,6 +160,41 @@ class DataPersistenceManager: ObservableObject {
         }
     }
 
+    // MARK: - Active Flight Checkpoint (crash recovery)
+
+    /// Local (non-synced) crash-recovery checkpoint for the in-progress flight.
+    /// Kept local on purpose: it must be readable immediately at next launch on *this* device
+    /// and must never wait on iCloud. It is cleared once the flight ends and the real flight
+    /// file is written. (PERF-02 / PERF-13)
+    var activeFlightStateURL: URL {
+        localAppDirectory.appendingPathComponent("active_flight.json")
+    }
+
+    /// Atomically writes the active-flight checkpoint. Declared `nonisolated static` so the
+    /// encode/write can run off the main actor during a long flight — only `Data` and `URL`
+    /// (both Sendable) cross the actor boundary.
+    nonisolated static func writeActiveFlightStateData(_ data: Data, to url: URL) throws {
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// Reads the raw active-flight checkpoint, or nil if none exists.
+    func loadActiveFlightStateData() -> Data? {
+        guard FileManager.default.fileExists(atPath: activeFlightStateURL.path) else {
+            return nil
+        }
+        return try? Data(contentsOf: activeFlightStateURL)
+    }
+
+    /// Whether a crash-recovery checkpoint file exists.
+    var hasActiveFlightStateFile: Bool {
+        FileManager.default.fileExists(atPath: activeFlightStateURL.path)
+    }
+
+    /// Removes the crash-recovery checkpoint (flight ended / cancelled / restored).
+    func clearActiveFlightStateFile() {
+        try? FileManager.default.removeItem(at: activeFlightStateURL)
+    }
+
     // MARK: - Flight Persistence (Individual Files)
 
     /// Generate filename for a flight: YYYYMMDD-HHMM_PLANE.json

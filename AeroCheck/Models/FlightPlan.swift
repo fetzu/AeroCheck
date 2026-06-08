@@ -322,7 +322,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
+        // Structurally-required but individually non-essential fields decode with a sensible
+        // default rather than dropping the entire plan on one missing key. (ARCH-08 / PERF-26)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         waypoints = try container.decode([FlightPlanWaypoint].self, forKey: .waypoints)
 
         // Migration: try new aircraftTypeId first, fall back to legacy aircraftType enum
@@ -345,9 +347,9 @@ struct FlightPlan: Identifiable, Codable, Equatable {
             aircraftModelName = aircraftTypeId
         }
 
-        pilot = try container.decode(String.self, forKey: .pilot)
+        pilot = try container.decodeIfPresent(String.self, forKey: .pilot) ?? ""
         instructor = try container.decodeIfPresent(String.self, forKey: .instructor)
-        flightType = try container.decode(FlightType.self, forKey: .flightType)
+        flightType = try container.decodeIfPresent(FlightType.self, forKey: .flightType) ?? .vfr
         runwayInUse = try container.decodeIfPresent(String.self, forKey: .runwayInUse)
         plannedDepartureTime = try container.decodeIfPresent(Date.self, forKey: .plannedDepartureTime)
         announcementDate = try container.decodeIfPresent(Date.self, forKey: .announcementDate)
@@ -377,8 +379,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         alternateAerodrome = try container.decodeIfPresent(String.self, forKey: .alternateAerodrome)
         personsOnBoard = try container.decodeIfPresent(Int.self, forKey: .personsOnBoard)
         aircraftColour = try container.decodeIfPresent(String.self, forKey: .aircraftColour)
-        isActive = try container.decode(Bool.self, forKey: .isActive)
-        currentWaypointIndex = try container.decode(Int.self, forKey: .currentWaypointIndex)
+        isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? false
+        currentWaypointIndex = try container.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
         chronometerStartTime = try container.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
     }
 

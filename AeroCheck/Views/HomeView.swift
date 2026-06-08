@@ -184,6 +184,7 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
+                .environmentObject(appState)
         }
         .fullScreenCover(isPresented: $showNavigation) {
             NavigationMapView(isPresented: $showNavigation)
@@ -200,13 +201,21 @@ struct HomeView: View {
             syncSelectedAircraftIndex()
             updateCachedItemCount()
         }
-        .alert(L10n.Alert.checklistNotReadyTitle, isPresented: Binding(
+        .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
             get: { appState.flightStartError != nil },
             set: { if !$0 { appState.flightStartError = nil } }
         )) {
             Button(L10n.Button.close, role: .cancel) { appState.flightStartError = nil }
         } message: {
             Text(appState.flightStartError ?? "")
+        }
+        // Present the paywall when a flight start was refused for an unowned premium aircraft. (UX-07)
+        .sheet(isPresented: Binding(
+            get: { appState.flightStartPaywallRequest },
+            set: { if !$0 { appState.flightStartPaywallRequest = false } }
+        )) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
             syncSelectedAircraftIndex()
@@ -276,24 +285,16 @@ struct HomeView: View {
         guard index >= 0 && index < availableAircraft.count else { return }
 
         let option = availableAircraft[index]
+        // Delegate the actual selection to AppState's shared selector so every entry point
+        // (carousel, deep link, widget) resolves aircraft the same way. (Task 3, step 1)
+        let token = option.remoteId ?? option.bundledType?.rawValue ?? option.registration
+        guard appState.selectAircraft(id: token, available: aircraftDataService.availableAircraft) else { return }
 
-        switch option {
-        case .bundled(let aircraft):
-            if appState.settings.selectedRemoteAircraftId != nil || appState.settings.selectedAircraft != aircraft {
-                appState.settings.selectedRemoteAircraftId = nil
-                appState.settings.selectedAircraft = aircraft
-                ChecklistData.currentAircraft = aircraft
-                ChecklistData.currentRemoteChecklist = nil
-                appState.saveSettings()
-            }
-        case .remote(let metadata):
-            if appState.settings.selectedRemoteAircraftId != metadata.id {
-                appState.settings.selectedRemoteAircraftId = metadata.id
-                appState.saveSettings()
-                // Pre-load the checklist in background
-                Task {
-                    await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-                }
+        // For a remote aircraft, pre-load the checklist in the background so the item count and
+        // speed reference are ready before the flight starts.
+        if option.remoteId != nil {
+            Task {
+                await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
             }
         }
     }
@@ -613,58 +614,20 @@ struct HomeView: View {
 
     private func startCircuits() { beginFlight(circuitMode: true) }
 
-    /// Unified flight-start path. Loading the checklist, the ARCH-01 resolved-checklist guard,
-    /// airport data, event-detector configuration, the flight start and GPS tracking all live
-    /// in one place so every entry point goes through the same sequence — HomeView's buttons
-    /// today; the deep-link / widget paths can adopt this next. (Task 3 — first step.)
+    /// Unified flight-start path. Every entry point — these buttons, the widget, and deep links —
+    /// goes through the shared `FlightLauncher`, which resolves the checklist, runs the ARCH-01 /
+    /// entitlement / permission / active-flight guards, configures the event detector, starts the
+    /// flight and begins GPS tracking in one place. (Task 2/3)
     private func beginFlight(circuitMode: Bool) {
-        Task {
-            // Load remote checklist if needed
-            await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
-
-            // ARCH-01: don't start (or track) if a premium aircraft's checklist failed to load.
-            guard appState.isPremiumChecklistResolved else {
-                appState.flightStartError = L10n.Alert.checklistNotReady
-                return
-            }
-
-            // Ensure airport data is loaded for FREQ panel and flight event detection
-            await airportDataService.ensureLoaded()
-
-            // Configure flight event detector with aircraft-specific speeds
-            configureFlightEventDetector()
-
-            // A flight plan applies to a normal flight only, not to circuit training.
-            let flightPlanId = circuitMode ? nil : flightPlanManager.activeFlightPlan?.id
-            appState.startFlight(
-                withAircraft: appState.settings.defaultAirplane,
-                aircraftRegistration: selectedAircraft?.registration,
-                aircraftType: selectedAircraft?.aircraftType,
-                checklistVersion: selectedAircraft?.version,
-                flightPlanId: flightPlanId,
-                circuitMode: circuitMode
-            )
-
-            // Only begin GPS tracking if the flight actually started — startFlight() is the
-            // authoritative guard and may have refused it (e.g. unresolved premium checklist).
-            guard appState.isFlightActive else { return }
-            locationManager.startTracking(
-                appState: appState,
-                interval: appState.settings.gpsRecordingInterval,
-                airportDataService: airportDataService,
-                flightEventDetector: flightEventDetector
-            )
-        }
-    }
-
-    /// Configure the flight event detector with the current aircraft's speed data
-    private func configureFlightEventDetector() {
-        if let remoteChecklist = ChecklistData.currentRemoteChecklist {
-            flightEventDetector.configure(speeds: remoteChecklist.localSpeeds, stallSpeed: remoteChecklist.stallSpeed)
-        } else {
-            let aircraft = appState.settings.selectedAircraft
-            flightEventDetector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed)
-        }
+        let launcher = FlightLauncher(
+            appState: appState,
+            locationManager: locationManager,
+            aircraftDataService: aircraftDataService,
+            airportDataService: airportDataService,
+            flightEventDetector: flightEventDetector,
+            flightPlanManager: flightPlanManager
+        )
+        Task { await launcher.begin(circuitMode: circuitMode) }
     }
 }
 

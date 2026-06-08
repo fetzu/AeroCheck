@@ -177,6 +177,8 @@ struct CounterActionButton: View {
 /// Main checklist display view - shows checklist items exactly as in the document
 struct ChecklistView: View {
     let phase: ChecklistPhase
+    /// The owned, resolved checklist for the active aircraft (items + learning-mode counts).
+    var activeChecklist: ActiveChecklist = .bundledDefault
     var onEngineStart: (() -> Void)?
     var onEngineStartUpdate: (() -> Void)?
     var onLineUp: (() -> Void)?
@@ -222,7 +224,7 @@ struct ChecklistView: View {
     
     // Computed properties
     private var allItems: [ChecklistItem] {
-        ChecklistData.items(for: phase)
+        activeChecklist.items(for: phase)
     }
 
     private var effectiveLearningMode: Bool {
@@ -230,20 +232,21 @@ struct ChecklistView: View {
     }
 
     private var visibleItems: [ChecklistItem] {
-        ChecklistData.visibleItems(for: phase, learningMode: effectiveLearningMode)
+        activeChecklist.visibleItems(for: phase, learningMode: effectiveLearningMode)
     }
 
     /// Whether there are items that could be hidden (memorizable items exist and learning mode is off)
     private var hasHiddenItems: Bool {
-        !learningModeEnabled && !hiddenItemsRevealed && ChecklistData.hasHiddenItems(for: phase, learningMode: false)
+        !learningModeEnabled && !hiddenItemsRevealed && activeChecklist.hasHiddenItems(for: phase, learningMode: false)
     }
 
     private var hiddenItemCount: Int {
         // Count of items hidden when not in learning mode
-        ChecklistData.items(for: phase).count - ChecklistData.visibleItems(for: phase, learningMode: false).count
+        activeChecklist.items(for: phase).count - activeChecklist.visibleItems(for: phase, learningMode: false).count
     }
     
     init(phase: ChecklistPhase,
+         activeChecklist: ActiveChecklist = .bundledDefault,
          onEngineStart: (() -> Void)? = nil,
          onEngineStartUpdate: (() -> Void)? = nil,
          onLineUp: (() -> Void)? = nil,
@@ -278,6 +281,7 @@ struct ChecklistView: View {
          onEditEngineHourStart: (() -> Void)? = nil,
          onEditEngineHourEnd: (() -> Void)? = nil) {
         self.phase = phase
+        self.activeChecklist = activeChecklist
         self.onEngineStart = onEngineStart
         self.onEngineStartUpdate = onEngineStartUpdate
         self.onLineUp = onLineUp
@@ -815,28 +819,22 @@ struct DotLeader: View {
 struct SpeedReferenceView: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
-    /// Current aircraft registration - uses remote if available
+    /// The owned, resolved checklist for the active aircraft (registration, speeds, limits).
+    var activeChecklist: ActiveChecklist = .bundledDefault
+
+    /// Current aircraft registration
     private var currentRegistration: String {
-        if let remote = ChecklistData.currentRemoteChecklist {
-            return remote.registration
-        }
-        return ChecklistData.currentAircraft.registration
+        activeChecklist.registration
     }
 
-    /// Current speeds list - uses remote if available
+    /// Current speeds list
     private var currentSpeeds: [SpeedReference] {
-        if let remote = ChecklistData.currentRemoteChecklist {
-            return remote.localSpeeds
-        }
-        return ChecklistData.currentAircraft.speeds
+        activeChecklist.speeds
     }
 
-    /// Current crosswind limits - uses remote if available
+    /// Current crosswind limits
     private var currentCrosswindLimits: (takeoff: String, landing: String) {
-        if let remote = ChecklistData.currentRemoteChecklist {
-            return remote.crosswindLimitsTuple
-        }
-        return ChecklistData.currentAircraft.crosswindLimits
+        activeChecklist.crosswindLimits
     }
 
     private var isCompact: Bool {

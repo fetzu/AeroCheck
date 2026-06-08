@@ -298,6 +298,23 @@
         }
       }
     },
+    "alert.cannotStartFlight.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't Start Flight"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de démarrer le vol"
+          }
+        }
+      }
+    },
     "alert.checklistNotReady.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -328,6 +345,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Checklist non disponible"
+          }
+        }
+      }
+    },
+    "alert.locationRequired.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location access is required to record your flight. Enable location for AéroCheck in Settings, then try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'accès à la localisation est nécessaire pour enregistrer votre vol. Activez la localisation pour AéroCheck dans Réglages, puis réessayez."
           }
         }
       }

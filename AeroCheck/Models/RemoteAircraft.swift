@@ -197,7 +197,7 @@ extension ChecklistPhase {
 
 extension RemoteAircraftChecklist {
     /// Creates a temporary AircraftType-compatible interface for use with existing code
-    /// This allows remote checklists to be used with the existing ChecklistData system
+    /// This allows remote checklists to be used with existing aircraft-data code paths
     func toAircraftAdapter() -> RemoteAircraftAdapter {
         return RemoteAircraftAdapter(checklist: self)
     }

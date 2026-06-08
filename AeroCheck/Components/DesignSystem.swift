@@ -292,14 +292,10 @@ struct StatusIndicator: View {
 struct SpeedIndicatorView: View {
     let currentSpeed: Double // Ground speed in knots (from GPS, m/s converted)
     let targetSpeed: Int
+    let stallSpeed: Int // Stall speed (clean) of the active aircraft
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
     var stallAlertEnabled: Bool = false // When true, fire an aural+haptic alert on stall (UX-02)
-
-    /// Stall speed from current aircraft type
-    private var stallSpeed: Int {
-        ChecklistData.currentAircraft.stallSpeed
-    }
 
     @State private var isFlashing = false
 
@@ -503,6 +499,7 @@ final class StallAlert {
 struct FlightSpeedIndicator: View {
     let gpsSpeedMetersPerSecond: Double
     let targetSpeed: Int?
+    let stallSpeed: Int
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
     var stallAlertEnabled: Bool = false
@@ -517,6 +514,7 @@ struct FlightSpeedIndicator: View {
             SpeedIndicatorView(
                 currentSpeed: max(0, speedInKnots),
                 targetSpeed: target,
+                stallSpeed: stallSpeed,
                 gpsSignalStatus: gpsSignalStatus,
                 estimatedAirspeed: estimatedAirspeed,
                 stallAlertEnabled: stallAlertEnabled

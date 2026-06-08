@@ -18,26 +18,56 @@ extension Color {
     static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.18)
 }
 
+// MARK: - Shared Owned-Aircraft Data
+// NOTE: The App Group id, defaults key, and `WidgetAircraft` shape are duplicated from the main
+// app's WidgetBridge.swift. The widget can't share code with the app, so keep these in sync.
+
+/// One start button the widget can render. `key` is the stable deep-link token.
+struct WidgetAircraft: Codable, Hashable {
+    let key: String
+    let registration: String
+}
+
+enum WidgetSharedData {
+    static let appGroupID = "group.com.fetzu.aerocheck"
+    static let aircraftDefaultsKey = "widgetAircraft"
+
+    /// The aircraft the user owns, as published by the app. Falls back to just the free bundled
+    /// aircraft if the App Group hasn't been written yet — so an unowned premium aircraft never
+    /// appears as a widget button.
+    static func ownedAircraft() -> [WidgetAircraft] {
+        guard let defaults = UserDefaults(suiteName: appGroupID),
+              let data = defaults.data(forKey: aircraftDefaultsKey),
+              let list = try? JSONDecoder().decode([WidgetAircraft].self, from: data),
+              !list.isEmpty
+        else {
+            return [WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA")]
+        }
+        return list
+    }
+}
+
 // MARK: - Widget Timeline Entry
 
 struct AeroCheckEntry: TimelineEntry {
     let date: Date
+    let aircraft: [WidgetAircraft]
 }
 
 // MARK: - Widget Timeline Provider
 
 struct AeroCheckProvider: TimelineProvider {
     func placeholder(in context: Context) -> AeroCheckEntry {
-        AeroCheckEntry(date: Date())
+        AeroCheckEntry(date: Date(), aircraft: WidgetSharedData.ownedAircraft())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (AeroCheckEntry) -> Void) {
-        completion(AeroCheckEntry(date: Date()))
+        completion(AeroCheckEntry(date: Date(), aircraft: WidgetSharedData.ownedAircraft()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<AeroCheckEntry>) -> Void) {
-        // Static widget - no need to update frequently
-        let entry = AeroCheckEntry(date: Date())
+        // Static widget — refreshed explicitly by the app (via WidgetCenter) when ownership changes.
+        let entry = AeroCheckEntry(date: Date(), aircraft: WidgetSharedData.ownedAircraft())
         let timeline = Timeline(entries: [entry], policy: .never)
         completion(timeline)
     }
@@ -46,6 +76,7 @@ struct AeroCheckProvider: TimelineProvider {
 // MARK: - Widget Views
 
 struct SmallWidgetView: View {
+    let aircraft: [WidgetAircraft]
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
@@ -61,17 +92,11 @@ struct SmallWidgetView: View {
 
             Spacer()
 
-            // Aircraft buttons
+            // Aircraft buttons — only the aircraft the user owns
             HStack(spacing: 12) {
-                AircraftButton(
-                    aircraft: "F-HVXA",
-                    accentColor: .aviationBlue
-                )
-
-                AircraftButton(
-                    aircraft: "HB-PFA",
-                    accentColor: .aviationGold
-                )
+                ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
+                    AircraftButton(aircraft: item, accentColor: aircraftAccentColor(for: item))
+                }
             }
 
             Spacer()
@@ -93,6 +118,7 @@ struct SmallWidgetView: View {
 }
 
 struct MediumWidgetView: View {
+    let aircraft: [WidgetAircraft]
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
@@ -104,15 +130,9 @@ struct MediumWidgetView: View {
                     .foregroundStyle(labelColor)
 
                 HStack(spacing: 12) {
-                    AircraftButton(
-                        aircraft: "F-HVXA",
-                        accentColor: .aviationBlue
-                    )
-
-                    AircraftButton(
-                        aircraft: "HB-PFA",
-                        accentColor: .aviationGold
-                    )
+                    ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
+                        AircraftButton(aircraft: item, accentColor: aircraftAccentColor(for: item))
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -166,18 +186,24 @@ struct MediumWidgetView: View {
     }
 }
 
+/// Accent colour for an aircraft button. The free bundled aircraft uses blue; premium aircraft
+/// use the aviation gold accent.
+private func aircraftAccentColor(for aircraft: WidgetAircraft) -> Color {
+    aircraft.key == "wt9-dynamic" ? .aviationBlue : .aviationGold
+}
+
 struct AircraftButton: View {
-    let aircraft: String
+    let aircraft: WidgetAircraft
     let accentColor: Color
 
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(aircraft)")!) {
+        Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(aircraft.key)")!) {
             VStack(spacing: 4) {
                 Image(systemName: "airplane")
                     .font(.system(size: 20))
-                Text(aircraft)
+                Text(aircraft.registration)
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -221,11 +247,11 @@ struct AeroCheckWidgetEntryView: View {
     var body: some View {
         switch family {
         case .systemSmall:
-            SmallWidgetView()
+            SmallWidgetView(aircraft: entry.aircraft)
         case .systemMedium:
-            MediumWidgetView()
+            MediumWidgetView(aircraft: entry.aircraft)
         default:
-            SmallWidgetView()
+            SmallWidgetView(aircraft: entry.aircraft)
         }
     }
 }
@@ -244,11 +270,16 @@ struct AeroCheckWidgetBundle: WidgetBundle {
 #Preview("Small - Dark", as: .systemSmall) {
     AeroCheckWidget()
 } timeline: {
-    AeroCheckEntry(date: .now)
+    AeroCheckEntry(date: .now, aircraft: [
+        WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA"),
+        WidgetAircraft(key: "pa28-181", registration: "HB-PFA")
+    ])
 }
 
 #Preview("Medium - Dark", as: .systemMedium) {
     AeroCheckWidget()
 } timeline: {
-    AeroCheckEntry(date: .now)
+    AeroCheckEntry(date: .now, aircraft: [
+        WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA")
+    ])
 }

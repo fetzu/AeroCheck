@@ -40,6 +40,9 @@ class LocationManager: NSObject, ObservableObject {
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
+    /// The resolved checklist for the active flight, used to configure the event detector with
+    /// the right aircraft's speeds. Captured at `startTracking` so it never reads global state.
+    private var activeChecklist: ActiveChecklist?
     private var hasNotifiedTakeoffTime: Bool = false
     private var hasConfiguredDetector: Bool = false
 
@@ -135,10 +138,11 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.requestWhenInUseAuthorization()
     }
     
-    func startTracking(appState: AppState, interval: TimeInterval = 5.0, airportDataService: AirportDataService? = nil, flightEventDetector: FlightEventDetector? = nil) {
+    func startTracking(appState: AppState, interval: TimeInterval = 5.0, airportDataService: AirportDataService? = nil, flightEventDetector: FlightEventDetector? = nil, activeChecklist: ActiveChecklist? = nil) {
         self.appState = appState
         self.airportDataService = airportDataService
         self.flightEventDetector = flightEventDetector
+        self.activeChecklist = activeChecklist
         self.recordingInterval = interval
         self.lastRecordedTime = nil
         self.lastGoodSignalTime = Date()
@@ -516,12 +520,8 @@ extension LocationManager: CLLocationManagerDelegate {
                    (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
                     // Auto-configure detector with aircraft speeds on first activation
                     if !self.hasConfiguredDetector {
-                        if let remote = ChecklistData.currentRemoteChecklist {
-                            detector.configure(speeds: remote.localSpeeds, stallSpeed: remote.stallSpeed, recordingInterval: self.recordingInterval)
-                        } else {
-                            let aircraft = ChecklistData.currentAircraft
-                            detector.configure(speeds: aircraft.speeds, stallSpeed: aircraft.stallSpeed, recordingInterval: self.recordingInterval)
-                        }
+                        let checklist = self.activeChecklist ?? .bundledDefault
+                        detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: self.recordingInterval)
                         self.hasConfiguredDetector = true
                     }
 

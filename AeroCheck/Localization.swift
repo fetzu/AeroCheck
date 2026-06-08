@@ -525,6 +525,7 @@ enum L10n {
         static func exportAllMessage(_ count: Int) -> String {
             String(format: String(localized: "flightLog.exportAll.message"), count)
         }
+        static let preparingExport = String(localized: "flightLog.preparingExport")
         static let importErrorTitle = String(localized: "flightLog.importError.title")
         static let importErrorOK = String(localized: "flightLog.importError.ok")
         static let importErrorUnknown = String(localized: "flightLog.importError.unknown")

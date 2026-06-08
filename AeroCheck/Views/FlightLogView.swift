@@ -15,8 +15,12 @@ struct FlightLogView: View {
     @State private var showExportAllOptions = false
     @State private var showExportAllSheet = false
     @State private var exportAllType: ExportAllType = .gpx
+    /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
+    /// `exportAllZipData` is ready. `isPreparingExportAll` drives a progress indicator meanwhile.
+    @State private var exportAllZipData: Data?
+    @State private var isPreparingExportAll = false
     
-    enum ExportAllType {
+    enum ExportAllType: Sendable {
         case gpx
         case json
     }
@@ -65,22 +69,33 @@ struct FlightLogView: View {
         .confirmationDialog(L10n.FlightLog.exportAllTitle, isPresented: $showExportAllOptions, titleVisibility: .visible) {
             Button(L10n.FlightLog.exportAllGPX) {
                 exportAllType = .gpx
-                showExportAllSheet = true
+                prepareExportAll()
             }
             Button(L10n.FlightLog.exportAllJSON) {
                 exportAllType = .json
-                showExportAllSheet = true
+                prepareExportAll()
             }
             Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
             Text(L10n.FlightLog.exportAllMessage(appState.flights.count))
         }
         .sheet(isPresented: $showExportAllSheet) {
-            if let zipData = createExportAllZip() {
+            if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
                 ShareSheet(activityItems: [
                     ZIPFile(data: zipData, filename: filename)
                 ])
+            }
+        }
+        .overlay {
+            if isPreparingExportAll {
+                ZStack {
+                    Color.black.opacity(0.4).ignoresSafeArea()
+                    ProgressView(L10n.FlightLog.preparingExport)
+                        .padding(24)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .transition(.opacity)
             }
         }
         .fileImporter(
@@ -107,11 +122,29 @@ struct FlightLogView: View {
         return formatter.string(from: Date())
     }
     
-    private func createExportAllZip() -> Data? {
+    /// Serialize every flight and zip them off the main actor, then present the share sheet.
+    /// Keeps the heavy serialize/CRC/zip work out of the `.sheet` content builder. (PERF-12)
+    private func prepareExportAll() {
+        let flights = appState.flights
+        let type = exportAllType
+        isPreparingExportAll = true
+        Task { @MainActor in
+            let data = await Task.detached(priority: .userInitiated) {
+                FlightLogView.buildExportAllZip(flights: flights, type: type)
+            }.value
+            exportAllZipData = data
+            isPreparingExportAll = false
+            showExportAllSheet = (data != nil)
+        }
+    }
+
+    /// Builds the export bundle (serialize each flight → zip). `nonisolated static` so it runs off
+    /// the main actor; only the resulting `Data` crosses back. (PERF-12)
+    nonisolated static func buildExportAllZip(flights: [Flight], type: ExportAllType) -> Data? {
         var zipEntries: [(filename: String, data: Data)] = []
 
-        for flight in appState.flights {
-            switch exportAllType {
+        for flight in flights {
+            switch type {
             case .gpx:
                 if let data = flight.toGPX().data(using: .utf8) {
                     zipEntries.append((filename: "\(flight.exportFilename).gpx", data: data))
@@ -125,9 +158,9 @@ struct FlightLogView: View {
 
         return createSimpleZip(entries: zipEntries)
     }
-    
+
     /// Create a simple ZIP file from entries (basic implementation)
-    private func createSimpleZip(entries: [(filename: String, data: Data)]) -> Data? {
+    nonisolated static func createSimpleZip(entries: [(filename: String, data: Data)]) -> Data? {
         var zipData = Data()
         var centralDirectory = Data()
         var centralDirectoryOffset: UInt32 = 0
@@ -213,7 +246,7 @@ struct FlightLogView: View {
     }
     
     /// Simple CRC-32 calculation
-    private func crc32(_ data: Data) -> UInt32 {
+    nonisolated static func crc32(_ data: Data) -> UInt32 {
         var crc: UInt32 = 0xFFFFFFFF
         for byte in data {
             crc ^= UInt32(byte)

@@ -4608,6 +4608,23 @@
         }
       }
     },
+    "flightLog.preparingExport" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing export…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparation de l'export…"
+          }
+        }
+      }
+    },
     "flightLog.title" : {
       "extractionState" : "manual",
       "localizations" : {

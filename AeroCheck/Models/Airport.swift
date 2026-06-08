@@ -4,7 +4,7 @@ import CoreLocation
 // MARK: - Airport Type
 
 /// Type of airport from OurAirports data
-enum AirportType: String, Codable, CaseIterable {
+enum AirportType: String, Codable, CaseIterable, Sendable {
     case largeAirport = "large_airport"
     case mediumAirport = "medium_airport"
     case smallAirport = "small_airport"
@@ -47,7 +47,7 @@ enum AirportType: String, Codable, CaseIterable {
 // MARK: - Airport
 
 /// An airport from the OurAirports database
-struct Airport: Codable, Identifiable, Equatable {
+struct Airport: Codable, Identifiable, Equatable, Sendable {
     let id: Int                     // OurAirports ID
     let ident: String               // ICAO code (e.g., "LSZH")
     let type: AirportType
@@ -86,7 +86,7 @@ struct Airport: Codable, Identifiable, Equatable {
 // MARK: - Airport Frequency
 
 /// A radio frequency for an airport
-struct AirportFrequency: Codable, Identifiable, Equatable {
+struct AirportFrequency: Codable, Identifiable, Equatable, Sendable {
     let id: Int
     let airportRef: Int             // Foreign key to Airport.id
     let airportIdent: String        // ICAO code
@@ -111,7 +111,7 @@ struct AirportFrequency: Codable, Identifiable, Equatable {
 // MARK: - Runway
 
 /// A runway at an airport
-struct Runway: Codable, Identifiable, Equatable {
+struct Runway: Codable, Identifiable, Equatable, Sendable {
     let id: Int
     let airportRef: Int             // Foreign key to Airport.id
     let airportIdent: String        // ICAO code

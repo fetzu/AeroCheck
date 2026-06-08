@@ -98,7 +98,9 @@ class AirportDataService: ObservableObject {
             downloadProgress = 0.35
 
             print("[AirportData] Parsing airports...")
-            let parsedAirports = parseAirportsCSV(airportsCSV)
+            let parsedAirports = await Task.detached(priority: .userInitiated) {
+                AirportDataService.parseAirportsCSV(airportsCSV)
+            }.value
             downloadProgress = 0.45
 
             // Download and parse frequencies (~2MB)
@@ -107,7 +109,9 @@ class AirportDataService: ObservableObject {
             downloadProgress = 0.55
 
             print("[AirportData] Parsing frequencies...")
-            let parsedFrequencies = parseFrequenciesCSV(frequenciesCSV)
+            let parsedFrequencies = await Task.detached(priority: .userInitiated) {
+                AirportDataService.parseFrequenciesCSV(frequenciesCSV)
+            }.value
             downloadProgress = 0.65
 
             // Download and parse runways (~3MB)
@@ -116,7 +120,9 @@ class AirportDataService: ObservableObject {
             downloadProgress = 0.75
 
             print("[AirportData] Parsing runways...")
-            let parsedRunways = parseRunwaysCSV(runwaysCSV)
+            let parsedRunways = await Task.detached(priority: .userInitiated) {
+                AirportDataService.parseRunwaysCSV(runwaysCSV)
+            }.value
             downloadProgress = 0.85
 
             // Save to local storage
@@ -126,7 +132,8 @@ class AirportDataService: ObservableObject {
 
             // Update in-memory data
             self.airports = parsedAirports
-            self.airportsByIdent = Dictionary(uniqueKeysWithValues: parsedAirports.map { ($0.ident, $0) })
+            // Tolerate duplicate idents in source data (keep first) rather than trapping.
+            self.airportsByIdent = Dictionary(parsedAirports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
             self.frequenciesByAirport = Dictionary(grouping: parsedFrequencies) { $0.airportIdent }
             self.runwaysByAirport = Dictionary(grouping: parsedRunways) { $0.airportIdent }
             self.airportCount = parsedAirports.count
@@ -153,43 +160,48 @@ class AirportDataService: ObservableObject {
             return
         }
 
-        do {
-            // Load metadata
-            if let metadataData = try? Data(contentsOf: metadataFileURL),
-               let metadata = try? JSONDecoder().decode(AirportDataMetadata.self, from: metadataData) {
-                self.lastUpdated = metadata.lastUpdated
+        // Read + JSON-decode the ~40K-row cache off the main actor; only the decoded value-type
+        // results hop back for assignment. (PERF-07)
+        let airportsURL = airportsFileURL
+        let frequenciesURL = frequenciesFileURL
+        let runwaysURL = runwaysFileURL
+        let metadataURL = metadataFileURL
+
+        let loaded: AirportCacheLoad? = await Task.detached(priority: .userInitiated) {
+            do {
+                let lastUpdated = (try? Data(contentsOf: metadataURL))
+                    .flatMap { try? JSONDecoder().decode(AirportDataMetadata.self, from: $0) }?
+                    .lastUpdated
+
+                let airportsData = try Data(contentsOf: airportsURL)
+                let airports = try JSONDecoder().decode([Airport].self, from: airportsData)
+
+                let frequencies = (try? Data(contentsOf: frequenciesURL))
+                    .flatMap { try? JSONDecoder().decode([AirportFrequency].self, from: $0) } ?? []
+                let runways = (try? Data(contentsOf: runwaysURL))
+                    .flatMap { try? JSONDecoder().decode([Runway].self, from: $0) } ?? []
+
+                return AirportCacheLoad(
+                    airports: airports, frequencies: frequencies,
+                    runways: runways, lastUpdated: lastUpdated
+                )
+            } catch {
+                print("[AirportData] Failed to load from cache: \(error)")
+                return nil
             }
+        }.value
 
-            // Load airports
-            let airportsData = try Data(contentsOf: airportsFileURL)
-            let loadedAirports = try JSONDecoder().decode([Airport].self, from: airportsData)
-
-            // Load frequencies
-            var loadedFrequencies: [AirportFrequency] = []
-            if let freqData = try? Data(contentsOf: frequenciesFileURL) {
-                loadedFrequencies = (try? JSONDecoder().decode([AirportFrequency].self, from: freqData)) ?? []
-            }
-
-            // Load runways
-            var loadedRunways: [Runway] = []
-            if let runwayData = try? Data(contentsOf: runwaysFileURL) {
-                loadedRunways = (try? JSONDecoder().decode([Runway].self, from: runwayData)) ?? []
-            }
-
-            // Update in-memory data
-            self.airports = loadedAirports
-            self.airportsByIdent = Dictionary(uniqueKeysWithValues: loadedAirports.map { ($0.ident, $0) })
-            self.frequenciesByAirport = Dictionary(grouping: loadedFrequencies) { $0.airportIdent }
-            self.runwaysByAirport = Dictionary(grouping: loadedRunways) { $0.airportIdent }
-            self.airportCount = loadedAirports.count
+        if let loaded {
+            if let lastUpdated = loaded.lastUpdated { self.lastUpdated = lastUpdated }
+            self.airports = loaded.airports
+            self.airportsByIdent = Dictionary(loaded.airports.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
+            self.frequenciesByAirport = Dictionary(grouping: loaded.frequencies) { $0.airportIdent }
+            self.runwaysByAirport = Dictionary(grouping: loaded.runways) { $0.airportIdent }
+            self.airportCount = loaded.airports.count
             self.isDataAvailable = true
-            self.isLoaded = true
-
-            print("[AirportData] Loaded from cache: \(loadedAirports.count) airports")
-
-        } catch {
-            print("[AirportData] Failed to load from cache: \(error)")
+            print("[AirportData] Loaded from cache: \(loaded.airports.count) airports")
         }
+        self.isLoaded = true
     }
 
     /// Delete all cached data
@@ -385,23 +397,23 @@ class AirportDataService: ObservableObject {
         return csvString
     }
 
-    private func parseAirportsCSV(_ csv: String) -> [Airport] {
-        let rows = parseCSV(csv)
-        return rows.compactMap { Airport(csvRow: $0) }
+    // The CSV parsers are `nonisolated static` pure functions (no instance/UI state) so the
+    // ~40K-row parse can run inside `Task.detached` off the main actor — only the value-type
+    // results (Sendable structs) hop back to the MainActor for assignment. (PERF-07)
+    nonisolated static func parseAirportsCSV(_ csv: String) -> [Airport] {
+        parseCSV(csv).compactMap { Airport(csvRow: $0) }
     }
 
-    private func parseFrequenciesCSV(_ csv: String) -> [AirportFrequency] {
-        let rows = parseCSV(csv)
-        return rows.compactMap { AirportFrequency(csvRow: $0) }
+    nonisolated static func parseFrequenciesCSV(_ csv: String) -> [AirportFrequency] {
+        parseCSV(csv).compactMap { AirportFrequency(csvRow: $0) }
     }
 
-    private func parseRunwaysCSV(_ csv: String) -> [Runway] {
-        let rows = parseCSV(csv)
-        return rows.compactMap { Runway(csvRow: $0) }
+    nonisolated static func parseRunwaysCSV(_ csv: String) -> [Runway] {
+        parseCSV(csv).compactMap { Runway(csvRow: $0) }
     }
 
     /// Parse CSV string into array of dictionaries
-    private func parseCSV(_ csv: String) -> [[String: String]] {
+    nonisolated static func parseCSV(_ csv: String) -> [[String: String]] {
         var results: [[String: String]] = []
         let lines = csv.components(separatedBy: .newlines)
 
@@ -409,6 +421,7 @@ class AirportDataService: ObservableObject {
 
         // Parse header row
         let headers = parseCSVRow(lines[0])
+        results.reserveCapacity(lines.count)
 
         // Parse data rows
         for i in 1..<lines.count {
@@ -432,47 +445,70 @@ class AirportDataService: ObservableObject {
         return results
     }
 
-    /// Parse a single CSV row, handling quoted fields
-    private func parseCSVRow(_ row: String) -> [String] {
+    /// Parse a single CSV row, handling quoted fields.
+    /// Slices the row into per-field substrings (one allocation per field) instead of appending
+    /// character-by-character into an accumulator String — the same quote-stripping / unquoted-
+    /// comma-splitting semantics as before, but far fewer allocations across ~40K rows. (PERF-07)
+    nonisolated static func parseCSVRow(_ row: String) -> [String] {
         var results: [String] = []
-        var current = ""
+        var fieldStart = row.startIndex
         var inQuotes = false
+        var fieldHadQuotes = false
+        var i = row.startIndex
 
-        for char in row {
+        while i < row.endIndex {
+            let char = row[i]
             if char == "\"" {
                 inQuotes.toggle()
+                fieldHadQuotes = true
             } else if char == "," && !inQuotes {
-                results.append(current)
-                current = ""
-            } else {
-                current.append(char)
+                results.append(Self.csvField(row[fieldStart..<i], hadQuotes: fieldHadQuotes))
+                i = row.index(after: i)
+                fieldStart = i
+                fieldHadQuotes = false
+                continue
             }
+            i = row.index(after: i)
         }
-        results.append(current)
+        results.append(Self.csvField(row[fieldStart..<row.endIndex], hadQuotes: fieldHadQuotes))
 
         return results
     }
 
-    private func saveToLocal(airports: [Airport], frequencies: [AirportFrequency], runways: [Runway]) async throws {
-        let encoder = JSONEncoder()
-
-        // Save airports
-        let airportsData = try encoder.encode(airports)
-        try airportsData.write(to: airportsFileURL)
-
-        // Save frequencies
-        let freqData = try encoder.encode(frequencies)
-        try freqData.write(to: frequenciesFileURL)
-
-        // Save runways
-        let runwayData = try encoder.encode(runways)
-        try runwayData.write(to: runwaysFileURL)
-
-        // Save metadata
-        let metadata = AirportDataMetadata(lastUpdated: Date(), airportCount: airports.count)
-        let metadataData = try encoder.encode(metadata)
-        try metadataData.write(to: metadataFileURL)
+    /// Materializes one CSV field, stripping quote characters only when the field contained any
+    /// (preserving the previous parser's behavior of removing all `"`).
+    private nonisolated static func csvField(_ slice: Substring, hadQuotes: Bool) -> String {
+        hadQuotes ? String(slice.filter { $0 != "\"" }) : String(slice)
     }
+
+    private func saveToLocal(airports: [Airport], frequencies: [AirportFrequency], runways: [Runway]) async throws {
+        // Encode + write the large arrays off the main actor (atomically). (PERF-07)
+        let airportsURL = airportsFileURL
+        let frequenciesURL = frequenciesFileURL
+        let runwaysURL = runwaysFileURL
+        let metadataURL = metadataFileURL
+        let airportCount = airports.count
+
+        try await Task.detached(priority: .userInitiated) {
+            let encoder = JSONEncoder()
+            try encoder.encode(airports).write(to: airportsURL, options: .atomic)
+            try encoder.encode(frequencies).write(to: frequenciesURL, options: .atomic)
+            try encoder.encode(runways).write(to: runwaysURL, options: .atomic)
+
+            let metadata = AirportDataMetadata(lastUpdated: Date(), airportCount: airportCount)
+            try encoder.encode(metadata).write(to: metadataURL, options: .atomic)
+        }.value
+    }
+}
+
+// MARK: - Cache load result
+
+/// Decoded airport cache produced off the main actor, then assigned on the MainActor. (PERF-07)
+private struct AirportCacheLoad: Sendable {
+    let airports: [Airport]
+    let frequencies: [AirportFrequency]
+    let runways: [Runway]
+    let lastUpdated: Date?
 }
 
 // MARK: - Metadata

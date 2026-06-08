@@ -1,5 +1,31 @@
 import Foundation
 
+/// Narrow seam over the subscription state `AircraftDataService` needs, so its premium-gating logic
+/// can be exercised with a fake instead of a live `SubscriptionManager` + StoreKit. (ARCH-12)
+@MainActor
+protocol SubscriptionGating {
+    func getUserID() async -> String?
+    func shouldAllowPremiumAccess() -> Bool
+}
+
+extension SubscriptionManager: SubscriptionGating {}
+
+/// Narrow seam over the network transport, so cache/version-comparison logic can be tested with
+/// canned responses instead of `URLSession.shared`. `@MainActor` to match the (already main-actor)
+/// call/decode sites in `AircraftDataService` and avoid `Sendable` ceremony on the fakes. (ARCH-12)
+@MainActor
+protocol HTTPClient {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse)
+}
+
+extension URLSession: HTTPClient {
+    // Explicit witness: URLSession's `data(for:delegate:)` (delegate defaulted) does not satisfy the
+    // protocol's `data(for:)` requirement on its own.
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        try await data(for: request, delegate: nil)
+    }
+}
+
 /// Service for fetching and caching aircraft checklist data from the API
 @MainActor
 class AircraftDataService: ObservableObject {
@@ -24,18 +50,23 @@ class AircraftDataService: ObservableObject {
     // MARK: - Private Properties
 
     private let apiBaseURL: String
-    private let subscriptionManager: SubscriptionManager
+    private let gating: SubscriptionGating
+    private let httpClient: HTTPClient
     private let cacheDirectory: URL
     private let fileManager = FileManager.default
 
     // MARK: - Initialization
 
+    /// `subscriptionManager` and `httpClient` are injected as protocols (defaulting to the real
+    /// implementations) so production wiring is unchanged but tests can supply fakes. (ARCH-12)
     init(
         apiBaseURL: String = "https://api.aerocheck.app",
-        subscriptionManager: SubscriptionManager
+        subscriptionManager: SubscriptionGating,
+        httpClient: HTTPClient = URLSession.shared
     ) {
         self.apiBaseURL = apiBaseURL
-        self.subscriptionManager = subscriptionManager
+        self.gating = subscriptionManager
+        self.httpClient = httpClient
 
         // Set up cache directory
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -95,7 +126,7 @@ class AircraftDataService: ObservableObject {
         // aircraft, withhold cached/fetched content once the entitlement has lapsed beyond the
         // grace/offline window, and drop the stale cache so it can't be served offline forever.
         if let meta = availableAircraft.first(where: { $0.id == aircraftId }), !meta.isFree,
-           !subscriptionManager.shouldAllowPremiumAccess() {
+           !gating.shouldAllowPremiumAccess() {
             print("[AircraftDataService] Premium access not allowed for \(aircraftId); withholding checklist")
             clearCache(for: cacheKey)
             return nil
@@ -452,7 +483,7 @@ class AircraftDataService: ObservableObject {
 
     /// Checks and clears premium caches if subscription is no longer valid
     /// Returns true if premium caches are still valid, false if they were cleared
-    func validatePremiumCaches(subscriptionManager: SubscriptionManager) -> Bool {
+    func validatePremiumCaches(subscriptionManager: SubscriptionGating) -> Bool {
         guard subscriptionManager.shouldAllowPremiumAccess() else {
             print("[AircraftDataService] Subscription access revoked, clearing premium caches")
             clearPremiumCaches()
@@ -473,11 +504,11 @@ class AircraftDataService: ObservableObject {
         request.timeoutInterval = 15 // Set timeout for poor network conditions
 
         // Add auth header if available
-        if let userID = await subscriptionManager.getUserID() {
+        if let userID = await gating.getUserID() {
             request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await httpClient.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
@@ -535,11 +566,11 @@ class AircraftDataService: ObservableObject {
         request.timeoutInterval = 30 // Checklists can be larger, allow more time
 
         // Add auth header if available
-        if let userID = await subscriptionManager.getUserID() {
+        if let userID = await gating.getUserID() {
             request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await httpClient.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AircraftDataError.invalidResponse
@@ -576,7 +607,7 @@ class AircraftDataService: ObservableObject {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10 // Version check should be quick
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await httpClient.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {

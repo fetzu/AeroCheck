@@ -178,6 +178,22 @@ struct AppSettings: Codable, Equatable {
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
         // marketingMode intentionally excluded - always defaults to false
     }
+
+    /// Returns a copy with flight-relevant numeric settings clamped to sane ranges, for applying
+    /// settings ingested from an untrusted source (a divergent-schema or corrupt CloudKit record
+    /// must never flip a flight-relevant value to an absurd one). (SEC-17)
+    func clampedForIngest() -> AppSettings {
+        var result = self
+        result.gpsRecordingInterval = result.gpsRecordingInterval.clamped(to: 1.0...300.0)
+        result.waypointProximityThreshold = result.waypointProximityThreshold.clamped(to: 10.0...50_000.0)
+        return result
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
 }
 
 /// Unit for displaying terrain profile altitude
@@ -315,6 +331,10 @@ class AppState: ObservableObject {
     @Published var settings: AppSettings = AppSettings()
     @Published var showFlightLog: Bool = false
 
+    /// Set when iCloud sync auto-merged (or couldn't merge) a conflicting flight edit, so the UI can
+    /// surface it instead of the conflict being silent. (ARCH-02)
+    @Published var syncConflictNotice: String?
+
     // Navigation view session state (not persisted to disk — resets on app restart)
     @Published var navigationSelectedLayer: MapLayerType = .icao
     @Published var navigationOrientationMode: MapOrientationMode = .northUp
@@ -425,6 +445,13 @@ class AppState: ObservableObject {
                 self?.flights = flights
                 self?.persistence.saveFlights(flights)
                 print("[AéroCheck] Flights updated from iCloud sync")
+            }
+        }
+
+        syncManager.onSyncConflict = { [weak self] message in
+            Task { @MainActor in
+                self?.syncConflictNotice = message
+                print("[AéroCheck] Sync conflict: \(message)")
             }
         }
     }
@@ -1054,13 +1081,15 @@ class AppState: ObservableObject {
     func updateFlightNotes(_ flight: Flight, notes: String) {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].notes = notes
+            flights[index].touch() // stamp local edit for CloudKit conflict resolution (ARCH-02)
             saveFlights()
         }
     }
-    
+
     func updateFlightName(_ flight: Flight, name: String) {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].name = name
+            flights[index].touch()
             saveFlights()
         }
     }

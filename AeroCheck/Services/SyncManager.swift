@@ -58,6 +58,14 @@ class SyncManager: ObservableObject {
     /// Callback when flights are updated from sync
     var onFlightsUpdated: (([Flight]) -> Void)?
 
+    /// Callback when a sync conflict was resolved (or could not be), so the UI can surface it
+    /// instead of the conflict being silent. (ARCH-02)
+    var onSyncConflict: ((String) -> Void)?
+
+    /// Upper bound on a single ingested CloudKit record's encoded `data` blob. A real flight (even
+    /// multi-hour) is a few MB; anything larger is corrupt/malicious and is rejected. (SEC-17)
+    static let maxIngestRecordBytes = 16 * 1024 * 1024
+
     /// Pending changes to sync - using dictionaries to preserve data for batch operations
     private var pendingSettingsChange: AppSettings?
     
@@ -383,6 +391,9 @@ class SyncManager: ObservableObject {
             record["flightId"] = flight.id.uuidString as CKRecordValue
             record["airplane"] = flight.airplane as CKRecordValue
             record["startTime"] = flight.startTime as CKRecordValue?
+            // Queryable conflict-resolution metadata, mirroring the settings record. (ARCH-02)
+            record["modifiedAt"] = flight.modifiedAt as CKRecordValue
+            record["schemaVersion"] = flight.schemaVersion as CKRecordValue
             return record
         } catch {
             print("[AéroCheck Sync] Failed to encode flight: \(error)")
@@ -392,10 +403,16 @@ class SyncManager: ObservableObject {
 
     func settingsFromRecord(_ record: CKRecord) -> AppSettings? {
         guard let data = record["data"] as? Data else { return nil }
+        // Bound the payload before decoding so a corrupt/oversized record can't exhaust memory. (SEC-17)
+        guard data.count <= Self.maxIngestRecordBytes else {
+            print("[AéroCheck Sync] Rejecting oversized settings record (\(data.count) bytes)")
+            return nil
+        }
 
         do {
             let decoder = JSONDecoder()
-            return try decoder.decode(AppSettings.self, from: data)
+            // Clamp flight-relevant numerics to sane ranges before applying. (SEC-17)
+            return try decoder.decode(AppSettings.self, from: data).clampedForIngest()
         } catch {
             print("[AéroCheck Sync] Failed to decode settings: \(error)")
             return nil
@@ -404,11 +421,22 @@ class SyncManager: ObservableObject {
 
     func flightFromRecord(_ record: CKRecord) -> Flight? {
         guard let data = record["data"] as? Data else { return nil }
+        guard data.count <= Self.maxIngestRecordBytes else {
+            print("[AéroCheck Sync] Rejecting oversized flight record (\(data.count) bytes)")
+            return nil
+        }
 
         do {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode(Flight.self, from: data)
+            let flight = try decoder.decode(Flight.self, from: data)
+            // Reject unknown-schema / oversized / invalid-coordinate records rather than applying
+            // them to local state. (SEC-17)
+            guard let validated = flight.validatedForIngest() else {
+                print("[AéroCheck Sync] Rejecting invalid flight record: \(flight.id)")
+                return nil
+            }
+            return validated
         } catch {
             print("[AéroCheck Sync] Failed to decode flight: \(error)")
             return nil
@@ -435,6 +463,19 @@ class SyncManager: ObservableObject {
 
     func clearPendingFlightDeletion(_ id: UUID) {
         pendingFlightDeletions.remove(id)
+    }
+
+    /// Applies a conflict-merged flight to local state and re-queues it so the cloud converges on
+    /// the merged result. Best-effort CloudKit conflict resolution. (ARCH-02)
+    func resolveFlightConflict(_ merged: Flight) {
+        var flights = DataPersistenceManager.shared.loadFlights()
+        if let index = flights.firstIndex(where: { $0.id == merged.id }) {
+            flights[index] = merged
+        } else {
+            flights.append(merged)
+        }
+        onFlightsUpdated?(flights)
+        syncFlight(merged, allFlights: flights)
     }
 
     /// Update last sync date (called when sync operations complete)
@@ -624,10 +665,19 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             let persistence = DataPersistenceManager.shared
             var currentFlights = persistence.loadFlights()
 
-            // Apply updates
+            // Apply updates. Merge rather than blindly overwrite, so a concurrent local edit (or a
+            // longer locally-recorded track) is never silently dropped by an inbound record. (ARCH-02)
             for flight in updatedFlights {
                 if let index = currentFlights.firstIndex(where: { $0.id == flight.id }) {
-                    currentFlights[index] = flight
+                    let local = currentFlights[index]
+                    let merged = Flight.merge(local, flight)
+                    currentFlights[index] = merged
+                    // If both sides had been edited (neither modifiedAt strictly dominates by a
+                    // clear margin and content differs), tell the UI the conflict was auto-merged.
+                    if local.modifiedAt != flight.modifiedAt,
+                       local.notes != flight.notes || local.name != flight.name {
+                        manager?.onSyncConflict?("A flight edited on another device was merged.")
+                    }
                 } else {
                     currentFlights.append(flight)
                 }
@@ -712,8 +762,30 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     manager?.updateLastSyncDate()
                     continue
                 }
+
+                // Flight conflict: another device's edit won the race. Previously this fell through
+                // to a bare print and the local edit was dropped (devices diverged permanently).
+                // Now we merge the server record with our pending local flight and re-queue. (ARCH-02)
+                if let flightId = UUID(uuidString: recordName) {
+                    if let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord,
+                       let serverFlight = manager?.flightFromRecord(serverRecord),
+                       let localFlight = manager?.getPendingFlight(for: flightId) {
+                        let merged = Flight.merge(localFlight, serverFlight)
+                        manager?.resolveFlightConflict(merged)
+                        manager?.onSyncConflict?("A flight edited on two devices was merged.")
+                    } else {
+                        // Can't merge — keep the cloud version rather than overwrite it, and surface
+                        // the conflict instead of silently dropping it.
+                        manager?.clearPendingFlight(flightId)
+                        manager?.onSyncConflict?(
+                            "A flight sync conflict couldn't be auto-merged; the cloud version was kept."
+                        )
+                    }
+                    manager?.updateLastSyncDate()
+                    continue
+                }
             }
-            
+
             print("[AéroCheck Sync] Failed to save record: \(recordName), error: \(error)")
         }
     }

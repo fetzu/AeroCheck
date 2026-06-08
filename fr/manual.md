@@ -37,6 +37,10 @@ Chaque fiche aeronef affiche l'immatriculation, le type et le nombre d'items de 
 
 Appuyez sur **DEMARRER LE VOL** pour commencer un vol standard. L'application vous guidera a travers les 16 phases de vol, de la visite pre-vol jusqu'au hangar. Pour l'entrainement en tour de piste, appuyez sur **TOURS DE PISTE** -- cela active le mode circuits, qui simplifie la checklist pour les atterrissages repetes.
 
+### Demarrer depuis le widget de l'ecran d'accueil
+
+Ajoutez le **widget AeroCheck** a l'ecran d'accueil de votre iPhone ou iPad pour demarrer un vol en un seul appui. Le widget affiche un bouton de demarrage pour chaque aeronef que vous possedez -- le WT9 Dynamic gratuit ainsi que tout aeronef premium debloque (les aeronefs que vous ne possedez pas ne sont jamais affiches). Appuyer sur un bouton demarre directement le vol de cet aeronef, en chargeant sa checklist et en lancant le suivi GPS, exactement comme le bouton DEMARRER dans l'application. Le widget moyen inclut egalement un raccourci vers votre journal de vol.
+
 ---
 
 ## Checklists

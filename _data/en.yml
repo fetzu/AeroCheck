@@ -19,7 +19,7 @@ features:
     fontawesome_icon_name: "plane"
 
   - title: "GPS Tracking & Flight Logging"
-    description: "Records your flight path with real-time ground speed and altitude. Automatic timing of engine start, line-up, landing, and shutdown. Export flights as GPX, JSON, or ZIP."
+    description: "Records your flight path with real-time ground speed and altitude, and keeps recording in the background -- with on-screen alerts if GPS or background access is interrupted. Automatic timing of engine start, line-up, landing, and shutdown. Export flights as GPX, JSON, or ZIP."
     fontawesome_icon_name: "location-arrow"
 
   - title: "Interactive Navigation"
@@ -31,7 +31,7 @@ features:
     fontawesome_icon_name: "graduation-cap"
 
   - title: "Apple Watch App"
-    description: "Keep track of your flight from your wrist with real-time phase, speed, and altitude information."
+    description: "Keep track of your flight from your wrist with real-time phase, speed, and altitude information -- with a clear warning if the data goes stale."
     fontawesome_icon_name: "clock"
 
   - title: "Dark Cockpit UI"

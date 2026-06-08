@@ -19,7 +19,7 @@ features:
     fontawesome_icon_name: "plane"
 
   - title: "Suivi GPS & Journal de Vol"
-    description: "Enregistre votre trajectoire avec vitesse sol et altitude en temps réel. Chronométrage automatique du démarrage moteur, alignement, atterrissage et arrêt moteur. Exportez vos vols en GPX, JSON ou ZIP."
+    description: "Enregistre votre trajectoire avec vitesse sol et altitude en temps réel, et continue l'enregistrement en arrière-plan -- avec des alertes à l'écran si le GPS ou l'accès en arrière-plan est interrompu. Chronométrage automatique du démarrage moteur, alignement, atterrissage et arrêt moteur. Exportez vos vols en GPX, JSON ou ZIP."
     fontawesome_icon_name: "location-arrow"
 
   - title: "Navigation Interactive"
@@ -31,7 +31,7 @@ features:
     fontawesome_icon_name: "graduation-cap"
 
   - title: "Application Apple Watch"
-    description: "Suivez votre vol depuis votre poignet avec phase, vitesse et altitude en temps réel."
+    description: "Suivez votre vol depuis votre poignet avec phase, vitesse et altitude en temps réel -- avec un avertissement clair si les données deviennent obsolètes."
     fontawesome_icon_name: "clock"
 
   - title: "Interface Cockpit Sombre"

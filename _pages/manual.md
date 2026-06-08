@@ -15,6 +15,7 @@ Welcome to the AeroCheck user manual. This guide covers all the features of the 
 - [In-Flight Navigation](#in-flight-navigation)
 - [Briefings](#briefings)
 - [Flight Logging](#flight-logging)
+- [Apple Watch and Companion Mode](#apple-watch-and-companion-mode)
 - [Flight Planning (Beta)](#flight-planning-beta)
 - [Circuit Mode](#circuit-mode)
 - [Settings and Subscription](#settings-and-subscription)
@@ -27,6 +28,8 @@ Welcome to the AeroCheck user manual. This guide covers all the features of the 
 
 When you first open AeroCheck, the app will request **location permission**. This is required for GPS flight tracking, ground speed display, and the navigation map. Grant "While Using the App" or "Always" permission for full functionality, including background tracking during flights.
 
+If you grant only "While Using the App," AeroCheck will offer to **upgrade to "Always"** when you start a flight. "Always" access is what lets the track keep recording when the screen locks or you switch to another app in flight -- without it, an in-flight banner will warn you that background recording is limited (see [GPS Indicators](#gps-indicators)).
+
 ### Selecting an Aircraft
 
 The home screen displays an **aircraft carousel**. Swipe left or right to browse available aircraft. The bundled aircraft (WT9 Dynamic / F-HVXA) is included free. Premium aircraft require an AeroCheck Pro subscription.
@@ -36,6 +39,8 @@ Each aircraft card shows the registration, type, and number of checklist items. 
 ### Starting a Flight
 
 Tap **START FLIGHT** to begin a standard flight. The app will guide you through all 16 flight phases, from Preflight to At the Hangar. For pattern training, tap **CIRCUITS** instead -- this activates Circuit Mode, which streamlines the checklist for repeated landings.
+
+For premium aircraft, the checklist is downloaded from the AeroCheck API. If it has not finished loading -- for example, because of a missing connection or an inactive subscription -- AeroCheck will **not** start the flight with an incomplete checklist. Instead it shows a **"Checklist Not Ready"** alert asking you to check your connection and subscription and try again, so the wrong (or empty) checklist can never appear in flight.
 
 ### Starting from the Home Screen Widget
 
@@ -120,6 +125,18 @@ The navigation view displays real-time:
 - **Altitude** in feet MSL
 - **GPS signal quality** indicator
 
+If the GPS position stops updating in flight (no fix for more than 90 seconds), the speed and altitude indicators show a **failure flag** instead of stale numbers, and the GPS status reads **Lost** -- so a silent signal dropout is never mistaken for a valid reading. If location access is limited to "While Using the App," an amber **"Limited GPS"** banner reminds you to grant "Always" so the track keeps recording in the background.
+
+### Speed, Stall, and Estimated Airspeed
+
+During the flying phases, AeroCheck shows a large speed indicator with color-coded guidance toward the target speed for the current phase, and a stall warning (flashing red/white) when you drop below the aircraft's stall speed.
+
+By default this indicator shows **GPS ground speed** (`GND SPD`, in knots). Ground speed is not the same as the airspeed your panel shows -- a head- or tailwind shifts it -- so treat the on-screen stall warning as an awareness aid, never as a replacement for your aircraft's airspeed indicator.
+
+**Estimated airspeed (experimental, Switzerland only).** When you enable *Show Estimated Airspeed* in Settings, the indicator instead estimates indicated airspeed by correcting GPS ground speed with mean wind from the nearest MeteoSwiss station. To keep it honest, an estimated value is clearly marked: the label reads **`EST. IAS`** and the number is prefixed with a tilde (for example `~62`), so a derived figure is never confused with a measured one. The correction uses steady mean wind (not gusts), and wind readings that are too old are aged out rather than used, so a stale observation cannot quietly drive the estimate.
+
+**Aural stall alert (optional).** With estimated airspeed enabled, you can also turn on an **Aural stall alert** in Settings. When armed, it plays an audible warning if your speed drops below the stall speed -- useful when your eyes are outside the cockpit. It is **off by default** and, like the visual indicator, is an aid only: always fly the aircraft's certified airspeed indicator.
+
 ### Offline Maps
 
 Swiss ICAO Chart and Segelflugkarte can be cached for offline use. Go to **Settings > Offline Maps** to download charts (~100-250 MB). When offline mode is enabled, maps are served from your local cache.
@@ -193,6 +210,22 @@ You can also generate a **share card** -- a visual summary of your flight that c
 
 ---
 
+## Apple Watch and Companion Mode
+
+AeroCheck can mirror your live flight onto a second screen.
+
+### Apple Watch
+
+The companion **Apple Watch app** shows the current flight phase, ground speed, and altitude on your wrist, updated in real time from your iPhone. If the watch stops receiving fresh data -- for example, when it moves out of range of the phone -- a **"NO DATA"** banner appears so you know the values on the watch may be frozen rather than current.
+
+### Companion Mode
+
+On supported devices, **Companion Mode** turns a second iPhone or iPad into a synced second screen over a direct Wi-Fi link: one device acts as the master and the other mirrors its flight display. If the connection drops or the data goes stale, the companion screen shows a **"Data stale -- values may be frozen"** or **"Connection lost"** banner, so a mirrored screen is never mistaken for a live one.
+
+In both cases the rule is the same: a staleness or disconnect banner means *stop trusting the numbers on that screen* until it reconnects.
+
+---
+
 ## Flight Planning (Beta)
 
 > Flight planning is a beta feature. Enable it in **Settings > Flight Planning**.
@@ -217,6 +250,14 @@ The route table displays for each waypoint:
 ### Terrain Profiles
 
 For routes within Switzerland, AeroCheck displays a terrain profile using swisstopo elevation data. This visualization shows the ground elevation along your route relative to your planned altitude.
+
+### Airspace Conflict Checks
+
+AeroCheck checks your planned route against OpenAIP airspace data and flags controlled or restricted airspace it may enter. Conflicts appear as a banner above the route table; tap it to see each airspace, its vertical limits, and its frequency.
+
+The check follows the exact route geometry between waypoints (not just the endpoints), so a leg that clips the corner of a zone is still caught. Where the result depends on altitude, AeroCheck is deliberately conservative: it reports the worst-case severity, and when a zone's ceiling or floor is published relative to the ground or as a flight level (AGL/FL), or when a leg has no planned altitude entered, the conflict is marked **"Altitude uncertain -- verify vertical separation."** That qualifier means the horizontal conflict is real but the app cannot confirm whether your altitude keeps you clear -- you must verify the vertical separation yourself against current charts and QNH.
+
+As always, airspace data is advisory and may be incomplete or out of date; it never replaces official aeronautical charts and NOTAMs.
 
 ### In-Flight HUD
 
@@ -264,7 +305,7 @@ Enable circuit mode when starting a flight by tapping **CIRCUITS** on the home s
 
 - **Navigation** -- Force ICAO chart layer
 - **Flight Planning** (Beta) -- Enable route planning and terrain profiles
-- **Estimated Airspeed** (Beta) -- GPS ground speed corrected with MeteoSwiss wind data (Switzerland only)
+- **Estimated Airspeed** (Experimental) -- GPS ground speed corrected with MeteoSwiss mean-wind data (Switzerland only). Estimated values are shown as `EST. IAS` with a `~` prefix so they are never mistaken for measured airspeed. Enabling it also reveals an **Aural stall alert** toggle (off by default) that plays an audible warning below stall speed
 - **Airport Data** -- Download OurAirports database for worldwide airport frequencies
 - **Offline Maps** -- Cache Swiss ICAO Chart and Segelflugkarte for offline use
 - **iCloud Sync** -- Synchronize flight logs across devices

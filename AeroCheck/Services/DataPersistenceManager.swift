@@ -35,8 +35,21 @@ class DataPersistenceManager: ObservableObject {
 
     // MARK: - Cached Properties
 
-    /// Documents directory URL (local storage) - cached at init
+    /// At-rest protection for the local datastore: encrypts files but still permits the
+    /// background GPS app to write while the device is locked (after the first unlock since boot).
+    /// (SEC-12)
+    static let protectedWriteOptions: Data.WritingOptions = [
+        .atomic, .completeFileProtectionUntilFirstUserAuthentication,
+    ]
+
+    /// Documents directory URL — retained only as the **migration source** and for exports.
+    /// `UIFileSharingEnabled` exposes this folder, so the working datastore no longer lives here.
     private let documentsDirectory: URL
+
+    /// Non-browsable local datastore root in Application Support. Sensitive working data (flights,
+    /// plans, settings, map tiles, the crash-recovery checkpoint) lives here instead of the
+    /// file-sharing-exposed Documents directory. (SEC-12)
+    private let applicationSupportDirectory: URL
 
     /// iCloud Drive container URL (nil if iCloud not available) - cached at init
     /// IMPORTANT: FileManager.url(forUbiquityContainerIdentifier:) can block the main thread
@@ -46,9 +59,9 @@ class DataPersistenceManager: ObservableObject {
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
     private let iCloudDocumentsURL: URL?
 
-    /// Local Documents directory (On this iPhone/AéroCheck - the app name is shown by iOS)
+    /// Local app data directory (non-browsable Application Support, not the exposed Documents root).
     var localAppDirectory: URL {
-        documentsDirectory
+        applicationSupportDirectory
     }
 
     /// Flights directory - directly in iCloud Documents (visible as iCloud/AéroCheck/Flights)
@@ -67,9 +80,13 @@ class DataPersistenceManager: ObservableObject {
         return localAppDirectory.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
     }
 
-    /// Map tiles directory - always local (On this iPhone/AéroCheck/MapData)
+    /// Map tiles directory — kept in local Documents (On this iPhone/AéroCheck/MapData).
+    /// Map tiles are non-sensitive **public** chart cache (not personal data), so they stay put:
+    /// relocating them is unnecessary for SEC-12 and would orphan an existing tile cache (and the
+    /// hardcoded Documents/MapData path in OfflineMapManager). Only sensitive flight/plan/settings
+    /// data moves to Application Support.
     var mapTilesDirectory: URL {
-        localAppDirectory.appendingPathComponent(mapDataFolderName, isDirectory: true)
+        documentsDirectory.appendingPathComponent(mapDataFolderName, isDirectory: true)
     }
 
     /// Settings file URL - in iCloud Documents if available, otherwise local
@@ -92,10 +109,68 @@ class DataPersistenceManager: ObservableObject {
         // url(forUbiquityContainerIdentifier:) which blocks the main thread
         self.documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Documents")
+        let appSupportRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        self.applicationSupportDirectory = appSupportRoot.appendingPathComponent(appFolderName, isDirectory: true)
         self.iCloudContainerURL = FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.fetzu.aerocheck")
         self.iCloudDocumentsURL = self.iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
 
+        // One-time relocation of any existing local-fallback data out of the exposed Documents
+        // root into Application Support, BEFORE creating the (possibly-overlapping) new dirs. (SEC-12)
+        migrateLocalDatastoreIfNeeded()
+
         createDirectoryStructure()
+    }
+
+    /// Migration flag key. Bump the suffix if the datastore layout changes again.
+    private static let migrationFlagKey = "datastoreMigratedToApplicationSupport_v1"
+
+    /// Moves any pre-existing local datastore items from the Documents root (the old location) into
+    /// Application Support exactly once. Safe and idempotent: an item is moved only if it exists at
+    /// the source and is absent at the destination, so a partial/interrupted run never loses data.
+    private func migrateLocalDatastoreIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.migrationFlagKey) else { return }
+        Self.migrateLocalDatastore(
+            from: documentsDirectory,
+            to: applicationSupportDirectory,
+            fileManager: FileManager.default
+        )
+        defaults.set(true, forKey: Self.migrationFlagKey)
+    }
+
+    /// Pure, testable migration: moves each known datastore item from `oldBase` to `newBase` when
+    /// it exists at the source and is absent at the destination. Returns the count moved.
+    @discardableResult
+    nonisolated static func migrateLocalDatastore(
+        from oldBase: URL,
+        to newBase: URL,
+        fileManager: FileManager
+    ) -> Int {
+        // Only sensitive personal data is relocated. Map tiles (MapData) are non-sensitive public
+        // cache and deliberately stay in Documents.
+        let items = [
+            "Flights", "NavigationPlans",
+            "settings.json", "flights_index.json", "plans_index.json", "active_flight.json",
+        ]
+        try? fileManager.createDirectory(at: newBase, withIntermediateDirectories: true)
+        var moved = 0
+        for item in items {
+            let src = oldBase.appendingPathComponent(item)
+            let dst = newBase.appendingPathComponent(item)
+            guard fileManager.fileExists(atPath: src.path),
+                  !fileManager.fileExists(atPath: dst.path) else { continue }
+            do {
+                try fileManager.moveItem(at: src, to: dst)
+                moved += 1
+            } catch {
+                print("[AéroCheck] Datastore migration: failed to move \(item): \(error.localizedDescription)")
+            }
+        }
+        if moved > 0 {
+            print("[AéroCheck] Datastore migration: moved \(moved) item(s) to Application Support")
+        }
+        return moved
     }
 
     // MARK: - Directory Management
@@ -135,7 +210,7 @@ class DataPersistenceManager: ObservableObject {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(settings)
-            try data.write(to: settingsFileURL, options: .atomic)
+            try data.write(to: settingsFileURL, options: Self.protectedWriteOptions)
             print("[AéroCheck] Settings saved to file")
         } catch {
             print("[AéroCheck] Failed to save settings: \(error.localizedDescription)")
@@ -174,7 +249,7 @@ class DataPersistenceManager: ObservableObject {
     /// encode/write can run off the main actor during a long flight — only `Data` and `URL`
     /// (both Sendable) cross the actor boundary.
     nonisolated static func writeActiveFlightStateData(_ data: Data, to url: URL) throws {
-        try data.write(to: url, options: .atomic)
+        try data.write(to: url, options: Self.protectedWriteOptions)
     }
 
     /// Reads the raw active-flight checkpoint, or nil if none exists.
@@ -216,7 +291,7 @@ class DataPersistenceManager: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(flight)
-            try data.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL, options: Self.protectedWriteOptions)
             
             print("[AéroCheck] Flight saved: \(flightFilename(for: flight))")
         } catch {
@@ -244,7 +319,7 @@ class DataPersistenceManager: ObservableObject {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted]
             let data = try encoder.encode(index)
-            try data.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL, options: Self.protectedWriteOptions)
         } catch {
             print("[AéroCheck] Failed to save flights index: \(error.localizedDescription)")
         }
@@ -324,7 +399,7 @@ class DataPersistenceManager: ObservableObject {
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(plan)
-            try data.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL, options: Self.protectedWriteOptions)
             
             print("[AéroCheck] Navigation plan saved: \(navigationPlanFilename(for: plan))")
         } catch {
@@ -352,7 +427,7 @@ class DataPersistenceManager: ObservableObject {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted]
             let data = try encoder.encode(index)
-            try data.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL, options: Self.protectedWriteOptions)
         } catch {
             print("[AéroCheck] Failed to save navigation plans index: \(error.localizedDescription)")
         }

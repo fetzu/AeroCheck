@@ -81,18 +81,11 @@ struct FlightView: View {
         let registration: String
         let aircraftType: String
 
-        if let remoteChecklist = ChecklistData.currentRemoteChecklist {
-            speeds = remoteChecklist.localSpeeds
-            hasParachute = remoteChecklist.hasParachute ?? false
-            registration = remoteChecklist.registration
-            aircraftType = remoteChecklist.shortModelName
-        } else {
-            // Fallback to bundled WT9 data
-            speeds = WT9ChecklistData.speeds
-            hasParachute = WT9ChecklistData.hasParachute
-            registration = "F-HVXA"
-            aircraftType = "WT9"
-        }
+        let checklist = appState.activeChecklist
+        speeds = checklist.speeds
+        hasParachute = checklist.hasParachute
+        registration = checklist.registration
+        aircraftType = checklist.shortModelName
 
         // Get wind data if available (from MeteoSwiss)
         let windDirection: Double?
@@ -148,6 +141,7 @@ struct FlightView: View {
         }
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
+                .environmentObject(appState)
         }
         .sheet(isPresented: $showDepartureBriefing) {
             DepartureBriefingView(context: briefingContext)
@@ -338,6 +332,7 @@ struct FlightView: View {
                     VStack(spacing: 0) {
                         ChecklistView(
                             phase: appState.currentPhase,
+                            activeChecklist: appState.activeChecklist,
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
@@ -527,7 +522,7 @@ struct FlightView: View {
                 .background(Color.panelBackground)
 
             // Speed and altitude indicators inline (when applicable)
-            if appState.currentPhase.showsSpeedIndicator {
+            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
                 compactInstrumentBar
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -540,6 +535,7 @@ struct FlightView: View {
                     VStack(spacing: 0) {
                         ChecklistView(
                             phase: appState.currentPhase,
+                            activeChecklist: appState.activeChecklist,
                             onEngineStart: {
                                 appState.recordEngineStart()
                                 pulseActionButton = false
@@ -735,10 +731,11 @@ struct FlightView: View {
     private var compactInstrumentBar: some View {
         HStack(spacing: 16) {
             // Speed indicator (compact)
-            if let targetSpeed = appState.currentPhase.targetSpeed {
+            if let targetSpeed = appState.activeChecklist.targetSpeed(for: appState.currentPhase) {
                 CompactSpeedView(
                     speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: targetSpeed,
+                    stallSpeed: appState.activeChecklist.stallSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
                     estimatedAirspeed: estimatedAirspeed
                 )
@@ -855,7 +852,7 @@ struct FlightView: View {
     }
 
     private func handleChecklistTap(scrollProxy: ScrollViewProxy) {
-        let visibleCount = ChecklistData.visibleItemCount(
+        let visibleCount = appState.activeChecklist.visibleItemCount(
             for: appState.currentPhase,
             learningMode: appState.settings.learningMode
         )
@@ -946,7 +943,7 @@ struct FlightView: View {
             }
 
             HStack(spacing: 4) {
-                Text(ChecklistData.currentAircraftRegistration)
+                Text(appState.activeChecklist.registration)
                     .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
 
@@ -1119,10 +1116,11 @@ struct FlightView: View {
     private var sidePanel: some View {
         VStack(spacing: 0) {
             // Speed indicator (only during flight phases that need it)
-            if appState.currentPhase.showsSpeedIndicator {
+            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
                 FlightSpeedIndicator(
                     gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
-                    targetSpeed: appState.currentPhase.targetSpeed,
+                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                    stallSpeed: appState.activeChecklist.stallSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
                     estimatedAirspeed: estimatedAirspeed,
                     stallAlertEnabled: appState.settings.stallAlertSound
@@ -1419,6 +1417,7 @@ struct PhaseSelectorView: View {
 // MARK: - Speed Reference Sheet
 
 struct SpeedReferenceSheet: View {
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
     private var isIPad: Bool {
@@ -1428,7 +1427,7 @@ struct SpeedReferenceSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                SpeedReferenceView()
+                SpeedReferenceView(activeChecklist: appState.activeChecklist)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 16)
             }
@@ -1452,12 +1451,9 @@ struct SpeedReferenceSheet: View {
 struct CompactSpeedView: View {
     let speedKnots: Double // Ground speed in knots
     let targetSpeed: Int
+    let stallSpeed: Int // Stall speed (clean) of the active aircraft
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
-
-    private var stallSpeed: Int {
-        ChecklistData.currentAircraft.stallSpeed
-    }
 
     /// The speed value to display (estimated airspeed if available, otherwise ground speed)
     private var displaySpeed: Double {

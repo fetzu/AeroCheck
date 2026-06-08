@@ -124,6 +124,8 @@ enum L10n {
         static let deleteFlightMessage = String(localized: "alert.deleteFlight.message")
         static let checklistNotReadyTitle = String(localized: "alert.checklistNotReady.title")
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
+        static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
+        static let locationRequired = String(localized: "alert.locationRequired.message")
     }
 
     // MARK: - Phase Titles

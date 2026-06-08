@@ -262,12 +262,12 @@ struct NavigationMapView: View {
 
     /// Current target speed from flight phase (if applicable)
     private var targetSpeed: Int? {
-        appState.currentPhase.targetSpeed
+        appState.activeChecklist.targetSpeed(for: appState.currentPhase)
     }
 
     /// Stall speed from current aircraft
     private var stallSpeed: Int {
-        ChecklistData.currentAircraft.stallSpeed
+        appState.activeChecklist.stallSpeed
     }
 
     /// Speed color based on current speed vs target

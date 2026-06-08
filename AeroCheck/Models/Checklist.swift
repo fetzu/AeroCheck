@@ -106,17 +106,6 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
         self == .afterLanding
     }
     
-    /// Target speed for the phase (nil means no speed display, e.g. during taxi)
-    /// Now delegates to aircraft-specific data
-    var targetSpeed: Int? {
-        ChecklistData.currentAircraft.targetSpeed(for: self)
-    }
-
-    /// Whether this phase should show the speed indicator
-    var showsSpeedIndicator: Bool {
-        targetSpeed != nil
-    }
-    
     /// Whether this phase has an interactive briefing
     var hasBriefing: Bool {
         switch self {
@@ -174,91 +163,7 @@ struct ChecklistItem: Identifiable {
     }
 }
 
-/// Bridge to checklist data - delegates to appropriate aircraft type
-/// This maintains backward compatibility with existing code
-///
-/// Thread Safety: The currentAircraft property uses nonisolated(unsafe) to allow
-/// access from non-main-actor contexts (like ChecklistPhase computed properties).
-/// This is safe because:
-/// 1. Writes only happen from AppState.syncAircraftType() on the main actor
-/// 2. The value is an enum (value type) so reads are atomic
-/// 3. A stale read during aircraft switch is acceptable (UI will update immediately)
-struct ChecklistData {
-    /// Current aircraft type (synced from AppState.settings.selectedAircraft)
-    /// Only mutate this from AppState.syncAircraftType()
-    nonisolated(unsafe) static var currentAircraft: AircraftType = .wt9Dynamic
-
-    /// Current remote aircraft checklist (if a remote aircraft is selected)
-    /// Only mutate this from AppState
-    nonisolated(unsafe) static var currentRemoteChecklist: RemoteAircraftChecklist? = nil
-
-    /// True when a remote (premium) aircraft is selected, so a remote checklist is expected.
-    /// When this is set but `currentRemoteChecklist` is nil (the load failed), ChecklistData
-    /// must NOT fall back to the bundled WT9 content — a premium flight must never display the
-    /// wrong aircraft's items. Flight start is also blocked in this state. (ARCH-01)
-    nonisolated(unsafe) static var expectsRemoteChecklist: Bool = false
-
-    /// True when a remote checklist is expected but hasn't resolved (load failed/pending).
-    static var isAwaitingUnresolvedRemoteChecklist: Bool {
-        expectsRemoteChecklist && currentRemoteChecklist == nil
-    }
-
-    static func items(for phase: ChecklistPhase) -> [ChecklistItem] {
-        if let remote = currentRemoteChecklist {
-            return remote.items(for: phase)
-        }
-        // Never serve bundled WT9 items when a premium checklist was expected. (ARCH-01)
-        if expectsRemoteChecklist { return [] }
-        return currentAircraft.items(for: phase)
-    }
-
-    // MARK: - Learning Mode Support
-
-    static func learningModeVisibleCount(for phase: ChecklistPhase) -> Int? {
-        if let remote = currentRemoteChecklist {
-            return remote.learningModeVisibleCount(for: phase)
-        }
-        if expectsRemoteChecklist { return nil }
-        return currentAircraft.learningModeVisibleCount(for: phase)
-    }
-
-    static func visibleItems(for phase: ChecklistPhase, learningMode: Bool) -> [ChecklistItem] {
-        if let remote = currentRemoteChecklist {
-            return remote.visibleItems(for: phase, learningMode: learningMode)
-        }
-        if expectsRemoteChecklist { return [] }
-        return currentAircraft.visibleItems(for: phase, learningMode: learningMode)
-    }
-
-    static func visibleItemCount(for phase: ChecklistPhase, learningMode: Bool) -> Int {
-        if let remote = currentRemoteChecklist {
-            let items = remote.items(for: phase)
-            if learningMode {
-                return items.count
-            }
-            if let count = remote.learningModeVisibleCount(for: phase) {
-                return count
-            }
-            return items.count
-        }
-        return currentAircraft.visibleItemCount(for: phase, learningMode: learningMode)
-    }
-
-    static func hasHiddenItems(for phase: ChecklistPhase, learningMode: Bool) -> Bool {
-        if learningMode {
-            return false
-        }
-        if let remote = currentRemoteChecklist {
-            return remote.learningModeVisibleCount(for: phase) != nil
-        }
-        return currentAircraft.hasHiddenItems(for: phase, learningMode: learningMode)
-    }
-
-    /// Get the registration of the current aircraft (remote or bundled)
-    static var currentAircraftRegistration: String {
-        if let remote = currentRemoteChecklist {
-            return remote.registration
-        }
-        return currentAircraft.registration
-    }
-}
+// Checklist content and speed data are resolved into an owned `ActiveChecklist` value (see
+// ActiveChecklist.swift), owned by `AppState` and resolved once per flight. The former global
+// `ChecklistData` statics were removed so a premium flight can never read the bundled aircraft's
+// data. (ARCH-01)

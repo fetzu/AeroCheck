@@ -51,6 +51,7 @@ AeroCheck/
 │   ├── FlightPlan.swift       # Flight plan models and export (Beta)
 │   ├── FlightPlanManager.swift # Flight plan state management (Beta)
 │   ├── Checklist.swift        # 16 flight phases with items
+│   ├── ActiveChecklist.swift  # Owned, resolved checklist + speeds for the active aircraft (replaces the old global ChecklistData statics)
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
 │   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
@@ -59,6 +60,8 @@ AeroCheck/
 │   └── BriefingData.swift     # Dynamic departure and approach briefing context builder
 ├── Services/
 │   ├── LocationManager.swift       # GPS tracking (CLLocationManagerDelegate)
+│   ├── FlightLauncher.swift        # Shared flight-start sequence for every entry point (buttons, widget, deep link): checklist load → guards → start → GPS tracking
+│   ├── WidgetBridge.swift          # Publishes the owned-aircraft list to the home-screen widget via the App Group
 │   ├── SubscriptionManager.swift   # StoreKit 2 subscription handling
 │   ├── AircraftDataService.swift   # Remote aircraft/checklist fetching
 │   ├── DataPersistenceManager.swift # File-based data persistence
@@ -114,6 +117,7 @@ AeroCheckWatch/
 | 16 Flight Phases | `ChecklistPhase` enum in `Checklist.swift` |
 | Multi-Aircraft (Bundled) | `AircraftType` enum, `WT9ChecklistData` |
 | Premium Aircraft | `RemoteAircraft.swift`, `AircraftDataService` |
+| Unified Flight Start | `FlightLauncher` — one start sequence shared by the buttons, widget, and deep links (checklist load → ARCH-01/entitlement/permission/active-flight guards → start → GPS) |
 | Subscription System | `SubscriptionManager` (StoreKit 2), `SubscriptionView` |
 | Step-by-step highlighting | `AppState.currentHighlightedItem` |
 | Learning Mode | Hides memorizable items |
@@ -127,7 +131,7 @@ AeroCheckWatch/
 | Circuit Mode | Streamlined phases for pattern training |
 | Export | GPX 1.1 (with `pc:` extensions), JSON, ZIP |
 | Flight Plan GPX Export | `FlightPlanExportService` for Dynon/Garmin avionics (Beta) |
-| Home Screen Widgets | `AeroCheckWidget` for quick flight start |
+| Home Screen Widgets | `AeroCheckWidget` for quick flight start; renders only owned aircraft via the App Group (`WidgetBridge`) and routes through `FlightLauncher` |
 | Apple Watch App | Real-time flight data on wrist |
 | iCloud Sync | Settings and flights sync across devices |
 | Multi-Language | English, French (via `Localization.swift`) |
@@ -245,7 +249,7 @@ if subscriptionManager.isSubscribed {
 
 - In-App Purchase
 - iCloud (CloudKit)
-- App Groups (for Widget)
+- App Groups (`group.com.fetzu.aerocheck`) — shares the owned-aircraft list with the widget (`WidgetBridge` → `WidgetSharedData`)
 
 ## Performance Notes
 

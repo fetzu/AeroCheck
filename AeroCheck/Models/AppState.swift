@@ -301,14 +301,37 @@ class AppState: ObservableObject {
     @Published var currentPhase: ChecklistPhase = .preflight
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
-    /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded).
-    /// Observed by the UI to show an explanatory alert. (ARCH-01)
+    /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
+    /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     @Published var flightStartError: String?
+
+    /// Set when a flight start is refused because the requested premium aircraft isn't owned.
+    /// Observed by the UI to present the subscription paywall. (UX-07)
+    @Published var flightStartPaywallRequest: Bool = false
+
+    /// The resolved remote checklist for the current selection — a premium aircraft, or a
+    /// language-specific bundled checklist. `nil` means none is loaded (the bundled fallback is
+    /// used, unless a premium aircraft is selected, in which case the checklist is unresolved).
+    /// Only mutated by `loadRemoteChecklistIfNeeded` / `syncAircraftType`.
+    @Published private(set) var resolvedRemoteChecklist: RemoteAircraftChecklist?
+
+    /// The owned, fully-resolved checklist + speeds for the current selection. Every checklist /
+    /// speed reader uses this instead of the former global `ChecklistData` statics, so a premium
+    /// aircraft never falls back to the bundled WT9's content. (ARCH-01)
+    var activeChecklist: ActiveChecklist {
+        if let checklist = resolvedRemoteChecklist {
+            return ActiveChecklist(source: .remote(checklist))
+        }
+        if settings.selectedRemoteAircraftId != nil {
+            return ActiveChecklist(source: .unresolved)
+        }
+        return ActiveChecklist(source: .bundled(settings.selectedAircraft))
+    }
 
     /// True unless a premium aircraft is selected but its checklist hasn't resolved.
     /// Callers must not begin a flight (or GPS tracking) when this is false. (ARCH-01)
     var isPremiumChecklistResolved: Bool {
-        settings.selectedRemoteAircraftId == nil || ChecklistData.currentRemoteChecklist != nil
+        settings.selectedRemoteAircraftId == nil || resolvedRemoteChecklist != nil
     }
     @Published var flights: [Flight] = []
     @Published var isLoadingFlights: Bool = true
@@ -417,16 +440,12 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Sync the current aircraft type to ChecklistData
+    /// Reconcile the resolved checklist with the current selection.
+    /// Drops any resolved remote checklist when no remote aircraft is selected, so the active
+    /// checklist falls back to the bundled aircraft until a (language-specific) checklist loads.
     private func syncAircraftType() {
-        ChecklistData.currentAircraft = settings.selectedAircraft
-        // Track whether a premium checklist is expected, so ChecklistData never falls back to
-        // WT9 content for a premium selection and flight start can be blocked. (ARCH-01)
-        ChecklistData.expectsRemoteChecklist = (settings.selectedRemoteAircraftId != nil)
-
-        // Clear remote checklist if not using remote aircraft
         if settings.selectedRemoteAircraftId == nil {
-            ChecklistData.currentRemoteChecklist = nil
+            resolvedRemoteChecklist = nil
         }
     }
 
@@ -434,46 +453,82 @@ class AppState: ObservableObject {
     /// Call this before starting a flight
     func loadRemoteChecklistIfNeeded(aircraftDataService: AircraftDataService) async {
         let language = settings.checklistLanguage.resolvedLanguage
-        ChecklistData.expectsRemoteChecklist = (settings.selectedRemoteAircraftId != nil)
 
         // Handle remote (premium) aircraft
         if let remoteId = settings.selectedRemoteAircraftId {
             if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
-                ChecklistData.currentRemoteChecklist = checklist
+                resolvedRemoteChecklist = checklist
                 print("[AéroCheck] Loaded remote checklist for \(remoteId) (\(language))")
             } else {
                 print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
-                ChecklistData.currentRemoteChecklist = nil
+                resolvedRemoteChecklist = nil
             }
             return
         }
 
         // Handle bundled aircraft with language-specific checklists
-        // For bundled aircraft like the WT9, load the language-specific JSON
-        // into currentRemoteChecklist so ChecklistData uses it instead of
-        // the hardcoded WT9ChecklistData
+        // For bundled aircraft like the WT9, load the language-specific JSON into
+        // resolvedRemoteChecklist so the active checklist uses it instead of the hardcoded
+        // WT9ChecklistData.
         let aircraftType = settings.selectedAircraft
         if aircraftType == .wt9Dynamic {
             let bundledId = "wt9-dynamic"
 
             // First try to get a cached/API version for this language
             if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
-                ChecklistData.currentRemoteChecklist = checklist
+                resolvedRemoteChecklist = checklist
                 print("[AéroCheck] Loaded checklist for bundled aircraft \(bundledId) (\(language))")
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: bundledId, language: language) {
                 // Fall back to bundled resource
-                ChecklistData.currentRemoteChecklist = bundled
+                resolvedRemoteChecklist = bundled
                 print("[AéroCheck] Loaded bundled checklist for \(bundledId) (\(language))")
             } else {
                 // No language-specific checklist available, use hardcoded default
-                ChecklistData.currentRemoteChecklist = nil
+                resolvedRemoteChecklist = nil
                 print("[AéroCheck] Using default checklist for \(bundledId)")
             }
         } else {
-            ChecklistData.currentRemoteChecklist = nil
+            resolvedRemoteChecklist = nil
         }
     }
     
+    // MARK: - Aircraft Selection
+
+    /// Select the aircraft for the next flight by an identifier or registration.
+    ///
+    /// Matches against bundled aircraft and the supplied remote metadata, by `id` **or**
+    /// `registration` — a deep link or widget may pass either token. Updates the persisted
+    /// selection (`selectedRemoteAircraftId` for premium, `selectedAircraft` for bundled) via
+    /// `saveSettings()`, which reconciles the resolved/active checklist with the selection.
+    ///
+    /// Returns `false` for an unknown token so a caller (e.g. a deep link) can refuse to start a
+    /// flight rather than launch the wrong or empty aircraft. (UX-11)
+    @discardableResult
+    func selectAircraft(id: String, available: [RemoteAircraftMetadata]) -> Bool {
+        // Bundled aircraft — match by enum id (rawValue), server id, or registration. Checked
+        // before remote so a bundled aircraft never resolves to its remote/server duplicate.
+        if let bundled = AircraftType.allCases.first(where: { $0.rawValue == id || $0.serverId == id || $0.registration == id }) {
+            if settings.selectedRemoteAircraftId != nil || settings.selectedAircraft != bundled {
+                settings.selectedRemoteAircraftId = nil
+                settings.selectedAircraft = bundled
+                saveSettings() // syncAircraftType() runs here, clearing any stale remote checklist
+            }
+            return true
+        }
+
+        // Remote / premium aircraft — match by id or registration.
+        if let remote = available.first(where: { $0.id == id || $0.registration == id }) {
+            if settings.selectedRemoteAircraftId != remote.id {
+                settings.selectedRemoteAircraftId = remote.id
+                saveSettings()
+            }
+            return true
+        }
+
+        // Unknown token — leave the current selection untouched.
+        return false
+    }
+
     // MARK: - Flight Management
 
     func startFlight() {
@@ -491,7 +546,7 @@ class AppState: ObservableObject {
         // ARCH-01: never begin a flight for a premium aircraft without its resolved checklist —
         // this is the single choke point, so deep-link/widget entry points are covered too. A
         // blocked start surfaces an explicit error instead of silently showing WT9 content.
-        if ChecklistData.isAwaitingUnresolvedRemoteChecklist {
+        if !isPremiumChecklistResolved {
             flightStartError = L10n.Alert.checklistNotReady
             print("[AéroCheck] Flight start blocked: premium checklist not resolved")
             return
@@ -587,8 +642,8 @@ class AppState: ObservableObject {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         
         // Get visible items count based on learning mode
-        let visibleCount = ChecklistData.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
-        
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+
         if currentIndex < visibleCount - 1 {
             currentHighlightedItem[currentPhase] = currentIndex + 1
         }
@@ -597,13 +652,13 @@ class AppState: ObservableObject {
     
     /// Mark the last item as complete (moves index past the last item)
     func markLastItemComplete() {
-        let visibleCount = ChecklistData.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
         currentHighlightedItem[currentPhase] = visibleCount
     }
     
     /// Check if all items in current phase are completed
     func areAllItemsCompleted() -> Bool {
-        let visibleCount = ChecklistData.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return currentIndex >= visibleCount
     }

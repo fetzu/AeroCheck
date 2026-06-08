@@ -8,6 +8,15 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
 
     var id: String { rawValue }
 
+    /// The identifier this bundled aircraft is known by on the server and in deep links
+    /// (e.g. the `aircraft=` token a widget passes). Lets `AppState.selectAircraft` resolve a
+    /// server-style id back to the bundled aircraft instead of its remote duplicate.
+    var serverId: String {
+        switch self {
+        case .wt9Dynamic: return "wt9-dynamic"
+        }
+    }
+
     /// Aircraft registration
     var registration: String {
         switch self {
@@ -54,6 +63,13 @@ enum AircraftType: String, CaseIterable, Identifiable, Codable {
     var stallSpeed: Int {
         switch self {
         case .wt9Dynamic: return 42
+        }
+    }
+
+    /// Whether the aircraft has a ballistic parachute (BRS/CAPS)
+    var hasParachute: Bool {
+        switch self {
+        case .wt9Dynamic: return WT9ChecklistData.hasParachute
         }
     }
 

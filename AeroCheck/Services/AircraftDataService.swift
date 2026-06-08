@@ -47,6 +47,10 @@ class AircraftDataService: ObservableObject {
 
         // Load cached data first
         loadCachedMetadata()
+
+        // Seed the home-screen widget with the owned-aircraft list from cache so it's correct
+        // even before the first network fetch completes.
+        WidgetBridge.publish(available: availableAircraft)
     }
 
     // MARK: - Public Methods
@@ -73,6 +77,9 @@ class AircraftDataService: ObservableObject {
             // Fall back to cached data
             loadCachedMetadata()
         }
+
+        // Refresh the widget's owned-aircraft list to reflect the latest access state. (UX-07)
+        WidgetBridge.publish(available: availableAircraft)
     }
 
     /// Fetches a specific aircraft checklist

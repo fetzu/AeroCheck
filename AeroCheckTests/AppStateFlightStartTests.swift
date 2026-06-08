@@ -3,24 +3,18 @@ import XCTest
 
 /// Tests the flight-start safety guard: a flight must never begin for a premium aircraft
 /// whose checklist hasn't resolved (ARCH-01). This is the single choke point that protects
-/// every entry point (HomeView, deep link, widget), and a prerequisite test net for the
-/// larger flight-start refactor.
+/// every entry point (HomeView, deep link, widget). The unresolved state is now modelled by the
+/// owned `AppState.activeChecklist` (premium selected + no resolved checklist) rather than the
+/// former global `ChecklistData` statics.
 @MainActor
 final class AppStateFlightStartTests: XCTestCase {
 
-    override func tearDown() {
-        // Reset shared checklist state so suites don't contaminate each other.
-        ChecklistData.expectsRemoteChecklist = false
-        ChecklistData.currentRemoteChecklist = nil
-        super.tearDown()
-    }
-
     func testStartBlockedWhenPremiumChecklistUnresolved() {
         let appState = AppState()
-        // A premium aircraft is selected but its checklist failed to load.
-        ChecklistData.expectsRemoteChecklist = true
-        ChecklistData.currentRemoteChecklist = nil
+        // A premium aircraft is selected but its checklist failed to load (resolvedRemoteChecklist nil).
+        appState.settings.selectedRemoteAircraftId = "pa28-181"
         appState.flightStartError = nil
+        XCTAssertFalse(appState.isPremiumChecklistResolved, "Premium checklist should be unresolved")
 
         appState.startFlight(
             withAircraft: "HB-PFA", aircraftRegistration: "HB-PFA",
@@ -34,9 +28,10 @@ final class AppStateFlightStartTests: XCTestCase {
     func testStartSucceedsWhenChecklistResolved() {
         let appState = AppState()
         // Free aircraft / no premium checklist expected.
-        ChecklistData.expectsRemoteChecklist = false
-        ChecklistData.currentRemoteChecklist = nil
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
         appState.flightStartError = nil
+        XCTAssertTrue(appState.isPremiumChecklistResolved)
 
         appState.startFlight(
             withAircraft: "F-HVXA", aircraftRegistration: "F-HVXA",

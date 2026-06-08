@@ -148,9 +148,9 @@ All subscription payments are handled securely through the Apple App Store. See 
 - Approach briefing modal with approach info, speeds, and missed approach
 
 ### 📱 Home Screen Widgets
-- **Small widget**: Quick aircraft selection buttons for F-HVXA and HB-PFA
-- **Medium widget**: Aircraft selection plus Flight Log shortcut
-- Deep links to start flights directly from home screen
+- **Small widget**: Quick-start buttons for the aircraft you own — the free F-HVXA plus any premium aircraft you've unlocked (unowned aircraft are never shown)
+- **Medium widget**: Owned-aircraft quick start plus a Flight Log shortcut
+- Deep links start a flight directly from the widget, going through the same checklist load, entitlement, location-permission, and GPS-tracking setup as the in-app START button
 
 ## Checklist Phases
 

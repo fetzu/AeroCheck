@@ -12,6 +12,9 @@
 		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
 		A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000007 /* FlightEventDetectorTests.swift */; };
 		A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000009111111110000001 /* AppStateFlightStartTests.swift */; };
+		A500000A111111110000002 /* AppStateSelectAircraftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000A111111110000001 /* AppStateSelectAircraftTests.swift */; };
+		A500000B111111110000002 /* FlightLauncherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000B111111110000001 /* FlightLauncherTests.swift */; };
+		A500000C111111110000002 /* ActiveChecklistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000C111111110000001 /* ActiveChecklistTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
@@ -33,8 +36,11 @@
 		A1000001211111110000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000006 /* SettingsView.swift */; };
 		A1000001211111110000007 /* Flight.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000007 /* Flight.swift */; };
 		A1000001211111110000008 /* Checklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000008 /* Checklist.swift */; };
+		A1000001211111110000097 /* ActiveChecklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000097 /* ActiveChecklist.swift */; };
 		A1000001211111110000009 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000009 /* AppState.swift */; };
 		A1000001211111110000010 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000010 /* LocationManager.swift */; };
+		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
+		A1000001211111110000098 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000098 /* WidgetBridge.swift */; };
 		A1000001211111110000011 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000011 /* DesignSystem.swift */; };
 		A1000001211111110000012 /* ChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000012 /* ChecklistView.swift */; };
 		A1000001211111110000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000013 /* Assets.xcassets */; };
@@ -150,6 +156,9 @@
 		A5000008111111110000005 /* WindDataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataServiceTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000007 /* FlightEventDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightEventDetectorTests.swift; sourceTree = "<group>"; };
 		A5000009111111110000001 /* AppStateFlightStartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateFlightStartTests.swift; sourceTree = "<group>"; };
+		A500000A111111110000001 /* AppStateSelectAircraftTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateSelectAircraftTests.swift; sourceTree = "<group>"; };
+		A500000B111111110000001 /* FlightLauncherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncherTests.swift; sourceTree = "<group>"; };
+		A500000C111111110000001 /* ActiveChecklistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveChecklistTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
@@ -173,8 +182,11 @@
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1000001111111110000007 /* Flight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Flight.swift; sourceTree = "<group>"; };
 		A1000001111111110000008 /* Checklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Checklist.swift; sourceTree = "<group>"; };
+		A1000001111111110000097 /* ActiveChecklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveChecklist.swift; sourceTree = "<group>"; };
 		A1000001111111110000009 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A1000001111111110000010 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
+		A1000001111111110000098 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		A1000001111111110000011 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		A1000001111111110000012 /* ChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistView.swift; sourceTree = "<group>"; };
 		A1000001111111110000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -277,6 +289,9 @@
 				A5000008111111110000005 /* WindDataServiceTests.swift */,
 				A5000008111111110000007 /* FlightEventDetectorTests.swift */,
 				A5000009111111110000001 /* AppStateFlightStartTests.swift */,
+				A500000A111111110000001 /* AppStateSelectAircraftTests.swift */,
+				A500000B111111110000001 /* FlightLauncherTests.swift */,
+				A500000C111111110000001 /* ActiveChecklistTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -382,6 +397,7 @@
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
 				04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */,
 				A1000001111111110000008 /* Checklist.swift */,
+				A1000001111111110000097 /* ActiveChecklist.swift */,
 				A1000001111111110000016 /* WT9ChecklistData.swift */,
 				A1000001111111110000009 /* AppState.swift */,
 				B3000001111111110000003 /* RemoteAircraft.swift */,
@@ -394,6 +410,8 @@
 			isa = PBXGroup;
 			children = (
 				A1000001111111110000010 /* LocationManager.swift */,
+				A1000001111111110000099 /* FlightLauncher.swift */,
+				A1000001111111110000098 /* WidgetBridge.swift */,
 				A1000001111111110000019 /* OfflineMapManager.swift */,
 				047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */,
 				A1000001111111110000020 /* WindDataService.swift */,
@@ -636,6 +654,9 @@
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
 				A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */,
 				A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */,
+				A500000A111111110000002 /* AppStateSelectAircraftTests.swift in Sources */,
+				A500000B111111110000002 /* FlightLauncherTests.swift in Sources */,
+				A500000C111111110000002 /* ActiveChecklistTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,8 +681,11 @@
 				A1000001211111110000006 /* SettingsView.swift in Sources */,
 				A1000001211111110000007 /* Flight.swift in Sources */,
 				A1000001211111110000008 /* Checklist.swift in Sources */,
+				A1000001211111110000097 /* ActiveChecklist.swift in Sources */,
 				A1000001211111110000009 /* AppState.swift in Sources */,
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
+				A1000001211111110000099 /* FlightLauncher.swift in Sources */,
+				A1000001211111110000098 /* WidgetBridge.swift in Sources */,
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
 				04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */,
 				04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */,
@@ -1016,6 +1040,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "AeroCheckWidget/AeroCheckWidget.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0.1;
@@ -1048,6 +1073,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "AeroCheckWidget/AeroCheckWidget.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0.1;

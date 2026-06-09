@@ -576,10 +576,7 @@ struct NavigationMapView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.primaryText)
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                    .background(
-                        Circle()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeCircle()
             }
 
             // Flight Plan button (toggles bottom panel) - shown when flight plan is active and not completed
@@ -603,10 +600,7 @@ struct NavigationMapView: View {
                     }
                     .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
                     .frame(width: 50, height: 44) // HIG minimum tap height (UX-16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeBackground(cornerRadius: 8)
                 }
             } else {
                 // When no flight plan is active, show button to open flight planning view
@@ -615,10 +609,7 @@ struct NavigationMapView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.primaryText)
                         .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                        .floatingChromeBackground(cornerRadius: 8)
                 }
                 .sheet(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
@@ -702,10 +693,7 @@ struct NavigationMapView: View {
                     .padding(.vertical, 3)
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.panelBackground.opacity(0.9))
-            )
+            .floatingChromeBackground(cornerRadius: 8)
 
             Spacer()
 
@@ -738,10 +726,7 @@ struct NavigationMapView: View {
                     .font(.system(size: 14))
                     .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                    .background(
-                        Circle()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeCircle()
             }
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
@@ -797,10 +782,7 @@ struct NavigationMapView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeBackground(cornerRadius: 6)
                 }
                 .fullScreenCover(isPresented: $showGPSStatusModal) {
                     GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
@@ -822,10 +804,7 @@ struct NavigationMapView: View {
                         .foregroundColor(showCompactPanel ? .aviationGold : .primaryText)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                        .floatingChromeBackground(cornerRadius: 8)
                     }
                 }
 
@@ -843,10 +822,7 @@ struct NavigationMapView: View {
                                 .foregroundColor(.aviationGold)
                                 .rotationEffect(.degrees(-mapState.cameraHeading))
                                 .frame(width: 40, height: 40)
-                                .background(
-                                    Circle()
-                                        .fill(Color.panelBackground.opacity(0.9))
-                                )
+                                .floatingChromeCircle()
                         }
                     }
 
@@ -856,10 +832,7 @@ struct NavigationMapView: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
                             .frame(width: 40, height: 40)
-                            .background(
-                                Circle()
-                                    .fill(Color.panelBackground.opacity(0.9))
-                            )
+                            .floatingChromeCircle()
                     }
                 }
                 .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
@@ -894,7 +867,7 @@ struct NavigationMapView: View {
             Color.panelBackground.opacity(0.95)
                 .frame(height: bottomSafeArea)
         }
-        .background(Color.panelBackground.opacity(0.95))
+        .background(.regularMaterial)
     }
 
     /// Header for the compact panel with drag gesture support
@@ -1679,10 +1652,7 @@ struct NavigationMapView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.primaryText)
                     .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeCircle()
             }
 
             // Flight Plan button (when enabled)
@@ -1699,10 +1669,7 @@ struct NavigationMapView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
                     .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeCircle()
                 }
                 .sheet(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
@@ -1778,10 +1745,7 @@ struct NavigationMapView: View {
                         .padding(.vertical, 4)
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
+                .floatingChromeBackground(cornerRadius: 10)
             } else {
                 // Horizontal layout for iPad
                 VStack(spacing: 0) {
@@ -1845,10 +1809,7 @@ struct NavigationMapView: View {
                     }
                 }
                 .fixedSize(horizontal: true, vertical: false)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
+                .floatingChromeBackground(cornerRadius: 10)
             }
 
             Spacer()
@@ -1893,10 +1854,7 @@ struct NavigationMapView: View {
                 .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.panelBackground.opacity(0.9))
-                )
+                .floatingChromeBackground(cornerRadius: 10)
             }
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
@@ -1951,10 +1909,7 @@ struct NavigationMapView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.panelBackground.opacity(0.9))
-                    )
+                    .floatingChromeBackground(cornerRadius: 8)
                 }
                 .fullScreenCover(isPresented: $showGPSStatusModal) {
                     GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
@@ -1972,10 +1927,7 @@ struct NavigationMapView: View {
                         .foregroundColor(showRadioFrequencyWindow ? .aviationGold : .primaryText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.panelBackground.opacity(0.9))
-                        )
+                        .floatingChromeBackground(cornerRadius: 8)
                     }
                 }
 
@@ -1992,10 +1944,7 @@ struct NavigationMapView: View {
                                     .font(.system(size: 20, weight: .medium))
                                     .foregroundColor(.primaryText)
                                     .frame(width: 50, height: 50)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.panelBackground.opacity(0.9))
-                                    )
+                                    .floatingChromeCircle()
                             }
                         } else {
                             // Track-up mode indicator
@@ -2003,10 +1952,7 @@ struct NavigationMapView: View {
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundColor(.aviationGold)
                                 .frame(width: 50, height: 50)
-                                .background(
-                                    Circle()
-                                        .fill(Color.panelBackground.opacity(0.9))
-                                )
+                                .floatingChromeCircle()
                         }
                     }
 
@@ -2016,10 +1962,7 @@ struct NavigationMapView: View {
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
                             .frame(width: 50, height: 50)
-                            .background(
-                                Circle()
-                                    .fill(Color.panelBackground.opacity(0.9))
-                            )
+                            .floatingChromeCircle()
                     }
                 }
                 .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
@@ -2074,7 +2017,7 @@ struct CompassView: View {
         ZStack {
             // Background circle
             Circle()
-                .fill(Color.panelBackground.opacity(0.9))
+                .fill(.regularMaterial)
                 .frame(width: 50, height: 50)
 
             // Rotating compass content (N and arrow)

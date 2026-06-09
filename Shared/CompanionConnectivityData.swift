@@ -44,7 +44,11 @@ enum CompanionRoleSetting: String, Codable, CaseIterable, Identifiable {
 
 // MARK: - Wire Protocol
 
-/// Wrapper for all messages sent between devices
+/// Wrapper for all messages sent between devices.
+///
+/// **Versioned, tolerant contract.** The iPad (master) and iPhone (viewer) apps update
+/// independently, so the envelope carries `schemaVersion` to let a receiver detect skew, and its
+/// decoder reads the version with a default so a pre-versioning envelope still routes. (ARCH)
 struct CompanionMessage: Codable {
     enum MessageType: String, Codable {
         case flightData       // Master -> Viewer (periodic 1Hz)
@@ -53,14 +57,29 @@ struct CompanionMessage: Codable {
         case disconnect       // Either direction (graceful)
     }
 
+    /// Current wire-format version produced by this build.
+    static let currentSchemaVersion = 1
+
+    let schemaVersion: Int
     let type: MessageType
     let payload: Data     // JSON-encoded inner type
     let timestamp: Date
 
     init(type: MessageType, payload: Data) {
+        self.schemaVersion = CompanionMessage.currentSchemaVersion
         self.type = type
         self.payload = payload
         self.timestamp = Date()
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Tolerant on version (0 = pre-versioning sender); type/payload stay required — a message
+        // with no routable type is genuinely unusable and should surface as an error.
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
+        type = try c.decode(MessageType.self, forKey: .type)
+        payload = try c.decode(Data.self, forKey: .payload)
+        timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
     }
 }
 
@@ -101,6 +120,36 @@ struct CompanionFlightData: Codable {
 
     // Timestamp for staleness detection
     let timestamp: Date
+}
+
+extension CompanionFlightData {
+    /// Tolerant decoder: every field defaults, so a field skew between the independently-updated
+    /// iPad (master) and iPhone (viewer) builds never throws and drops the 1 Hz update. Declared in
+    /// an extension so the sender's memberwise initialiser is preserved. (ARCH — versioned contract)
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isFlightActive = try c.decodeIfPresent(Bool.self, forKey: .isFlightActive) ?? false
+        currentPhase = try c.decodeIfPresent(String.self, forKey: .currentPhase) ?? "PREFLIGHT"
+        currentPhaseRawValue = try c.decodeIfPresent(Int.self, forKey: .currentPhaseRawValue) ?? 0
+        isCircuitMode = try c.decodeIfPresent(Bool.self, forKey: .isCircuitMode) ?? false
+        engineStartTime = try c.decodeIfPresent(Date.self, forKey: .engineStartTime)
+        lineUpTime = try c.decodeIfPresent(Date.self, forKey: .lineUpTime)
+        landingTime = try c.decodeIfPresent(Date.self, forKey: .landingTime)
+        alwaysUseUTC = try c.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
+        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
+        speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
+        altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
+        courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
+        gpsSignalStatus = try c.decodeIfPresent(String.self, forKey: .gpsSignalStatus) ?? "unknown"
+        currentWaypointIndex = try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
+        chronometerStartTime = try c.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
+        chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
+        aircraftRegistration = try c.decodeIfPresent(String.self, forKey: .aircraftRegistration) ?? ""
+        aircraftType = try c.decodeIfPresent(String.self, forKey: .aircraftType) ?? ""
+        // Absent timestamp -> distantPast so a malformed update reads as stale, never as "fresh now".
+        timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
+    }
 }
 
 // MARK: - Flight Plan Snapshot (Master -> Viewer, on connect + on change)

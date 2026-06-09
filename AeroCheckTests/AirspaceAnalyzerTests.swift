@@ -78,4 +78,34 @@ final class AirspaceAnalyzerTests: XCTestCase {
         ]
         XCTAssertTrue(AirspaceAnalyzer.analyzeRoute(waypoints: waypoints, airspaces: [ctr]).isEmpty)
     }
+
+    // MARK: - PERF-25: isotropic distance-to-segment
+
+    /// The cos(lat)-scaled projection must locate the true nearest point on a diagonal segment at a
+    /// Swiss latitude (where raw lon/lat units distort east-west by ~47%). Validated against a dense
+    /// geodesic sampling of the segment, which is the ground-truth nearest distance.
+    func testDistanceToSegmentMatchesDenseGeodesicReference() {
+        let segStart = CLLocation(latitude: 47.0, longitude: 8.0)
+        let segEnd = CLLocation(latitude: 47.2, longitude: 9.0) // diagonal, significant E-W extent
+        let point = CLLocation(latitude: 47.05, longitude: 8.9)
+
+        var reference = Double.infinity
+        let n = 4000
+        for i in 0...n {
+            let f = Double(i) / Double(n)
+            let sample = CLLocation(latitude: 47.0 + f * 0.2, longitude: 8.0 + f * 1.0)
+            reference = min(reference, point.distance(from: sample))
+        }
+
+        let d = AirspaceAnalyzer.distanceToSegment(point: point, segStart: segStart, segEnd: segEnd)
+        XCTAssertEqual(d, reference, accuracy: 50,
+                       "cos-lat projection should match the true nearest geodesic distance")
+
+        // Sanity: the same fix keeps a perpendicular distance from an east-west edge correct.
+        let edgeStart = CLLocation(latitude: 47.0, longitude: 8.0)
+        let edgeEnd = CLLocation(latitude: 47.0, longitude: 8.4)
+        let northPoint = CLLocation(latitude: 47.0 + 1852.0 / 111_320.0, longitude: 8.2) // ~1 NM north
+        let perp = AirspaceAnalyzer.distanceToSegment(point: northPoint, segStart: edgeStart, segEnd: edgeEnd)
+        XCTAssertEqual(perp, 1852, accuracy: 30, "~1 NM perpendicular from an E-W edge")
+    }
 }

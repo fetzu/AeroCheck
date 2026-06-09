@@ -102,4 +102,23 @@ final class AppStateSelectAircraftTests: XCTestCase {
         XCTAssertNil(appState.settings.selectedRemoteAircraftId)
         XCTAssertEqual(appState.settings.selectedAircraft, .wt9Dynamic)
     }
+
+    // MARK: - FlightTiming facade (Phase 4 — AppState decomposition: state extraction)
+
+    func testTimingAccessorsForwardToFlightTimingValue() {
+        let appState = AppState()
+        let t = Date(timeIntervalSince1970: 1000)
+
+        // Writing through the legacy accessor mutates the cohesive FlightTiming value…
+        appState.engineStartTime = t
+        XCTAssertEqual(appState.flightTiming.engineStartTime, t)
+
+        // …and writing the value is visible through the legacy accessor (both directions).
+        appState.flightTiming.lineUpTime = t.addingTimeInterval(60)
+        XCTAssertEqual(appState.lineUpTime, t.addingTimeInterval(60))
+
+        // The four milestones are independent.
+        XCTAssertNil(appState.landingTime)
+        XCTAssertNil(appState.engineShutdownTime)
+    }
 }

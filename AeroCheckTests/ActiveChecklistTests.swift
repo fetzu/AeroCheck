@@ -124,4 +124,16 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertEqual(ChecklistPhase.approach.previousNavigable(circuitMode: false), .descent)
         XCTAssertNil(ChecklistPhase.preflight.previousNavigable(circuitMode: false), "No phase before the first")
     }
+
+    func testMissingRequiredActionOnlyForUnpressedButtonPhases() {
+        // engineStart requires the engine-start button.
+        XCTAssertTrue(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: false, linedUp: true, engineShutDown: true))
+        XCTAssertFalse(ChecklistPhase.engineStart.hasMissingRequiredAction(engineStarted: true, linedUp: true, engineShutDown: true))
+        // beforeDeparture requires the line-up button; shutdown requires the shutdown button.
+        XCTAssertTrue(ChecklistPhase.beforeDeparture.hasMissingRequiredAction(engineStarted: true, linedUp: false, engineShutDown: true))
+        XCTAssertTrue(ChecklistPhase.shutdown.hasMissingRequiredAction(engineStarted: true, linedUp: true, engineShutDown: false))
+        // A phase with no required button is never .missingAction, whatever the action flags.
+        XCTAssertFalse(ChecklistPhase.preflight.hasMissingRequiredAction(engineStarted: false, linedUp: false, engineShutDown: false))
+        XCTAssertFalse(ChecklistPhase.climb.hasMissingRequiredAction(engineStarted: false, linedUp: false, engineShutDown: false))
+    }
 }

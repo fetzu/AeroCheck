@@ -910,17 +910,11 @@ class AppState: ObservableObject {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
         
-        // Check if current phase had a required action button that wasn't pressed
-        if currentPhase.showsEngineStartButton && engineStartTime == nil {
-            phaseCompletionStatus[currentPhase] = .missingAction
-        } else if currentPhase.showsLineUpButton && lineUpTime == nil {
-            phaseCompletionStatus[currentPhase] = .missingAction
-        } else if currentPhase.showsEngineShutdownButton && engineShutdownTime == nil {
-            phaseCompletionStatus[currentPhase] = .missingAction
-        } else {
-            // Mark current phase as completed
-            phaseCompletionStatus[currentPhase] = .completed
-        }
+        // Advancing from the current phase: .missingAction if a required button wasn't pressed, else .completed.
+        phaseCompletionStatus[currentPhase] = currentPhase.hasMissingRequiredAction(
+            engineStarted: engineStartTime != nil,
+            linedUp: lineUpTime != nil,
+            engineShutDown: engineShutdownTime != nil) ? .missingAction : .completed
         
         // Update highest completed phase
         if currentPhase.rawValue >= highestCompletedPhase.rawValue {
@@ -967,16 +961,11 @@ class AppState: ObservableObject {
                 for i in currentIndex..<targetIndex {
                     let skippedPhase = ChecklistPhase.allCases[i]
                     if phaseCompletionStatus[skippedPhase] == nil {
-                        // Check if phase has a required action button
-                        if skippedPhase.showsEngineStartButton && engineStartTime == nil {
-                            phaseCompletionStatus[skippedPhase] = .missingAction
-                        } else if skippedPhase.showsLineUpButton && lineUpTime == nil {
-                            phaseCompletionStatus[skippedPhase] = .missingAction
-                        } else if skippedPhase.showsEngineShutdownButton && engineShutdownTime == nil {
-                            phaseCompletionStatus[skippedPhase] = .missingAction
-                        } else {
-                            phaseCompletionStatus[skippedPhase] = .skipped
-                        }
+                        // Jumped over this phase: .missingAction if it had an unpressed required button, else .skipped.
+                        phaseCompletionStatus[skippedPhase] = skippedPhase.hasMissingRequiredAction(
+                            engineStarted: engineStartTime != nil,
+                            linedUp: lineUpTime != nil,
+                            engineShutDown: engineShutdownTime != nil) ? .missingAction : .skipped
                     }
                 }
             }

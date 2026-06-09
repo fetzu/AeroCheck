@@ -121,4 +121,24 @@ final class AppStateSelectAircraftTests: XCTestCase {
         XCTAssertNil(appState.landingTime)
         XCTAssertNil(appState.engineShutdownTime)
     }
+
+    // MARK: - ChecklistProgress facade (Phase 4 — AppState decomposition: state extraction)
+
+    func testChecklistProgressAccessorsForward() {
+        let appState = AppState()
+
+        // Scalar accessor forwards both directions.
+        appState.currentPhase = .climb
+        XCTAssertEqual(appState.checklistProgress.currentPhase, .climb)
+        appState.checklistProgress.highestCompletedPhase = .cruise
+        XCTAssertEqual(appState.highestCompletedPhase, .cruise)
+
+        // Dictionary subscript mutation through the computed property must round-trip into the value
+        // and stay reactive (read-modify-write via the forwarding setter).
+        appState.phaseCompletionStatus[.taxi] = .completed
+        XCTAssertEqual(appState.checklistProgress.phaseCompletionStatus[.taxi], .completed)
+
+        appState.currentHighlightedItem[.climb] = 2
+        XCTAssertEqual(appState.checklistProgress.currentHighlightedItem[.climb], 2)
+    }
 }

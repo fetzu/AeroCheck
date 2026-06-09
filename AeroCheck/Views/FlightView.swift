@@ -1493,6 +1493,7 @@ struct CompactSpeedView: View {
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isNightMode) private var nightMode
     @State private var isFlashing = false
 
     /// Whether to show failure flag overlay
@@ -1580,17 +1581,20 @@ struct CompactSpeedView: View {
     }
 
     private var backgroundColor: Color {
-        // Solid high-contrast fills (black text) for sunlight legibility. (UX-17)
+        // Solid high-contrast fills (black text) for sunlight legibility (UX-17); low-luminance
+        // variants at night (UX-09).
         switch speedState {
-        case .onTarget: return Color.aviationGreen
-        case .offTarget: return Color.orange
+        case .onTarget: return nightMode ? .nightOnTarget : .aviationGreen
+        case .offTarget: return nightMode ? .nightOffTarget : .orange
         case .stall:
+            if nightMode { return .nightStall }
             if reduceMotion { return Color.aviationRed } // steady solid red under Reduce Motion (UX-18)
             return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
 
     private var textColor: Color {
+        if nightMode { return .nightInstrumentText }
         switch speedState {
         case .onTarget, .offTarget: return .black
         case .stall: return .white
@@ -1623,6 +1627,9 @@ struct CompactSpeedView: View {
 struct CompactAltimeterView: View {
     let altitudeFeet: Double
     let gpsSignalStatus: GPSSignalStatus
+    @Environment(\.isNightMode) private var nightMode
+    private var altimeterFill: Color { nightMode ? .nightAltimeterBackground : .altimeterBlue }
+    private var altimeterText: Color { nightMode ? .nightInstrumentText : .black }
 
     private var altitudeFontSize: CGFloat {
         let altitude = Int(altitudeFeet)
@@ -1653,19 +1660,19 @@ struct CompactAltimeterView: View {
                     if gpsSignalStatus != .lost {
                         Text("\(Int(max(0, altitudeFeet)))")
                             .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
-                            .foregroundColor(.black)
+                            .foregroundColor(altimeterText)
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
                         Text(L10n.Unit.ft)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.black.opacity(0.7))
+                            .foregroundColor(altimeterText.opacity(0.7))
                     }
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.altimeterBlue)
+                        .fill(altimeterFill)
                 )
 
                 // Failure flag overlay

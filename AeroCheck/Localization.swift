@@ -302,8 +302,10 @@ enum L10n {
         static let display = String(localized: "settings.display")
         static let keepScreenOn = String(localized: "settings.display.keepScreenOn")
         static let alwaysUseUTC = String(localized: "settings.display.alwaysUseUTC")
+        static let nightMode = String(localized: "settings.display.nightMode")
         static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnDesc")
         static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCDesc")
+        static let nightModeFooter = String(localized: "settings.display.nightModeDesc")
 
         // Navigation
         static let navigation = String(localized: "settings.navigation")

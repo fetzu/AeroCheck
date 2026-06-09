@@ -12238,6 +12238,38 @@
         }
       }
     },
+    "settings.display.nightMode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Night mode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode nuit"
+          }
+        }
+      }
+    },
+    "settings.display.nightModeDesc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dims the flight instruments to a low-luminance red and amber palette to protect your night vision."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atténue les instruments de vol avec une palette rouge et ambre à faible luminosité pour préserver votre vision nocturne."
+          }
+        }
+      }
+    },
     "settings.display.keepScreenOn" : {
       "extractionState" : "manual",
       "localizations" : {

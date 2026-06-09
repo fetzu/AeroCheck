@@ -205,20 +205,30 @@ enum AirspaceAnalyzer {
     }
 
     /// Distance from a point to the nearest point on a line segment.
-    private static func distanceToSegment(point: CLLocation, segStart: CLLocation, segEnd: CLLocation) -> Double {
-        let dx = segEnd.coordinate.longitude - segStart.coordinate.longitude
+    ///
+    /// The nearest-point parameter `t` is computed in a local equirectangular frame where longitude
+    /// is scaled by `cos(latitude)`, so a degree east and a degree north are the same physical
+    /// length. Projecting in raw lon/lat units over-weights longitude (~47% E-W distortion at 47°N),
+    /// mislocating the closest point and skewing the isotropic 1 NM proximity threshold. The final
+    /// distance is still the geodesic `CLLocation.distance` to the (correctly-located) projection.
+    /// (PERF-25)
+    static func distanceToSegment(point: CLLocation, segStart: CLLocation, segEnd: CLLocation) -> Double {
+        let meanLatRad = (segStart.coordinate.latitude + segEnd.coordinate.latitude) / 2 * .pi / 180
+        let lonScale = cos(meanLatRad)
+
+        let dx = (segEnd.coordinate.longitude - segStart.coordinate.longitude) * lonScale
         let dy = segEnd.coordinate.latitude - segStart.coordinate.latitude
         if dx == 0 && dy == 0 {
             return point.distance(from: segStart)
         }
-        let t = max(0, min(1, (
-            (point.coordinate.longitude - segStart.coordinate.longitude) * dx +
-            (point.coordinate.latitude - segStart.coordinate.latitude) * dy
-        ) / (dx * dx + dy * dy)))
-        let projLat = segStart.coordinate.latitude + t * dy
-        let projLon = segStart.coordinate.longitude + t * dx
-        let projection = CLLocation(latitude: projLat, longitude: projLon)
-        return point.distance(from: projection)
+        let px = (point.coordinate.longitude - segStart.coordinate.longitude) * lonScale
+        let py = point.coordinate.latitude - segStart.coordinate.latitude
+        let t = max(0, min(1, (px * dx + py * dy) / (dx * dx + dy * dy)))
+
+        // Map t back to true coordinates for the geodesic distance.
+        let projLat = segStart.coordinate.latitude + t * (segEnd.coordinate.latitude - segStart.coordinate.latitude)
+        let projLon = segStart.coordinate.longitude + t * (segEnd.coordinate.longitude - segStart.coordinate.longitude)
+        return point.distance(from: CLLocation(latitude: projLat, longitude: projLon))
     }
 
     // MARK: - Ordering

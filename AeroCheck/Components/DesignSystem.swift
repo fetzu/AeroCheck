@@ -607,6 +607,31 @@ extension Color {
     static let nightStall = Color(red: 0.55, green: 0.0, blue: 0.0)
 }
 
+// MARK: - Floating chrome over the map (UX-21)
+
+extension View {
+    /// Background for rounded floating chrome over the map: adopts iOS 26 Liquid Glass when
+    /// available, falling back to a system material (not a flat dark tint) on iOS 17–25. (UX-21)
+    @ViewBuilder
+    func floatingChromeBackground(cornerRadius: CGFloat) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
+
+    /// Circular variant of `floatingChromeBackground` for round map buttons.
+    @ViewBuilder
+    func floatingChromeCircle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: .circle)
+        } else {
+            self.background(.regularMaterial, in: Circle())
+        }
+    }
+}
+
 private struct NightModeKey: EnvironmentKey {
     static let defaultValue = false
 }

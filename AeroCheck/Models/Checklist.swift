@@ -141,6 +141,39 @@ enum ChecklistPhase: Int, CaseIterable, Identifiable, Codable {
     }
 }
 
+// MARK: - Circuit-mode phase navigation (extracted from AppState, Phase 4 — decomposition)
+
+extension ChecklistPhase {
+    /// Cruise and Descent don't exist in circuit (pattern) training, so they're skipped. A single
+    /// pure rule, replacing the `isCircuitMode && (… == .cruise || … == .descent)` check that was
+    /// duplicated across AppState's next/previous/goTo phase navigation.
+    func isSkippedInCircuitMode(_ circuitMode: Bool) -> Bool {
+        circuitMode && (self == .cruise || self == .descent)
+    }
+
+    /// The next navigable phase after this one, skipping any circuit-skipped phases. `nil` at the end.
+    func nextNavigable(circuitMode: Bool) -> ChecklistPhase? {
+        guard let i = ChecklistPhase.allCases.firstIndex(of: self) else { return nil }
+        var n = i + 1
+        while n < ChecklistPhase.allCases.count {
+            let phase = ChecklistPhase.allCases[n]
+            if phase.isSkippedInCircuitMode(circuitMode) { n += 1 } else { return phase }
+        }
+        return nil
+    }
+
+    /// The previous navigable phase before this one, skipping any circuit-skipped phases. `nil` at the start.
+    func previousNavigable(circuitMode: Bool) -> ChecklistPhase? {
+        guard let i = ChecklistPhase.allCases.firstIndex(of: self) else { return nil }
+        var p = i - 1
+        while p >= 0 {
+            let phase = ChecklistPhase.allCases[p]
+            if phase.isSkippedInCircuitMode(circuitMode) { p -= 1 } else { return phase }
+        }
+        return nil
+    }
+}
+
 /// Briefing types
 enum BriefingType {
     case departure

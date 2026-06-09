@@ -23,6 +23,7 @@
 		A5000012111111110000002 /* AircraftDataServiceSeamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */; };
 		A5000013111111110000002 /* ElevationParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000013111111110000001 /* ElevationParseTests.swift */; };
 		A5000014111111110000002 /* SubscriptionReconcileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000014111111110000001 /* SubscriptionReconcileTests.swift */; };
+		A5000015111111110000002 /* FlightSummaryStatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000015111111110000001 /* FlightSummaryStatsTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
@@ -176,6 +177,7 @@
 		A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftDataServiceSeamTests.swift; sourceTree = "<group>"; };
 		A5000013111111110000001 /* ElevationParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationParseTests.swift; sourceTree = "<group>"; };
 		A5000014111111110000001 /* SubscriptionReconcileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionReconcileTests.swift; sourceTree = "<group>"; };
+		A5000015111111110000001 /* FlightSummaryStatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightSummaryStatsTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
@@ -318,6 +320,7 @@
 				A5000012111111110000001 /* AircraftDataServiceSeamTests.swift */,
 				A5000013111111110000001 /* ElevationParseTests.swift */,
 				A5000014111111110000001 /* SubscriptionReconcileTests.swift */,
+				A5000015111111110000001 /* FlightSummaryStatsTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -692,6 +695,7 @@
 				A5000012111111110000002 /* AircraftDataServiceSeamTests.swift in Sources */,
 				A5000013111111110000002 /* ElevationParseTests.swift in Sources */,
 				A5000014111111110000002 /* SubscriptionReconcileTests.swift in Sources */,
+				A5000015111111110000002 /* FlightSummaryStatsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

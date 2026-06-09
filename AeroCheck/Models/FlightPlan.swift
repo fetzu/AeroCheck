@@ -980,6 +980,8 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     /// Set if any waypoint carries an invalid (NaN/Inf/out-of-range) coordinate, in which
     /// case the whole import is rejected rather than yielding a partial/garbage route. (SEC-08)
     private var hasInvalidCoordinate = false
+    /// Set if the route exceeds the hard waypoint cap — rejected, not silently truncated. (SEC-13)
+    private var hasTooManyWaypoints = false
 
     private let dateFormatter = ISO8601DateFormatter()
 
@@ -992,7 +994,7 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return hasInvalidCoordinate ? nil : flightPlan
+        return (hasInvalidCoordinate || hasTooManyWaypoints) ? nil : flightPlan
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String,
@@ -1079,7 +1081,11 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
             currentWaypoint?.estimatedElapsedTime = TimeInterval(text)
         case "rtept":
             if let waypoint = currentWaypoint {
-                waypoints.append(waypoint)
+                if waypoints.count >= FlightDataLimits.maxRouteWaypoints {
+                    hasTooManyWaypoints = true
+                } else {
+                    waypoints.append(waypoint)
+                }
             }
             currentWaypoint = nil
         case "rte":

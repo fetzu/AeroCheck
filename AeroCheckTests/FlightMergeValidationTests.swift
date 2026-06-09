@@ -125,4 +125,18 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertEqual(clamped.gpsRecordingInterval, 5)
         XCTAssertEqual(clamped.waypointProximityThreshold, 500)
     }
+
+    // MARK: - Night mode persistence (UX-09)
+
+    func testNightModeDefaultsOffAndRoundTrips() throws {
+        // Backward compatibility: settings saved before nightMode existed (key absent) decode to off.
+        let legacy = Data(#"{"keepScreenOn":true}"#.utf8)
+        let decodedLegacy = try JSONDecoder().decode(AppSettings.self, from: legacy)
+        XCTAssertFalse(decodedLegacy.nightMode, "Absent nightMode defaults to off")
+
+        var s = AppSettings()
+        s.nightMode = true
+        let roundTripped = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertTrue(roundTripped.nightMode)
+    }
 }

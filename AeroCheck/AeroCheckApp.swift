@@ -44,6 +44,8 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
+                // Night mode: app-wide, so the flight instruments dim to the red/amber palette. (UX-09)
+                .environment(\.isNightMode, appState.settings.nightMode)
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)

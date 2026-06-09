@@ -14,6 +14,7 @@ struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
+    var nightMode: Bool = false // Dim red/amber instrument palette to protect dark adaptation (UX-09)
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
@@ -107,6 +108,7 @@ struct AppSettings: Codable, Equatable {
         case selectedAircraft
         case selectedRemoteAircraftId
         case keepScreenOn
+        case nightMode
         case gpsRecordingInterval
         case showSpeedReference
         case stepByStepHighlighting
@@ -148,6 +150,7 @@ struct AppSettings: Codable, Equatable {
         selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
         selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? true
+        nightMode = try container.decodeIfPresent(Bool.self, forKey: .nightMode) ?? false
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
         stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true

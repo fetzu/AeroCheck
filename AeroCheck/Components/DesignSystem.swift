@@ -322,6 +322,7 @@ struct SpeedIndicatorView: View {
     var stallAlertEnabled: Bool = false // When true, fire an aural+haptic alert on stall (UX-02)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isNightMode) private var nightMode
     @State private var isFlashing = false
 
     /// The speed value to display (estimated airspeed if available, otherwise ground speed)
@@ -466,12 +467,14 @@ struct SpeedIndicatorView: View {
     private var backgroundColor: Color {
         // Solid, high-contrast fills with black text (mirroring the altimeter's solid blue) instead
         // of 20%-opacity same-hue tints — far more legible on a glossy iPad in direct sunlight. (UX-17)
+        // Night mode swaps in low-luminance variants of the same state hues. (UX-09)
         switch speedState {
         case .onTarget:
-            return Color.aviationGreen
+            return nightMode ? .nightOnTarget : .aviationGreen
         case .offTarget:
-            return Color.orange
+            return nightMode ? .nightOffTarget : .orange
         case .stall:
+            if nightMode { return .nightStall }
             // Under Reduce Motion, a steady solid red (the brightest, most-alarming state) — never
             // the dimmer 0.7 — so a non-flashing stall is still unmistakable. Otherwise flash. (UX-18)
             if reduceMotion { return Color.aviationRed }
@@ -480,6 +483,7 @@ struct SpeedIndicatorView: View {
     }
 
     private var textColor: Color {
+        if nightMode { return .nightInstrumentText } // dim amber on all night fills (UX-09)
         switch speedState {
         case .onTarget, .offTarget:
             return .black // black on the solid green/orange fill for max sunlight contrast (UX-17)
@@ -590,9 +594,41 @@ extension Color {
     static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)
 }
 
+// MARK: - Night Mode (UX-09)
+
+/// Low-luminance instrument palette for night flight: no bright blue/white emitters, so the
+/// instruments don't wreck the pilot's scotopic dark adaptation. State is still encoded by
+/// distinct (dim) hues, preserving the redundant encoding from Tasks 1 and 8.
+extension Color {
+    static let nightAltimeterBackground = Color(red: 0.16, green: 0.0, blue: 0.0)
+    static let nightInstrumentText = Color(red: 0.90, green: 0.50, blue: 0.12) // dim amber
+    static let nightOnTarget = Color(red: 0.0, green: 0.28, blue: 0.0)
+    static let nightOffTarget = Color(red: 0.34, green: 0.20, blue: 0.0)
+    static let nightStall = Color(red: 0.55, green: 0.0, blue: 0.0)
+}
+
+private struct NightModeKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True when the user enabled Night mode. Set once near the app root from
+    /// `AppState.settings.nightMode`; the flight instruments read it to dim their palette. (UX-09)
+    var isNightMode: Bool {
+        get { self[NightModeKey.self] }
+        set { self[NightModeKey.self] = newValue }
+    }
+}
+
 struct AltimeterView: View {
     let altitudeFeet: Double
     let gpsSignalStatus: GPSSignalStatus
+    @Environment(\.isNightMode) private var nightMode
+
+    /// Altimeter background: the brightest emitter on the panel — dimmed to dark red at night. (UX-09)
+    private var altimeterFill: Color { nightMode ? .nightAltimeterBackground : .altimeterBlue }
+    /// Altitude text: black on daytime blue, dim amber at night.
+    private var altimeterText: Color { nightMode ? .nightInstrumentText : .black }
 
     /// Dynamic font size based on digit count to ensure full number is always visible
     private var altitudeFontSize: CGFloat {
@@ -632,20 +668,20 @@ struct AltimeterView: View {
             ZStack {
                 // Background
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.altimeterBlue)
+                    .fill(altimeterFill)
 
                 // Altitude value (hidden when GPS lost)
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 2) {
                         Text("\(Int(altitudeFeet))")
                             .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
-                            .foregroundColor(.black)
+                            .foregroundColor(altimeterText)
                             .minimumScaleFactor(0.5)
                             .lineLimit(1)
 
                         Text("FT")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.black.opacity(0.7))
+                            .foregroundColor(altimeterText.opacity(0.7))
                     }
                     .padding(.horizontal, 4)
                 }

@@ -11,6 +11,7 @@ struct ChecklistFlightSettingsView: View {
     @State private var logEngineHours: Bool = false
     @State private var keepScreenOn: Bool = true
     @State private var alwaysUseUTC: Bool = false
+    @State private var nightMode: Bool = false
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -30,6 +31,7 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: keepScreenOn) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: alwaysUseUTC) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: nightMode) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
     // MARK: - Checklist Section
@@ -75,12 +77,14 @@ struct ChecklistFlightSettingsView: View {
         Section {
             Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
             Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
+            Toggle(L10n.Settings.nightMode, isOn: $nightMode)
         } header: {
             Label(L10n.Settings.display, systemImage: "sun.max.fill")
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.Settings.keepScreenOnFooter)
                 Text(L10n.Settings.alwaysUseUTCFooter)
+                Text(L10n.Settings.nightModeFooter)
             }
         }
     }
@@ -96,6 +100,7 @@ struct ChecklistFlightSettingsView: View {
         logEngineHours = appState.settings.logEngineHours
         keepScreenOn = appState.settings.keepScreenOn
         alwaysUseUTC = appState.settings.alwaysUseUTC
+        nightMode = appState.settings.nightMode
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -109,6 +114,7 @@ struct ChecklistFlightSettingsView: View {
         appState.settings.logEngineHours = logEngineHours
         appState.settings.keepScreenOn = keepScreenOn
         appState.settings.alwaysUseUTC = alwaysUseUTC
+        appState.settings.nightMode = nightMode
         appState.saveSettings()
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
     }

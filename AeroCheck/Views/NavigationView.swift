@@ -3454,6 +3454,20 @@ struct LayerPickerSheet: View {
                         .cornerRadius(12)
                         .padding(.horizontal, 16)
                     }
+
+                    // Data-source attribution required by the providers' terms (swisstopo/BAZL,
+                    // MeteoSwiss, Open-Meteo, OpenAIP). (SEC-16)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Data sources")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 20)
+                        Text("Charts © swisstopo / BAZL · Wind © MeteoSwiss · Elevation: Open-Meteo & © swisstopo · \(OpenAIPConfig.attributionText)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.dimText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 20)
+                    }
                 }
                 .padding(.vertical, 16)
             }

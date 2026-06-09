@@ -469,6 +469,23 @@ For testing against the development server:
 - Checklist data cached locally after initial download
 - Export only when explicitly requested by user
 
+## Data Sources & Licences
+
+AéroCheck displays third-party geographic, aeronautical and weather data. These sources require visible attribution (shown in-app on the navigation map's layer panel) and their terms govern your use:
+
+| Data | Source | Attribution |
+|------|--------|-------------|
+| ICAO / Segelflug / Landeskarte / SwissImage chart tiles | **swisstopo / BAZL** (geo.admin.ch) | © swisstopo / BAZL |
+| Terrain elevation (Switzerland) | **swisstopo** profile API | © swisstopo |
+| Terrain elevation (worldwide) | **Open-Meteo** elevation API | Elevation: Open-Meteo |
+| Wind (experimental, Switzerland) | **MeteoSwiss** Open Data (geo.admin.ch) | © MeteoSwiss |
+| Airspace / airports | **OpenAIP** | Aeronautical data © OpenAIP contributors |
+| Airport / runway / frequency data | **OurAirports** (public domain) | OurAirports |
+
+> **Offline chart caching:** the offline ICAO/Segelflug chart download is a bulk extraction of BAZL aeronautical chart products. Shipping that feature requires an explicit licence/agreement with swisstopo/BAZL (tracked separately as SEC-09); until then it is a release blocker for the offline-cache feature.
+
+The app code is MIT-licensed; premium checklist content is proprietary. Third-party data remains under its providers' respective licences.
+
 ## Support
 
 The app is provided as-is and support is not guaranteed. In case of issues, feel free to open an issue on GitHub.

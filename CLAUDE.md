@@ -255,9 +255,9 @@ if subscriptionManager.isSubscribed {
 
 ## Performance Notes
 
-- **GPS accuracy:** Uses `kCLLocationAccuracyNearestTenMeters` (not Best) to save battery
-- **Distance filter:** 50m to reduce unnecessary location callbacks
-- **Signal check timer:** 3-second interval (not 1s)
+- **GPS accuracy:** Default is `kCLLocationAccuracyBest`; the user's `GPSPriority` setting drops it to `kCLLocationAccuracyNearestTenMeters` in Battery Saver (`LocationManager.applyGPSPriority`)
+- **Distance filter (dynamic):** ground mode ~5 m (taxi/block-on detail), flight mode 50 m (Precision) / 100 m (Battery Saver) — see `LocationManager.setGroundMode`
+- **Signal check timer:** 5-second interval
 - **Airport data:** Lazy-loaded on demand (flight start or map overlay enabled), not at app startup
 - **Wind data:** Automatically paused when app backgrounds, resumed on foreground during active flight
 - **HomeView item count:** Cached to avoid disk I/O on every render

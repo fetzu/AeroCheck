@@ -38,7 +38,7 @@ class DataPersistenceManager: ObservableObject {
     /// At-rest protection for the local datastore: encrypts files but still permits the
     /// background GPS app to write while the device is locked (after the first unlock since boot).
     /// (SEC-12)
-    static let protectedWriteOptions: Data.WritingOptions = [
+    nonisolated static let protectedWriteOptions: Data.WritingOptions = [
         .atomic, .completeFileProtectionUntilFirstUserAuthentication,
     ]
 

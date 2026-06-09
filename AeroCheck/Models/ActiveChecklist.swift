@@ -140,3 +140,24 @@ struct ActiveChecklist: Equatable {
         }
     }
 }
+
+/// Pure step-by-step checklist highlighting rules, extracted from `AppState` so the rules are
+/// unit-testable and the @MainActor god-object no longer owns them. `AppState` keeps the
+/// `currentHighlightedItem` state and delegates the index math here. (Phase 4 — AppState decomposition)
+enum ChecklistHighlighting {
+    /// Next highlight index when advancing within a phase — clamped to the last visible item, so the
+    /// pilot must press NEXT to leave the phase rather than the highlight running off the end.
+    static func advanced(current: Int, visibleCount: Int) -> Int {
+        current < visibleCount - 1 ? current + 1 : current
+    }
+
+    /// The index that marks the last item complete: one past the last visible item.
+    static func lastItemComplete(visibleCount: Int) -> Int {
+        visibleCount
+    }
+
+    /// Whether every visible item in the phase has been completed.
+    static func allItemsCompleted(current: Int, visibleCount: Int) -> Bool {
+        current >= visibleCount
+    }
+}

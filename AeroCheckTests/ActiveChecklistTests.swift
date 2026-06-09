@@ -82,4 +82,24 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertEqual(active.registration, "F-HVXA")
         XCTAssertFalse(active.items(for: .preflight).isEmpty)
     }
+
+    // MARK: - ChecklistHighlighting (extracted from AppState, Phase 4)
+
+    func testAdvanceMovesToNextItemButClampsAtTheLast() {
+        XCTAssertEqual(ChecklistHighlighting.advanced(current: 0, visibleCount: 3), 1)
+        XCTAssertEqual(ChecklistHighlighting.advanced(current: 1, visibleCount: 3), 2)
+        // At the last visible item it must NOT advance — the pilot presses NEXT to leave the phase.
+        XCTAssertEqual(ChecklistHighlighting.advanced(current: 2, visibleCount: 3), 2)
+    }
+
+    func testLastItemCompleteIsOnePastTheLastVisibleItem() {
+        XCTAssertEqual(ChecklistHighlighting.lastItemComplete(visibleCount: 3), 3)
+        XCTAssertTrue(ChecklistHighlighting.allItemsCompleted(current: 3, visibleCount: 3))
+    }
+
+    func testAllItemsCompletedOnlyWhenIndexReachesTheCount() {
+        XCTAssertFalse(ChecklistHighlighting.allItemsCompleted(current: 2, visibleCount: 3))
+        XCTAssertTrue(ChecklistHighlighting.allItemsCompleted(current: 3, visibleCount: 3))
+        XCTAssertTrue(ChecklistHighlighting.allItemsCompleted(current: 4, visibleCount: 3))
+    }
 }

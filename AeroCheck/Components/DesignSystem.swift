@@ -464,11 +464,13 @@ struct SpeedIndicatorView: View {
     }
 
     private var backgroundColor: Color {
+        // Solid, high-contrast fills with black text (mirroring the altimeter's solid blue) instead
+        // of 20%-opacity same-hue tints — far more legible on a glossy iPad in direct sunlight. (UX-17)
         switch speedState {
         case .onTarget:
-            return Color.aviationGreen.opacity(0.2)
+            return Color.aviationGreen
         case .offTarget:
-            return Color.orange.opacity(0.2)
+            return Color.orange
         case .stall:
             // Under Reduce Motion, a steady solid red (the brightest, most-alarming state) — never
             // the dimmer 0.7 — so a non-flashing stall is still unmistakable. Otherwise flash. (UX-18)
@@ -479,13 +481,10 @@ struct SpeedIndicatorView: View {
 
     private var textColor: Color {
         switch speedState {
-        case .onTarget:
-            return .aviationGreen
-        case .offTarget:
-            return .orange
+        case .onTarget, .offTarget:
+            return .black // black on the solid green/orange fill for max sunlight contrast (UX-17)
         case .stall:
-            // Only animate in stall state
-            return isFlashing ? .white : .aviationRed
+            return .white // white on solid red (never red-on-red, which was unreadable when unlit)
         }
     }
 

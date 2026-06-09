@@ -47,7 +47,9 @@ extension Font {
 struct PrimaryButtonStyle: ButtonStyle {
     var color: Color = .aviationGold
     var isLarge: Bool = true
-    
+    // Read the system enabled state so `.disabled()` automatically dims the button. (UX-23)
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
@@ -59,14 +61,16 @@ struct PrimaryButtonStyle: ButtonStyle {
                     .fill(color)
                     .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
             )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(isEnabled ? 1.0 : 0.45)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.96 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
     var color: Color = .aviationBlue
-    
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
@@ -81,7 +85,8 @@ struct SecondaryButtonStyle: ButtonStyle {
                             .fill(color.opacity(0.2))
                     )
             )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(isEnabled ? 1.0 : 0.45) // dim when `.disabled()` (UX-23)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.96 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
@@ -113,12 +118,16 @@ struct NavigationButtonStyle: ButtonStyle {
             )
             .scaleEffect(configuration.isPressed && isEnabled ? 0.96 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            // Defense-in-depth: a button that *looks* disabled must not stay tappable even if a
+            // call site forgets the matching `.disabled()`. (UX-23)
+            .allowsHitTesting(isEnabled)
     }
 }
 
 struct ActionButtonStyle: ButtonStyle {
     var color: Color
-    
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 18, weight: .bold))
@@ -130,7 +139,8 @@ struct ActionButtonStyle: ButtonStyle {
                     .fill(color)
                     .shadow(color: color.opacity(0.4), radius: 6, x: 0, y: 3)
             )
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(isEnabled ? 1.0 : 0.45) // dim when `.disabled()` (UX-23)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }

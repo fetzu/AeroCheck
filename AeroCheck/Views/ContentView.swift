@@ -124,7 +124,9 @@ struct ContentView: View {
                 // clearing premium caches when access is no longer allowed. Defense-in-depth;
                 // the server remains the authoritative gate. (SEC-05)
                 Task {
-                    await subscriptionManager.performPeriodicCheck()
+                    // Result intentionally unused here — the foreground re-check runs for its side
+                    // effects (refresh + grace/offline enforcement); the cache validation below acts on it.
+                    _ = await subscriptionManager.performPeriodicCheck()
                     _ = aircraftDataService.validatePremiumCaches(subscriptionManager: subscriptionManager)
                 }
             @unknown default:

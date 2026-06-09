@@ -321,6 +321,7 @@ struct SpeedIndicatorView: View {
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
     var stallAlertEnabled: Bool = false // When true, fire an aural+haptic alert on stall (UX-02)
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFlashing = false
 
     /// The speed value to display (estimated airspeed if available, otherwise ground speed)
@@ -388,10 +389,17 @@ struct SpeedIndicatorView: View {
 
                 // Speed value (hidden when GPS lost)
                 if gpsSignalStatus != .lost {
-                    VStack(spacing: 2) {
+                    VStack(spacing: 0) {
+                        // Static, always-on STALL annunciation: the warning never depends on the
+                        // flash animation or colour alone (and is steady under Reduce Motion). (UX-18)
+                        if speedState == .stall {
+                            Text("STALL")
+                                .font(.system(size: 13, weight: .heavy))
+                                .foregroundColor(.white)
+                        }
                         // "~" marks an estimated (wind-derived) value, not a measured airspeed. (UX-12)
                         Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(displaySpeed))")
-                            .font(.system(size: 36, weight: .bold, design: .monospaced))
+                            .font(.system(size: 32, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
 
                         Text(showingEstimatedAirspeed ? "KIAS" : "kt")
@@ -462,7 +470,9 @@ struct SpeedIndicatorView: View {
         case .offTarget:
             return Color.orange.opacity(0.2)
         case .stall:
-            // Only animate in stall state
+            // Under Reduce Motion, a steady solid red (the brightest, most-alarming state) — never
+            // the dimmer 0.7 — so a non-flashing stall is still unmistakable. Otherwise flash. (UX-18)
+            if reduceMotion { return Color.aviationRed }
             return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
@@ -498,6 +508,9 @@ struct SpeedIndicatorView: View {
     }
 
     private func startFlashing() {
+        // Respect Reduce Motion: no repeatForever flashing. The stall background stays a solid,
+        // high-contrast red (see backgroundColor) and the static "STALL" text carries the warning. (UX-18)
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
             isFlashing = true
         }
@@ -680,9 +693,10 @@ struct FlightAltimeter: View {
 /// A pulse animation to draw attention to a button - 2 distinct pulses
 struct PulseModifier: ViewModifier {
     let isActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulseCount = 0
     @State private var isPulsing = false
-    
+
     func body(content: Content) -> some View {
         content
             .overlay(
@@ -709,6 +723,7 @@ struct PulseModifier: ViewModifier {
     }
     
     private func startPulseSequence() {
+        guard !reduceMotion else { return } // no attention-pulse animation under Reduce Motion (UX-18)
         pulseCount = 0
         doPulse()
     }

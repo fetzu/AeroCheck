@@ -1492,6 +1492,7 @@ struct CompactSpeedView: View {
         case onTarget, offTarget, stall
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isFlashing = false
 
     /// Whether to show failure flag overlay
@@ -1506,11 +1507,12 @@ struct CompactSpeedView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Speed type label
+            // Speed type label — a static "STALL" word annunciation when stalling, so the warning
+            // never depends on the flash or colour alone (and is steady under Reduce Motion). (UX-18)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs)
+                Text(speedState == .stall ? "STALL" : (showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs))
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
+                    .foregroundColor(speedState == .stall ? .aviationRed : (showingEstimatedAirspeed ? .aviationAmber : .dimText))
             }
 
             // Speed value with failure flag
@@ -1581,7 +1583,9 @@ struct CompactSpeedView: View {
         switch speedState {
         case .onTarget: return Color.aviationGreen.opacity(0.2)
         case .offTarget: return Color.orange.opacity(0.2)
-        case .stall: return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
+        case .stall:
+            if reduceMotion { return Color.aviationRed } // steady solid red under Reduce Motion (UX-18)
+            return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
 
@@ -1601,6 +1605,7 @@ struct CompactSpeedView: View {
     }
 
     private func startFlashing() {
+        guard !reduceMotion else { return } // no repeatForever flash under Reduce Motion (UX-18)
         withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
             isFlashing = true
         }

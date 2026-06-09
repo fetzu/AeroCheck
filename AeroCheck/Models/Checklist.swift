@@ -172,6 +172,16 @@ extension ChecklistPhase {
         }
         return nil
     }
+
+    /// Whether a required action button on this phase was left unpressed (engine start / line up /
+    /// shutdown). Such a phase is marked `.missingAction`; the completed-vs-skipped distinction for
+    /// the non-missing case is the caller's (advancing → completed, jumped over → skipped). Single
+    /// source of truth, previously duplicated in AppState's nextPhase and goToPhase.
+    func hasMissingRequiredAction(engineStarted: Bool, linedUp: Bool, engineShutDown: Bool) -> Bool {
+        (showsEngineStartButton && !engineStarted)
+            || (showsLineUpButton && !linedUp)
+            || (showsEngineShutdownButton && !engineShutDown)
+    }
 }
 
 /// Briefing types

@@ -4,10 +4,6 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.com.fetzu.aerocheck</string>
-	</array>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.fetzu.aerocheck</string>
@@ -23,8 +19,12 @@
 	</array>
 	<key>com.apple.developer.wifi-aware</key>
 	<array>
-		<string>publish</string>
-		<string>subscribe</string>
+		<string>Publish</string>
+		<string>Subscribe</string>
+	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.fetzu.aerocheck</string>
 	</array>
 </dict>
 </plist>

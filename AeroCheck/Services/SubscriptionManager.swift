@@ -552,6 +552,12 @@ class SubscriptionManager: ObservableObject {
         return false
     }
 
+    /// Redacts an identifier for logging — keeps only a short suffix so support can correlate
+    /// without the full id (a server auth principal) ever landing in the debug log. (SEC-19)
+    static func redactedIdentifier(_ id: String) -> String {
+        id.count <= 4 ? "****" : "****\(id.suffix(4))"
+    }
+
     /// Gets the user ID for API authentication
     func getUserID() async -> String? {
         if let cached = cachedUserID {
@@ -694,7 +700,8 @@ class SubscriptionManager: ObservableObject {
             return
         }
 
-        debugLogger.log("User ID: \(userID)", level: .info)
+        // Redact the identity in logs — only a short suffix, never the full id. (SEC-19)
+        debugLogger.log("User ID: \(Self.redactedIdentifier(userID))", level: .info)
 
         // Get the JWS representation from the VerificationResult
         // This is the signed JWT string that the server can verify

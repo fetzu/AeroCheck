@@ -993,6 +993,10 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
     func parse() -> FlightPlan? {
         let parser = XMLParser(data: data)
         parser.delegate = self
+        // Defense-in-depth on an attacker-supplied-file import path: never resolve external
+        // entities (XXE), so the safe behavior survives any future refactor. (SEC-20)
+        parser.shouldResolveExternalEntities = false
+        parser.externalEntityResolvingPolicy = .never
         parser.parse()
         return (hasInvalidCoordinate || hasTooManyWaypoints) ? nil : flightPlan
     }

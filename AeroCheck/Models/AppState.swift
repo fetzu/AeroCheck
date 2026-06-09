@@ -338,9 +338,9 @@ class AppState: ObservableObject {
     /// surface it instead of the conflict being silent. (ARCH-02)
     @Published var syncConflictNotice: String?
 
-    // Navigation view session state (not persisted to disk — resets on app restart)
-    @Published var navigationSelectedLayer: MapLayerType = .icao
-    @Published var navigationOrientationMode: MapOrientationMode = .northUp
+    // Navigation view session state (not persisted to disk — resets on app restart).
+    // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
+    @Published var navigationMapState = NavigationMapState()
 
     // Recorded times during flight
     @Published var engineStartTime: Date?

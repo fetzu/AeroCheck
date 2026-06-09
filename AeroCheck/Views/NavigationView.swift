@@ -147,6 +147,17 @@ enum MapOrientationMode {
     case trackUp    // Map rotates so heading is always up
 }
 
+/// The navigation map's display state (selected chart layer + orientation), extracted from AppState
+/// as one cohesive value rather than two loose @Published properties. AppState owns it via a single
+/// `@Published var navigationMapState`, so mutating a field still drives SwiftUI updates. In-memory
+/// session state (not persisted). (Phase 4 — AppState decomposition: state extraction)
+struct NavigationMapState: Equatable {
+    var selectedLayer: MapLayerType = .icao
+    var orientationMode: MapOrientationMode = .northUp
+}
+
+extension MapOrientationMode: Equatable {}
+
 /// Tab selection for compact navigation panel
 enum CompactNavigationTab: String, CaseIterable {
     case plan = "PLAN"
@@ -359,8 +370,8 @@ struct NavigationMapView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             // Restore map settings from session state
-            selectedLayer = appState.navigationSelectedLayer
-            mapOrientationMode = appState.navigationOrientationMode
+            selectedLayer = appState.navigationMapState.selectedLayer
+            mapOrientationMode = appState.navigationMapState.orientationMode
             // Start GPS updates when navigation view opens
             locationManager.startLocationUpdates()
             // Center on aircraft location immediately (synchronous, not via async dispatch)
@@ -442,7 +453,7 @@ struct NavigationMapView: View {
         }
         .onChange(of: selectedLayer) { oldLayer, newLayer in
             // Save to session state
-            appState.navigationSelectedLayer = newLayer
+            appState.navigationMapState.selectedLayer = newLayer
             // When switching layers, force a tile refresh for Swiss layers
             if newLayer.isSwissLayer {
                 // Trigger a small region update to force tile loading
@@ -2003,7 +2014,7 @@ struct NavigationMapView: View {
             mapState.requestHeadingReset()
         }
         // Save to session state
-        appState.navigationOrientationMode = mapOrientationMode
+        appState.navigationMapState.orientationMode = mapOrientationMode
     }
 }
 

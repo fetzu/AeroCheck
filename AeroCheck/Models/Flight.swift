@@ -18,6 +18,30 @@ enum FlightDataLimits {
     static let maxRouteWaypoints = 500
 }
 
+/// Pure flight-clock formatting, extracted from `AppState` so the timer/time-of-day rules are
+/// unit-testable and de-duplicated. `AppState` keeps the timestamps and delegates formatting.
+/// (Phase 4 — AppState decomposition)
+enum FlightClock {
+    /// Elapsed flight time as `HH:MM:SS` (negative intervals — clock skew — clamp to zero rather
+    /// than rendering "-1:-1:..").
+    static func formattedDuration(seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    }
+
+    /// A timestamp as a short time-of-day string, with a `" (UTC)"` suffix when the pilot has
+    /// forced UTC. The locale/time format itself is left to `DateFormatter`.
+    static func formattedTimeOfDay(_ date: Date, useUTC: Bool) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        if useUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            return formatter.string(from: date) + " (UTC)"
+        }
+        return formatter.string(from: date)
+    }
+}
+
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
     let id: UUID

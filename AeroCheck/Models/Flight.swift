@@ -42,6 +42,18 @@ enum FlightClock {
     }
 }
 
+/// The live flight's timing milestones, grouped as one cohesive value extracted from AppState's
+/// four formerly-loose @Published timestamps. Distinct from `Flight`'s own (persisted) timing
+/// fields of the same names — this is the in-progress session state. AppState owns it via a single
+/// `@Published var flightTiming` and exposes thin forwarding accessors for backward compatibility.
+/// (Phase 4 — AppState decomposition: state extraction)
+struct FlightTiming: Equatable {
+    var engineStartTime: Date?
+    var lineUpTime: Date?
+    var landingTime: Date?
+    var engineShutdownTime: Date?
+}
+
 /// Represents a recorded flight with all tracking data
 struct Flight: Identifiable, Codable {
     let id: UUID

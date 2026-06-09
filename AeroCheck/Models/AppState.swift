@@ -342,11 +342,28 @@ class AppState: ObservableObject {
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     @Published var navigationMapState = NavigationMapState()
 
-    // Recorded times during flight
-    @Published var engineStartTime: Date?
-    @Published var lineUpTime: Date?
-    @Published var landingTime: Date?
-    @Published var engineShutdownTime: Date?
+    // Recorded times during flight — grouped into one cohesive FlightTiming value (extracted from
+    // four loose @Published timestamps). The forwarding accessors below keep every existing call
+    // site (`appState.engineStartTime`, …) working and reactive without a risky 177-site rename
+    // (Flight has identically-named fields). (Phase 4 — AppState decomposition: state extraction)
+    @Published var flightTiming = FlightTiming()
+
+    var engineStartTime: Date? {
+        get { flightTiming.engineStartTime }
+        set { flightTiming.engineStartTime = newValue }
+    }
+    var lineUpTime: Date? {
+        get { flightTiming.lineUpTime }
+        set { flightTiming.lineUpTime = newValue }
+    }
+    var landingTime: Date? {
+        get { flightTiming.landingTime }
+        set { flightTiming.landingTime = newValue }
+    }
+    var engineShutdownTime: Date? {
+        get { flightTiming.engineShutdownTime }
+        set { flightTiming.engineShutdownTime = newValue }
+    }
     
     // Phase completion tracking
     @Published var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]

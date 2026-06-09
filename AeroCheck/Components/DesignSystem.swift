@@ -252,6 +252,12 @@ struct InstrumentFailureFlag: View {
             }
         }
         .frame(width: size.width, height: size.height)
+        // VoiceOver: the failure X is a Canvas glyph with no inherent semantics. (UX-24)
+        // (When overlaid on an instrument that uses `.accessibilityElement(children: .ignore)`,
+        // the parent's composed value subsumes this; this covers standalone use.)
+        .accessibilityElement()
+        .accessibilityLabel("GPS signal")
+        .accessibilityValue(level == .lost ? "lost" : "degraded")
     }
 }
 
@@ -260,7 +266,7 @@ struct InstrumentFailureFlag: View {
 struct StatusIndicator: View {
     enum Status {
         case active, inactive, warning, error
-        
+
         var color: Color {
             switch self {
             case .active: return .aviationGreen
@@ -269,21 +275,39 @@ struct StatusIndicator: View {
             case .error: return .aviationRed
             }
         }
+
+        /// Textual status for VoiceOver, so the state is conveyed by words, not colour alone. (UX-10)
+        var accessibilityText: String {
+            switch self {
+            case .active: return "active"
+            case .inactive: return "inactive"
+            case .warning: return "warning"
+            case .error: return "error"
+            }
+        }
     }
-    
+
     let status: Status
     let size: CGFloat
-    
-    init(_ status: Status, size: CGFloat = 12) {
+    /// Optional description of what this dot indicates (e.g. "GPS", "iCloud sync"). VoiceOver reads
+    /// "<label>, <status>".
+    let accessibilityLabelText: String?
+
+    init(_ status: Status, size: CGFloat = 12, label: String? = nil) {
         self.status = status
         self.size = size
+        self.accessibilityLabelText = label
     }
-    
+
     var body: some View {
         Circle()
             .fill(status.color)
             .frame(width: size, height: size)
             .shadow(color: status.color.opacity(0.5), radius: 4)
+            .accessibilityElement()
+            .accessibilityLabel(accessibilityLabelText ?? "Status")
+            .accessibilityValue(status.accessibilityText)
+            .accessibilityAddTraits(status == .error || status == .warning ? .updatesFrequently : [])
     }
 }
 
@@ -405,6 +429,30 @@ struct SpeedIndicatorView: View {
                 stopFlashing()
             }
         }
+        // VoiceOver: read the speed as one element with a composed value, so state is conveyed by
+        // words (on/off target, below stall speed), never colour alone. (UX-10)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
+            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed, state: speedState,
+            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// Composes the VoiceOver value string. Pure + static so the wording is unit-tested — a
+    /// mis-stated speed/state on a safety instrument is the main risk of accessibility text. (UX-10)
+    static func accessibilityValue(displaySpeed: Int, targetSpeed: Int, state: SpeedState,
+                                   estimated: Bool, gpsLost: Bool) -> String {
+        if gpsLost { return "GPS signal lost" }
+        let source = estimated ? "knots estimated airspeed" : "knots ground speed"
+        let prefix = estimated ? "approximately " : ""
+        let stateText: String
+        switch state {
+        case .onTarget: stateText = "on target"
+        case .offTarget: stateText = "off target"
+        case .stall: stateText = "below stall speed"
+        }
+        return "\(prefix)\(displaySpeed) \(source), \(stateText). Target \(targetSpeed) knots"
     }
 
     private var backgroundColor: Color {
@@ -603,6 +651,16 @@ struct AltimeterView: View {
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundColor(.secondaryText)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Altitude")
+        .accessibilityValue(AltimeterView.accessibilityValue(
+            altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// Composes the VoiceOver value string (pure + static, unit-tested). (UX-10)
+    static func accessibilityValue(altitudeFeet: Int, gpsLost: Bool) -> String {
+        gpsLost ? "GPS signal lost" : "\(altitudeFeet) feet M S L"
     }
 }
 

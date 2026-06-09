@@ -660,30 +660,24 @@ class AppState: ObservableObject {
         return currentHighlightedItem[phase] ?? 0
     }
     
-    /// Advance to the next item in the current phase
+    /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`).
     func advanceHighlightedItem() {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
-        
-        // Get visible items count based on learning mode
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
-
-        if currentIndex < visibleCount - 1 {
-            currentHighlightedItem[currentPhase] = currentIndex + 1
-        }
-        // If at last item, don't advance (user should press NEXT)
+        currentHighlightedItem[currentPhase] = ChecklistHighlighting.advanced(current: currentIndex, visibleCount: visibleCount)
     }
-    
+
     /// Mark the last item as complete (moves index past the last item)
     func markLastItemComplete() {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
-        currentHighlightedItem[currentPhase] = visibleCount
+        currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
     }
-    
+
     /// Check if all items in current phase are completed
     func areAllItemsCompleted() -> Bool {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
-        return currentIndex >= visibleCount
+        return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
     }
     
     /// Reset highlighted item for a phase

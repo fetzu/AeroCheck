@@ -262,6 +262,8 @@ struct FlightView: View {
                         // Tap outside dismisses
                         flightEventDetector.dismissGoAround()
                     }
+                    // VoiceOver: the two-finger-scrub escape gesture dismisses the dialog. (UX-24)
+                    .accessibilityAction(.escape) { flightEventDetector.dismissGoAround() }
                 EventConfirmationView(
                     event: goAroundEvent,
                     onConfirm: {
@@ -282,6 +284,7 @@ struct FlightView: View {
                         // Tap outside dismisses
                         flightEventDetector.dismissTouchAndGo()
                     }
+                    .accessibilityAction(.escape) { flightEventDetector.dismissTouchAndGo() }
                 EventConfirmationView(
                     event: touchAndGoEvent,
                     onConfirm: {
@@ -302,6 +305,7 @@ struct FlightView: View {
                         // Tap outside dismisses
                         flightEventDetector.dismissFullStop()
                     }
+                    .accessibilityAction(.escape) { flightEventDetector.dismissFullStop() }
                 EventConfirmationView(
                     event: fullStopEvent,
                     onConfirm: {
@@ -1556,6 +1560,21 @@ struct CompactSpeedView: View {
         .onChange(of: speedState) { _, newState in
             if newState == .stall { startFlashing() } else { stopFlashing() }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
+            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed, state: mappedSpeedState,
+            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    /// Maps to the shared instrument state so the VoiceOver wording is identical (and tested). (UX-10)
+    private var mappedSpeedState: SpeedIndicatorView.SpeedState {
+        switch speedState {
+        case .onTarget: return .onTarget
+        case .offTarget: return .offTarget
+        case .stall: return .stall
+        }
     }
 
     private var backgroundColor: Color {
@@ -1656,6 +1675,11 @@ struct CompactAltimeterView: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondaryText)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Altitude")
+        .accessibilityValue(AltimeterView.accessibilityValue(
+            altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

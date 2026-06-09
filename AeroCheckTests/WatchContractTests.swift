@@ -42,3 +42,36 @@ final class WatchContractTests: XCTestCase {
         XCTAssertFalse(decoded.isFlightActive, "Unspecified fields keep their defaults")
     }
 }
+
+/// Tests the versioned, tolerant Companion (iPad master ↔ iPhone viewer) connectivity contract. (ARCH)
+final class CompanionContractTests: XCTestCase {
+
+    func testMessageRoundTripsWithVersion() throws {
+        let inner = Data(#"{"x":1}"#.utf8)
+        let msg = CompanionMessage(type: .flightData, payload: inner)
+        let decoded = try JSONDecoder().decode(CompanionMessage.self, from: JSONEncoder().encode(msg))
+        XCTAssertEqual(decoded.schemaVersion, CompanionMessage.currentSchemaVersion)
+        XCTAssertEqual(decoded.type, .flightData)
+        XCTAssertEqual(decoded.payload, inner)
+    }
+
+    func testMessageDecodesPreVersioningEnvelope() throws {
+        // No schemaVersion, no timestamp — still routes because type/payload are present.
+        let legacy = Data(#"{"type":"command","payload":""}"#.utf8)
+        let decoded = try JSONDecoder().decode(CompanionMessage.self, from: legacy)
+        XCTAssertEqual(decoded.schemaVersion, 0)
+        XCTAssertEqual(decoded.type, .command)
+        XCTAssertEqual(decoded.timestamp, .distantPast)
+    }
+
+    func testFlightDataDecodesFromAPartialPayload() throws {
+        // A skewed sender omits several fields — decode must not throw; defaults fill in.
+        let partial = Data(#"{"isFlightActive":true,"currentPhase":"CRUISE","speedMPS":50}"#.utf8)
+        let decoded = try JSONDecoder().decode(CompanionFlightData.self, from: partial)
+        XCTAssertTrue(decoded.isFlightActive)
+        XCTAssertEqual(decoded.currentPhase, "CRUISE")
+        XCTAssertEqual(decoded.speedMPS, 50)
+        XCTAssertEqual(decoded.gpsSignalStatus, "unknown", "A missing field falls back to its default")
+        XCTAssertEqual(decoded.timestamp, .distantPast, "A missing timestamp reads as stale, not fresh")
+    }
+}

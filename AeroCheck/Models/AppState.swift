@@ -605,6 +605,10 @@ class AppState: ObservableObject {
         // Block times are already set on currentFlight, copy them to the final flight
         // (they're already there since we modify currentFlight directly)
 
+        // Precompute summary stats once now that the track is final, so the flight-log list
+        // never recomputes an O(n) distance per row. (PERF-22)
+        flight.computeSummaryStats()
+
         flights.insert(flight, at: 0)
         saveFlights()
 

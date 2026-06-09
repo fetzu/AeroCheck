@@ -66,6 +66,13 @@ struct Flight: Identifiable, Codable {
     /// Record schema version, for forward-compatible CloudKit/import ingest validation. (SEC-17)
     var schemaVersion: Int
 
+    // Precomputed summary stats (v5) — computed once at save so the flight-log list never
+    // recomputes an O(n) distance per row on every re-render. Optional + backward-compatible:
+    // legacy records fall back to a lightweight on-demand computation. (PERF-22)
+    var cachedDistanceKm: Double?
+    var cachedMaxAltitudeMeters: Double?
+    var cachedDurationSeconds: Double?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     static let currentSchemaVersion = 1
@@ -84,6 +91,7 @@ struct Flight: Identifiable, Codable {
         case goAroundCount, touchAndGoCount, fullStopCount
         case goAroundTimes, touchAndGoTimes, fullStopTimes
         case modifiedAt, schemaVersion
+        case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -143,6 +151,11 @@ struct Flight: Identifiable, Codable {
         modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt)
             ?? stopTime ?? startTime ?? Date.distantPast
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+
+        // v5 precomputed stats — nil for legacy records (computed lazily on demand).
+        cachedDistanceKm = try container.decodeIfPresent(Double.self, forKey: .cachedDistanceKm)
+        cachedMaxAltitudeMeters = try container.decodeIfPresent(Double.self, forKey: .cachedMaxAltitudeMeters)
+        cachedDurationSeconds = try container.decodeIfPresent(Double.self, forKey: .cachedDurationSeconds)
     }
 
     init(
@@ -181,7 +194,10 @@ struct Flight: Identifiable, Codable {
         touchAndGoTimes: [Date] = [],
         fullStopTimes: [Date] = [],
         modifiedAt: Date = Date(),
-        schemaVersion: Int = Flight.currentSchemaVersion
+        schemaVersion: Int = Flight.currentSchemaVersion,
+        cachedDistanceKm: Double? = nil,
+        cachedMaxAltitudeMeters: Double? = nil,
+        cachedDurationSeconds: Double? = nil
     ) {
         self.id = id
         self.name = name
@@ -219,6 +235,9 @@ struct Flight: Identifiable, Codable {
         self.fullStopTimes = fullStopTimes
         self.modifiedAt = modifiedAt
         self.schemaVersion = schemaVersion
+        self.cachedDistanceKm = cachedDistanceKm
+        self.cachedMaxAltitudeMeters = cachedMaxAltitudeMeters
+        self.cachedDurationSeconds = cachedDurationSeconds
     }
 
     /// Stamp the flight as locally modified (drives the CloudKit conflict tiebreaker). (ARCH-02)
@@ -364,21 +383,42 @@ struct Flight: Identifiable, Codable {
         return formatter.string(from: start)
     }
     
-    /// Total distance travelled in kilometers (calculated from GPS track)
+    /// Total distance travelled in kilometers. Uses the value precomputed at save when available;
+    /// otherwise computes on demand with a lightweight haversine (no per-segment CLLocation
+    /// allocations), so the flight-log list never pays an O(n) `CLLocation.distance` per row. (PERF-22)
     var distanceKilometers: Double {
-        guard gpsTrack.count >= 2 else { return 0 }
-        
-        var totalDistance: Double = 0
-        for i in 1..<gpsTrack.count {
-            let prev = gpsTrack[i-1]
-            let curr = gpsTrack[i]
-            
-            let prevLocation = CLLocation(latitude: prev.latitude, longitude: prev.longitude)
-            let currLocation = CLLocation(latitude: curr.latitude, longitude: curr.longitude)
-            
-            totalDistance += currLocation.distance(from: prevLocation)
+        if let cached = cachedDistanceKm { return cached }
+        return Flight.computeDistanceKm(gpsTrack)
+    }
+
+    /// Haversine great-circle distance in metres between two coordinates (no allocations).
+    static func haversineMeters(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double) -> Double {
+        let earthRadius = 6_371_000.0
+        let dLat = (lat2 - lat1) * .pi / 180
+        let dLon = (lon2 - lon1) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180) * sin(dLon / 2) * sin(dLon / 2)
+        return earthRadius * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+
+    static func computeDistanceKm(_ track: [GPSPoint]) -> Double {
+        guard track.count >= 2 else { return 0 }
+        var total = 0.0
+        for i in 1..<track.count {
+            total += haversineMeters(track[i - 1].latitude, track[i - 1].longitude,
+                                     track[i].latitude, track[i].longitude)
         }
-        return totalDistance / 1000.0 // Convert meters to km
+        return total / 1000.0
+    }
+
+    /// Precomputes the summary stats (distance, max altitude, duration) once — call at save, when
+    /// the GPS track is final — so the flight-log list reads cached values instead of recomputing. (PERF-22)
+    mutating func computeSummaryStats() {
+        cachedDistanceKm = Flight.computeDistanceKm(gpsTrack)
+        cachedMaxAltitudeMeters = gpsTrack.map(\.altitude).max()
+        if let start = startTime, let stop = stopTime {
+            cachedDurationSeconds = stop.timeIntervalSince(start)
+        }
     }
     
     var formattedDistance: String {
@@ -825,6 +865,9 @@ class GPXParser: NSObject, XMLParserDelegate {
     /// Set if any track point carries an invalid (NaN/Inf/out-of-range) coordinate, in which
     /// case the whole import is rejected rather than yielding a partial/garbage track. (SEC-08)
     private var hasInvalidCoordinate = false
+    /// Set if the track exceeds the hard point cap — a crafted file can't OOM/hang the import; it
+    /// is rejected with a clear error rather than silently truncated. (SEC-13)
+    private var hasTooManyPoints = false
     private var goAroundTimes: [Date] = []
     private var touchAndGoTimes: [Date] = []
     private var fullStopTimes: [Date] = []
@@ -840,7 +883,7 @@ class GPXParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return hasInvalidCoordinate ? nil : flight
+        return (hasInvalidCoordinate || hasTooManyPoints) ? nil : flight
     }
     
     func parser(_ parser: XMLParser, didStartElement elementName: String,
@@ -1009,7 +1052,11 @@ class GPXParser: NSObject, XMLParserDelegate {
             }
         case "trkpt":
             if let point = currentPoint {
-                points.append(point)
+                if points.count >= FlightDataLimits.maxGPSPoints {
+                    hasTooManyPoints = true // stop appending so a crafted file can't OOM the import
+                } else {
+                    points.append(point)
+                }
             }
             currentPoint = nil
         case "trk":

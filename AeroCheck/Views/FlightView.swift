@@ -1580,9 +1580,10 @@ struct CompactSpeedView: View {
     }
 
     private var backgroundColor: Color {
+        // Solid high-contrast fills (black text) for sunlight legibility. (UX-17)
         switch speedState {
-        case .onTarget: return Color.aviationGreen.opacity(0.2)
-        case .offTarget: return Color.orange.opacity(0.2)
+        case .onTarget: return Color.aviationGreen
+        case .offTarget: return Color.orange
         case .stall:
             if reduceMotion { return Color.aviationRed } // steady solid red under Reduce Motion (UX-18)
             return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
@@ -1591,9 +1592,8 @@ struct CompactSpeedView: View {
 
     private var textColor: Color {
         switch speedState {
-        case .onTarget: return .aviationGreen
-        case .offTarget: return .orange
-        case .stall: return isFlashing ? .white : .aviationRed
+        case .onTarget, .offTarget: return .black
+        case .stall: return .white
         }
     }
 

@@ -652,7 +652,7 @@ struct NavigationMapView: View {
                             Text("\(Int(locationManager.currentSpeedKnots))")
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                             Text("kt")
-                                .font(.system(size: 8))
+                                .font(.system(size: 12)) // ≥12pt for glance legibility (UX-17)
                         }
                         .foregroundColor(speedColor)
                     }
@@ -664,7 +664,7 @@ struct NavigationMapView: View {
                             Text("\(Int(locationManager.currentAltitudeFeet))")
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                             Text("ft")
-                                .font(.system(size: 8))
+                                .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
                         .foregroundColor(.altimeterBlue)
 
@@ -677,7 +677,7 @@ struct NavigationMapView: View {
                             Text(String(format: "%03d", currentHeading))
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                             Text("°")
-                                .font(.system(size: 8))
+                                .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
                         .foregroundColor(.aviationGold)
                     }

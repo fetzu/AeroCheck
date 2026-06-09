@@ -70,6 +70,10 @@ class LocationManager: NSObject, ObservableObject {
     // flight mode uses 50m filter for battery efficiency
     private var isGroundMode: Bool = true
     private var flightModeDistanceFilter: CLLocationDistance = 50
+    /// Ground-mode distance filter: a modest value (not `kCLDistanceFilterNone`) so taxi/block-on
+    /// detail is still captured while sub-metre GPS jitter no longer fires a callback on every
+    /// fix during long sub-40-kt phases, saving battery. (PERF-24)
+    private let groundModeDistanceFilter: CLLocationDistance = 5
 
     // Speed and heading caching/smoothing
     // Prevents false stall warnings from GPS -1 (invalid) speed values by holding the last
@@ -98,7 +102,9 @@ class LocationManager: NSObject, ObservableObject {
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = kCLDistanceFilterNone // Start in ground mode; switches to 50m in flight mode
+        // Start in ground mode (modest 5 m filter). applyGPSPriority adjusts accuracy per the user's
+        // GPSPriority; setGroundMode switches to the flight-mode filter (50/100 m) when airborne.
+        locationManager.distanceFilter = groundModeDistanceFilter
         locationManager.activityType = .airborne
 
         // Background location configuration:
@@ -198,7 +204,7 @@ class LocationManager: NSObject, ObservableObject {
         hasConfiguredDetector = false
         // Reset to ground mode for next flight
         isGroundMode = true
-        locationManager.distanceFilter = kCLDistanceFilterNone
+        locationManager.distanceFilter = groundModeDistanceFilter
         // Reset smoothed/cached values for next flight
         smoothedSpeedMPS = 0
         lastValidSpeedMPS = 0
@@ -209,15 +215,15 @@ class LocationManager: NSObject, ObservableObject {
         lastDisplayedSpeedKnots = 0
     }
 
-    /// Switch between ground mode (no distance filter, precise low-speed tracking)
-    /// and flight mode (50m distance filter, battery-efficient for cruise).
+    /// Switch between ground mode (modest 5 m distance filter, precise low-speed tracking)
+    /// and flight mode (50/100 m distance filter, battery-efficient for cruise).
     /// Ground mode should be active during taxi and after landing.
     /// Flight mode should be active during airborne phases.
     func setGroundMode(_ onGround: Bool) {
         guard onGround != isGroundMode else { return }
         isGroundMode = onGround
-        locationManager.distanceFilter = onGround ? kCLDistanceFilterNone : flightModeDistanceFilter
-        print("[LocationManager] Distance filter: \(onGround ? "ground mode (none)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
+        locationManager.distanceFilter = onGround ? groundModeDistanceFilter : flightModeDistanceFilter
+        print("[LocationManager] Distance filter: \(onGround ? "ground mode (\(Int(groundModeDistanceFilter))m)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
     }
 
     /// Start location updates without recording (for navigation view)

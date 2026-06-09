@@ -9,6 +9,19 @@ enum PhaseCompletionStatus: String, Codable {
     case missingAction   // Phase with required button (e.g., engine start) was skipped without pressing button
 }
 
+/// The pilot's progress through the checklist, grouped as one cohesive value extracted from four
+/// loose @Published properties on AppState: the current phase, the per-phase completion status, the
+/// highest phase reached, and the per-phase step-by-step highlight index. AppState owns it via a
+/// single `@Published var checklistProgress` and exposes thin forwarding accessors, so the app-wide
+/// `appState.currentPhase` / `phaseCompletionStatus` / … call sites keep working and stay reactive.
+/// (Phase 4 — AppState decomposition: state extraction)
+struct ChecklistProgress {
+    var currentPhase: ChecklistPhase = .preflight
+    var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]
+    var highestCompletedPhase: ChecklistPhase = .preflight
+    var currentHighlightedItem: [ChecklistPhase: Int] = [:]
+}
+
 /// Application-wide settings
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
@@ -294,7 +307,15 @@ struct ActiveFlightState: Codable {
 class AppState: ObservableObject {
     // MARK: - Published Properties
 
-    @Published var currentPhase: ChecklistPhase = .preflight
+    // Checklist progress (current phase, completion status, highest phase reached, highlight index)
+    // grouped into one cohesive ChecklistProgress value. The forwarding accessors below keep every
+    // existing `appState.currentPhase` / … call site working and reactive. (Phase 4 — decomposition)
+    @Published var checklistProgress = ChecklistProgress()
+
+    var currentPhase: ChecklistPhase {
+        get { checklistProgress.currentPhase }
+        set { checklistProgress.currentPhase = newValue }
+    }
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
@@ -365,12 +386,20 @@ class AppState: ObservableObject {
         set { flightTiming.engineShutdownTime = newValue }
     }
     
-    // Phase completion tracking
-    @Published var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] = [:]
-    @Published var highestCompletedPhase: ChecklistPhase = .preflight
-    
-    // Step-by-step highlighting tracking
-    @Published var currentHighlightedItem: [ChecklistPhase: Int] = [:]
+    // Phase completion tracking + step-by-step highlighting — forwarding accessors over the
+    // cohesive `checklistProgress` value declared above.
+    var phaseCompletionStatus: [ChecklistPhase: PhaseCompletionStatus] {
+        get { checklistProgress.phaseCompletionStatus }
+        set { checklistProgress.phaseCompletionStatus = newValue }
+    }
+    var highestCompletedPhase: ChecklistPhase {
+        get { checklistProgress.highestCompletedPhase }
+        set { checklistProgress.highestCompletedPhase = newValue }
+    }
+    var currentHighlightedItem: [ChecklistPhase: Int] {
+        get { checklistProgress.currentHighlightedItem }
+        set { checklistProgress.currentHighlightedItem = newValue }
+    }
     
     // Landing detection
     @Published var hasLandingBeenDetected: Bool = false

@@ -102,4 +102,26 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertTrue(ChecklistHighlighting.allItemsCompleted(current: 3, visibleCount: 3))
         XCTAssertTrue(ChecklistHighlighting.allItemsCompleted(current: 4, visibleCount: 3))
     }
+
+    // MARK: - Circuit-mode phase navigation (extracted from AppState, Phase 4)
+
+    func testCruiseAndDescentAreSkippedOnlyInCircuitMode() {
+        XCTAssertTrue(ChecklistPhase.cruise.isSkippedInCircuitMode(true))
+        XCTAssertTrue(ChecklistPhase.descent.isSkippedInCircuitMode(true))
+        XCTAssertFalse(ChecklistPhase.cruise.isSkippedInCircuitMode(false))
+        XCTAssertFalse(ChecklistPhase.climb.isSkippedInCircuitMode(true), "Other phases are never skipped")
+        XCTAssertFalse(ChecklistPhase.approach.isSkippedInCircuitMode(true))
+    }
+
+    func testNextNavigableSkipsCruiseAndDescentInCircuitMode() {
+        XCTAssertEqual(ChecklistPhase.climb.nextNavigable(circuitMode: true), .approach)
+        XCTAssertEqual(ChecklistPhase.climb.nextNavigable(circuitMode: false), .cruise)
+        XCTAssertNil(ChecklistPhase.hangar.nextNavigable(circuitMode: false), "No phase after the last")
+    }
+
+    func testPreviousNavigableSkipsCruiseAndDescentInCircuitMode() {
+        XCTAssertEqual(ChecklistPhase.approach.previousNavigable(circuitMode: true), .climb)
+        XCTAssertEqual(ChecklistPhase.approach.previousNavigable(circuitMode: false), .descent)
+        XCTAssertNil(ChecklistPhase.preflight.previousNavigable(circuitMode: false), "No phase before the first")
+    }
 }

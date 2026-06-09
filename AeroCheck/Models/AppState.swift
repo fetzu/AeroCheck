@@ -927,12 +927,12 @@ class AppState: ObservableObject {
             highestCompletedPhase = currentPhase
         }
 
-        // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode
+        // Calculate the next phase, skipping CRUISE and DESCENT in circuit mode (marking each
+        // skipped phase as .skipped along the way — that side effect stays here).
         var nextIndex = currentIndex + 1
         while nextIndex < ChecklistPhase.allCases.count {
             let nextPhase = ChecklistPhase.allCases[nextIndex]
-            if isCircuitMode && (nextPhase == .cruise || nextPhase == .descent) {
-                // Skip this phase in circuit mode
+            if nextPhase.isSkippedInCircuitMode(isCircuitMode) {
                 phaseCompletionStatus[nextPhase] = .skipped
                 nextIndex += 1
             } else {
@@ -946,28 +946,15 @@ class AppState: ObservableObject {
     }
 
     func previousPhase() {
-        guard let prevIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase)?.advanced(by: -1),
-              prevIndex >= 0 else { return }
-
-        // In circuit mode, skip CRUISE and DESCENT when going backward
-        var targetIndex = prevIndex
-        while targetIndex >= 0 {
-            let prevPhase = ChecklistPhase.allCases[targetIndex]
-            if isCircuitMode && (prevPhase == .cruise || prevPhase == .descent) {
-                targetIndex -= 1
-            } else {
-                break
-            }
-        }
-
-        if targetIndex >= 0 {
-            currentPhase = ChecklistPhase.allCases[targetIndex]
+        // The previous-navigable rule (with circuit-mode skipping) lives on ChecklistPhase.
+        if let target = currentPhase.previousNavigable(circuitMode: isCircuitMode) {
+            currentPhase = target
         }
     }
-    
+
     func goToPhase(_ phase: ChecklistPhase) {
         // In circuit mode, don't allow navigation to CRUISE or DESCENT
-        if isCircuitMode && (phase == .cruise || phase == .descent) {
+        if phase.isSkippedInCircuitMode(isCircuitMode) {
             return
         }
 

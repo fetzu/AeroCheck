@@ -5,66 +5,54 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    @State private var selection: Section?
+
+    /// The settings sections. On iPad regular width `NavigationSplitView` shows them as a sidebar
+    /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
+    /// the previous single-column push navigation. (UX-22)
+    enum Section: Hashable, CaseIterable, Identifiable {
+        case aircraft, checklist, navigation, flightPlanning, sync, companion, about
+        var id: Self { self }
+
+        var icon: String {
+            switch self {
+            case .aircraft: return "airplane"
+            case .checklist: return "checklist"
+            case .navigation: return "map"
+            case .flightPlanning: return "point.topleft.down.to.point.bottomright.curvepath"
+            case .sync: return "icloud"
+            case .companion: return "ipad.and.iphone"
+            case .about: return "info.circle"
+            }
+        }
+        var title: String {
+            switch self {
+            case .aircraft: return L10n.Settings.aircraftAndSubscription
+            case .checklist: return L10n.Settings.checklistAndFlight
+            case .navigation: return L10n.Settings.navigationAndMaps
+            case .flightPlanning: return L10n.Settings.flightPlanning
+            case .sync: return L10n.Settings.syncAndData
+            case .companion: return L10n.Settings.companionMode
+            case .about: return L10n.Settings.about
+            }
+        }
+        var subtitle: String {
+            switch self {
+            case .aircraft: return L10n.Settings.aircraftAndSubscriptionSubtitle
+            case .checklist: return L10n.Settings.checklistAndFlightSubtitle
+            case .navigation: return L10n.Settings.navigationAndMapsSubtitle
+            case .flightPlanning: return L10n.Settings.flightPlanningSubtitle
+            case .sync: return L10n.Settings.syncAndDataSubtitle
+            case .companion: return L10n.Settings.companionModeSubtitle
+            case .about: return L10n.Settings.aboutSubtitle
+            }
+        }
+    }
+
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    NavigationLink(destination: AircraftSettingsView()) {
-                        SettingsRow(
-                            icon: "airplane",
-                            title: L10n.Settings.aircraftAndSubscription,
-                            subtitle: L10n.Settings.aircraftAndSubscriptionSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: ChecklistFlightSettingsView()) {
-                        SettingsRow(
-                            icon: "checklist",
-                            title: L10n.Settings.checklistAndFlight,
-                            subtitle: L10n.Settings.checklistAndFlightSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: NavigationMapsSettingsView()) {
-                        SettingsRow(
-                            icon: "map",
-                            title: L10n.Settings.navigationAndMaps,
-                            subtitle: L10n.Settings.navigationAndMapsSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: FlightPlanningSettingsView()) {
-                        SettingsRow(
-                            icon: "point.topleft.down.to.point.bottomright.curvepath",
-                            title: L10n.Settings.flightPlanning,
-                            subtitle: L10n.Settings.flightPlanningSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: SyncDataSettingsView()) {
-                        SettingsRow(
-                            icon: "icloud",
-                            title: L10n.Settings.syncAndData,
-                            subtitle: L10n.Settings.syncAndDataSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: CompanionSettingsView()) {
-                        SettingsRow(
-                            icon: "ipad.and.iphone",
-                            title: L10n.Settings.companionMode,
-                            subtitle: L10n.Settings.companionModeSubtitle
-                        )
-                    }
-
-                    NavigationLink(destination: AboutSettingsView()) {
-                        SettingsRow(
-                            icon: "info.circle",
-                            title: L10n.Settings.about,
-                            subtitle: L10n.Settings.aboutSubtitle
-                        )
-                    }
-                }
+        NavigationSplitView {
+            List(Section.allCases, selection: $selection) { section in
+                SettingsRow(icon: section.icon, title: section.title, subtitle: section.subtitle)
             }
             .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -73,8 +61,27 @@ struct SettingsView: View {
                     Button(L10n.Settings.done) { dismiss() }
                 }
             }
+        } detail: {
+            NavigationStack {
+                detailView(for: selection)
+            }
         }
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func detailView(for section: Section?) -> some View {
+        switch section {
+        case .aircraft: AircraftSettingsView()
+        case .checklist: ChecklistFlightSettingsView()
+        case .navigation: NavigationMapsSettingsView()
+        case .flightPlanning: FlightPlanningSettingsView()
+        case .sync: SyncDataSettingsView()
+        case .companion: CompanionSettingsView()
+        case .about: AboutSettingsView()
+        case nil:
+            ContentUnavailableView(L10n.Settings.title, systemImage: "gearshape")
+        }
     }
 }
 

@@ -713,12 +713,15 @@ struct ChecklistItemRow: View {
         return .secondaryText
     }
     
+    // Scalable equivalents of the fixed 16/22pt checklist fonts: text-style-based so the primary
+    // checklist reading content honours Dynamic Type (the challenge/response already wrap vertically
+    // via .fixedSize, so large sizes grow the row instead of clipping). (UX-14)
     private var itemFont: Font {
-        isCompact ? .system(size: 16, weight: .medium, design: .monospaced) : .checklistItem
+        .system(isCompact ? .callout : .title2, design: .monospaced).weight(.medium)
     }
 
     private var responseFont: Font {
-        isCompact ? .system(size: 16, weight: .regular, design: .monospaced) : .checklistResponse
+        .system(isCompact ? .callout : .title2, design: .monospaced)
     }
 
     var body: some View {

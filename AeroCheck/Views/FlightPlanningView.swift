@@ -27,7 +27,7 @@ struct FlightPlanningView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.cockpitBackground.ignoresSafeArea()
 
@@ -512,7 +512,7 @@ struct NewFlightPlanSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section {
                     TextField(L10n.Nav.flightPlanName, text: $name)

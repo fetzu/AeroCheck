@@ -722,7 +722,7 @@ struct DepartureTimePickerSheet: View {
     @State private var selectedTime: Date = Date()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Text(L10n.FlightPlan.adjustDepartureTimeDesc)
                     .font(.system(size: 14))

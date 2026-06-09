@@ -199,7 +199,7 @@ struct MapUpdateReminderSheet: View {
     @State private var isUpdating = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 // Header icon
                 Image(systemName: "arrow.triangle.2.circlepath")

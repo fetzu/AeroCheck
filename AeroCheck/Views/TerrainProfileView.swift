@@ -16,7 +16,7 @@ struct TerrainProfileView: View {
     private let elevationService = ElevationService()
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.cockpitBackground.ignoresSafeArea()
 

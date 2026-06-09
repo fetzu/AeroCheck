@@ -50,7 +50,7 @@ struct HourMeterInputView: View {
     // MARK: - iPhone Layout (full-screen, unchanged from original)
 
     private var iPhoneBody: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 dialPadContent
             }

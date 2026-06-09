@@ -1520,11 +1520,15 @@ struct CompactSpeedView: View {
             ZStack {
                 HStack(spacing: 4) {
                     if gpsSignalStatus != .lost {
+                        // Live airspeed is primary flight data — give it the largest, heaviest type
+                        // in the in-flight bar so it's the glance focal point. (UX-15)
                         Text("\(Int(max(0, displaySpeed)))")
-                            .font(.system(size: 24, weight: .bold, design: .monospaced))
+                            .font(.system(size: 30, weight: .heavy, design: .monospaced))
                             .foregroundColor(textColor)
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
                         Text(L10n.Unit.kt)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(textColor.opacity(0.8))
                     }
                 }
@@ -1632,13 +1636,14 @@ struct CompactAltimeterView: View {
     private var altimeterText: Color { nightMode ? .nightInstrumentText : .black }
 
     private var altitudeFontSize: CGFloat {
+        // Sized to match the elevated airspeed readout — altitude is primary flight data too. (UX-15)
         let altitude = Int(altitudeFeet)
         let digitCount = String(abs(altitude)).count
         switch digitCount {
-        case 1, 2: return 24
-        case 3: return 22
-        case 4: return 18
-        default: return 14
+        case 1, 2: return 30
+        case 3: return 27
+        case 4: return 22
+        default: return 17
         }
     }
 

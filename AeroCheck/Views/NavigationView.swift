@@ -575,7 +575,7 @@ struct NavigationMapView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.primaryText)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .background(
                         Circle()
                             .fill(Color.panelBackground.opacity(0.9))
@@ -602,7 +602,7 @@ struct NavigationMapView: View {
                         }
                     }
                     .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
-                    .frame(width: 50, height: 36)
+                    .frame(width: 50, height: 44) // HIG minimum tap height (UX-16)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.panelBackground.opacity(0.9))
@@ -614,7 +614,7 @@ struct NavigationMapView: View {
                     Image(systemName: "map.fill")
                         .font(.system(size: 12))
                         .foregroundColor(.primaryText)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(Color.panelBackground.opacity(0.9))
@@ -717,7 +717,7 @@ struct NavigationMapView: View {
                 Image(systemName: "shield")
                     .font(.system(size: 14))
                     .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .background(
                         Circle()
                             .fill(appState.settings.showOpenAIPOverlay
@@ -737,7 +737,7 @@ struct NavigationMapView: View {
                 Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
                     .font(.system(size: 14))
                     .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .background(
                         Circle()
                             .fill(Color.panelBackground.opacity(0.9))

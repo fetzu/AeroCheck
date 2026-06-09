@@ -1270,23 +1270,11 @@ extension AppState {
         currentPhase == .hangar
     }
     
-    /// Flight duration from engine start to now
+    /// Flight duration from engine start (or, before engine start, the session start) to now.
     var flightDuration: String {
-        guard let start = engineStartTime else {
-            // If engine not started, show session time
-            guard let sessionStart = currentFlight?.startTime else { return "--:--" }
-            let duration = Date().timeIntervalSince(sessionStart)
-            let hours = Int(duration) / 3600
-            let minutes = (Int(duration) % 3600) / 60
-            let seconds = Int(duration) % 60
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-        }
-        // Always use current time - timer should run until flight is ended
-        let duration = Date().timeIntervalSince(start)
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+        // Engine-start time wins; before that, fall back to the session start. Nil → placeholder.
+        guard let start = engineStartTime ?? currentFlight?.startTime else { return "--:--" }
+        return FlightClock.formattedDuration(seconds: Date().timeIntervalSince(start))
     }
     
     var formattedEngineStartTime: String? {
@@ -1309,14 +1297,8 @@ extension AppState {
         return formatTime(time)
     }
 
-    /// Format a time according to current UTC settings
+    /// Format a time according to current UTC settings (rules in `FlightClock`).
     func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        if settings.alwaysUseUTC {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-            return formatter.string(from: date) + " (UTC)"
-        }
-        return formatter.string(from: date)
+        FlightClock.formattedTimeOfDay(date, useUTC: settings.alwaysUseUTC)
     }
 }

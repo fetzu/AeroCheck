@@ -52,3 +52,26 @@ final class FlightSummaryStatsTests: XCTestCase {
         XCTAssertEqual(decoded.cachedDistanceKm, flight.cachedDistanceKm)
     }
 }
+
+/// Tests the flight-clock formatting extracted from AppState. (Phase 4 — AppState decomposition)
+final class FlightClockTests: XCTestCase {
+
+    func testFormattedDurationIsHHMMSS() {
+        XCTAssertEqual(FlightClock.formattedDuration(seconds: 0), "00:00:00")
+        XCTAssertEqual(FlightClock.formattedDuration(seconds: 59), "00:00:59")
+        XCTAssertEqual(FlightClock.formattedDuration(seconds: 3661), "01:01:01")
+        XCTAssertEqual(FlightClock.formattedDuration(seconds: 3600 * 25 + 1), "25:00:01")
+    }
+
+    func testNegativeDurationClampsToZero() {
+        // Clock skew (start in the future) must not render "-1:-1:..".
+        XCTAssertEqual(FlightClock.formattedDuration(seconds: -5), "00:00:00")
+    }
+
+    func testTimeOfDayAddsUTCSuffixOnlyWhenForced() {
+        let date = Date(timeIntervalSince1970: 0)
+        XCTAssertTrue(FlightClock.formattedTimeOfDay(date, useUTC: true).contains("(UTC)"))
+        XCTAssertFalse(FlightClock.formattedTimeOfDay(date, useUTC: false).contains("(UTC)"))
+        XCTAssertFalse(FlightClock.formattedTimeOfDay(date, useUTC: false).isEmpty)
+    }
+}

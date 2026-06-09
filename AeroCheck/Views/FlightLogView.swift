@@ -26,7 +26,7 @@ struct FlightLogView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.cockpitBackground
                     .ignoresSafeArea()
@@ -651,7 +651,7 @@ struct FlightDetailView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Map
@@ -1975,7 +1975,7 @@ struct ShareCardCustomizationView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.cockpitBackground.ignoresSafeArea()
 

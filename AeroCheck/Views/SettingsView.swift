@@ -85,7 +85,7 @@ struct FlightPlanningWarningSheet: View {
     @Binding var enableFlightPlanning: Bool
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "map.fill")
                     .font(.system(size: 60))
@@ -150,7 +150,7 @@ struct EstimatedAirspeedWarningSheet: View {
     @Binding var showEstimatedAirspeed: Bool
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 60))
@@ -215,7 +215,7 @@ struct AirspaceStreamingWarningSheet: View {
     @Binding var enableAirspaceStreaming: Bool
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 60))
@@ -307,7 +307,7 @@ struct OfflineMapDownloadSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "map.fill")
                     .font(.system(size: 50))
@@ -578,7 +578,7 @@ struct TransactionDebugView: View {
     @State private var currentAccountType: String = "Unknown"
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if isLoading {
                     VStack(spacing: 16) {
@@ -765,7 +765,7 @@ struct SubscriptionDebugLogView: View {
     @ObservedObject var debugLogger: SubscriptionDebugLogger
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if debugLogger.logs.isEmpty {
                     VStack(spacing: 16) {
@@ -1046,7 +1046,7 @@ struct LanguageFlagView: View {
 
 #Preview("Premium Aircraft List") {
     let subManager = SubscriptionManager()
-    NavigationView {
+    NavigationStack {
         PremiumAircraftListView(showSubscriptionView: .constant(false))
             .environmentObject(AppState())
             .environmentObject(AircraftDataService(subscriptionManager: subManager))

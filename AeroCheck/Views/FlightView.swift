@@ -1365,7 +1365,7 @@ struct PhaseSelectorView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List(ChecklistPhase.allCases) { phase in
                 Button(action: {
                     appState.goToPhase(phase)
@@ -1721,7 +1721,7 @@ struct FlightInfoSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 Section(L10n.GPS.status) {
                     HStack {

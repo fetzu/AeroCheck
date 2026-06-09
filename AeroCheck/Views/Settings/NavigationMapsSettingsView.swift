@@ -383,7 +383,7 @@ struct OpenAIPDownloadSheet: View {
     @State private var selectedCountries: Set<String> = []
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 List {
                     // Summary of current selection

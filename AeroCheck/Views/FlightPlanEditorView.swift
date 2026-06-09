@@ -77,7 +77,7 @@ struct FlightPlanEditorView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     // Header section
@@ -1622,7 +1622,7 @@ struct AddWaypointSheet: View {
     @State private var isLoadingElevation = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section {
                     TextField(L10n.FlightPlan.waypointNameHint, text: $name)
@@ -1807,7 +1807,7 @@ struct MapWaypointPickerView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Map view based on selected layer
                 WaypointPickerMapViewRepresentable(
@@ -2151,7 +2151,7 @@ struct FlightPlanExportSheet: View {
     let format: FlightPlanExportFormat
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: iconName)
                     .font(.system(size: 60))
@@ -2241,7 +2241,7 @@ struct ICAOSearchSheet: View {
     @State private var searchResults: [Airport] = []
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 searchField
                 searchContent
@@ -2372,7 +2372,7 @@ struct AirspaceConflictDetailSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(conflicts) { conflict in
                     VStack(alignment: .leading, spacing: 8) {

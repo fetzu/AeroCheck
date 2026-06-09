@@ -3409,7 +3409,7 @@ struct LayerPickerSheet: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     // Apple Maps section
@@ -4770,7 +4770,7 @@ struct CacheInfoSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 14) {
                 // Header icon
                 Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")

@@ -38,7 +38,7 @@ struct WaypointEditorSheet: View {
     @State private var isLoadingElevation = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 // Location section
                 Section {
@@ -435,7 +435,7 @@ struct CoordinatePickerView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 WaypointPickerMapViewRepresentable(
                     region: $region,

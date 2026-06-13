@@ -1248,14 +1248,35 @@ struct TimelineRow: View {
 
 // MARK: - Flight Map View with Polyline
 
+extension Array where Element == GPSPoint {
+    /// Binary-search the chronologically-ordered track for the point nearest `time`. O(log n), vs
+    /// the O(n) `min(by:)` it replaces — which ran on every scrub frame of a multi-hour flight. (PR-26)
+    func closestByTimestamp(to time: Date) -> GPSPoint? {
+        guard !isEmpty else { return nil }
+        var lo = startIndex, hi = endIndex - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if self[mid].timestamp < time { lo = mid + 1 } else { hi = mid }
+        }
+        let candidate = self[lo]
+        if lo > startIndex {
+            let prev = self[lo - 1]
+            if abs(prev.timestamp.timeIntervalSince(time)) <= abs(candidate.timestamp.timeIntervalSince(time)) {
+                return prev
+            }
+        }
+        return candidate
+    }
+}
+
 struct FlightMapView: UIViewRepresentable {
     let points: [GPSPoint]
     let selectedTime: Date?
 
-    /// Find the GPS point closest to the selected time
+    /// Find the GPS point closest to the selected time (binary search, O(log n)). (PR-26)
     private var selectedPoint: GPSPoint? {
         guard let time = selectedTime else { return nil }
-        return points.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+        return points.closestByTimestamp(to: time)
     }
 
     func makeUIView(context: Context) -> MKMapView {
@@ -1266,43 +1287,47 @@ struct FlightMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Remove existing overlays and annotations
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
+        let coordinator = context.coordinator
 
-        guard points.count >= 2 else { return }
+        // Rebuild the static track layer (polyline + start/end markers) ONLY when the track itself
+        // changes — not on every scrub, which previously tore down and re-added the whole O(n)
+        // polyline each frame. For an immutable past flight this runs exactly once. (PR-26)
+        if coordinator.builtPointCount != points.count {
+            coordinator.builtPointCount = points.count
+            mapView.removeOverlays(mapView.overlays)
+            // Remove only the start/end markers, never the live selection marker.
+            let staticMarkers = mapView.annotations.compactMap { $0 as? FlightAnnotation }.filter { !$0.isSelected }
+            mapView.removeAnnotations(staticMarkers)
 
-        // Create coordinates array
-        let coordinates = points.map { $0.coordinate }
+            if points.count >= 2 {
+                let coordinates = points.map { $0.coordinate }
+                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                mapView.addOverlay(polyline)
 
-        // Add polyline
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        mapView.addOverlay(polyline)
-
-        // Add start and end annotations
-        if let first = points.first, let last = points.last {
-            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false)
-            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
-            mapView.addAnnotations([startAnnotation, endAnnotation])
+                if let first = points.first, let last = points.last {
+                    mapView.addAnnotations([
+                        FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false),
+                        FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
+                    ])
+                }
+                // Set the visible region only on initial load, not when selection changes.
+                if coordinator.initialRegionSet == false {
+                    let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
+                    mapView.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: false)
+                    coordinator.initialRegionSet = true
+                }
+            }
         }
 
-        // Add selected position annotation if available
+        // Update ONLY the selected-position marker on scrub.
+        if let existing = coordinator.selectedAnnotation {
+            mapView.removeAnnotation(existing)
+            coordinator.selectedAnnotation = nil
+        }
         if let selected = selectedPoint {
-            let selectedAnnotation = FlightAnnotation(
-                coordinate: selected.coordinate,
-                title: "Position",
-                isStart: false,
-                isSelected: true
-            )
-            mapView.addAnnotation(selectedAnnotation)
-        }
-
-        // Set visible region (only on initial load, not when selection changes)
-        if context.coordinator.initialRegionSet == false {
-            let rect = polyline.boundingMapRect
-            let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-            mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
-            context.coordinator.initialRegionSet = true
+            let annotation = FlightAnnotation(coordinate: selected.coordinate, title: "Position", isStart: false, isSelected: true)
+            mapView.addAnnotation(annotation)
+            coordinator.selectedAnnotation = annotation
         }
     }
 
@@ -1312,6 +1337,10 @@ struct FlightMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate {
         var initialRegionSet = false
+        /// Number of track points the static layer was last built for (-1 = not yet built). (PR-26)
+        var builtPointCount = -1
+        /// The live selection marker, updated in place on scrub. (PR-26)
+        var selectedAnnotation: FlightAnnotation?
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polyline = overlay as? MKPolyline {
@@ -1392,19 +1421,44 @@ struct AltitudeChartView: View {
     let fullStopTimes: [Date]
     @Binding var selectedTime: Date?
 
-    /// Altitude data points for the chart
-    private var altitudeData: [(time: Date, altitude: Double)] {
-        gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) } // Convert to feet
+    /// Downsample target for the overview chart line.
+    private static let maxChartPoints = 400
+
+    // PR-26: the altitude line and Y-range are computed ONCE (the line downsampled to ~400 points),
+    // cached in @State, and populated in onAppear — instead of being O(n) computed properties that
+    // re-ran on every body re-evaluation during a scrub of a multi-hour flight.
+    @State private var altitudeData: [(time: Date, altitude: Double)] = []
+    @State private var altitudeRange: ClosedRange<Double> = 0...1000
+
+    /// Populate the cached chart line + Y-range once. The line is stride-downsampled; the Y-range is
+    /// taken from the FULL track so a peak between samples never clips the axis. (PR-26)
+    private func populateAltitudeCacheIfNeeded() {
+        guard altitudeData.isEmpty, !gpsTrack.isEmpty else { return }
+        altitudeData = Self.downsampledAltitude(gpsTrack, maxPoints: Self.maxChartPoints)
+        let altsFeet = gpsTrack.map { $0.altitude * 3.28084 }
+        altitudeRange = Self.paddedAltitudeRange(min: altsFeet.min() ?? 0, max: altsFeet.max() ?? 1000)
     }
 
-    /// Computed altitude range with 500ft padding
-    private var altitudeRange: ClosedRange<Double> {
-        guard !altitudeData.isEmpty else { return 0...1000 }
-        let altitudes = altitudeData.map { $0.altitude }
-        let minAlt = altitudes.min() ?? 0
-        let maxAlt = altitudes.max() ?? 1000
-        // Add 500ft padding above and below, but don't go below 0
-        let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
+    /// Stride-downsample the track to feet-altitude points, always keeping the last point so the
+    /// chart spans the full flight.
+    static func downsampledAltitude(_ track: [GPSPoint], maxPoints: Int) -> [(time: Date, altitude: Double)] {
+        let feet = track.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
+        guard feet.count > maxPoints, maxPoints > 1 else { return feet }
+        let step = Double(feet.count - 1) / Double(maxPoints - 1)
+        var result: [(time: Date, altitude: Double)] = []
+        result.reserveCapacity(maxPoints + 1)
+        var pos = 0.0
+        while Int(pos.rounded()) < feet.count {
+            result.append(feet[Int(pos.rounded())])
+            pos += step
+        }
+        if let last = feet.last, result.last?.time != last.time { result.append(last) }
+        return result
+    }
+
+    /// Y-range with 500 ft padding, snapped to 100 ft, never below 0.
+    static func paddedAltitudeRange(min minAlt: Double, max maxAlt: Double) -> ClosedRange<Double> {
+        let lowerBound = Swift.max(0, floor((minAlt - 500) / 100) * 100)
         let upperBound = ceil((maxAlt + 500) / 100) * 100
         return lowerBound...upperBound
     }
@@ -1445,16 +1499,15 @@ struct AltitudeChartView: View {
         return annotations
     }
 
-    /// Find the altitude at the selected time
+    /// Find the altitude at the selected time. Binary search (O(log n)) over the chronological track
+    /// instead of an O(n) `min(by:)` on every scrub frame. (PR-26)
     private var selectedAltitude: Double? {
         guard let time = selectedTime else { return nil }
-        // Find the closest GPS point to the selected time
-        let closest = gpsTrack.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
-        return closest.map { $0.altitude * 3.28084 }
+        return gpsTrack.closestByTimestamp(to: time).map { $0.altitude * 3.28084 }
     }
 
     var body: some View {
-        if altitudeData.isEmpty {
+        if gpsTrack.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
                 .font(.captionText)
                 .foregroundColor(.dimText)
@@ -1590,6 +1643,7 @@ struct AltitudeChartView: View {
                         )
                 }
             }
+            .onAppear { populateAltitudeCacheIfNeeded() }
         }
     }
 }

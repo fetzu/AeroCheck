@@ -1114,8 +1114,16 @@ struct CockpitHeroChecklistItem: View {
     /// e.g. "item 2 / 5"; nil hides the progress line.
     var progressText: String? = nil
     var showAdvanceHint: Bool = true
+    /// Scales the type/padding down for the narrower iPhone checklist.
+    var isCompact: Bool = false
 
     @Environment(\.cockpitTheme) private var theme
+
+    private var challengeSize: CGFloat { isCompact ? 20 : 28 }
+    private var responseSize: CGFloat { isCompact ? 16 : 22 }
+    private var metaSize: CGFloat { isCompact ? 11 : 12 }
+    private var pad: CGFloat { isCompact ? 10 : 14 }
+    private var corner: CGFloat { isCompact ? 10 : 12 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -1123,39 +1131,39 @@ struct CockpitHeroChecklistItem: View {
                 HStack {
                     if let progressText {
                         Text(progressText.uppercased())
-                            .font(.system(size: 12))
+                            .font(.system(size: metaSize))
                             .foregroundColor(theme.textSecondary)
                     }
                     Spacer(minLength: 8)
                     if showAdvanceHint {
                         Label(L10n.ChecklistAction.tapToAdvance, systemImage: "hand.point.up.left")
                             .labelStyle(.titleAndIcon)
-                            .font(.system(size: 12))
+                            .font(.system(size: metaSize))
                             .foregroundColor(theme.action)
                     }
                 }
                 .padding(.bottom, 1)
             }
             Text(challenge)
-                .font(.system(size: 28, weight: .medium))
+                .font(.system(size: challengeSize, weight: .medium))
                 .foregroundColor(theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             if let response, !response.isEmpty {
                 Text(response)
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.system(size: responseSize, weight: .medium))
                     .foregroundColor(theme.action)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(pad)
         .background(theme.panel)
         .overlay(alignment: .leading) {
             Rectangle().fill(theme.action).frame(width: 3)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: corner))
         .overlay(
-            RoundedRectangle(cornerRadius: 12).strokeBorder(theme.panelStroke, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: corner).strokeBorder(theme.panelStroke, lineWidth: 0.5)
         )
     }
 }

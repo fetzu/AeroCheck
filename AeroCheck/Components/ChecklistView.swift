@@ -388,16 +388,18 @@ struct ChecklistView: View {
 
                         Group {
                             // The CURRENT item becomes the one-glance "hero" (Phase 3.1 HUD): same
-                            // challenge/response data, rendered large and themed. Completed/upcoming
-                            // items stay as normal rows. iPad (regular width) only for now — the
-                            // iPhone keeps its proven inline highlight. The global tap-to-advance hint
-                            // already lives in the header, so it's suppressed on the card.
-                            if isHighlighted && !isCompact {
+                            // challenge/response data, rendered large and themed (compact-scaled on
+                            // iPhone). Completed/upcoming items stay as normal rows. The global
+                            // tap-to-advance hint already lives in the header, so it's suppressed on
+                            // the card; the card is presentational so taps still reach the parent
+                            // tap-to-advance gesture.
+                            if isHighlighted {
                                 CockpitHeroChecklistItem(
                                     challenge: item.challenge,
                                     response: item.response,
                                     progressText: "\(index + 1) / \(visibleItems.count)",
-                                    showAdvanceHint: false
+                                    showAdvanceHint: false,
+                                    isCompact: isCompact
                                 )
                                 .padding(.vertical, 4)
                             } else {

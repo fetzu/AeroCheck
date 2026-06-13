@@ -79,26 +79,31 @@ class OpenAIPDataService: ObservableObject {
             return
         }
 
-        let decoder = JSONDecoder()
-        var loadedAirspaces: [Airspace] = []
-        var byCountry: [String: [Airspace]] = [:]
-
-        for country in metadata.lastSyncDates.keys {
-            let fileURL = airspaceFileURL(for: country)
-            guard fileManager.fileExists(atPath: fileURL.path) else { continue }
-            do {
-                let data = try Data(contentsOf: fileURL)
-                let countryAirspaces = try decoder.decode([Airspace].self, from: data)
-                loadedAirspaces.append(contentsOf: countryAirspaces)
-                byCountry[country] = countryAirspaces
-            } catch {
-                print("[OpenAIP] Failed to load airspaces for \(country): \(error)")
+        // PR-31: read + decode every country's airspace JSON off the main actor — continent-scale
+        // selections are tens of MB of polygon JSON, and this runs at NavigationView.onAppear (the
+        // worst moment: opening the map in flight). Only the decoded value-type arrays hop back.
+        let fileURLs = metadata.lastSyncDates.keys.map { (country: $0, url: airspaceFileURL(for: $0)) }
+        let result: (all: [Airspace], byCountry: [String: [Airspace]]) = await Task.detached(priority: .userInitiated) {
+            let decoder = JSONDecoder()
+            var loadedAirspaces: [Airspace] = []
+            var byCountry: [String: [Airspace]] = [:]
+            for entry in fileURLs {
+                guard FileManager.default.fileExists(atPath: entry.url.path) else { continue }
+                do {
+                    let data = try Data(contentsOf: entry.url)
+                    let countryAirspaces = try decoder.decode([Airspace].self, from: data)
+                    loadedAirspaces.append(contentsOf: countryAirspaces)
+                    byCountry[entry.country] = countryAirspaces
+                } catch {
+                    print("[OpenAIP] Failed to load airspaces for \(entry.country): \(error)")
+                }
             }
-        }
+            return (loadedAirspaces, byCountry)
+        }.value
 
-        airspaces = loadedAirspaces
-        airspacesByCountry = byCountry
-        airspaceCount = loadedAirspaces.count
+        airspaces = result.all
+        airspacesByCountry = result.byCountry
+        airspaceCount = result.all.count
         isLoaded = true
     }
 
@@ -159,6 +164,14 @@ class OpenAIPDataService: ObservableObject {
             } catch {
                 print("[OpenAIP] Failed to download airspaces for \(country): \(error)")
                 downloadError = "Failed to download data for \(OpenAIPConfig.countryName(for: country)): \(error.localizedDescription)"
+                // PR-30: fall back to the existing on-disk file for this country so a failed refresh
+                // doesn't drop its airspaces from memory (the data is still valid on disk). Its
+                // metadata entry is preserved (we don't overwrite lastSyncDates on failure).
+                if let data = try? Data(contentsOf: airspaceFileURL(for: country)),
+                   let existing = try? JSONDecoder().decode([Airspace].self, from: data) {
+                    allAirspaces.append(contentsOf: existing)
+                    byCountry[country] = existing
+                }
             }
 
             if Task.isCancelled { break }
@@ -178,11 +191,16 @@ class OpenAIPDataService: ObservableObject {
             try? metaEncoded.write(to: metadataFileURL)
         }
 
-        // Update in-memory data
-        airspaces = allAirspaces
-        airspacesByCountry = byCountry
-        airspaceCount = allAirspaces.count
-        downloadedCountries = countries.sorted()
+        // Update in-memory data.
+        // PR-30: never replace good in-memory airspaces with an empty set produced by a totally
+        // failed (e.g. offline) refresh — keep what we have. downloadedCountries is derived from the
+        // persisted metadata, not the requested list, so it can't claim countries that failed.
+        if !allAirspaces.isEmpty || airspaces.isEmpty {
+            airspaces = allAirspaces
+            airspacesByCountry = byCountry
+            airspaceCount = allAirspaces.count
+        }
+        downloadedCountries = metadata.lastSyncDates.keys.sorted()
         lastUpdated = Date()
         isDataAvailable = !allAirspaces.isEmpty
         isLoaded = true

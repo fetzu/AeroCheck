@@ -1214,7 +1214,7 @@ struct NavigationMapView: View {
                             name: waypoint.name.isEmpty ? L10n.Nav.waypoint : waypoint.name,
                             callSign: waypoint.callSign,
                             frequency: waypoint.frequency ?? "",
-                            isCurrent: plan.currentWaypointIndex == index
+                            isCurrent: waypoint.id == plan.currentWaypointId
                         )
 
                         if index < frequenciesWithWaypoints.count - 1 {
@@ -2127,7 +2127,7 @@ struct RadioFrequencyOverlayView: View {
                                 .padding()
                         } else {
                             ForEach(Array(frequenciesWithWaypoints.enumerated()), id: \.element.id) { index, waypoint in
-                                frequencyRow(waypoint: waypoint, isCurrent: plan.currentWaypointIndex == index)
+                                frequencyRow(waypoint: waypoint, isCurrent: waypoint.id == plan.currentWaypointId)
 
                                 if index < frequenciesWithWaypoints.count - 1 {
                                     Divider()

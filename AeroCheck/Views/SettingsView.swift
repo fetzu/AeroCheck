@@ -915,8 +915,11 @@ struct PremiumAircraftListView: View {
                                 isSelected: appState.settings.selectedRemoteAircraftId == aircraft.id,
                                 onSelect: {
                                     if aircraft.hasAccess {
-                                        appState.settings.selectedRemoteAircraftId = aircraft.id
-                                        UserDefaults.standard.set(aircraft.id, forKey: "selectedRemoteAircraftId")
+                                        // UX-14: route through the unified selection path (persists to
+                                        // file + iCloud and reconciles the active checklist) instead of
+                                        // a direct mutation + a dead UserDefaults write that was never
+                                        // read — so a premium aircraft chosen here survives relaunch.
+                                        appState.selectAircraft(id: aircraft.id, available: aircraftDataService.availableAircraft)
                                         Task {
                                             _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
                                         }

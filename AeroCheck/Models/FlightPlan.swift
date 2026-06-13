@@ -436,6 +436,13 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         waypoints.compactMap { $0.distance }.reduce(0, +)
     }
 
+    /// The id of the current waypoint, or nil if the index is out of range. Compare row identities
+    /// against this instead of a filtered-list position — a frequency-less waypoint filtered out of
+    /// the FREQ panel otherwise shifts the "current" highlight onto the wrong row. (UX-11)
+    var currentWaypointId: UUID? {
+        waypoints.indices.contains(currentWaypointIndex) ? waypoints[currentWaypointIndex].id : nil
+    }
+
     /// Total estimated elapsed time (cumulative EET to final waypoint)
     var totalEET: TimeInterval {
         guard let lastWaypoint = waypoints.last,

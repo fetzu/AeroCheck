@@ -25,6 +25,7 @@ struct AboutSettingsView: View {
         }
         .onChange(of: marketingMode) { _, newValue in
             appState.settings.marketingMode = newValue
+            appState.saveSettings() // UX-14: persist the toggle (was a mutation with no save)
         }
     }
 

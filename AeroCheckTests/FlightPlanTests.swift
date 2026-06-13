@@ -43,4 +43,32 @@ final class FlightPlanTests: XCTestCase {
         XCTAssertNil(plan.legArriving(at: 0))
         XCTAssertNil(plan.legArriving(at: 1))
     }
+
+    // MARK: - currentWaypointId — FREQ panel highlights the right row despite filtering (UX-11)
+
+    func testCurrentWaypointIdSurvivesFrequencyFiltering() {
+        // Waypoint A has NO frequency; the current waypoint B does. The FREQ panel filters to
+        // waypoints WITH a frequency, so B sits at filtered-position 0 while its real index is 1 —
+        // the old `currentWaypointIndex == filteredIndex` compare highlighted the wrong row.
+        let a = FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46, longitude: 6))
+        var b = FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 7))
+        b.frequency = "118.700"
+        var plan = FlightPlan(waypoints: [a, b])
+        plan.currentWaypointIndex = 1 // current = B
+
+        let withFrequency = plan.waypoints.filter { $0.frequency != nil && !$0.frequency!.isEmpty }
+        XCTAssertEqual(withFrequency.count, 1)
+        // Identity-based selection: the single frequency row (B) is correctly the current one,
+        // even though its filtered position (0) differs from currentWaypointIndex (1).
+        XCTAssertEqual(plan.currentWaypointId, b.id)
+        XCTAssertTrue(withFrequency.allSatisfy { $0.id == plan.currentWaypointId })
+    }
+
+    func testCurrentWaypointIdIsNilForOutOfRangeIndex() {
+        var plan = FlightPlan(waypoints: [
+            FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46, longitude: 6))
+        ])
+        plan.currentWaypointIndex = 5
+        XCTAssertNil(plan.currentWaypointId)
+    }
 }

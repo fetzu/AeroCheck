@@ -378,6 +378,36 @@ class FlightEventDetector: ObservableObject {
         pendingFullStop = nil
     }
 
+    /// Called by the manual event buttons (LANDED / GO AROUND / TOUCH AND GO) so the automatic
+    /// detector doesn't then emit a DUPLICATE for the same physical event. Mirrors the suppression
+    /// the emit* paths apply: clears any matching pending event, stamps the event/cooldown times,
+    /// and (for landings) requires fresh airborne evidence before the next auto landing event.
+    /// dismissFullStop() only cleared an already-pending event; a manual LANDED while vacating fires
+    /// the detector's pending full stop AFTERWARDS, so the suppression must be set proactively. (PR-07)
+    func notifyManualEvent(_ type: FlightEventType, at time: Date = Date()) {
+        lastEventTime = time
+        touchdownSpeedReadings = 0
+        minSpeedInTouchdown = .infinity
+        consecutiveTaxiSpeedReadings = 0
+        switch type {
+        case .fullStop:
+            pendingFullStop = nil
+            airborneAfterLanding = false
+            hasBeenAirborne = false
+            lastLandingAltMsl = currentAltMslFt
+            fullStopCooldownUntil = time.addingTimeInterval(fullStopCooldownSeconds)
+            transitionToIdle()
+        case .touchAndGo:
+            pendingTouchAndGo = nil
+            airborneAfterLanding = false
+            lastLandingAltMsl = currentAltMslFt
+            lastTakeoffTime = time
+        case .goAround:
+            pendingGoAround = nil
+            lastTakeoffTime = time
+        }
+    }
+
     // MARK: - State Handlers
 
     private func handleIdle(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
@@ -496,13 +526,34 @@ class FlightEventDetector: ObservableObject {
             return
         }
 
-        // Check for touch-and-go: speed increases back above acceleration threshold
-        // after having at least minTouchdownReadings below touchdownSpeedKts.
-        // If touchdown was entered via speed-based fallback (not low approach), also require
-        // altitude near ground level to prevent false TGs during approach with headwind.
+        // PR-22: a balked landing (go-around) recovers speed in seconds, but 150 ft of raw GPS climb
+        // takes ~13 s — so the touch-and-go branch below would fire first and mislabel it. "Ground
+        // evidence" means the aircraft actually slowed to a true ground-roll speed (below taxi speed);
+        // without it, a speed recovery while climbing away is a go-around, not a touch-and-go. This
+        // catches it on a much smaller (faster) climb confirmation than the 150 ft branch above.
+        let hasGroundEvidence = minSpeedInTouchdown < speedConfig.taxiSpeedKts
         if speedKts >= speedConfig.touchAndGoAccelSpeedKts
             && touchdownSpeedReadings >= minTouchdownReadings
-            && (touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
+            && !hasGroundEvidence
+            && altGainFt > 50 {
+            print("[FlightEventDetector] Go-around (speed recovered, climbing \(Int(altGainFt)) ft, no ground evidence)")
+            emitGoAround(airport: stateAirport)
+            state = .airportZone
+            stateEntryTime = now
+            touchdownEntryTime = nil
+            touchdownSpeedReadings = 0
+            minSpeedInTouchdown = .infinity
+            consecutiveTaxiSpeedReadings = 0
+            return
+        }
+
+        // Check for touch-and-go: speed increases back above acceleration threshold after having at
+        // least minTouchdownReadings below touchdownSpeedKts, AND there is ground evidence (slowed to
+        // a true rollout speed) or the touchdown was altitude-confirmed via low approach. Without
+        // either, the speed-recovery case above has already classified it as a go-around. (PR-22)
+        if speedKts >= speedConfig.touchAndGoAccelSpeedKts
+            && touchdownSpeedReadings >= minTouchdownReadings
+            && (hasGroundEvidence || touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
             emitTouchAndGo(airport: stateAirport)
             // Transition back to airport zone (aircraft will likely do another circuit)
             state = .airportZone

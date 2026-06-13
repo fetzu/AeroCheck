@@ -397,6 +397,7 @@ struct FlightView: View {
                             },
                             onGoAround: {
                                 appState.recordGoAround()
+                                flightEventDetector.notifyManualEvent(.goAround) // PR-07: suppress a duplicate auto-detect
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
@@ -404,6 +405,7 @@ struct FlightView: View {
                             },
                             onTouchAndGo: {
                                 appState.recordTouchAndGo()
+                                flightEventDetector.notifyManualEvent(.touchAndGo) // PR-07
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
@@ -411,6 +413,7 @@ struct FlightView: View {
                             },
                             onFullStop: {
                                 appState.recordFullStop()
+                                flightEventDetector.notifyManualEvent(.fullStop) // PR-07
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
@@ -418,7 +421,10 @@ struct FlightView: View {
                             },
                             onLanded: {
                                 appState.recordLanding()
-                                flightEventDetector.dismissFullStop()  // Prevent double-counting
+                                // PR-07: notify the detector so it doesn't emit a duplicate full stop
+                                // ~40 s later (dismissFullStop only cleared an already-pending event;
+                                // a LANDED tap while vacating fires the pending full stop afterwards).
+                                flightEventDetector.notifyManualEvent(.fullStop)
                                 pulseActionButton = false
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {

@@ -442,6 +442,9 @@ class AppState: ObservableObject {
     private static let checkpointPointInterval = 20
     /// …or at least this often, whichever comes first.
     private static let checkpointTimeInterval: TimeInterval = 30
+    /// Serial queue for the off-main checkpoint encode + atomic write (PR-12). Serial so a stale
+    /// write can never overtake a newer one; utility QoS so it never competes with the in-flight UI.
+    private static let checkpointQueue = DispatchQueue(label: "app.aerocheck.activeFlightCheckpoint", qos: .utility)
     private var pointsSinceCheckpoint = 0
     private var lastCheckpointAt: Date?
 
@@ -1203,17 +1206,19 @@ class AppState: ObservableObject {
             clearActiveFlightState()
             return
         }
-        persistActiveFlightState(flight: flight)
+        // Scene-background / explicit save: write synchronously so it's guaranteed on disk before
+        // the app can suspend. The throttled per-tick checkpointActiveFlight uses the async path.
+        persistActiveFlightState(flight: flight, synchronous: true)
     }
 
     /// Throttled crash-recovery checkpoint driven by GPS cadence and major timing events,
     /// independent of `scenePhase` so a foreground crash/OOM can't lose the in-flight track.
     /// (PERF-02 / PERF-13)
     ///
-    /// The write is synchronous and atomic to a **local** file (not iCloud), which keeps it fast
-    /// and — crucially — strictly ordered, so a stale write can never clobber newer track data.
-    /// Throttling (every N points / ~30 s) bounds the main-thread cost; the encode of even a
-    /// multi-hour track is small relative to that interval.
+    /// The atomic write targets a **local** file (not iCloud), which keeps it fast. The encode +
+    /// write run off the main actor on a serial queue (PR-12), so they're strictly ordered (a
+    /// stale write can never clobber newer track data) without blocking the in-flight UI — the
+    /// encode of a multi-hour, up-to-1 Hz track is NOT cheap and must not run on the main actor.
     func checkpointActiveFlight(force: Bool) {
         guard isFlightActive, let flight = currentFlight else { return }
         if !force {
@@ -1226,20 +1231,41 @@ class AppState: ObservableObject {
         persistActiveFlightState(flight: flight)
     }
 
-    private func persistActiveFlightState(flight: Flight) {
+    /// Persist the crash-recovery checkpoint. The cheap value-type snapshot is taken on the main
+    /// actor; the heavy `JSONEncoder().encode` of the whole track + atomic write run on a serial
+    /// background queue (PR-12) — previously this ran synchronously on the main actor every ~30 s,
+    /// which is not "small" for a multi-hour, up-to-1 Hz track. The serial queue keeps writes
+    /// strictly ordered (a stale write never clobbers a newer one) and `writeActiveFlightStateData`
+    /// keeps each write atomic.
+    /// - Parameter synchronous: when true (scene-background save), block until the write completes
+    ///   so the checkpoint is guaranteed on disk before the app can suspend.
+    private func persistActiveFlightState(flight: Flight, synchronous: Bool = false) {
         let state = ActiveFlightState(flight: flight, from: self)
         let url = persistence.activeFlightStateURL
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(state)
-            try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
-            // Reset throttle and update the small UserDefaults pointer only after a successful write.
-            pointsSinceCheckpoint = 0
-            lastCheckpointAt = state.savedAt
-            UserDefaults.standard.set(state.savedAt, forKey: activeFlightPointerKey)
-        } catch {
-            print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
+        let savedAt = state.savedAt
+        let pointerKey = activeFlightPointerKey
+
+        let write: @Sendable () -> Void = {
+            do {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(state)
+                try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
+                UserDefaults.standard.set(savedAt, forKey: pointerKey)
+            } catch {
+                print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
+            }
+        }
+
+        // Advance the main-actor throttle now: the next tick must not re-encode the same track
+        // while this write is in flight. A failed write simply retries on the next interval.
+        pointsSinceCheckpoint = 0
+        lastCheckpointAt = savedAt
+
+        if synchronous {
+            Self.checkpointQueue.sync(execute: write)
+        } else {
+            Self.checkpointQueue.async(execute: write)
         }
     }
 

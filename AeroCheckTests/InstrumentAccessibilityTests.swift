@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import AeroCheck
 
 /// Tests the VoiceOver value composition for the flight instruments. The wording must state the
@@ -41,5 +42,32 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(StatusIndicator.Status.inactive.accessibilityText, "inactive")
         XCTAssertEqual(StatusIndicator.Status.warning.accessibilityText, "warning")
         XCTAssertEqual(StatusIndicator.Status.error.accessibilityText, "error")
+    }
+
+    // MARK: - Cockpit theme engine (Phase 3.0)
+
+    func testCockpitThemeResolvesEachMode() {
+        XCTAssertEqual(CockpitTheme.resolve(.day).mode, .day)
+        XCTAssertEqual(CockpitTheme.resolve(.sunlight).mode, .sunlight)
+        XCTAssertEqual(CockpitTheme.resolve(.night).mode, .night)
+    }
+
+    func testCockpitThemePalettesAreDistinct() {
+        XCTAssertNotEqual(CockpitTheme.day, CockpitTheme.night)
+        XCTAssertNotEqual(CockpitTheme.day, CockpitTheme.sunlight)
+        XCTAssertNotEqual(CockpitTheme.night, CockpitTheme.sunlight)
+        // Day keeps the existing tokens (current look unchanged); night reuses the red-shift
+        // night-mode state colors (dim-amber/dark-red, no bright emitters).
+        XCTAssertEqual(CockpitTheme.day.action, .aviationGold)
+        XCTAssertEqual(CockpitTheme.night.onTarget, .nightOnTarget)
+        XCTAssertEqual(CockpitTheme.night.danger, .nightStall)
+    }
+
+    func testCockpitThemeModeDerivesFromNightMode() {
+        var s = AppSettings()
+        s.nightMode = true
+        XCTAssertEqual(s.cockpitThemeMode, .night)
+        s.nightMode = false
+        XCTAssertEqual(s.cockpitThemeMode, .day)
     }
 }

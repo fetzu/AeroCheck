@@ -28,6 +28,10 @@ struct AppSettings: Codable, Equatable {
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
     var nightMode: Bool = false // Dim red/amber instrument palette to protect dark adaptation (UX-09)
+
+    /// The active cockpit theme mode (Phase 3.0). Derived from `nightMode` for now — night-mode
+    /// users map to `.night`; `.sunlight` becomes selectable when the Settings theme picker lands.
+    var cockpitThemeMode: CockpitThemeMode { nightMode ? .night : .day }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one

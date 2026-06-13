@@ -661,6 +661,103 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - Cockpit Theme (Phase 3.0 foundation)
+
+/// The three cockpit display modes. Generalises the binary night-mode toggle (UX-09) into a
+/// readable-in-any-light system the revamped screens theme against:
+/// - `day` — the standard dark cockpit (unchanged from today).
+/// - `sunlight` — high-contrast, brighter, for direct-sun readability.
+/// - `night` — red-shifted, dimmed, to preserve scotopic dark adaptation.
+enum CockpitThemeMode: String, CaseIterable, Codable, Sendable, Identifiable {
+    case day, sunlight, night
+    var id: String { rawValue }
+}
+
+/// A complete semantic palette resolved from a `CockpitThemeMode`. Revamped views read it from the
+/// environment (`@Environment(\.cockpitTheme)`) and use the semantic tokens (`action`, `onTarget`,
+/// `textPrimary`, …) so a single mode switch re-themes every screen consistently. `day` maps to the
+/// existing `Color` tokens, so the current look is unchanged until a screen opts into the theme.
+struct CockpitTheme: Equatable {
+    let mode: CockpitThemeMode
+    let background: Color
+    let panel: Color
+    let panelStroke: Color
+    let action: Color
+    let actionText: Color
+    let onTarget: Color
+    let warning: Color
+    let danger: Color
+    let info: Color
+    let textPrimary: Color
+    let textSecondary: Color
+    let textDim: Color
+    let glassFill: Color
+    let glassStroke: Color
+
+    static func resolve(_ mode: CockpitThemeMode) -> CockpitTheme {
+        switch mode {
+        case .day: return .day
+        case .sunlight: return .sunlight
+        case .night: return .night
+        }
+    }
+}
+
+extension CockpitTheme {
+    static let day = CockpitTheme(
+        mode: .day,
+        background: .cockpitBackground, panel: .panelBackground,
+        panelStroke: Color(white: 0.18),
+        action: .aviationGold, actionText: Color(red: 0.16, green: 0.12, blue: 0.03),
+        onTarget: .aviationGreen, warning: Color(red: 0.91, green: 0.56, blue: 0.18),
+        danger: .aviationRed, info: .altimeterBlue,
+        textPrimary: .primaryText, textSecondary: .secondaryText, textDim: .dimText,
+        glassFill: Color(white: 1.0).opacity(0.06), glassStroke: Color(white: 1.0).opacity(0.14)
+    )
+
+    static let sunlight = CockpitTheme(
+        mode: .sunlight,
+        background: .black, panel: Color(white: 0.10),
+        panelStroke: Color(white: 0.30),
+        action: Color(red: 1.0, green: 0.78, blue: 0.18), actionText: .black,
+        onTarget: Color(red: 0.30, green: 0.92, blue: 0.45),
+        warning: Color(red: 1.0, green: 0.66, blue: 0.10),
+        danger: Color(red: 1.0, green: 0.30, blue: 0.30),
+        info: Color(red: 0.45, green: 0.74, blue: 1.0),
+        textPrimary: .white, textSecondary: Color(white: 0.82), textDim: Color(white: 0.62),
+        glassFill: Color(white: 1.0).opacity(0.10), glassStroke: Color(white: 1.0).opacity(0.22)
+    )
+
+    static let night = CockpitTheme(
+        mode: .night,
+        background: Color(red: 0.06, green: 0.02, blue: 0.02),
+        panel: Color(red: 0.10, green: 0.045, blue: 0.045),
+        panelStroke: Color(red: 0.20, green: 0.09, blue: 0.09),
+        action: Color(red: 0.78, green: 0.28, blue: 0.16),
+        actionText: Color(red: 0.95, green: 0.80, blue: 0.76),
+        onTarget: .nightOnTarget, warning: Color(red: 0.55, green: 0.26, blue: 0.0),
+        danger: .nightStall, info: Color(red: 0.62, green: 0.30, blue: 0.26),
+        textPrimary: Color(red: 0.90, green: 0.62, blue: 0.56),
+        textSecondary: Color(red: 0.60, green: 0.35, blue: 0.32),
+        textDim: Color(red: 0.42, green: 0.24, blue: 0.22),
+        glassFill: Color(red: 0.78, green: 0.30, blue: 0.26).opacity(0.08),
+        glassStroke: Color(red: 0.78, green: 0.30, blue: 0.26).opacity(0.20)
+    )
+}
+
+private struct CockpitThemeKey: EnvironmentKey {
+    static let defaultValue = CockpitTheme.day
+}
+
+extension EnvironmentValues {
+    /// The active cockpit theme palette. Injected once near the app root from the user's theme mode;
+    /// revamped screens read it instead of hardcoding colors. (Phase 3.0)
+    var cockpitTheme: CockpitTheme {
+        get { self[CockpitThemeKey.self] }
+        set { self[CockpitThemeKey.self] = newValue }
+    }
+}
+
 struct AltimeterView: View {
     let altitudeFeet: Double
     let gpsSignalStatus: GPSSignalStatus

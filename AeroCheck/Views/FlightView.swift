@@ -1461,46 +1461,60 @@ struct CompactSpeedView: View {
                     .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
             }
 
-            // Speed value with failure flag
-            ZStack {
-                VStack(spacing: 0) {
-                    if gpsSignalStatus != .lost {
-                        // Static, always-on STALL annunciation inside the value box — heavy white on
-                        // the red fill, never dependent on the flash or colour alone (and steady under
-                        // Reduce Motion), at parity with the iPad indicator. (UX-02 / UX-18)
-                        if speedState == .stall {
-                            Text("STALL")
-                                .font(.system(size: 13, weight: .heavy))
-                                .foregroundColor(.white)
-                        }
-                        HStack(spacing: 4) {
-                            // Live airspeed is primary flight data — give it the largest, heaviest type
-                            // in the in-flight bar so it's the glance focal point. (UX-15)
-                            Text("\(Int(max(0, displaySpeed)))")
-                                .font(.system(size: 30, weight: .heavy, design: .monospaced))
-                                .foregroundColor(textColor)
-                                .minimumScaleFactor(0.6)
-                                .lineLimit(1)
-                            Text(L10n.Unit.kt)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(textColor.opacity(0.8))
+            // Speed value with failure flag, plus the color-blind-safe proximity bar beneath it
+            VStack(spacing: 3) {
+                ZStack {
+                    VStack(spacing: 0) {
+                        if gpsSignalStatus != .lost {
+                            // Static, always-on STALL annunciation inside the value box — heavy white on
+                            // the red fill, never dependent on the flash or colour alone (and steady under
+                            // Reduce Motion), at parity with the iPad indicator. (UX-02 / UX-18)
+                            if speedState == .stall {
+                                Text("STALL")
+                                    .font(.system(size: 13, weight: .heavy))
+                                    .foregroundColor(.white)
+                            }
+                            HStack(spacing: 4) {
+                                // Live airspeed is primary flight data — give it the largest, heaviest type
+                                // in the in-flight bar so it's the glance focal point. (UX-15)
+                                Text("\(Int(max(0, displaySpeed)))")
+                                    .font(.system(size: 30, weight: .heavy, design: .monospaced))
+                                    .foregroundColor(textColor)
+                                    .minimumScaleFactor(0.6)
+                                    .lineLimit(1)
+                                Text(L10n.Unit.kt)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(textColor.opacity(0.8))
+                            }
                         }
                     }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(backgroundColor)
-                )
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(backgroundColor)
+                    )
 
-                // Failure flag overlay
-                if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 40))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    // Failure flag overlay
+                    if showFailureFlag {
+                        InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 40))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+                .frame(minWidth: 70, minHeight: 40)
+
+                // Same proximity bar as the iPad instrument: WIDTH = closeness to target, COLOR =
+                // state. Hidden when GPS is lost; accessibilityHidden (the value already speaks the
+                // state in words). (Phase 3.1)
+                if gpsSignalStatus != .lost {
+                    InstrumentTargetBar(
+                        fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
+                        state: SpeedIndicatorView.barState(for: mappedSpeedState)
+                    )
+                    .frame(width: 70)
+                    .accessibilityHidden(true)
                 }
             }
-            .frame(minWidth: 70, minHeight: 40)
 
             // Target indicator (always shown)
             VStack(alignment: .leading, spacing: 2) {

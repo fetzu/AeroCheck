@@ -64,7 +64,7 @@ class SyncManager: ObservableObject {
 
     /// Upper bound on a single ingested CloudKit record's encoded `data` blob. A real flight (even
     /// multi-hour) is a few MB; anything larger is corrupt/malicious and is rejected. (SEC-17)
-    static let maxIngestRecordBytes = 16 * 1024 * 1024
+    nonisolated static let maxIngestRecordBytes = 16 * 1024 * 1024
 
     /// Inline-field budget for a flight record. CloudKit caps a record's *inline* fields at ~1 MB
     /// total; a long GPS track (multi-hour flight = tens of thousands of points) blows past that and
@@ -73,7 +73,7 @@ class SyncManager: ObservableObject {
     /// into a file-backed `CKAsset` (no practical size cap) and only a track-stripped copy stays
     /// inline, keeping the record's queryable metadata intact and still readable by older clients.
     /// Kept well under the 1 MB hard cap to leave room for the other inline fields. (PERF-13)
-    static let maxInlineFlightBytes = 700 * 1024
+    nonisolated static let maxInlineFlightBytes = 700 * 1024
 
     /// Pending changes to sync - using dictionaries to preserve data for batch operations
     private var pendingSettingsChange: AppSettings?
@@ -428,10 +428,16 @@ class SyncManager: ObservableObject {
     func createFlightRecord(_ flight: Flight) -> CKRecord? {
         guard let recordZone = recordZone else { return nil }
         let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
-        let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+        return Self.buildFlightRecord(flight, recordID: recordID)
+    }
 
+    /// Encodes a flight into a CKRecord. `nonisolated static` (the JSON encode + GPS-track payload is
+    /// the expensive part) so the sync-batch path can build records OFF the main actor instead of
+    /// inside a `DispatchQueue.main.sync`. (PR-24 / PERF-13)
+    nonisolated static func buildFlightRecord(_ flight: Flight, recordID: CKRecord.ID) -> CKRecord? {
+        let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
         do {
-            let payload = try Self.flightRecordPayload(flight)
+            let payload = try flightRecordPayload(flight)
             if let assetData = payload.asset {
                 // Oversized flight: stage the full payload as a file-backed asset and keep only the
                 // track-stripped copy inline. If staging the temp file fails, fall back to storing
@@ -462,7 +468,7 @@ class SyncManager: ObservableObject {
     /// Writes an oversized flight payload to a temp file for use as a `CKAsset` fileURL. CKSyncEngine
     /// reads the file during upload; the OS reclaims the temp directory afterward. Returns nil on a
     /// write failure so the caller can fall back to an inline payload. (PERF-13)
-    private func stageFlightAsset(_ data: Data, flightId: UUID) -> URL? {
+    nonisolated static func stageFlightAsset(_ data: Data, flightId: UUID) -> URL? {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("CKFlightAssets", isDirectory: true)
         do {
@@ -597,34 +603,62 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         }
     }
 
+    /// Gathered, ready-to-encode contents of one pending batch. `flights` are Sendable value types;
+    /// the small settings record is built on the main actor (it has main-actor side effects), the
+    /// expensive flight encoding happens off-main. (PR-24)
+    private struct PendingBatch {
+        let flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)]
+        let settingsRecord: CKRecord?
+        let deletions: [CKRecord.ID]
+    }
+
     nonisolated func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext,
         syncEngine: CKSyncEngine
     ) -> CKSyncEngine.RecordZoneChangeBatch? {
-        // CKSyncEngine calls this synchronously on its own thread.
-        // We use DispatchQueue.main.sync to safely access @MainActor state.
-        // This is safe because CKSyncEngine never calls this from the main thread.
-        var result: CKSyncEngine.RecordZoneChangeBatch?
-
+        // CKSyncEngine calls this synchronously on its OWN (background) thread. We hop to the main
+        // actor only to *gather* the pending data (cheap: copies Flight value types + builds the
+        // small settings record), then release the main thread and do the expensive flight-record
+        // encoding (JSON + full GPS tracks) here off-main — so a sync push during an active flight
+        // no longer encodes large tracks inside a main-thread `DispatchQueue.main.sync`. (PR-24)
+        var pending: PendingBatch?
         DispatchQueue.main.sync {
-            result = self.createRecordZoneChangeBatchSync(syncEngine: syncEngine)
+            pending = self.gatherPendingBatch(syncEngine: syncEngine)
+        }
+        guard let pending else { return nil }
+
+        var recordsToSave: [CKRecord] = []
+        if let settingsRecord = pending.settingsRecord {
+            recordsToSave.append(settingsRecord)
+        }
+        for entry in pending.flightRecordIDs {
+            if let record = SyncManager.buildFlightRecord(entry.flight, recordID: entry.recordID) {
+                recordsToSave.append(record)
+            }
         }
 
-        return result
+        guard !recordsToSave.isEmpty || !pending.deletions.isEmpty else {
+            return nil
+        }
+
+        return CKSyncEngine.RecordZoneChangeBatch(
+            recordsToSave: recordsToSave,
+            recordIDsToDelete: pending.deletions,
+            atomicByZone: true
+        )
     }
 
-    /// Creates the batch synchronously on the main thread.
-    /// Called from DispatchQueue.main.sync in nextRecordZoneChangeBatch.
+    /// Gathers the pending changes on the main actor without encoding any flight track. Pairs each
+    /// pending flight with its (zone-scoped) record id so the caller can encode off-main. (PR-24)
     @MainActor
-    private func createRecordZoneChangeBatchSync(
-        syncEngine: CKSyncEngine
-    ) -> CKSyncEngine.RecordZoneChangeBatch? {
+    private func gatherPendingBatch(syncEngine: CKSyncEngine) -> PendingBatch? {
         guard let manager = manager else { return nil }
 
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
 
-        var recordsToSave: [CKRecord] = []
-        var recordIDsToDelete: [CKRecord.ID] = []
+        var flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)] = []
+        var settingsRecord: CKRecord?
+        var deletions: [CKRecord.ID] = []
         var processedSettingsRecord = false
 
         for change in pendingChanges {
@@ -634,31 +668,26 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     if !processedSettingsRecord,
                        let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
-                        recordsToSave.append(record)
+                        settingsRecord = record
                         processedSettingsRecord = true
                     }
                 } else if let flightId = UUID(uuidString: recordID.recordName),
-                          let flight = manager.getPendingFlight(for: flightId),
-                          let record = manager.createFlightRecord(flight) {
-                    recordsToSave.append(record)
+                          let flight = manager.getPendingFlight(for: flightId) {
+                    flightRecordIDs.append((flight, recordID))
                 }
 
             case .deleteRecord(let recordID):
-                recordIDsToDelete.append(recordID)
+                deletions.append(recordID)
 
             @unknown default:
                 break
             }
         }
 
-        guard !recordsToSave.isEmpty || !recordIDsToDelete.isEmpty else {
-            return nil
-        }
-
-        return CKSyncEngine.RecordZoneChangeBatch(
-            recordsToSave: recordsToSave,
-            recordIDsToDelete: recordIDsToDelete,
-            atomicByZone: true
+        return PendingBatch(
+            flightRecordIDs: flightRecordIDs,
+            settingsRecord: settingsRecord,
+            deletions: deletions
         )
     }
 

@@ -470,14 +470,14 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Load flights asynchronously to avoid blocking startup
-    /// The file I/O still runs on MainActor (DataPersistenceManager constraint)
-    /// but yields to the run loop so the UI can render first
+    /// Load flights asynchronously to avoid blocking startup. The directory enumeration + per-flight
+    /// JSON decode (including every GPS track) now runs off the main actor, so a large logbook never
+    /// stalls launch; the result is assigned back on the main actor. (PR-24)
     private func loadFlightsAsync() async {
         // Yield to let the first frame render before doing I/O
         await Task.yield()
 
-        flights = persistence.loadFlights()
+        flights = await persistence.loadFlightsOffMain()
         isLoadingFlights = false
 
         // Auto-complete onboarding for existing users (they already know the app)
@@ -1173,12 +1173,12 @@ class AppState: ObservableObject {
         return saved
     }
 
-    /// Reload flights from disk (called after sync updates)
+    /// Reload flights from disk (called after sync updates). Decode runs off the main actor. (PR-24)
     func reloadFlights() {
         Task { [weak self] in
             guard let self = self else { return }
             await Task.yield()
-            self.flights = self.persistence.loadFlights()
+            self.flights = await self.persistence.loadFlightsOffMain()
         }
     }
 

@@ -345,16 +345,32 @@ class DataPersistenceManager: ObservableObject {
 
     /// Load all flights from individual files
     func loadFlights() -> [Flight] {
+        Self.decodeFlights(in: flightsDirectory)
+    }
+
+    /// Loads + decodes all flights OFF the main actor, then returns to the caller. The directory URL
+    /// is resolved on the main actor (cheap), but the directory enumeration and per-flight JSON
+    /// decode — which includes every GPS track and is the expensive part — run on a background
+    /// executor so a large logbook never stalls the main thread at launch / reload. (PR-24)
+    func loadFlightsOffMain() async -> [Flight] {
+        let directory = flightsDirectory
+        return await Task.detached(priority: .utility) {
+            Self.decodeFlights(in: directory)
+        }.value
+    }
+
+    /// Pure directory-enumerate + decode, with no main-actor state, so it can run on any executor.
+    nonisolated static func decodeFlights(in directory: URL) -> [Flight] {
         var flights: [Flight] = []
         let fileManager = FileManager.default
 
         // Ensure directory exists
-        guard fileManager.fileExists(atPath: flightsDirectory.path) else {
+        guard fileManager.fileExists(atPath: directory.path) else {
             return []
         }
 
         do {
-            let files = try fileManager.contentsOfDirectory(at: flightsDirectory, includingPropertiesForKeys: nil)
+            let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
 
             let decoder = JSONDecoder()

@@ -644,10 +644,43 @@ struct FlightDetailView: View {
     @State private var selectedTime: Date?
     @State private var showFlightPlan = false
     @State private var showShareCustomization = false
+    // PR-25: serialize the export off the main actor and present only when ready — never serialize
+    // a long flight's GPX/JSON inside the .sheet content builder (blocks the UI as the sheet
+    // animates), and never present an empty share sheet on failure.
+    @State private var preparedExportData: Data?
+    @State private var isPreparingExport = false
+    @State private var showExportError = false
 
     enum ExportType {
         case gpx
         case json
+    }
+
+    /// PR-25: build the GPX/JSON `Data` off the main actor, then present the share sheet (or an
+    /// error alert). Mirrors `prepareExportAll`.
+    private func prepareExport(_ type: ExportType) {
+        exportType = type
+        let flight = self.flight
+        let flightPlan: FlightPlan? = {
+            guard let id = flight.flightPlanId else { return nil }
+            return flightPlanManager.flightPlans.first { $0.id == id }
+        }()
+        isPreparingExport = true
+        Task { @MainActor in
+            let data = await Task.detached(priority: .userInitiated) { () -> Data? in
+                switch type {
+                case .gpx: return flight.toGPX().data(using: .utf8)
+                case .json: return flight.toJSON(withFlightPlan: flightPlan)
+                }
+            }.value
+            isPreparingExport = false
+            if let data {
+                preparedExportData = data
+                showExportSheet = true
+            } else {
+                showExportError = true
+            }
+        }
     }
     
     var body: some View {
@@ -698,35 +731,23 @@ struct FlightDetailView: View {
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {
-                exportType = .gpx
-                showExportSheet = true
+                prepareExport(.gpx)
             }
             Button(L10n.FlightDetail.exportFormatJSON) {
-                exportType = .json
-                showExportSheet = true
+                prepareExport(.json)
             }
             Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
             Text(L10n.FlightDetail.exportFormatMessage)
         }
         .sheet(isPresented: $showExportSheet) {
-            switch exportType {
-            case .gpx:
-                if let gpxData = flight.toGPX().data(using: .utf8) {
-                    ShareSheet(activityItems: [
-                        GPXFile(data: gpxData, filename: "\(flight.exportFilename).gpx")
-                    ])
-                }
-            case .json:
-                // Include flight plan data if available
-                let flightPlan: FlightPlan? = {
-                    guard let flightPlanId = flight.flightPlanId else { return nil }
-                    return flightPlanManager.flightPlans.first { $0.id == flightPlanId }
-                }()
-                if let jsonData = flight.toJSON(withFlightPlan: flightPlan) {
-                    ShareSheet(activityItems: [
-                        JSONFile(data: jsonData, filename: "\(flight.exportFilename).json")
-                    ])
+            // PR-25: data is already serialized off-main in prepareExport — the builder only wraps it.
+            if let data = preparedExportData {
+                switch exportType {
+                case .gpx:
+                    ShareSheet(activityItems: [GPXFile(data: data, filename: "\(flight.exportFilename).gpx")])
+                case .json:
+                    ShareSheet(activityItems: [JSONFile(data: data, filename: "\(flight.exportFilename).json")])
                 }
             }
         }
@@ -738,6 +759,21 @@ struct FlightDetailView: View {
             }
         } message: {
             Text(L10n.FlightDetail.deleteMessage)
+        }
+        .alert(L10n.FlightDetail.exportFailedTitle, isPresented: $showExportError) {
+            Button(L10n.Button.close, role: .cancel) { }
+        } message: {
+            Text(L10n.FlightDetail.exportFailedMessage)
+        }
+        .overlay {
+            if isPreparingExport {
+                ZStack {
+                    Color.black.opacity(0.4).ignoresSafeArea()
+                    ProgressView(L10n.FlightLog.preparingExport)
+                        .padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
         }
     }
     
@@ -1212,14 +1248,35 @@ struct TimelineRow: View {
 
 // MARK: - Flight Map View with Polyline
 
+extension Array where Element == GPSPoint {
+    /// Binary-search the chronologically-ordered track for the point nearest `time`. O(log n), vs
+    /// the O(n) `min(by:)` it replaces — which ran on every scrub frame of a multi-hour flight. (PR-26)
+    func closestByTimestamp(to time: Date) -> GPSPoint? {
+        guard !isEmpty else { return nil }
+        var lo = startIndex, hi = endIndex - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if self[mid].timestamp < time { lo = mid + 1 } else { hi = mid }
+        }
+        let candidate = self[lo]
+        if lo > startIndex {
+            let prev = self[lo - 1]
+            if abs(prev.timestamp.timeIntervalSince(time)) <= abs(candidate.timestamp.timeIntervalSince(time)) {
+                return prev
+            }
+        }
+        return candidate
+    }
+}
+
 struct FlightMapView: UIViewRepresentable {
     let points: [GPSPoint]
     let selectedTime: Date?
 
-    /// Find the GPS point closest to the selected time
+    /// Find the GPS point closest to the selected time (binary search, O(log n)). (PR-26)
     private var selectedPoint: GPSPoint? {
         guard let time = selectedTime else { return nil }
-        return points.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
+        return points.closestByTimestamp(to: time)
     }
 
     func makeUIView(context: Context) -> MKMapView {
@@ -1230,43 +1287,47 @@ struct FlightMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Remove existing overlays and annotations
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
+        let coordinator = context.coordinator
 
-        guard points.count >= 2 else { return }
+        // Rebuild the static track layer (polyline + start/end markers) ONLY when the track itself
+        // changes — not on every scrub, which previously tore down and re-added the whole O(n)
+        // polyline each frame. For an immutable past flight this runs exactly once. (PR-26)
+        if coordinator.builtPointCount != points.count {
+            coordinator.builtPointCount = points.count
+            mapView.removeOverlays(mapView.overlays)
+            // Remove only the start/end markers, never the live selection marker.
+            let staticMarkers = mapView.annotations.compactMap { $0 as? FlightAnnotation }.filter { !$0.isSelected }
+            mapView.removeAnnotations(staticMarkers)
 
-        // Create coordinates array
-        let coordinates = points.map { $0.coordinate }
+            if points.count >= 2 {
+                let coordinates = points.map { $0.coordinate }
+                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                mapView.addOverlay(polyline)
 
-        // Add polyline
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        mapView.addOverlay(polyline)
-
-        // Add start and end annotations
-        if let first = points.first, let last = points.last {
-            let startAnnotation = FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false)
-            let endAnnotation = FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
-            mapView.addAnnotations([startAnnotation, endAnnotation])
+                if let first = points.first, let last = points.last {
+                    mapView.addAnnotations([
+                        FlightAnnotation(coordinate: first.coordinate, title: "Start", isStart: true, isSelected: false),
+                        FlightAnnotation(coordinate: last.coordinate, title: "End", isStart: false, isSelected: false)
+                    ])
+                }
+                // Set the visible region only on initial load, not when selection changes.
+                if coordinator.initialRegionSet == false {
+                    let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
+                    mapView.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: false)
+                    coordinator.initialRegionSet = true
+                }
+            }
         }
 
-        // Add selected position annotation if available
+        // Update ONLY the selected-position marker on scrub.
+        if let existing = coordinator.selectedAnnotation {
+            mapView.removeAnnotation(existing)
+            coordinator.selectedAnnotation = nil
+        }
         if let selected = selectedPoint {
-            let selectedAnnotation = FlightAnnotation(
-                coordinate: selected.coordinate,
-                title: "Position",
-                isStart: false,
-                isSelected: true
-            )
-            mapView.addAnnotation(selectedAnnotation)
-        }
-
-        // Set visible region (only on initial load, not when selection changes)
-        if context.coordinator.initialRegionSet == false {
-            let rect = polyline.boundingMapRect
-            let padding = UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50)
-            mapView.setVisibleMapRect(rect, edgePadding: padding, animated: false)
-            context.coordinator.initialRegionSet = true
+            let annotation = FlightAnnotation(coordinate: selected.coordinate, title: "Position", isStart: false, isSelected: true)
+            mapView.addAnnotation(annotation)
+            coordinator.selectedAnnotation = annotation
         }
     }
 
@@ -1276,6 +1337,10 @@ struct FlightMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate {
         var initialRegionSet = false
+        /// Number of track points the static layer was last built for (-1 = not yet built). (PR-26)
+        var builtPointCount = -1
+        /// The live selection marker, updated in place on scrub. (PR-26)
+        var selectedAnnotation: FlightAnnotation?
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polyline = overlay as? MKPolyline {
@@ -1356,19 +1421,44 @@ struct AltitudeChartView: View {
     let fullStopTimes: [Date]
     @Binding var selectedTime: Date?
 
-    /// Altitude data points for the chart
-    private var altitudeData: [(time: Date, altitude: Double)] {
-        gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) } // Convert to feet
+    /// Downsample target for the overview chart line.
+    private static let maxChartPoints = 400
+
+    // PR-26: the altitude line and Y-range are computed ONCE (the line downsampled to ~400 points),
+    // cached in @State, and populated in onAppear — instead of being O(n) computed properties that
+    // re-ran on every body re-evaluation during a scrub of a multi-hour flight.
+    @State private var altitudeData: [(time: Date, altitude: Double)] = []
+    @State private var altitudeRange: ClosedRange<Double> = 0...1000
+
+    /// Populate the cached chart line + Y-range once. The line is stride-downsampled; the Y-range is
+    /// taken from the FULL track so a peak between samples never clips the axis. (PR-26)
+    private func populateAltitudeCacheIfNeeded() {
+        guard altitudeData.isEmpty, !gpsTrack.isEmpty else { return }
+        altitudeData = Self.downsampledAltitude(gpsTrack, maxPoints: Self.maxChartPoints)
+        let altsFeet = gpsTrack.map { $0.altitude * 3.28084 }
+        altitudeRange = Self.paddedAltitudeRange(min: altsFeet.min() ?? 0, max: altsFeet.max() ?? 1000)
     }
 
-    /// Computed altitude range with 500ft padding
-    private var altitudeRange: ClosedRange<Double> {
-        guard !altitudeData.isEmpty else { return 0...1000 }
-        let altitudes = altitudeData.map { $0.altitude }
-        let minAlt = altitudes.min() ?? 0
-        let maxAlt = altitudes.max() ?? 1000
-        // Add 500ft padding above and below, but don't go below 0
-        let lowerBound = max(0, floor((minAlt - 500) / 100) * 100)
+    /// Stride-downsample the track to feet-altitude points, always keeping the last point so the
+    /// chart spans the full flight.
+    static func downsampledAltitude(_ track: [GPSPoint], maxPoints: Int) -> [(time: Date, altitude: Double)] {
+        let feet = track.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
+        guard feet.count > maxPoints, maxPoints > 1 else { return feet }
+        let step = Double(feet.count - 1) / Double(maxPoints - 1)
+        var result: [(time: Date, altitude: Double)] = []
+        result.reserveCapacity(maxPoints + 1)
+        var pos = 0.0
+        while Int(pos.rounded()) < feet.count {
+            result.append(feet[Int(pos.rounded())])
+            pos += step
+        }
+        if let last = feet.last, result.last?.time != last.time { result.append(last) }
+        return result
+    }
+
+    /// Y-range with 500 ft padding, snapped to 100 ft, never below 0.
+    static func paddedAltitudeRange(min minAlt: Double, max maxAlt: Double) -> ClosedRange<Double> {
+        let lowerBound = Swift.max(0, floor((minAlt - 500) / 100) * 100)
         let upperBound = ceil((maxAlt + 500) / 100) * 100
         return lowerBound...upperBound
     }
@@ -1409,16 +1499,15 @@ struct AltitudeChartView: View {
         return annotations
     }
 
-    /// Find the altitude at the selected time
+    /// Find the altitude at the selected time. Binary search (O(log n)) over the chronological track
+    /// instead of an O(n) `min(by:)` on every scrub frame. (PR-26)
     private var selectedAltitude: Double? {
         guard let time = selectedTime else { return nil }
-        // Find the closest GPS point to the selected time
-        let closest = gpsTrack.min(by: { abs($0.timestamp.timeIntervalSince(time)) < abs($1.timestamp.timeIntervalSince(time)) })
-        return closest.map { $0.altitude * 3.28084 }
+        return gpsTrack.closestByTimestamp(to: time).map { $0.altitude * 3.28084 }
     }
 
     var body: some View {
-        if altitudeData.isEmpty {
+        if gpsTrack.isEmpty {
             Text(L10n.FlightDetail.noAltitudeData)
                 .font(.captionText)
                 .foregroundColor(.dimText)
@@ -1554,6 +1643,7 @@ struct AltitudeChartView: View {
                         )
                 }
             }
+            .onAppear { populateAltitudeCacheIfNeeded() }
         }
     }
 }
@@ -3158,35 +3248,55 @@ struct ShareCardAltitudeChart: View {
         let terrain: Double    // ground elevation in feet
     }
 
-    private var altitudeData: [(time: Date, altitude: Double)] {
-        gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
-    }
+    // PR-27: precompute once in init. These were computed properties that re-mapped the whole
+    // gpsTrack on every access; the four Path closures and the per-point xPosition/yPosition
+    // helpers each read them, making the render O(n²) on the main actor inside ImageRenderer.
+    private let altitudeData: [(time: Date, altitude: Double)]
+    private let altitudeRange: ClosedRange<Double>
+    private let unifiedData: [ChartDataPoint]
+    private let firstTime: Date?
+    private let timeSpan: TimeInterval
 
-    /// Build unified data: one entry per GPS point with both altitude and interpolated terrain
-    private var unifiedData: [ChartDataPoint] {
-        altitudeData.map { point in
+    init(gpsTrack: [GPSPoint], sparklineColor: Color = .altimeterBlue,
+         terrainData: [(time: Date, elevationFeet: Double)] = []) {
+        self.gpsTrack = gpsTrack
+        self.sparklineColor = sparklineColor
+        self.terrainData = terrainData
+
+        let altData = gpsTrack.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
+        self.altitudeData = altData
+
+        let range: ClosedRange<Double>
+        if altData.isEmpty {
+            range = 0...1000
+        } else {
+            let allValues = altData.map { $0.altitude } + terrainData.map { $0.elevationFeet }
+            let minAlt = allValues.min() ?? 0
+            let maxAlt = allValues.max() ?? 1000
+            let lowerBound = max(0, floor((minAlt - 200) / 100) * 100)
+            let upperBound = ceil((maxAlt + 200) / 100) * 100
+            range = lowerBound...upperBound
+        }
+        self.altitudeRange = range
+
+        self.unifiedData = altData.map { point in
             ChartDataPoint(
                 time: point.time,
                 altitude: point.altitude,
-                terrain: terrainElevation(at: point.time) ?? altitudeRange.lowerBound
+                terrain: ShareCardAltitudeChart.interpolatedTerrain(at: point.time, terrainData: terrainData) ?? range.lowerBound
             )
+        }
+
+        self.firstTime = altData.first?.time
+        if let f = altData.first?.time, let l = altData.last?.time {
+            self.timeSpan = l.timeIntervalSince(f)
+        } else {
+            self.timeSpan = 0
         }
     }
 
-    private var altitudeRange: ClosedRange<Double> {
-        guard !altitudeData.isEmpty else { return 0...1000 }
-        let altitudes = altitudeData.map { $0.altitude }
-        let terrainElevations = terrainData.map { $0.elevationFeet }
-        let allValues = altitudes + terrainElevations
-        let minAlt = allValues.min() ?? 0
-        let maxAlt = allValues.max() ?? 1000
-        let lowerBound = max(0, floor((minAlt - 200) / 100) * 100)
-        let upperBound = ceil((maxAlt + 200) / 100) * 100
-        return lowerBound...upperBound
-    }
-
-    /// Interpolate terrain elevation at a given time
-    private func terrainElevation(at time: Date) -> Double? {
+    /// Interpolate terrain elevation at a given time. Static so it can run during init (PR-27).
+    private static func interpolatedTerrain(at time: Date, terrainData: [(time: Date, elevationFeet: Double)]) -> Double? {
         guard terrainData.count >= 2 else { return terrainData.first?.elevationFeet }
         let t = time.timeIntervalSince1970
 
@@ -3212,10 +3322,9 @@ struct ShareCardAltitudeChart: View {
     // MARK: - Coordinate Mapping Helpers
 
     private func xPosition(for time: Date, in size: CGSize) -> CGFloat {
-        guard let first = altitudeData.first?.time, let last = altitudeData.last?.time else { return 0 }
-        let span = last.timeIntervalSince(first)
-        guard span > 0 else { return 0 }
-        return CGFloat(time.timeIntervalSince(first) / span) * size.width
+        // PR-27: use the precomputed firstTime/timeSpan instead of re-scanning altitudeData per call.
+        guard let first = firstTime, timeSpan > 0 else { return 0 }
+        return CGFloat(time.timeIntervalSince(first) / timeSpan) * size.width
     }
 
     private func yPosition(for value: Double, in size: CGSize) -> CGFloat {

@@ -118,6 +118,13 @@ class FlightEventDetector: ObservableObject {
     /// Pending full-stop event awaiting user confirmation
     @Published var pendingFullStop: DetectedFlightEvent?
 
+    // MARK: - Clock Seam
+
+    /// Injectable clock. Defaults to wall-clock; scripted-trajectory tests substitute a synthetic
+    /// clock so the time-based cooldown / takeoff-suppression / pending-expiry logic is exercised
+    /// deterministically without real-time sleeps. Behaviour in production is identical. (PR-34)
+    var clock: () -> Date = { Date() }
+
     // MARK: - State Machine
 
     private var state: DetectorState = .idle
@@ -159,6 +166,12 @@ class FlightEventDetector: ObservableObject {
 
     /// Minimum speed recorded during low approach (knots)
     private var minSpeedInLowApproach: Double = .infinity
+
+    /// Lowest altitude AGL (feet) seen during the current low-approach pass. Used for the
+    /// descent-then-climb go-around gate: a genuine go-around descends toward the runway and then
+    /// climbs away, so an exit only counts as a go-around if the aircraft actually climbed from this
+    /// low point — not merely left the zone laterally at the same low altitude. (PR-23)
+    private var minAltAglInLowApproach: Double = .infinity
 
     /// Minimum speed recorded during touchdown (knots)
     private var minSpeedInTouchdown: Double = .infinity
@@ -244,6 +257,8 @@ class FlightEventDetector: ObservableObject {
     private let lowApproachExitDistanceNm: Double = 1.5
     private let lowApproachEntryAltAglFt: Double = 100.0
     private let lowApproachExitAltAglFt: Double = 150.0
+    /// Climb (feet) above the low-approach low point required to treat an exit as a go-around. (PR-23)
+    private let goAroundClimbMarginFt: Double = 50.0
 
     // Cooldown between events
     private let eventCooldownSeconds: TimeInterval = 45.0
@@ -281,7 +296,13 @@ class FlightEventDetector: ObservableObject {
     ///   - nearbyAirports: Airports near the current position (from AirportDataService)
     func processLocation(_ location: CLLocation, nearbyAirports: [Airport]) {
         let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
-        let now = Date()
+        let now = clock()
+
+        // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded window.
+        // Each emit guards `pendingX == nil`, so a pending event that's never consumed (e.g. its
+        // confirmation overlay was behind the full-screen map) would otherwise silently block EVERY
+        // subsequent event of that type for the rest of the flight.
+        expireStalePendingEvents(now: now)
 
         // Update speed history (keep enough readings for the interval-scaled smoothing window)
         speedHistory.append((timestamp: now, speedKts: rawSpeedKts))
@@ -378,6 +399,52 @@ class FlightEventDetector: ObservableObject {
         pendingFullStop = nil
     }
 
+    /// PR-40: clear pending events older than the expiry window so a never-consumed confirmation
+    /// can't block all future detections of that type.
+    private static let pendingEventExpirySeconds: TimeInterval = 180
+    private func expireStalePendingEvents(now: Date) {
+        if let e = pendingGoAround, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingGoAround = nil
+        }
+        if let e = pendingTouchAndGo, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingTouchAndGo = nil
+        }
+        if let e = pendingFullStop, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingFullStop = nil
+        }
+    }
+
+    /// Called by the manual event buttons (LANDED / GO AROUND / TOUCH AND GO) so the automatic
+    /// detector doesn't then emit a DUPLICATE for the same physical event. Mirrors the suppression
+    /// the emit* paths apply: clears any matching pending event, stamps the event/cooldown times,
+    /// and (for landings) requires fresh airborne evidence before the next auto landing event.
+    /// dismissFullStop() only cleared an already-pending event; a manual LANDED while vacating fires
+    /// the detector's pending full stop AFTERWARDS, so the suppression must be set proactively. (PR-07)
+    func notifyManualEvent(_ type: FlightEventType, at explicitTime: Date? = nil) {
+        let time = explicitTime ?? clock()
+        lastEventTime = time
+        touchdownSpeedReadings = 0
+        minSpeedInTouchdown = .infinity
+        consecutiveTaxiSpeedReadings = 0
+        switch type {
+        case .fullStop:
+            pendingFullStop = nil
+            airborneAfterLanding = false
+            hasBeenAirborne = false
+            lastLandingAltMsl = currentAltMslFt
+            fullStopCooldownUntil = time.addingTimeInterval(fullStopCooldownSeconds)
+            transitionToIdle()
+        case .touchAndGo:
+            pendingTouchAndGo = nil
+            airborneAfterLanding = false
+            lastLandingAltMsl = currentAltMslFt
+            lastTakeoffTime = time
+        case .goAround:
+            pendingGoAround = nil
+            lastTakeoffTime = time
+        }
+    }
+
     // MARK: - State Handlers
 
     private func handleIdle(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
@@ -402,6 +469,7 @@ class FlightEventDetector: ObservableObject {
             state = .lowApproach
             stateEntryTime = now
             minSpeedInLowApproach = speedKts
+            minAltAglInLowApproach = altAglFt
             print("[FlightEventDetector] Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
             return
         }
@@ -422,8 +490,9 @@ class FlightEventDetector: ObservableObject {
     }
 
     private func handleLowApproach(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        // Track minimum speed
+        // Track minimum speed and lowest altitude (for the descent-then-climb go-around gate)
         minSpeedInLowApproach = min(minSpeedInLowApproach, speedKts)
+        minAltAglInLowApproach = min(minAltAglInLowApproach, altAglFt)
 
         // Check for touchdown (speed drops below threshold)
         if speedKts < speedConfig.touchdownSpeedKts {
@@ -439,10 +508,14 @@ class FlightEventDetector: ObservableObject {
             return
         }
 
-        // Check for go-around: exiting low approach zone without touching down
-        // AND minimum speed stayed above go-around threshold (never slowed to landing speed)
+        // Check for go-around: exiting low approach zone without touching down. Require BOTH that the
+        // minimum speed stayed above the go-around threshold (never slowed to landing speed) AND a
+        // genuine descent-then-climb profile — the aircraft climbed clear of its lowest point — so a
+        // low lateral pass that simply leaves the zone at the same altitude isn't mislabelled a
+        // go-around. (PR-23)
         if distanceNm > lowApproachExitDistanceNm || altAglFt > lowApproachExitAltAglFt {
-            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts {
+            let climbedOut = altAglFt - minAltAglInLowApproach > goAroundClimbMarginFt
+            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts && climbedOut {
                 emitGoAround(airport: stateAirport)
             }
             // Transition back to airport zone if still within it, otherwise idle
@@ -496,13 +569,34 @@ class FlightEventDetector: ObservableObject {
             return
         }
 
-        // Check for touch-and-go: speed increases back above acceleration threshold
-        // after having at least minTouchdownReadings below touchdownSpeedKts.
-        // If touchdown was entered via speed-based fallback (not low approach), also require
-        // altitude near ground level to prevent false TGs during approach with headwind.
+        // PR-22: a balked landing (go-around) recovers speed in seconds, but 150 ft of raw GPS climb
+        // takes ~13 s — so the touch-and-go branch below would fire first and mislabel it. "Ground
+        // evidence" means the aircraft actually slowed to a true ground-roll speed (below taxi speed);
+        // without it, a speed recovery while climbing away is a go-around, not a touch-and-go. This
+        // catches it on a much smaller (faster) climb confirmation than the 150 ft branch above.
+        let hasGroundEvidence = minSpeedInTouchdown < speedConfig.taxiSpeedKts
         if speedKts >= speedConfig.touchAndGoAccelSpeedKts
             && touchdownSpeedReadings >= minTouchdownReadings
-            && (touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
+            && !hasGroundEvidence
+            && altGainFt > 50 {
+            print("[FlightEventDetector] Go-around (speed recovered, climbing \(Int(altGainFt)) ft, no ground evidence)")
+            emitGoAround(airport: stateAirport)
+            state = .airportZone
+            stateEntryTime = now
+            touchdownEntryTime = nil
+            touchdownSpeedReadings = 0
+            minSpeedInTouchdown = .infinity
+            consecutiveTaxiSpeedReadings = 0
+            return
+        }
+
+        // Check for touch-and-go: speed increases back above acceleration threshold after having at
+        // least minTouchdownReadings below touchdownSpeedKts, AND there is ground evidence (slowed to
+        // a true rollout speed) or the touchdown was altitude-confirmed via low approach. Without
+        // either, the speed-recovery case above has already classified it as a go-around. (PR-22)
+        if speedKts >= speedConfig.touchAndGoAccelSpeedKts
+            && touchdownSpeedReadings >= minTouchdownReadings
+            && (hasGroundEvidence || touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
             emitTouchAndGo(airport: stateAirport)
             // Transition back to airport zone (aircraft will likely do another circuit)
             state = .airportZone
@@ -552,7 +646,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -564,10 +658,11 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Go-around detected")
         }
 
-        let event = DetectedFlightEvent(type: .goAround, timestamp: Date(), airport: airport, message: message)
+        let now = clock()
+        let event = DetectedFlightEvent(type: .goAround, timestamp: now, airport: airport, message: message)
         pendingGoAround = event
-        lastEventTime = Date()
-        lastTakeoffTime = Date()
+        lastEventTime = now
+        lastTakeoffTime = now
         print("[FlightEventDetector] GO-AROUND: \(message)")
     }
 
@@ -588,7 +683,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -600,10 +695,11 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Touch-and-go detected")
         }
 
-        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: airport, message: message)
+        let now = clock()
+        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: now, airport: airport, message: message)
         pendingTouchAndGo = event
-        lastEventTime = Date()
-        lastTakeoffTime = Date()
+        lastEventTime = now
+        lastTakeoffTime = now
         // Record landing altitude and require airborne evidence before next landing event
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false
@@ -629,7 +725,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -641,9 +737,9 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Full-stop landing detected")
         }
 
-        let event = DetectedFlightEvent(type: .fullStop, timestamp: Date(), airport: airport, message: message)
+        let event = DetectedFlightEvent(type: .fullStop, timestamp: clock(), airport: airport, message: message)
         pendingFullStop = event
-        lastEventTime = Date()
+        lastEventTime = clock()
         // Record landing altitude and require airborne evidence before next landing event
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false
@@ -658,6 +754,7 @@ class FlightEventDetector: ObservableObject {
         stateAirport = nil
         stateEntryTime = nil
         minSpeedInLowApproach = .infinity
+        minAltAglInLowApproach = .infinity
         minSpeedInTouchdown = .infinity
         touchdownEntryTime = nil
         touchdownAltAglFt = 0

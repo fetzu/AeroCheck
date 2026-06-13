@@ -123,6 +123,8 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         for i in 0..<25 {
             source.addGPSPoint(makePoint(47.0 + Double(i) * 0.001, 8.0))
         }
+        // The throttled checkpoint write now runs off the main actor (PR-12); wait for it to land.
+        source.flushPendingCheckpoint()
         XCTAssertTrue(source.hasActiveFlightState,
                       "A checkpoint should exist mid-flight without any scenePhase/explicit save")
 

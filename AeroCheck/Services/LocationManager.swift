@@ -37,6 +37,13 @@ class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     private var recordingInterval: TimeInterval = 5.0
     private var lastRecordedTime: Date?
+
+    /// Event detection runs on its OWN cadence, independent of (and never slower than) the GPS
+    /// *recording* interval. At a slow recording interval (e.g. 30 s) the detector would otherwise
+    /// see one fix per 30 s — far too coarse to resolve a touchdown/go-around — so detection is
+    /// capped to at most this many seconds between fixes it processes. (PR-23)
+    private static let detectionIntervalCapSeconds: TimeInterval = 5.0
+    private var lastDetectionTime: Date?
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
@@ -55,10 +62,19 @@ class LocationManager: NSObject, ObservableObject {
     private let signalTrulyLostThreshold: TimeInterval = 45.0  // 45 seconds = truly lost (red)
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
+    /// PR-21: when we last had a good fix but are stationary and have gone stale, we fire a one-shot
+    /// requestLocation() probe and hold at degraded until either a fresh fix lands or this window
+    /// elapses (then it's a genuine loss → red). Stamped when the probe is fired.
+    private var stationaryProbeFiredAt: Date?
+    private static let stationaryProbeWindow: TimeInterval = 8.0
     /// Deferred-start intents: set when start is requested before authorization is decided, so
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
     private var pendingLocationUpdatesStart = false
+    /// Set when an ACTIVE tracking/map session's updates were stopped because location permission
+    /// was revoked mid-session. On re-authorization the session resumes itself instead of staying
+    /// dead with isTracking still true. (PR-39)
+    private var wasStoppedByRevocation = false
 
     // GPS status override (for marketing mode)
     private var gpsStatusOverride: GPSSignalStatus?
@@ -108,13 +124,14 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.activityType = .airborne
 
         // Background location configuration:
-        // - allowsBackgroundLocationUpdates: Required for continuous GPS tracking during flight
+        // - allowsBackgroundLocationUpdates: enabled ONLY while actively tracking a flight (PR-38),
+        //   in beginTrackingNow/stopTracking. A map-only session (NavigationView opened with no active
+        //   flight) must not keep full-accuracy GPS running in the background — with this false, iOS
+        //   suspends updates when the app backgrounds, so opening the map then leaving can't drain the
+        //   battery (no blue indicator, nothing recorded) before a flight.
         // - pausesLocationUpdatesAutomatically: Disabled to prevent iOS from pausing updates
         // - showsBackgroundLocationIndicator: Shows blue bar when tracking in background
-        // Note: If the app is terminated by the system during background tracking,
-        // iOS will not automatically restart it. The user must manually restart the app.
-        // This is acceptable for aviation use where the app should remain in foreground.
-        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.allowsBackgroundLocationUpdates = false
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.showsBackgroundLocationIndicator = true
 
@@ -151,6 +168,7 @@ class LocationManager: NSObject, ObservableObject {
         self.activeChecklist = activeChecklist
         self.recordingInterval = interval
         self.lastRecordedTime = nil
+        self.lastDetectionTime = nil
         self.lastGoodSignalTime = Date()
         self.lastLocationUpdateTime = Date()
         self.gpsSignalStatus = .good
@@ -172,6 +190,8 @@ class LocationManager: NSObject, ObservableObject {
     private func beginTrackingNow() {
         guard let appState = appState else { return }
         isTracking = true
+        // PR-38: a real flight keeps recording in the background; enable it only now (not at init).
+        locationManager.allowsBackgroundLocationUpdates = true
         applyGPSPriority(appState.settings.gpsPriority)
         locationManager.startUpdatingLocation()
         startSignalCheckTimer()
@@ -194,6 +214,14 @@ class LocationManager: NSObject, ObservableObject {
 
     func stopTracking() {
         isTracking = false
+        // PR-39: clear the display-session flag too — stopLocationUpdates is a no-op while tracking,
+        // so without this a view gated on (isTracking || isLocationUpdatesActive) would keep showing
+        // "GPS active" after the flight ends with GPS off.
+        isLocationUpdatesActive = false
+        wasStoppedByRevocation = false
+        // PR-38: don't keep background GPS armed once the flight ends (a lingering map session must
+        // not inherit flight-grade background tracking).
+        locationManager.allowsBackgroundLocationUpdates = false
         locationManager.stopUpdatingLocation()
         stopSignalCheckTimer()
         appState = nil
@@ -202,6 +230,7 @@ class LocationManager: NSObject, ObservableObject {
         flightEventDetector = nil
         hasNotifiedTakeoffTime = false
         hasConfiguredDetector = false
+        lastDetectionTime = nil
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = groundModeDistanceFilter
@@ -272,16 +301,47 @@ class LocationManager: NSObject, ObservableObject {
         // Invalidate existing timer to prevent duplicates (e.g. if startTracking and
         // startLocationUpdates are both called)
         signalCheckTimer?.invalidate()
-        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        // PR-21: schedule in .common run-loop mode so the signal check keeps firing during scroll
+        // gestures (scheduledTimer uses .default, which stalls while a UIScrollView tracks).
+        let timer = Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkSignalStatus()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        signalCheckTimer = timer
     }
 
     private func stopSignalCheckTimer() {
         signalCheckTimer?.invalidate()
         signalCheckTimer = nil
+    }
+
+    /// Pure, unit-testable GPS signal-status decision (PR-35). Extracted from `checkSignalStatus`
+    /// so the 10 / 20 / 45 s boundaries are pinned by tests and stop drifting from their comments
+    /// (the old inline comments claimed 15 / 45 / 90 s while the constants were 10 / 20 / 45 s).
+    /// `current` is the present status because some escalations only fire from `.good`.
+    nonisolated static func signalStatus(
+        timeSinceLastUpdate: TimeInterval,
+        lastKnownAccuracy: CLLocationAccuracy,
+        current: GPSSignalStatus,
+        degradedThreshold: TimeInterval = 10,
+        lostThreshold: TimeInterval = 20,
+        trulyLostThreshold: TimeInterval = 45,
+        accuracyThreshold: CLLocationAccuracy = 100
+    ) -> GPSSignalStatus {
+        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= accuracyThreshold
+        if timeSinceLastUpdate >= trulyLostThreshold {
+            return .lost                                    // ≥45 s: truly lost (red), regardless of accuracy
+        } else if timeSinceLastUpdate >= lostThreshold {
+            return current == .good ? .degraded : current   // ≥20 s: degrade a good signal
+        } else if lastAccuracyWasGood {
+            return .good                                     // <20 s and last fix was good: stay good
+        } else if timeSinceLastUpdate >= degradedThreshold {
+            return current == .good ? .degraded : current   // ≥10 s with a poor last fix: degrade
+        } else {
+            return current                                   // <10 s, poor last fix: unchanged
+        }
     }
 
     private func checkSignalStatus() {
@@ -301,30 +361,41 @@ class LocationManager: NSObject, ObservableObject {
 
         let now = Date()
         let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
-        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
+        let computed = Self.signalStatus(
+            timeSinceLastUpdate: timeSinceLastUpdate,
+            lastKnownAccuracy: lastKnownAccuracy,
+            current: gpsSignalStatus,
+            degradedThreshold: signalDegradedThreshold,
+            lostThreshold: signalLostThreshold,
+            trulyLostThreshold: signalTrulyLostThreshold,
+            accuracyThreshold: horizontalAccuracyThreshold)
 
-        // Truly lost: no update for 90+ seconds regardless of last accuracy
-        if timeSinceLastUpdate >= signalTrulyLostThreshold {
-            gpsSignalStatus = .lost
-        }
-        // Degraded: no update for 45+ seconds (even if last accuracy was good,
-        // something is wrong after this long)
-        else if timeSinceLastUpdate >= signalLostThreshold {
-            if gpsSignalStatus == .good {
-                gpsSignalStatus = .degraded
+        // PR-21: a parked aircraft (ground mode, 5 m distance filter) receives no callbacks, so
+        // staleness alone would drive the indicator orange→red even with good GPS — training the
+        // pilot to ignore the one indicator that matters. When we last had a good fix and are
+        // plausibly stationary, fire a one-shot requestLocation() probe (which bypasses the distance
+        // filter) and hold at degraded; only go red if no fresh fix arrives within the probe window.
+        // A fresh fix updates lastLocationUpdateTime, so `computed` recovers on the next tick.
+        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
+        let stationary = smoothedSpeedMPS < 0.5  // < ~1 kt
+        if computed == .lost && lastAccuracyWasGood && stationary && gpsSignalStatus != .lost {
+            if let firedAt = stationaryProbeFiredAt {
+                if now.timeIntervalSince(firedAt) < Self.stationaryProbeWindow {
+                    gpsSignalStatus = .degraded             // probe in flight — hold short of red
+                    return
+                }
+                stationaryProbeFiredAt = nil                // window elapsed, no fresh fix → genuine loss
+                gpsSignalStatus = .lost
+                return
             }
+            stationaryProbeFiredAt = now
+            locationManager.requestLocation()
+            gpsSignalStatus = .degraded
+            return
         }
-        // If last accuracy was good, stay good — the distance filter (50m) may simply
-        // not have triggered yet because the device hasn't moved enough
-        else if lastAccuracyWasGood {
-            gpsSignalStatus = .good
-        }
-        // Last accuracy was poor and no fresh update for 15+ seconds
-        else if timeSinceLastUpdate >= signalDegradedThreshold {
-            if gpsSignalStatus == .good {
-                gpsSignalStatus = .degraded
-            }
-        }
+
+        stationaryProbeFiredAt = nil
+        gpsSignalStatus = computed
     }
 
     /// Update smoothed speed (EMA) and cached heading from a new location update.
@@ -515,36 +586,50 @@ extension LocationManager: CLLocationManagerDelegate {
                 }
             }
 
-            if shouldRecord, let appState = self.appState {
+            // PR-37: skip recording AND event detection for a stale or invalid fix. CoreLocation
+            // routinely delivers a cached (possibly minutes-old) fix right after startUpdatingLocation,
+            // and a negative horizontalAccuracy is invalid — either would otherwise become a track
+            // point (e.g. a hangar fix as the first point of every flight) and feed the detector.
+            // currentLocation is still updated above for display.
+            let fixIsUsable = abs(location.timestamp.timeIntervalSinceNow) <= 10 && location.horizontalAccuracy >= 0
+            if shouldRecord, fixIsUsable, let appState = self.appState {
                 let point = GPSPoint(from: location)
                 appState.addGPSPoint(point, airportDataService: self.airportDataService)
                 self.lastRecordedTime = now
+            }
 
-                // Process location for flight event detection (go-arounds, touch-and-gos, full stops)
-                if let detector = self.flightEventDetector,
-                   let airportService = self.airportDataService,
-                   (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
-                    // Auto-configure detector with aircraft speeds on first activation
-                    if !self.hasConfiguredDetector {
-                        let checklist = self.activeChecklist ?? .bundledDefault
-                        detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: self.recordingInterval)
-                        self.hasConfiguredDetector = true
-                    }
+            // Event detection runs independently of recording so it isn't starved at slow recording
+            // intervals — feed the detector every fix, capped at `detectionIntervalCapSeconds`. (PR-23)
+            let detectionInterval = min(self.recordingInterval, Self.detectionIntervalCapSeconds)
+            let shouldDetect = self.lastDetectionTime.map { now.timeIntervalSince($0) >= detectionInterval } ?? true
+            if shouldDetect, fixIsUsable, let appState = self.appState,
+               let detector = self.flightEventDetector,
+               let airportService = self.airportDataService,
+               (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
+                self.lastDetectionTime = now
 
-                    // Notify detector of takeoff time once for initial suppression
-                    if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
-                        detector.setTakeoffTime(lineUpTime)
-                        self.hasNotifiedTakeoffTime = true
-                    }
-
-                    // Get nearby airports for event detection
-                    let nearbyAirports = airportService.findNearestAirports(
-                        to: location.coordinate,
-                        limit: 3,
-                        maxDistanceNm: 5.0
-                    )
-                    detector.processLocation(location, nearbyAirports: nearbyAirports)
+                // Auto-configure the detector with aircraft speeds + the DETECTION cadence (so its
+                // reading-count thresholds scale to how often it's actually fed, not the recording
+                // interval). Re-configure if the effective detection interval changed. (PR-23)
+                if !self.hasConfiguredDetector {
+                    let checklist = self.activeChecklist ?? .bundledDefault
+                    detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: detectionInterval)
+                    self.hasConfiguredDetector = true
                 }
+
+                // Notify detector of takeoff time once for initial suppression
+                if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
+                    detector.setTakeoffTime(lineUpTime)
+                    self.hasNotifiedTakeoffTime = true
+                }
+
+                // Get nearby airports for event detection
+                let nearbyAirports = airportService.findNearestAirports(
+                    to: location.coordinate,
+                    limit: 3,
+                    maxDistanceNm: 5.0
+                )
+                detector.processLocation(location, nearbyAirports: nearbyAirports)
             }
         }
     }
@@ -570,6 +655,16 @@ extension LocationManager: CLLocationManagerDelegate {
                 if self.pendingLocationUpdatesStart {
                     self.startLocationUpdates()
                 }
+                // PR-39: resume a session whose updates we stopped on a prior revocation. The
+                // deferred-start flags above only cover sessions that never started; one already
+                // active (isTracking/isLocationUpdatesActive still true) was previously left dead.
+                if self.wasStoppedByRevocation && (self.isTracking || self.isLocationUpdatesActive) {
+                    self.wasStoppedByRevocation = false
+                    self.locationManager.startUpdatingLocation()
+                    self.lastLocationUpdateTime = Date()
+                    self.gpsSignalStatus = .good
+                    self.startSignalCheckTimer()
+                }
                 self.updateBackgroundTrackingLimited()
             case .denied, .restricted:
                 self.locationError = self.authorizationStatus == .denied
@@ -583,6 +678,7 @@ extension LocationManager: CLLocationManagerDelegate {
                 if self.isTracking || self.isLocationUpdatesActive {
                     self.gpsSignalStatus = .lost
                     self.locationManager.stopUpdatingLocation()
+                    self.wasStoppedByRevocation = true // PR-39: remember to resume on re-authorization
                 }
             case .notDetermined:
                 self.locationError = nil

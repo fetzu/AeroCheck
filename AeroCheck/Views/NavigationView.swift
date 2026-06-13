@@ -174,6 +174,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -189,7 +190,6 @@ struct NavigationMapView: View {
     // Compact layout state (for small devices)
     @State private var showCompactPanel: Bool = false
     @State private var selectedCompactTab: CompactNavigationTab = .plan
-    @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
@@ -242,12 +242,6 @@ struct NavigationMapView: View {
 
     // Shared map state for preserving position between layers
     @StateObject private var mapState = SharedMapState()
-
-    // Timer trigger for time display - use ID to force refresh
-    @State private var timeDisplayId = UUID()
-
-    // Create a dedicated timer that fires every second
-    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     // Track actual map width for accurate scale bar
     @State private var mapWidth: CGFloat = 0
@@ -329,15 +323,6 @@ struct NavigationMapView: View {
     }
 
     /// Formatted current time - computed fresh each time
-    private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        if appState.settings.alwaysUseUTC {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-            return formatter.string(from: Date()) + " (UTC)"
-        }
-        return formatter.string(from: Date())
-    }
 
     /// Current heading from location (cached to prevent snapping to 0° during GPS gaps)
     private var currentHeading: Int {
@@ -368,6 +353,9 @@ struct NavigationMapView: View {
             }
         }
         .preferredColorScheme(.dark)
+        // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
+        // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
+        .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
         .onAppear {
             // Restore map settings from session state
             selectedLayer = appState.navigationMapState.selectedLayer
@@ -400,6 +388,8 @@ struct NavigationMapView: View {
                let coord = locationManager.currentLocation?.coordinate {
                 Task { await openAIPDataService.fetchStreamingCTRsIfNeeded(from: coord) }
             }
+            // Seed the cached spatial map content for the initial region. (PR-11)
+            recomputeMapSpatialContent(force: true)
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
@@ -407,12 +397,16 @@ struct NavigationMapView: View {
             streamingCTRCheckTask?.cancel()
             streamingCTRCheckTask = nil
         }
-        .onReceive(clockTimer) { _ in
-            // Force the time display to update by changing its ID
-            timeDisplayId = UUID()
-            // Also trigger refresh for compact layout chronometer
-            refreshTrigger.toggle()
+        // PR-11: recompute the visible airports/airspace only when the region moves past the
+        // quantization threshold (the function early-returns otherwise), instead of on every body
+        // re-eval. A toggled overlay setting or newly-available data forces an immediate recompute.
+        .onReceive(mapState.$region) { _ in
+            recomputeMapSpatialContent()
         }
+        .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: airportDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
             locationUpdateCounter += 1
@@ -640,10 +634,9 @@ struct NavigationMapView: View {
                     // Row 1: Time + Speed
                     HStack(spacing: 6) {
                         // Time
-                        Text(formattedTime)
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 11, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         Rectangle()
                             .fill(Color.dimText)
@@ -1127,10 +1120,8 @@ struct NavigationMapView: View {
                         }
                     }
 
-                    Text(flightPlanManager.formattedChronometer)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundColor(.aviationGreen)
-                        .id(refreshTrigger)
+                    NavChronometerText(font: .system(size: 28, weight: .bold, design: .monospaced),
+                                       color: .aviationGreen)
 
                     if flightPlanManager.activeFlightPlan?.chronometerStartTime == nil {
                         Button(action: {
@@ -1523,59 +1514,80 @@ struct NavigationMapView: View {
 
     /// Airports visible in the current map region (when airport overlay is enabled)
     /// Hidden automatically when OpenAIP overlay is active (OpenAIP provides its own airport symbols)
-    private var visibleAirports: [Airport] {
-        guard appState.settings.showAirportsOnMap,
-              !appState.settings.showOpenAIPOverlay,
-              airportDataService.isDataAvailable else {
-            return []
-        }
-        let region = mapState.region
-        let halfLatSpan = region.span.latitudeDelta / 2
-        let halfLonSpan = region.span.longitudeDelta / 2
-        return airportDataService.getAirportsInRegion(
-            minLat: region.center.latitude - halfLatSpan,
-            maxLat: region.center.latitude + halfLatSpan,
-            minLon: region.center.longitude - halfLonSpan,
-            maxLon: region.center.longitude + halfLonSpan,
-            types: [.largeAirport, .mediumAirport, .smallAirport],
-            limit: 100
-        )
+    // PR-11: the visible airports, their frequency lines, and the airspace polygons are cached in
+    // @State and recomputed only when the visible region moves past a quantized threshold — not on
+    // every body re-evaluation (e.g. every frame of a pan). `visibleAirports` is queried ONCE and
+    // reused for the frequency lines, instead of being queried a second time.
+    @State private var visibleAirports: [Airport] = []
+    @State private var airportFrequencyLines: [String: String] = [:]
+    @State private var visibleAirspacePolygons: [AirspacePolygon] = []
+    @State private var lastSpatialRegion: MKCoordinateRegion?
+
+    /// Region-quantization threshold (degrees) below which a region change skips re-querying. (PR-11)
+    private static let spatialRequeryThresholdDegrees: Double = 0.01
+
+    /// Whether the region moved or zoomed enough to warrant re-querying the visible map content.
+    static func regionMovedSignificantly(
+        from a: MKCoordinateRegion, to b: MKCoordinateRegion,
+        threshold: Double = NavigationMapView.spatialRequeryThresholdDegrees
+    ) -> Bool {
+        abs(a.center.latitude - b.center.latitude) > threshold ||
+        abs(a.center.longitude - b.center.longitude) > threshold ||
+        abs(a.span.latitudeDelta - b.span.latitudeDelta) > threshold ||
+        abs(a.span.longitudeDelta - b.span.longitudeDelta) > threshold
     }
 
-    /// All frequencies for each visible airport (ICAO code -> newline-separated frequency lines)
-    private var airportFrequencyLines: [String: String] {
-        guard airportDataService.isDataAvailable else { return [:] }
-        var result: [String: String] = [:]
-        for airport in visibleAirports {
-            let frequencies = airportDataService.getFrequencies(for: airport.ident)
-            if !frequencies.isEmpty {
-                let lines = frequencies.map { "\($0.type) \($0.formattedFrequency)" }
-                result[airport.ident] = lines.joined(separator: "\n")
+    /// Recompute the cached spatial map content. Skips work when the region hasn't moved past the
+    /// quantization threshold, unless `force` (a toggled setting / newly-available data). (PR-11)
+    private func recomputeMapSpatialContent(force: Bool = false) {
+        let region = mapState.region
+        if !force, let last = lastSpatialRegion, !Self.regionMovedSignificantly(from: last, to: region) {
+            return
+        }
+        lastSpatialRegion = region
+
+        // Airports — queried once and reused below for the frequency lines.
+        let airports: [Airport]
+        if appState.settings.showAirportsOnMap, !appState.settings.showOpenAIPOverlay,
+           airportDataService.isDataAvailable {
+            let halfLat = region.span.latitudeDelta / 2
+            let halfLon = region.span.longitudeDelta / 2
+            airports = airportDataService.getAirportsInRegion(
+                minLat: region.center.latitude - halfLat, maxLat: region.center.latitude + halfLat,
+                minLon: region.center.longitude - halfLon, maxLon: region.center.longitude + halfLon,
+                types: [.largeAirport, .mediumAirport, .smallAirport], limit: 100)
+        } else {
+            airports = []
+        }
+        visibleAirports = airports
+
+        var freqLines: [String: String] = [:]
+        if airportDataService.isDataAvailable {
+            for airport in airports {
+                let frequencies = airportDataService.getFrequencies(for: airport.ident)
+                if !frequencies.isEmpty {
+                    freqLines[airport.ident] = frequencies
+                        .map { "\($0.type) \($0.formattedFrequency)" }
+                        .joined(separator: "\n")
+                }
             }
         }
-        return result
-    }
+        airportFrequencyLines = freqLines
 
-    /// Airspace polygons to display on the map (converted from OpenAIP data)
-    private var visibleAirspacePolygons: [AirspacePolygon] {
-        guard appState.settings.showOpenAIPOverlay, openAIPDataService.isDataAvailable else {
-            return []
-        }
-        let region = mapState.region
-        let airspaces = openAIPDataService.airspacesInBounds(region)
-
-        // Limit to 100 polygons for performance, prioritizing restrictive airspaces
-        let sorted = airspaces.sorted { a, b in
-            if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
-            return a.airspaceType.rawValue < b.airspaceType.rawValue
-        }
-        let limited = Array(sorted.prefix(100))
-
-        return limited.compactMap { airspace in
-            let coords = airspace.polygonCoordinates
-            guard coords.count >= 3 else { return nil }
-            var mutableCoords = coords
-            return AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+        // Airspace polygons (prioritize restrictive airspaces, cap at 100).
+        if appState.settings.showOpenAIPOverlay, openAIPDataService.isDataAvailable {
+            let sorted = openAIPDataService.airspacesInBounds(region).sorted { a, b in
+                if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
+                return a.airspaceType.rawValue < b.airspaceType.rawValue
+            }
+            visibleAirspacePolygons = Array(sorted.prefix(100)).compactMap { airspace in
+                let coords = airspace.polygonCoordinates
+                guard coords.count >= 3 else { return nil }
+                var mutableCoords = coords
+                return AirspacePolygon(airspace: airspace, coordinates: &mutableCoords, count: mutableCoords.count)
+            }
+        } else {
+            visibleAirspacePolygons = []
         }
     }
 
@@ -1705,10 +1717,9 @@ struct NavigationMapView: View {
                 VStack(spacing: 0) {
                     VStack(spacing: 4) {
                         // Time on first row
-                        Text(formattedTime)
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 14, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         // Speed, Altitude, Heading on second row
                         HStack(spacing: 10) {
@@ -1765,11 +1776,10 @@ struct NavigationMapView: View {
                 // Horizontal layout for iPad
                 VStack(spacing: 0) {
                     HStack(spacing: 16) {
-                        // Current time - use id to force refresh
-                        Text(formattedTime)
-                            .font(.system(size: 16, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        // Current time
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 16, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         // Divider
                         Rectangle()
@@ -2728,6 +2738,40 @@ struct SwissScaleBar: View {
 
 // MARK: - Native Map View (UIKit Wrapper for Standard/Satellite)
 
+/// Cache of rendered waypoint marker images keyed by waypoint state ("current"/"completed"/
+/// "future"). The stroke-outlined marker is identical for every waypoint in a given state but was
+/// re-rendered via UIGraphics for each annotation; there are only three distinct images. Accessed
+/// only from main-thread MapKit delegate callbacks. Shared by both map representables. (PR-10)
+private var waypointMarkerImageCache: [String: UIImage] = [:]
+
+private func cachedWaypointMarker(state: String, iconName: String, color: UIColor, size: CGFloat = 24) -> UIImage? {
+    if let cached = waypointMarkerImageCache[state] { return cached }
+
+    let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
+    guard let image = UIImage(systemName: iconName, withConfiguration: config) else { return nil }
+
+    let strokeWidth: CGFloat = 2.0
+    let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
+                           height: image.size.height + strokeWidth * 2)
+    UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
+    defer { UIGraphicsEndImageContext() }
+
+    let offsets: [CGPoint] = [
+        CGPoint(x: -strokeWidth, y: 0), CGPoint(x: strokeWidth, y: 0),
+        CGPoint(x: 0, y: -strokeWidth), CGPoint(x: 0, y: strokeWidth),
+    ]
+    let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
+    for offset in offsets {
+        strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
+    }
+    let tintedImage = image.withTintColor(color, renderingMode: .alwaysOriginal)
+    tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+
+    let finalImage = UIGraphicsGetImageFromCurrentImageContext()
+    if let finalImage { waypointMarkerImageCache[state] = finalImage }
+    return finalImage
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -2866,16 +2910,33 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing flight plan overlays and annotations
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
-        mapView.removeOverlays(existingFlightPlanPolylines)
-
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
-        mapView.removeAnnotations(existingWaypointAnnotations)
 
-        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else {
+            // No (valid) plan: clear any existing flight-plan overlays/annotations. (PR-10)
+            mapView.removeOverlays(existingFlightPlanPolylines)
+            mapView.removeAnnotations(existingWaypointAnnotations)
+            context.coordinator.lastFlightPlanSignature = nil
+            return
+        }
 
         let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Diff guard: rebuild only when the waypoints or the current-leg index actually changed.
+        // This previously tore down and re-added every route polyline + waypoint annotation on every
+        // updateUIView (each map pan / GPS tick). (PR-10)
+        let signature = flightPlan.waypoints
+            .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
+            .joined(separator: "|") + "@\(currentWaypointIndex)"
+        if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
+            return
+        }
+        context.coordinator.lastFlightPlanSignature = signature
+
+        // Changed — tear down the old flight-plan layer and redraw it.
+        mapView.removeOverlays(existingFlightPlanPolylines)
+        mapView.removeAnnotations(existingWaypointAnnotations)
 
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
@@ -2987,22 +3048,29 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
-        // Remove existing airspace polygons
         let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
         let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
         let newIds = Set(airspacePolygons.map { $0.airspaceId })
 
-        if existingIds != newIds {
-            mapView.removeOverlays(existingAirspaceOverlays)
-            for polygon in airspacePolygons {
-                mapView.addOverlay(polygon, level: .aboveLabels)
-            }
+        guard existingIds != newIds else { return }
+
+        // Remove only the overlays that are no longer visible and add only the newly-visible ones,
+        // instead of tearing down and re-adding the entire set whenever it changes at all — so a pan
+        // that shifts a few airspaces in/out doesn't rebuild the rest. (PR-11)
+        let toRemove = existingAirspaceOverlays.filter { !newIds.contains($0.airspaceId) }
+        if !toRemove.isEmpty { mapView.removeOverlays(toRemove) }
+
+        let toAdd = airspacePolygons.filter { !existingIds.contains($0.airspaceId) }
+        for polygon in toAdd {
+            mapView.addOverlay(polygon, level: .aboveLabels)
         }
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapViewUIKit
         var isUserInteracting = false
+        /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
+        var lastFlightPlanSignature: String?
 
         init(_ parent: NativeMapViewUIKit) {
             self.parent = parent
@@ -3163,60 +3231,39 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         /// Create annotation view for flight plan waypoints
         private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
             let identifier = "FlightPlanWaypoint"
-            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            // Dequeue a reusable annotation view instead of allocating a new one each time. (PR-10)
+            let annotationView: MKAnnotationView
+            if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+                reused.annotation = annotation
+                annotationView = reused
+            } else {
+                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
             annotationView.canShowCallout = true
 
-            // Waypoint appearance based on state
-            let size: CGFloat = 24
+            // Waypoint appearance based on state — image is cached per state. (PR-10)
+            let stateKey: String
             let markerColor: UIColor
             let iconName: String
 
             if annotation.isCurrentWaypoint {
                 // Current/next waypoint - bright magenta with target icon
+                stateKey = "current"
                 markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
                 iconName = "target"
             } else if annotation.isCompletedWaypoint {
                 // Completed waypoint - dimmed with checkmark
+                stateKey = "completed"
                 markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
                 iconName = "checkmark.circle.fill"
             } else {
                 // Future waypoint - medium brightness
+                stateKey = "future"
                 markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
                 iconName = "circle.fill"
             }
 
-            // Create the waypoint marker image
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                // Create image with black outline for visibility
-                let strokeWidth: CGFloat = 2.0
-                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
-                                       height: image.size.height + strokeWidth * 2)
-
-                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
-                defer { UIGraphicsEndImageContext() }
-
-                // Draw black outline
-                let offsets: [CGPoint] = [
-                    CGPoint(x: -strokeWidth, y: 0),
-                    CGPoint(x: strokeWidth, y: 0),
-                    CGPoint(x: 0, y: -strokeWidth),
-                    CGPoint(x: 0, y: strokeWidth)
-                ]
-
-                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
-                for offset in offsets {
-                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
-                }
-
-                // Draw main colored icon
-                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
-                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
-
-                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
-                    annotationView.image = finalImage
-                }
-            }
+            annotationView.image = cachedWaypointMarker(state: stateKey, iconName: iconName, color: markerColor)
 
             // Add shadow
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -3796,16 +3843,33 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing flight plan overlays and annotations
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
-        mapView.removeOverlays(existingFlightPlanPolylines)
-
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
-        mapView.removeAnnotations(existingWaypointAnnotations)
 
-        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else {
+            // No (valid) plan: clear any existing flight-plan overlays/annotations. (PR-10)
+            mapView.removeOverlays(existingFlightPlanPolylines)
+            mapView.removeAnnotations(existingWaypointAnnotations)
+            context.coordinator.lastFlightPlanSignature = nil
+            return
+        }
 
         let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Diff guard: rebuild only when the waypoints or the current-leg index actually changed.
+        // This previously tore down and re-added every route polyline + waypoint annotation on every
+        // updateUIView (each map pan / GPS tick). (PR-10)
+        let signature = flightPlan.waypoints
+            .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
+            .joined(separator: "|") + "@\(currentWaypointIndex)"
+        if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
+            return
+        }
+        context.coordinator.lastFlightPlanSignature = signature
+
+        // Changed — tear down the old flight-plan layer and redraw it.
+        mapView.removeOverlays(existingFlightPlanPolylines)
+        mapView.removeAnnotations(existingWaypointAnnotations)
 
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
@@ -3942,6 +4006,8 @@ struct SwissMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
+        /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
+        var lastFlightPlanSignature: String?
         var currentLayerType: MapLayerType?
         var currentForceICAO: Bool = false
         var offlineMapManager: OfflineMapManager?
@@ -4165,60 +4231,39 @@ struct SwissMapView: UIViewRepresentable {
         /// Create annotation view for flight plan waypoints
         private func createWaypointAnnotationView(_ mapView: MKMapView, annotation: FlightPlanWaypointAnnotation) -> MKAnnotationView {
             let identifier = "FlightPlanWaypoint"
-            let annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            // Dequeue a reusable annotation view instead of allocating a new one each time. (PR-10)
+            let annotationView: MKAnnotationView
+            if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) {
+                reused.annotation = annotation
+                annotationView = reused
+            } else {
+                annotationView = MKAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            }
             annotationView.canShowCallout = true
 
-            // Waypoint appearance based on state
-            let size: CGFloat = 24
+            // Waypoint appearance based on state — image is cached per state. (PR-10)
+            let stateKey: String
             let markerColor: UIColor
             let iconName: String
 
             if annotation.isCurrentWaypoint {
                 // Current/next waypoint - bright magenta with target icon
+                stateKey = "current"
                 markerColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0)
                 iconName = "target"
             } else if annotation.isCompletedWaypoint {
                 // Completed waypoint - dimmed with checkmark
+                stateKey = "completed"
                 markerColor = UIColor(red: 0.6, green: 0.3, blue: 0.5, alpha: 0.7)
                 iconName = "checkmark.circle.fill"
             } else {
                 // Future waypoint - medium brightness
+                stateKey = "future"
                 markerColor = UIColor(red: 0.9, green: 0.4, blue: 0.7, alpha: 0.9)
                 iconName = "circle.fill"
             }
 
-            // Create the waypoint marker image
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                // Create image with black outline for visibility
-                let strokeWidth: CGFloat = 2.0
-                let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
-                                       height: image.size.height + strokeWidth * 2)
-
-                UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
-                defer { UIGraphicsEndImageContext() }
-
-                // Draw black outline
-                let offsets: [CGPoint] = [
-                    CGPoint(x: -strokeWidth, y: 0),
-                    CGPoint(x: strokeWidth, y: 0),
-                    CGPoint(x: 0, y: -strokeWidth),
-                    CGPoint(x: 0, y: strokeWidth)
-                ]
-
-                let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
-                for offset in offsets {
-                    strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
-                }
-
-                // Draw main colored icon
-                let tintedImage = image.withTintColor(markerColor, renderingMode: .alwaysOriginal)
-                tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
-
-                if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
-                    annotationView.image = finalImage
-                }
-            }
+            annotationView.image = cachedWaypointMarker(state: stateKey, iconName: iconName, color: markerColor)
 
             // Add shadow
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -4923,6 +4968,53 @@ class AirspacePolygon: MKPolygon {
     }
 }
 
+// MARK: - Self-timing clock / chronometer (PR-10)
+
+/// A wall-clock HH:mm:ss display that ticks itself once per second via `TimelineView` instead of the
+/// old `.id(UUID())` hack driven by a top-level 1 Hz timer. The hack changed top-level `@State`
+/// every second, re-evaluating the entire ~2000-line map body; this scopes the per-second redraw to
+/// just this small subview. The `DateFormatter` is cached (was rebuilt per render). (PR-10)
+private struct NavClockText: View {
+    let useUTC: Bool
+    let font: Font
+    let color: Color
+
+    private static let localFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; return f
+    }()
+    private static let utcFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; f.timeZone = TimeZone(identifier: "UTC"); return f
+    }()
+
+    static func string(for date: Date, useUTC: Bool) -> String {
+        useUTC ? utcFormatter.string(from: date) + " (UTC)" : localFormatter.string(from: date)
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(Self.string(for: context.date, useUTC: useUTC))
+                .font(font)
+                .foregroundColor(color)
+        }
+    }
+}
+
+/// The flight-plan chronometer, ticking itself once per second via `TimelineView` rather than the
+/// old top-level `refreshTrigger` `.id()` hack that re-rendered the whole map body. (PR-10)
+private struct NavChronometerText: View {
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    let font: Font
+    let color: Color
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(flightPlanManager.formattedChronometer)
+                .font(font)
+                .foregroundColor(color)
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -4932,4 +5024,5 @@ class AirspacePolygon: MKPolygon {
         .environmentObject(OfflineMapManager())
         .environmentObject(OpenAIPCacheManager())
         .environmentObject(OpenAIPDataService())
+        .environmentObject(FlightEventDetector())
 }

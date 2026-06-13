@@ -64,7 +64,16 @@ class SyncManager: ObservableObject {
 
     /// Upper bound on a single ingested CloudKit record's encoded `data` blob. A real flight (even
     /// multi-hour) is a few MB; anything larger is corrupt/malicious and is rejected. (SEC-17)
-    static let maxIngestRecordBytes = 16 * 1024 * 1024
+    nonisolated static let maxIngestRecordBytes = 16 * 1024 * 1024
+
+    /// Inline-field budget for a flight record. CloudKit caps a record's *inline* fields at ~1 MB
+    /// total; a long GPS track (multi-hour flight = tens of thousands of points) blows past that and
+    /// the save fails with `limitExceeded` — so the flight silently never syncs and CKSyncEngine
+    /// retries the same doomed record forever. Above this threshold the full encoded flight is moved
+    /// into a file-backed `CKAsset` (no practical size cap) and only a track-stripped copy stays
+    /// inline, keeping the record's queryable metadata intact and still readable by older clients.
+    /// Kept well under the 1 MB hard cap to leave room for the other inline fields. (PERF-13)
+    nonisolated static let maxInlineFlightBytes = 700 * 1024
 
     /// Pending changes to sync - using dictionaries to preserve data for batch operations
     private var pendingSettingsChange: AppSettings?
@@ -378,16 +387,71 @@ class SyncManager: ObservableObject {
         }
     }
 
+    /// Splits a flight into its CloudKit field payloads: the `inline` blob for `record["data"]`
+    /// (the full flight when it fits the inline budget, otherwise a track-stripped copy) and, when
+    /// the flight is oversized, the `asset` blob (the full flight) to be written to a `CKAsset`.
+    /// Pure and side-effect-free so the size/round-trip behaviour is unit-testable. (PERF-13)
+    nonisolated static func flightRecordPayload(_ flight: Flight) throws -> (inline: Data, asset: Data?) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let full = try encoder.encode(flight)
+        guard full.count > maxInlineFlightBytes else { return (full, nil) }
+
+        var trimmed = flight
+        trimmed.gpsTrack = []
+        let inline = try encoder.encode(trimmed)
+        return (inline, full)
+    }
+
+    /// Reconstructs a flight from its CloudKit field blobs, preferring the asset payload (the
+    /// authoritative full flight, with the track) over the track-stripped inline blob. Applies the
+    /// same size cap and ingest validation as a directly-decoded record. (PERF-13 / SEC-17)
+    nonisolated static func flightFromPayload(inline: Data?, asset: Data?) -> Flight? {
+        guard let data = asset ?? inline else { return nil }
+        guard data.count <= maxIngestRecordBytes else {
+            print("[AéroCheck Sync] Rejecting oversized flight record (\(data.count) bytes)")
+            return nil
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let flight = try? decoder.decode(Flight.self, from: data) else {
+            print("[AéroCheck Sync] Failed to decode flight payload")
+            return nil
+        }
+        guard let validated = flight.validatedForIngest() else {
+            print("[AéroCheck Sync] Rejecting invalid flight record: \(flight.id)")
+            return nil
+        }
+        return validated
+    }
+
     func createFlightRecord(_ flight: Flight) -> CKRecord? {
         guard let recordZone = recordZone else { return nil }
         let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
-        let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+        return Self.buildFlightRecord(flight, recordID: recordID)
+    }
 
+    /// Encodes a flight into a CKRecord. `nonisolated static` (the JSON encode + GPS-track payload is
+    /// the expensive part) so the sync-batch path can build records OFF the main actor instead of
+    /// inside a `DispatchQueue.main.sync`. (PR-24 / PERF-13)
+    nonisolated static func buildFlightRecord(_ flight: Flight, recordID: CKRecord.ID) -> CKRecord? {
+        let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
         do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(flight)
-            record["data"] = data as CKRecordValue
+            let payload = try flightRecordPayload(flight)
+            if let assetData = payload.asset {
+                // Oversized flight: stage the full payload as a file-backed asset and keep only the
+                // track-stripped copy inline. If staging the temp file fails, fall back to storing
+                // the full payload inline so the GPS track is never silently dropped (it may exceed
+                // CloudKit's inline cap, but that's no worse than the pre-asset behaviour). (PERF-13)
+                if let url = stageFlightAsset(assetData, flightId: flight.id) {
+                    record["dataAsset"] = CKAsset(fileURL: url)
+                    record["data"] = payload.inline as CKRecordValue
+                } else {
+                    record["data"] = assetData as CKRecordValue
+                }
+            } else {
+                record["data"] = payload.inline as CKRecordValue
+            }
             record["flightId"] = flight.id.uuidString as CKRecordValue
             record["airplane"] = flight.airplane as CKRecordValue
             record["startTime"] = flight.startTime as CKRecordValue?
@@ -397,6 +461,23 @@ class SyncManager: ObservableObject {
             return record
         } catch {
             print("[AéroCheck Sync] Failed to encode flight: \(error)")
+            return nil
+        }
+    }
+
+    /// Writes an oversized flight payload to a temp file for use as a `CKAsset` fileURL. CKSyncEngine
+    /// reads the file during upload; the OS reclaims the temp directory afterward. Returns nil on a
+    /// write failure so the caller can fall back to an inline payload. (PERF-13)
+    nonisolated static func stageFlightAsset(_ data: Data, flightId: UUID) -> URL? {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CKFlightAssets", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let url = dir.appendingPathComponent("\(flightId.uuidString).json")
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            print("[AéroCheck Sync] Failed to stage flight asset: \(error)")
             return nil
         }
     }
@@ -420,27 +501,15 @@ class SyncManager: ObservableObject {
     }
 
     func flightFromRecord(_ record: CKRecord) -> Flight? {
-        guard let data = record["data"] as? Data else { return nil }
-        guard data.count <= Self.maxIngestRecordBytes else {
-            print("[AéroCheck Sync] Rejecting oversized flight record (\(data.count) bytes)")
-            return nil
+        // Prefer the file-backed asset (full flight, with track) over the inline blob (which is
+        // track-stripped for oversized flights). CKSyncEngine downloads the asset before delivering
+        // the record, so its fileURL is readable here. (PERF-13 / SEC-17)
+        let inline = record["data"] as? Data
+        var assetData: Data?
+        if let asset = record["dataAsset"] as? CKAsset, let url = asset.fileURL {
+            assetData = try? Data(contentsOf: url)
         }
-
-        do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let flight = try decoder.decode(Flight.self, from: data)
-            // Reject unknown-schema / oversized / invalid-coordinate records rather than applying
-            // them to local state. (SEC-17)
-            guard let validated = flight.validatedForIngest() else {
-                print("[AéroCheck Sync] Rejecting invalid flight record: \(flight.id)")
-                return nil
-            }
-            return validated
-        } catch {
-            print("[AéroCheck Sync] Failed to decode flight: \(error)")
-            return nil
-        }
+        return Self.flightFromPayload(inline: inline, asset: assetData)
     }
 
     // MARK: - Pending Changes Access
@@ -534,34 +603,62 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         }
     }
 
+    /// Gathered, ready-to-encode contents of one pending batch. `flights` are Sendable value types;
+    /// the small settings record is built on the main actor (it has main-actor side effects), the
+    /// expensive flight encoding happens off-main. (PR-24)
+    private struct PendingBatch {
+        let flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)]
+        let settingsRecord: CKRecord?
+        let deletions: [CKRecord.ID]
+    }
+
     nonisolated func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext,
         syncEngine: CKSyncEngine
     ) -> CKSyncEngine.RecordZoneChangeBatch? {
-        // CKSyncEngine calls this synchronously on its own thread.
-        // We use DispatchQueue.main.sync to safely access @MainActor state.
-        // This is safe because CKSyncEngine never calls this from the main thread.
-        var result: CKSyncEngine.RecordZoneChangeBatch?
-
+        // CKSyncEngine calls this synchronously on its OWN (background) thread. We hop to the main
+        // actor only to *gather* the pending data (cheap: copies Flight value types + builds the
+        // small settings record), then release the main thread and do the expensive flight-record
+        // encoding (JSON + full GPS tracks) here off-main — so a sync push during an active flight
+        // no longer encodes large tracks inside a main-thread `DispatchQueue.main.sync`. (PR-24)
+        var pending: PendingBatch?
         DispatchQueue.main.sync {
-            result = self.createRecordZoneChangeBatchSync(syncEngine: syncEngine)
+            pending = self.gatherPendingBatch(syncEngine: syncEngine)
+        }
+        guard let pending else { return nil }
+
+        var recordsToSave: [CKRecord] = []
+        if let settingsRecord = pending.settingsRecord {
+            recordsToSave.append(settingsRecord)
+        }
+        for entry in pending.flightRecordIDs {
+            if let record = SyncManager.buildFlightRecord(entry.flight, recordID: entry.recordID) {
+                recordsToSave.append(record)
+            }
         }
 
-        return result
+        guard !recordsToSave.isEmpty || !pending.deletions.isEmpty else {
+            return nil
+        }
+
+        return CKSyncEngine.RecordZoneChangeBatch(
+            recordsToSave: recordsToSave,
+            recordIDsToDelete: pending.deletions,
+            atomicByZone: true
+        )
     }
 
-    /// Creates the batch synchronously on the main thread.
-    /// Called from DispatchQueue.main.sync in nextRecordZoneChangeBatch.
+    /// Gathers the pending changes on the main actor without encoding any flight track. Pairs each
+    /// pending flight with its (zone-scoped) record id so the caller can encode off-main. (PR-24)
     @MainActor
-    private func createRecordZoneChangeBatchSync(
-        syncEngine: CKSyncEngine
-    ) -> CKSyncEngine.RecordZoneChangeBatch? {
+    private func gatherPendingBatch(syncEngine: CKSyncEngine) -> PendingBatch? {
         guard let manager = manager else { return nil }
 
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
 
-        var recordsToSave: [CKRecord] = []
-        var recordIDsToDelete: [CKRecord.ID] = []
+        var flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)] = []
+        var settingsRecord: CKRecord?
+        var deletions: [CKRecord.ID] = []
         var processedSettingsRecord = false
 
         for change in pendingChanges {
@@ -571,31 +668,26 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     if !processedSettingsRecord,
                        let settings = manager.getPendingSettings(),
                        let record = manager.createSettingsRecord(settings) {
-                        recordsToSave.append(record)
+                        settingsRecord = record
                         processedSettingsRecord = true
                     }
                 } else if let flightId = UUID(uuidString: recordID.recordName),
-                          let flight = manager.getPendingFlight(for: flightId),
-                          let record = manager.createFlightRecord(flight) {
-                    recordsToSave.append(record)
+                          let flight = manager.getPendingFlight(for: flightId) {
+                    flightRecordIDs.append((flight, recordID))
                 }
 
             case .deleteRecord(let recordID):
-                recordIDsToDelete.append(recordID)
+                deletions.append(recordID)
 
             @unknown default:
                 break
             }
         }
 
-        guard !recordsToSave.isEmpty || !recordIDsToDelete.isEmpty else {
-            return nil
-        }
-
-        return CKSyncEngine.RecordZoneChangeBatch(
-            recordsToSave: recordsToSave,
-            recordIDsToDelete: recordIDsToDelete,
-            atomicByZone: true
+        return PendingBatch(
+            flightRecordIDs: flightRecordIDs,
+            settingsRecord: settingsRecord,
+            deletions: deletions
         )
     }
 
@@ -784,6 +876,24 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     manager?.updateLastSyncDate()
                     continue
                 }
+            }
+
+            // Non-conflict failure. CKSyncEngine auto-retries transient errors (network, server
+            // busy, rate limit) and keeps the change pending, so for those the pending flight is
+            // left untouched so the retry still has its data. Only act on permanent failures, so
+            // they don't loop forever as a silent no-op. (PERF-13)
+            switch CKError.Code(rawValue: nsError.code) {
+            case .limitExceeded:
+                // Record still too large even after the GPS track was offloaded to a CKAsset.
+                // Retrying the identical record is futile — drop the pending change and surface it.
+                if let flightId = UUID(uuidString: recordName) {
+                    manager?.clearPendingFlight(flightId)
+                }
+                manager?.onSyncConflict?("A flight was too large to sync to iCloud and was skipped.")
+            case .quotaExceeded:
+                manager?.onSyncConflict?("iCloud storage is full — a flight couldn't be synced.")
+            default:
+                break
             }
 
             print("[AéroCheck Sync] Failed to save record: \(recordName), error: \(error)")

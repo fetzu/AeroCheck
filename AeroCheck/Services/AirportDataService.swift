@@ -23,10 +23,44 @@ class AirportDataService: ObservableObject {
 
     // MARK: - Private Properties
 
-    private var airports: [Airport] = []
+    private var airports: [Airport] = [] {
+        didSet { rebuildSpatialGrid() }
+    }
     private var airportsByIdent: [String: Airport] = [:]
     private var frequenciesByAirport: [String: [AirportFrequency]] = [:]
     private var runwaysByAirport: [String: [Runway]] = [:]
+
+    // MARK: - Spatial index (PR-08)
+    // A coarse lat/lon grid so a nearest-airport query touches only neighbouring cells instead of
+    // scanning all ~40K airports (and allocating two CLLocation objects each) on every recorded GPS
+    // point. Distances use haversine on the stored doubles — no CLLocation allocation.
+    private struct GridKey: Hashable { let lat: Int; let lon: Int }
+    private static let gridCellDegrees = 1.0   // ~60 nm of latitude per cell
+    private var spatialGrid: [GridKey: [Airport]] = [:]
+
+    private func gridKey(lat: Double, lon: Double) -> GridKey {
+        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
+                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+    }
+
+    private func rebuildSpatialGrid() {
+        var grid: [GridKey: [Airport]] = [:]
+        grid.reserveCapacity(airports.count / 4 + 1)
+        for airport in airports {
+            grid[gridKey(lat: airport.latitude, lon: airport.longitude), default: []].append(airport)
+        }
+        spatialGrid = grid
+    }
+
+    /// Great-circle distance in nautical miles (haversine on stored doubles, no allocation).
+    private static func haversineNm(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
+        let earthRadiusNm = 3440.065
+        let dLat = (lat2 - lat1) * .pi / 180
+        let dLon = (lon2 - lon1) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180) * sin(dLon / 2) * sin(dLon / 2)
+        return 2 * earthRadiusNm * asin(min(1, sqrt(a)))
+    }
 
     // File storage
     private let fileManager = FileManager.default
@@ -102,6 +136,16 @@ class AirportDataService: ObservableObject {
                 AirportDataService.parseAirportsCSV(airportsCSV)
             }.value
             downloadProgress = 0.45
+
+            // PR-29: a captive portal (typical airfield/hotel Wi-Fi) returns HTTP 200 with an HTML
+            // login page; the CSV parser silently drops every mismatched row, yielding ~0 airports.
+            // Abort before saveToLocal/replacing in-memory state so a bad download can't destroy the
+            // existing ~40K-airport cache (the real file has tens of thousands of rows). Existing
+            // files and in-memory state are left untouched; the catch surfaces downloadError.
+            guard parsedAirports.count >= 1000 else {
+                throw NSError(domain: "AirportData", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                    "Airport data download looked invalid (\(parsedAirports.count) airports parsed — your connection may be redirecting to a login page). Your existing airport data was kept."])
+            }
 
             // Download and parse frequencies (~2MB)
             print("[AirportData] Downloading frequencies...")
@@ -254,33 +298,62 @@ class AirportDataService: ObservableObject {
         return Array(sorted.prefix(limit))
     }
 
-    /// Find nearest airports to a coordinate
+    /// Find nearest airports to a coordinate.
+    /// PR-08: queries only the neighbouring grid cells (expanding rings) instead of scanning all
+    /// ~40K airports, and computes distance with haversine on doubles — this runs on every recorded
+    /// GPS point, so the old full scan + 80K CLLocation allocations per call was a per-tick cost.
     func findNearestAirports(
         to coordinate: CLLocationCoordinate2D,
         limit: Int = 10,
         maxDistanceNm: Double? = nil,
         types: Set<AirportType>? = nil
     ) -> [Airport] {
-        var filtered = airports
+        guard !airports.isEmpty else { return [] }
+        let lat = coordinate.latitude
+        let lon = coordinate.longitude
+        let center = gridKey(lat: lat, lon: lon)
 
-        // Filter by type if specified
+        // Safety cap on how far out we search (~8° ≈ 480 nm) so a query in an empty ocean region
+        // doesn't sweep the whole grid. With a maxDistance, derive the exact ring needed (≈60 nm per
+        // degree latitude) plus a one-cell margin; without one, expand until we have enough.
+        let cappedRing = 8
+        let neededRing: Int? = maxDistanceNm.map {
+            min(cappedRing, max(1, Int(($0 / 60.0 / Self.gridCellDegrees).rounded(.up)) + 1))
+        }
+
+        var candidates: [Airport] = []
+        var ring = 0
+        while ring <= cappedRing {
+            for dLat in -ring...ring {
+                for dLon in -ring...ring {
+                    // Only the perimeter of the current ring (inner cells already gathered).
+                    if ring > 0 && abs(dLat) != ring && abs(dLon) != ring { continue }
+                    if let cell = spatialGrid[GridKey(lat: center.lat + dLat, lon: center.lon + dLon)] {
+                        candidates.append(contentsOf: cell)
+                    }
+                }
+            }
+            if let neededRing {
+                if ring >= neededRing { break }
+            } else if candidates.count >= limit && ring >= 1 {
+                break
+            }
+            ring += 1
+        }
+
+        var typed = candidates
         if let types = types {
-            filtered = filtered.filter { types.contains($0.type) }
+            typed = typed.filter { types.contains($0.type) }
         }
 
-        // Calculate distances and sort
-        let withDistances = filtered.map { airport in
-            (airport: airport, distance: airport.distance(from: coordinate))
+        var scored = typed.map { airport in
+            (airport: airport, distance: Self.haversineNm(lat1: lat, lon1: lon, lat2: airport.latitude, lon2: airport.longitude))
         }
-
-        var sorted = withDistances.sorted { $0.distance < $1.distance }
-
-        // Filter by max distance if specified
+        scored.sort { $0.distance < $1.distance }
         if let maxDist = maxDistanceNm {
-            sorted = sorted.filter { $0.distance <= maxDist }
+            scored = scored.filter { $0.distance <= maxDist }
         }
-
-        return Array(sorted.prefix(limit).map { $0.airport })
+        return Array(scored.prefix(limit).map { $0.airport })
     }
 
     /// Get frequencies for an airport

@@ -550,6 +550,15 @@ struct GPSPoint: Codable, Identifiable {
 extension Flight {
     /// Export flight to GPX format with all timing data in extensions
     func toGPX() -> String {
+        // PR-18: escape user-controlled strings so a flight named "Touch & Go" (or with < > " ')
+        // doesn't produce malformed XML that XMLParser aborts on at import.
+        func esc(_ s: String) -> String {
+            s.replacingOccurrences(of: "&", with: "&amp;")
+             .replacingOccurrences(of: "<", with: "&lt;")
+             .replacingOccurrences(of: ">", with: "&gt;")
+             .replacingOccurrences(of: "\"", with: "&quot;")
+             .replacingOccurrences(of: "'", with: "&apos;")
+        }
         let dateFormatter = ISO8601DateFormatter()
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 
@@ -561,7 +570,7 @@ extension Flight {
              xmlns:pc="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
-            <name>\(displayName) - \(formattedDate)</name>
+            <name>\(esc(displayName)) - \(formattedDate)</name>
             <desc>Flight recorded with AéroCheck app</desc>
         """
 
@@ -573,13 +582,13 @@ extension Flight {
 
           </metadata>
           <trk>
-            <name>\(airplane)</name>
+            <name>\(esc(airplane))</name>
             <extensions>
               <pc:flightData>
                 <pc:formatVersion>\(currentExportFormatVersion)</pc:formatVersion>
                 <pc:appVersion>\(appVersion)</pc:appVersion>
-                <pc:name>\(name)</pc:name>
-                <pc:airplane>\(airplane)</pc:airplane>
+                <pc:name>\(esc(name))</pc:name>
+                <pc:airplane>\(esc(airplane))</pc:airplane>
         """
 
         if let aircraftType = aircraftType {
@@ -668,7 +677,9 @@ extension Flight {
         }
 
         if !notes.isEmpty {
-            gpx += "\n        <pc:notes><![CDATA[\(notes)]]></pc:notes>"
+            // PR-18: a literal "]]>" in notes would terminate the CDATA section early; split it.
+            let safeNotes = notes.replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
+            gpx += "\n        <pc:notes><![CDATA[\(safeNotes)]]></pc:notes>"
         }
         
         gpx += """

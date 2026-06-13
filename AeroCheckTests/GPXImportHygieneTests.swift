@@ -31,6 +31,19 @@ final class GPXImportHygieneTests: XCTestCase {
         XCTAssertEqual(parsed?.gpsTrack.count, 2, "A valid GPX still imports after the XXE hardening")
     }
 
+    func testUserStringsWithXMLCharactersStillExportAndImport() {
+        // PR-18: a flight named "Touch & Go" (or with < > " ' or "]]>" in notes) previously
+        // interpolated raw into the GPX, producing malformed XML that XMLParser aborts on.
+        var flight = sampleFlight()
+        flight.name = "Touch & Go <test> \"q\" 'a'"
+        flight.airplane = "WT9 & Friends <X>"
+        flight.notes = "note with ]]> and <tag> & ampersand"
+        let gpx = flight.toGPX()
+        let parsed = GPXParser(data: Data(gpx.utf8)).parse()
+        XCTAssertEqual(parsed?.gpsTrack.count, 2,
+                       "GPX with XML-special characters in name/airplane/notes must still be well-formed and import")
+    }
+
     func testExternalEntityDoctypeDoesNotBreakOrInjectIntoImport() {
         // Inject a DOCTYPE declaring an external entity into otherwise-valid GPX.
         let withDoctype = sampleFlight().toGPX().replacingOccurrences(

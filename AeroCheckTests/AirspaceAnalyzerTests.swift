@@ -108,4 +108,42 @@ final class AirspaceAnalyzerTests: XCTestCase {
         let perp = AirspaceAnalyzer.distanceToSegment(point: northPoint, segStart: edgeStart, segEnd: edgeEnd)
         XCTAssertEqual(perp, 1852, accuracy: 30, "~1 NM perpendicular from an E-W edge")
     }
+
+    // MARK: - Memoized geometry + bounding box (PR-11)
+
+    func testPolygonAndBoundingBoxAreMemoizedFromGeometry() {
+        let ctr = makeCTR(latMin: 47.00, latMax: 47.02, lonMin: 8.10, lonMax: 8.14,
+                          lower: mslLower, upper: mslUpper)
+
+        XCTAssertEqual(ctr.polygonCoordinates.count, 5, "The 5-vertex ring is decoded once")
+
+        let box = ctr.boundingBox
+        XCTAssertNotNil(box)
+        XCTAssertEqual(box?.minLat ?? 0, 47.00, accuracy: 1e-9)
+        XCTAssertEqual(box?.maxLat ?? 0, 47.02, accuracy: 1e-9)
+        XCTAssertEqual(box?.minLon ?? 0, 8.10, accuracy: 1e-9)
+        XCTAssertEqual(box?.maxLon ?? 0, 8.14, accuracy: 1e-9)
+    }
+
+    func testBoundingBoxFastRejectMatchesContainsPoint() {
+        let ctr = makeCTR(latMin: 47.00, latMax: 47.02, lonMin: 8.10, lonMax: 8.14,
+                          lower: mslLower, upper: mslUpper)
+
+        // Inside the box AND the polygon.
+        XCTAssertTrue(ctr.containsPoint(CLLocationCoordinate2D(latitude: 47.01, longitude: 8.12)))
+        // Outside the bounding box → rejected without a ray cast.
+        XCTAssertFalse(ctr.containsPoint(CLLocationCoordinate2D(latitude: 48.0, longitude: 9.0)))
+        XCTAssertFalse(ctr.boundingBox?.contains(CLLocationCoordinate2D(latitude: 48.0, longitude: 9.0)) ?? true)
+    }
+
+    func testBoundingBoxIntersectsRegion() {
+        let ctr = makeCTR(latMin: 47.00, latMax: 47.02, lonMin: 8.10, lonMax: 8.14,
+                          lower: mslLower, upper: mslUpper)
+        let box = ctr.boundingBox
+
+        XCTAssertEqual(box?.intersects(latRange: 46.9...47.1, lonRange: 8.0...8.2), true,
+                       "Overlapping region intersects")
+        XCTAssertEqual(box?.intersects(latRange: 50.0...51.0, lonRange: 8.0...8.2), false,
+                       "A region far north does not intersect")
+    }
 }

@@ -61,6 +61,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var updateTimer: Timer?
     private var lastSentFlightPlanId: UUID?
 
+    /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
+    /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
+    /// newer connection has already taken over) carries an older token and is ignored — so it can't
+    /// clobber the live connection's state or schedule a duplicate reconnect. (PR-15)
+    private var connectionGeneration: Int = 0
+
     // Task management
     private var listenerTask: Task<Void, any Error>?
     private var browserTask: Task<Void, any Error>?
@@ -145,13 +151,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         try await connection.send(data)
                     }
 
-                    // New companion connected — update state on main actor
-                    await MainActor.run {
+                    // New companion connected — update state on main actor and capture this
+                    // connection's generation so a later teardown only acts if it's still current.
+                    let myGeneration = await MainActor.run { () -> Int in
+                        self.connectionGeneration += 1
                         self.receiveTask?.cancel()
                         self.sendHandler = send
                         self.connectionState = .connected
                         self.connectedDeviceName = L10n.Companion.companionDevice
                         print("[AéroCheck Companion] Companion connected")
+                        return self.connectionGeneration
                     }
 
                     // Send initial flight data and plan
@@ -184,7 +193,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
                     // Connection ended
                     await MainActor.run {
-                        self.handleDisconnection()
+                        self.handleDisconnection(generation: myGeneration)
                     }
                 }
             }
@@ -231,6 +240,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Connect to a paired master device via Wi-Fi Aware
     func connectToPairedDevice() {
         browserTask?.cancel()
+
+        // Supersede any prior attempt so its in-flight teardown/retry can't race this one. (PR-15)
+        connectionGeneration += 1
+        let myGeneration = connectionGeneration
 
         currentRole = .viewer
         connectionState = .connecting
@@ -303,17 +316,19 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
                 // Connection ended
                 await MainActor.run {
-                    self?.handleDisconnection()
+                    self?.handleDisconnection(generation: myGeneration)
                 }
             } catch {
                 await MainActor.run {
+                    guard let self, self.connectionGeneration == myGeneration else { return }
                     print("[AéroCheck Companion] Browser/connection error: \(error)")
-                    self?.connectionState = .reconnecting
-                    // Auto-retry after delay
+                    self.connectionState = .reconnecting
+                    // Auto-retry after delay, only while this attempt is still the current one. (PR-15)
                     Task { @MainActor in
                         try? await Task.sleep(for: .seconds(3))
-                        if self?.connectionState == .reconnecting {
-                            self?.connectToPairedDevice()
+                        if self.connectionState == .reconnecting,
+                           self.connectionGeneration == myGeneration {
+                            self.connectToPairedDevice()
                         }
                     }
                 }
@@ -340,6 +355,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// Disconnect from the current companion
     func disconnect() {
+        // Supersede the current connection so any in-flight teardown/reconnect is invalidated. (PR-15)
+        connectionGeneration += 1
+
         // Send graceful disconnect message
         if connectionState == .connected, sendHandler != nil {
             let message = CompanionMessage(type: .disconnect, payload: Data())
@@ -365,15 +383,23 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Connection Lifecycle
 
-    private func handleDisconnection() {
+    private func handleDisconnection(generation: Int) {
+        // Ignore teardown from a connection that has already been superseded by a newer connect or
+        // an explicit disconnect — otherwise a stale receive loop ending would clobber the live
+        // connection's state and spawn a duplicate reconnect. (PR-15)
+        guard generation == connectionGeneration else {
+            print("[AéroCheck Companion] Ignoring teardown from stale connection (gen \(generation))")
+            return
+        }
+
         cleanupConnection()
 
         if currentRole == .viewer && connectionState != .disconnected {
             connectionState = .reconnecting
-            // Auto-reconnect
+            // Auto-reconnect, only while this connection is still the current one. (PR-15)
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2))
-                if connectionState == .reconnecting {
+                if connectionState == .reconnecting, connectionGeneration == generation {
                     connectToPairedDevice()
                 }
             }

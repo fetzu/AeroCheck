@@ -368,6 +368,11 @@ class AppState: ObservableObject {
     /// was resumed automatically, so the pilot knows tracking is live again. (PR-01)
     @Published var flightRestoredNotice: String?
 
+    /// Set when the loaded checklist was served in a different language than requested (the requested
+    /// language isn't available for that aircraft), so the pilot is told before flight rather than
+    /// silently shown a foreign-language checklist. Surfaced as a non-blocking banner. (PR-41 / UX-08)
+    @Published var languageFallbackNotice: String?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     @Published var navigationMapState = NavigationMapState()
@@ -442,6 +447,9 @@ class AppState: ObservableObject {
     private static let checkpointPointInterval = 20
     /// …or at least this often, whichever comes first.
     private static let checkpointTimeInterval: TimeInterval = 30
+    /// Serial queue for the off-main checkpoint encode + atomic write (PR-12). Serial so a stale
+    /// write can never overtake a newer one; utility QoS so it never competes with the in-flight UI.
+    private static let checkpointQueue = DispatchQueue(label: "app.aerocheck.activeFlightCheckpoint", qos: .utility)
     private var pointsSinceCheckpoint = 0
     private var lastCheckpointAt: Date?
 
@@ -467,14 +475,14 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Load flights asynchronously to avoid blocking startup
-    /// The file I/O still runs on MainActor (DataPersistenceManager constraint)
-    /// but yields to the run loop so the UI can render first
+    /// Load flights asynchronously to avoid blocking startup. The directory enumeration + per-flight
+    /// JSON decode (including every GPS track) now runs off the main actor, so a large logbook never
+    /// stalls launch; the result is assigned back on the main actor. (PR-24)
     private func loadFlightsAsync() async {
         // Yield to let the first frame render before doing I/O
         await Task.yield()
 
-        flights = persistence.loadFlights()
+        flights = await persistence.loadFlightsOffMain()
         isLoadingFlights = false
 
         // Auto-complete onboarding for existing users (they already know the app)
@@ -500,8 +508,15 @@ class AppState: ObservableObject {
 
         syncManager.onFlightsUpdated = { [weak self] flights in
             Task { @MainActor in
-                self?.flights = flights
-                self?.persistence.saveFlights(flights)
+                guard let self else { return }
+                // PR-09: persist only the flights whose content actually changed (by modifiedAt),
+                // instead of rewriting EVERY flight file on the main actor on each inbound sync
+                // batch — which previously happened even while a flight was active.
+                let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                self.flights = flights
+                for flight in flights where previousById[flight.id]?.modifiedAt != flight.modifiedAt {
+                    self.persistence.saveFlight(flight)
+                }
                 print("[AéroCheck] Flights updated from iCloud sync")
             }
         }
@@ -532,6 +547,7 @@ class AppState: ObservableObject {
         if let remoteId = settings.selectedRemoteAircraftId {
             if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
                 resolvedRemoteChecklist = checklist
+                noteLanguageFallback(for: checklist, requested: language)
                 print("[AéroCheck] Loaded remote checklist for \(remoteId) (\(language))")
             } else {
                 print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
@@ -551,6 +567,7 @@ class AppState: ObservableObject {
             // First try to get a cached/API version for this language
             if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
                 resolvedRemoteChecklist = checklist
+                noteLanguageFallback(for: checklist, requested: language)
                 print("[AéroCheck] Loaded checklist for bundled aircraft \(bundledId) (\(language))")
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: bundledId, language: language) {
                 // Fall back to bundled resource
@@ -565,7 +582,30 @@ class AppState: ObservableObject {
             resolvedRemoteChecklist = nil
         }
     }
-    
+
+    /// Surfaces a non-blocking notice when the loaded checklist was served in a language other than
+    /// the one requested (the requested language isn't available for that aircraft). (PR-41 / UX-08)
+    private func noteLanguageFallback(for checklist: RemoteAircraftChecklist, requested: String) {
+        // Prefer the server's explicit flag; fall back to comparing served vs requested language.
+        let served = checklist.language
+        let fellBack = checklist.languageFallback ?? (served != nil && served != requested)
+        guard fellBack, let served, served != requested else {
+            return
+        }
+        languageFallbackNotice = L10n.Aircraft.checklistLanguageOnly(Self.languageDisplayName(served))
+    }
+
+    /// Human-readable language name for a checklist language code (aviation languages only).
+    static func languageDisplayName(_ code: String) -> String {
+        switch code.lowercased() {
+        case "en": return "English"
+        case "fr": return "Français"
+        case "de": return "Deutsch"
+        case "it": return "Italiano"
+        default: return code.uppercased()
+        }
+    }
+
     // MARK: - Aircraft Selection
 
     /// Select the aircraft for the next flight by an identifier or registration.
@@ -669,10 +709,10 @@ class AppState: ObservableObject {
 
         flights.insert(flight, at: 0)
         // PR-14: persist the just-finished flight with a CONFIRMED write before discarding the
-        // crash-recovery checkpoint (active_flight.json) — which is the only durable copy of this
-        // flight. saveFlights() additionally writes the index + iCloud sync (best-effort).
+        // crash-recovery checkpoint (active_flight.json) — the only durable copy of this flight.
+        // PR-09: saveFlight persists + syncs ONLY this flight; loadFlights scans the directory, so
+        // no whole-logbook rewrite/re-upload is needed when one flight is added.
         let saved = saveFlight(flight)
-        saveFlights()
 
         currentFlight = nil
         isFlightActive = false
@@ -1124,7 +1164,9 @@ class AppState: ObservableObject {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].notes = notes
             flights[index].touch() // stamp local edit for CloudKit conflict resolution (ARCH-02)
-            saveFlights()
+            // PR-09: persist + sync ONLY this flight. Editing one note previously rewrote every
+            // flight file on the main actor and re-queued the whole logbook to CloudKit.
+            saveFlight(flights[index])
         }
     }
 
@@ -1132,7 +1174,7 @@ class AppState: ObservableObject {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].name = name
             flights[index].touch()
-            saveFlights()
+            saveFlight(flights[index]) // PR-09: persist + sync only this flight
         }
     }
     
@@ -1161,12 +1203,12 @@ class AppState: ObservableObject {
         return saved
     }
 
-    /// Reload flights from disk (called after sync updates)
+    /// Reload flights from disk (called after sync updates). Decode runs off the main actor. (PR-24)
     func reloadFlights() {
         Task { [weak self] in
             guard let self = self else { return }
             await Task.yield()
-            self.flights = self.persistence.loadFlights()
+            self.flights = await self.persistence.loadFlightsOffMain()
         }
     }
 
@@ -1203,17 +1245,19 @@ class AppState: ObservableObject {
             clearActiveFlightState()
             return
         }
-        persistActiveFlightState(flight: flight)
+        // Scene-background / explicit save: write synchronously so it's guaranteed on disk before
+        // the app can suspend. The throttled per-tick checkpointActiveFlight uses the async path.
+        persistActiveFlightState(flight: flight, synchronous: true)
     }
 
     /// Throttled crash-recovery checkpoint driven by GPS cadence and major timing events,
     /// independent of `scenePhase` so a foreground crash/OOM can't lose the in-flight track.
     /// (PERF-02 / PERF-13)
     ///
-    /// The write is synchronous and atomic to a **local** file (not iCloud), which keeps it fast
-    /// and — crucially — strictly ordered, so a stale write can never clobber newer track data.
-    /// Throttling (every N points / ~30 s) bounds the main-thread cost; the encode of even a
-    /// multi-hour track is small relative to that interval.
+    /// The atomic write targets a **local** file (not iCloud), which keeps it fast. The encode +
+    /// write run off the main actor on a serial queue (PR-12), so they're strictly ordered (a
+    /// stale write can never clobber newer track data) without blocking the in-flight UI — the
+    /// encode of a multi-hour, up-to-1 Hz track is NOT cheap and must not run on the main actor.
     func checkpointActiveFlight(force: Bool) {
         guard isFlightActive, let flight = currentFlight else { return }
         if !force {
@@ -1226,21 +1270,49 @@ class AppState: ObservableObject {
         persistActiveFlightState(flight: flight)
     }
 
-    private func persistActiveFlightState(flight: Flight) {
+    /// Persist the crash-recovery checkpoint. The cheap value-type snapshot is taken on the main
+    /// actor; the heavy `JSONEncoder().encode` of the whole track + atomic write run on a serial
+    /// background queue (PR-12) — previously this ran synchronously on the main actor every ~30 s,
+    /// which is not "small" for a multi-hour, up-to-1 Hz track. The serial queue keeps writes
+    /// strictly ordered (a stale write never clobbers a newer one) and `writeActiveFlightStateData`
+    /// keeps each write atomic.
+    /// - Parameter synchronous: when true (scene-background save), block until the write completes
+    ///   so the checkpoint is guaranteed on disk before the app can suspend.
+    private func persistActiveFlightState(flight: Flight, synchronous: Bool = false) {
         let state = ActiveFlightState(flight: flight, from: self)
         let url = persistence.activeFlightStateURL
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(state)
-            try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
-            // Reset throttle and update the small UserDefaults pointer only after a successful write.
-            pointsSinceCheckpoint = 0
-            lastCheckpointAt = state.savedAt
-            UserDefaults.standard.set(state.savedAt, forKey: activeFlightPointerKey)
-        } catch {
-            print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
+        let savedAt = state.savedAt
+        let pointerKey = activeFlightPointerKey
+
+        let write: @Sendable () -> Void = {
+            do {
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(state)
+                try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
+                UserDefaults.standard.set(savedAt, forKey: pointerKey)
+            } catch {
+                print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
+            }
         }
+
+        // Advance the main-actor throttle now: the next tick must not re-encode the same track
+        // while this write is in flight. A failed write simply retries on the next interval.
+        pointsSinceCheckpoint = 0
+        lastCheckpointAt = savedAt
+
+        if synchronous {
+            Self.checkpointQueue.sync(execute: write)
+        } else {
+            Self.checkpointQueue.async(execute: write)
+        }
+    }
+
+    /// Block until any pending asynchronous checkpoint write (PR-12) has completed. The serial queue
+    /// guarantees ordering, so a no-op `sync` flushes everything queued before it. Used by tests for
+    /// deterministic assertions; harmless in production.
+    func flushPendingCheckpoint() {
+        Self.checkpointQueue.sync {}
     }
 
     /// Restore the active flight state if a recent checkpoint exists.

@@ -126,6 +126,10 @@ enum L10n {
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
         static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
         static let locationRequired = String(localized: "alert.locationRequired.message")
+        static let flightSaveFailedTitle = String(localized: "alert.flightSaveFailed.title")
+        static let flightSaveFailed = String(localized: "alert.flightSaveFailed.message")
+        static let flightRestoredTitle = String(localized: "alert.flightRestored.title")
+        static let flightRestored = String(localized: "alert.flightRestored.message")
     }
 
     // MARK: - Phase Titles
@@ -839,6 +843,9 @@ enum L10n {
         static let confirm = String(localized: "eventConfirmation.confirm")
         static func autoConfirm(_ seconds: Int) -> String {
             String(format: String(localized: "eventConfirmation.autoConfirm"), seconds)
+        }
+        static func autoDismiss(_ seconds: Int) -> String {
+            String(format: String(localized: "eventConfirmation.autoDismiss"), seconds)
         }
     }
 

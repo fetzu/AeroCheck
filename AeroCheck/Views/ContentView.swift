@@ -100,6 +100,16 @@ struct ContentView: View {
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
         }
+        // PR-01: a crash-recovered flight resumed GPS recording automatically — tell the pilot so
+        // they know tracking is live again (presented over FlightView, which a restored flight shows).
+        .alert(L10n.Alert.flightRestoredTitle, isPresented: Binding(
+            get: { appState.flightRestoredNotice != nil },
+            set: { if !$0 { appState.flightRestoredNotice = nil } }
+        )) {
+            Button(L10n.Button.close, role: .cancel) { appState.flightRestoredNotice = nil }
+        } message: {
+            Text(appState.flightRestoredNotice ?? "")
+        }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .background, .inactive:

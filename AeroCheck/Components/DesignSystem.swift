@@ -345,28 +345,12 @@ struct SpeedIndicatorView: View {
         estimatedAirspeed != nil
     }
 
-    // Speed state categories
+    // Speed state categories — delegates to the shared pure function so iPad and iPhone
+    // annunciate identically. (UX-02)
     private var speedState: SpeedState {
-        // Don't trigger stall warning based on unreliable GPS data —
-        // the InstrumentFailureFlag overlay already communicates GPS issues
-        if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
-            let speedInt = Int(displaySpeed)
-            if abs(speedInt - targetSpeed) <= 5 { return .onTarget }
-            return .offTarget
-        }
-
-        let speedInt = Int(displaySpeed)
-        // Only annunciate a stall from a reliable airspeed estimate. With only ground speed
-        // known, the value can be wrong by the wind component (a tailwind can mask a real
-        // stall, a headwind can fake one), so suppress the red stall and treat it as
-        // off-target — the GND SPD label keeps the source unambiguous. (UX-02)
-        if showingEstimatedAirspeed && speedInt < stallSpeed {
-            return .stall
-        } else if abs(speedInt - targetSpeed) <= 5 {
-            return .onTarget
-        } else {
-            return .offTarget
-        }
+        SpeedIndicatorView.annunciationState(
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed, stallSpeed: stallSpeed,
+            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus)
     }
 
     enum SpeedState {
@@ -472,6 +456,28 @@ struct SpeedIndicatorView: View {
         case .stall: stateText = "below stall speed"
         }
         return "\(prefix)\(displaySpeed) \(source), \(stateText). Target \(targetSpeed) knots"
+    }
+
+    /// Pure, unit-testable speed-state computation shared by the iPad `SpeedIndicatorView` and the
+    /// iPhone `CompactSpeedView`, so both annunciate a stall identically. A `.stall` is annunciated
+    /// ONLY from a reliable airspeed estimate (`showingEstimatedAirspeed`): with only GPS ground
+    /// speed the value can be wrong by the wind component — a tailwind can mask a real stall and a
+    /// headwind can fake one — so it is suppressed to `.offTarget`. Unreliable GPS likewise never
+    /// annunciates a stall (the failure flag already communicates the GPS issue). (UX-02)
+    static func annunciationState(displaySpeed: Double, targetSpeed: Int, stallSpeed: Int,
+                                  showingEstimatedAirspeed: Bool,
+                                  gpsSignalStatus: GPSSignalStatus) -> SpeedState {
+        let speedInt = Int(displaySpeed)
+        if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
+            return abs(speedInt - targetSpeed) <= 5 ? .onTarget : .offTarget
+        }
+        if showingEstimatedAirspeed && speedInt < stallSpeed {
+            return .stall
+        } else if abs(speedInt - targetSpeed) <= 5 {
+            return .onTarget
+        } else {
+            return .offTarget
+        }
     }
 
     private var backgroundColor: Color {

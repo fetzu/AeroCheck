@@ -209,6 +209,16 @@ struct HomeView: View {
         } message: {
             Text(appState.flightStartError ?? "")
         }
+        // PR-14: a just-finished flight could not be persisted — its checkpoint was kept and will
+        // be restored next launch. Surface it rather than letting the failure be silent.
+        .alert(L10n.Alert.flightSaveFailedTitle, isPresented: Binding(
+            get: { appState.flightSaveError != nil },
+            set: { if !$0 { appState.flightSaveError = nil } }
+        )) {
+            Button(L10n.Button.close, role: .cancel) { appState.flightSaveError = nil }
+        } message: {
+            Text(appState.flightSaveError ?? "")
+        }
         // Present the paywall when a flight start was refused for an unowned premium aircraft. (UX-07)
         .sheet(isPresented: Binding(
             get: { appState.flightStartPaywallRequest },

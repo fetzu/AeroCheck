@@ -741,7 +741,8 @@ struct FlightView: View {
                     targetSpeed: targetSpeed,
                     stallSpeed: appState.activeChecklist.stallSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed
+                    estimatedAirspeed: estimatedAirspeed,
+                    stallAlertEnabled: appState.settings.stallAlertSound
                 )
             }
 
@@ -1183,6 +1184,9 @@ struct FlightView: View {
     // MARK: - Flight Info Panel
     
     private var gpsStatusColor: Color {
+        // PR-01: an ACTIVE flight that isn't recording GPS is an alarm state (the track is being
+        // lost), never a subtle dim. Dim only applies when no flight is active.
+        if appState.isFlightActive && !locationManager.isTracking { return .aviationRed }
         guard locationManager.isTracking else { return .dimText }
         switch locationManager.gpsSignalStatus {
         case .good: return .aviationGreen
@@ -1192,6 +1196,8 @@ struct FlightView: View {
     }
 
     private var gpsStatusIndicator: StatusIndicator.Status {
+        // PR-01: surface a non-recording active flight as an error, not "inactive".
+        if appState.isFlightActive && !locationManager.isTracking { return .error }
         guard locationManager.isTracking else { return .inactive }
         switch locationManager.gpsSignalStatus {
         case .good: return .active
@@ -1458,6 +1464,7 @@ struct CompactSpeedView: View {
     let stallSpeed: Int // Stall speed (clean) of the active aircraft
     let gpsSignalStatus: GPSSignalStatus
     var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
+    var stallAlertEnabled: Bool = false // Fire aural+haptic alert on stall, mirroring the iPad indicator (UX-02)
 
     /// The speed value to display (estimated airspeed if available, otherwise ground speed)
     private var displaySpeed: Double {
@@ -1469,22 +1476,15 @@ struct CompactSpeedView: View {
         estimatedAirspeed != nil
     }
 
+    // Delegates to the shared pure function so the iPhone annunciates a stall identically to the
+    // iPad — crucially, only from a reliable airspeed estimate, never raw GPS ground speed. (UX-02)
     private var speedState: SpeedState {
-        // Don't trigger stall warning based on unreliable GPS data —
-        // the InstrumentFailureFlag overlay already communicates GPS issues
-        if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
-            let speedInt = Int(displaySpeed)
-            if abs(speedInt - targetSpeed) <= 5 { return .onTarget }
-            return .offTarget
-        }
-
-        let speedInt = Int(displaySpeed)
-        if speedInt < stallSpeed {
-            return .stall
-        } else if abs(speedInt - targetSpeed) <= 5 {
-            return .onTarget
-        } else {
-            return .offTarget
+        switch SpeedIndicatorView.annunciationState(
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed, stallSpeed: stallSpeed,
+            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus) {
+        case .onTarget: return .onTarget
+        case .offTarget: return .offTarget
+        case .stall: return .stall
         }
     }
 
@@ -1508,28 +1508,38 @@ struct CompactSpeedView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Speed type label — a static "STALL" word annunciation when stalling, so the warning
-            // never depends on the flash or colour alone (and is steady under Reduce Motion). (UX-18)
+            // Speed type label (GS / EST. IAS). The stall warning now lives inside the value box as
+            // a legible annunciation, matching the iPad instrument. (UX-02)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(speedState == .stall ? "STALL" : (showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs))
+                Text(showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(speedState == .stall ? .aviationRed : (showingEstimatedAirspeed ? .aviationAmber : .dimText))
+                    .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
             }
 
             // Speed value with failure flag
             ZStack {
-                HStack(spacing: 4) {
+                VStack(spacing: 0) {
                     if gpsSignalStatus != .lost {
-                        // Live airspeed is primary flight data — give it the largest, heaviest type
-                        // in the in-flight bar so it's the glance focal point. (UX-15)
-                        Text("\(Int(max(0, displaySpeed)))")
-                            .font(.system(size: 30, weight: .heavy, design: .monospaced))
-                            .foregroundColor(textColor)
-                            .minimumScaleFactor(0.6)
-                            .lineLimit(1)
-                        Text(L10n.Unit.kt)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(textColor.opacity(0.8))
+                        // Static, always-on STALL annunciation inside the value box — heavy white on
+                        // the red fill, never dependent on the flash or colour alone (and steady under
+                        // Reduce Motion), at parity with the iPad indicator. (UX-02 / UX-18)
+                        if speedState == .stall {
+                            Text("STALL")
+                                .font(.system(size: 13, weight: .heavy))
+                                .foregroundColor(.white)
+                        }
+                        HStack(spacing: 4) {
+                            // Live airspeed is primary flight data — give it the largest, heaviest type
+                            // in the in-flight bar so it's the glance focal point. (UX-15)
+                            Text("\(Int(max(0, displaySpeed)))")
+                                .font(.system(size: 30, weight: .heavy, design: .monospaced))
+                                .foregroundColor(textColor)
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
+                            Text(L10n.Unit.kt)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(textColor.opacity(0.8))
+                        }
                     }
                 }
                 .padding(.horizontal, 10)
@@ -1562,10 +1572,18 @@ struct CompactSpeedView: View {
             }
         }
         .onAppear {
-            if speedState == .stall { startFlashing() }
+            if speedState == .stall {
+                startFlashing()
+                if stallAlertEnabled { StallAlert.shared.trigger() }
+            }
         }
         .onChange(of: speedState) { _, newState in
-            if newState == .stall { startFlashing() } else { stopFlashing() }
+            if newState == .stall {
+                startFlashing()
+                if stallAlertEnabled { StallAlert.shared.trigger() }
+            } else {
+                stopFlashing()
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
@@ -1708,6 +1726,8 @@ struct FlightInfoSheet: View {
     @Environment(\.dismiss) var dismiss
 
     private var gpsStatusColor: Color {
+        // PR-01: a non-recording GPS during an active flight is an alarm, not a dim.
+        if appState.isFlightActive && !locationManager.isTracking { return .aviationRed }
         guard locationManager.isTracking else { return .dimText }
         switch locationManager.gpsSignalStatus {
         case .good: return .aviationGreen

@@ -359,6 +359,15 @@ class AppState: ObservableObject {
     /// surface it instead of the conflict being silent. (ARCH-02)
     @Published var syncConflictNotice: String?
 
+    /// Set when a just-finished flight could not be written to disk at endFlight. The crash-recovery
+    /// checkpoint is deliberately kept (the flight is NOT lost) and restored/retried on next launch;
+    /// this surfaces the failure to the pilot instead of it being silent. (PR-14)
+    @Published var flightSaveError: String?
+
+    /// Set when a flight was restored from the crash-recovery checkpoint on launch and GPS recording
+    /// was resumed automatically, so the pilot knows tracking is live again. (PR-01)
+    @Published var flightRestoredNotice: String?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     @Published var navigationMapState = NavigationMapState()
@@ -659,6 +668,10 @@ class AppState: ObservableObject {
         flight.computeSummaryStats()
 
         flights.insert(flight, at: 0)
+        // PR-14: persist the just-finished flight with a CONFIRMED write before discarding the
+        // crash-recovery checkpoint (active_flight.json) — which is the only durable copy of this
+        // flight. saveFlights() additionally writes the index + iCloud sync (best-effort).
+        let saved = saveFlight(flight)
         saveFlights()
 
         currentFlight = nil
@@ -675,8 +688,14 @@ class AppState: ObservableObject {
         recentStoppedTimestamps = []
         lastStopLocation = nil
 
-        // Clear saved flight state since flight ended normally
-        clearActiveFlightState()
+        if saved {
+            // Flight ended normally AND was persisted — safe to clear the checkpoint.
+            clearActiveFlightState()
+        } else {
+            // The write failed (disk full / iCloud container error). Keep the checkpoint so the
+            // flight is not lost; it is restored and re-saved on next launch. Alert the pilot. (PR-14)
+            flightSaveError = L10n.Alert.flightSaveFailed
+        }
     }
 
     func cancelFlight() {
@@ -1129,14 +1148,17 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Save a single flight (for sync efficiency)
-    func saveFlight(_ flight: Flight) {
+    /// Save a single flight (for sync efficiency).
+    /// Returns `true` only if the local file write was confirmed. (PR-14)
+    @discardableResult
+    func saveFlight(_ flight: Flight) -> Bool {
         // Save just this flight to its own file
-        persistence.saveFlight(flight)
+        let saved = persistence.saveFlight(flight)
 
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncFlight(flight, allFlights: flights)
         }
+        return saved
     }
 
     /// Reload flights from disk (called after sync updates)

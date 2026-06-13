@@ -167,6 +167,9 @@ class FlightPlanManager: ObservableObject {
     func removeWaypoint(_ waypoint: FlightPlanWaypoint, from planId: UUID) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
 
+        // PR-02: never empty the in-use active plan — the in-flight overlay indexes waypoints.
+        if activeFlightPlan?.id == planId && plan.waypoints.count <= 1 { return }
+
         plan.waypoints.removeAll { $0.id == waypoint.id }
         plan.calculateRouteData()
         updateFlightPlan(plan)
@@ -185,6 +188,8 @@ class FlightPlanManager: ObservableObject {
 
     /// Activate a flight plan for in-flight use
     func activateFlightPlan(_ plan: FlightPlan) {
+        // PR-02: never activate an empty plan — the in-flight overlay/chronometer index waypoints.
+        guard !plan.waypoints.isEmpty else { return }
         var activePlan = plan
         activePlan.isActive = true
         activePlan.currentWaypointIndex = 0

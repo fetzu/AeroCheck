@@ -83,6 +83,32 @@ struct AeroCheckApp: App {
                         await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
                     }
 
+                    // PR-01: a flight restored from the crash-recovery checkpoint comes back "live"
+                    // (running clock, restored checklist/track) but with GPS tracking OFF —
+                    // restoreActiveFlightState() sets isFlightActive = true without going through
+                    // FlightLauncher, the only place startTracking is ever called. Left alone, an
+                    // OOM/watchdog kill (or the relaunch iOS forces after a mid-flight location-
+                    // permission change) would record no GPS points and run no event detection for
+                    // the rest of the flight. Resume tracking here, where every service exists.
+                    if appState.isFlightActive && !locationManager.isTracking {
+                        let authorization = locationManager.authorizationStatus
+                        if authorization != .denied && authorization != .restricted {
+                            await airportDataService.ensureLoaded()
+                            flightEventDetector.configure(
+                                speeds: appState.activeChecklist.speeds,
+                                stallSpeed: appState.activeChecklist.stallSpeed
+                            )
+                            locationManager.startTracking(
+                                appState: appState,
+                                interval: appState.settings.gpsRecordingInterval,
+                                airportDataService: airportDataService,
+                                flightEventDetector: flightEventDetector,
+                                activeChecklist: appState.activeChecklist
+                            )
+                            appState.flightRestoredNotice = L10n.Alert.flightRestored
+                        }
+                    }
+
                     // After aircraft list is loaded, check for checklist updates in background
                     // This ensures bundled and cached checklists stay up to date automatically
                     Task.detached(priority: .utility) {

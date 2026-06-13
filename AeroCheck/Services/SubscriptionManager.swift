@@ -126,6 +126,11 @@ class SubscriptionManager: ObservableObject {
     init(apiBaseURL: String = "https://api.aerocheck.app", deferLoadProducts: Bool = false) {
         self.apiBaseURL = apiBaseURL
 
+        // PR-05: honor a persisted grace window synchronously from the first frame. Otherwise
+        // isInGracePeriod stays false until the async status resolution calls this later, and a
+        // cold-launch premium fetch in that window would treat a grace-period user as lapsed.
+        updateGracePeriodStatus()
+
         // Start listening for transaction updates (renewals, refunds, external purchases)
         updateListenerTask = listenForTransactions()
 
@@ -550,6 +555,21 @@ class SubscriptionManager: ObservableObject {
         }
 
         return false
+    }
+
+    /// True ONLY when premium access is definitively denied — used for the cache-DESTROYING decision
+    /// in `AircraftDataService.fetchChecklist`, which must never run on a transient state. Differs
+    /// from `shouldAllowPremiumAccess()` in two safety-critical ways (PR-05):
+    ///  • `.unknown` (StoreKit/server status still resolving at cold launch) → NOT denied (keep cache).
+    ///  • StoreKit reports an active entitlement but the last *server* verification is stale
+    ///    (offline too long) → NOT denied (keep cache); the local entitlement is authoritative.
+    /// So the only way to reach `true` is a resolved, not-subscribed status with no valid grace window.
+    func isPremiumAccessDefinitivelyDenied() -> Bool {
+        if debugForceNotSubscribed { return true }
+        if subscriptionStatus == .unknown { return false }
+        if subscriptionStatus.isSubscribed { return false }
+        if isInGracePeriod && !hasGracePeriodExpired() { return false }
+        return true
     }
 
     /// Redacts an identifier for logging — keeps only a short suffix so support can correlate

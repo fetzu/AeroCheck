@@ -6,7 +6,7 @@ struct EventConfirmationView: View {
     let onConfirm: () -> Void
     let onDismiss: () -> Void
 
-    @State private var autoConfirmTask: Task<Void, Never>?
+    @State private var autoDismissTask: Task<Void, Never>?
     @State private var countdownTask: Task<Void, Never>?
     @State private var secondsRemaining: Int = 20
 
@@ -72,8 +72,8 @@ struct EventConfirmationView: View {
             }
             .padding(.horizontal)
 
-            // Auto-confirm countdown
-            Text(L10n.EventConfirmation.autoConfirm(secondsRemaining))
+            // Auto-dismiss countdown (PR-06: unattended events are dismissed, not confirmed)
+            Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -88,7 +88,7 @@ struct EventConfirmationView: View {
         )
         .padding(.horizontal, 32)
         .onAppear {
-            startAutoConfirmTimer()
+            startAutoDismissTimer()
             startCountdown()
         }
         .onDisappear {
@@ -150,12 +150,17 @@ struct EventConfirmationView: View {
 
     // MARK: - Timers
 
-    private func startAutoConfirmTimer() {
-        autoConfirmTask = Task {
+    /// PR-06: when the pilot takes no action within the window, default to DISMISS — never
+    /// auto-confirm. Auto-confirming committed a possibly-wrong detected event to the logbook and
+    /// (via record*) yanked the checklist to another phase hands-off, exactly during the highest-
+    /// workload moments. Dismissing discards the unconfirmed event; the pilot can still record it
+    /// manually if it was real.
+    private func startAutoDismissTimer() {
+        autoDismissTask = Task {
             try? await Task.sleep(for: .seconds(20))
             if !Task.isCancelled {
                 await MainActor.run {
-                    onConfirm()
+                    onDismiss()
                 }
             }
         }
@@ -175,7 +180,7 @@ struct EventConfirmationView: View {
     }
 
     private func cancelTimers() {
-        autoConfirmTask?.cancel()
+        autoDismissTask?.cancel()
         countdownTask?.cancel()
     }
 }

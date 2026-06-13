@@ -366,6 +366,74 @@
         }
       }
     },
+    "alert.flightRestored.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your flight in progress was restored and GPS recording has resumed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre vol en cours a été restauré et l'enregistrement GPS a repris."
+          }
+        }
+      }
+    },
+    "alert.flightRestored.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight Restored"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vol restauré"
+          }
+        }
+      }
+    },
+    "alert.flightSaveFailed.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This flight couldn't be saved to storage (your device may be low on space). It has been kept and will be restored the next time you open the app so you can try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce vol n'a pas pu être enregistré (l'espace de stockage de votre appareil est peut-être insuffisant). Il a été conservé et sera restauré au prochain démarrage de l'application pour que vous puissiez réessayer."
+          }
+        }
+      }
+    },
+    "alert.flightSaveFailed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight Not Saved"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vol non enregistré"
+          }
+        }
+      }
+    },
     "alert.locationRequired.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3389,6 +3457,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Confirmation automatique dans %d secondes"
+          }
+        }
+      }
+    },
+    "eventConfirmation.autoDismiss" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismisses automatically in %d seconds"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignoré automatiquement dans %d secondes"
           }
         }
       }

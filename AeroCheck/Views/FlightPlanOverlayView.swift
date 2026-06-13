@@ -325,7 +325,7 @@ struct FlightPlanOverlayView: View {
             }
 
             // PRIMARY: Planned waypoint-to-waypoint data (MC, DIST, EET from preceding waypoint)
-            plannedLegDataRow(waypoint: waypoint, index: index)
+            plannedLegDataRow(plan: plan, index: index)
 
             // ATO status
             atoStatusRow(waypoint: waypoint)
@@ -353,15 +353,19 @@ struct FlightPlanOverlayView: View {
         }
     }
 
-    /// PRIMARY display: Planned leg data (MC, DIST, EET) from the preceding waypoint
-    private func plannedLegDataRow(waypoint: FlightPlanWaypoint, index: Int) -> some View {
-        HStack(spacing: 20) {
-            // Planned MC (magnetic course from preceding waypoint)
+    /// PRIMARY display: Planned leg data (MC, DIST) for the leg ARRIVING at the displayed
+    /// waypoint. The model stores each leg's data on its DEPARTURE waypoint (`waypoints[i]`
+    /// holds leg `i → i+1`), so the inbound leg to waypoint `index` lives on
+    /// `waypoints[index - 1]` — read it there, not off the arrival waypoint (UX-01).
+    private func plannedLegDataRow(plan: FlightPlan, index: Int) -> some View {
+        let legWaypoint = plan.legArriving(at: index)
+        return HStack(spacing: 20) {
+            // Planned MC (magnetic course of the leg arriving at this waypoint)
             VStack(spacing: 2) {
                 Text(L10n.Nav.mc)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
-                if index > 0, let mc = waypoint.magneticCourse {
+                if let mc = legWaypoint?.magneticCourse {
                     HStack(alignment: .firstTextBaseline, spacing: 1) {
                         Text(String(format: "%03d", Int(mc)))
                             .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -377,12 +381,12 @@ struct FlightPlanOverlayView: View {
                 }
             }
 
-            // Planned DIST (distance from preceding waypoint)
+            // Planned DIST (distance of the leg arriving at this waypoint)
             VStack(spacing: 2) {
                 Text(L10n.Nav.dist)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.dimText)
-                if index > 0, let dist = waypoint.distance {
+                if let dist = legWaypoint?.distance {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(String(format: "%.1f", dist))
                             .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -552,19 +556,22 @@ struct FlightPlanOverlayView: View {
                 .id(refreshTrigger) // Force refresh every second
 
             // EET to displayed waypoint (planned EET from flight plan, in MM format)
-            if let plan = flightPlanManager.activeFlightPlan {
+            if let plan = flightPlanManager.activeFlightPlan,
+               !plan.waypoints.isEmpty {
                 let displayIndex = previewIndex ?? plan.currentWaypointIndex
-                let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                let clampedIndex = Swift.max(0, Swift.min(displayIndex, plan.waypoints.count - 1))
                 if clampedIndex < plan.waypoints.count {
-                    let displayWaypoint = plan.waypoints[clampedIndex]
                     if clampedIndex == 0 {
                         // First waypoint = departure airport
                         Text(L10n.FlightPlan.departure)
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.secondaryText)
-                    } else if let eet = displayWaypoint.estimatedElapsedTime {
+                    } else if let legWaypoint = plan.legArriving(at: clampedIndex),
+                              let eet = legWaypoint.estimatedElapsedTime {
+                        // EET of the leg ARRIVING at the displayed waypoint lives on its
+                        // departure waypoint — read it through legArriving(at:) (UX-01).
                         let minutes = Int(eet / 60)
-                        let extra = displayWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
+                        let extra = legWaypoint.legEETExtra.map { Int($0 / 60) } ?? 0
                         HStack(spacing: 4) {
                             Text("EET")
                                 .font(.system(size: 9, weight: .bold))

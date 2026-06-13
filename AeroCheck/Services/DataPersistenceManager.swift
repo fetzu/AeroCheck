@@ -282,8 +282,11 @@ class DataPersistenceManager: ObservableObject {
         return "\(dateStr)_\(plane).json"
     }
 
-    /// Save a single flight to its own file
-    func saveFlight(_ flight: Flight) {
+    /// Save a single flight to its own file.
+    /// Returns `true` only if the write was confirmed — callers that hold the sole durable copy
+    /// (e.g. the crash-recovery checkpoint) must not discard it on `false`. (PR-14)
+    @discardableResult
+    func saveFlight(_ flight: Flight) -> Bool {
         let fileURL = flightsDirectory.appendingPathComponent(flightFilename(for: flight))
 
         do {
@@ -292,26 +295,33 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(flight)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
-            
+
             print("[AéroCheck] Flight saved: \(flightFilename(for: flight))")
+            return true
         } catch {
             print("[AéroCheck] Failed to save flight: \(error.localizedDescription)")
+            return false
         }
     }
 
-    /// Save all flights (saves each to individual file and updates index)
-    func saveFlights(_ flights: [Flight]) {
+    /// Save all flights (saves each to individual file and updates index).
+    /// Returns `true` only if every flight file and the index were written. (PR-14)
+    @discardableResult
+    func saveFlights(_ flights: [Flight]) -> Bool {
         // Save each flight to its own file
+        var allSucceeded = true
         for flight in flights {
-            saveFlight(flight)
+            if !saveFlight(flight) { allSucceeded = false }
         }
 
         // Save index file for tracking
-        saveFlightsIndex(flights)
+        if !saveFlightsIndex(flights) { allSucceeded = false }
+        return allSucceeded
     }
 
-    /// Save flights index (list of flight IDs and filenames)
-    private func saveFlightsIndex(_ flights: [Flight]) {
+    /// Save flights index (list of flight IDs and filenames). Returns `true` on a confirmed write.
+    @discardableResult
+    private func saveFlightsIndex(_ flights: [Flight]) -> Bool {
         let index = flights.map { FlightIndexEntry(id: $0.id, filename: flightFilename(for: $0)) }
         let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
 
@@ -320,8 +330,10 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted]
             let data = try encoder.encode(index)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
+            return true
         } catch {
             print("[AéroCheck] Failed to save flights index: \(error.localizedDescription)")
+            return false
         }
     }
 

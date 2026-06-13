@@ -4,7 +4,7 @@
   "registration": "F-HVXA",
   "modelName": "WT9 Dynamic",
   "shortModelName": "WT9 Dynamic",
-  "aeroclub": "Groupe de vol à moteur de Porrentruy",
+  "aeroclub": "Groupe de Vol à Moteur de Porrentruy",
   "version": "2.1e",
   "lastUpdated": "March 2025",
   "isFree": true,
@@ -23,13 +23,12 @@
     { "name": "Vy", "description": "best rate", "value": "70" },
     { "name": "Vcc", "description": "cruise climb", "value": "85" },
     { "name": "Vfe", "description": "flaps ext.", "value": "76" },
-    { "name": "VA", "description": "600kg", "value": "97" },
-    { "name": "VA", "description": "410kg", "value": "75" },
+    { "name": "VA", "description": "600 kg – 410 kg", "value": "97 – 75" },
     { "name": "Vbg", "description": "best glide", "value": "70" },
     { "name": "Vapp", "description": "init (clean)", "value": "70" },
     { "name": "Vapp", "description": "init (F1)", "value": "65" },
     { "name": "Vapp", "description": "interm (F2)", "value": "65" },
-    { "name": "Vfinal", "description": "F2-F3", "value": "60-55" }
+    { "name": "Vfinal", "description": "F2-F3", "value": "60 – 55" }
   ],
   "targetSpeeds": {
     "preflight": null,
@@ -53,7 +52,7 @@
     "preflight": null,
     "beforeEngineStart": null,
     "engineStart": 2,
-    "afterEngineStart": null,
+    "afterEngineStart": 0,
     "taxi": 0,
     "runup": 3,
     "beforeDeparture": null,

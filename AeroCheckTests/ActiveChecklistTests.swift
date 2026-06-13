@@ -137,3 +137,37 @@ final class ActiveChecklistTests: XCTestCase {
         XCTAssertFalse(ChecklistPhase.climb.hasMissingRequiredAction(engineStarted: false, linedUp: false, engineShutDown: false))
     }
 }
+
+/// PR-20 / Task 2.E5: the bundled WT9 EN and FR checklists must carry byte-identical technical /
+/// numeric data — aviation data is language-independent (ICAO). Guards the recurring EN/FR
+/// `targetSpeeds` divergence on the free default aircraft.
+final class BundledChecklistParityTests: XCTestCase {
+
+    func testBundledWT9NumericFieldsAreLanguageIdentical() {
+        guard let en = BundledChecklistService.loadBundledChecklist(for: "wt9-dynamic", language: "en"),
+              let fr = BundledChecklistService.loadBundledChecklist(for: "wt9-dynamic", language: "fr") else {
+            return XCTFail("Both bundled WT9 checklists (en, fr) must load")
+        }
+
+        // Parity is only meaningful within the same revision. The version carries a trailing
+        // language letter by GVMP convention (2.1e = english, 2.1f = français), so compare the
+        // numeric revision only.
+        XCTAssertEqual(en.version.trimmingCharacters(in: .letters),
+                       fr.version.trimmingCharacters(in: .letters),
+                       "EN/FR bundled WT9 must be the same numeric revision (the e/f suffix is the language)")
+
+        // Numeric / technical fields — identical across languages.
+        XCTAssertEqual(en.stallSpeed, fr.stallSpeed, "stallSpeed must match")
+        XCTAssertEqual(en.pageCount, fr.pageCount, "pageCount must match")
+        XCTAssertEqual(en.hasParachute, fr.hasParachute, "hasParachute must match")
+        XCTAssertEqual(en.targetSpeeds, fr.targetSpeeds, "targetSpeeds must not diverge between EN and FR")
+        XCTAssertEqual(en.learningModeVisibleCount, fr.learningModeVisibleCount, "learningModeVisibleCount must match")
+        XCTAssertEqual(en.crosswindLimitsTuple.takeoff, fr.crosswindLimitsTuple.takeoff, "crosswind takeoff limit must match")
+        XCTAssertEqual(en.crosswindLimitsTuple.landing, fr.crosswindLimitsTuple.landing, "crosswind landing limit must match")
+
+        // Speed references: same name→value pairs (only the descriptions are localized).
+        let enPairs = en.speeds.map { [$0.name, $0.value] }.sorted { $0[0] < $1[0] }
+        let frPairs = fr.speeds.map { [$0.name, $0.value] }.sorted { $0[0] < $1[0] }
+        XCTAssertEqual(enPairs, frPairs, "Speed reference values must be identical across languages")
+    }
+}

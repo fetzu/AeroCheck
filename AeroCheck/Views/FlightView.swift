@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import CoreLocation
+import MapKit
 
 /// Main flight view displayed during an active flight
 struct FlightView: View {
@@ -1086,7 +1087,16 @@ struct FlightView: View {
 
                 AviationDivider(color: .dimText)
             }
-            
+
+            // Persistent glance mini-map: follows the aircraft + shows the track, tap to open the
+            // full nav map (a bigger, more discoverable target than the small NAV button). (Phase 3.1)
+            if appState.isFlightActive {
+                miniMap
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+            }
+
             // Phase overview header
             Text(L10n.Flight.phases)
                 .font(.captionText)
@@ -1125,7 +1135,49 @@ struct FlightView: View {
                 .padding(16)
         }
     }
-    
+
+    // MARK: - Mini-Map (iPad side panel)
+
+    /// The persistent glance mini-map, wrapped as a button that opens the full nav map. The map
+    /// itself has hit-testing disabled (it follows programmatically), so the whole tile is one big,
+    /// discoverable NAV target. (Phase 3.1)
+    private var miniMap: some View {
+        Button {
+            showNavigationMode = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                FlightMiniMap(points: appState.currentFlight?.gpsTrack ?? [])
+                    .allowsHitTesting(false)
+
+                // Affordance chip: signals the tile is tappable → full map.
+                HStack(spacing: 4) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 9))
+                    Text(L10n.Button.nav)
+                        .font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 9))
+                }
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.ultraThinMaterial, in: Capsule())
+                .padding(8)
+                .allowsHitTesting(false)
+            }
+            .frame(height: 170)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L10n.Button.nav)
+        .accessibilityHint("Opens the full navigation map")
+    }
+
     // MARK: - Flight Info Panel
     
     private var gpsStatusColor: Color {
@@ -1674,6 +1726,71 @@ struct CompactAltimeterView: View {
         .accessibilityValue(AltimeterView.accessibilityValue(
             altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+// MARK: - Flight Mini-Map (persistent HUD glance map)
+
+/// A lightweight, glance-only mini-map for the in-flight HUD: follows the live position (`.follow`
+/// user-tracking) and draws the flight track on standard tiles. Deliberately NOT the full nav map —
+/// no SwissTopo / airspace / airport / flight-plan overlays — so a second live map stays cheap. Tap
+/// it (handled by the caller) to open the full `NavigationMapView`. (Phase 3.1)
+struct FlightMiniMap: UIViewRepresentable {
+    /// The live flight track; the polyline is rebuilt only when the point count changes.
+    let points: [GPSPoint]
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.delegate = context.coordinator
+        mapView.overrideUserInterfaceStyle = .dark
+        mapView.showsUserLocation = true
+        mapView.setUserTrackingMode(.follow, animated: false)
+        mapView.showsCompass = false
+        mapView.showsScale = false
+        mapView.isPitchEnabled = false
+        mapView.isRotateEnabled = false
+        mapView.pointOfInterestFilter = .excludingAll
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        let coordinator = context.coordinator
+
+        // Rebuild the track polyline ONLY when the point count changes — cheap during a live flight,
+        // never an O(n) teardown on every location publish. (mirrors FlightMapView's pattern)
+        if coordinator.builtPointCount != points.count {
+            coordinator.builtPointCount = points.count
+            mapView.removeOverlays(mapView.overlays)
+            if points.count >= 2 {
+                let coordinates = points.map { $0.coordinate }
+                mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count))
+            }
+        }
+
+        // Keep following the aircraft (the caller's tap overlay blocks user panning, but re-assert in
+        // case a re-layout dropped the mode).
+        if mapView.userTrackingMode != .follow {
+            mapView.setUserTrackingMode(.follow, animated: false)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator: NSObject, MKMapViewDelegate {
+        /// Track length the polyline was last built for (-1 = not yet built).
+        var builtPointCount = -1
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor(Color.aviationGold)
+                renderer.lineWidth = 3
+                renderer.lineCap = .round
+                renderer.lineJoin = .round
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
     }
 }
 

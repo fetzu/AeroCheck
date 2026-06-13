@@ -59,6 +59,10 @@ class LocationManager: NSObject, ObservableObject {
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
     private var pendingLocationUpdatesStart = false
+    /// Set when an ACTIVE tracking/map session's updates were stopped because location permission
+    /// was revoked mid-session. On re-authorization the session resumes itself instead of staying
+    /// dead with isTracking still true. (PR-39)
+    private var wasStoppedByRevocation = false
 
     // GPS status override (for marketing mode)
     private var gpsStatusOverride: GPSSignalStatus?
@@ -108,13 +112,14 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.activityType = .airborne
 
         // Background location configuration:
-        // - allowsBackgroundLocationUpdates: Required for continuous GPS tracking during flight
+        // - allowsBackgroundLocationUpdates: enabled ONLY while actively tracking a flight (PR-38),
+        //   in beginTrackingNow/stopTracking. A map-only session (NavigationView opened with no active
+        //   flight) must not keep full-accuracy GPS running in the background — with this false, iOS
+        //   suspends updates when the app backgrounds, so opening the map then leaving can't drain the
+        //   battery (no blue indicator, nothing recorded) before a flight.
         // - pausesLocationUpdatesAutomatically: Disabled to prevent iOS from pausing updates
         // - showsBackgroundLocationIndicator: Shows blue bar when tracking in background
-        // Note: If the app is terminated by the system during background tracking,
-        // iOS will not automatically restart it. The user must manually restart the app.
-        // This is acceptable for aviation use where the app should remain in foreground.
-        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.allowsBackgroundLocationUpdates = false
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.showsBackgroundLocationIndicator = true
 
@@ -172,6 +177,8 @@ class LocationManager: NSObject, ObservableObject {
     private func beginTrackingNow() {
         guard let appState = appState else { return }
         isTracking = true
+        // PR-38: a real flight keeps recording in the background; enable it only now (not at init).
+        locationManager.allowsBackgroundLocationUpdates = true
         applyGPSPriority(appState.settings.gpsPriority)
         locationManager.startUpdatingLocation()
         startSignalCheckTimer()
@@ -194,6 +201,14 @@ class LocationManager: NSObject, ObservableObject {
 
     func stopTracking() {
         isTracking = false
+        // PR-39: clear the display-session flag too — stopLocationUpdates is a no-op while tracking,
+        // so without this a view gated on (isTracking || isLocationUpdatesActive) would keep showing
+        // "GPS active" after the flight ends with GPS off.
+        isLocationUpdatesActive = false
+        wasStoppedByRevocation = false
+        // PR-38: don't keep background GPS armed once the flight ends (a lingering map session must
+        // not inherit flight-grade background tracking).
+        locationManager.allowsBackgroundLocationUpdates = false
         locationManager.stopUpdatingLocation()
         stopSignalCheckTimer()
         appState = nil
@@ -515,7 +530,13 @@ extension LocationManager: CLLocationManagerDelegate {
                 }
             }
 
-            if shouldRecord, let appState = self.appState {
+            // PR-37: skip recording AND event detection for a stale or invalid fix. CoreLocation
+            // routinely delivers a cached (possibly minutes-old) fix right after startUpdatingLocation,
+            // and a negative horizontalAccuracy is invalid — either would otherwise become a track
+            // point (e.g. a hangar fix as the first point of every flight) and feed the detector.
+            // currentLocation is still updated above for display.
+            let fixIsUsable = abs(location.timestamp.timeIntervalSinceNow) <= 10 && location.horizontalAccuracy >= 0
+            if shouldRecord, fixIsUsable, let appState = self.appState {
                 let point = GPSPoint(from: location)
                 appState.addGPSPoint(point, airportDataService: self.airportDataService)
                 self.lastRecordedTime = now
@@ -570,6 +591,16 @@ extension LocationManager: CLLocationManagerDelegate {
                 if self.pendingLocationUpdatesStart {
                     self.startLocationUpdates()
                 }
+                // PR-39: resume a session whose updates we stopped on a prior revocation. The
+                // deferred-start flags above only cover sessions that never started; one already
+                // active (isTracking/isLocationUpdatesActive still true) was previously left dead.
+                if self.wasStoppedByRevocation && (self.isTracking || self.isLocationUpdatesActive) {
+                    self.wasStoppedByRevocation = false
+                    self.locationManager.startUpdatingLocation()
+                    self.lastLocationUpdateTime = Date()
+                    self.gpsSignalStatus = .good
+                    self.startSignalCheckTimer()
+                }
                 self.updateBackgroundTrackingLimited()
             case .denied, .restricted:
                 self.locationError = self.authorizationStatus == .denied
@@ -583,6 +614,7 @@ extension LocationManager: CLLocationManagerDelegate {
                 if self.isTracking || self.isLocationUpdatesActive {
                     self.gpsSignalStatus = .lost
                     self.locationManager.stopUpdatingLocation()
+                    self.wasStoppedByRevocation = true // PR-39: remember to resume on re-authorization
                 }
             case .notDetermined:
                 self.locationError = nil

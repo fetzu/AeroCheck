@@ -70,4 +70,14 @@ final class InstrumentAccessibilityTests: XCTestCase {
         s.nightMode = false
         XCTAssertEqual(s.cockpitThemeMode, .day)
     }
+
+    func testInstrumentTargetStateBarColorMapsToTheme() {
+        let day = CockpitTheme.day
+        XCTAssertEqual(InstrumentTargetState.onTarget.barColor(in: day), day.onTarget)
+        XCTAssertEqual(InstrumentTargetState.caution.barColor(in: day), day.warning)
+        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: day), day.danger)
+        XCTAssertEqual(InstrumentTargetState.neutral.barColor(in: day), day.textDim)
+        // Same states re-theme under night (red-shift).
+        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: .night), CockpitTheme.night.danger)
+    }
 }

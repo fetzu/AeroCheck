@@ -956,3 +956,102 @@ struct SettingsRow: View {
         .padding(.vertical, 2)
     }
 }
+
+// MARK: - Cockpit Instrument Panel (Phase 3.1 HUD)
+
+/// On-target state of the live speed, encoded by SHAPE/POSITION (the bar) as well as color, so it
+/// reads for color-blind pilots and in any theme. (Phase 3.1)
+enum InstrumentTargetState: Equatable {
+    case onTarget
+    case caution
+    case stall
+    case neutral
+
+    /// Bar/accent color for this state in the given theme.
+    func barColor(in theme: CockpitTheme) -> Color {
+        switch self {
+        case .onTarget: return theme.onTarget
+        case .caution: return theme.warning
+        case .stall: return theme.danger
+        case .neutral: return theme.textDim
+        }
+    }
+}
+
+/// The revamped in-flight instrument strip: speed (with a color-blind-safe on-target bar), altitude
+/// (+ vertical speed) and heading in one Liquid-Glass panel. Purely presentational — the caller
+/// formats the values and computes the target state; the panel themes itself via `\.cockpitTheme`
+/// so it reads correctly in day / sunlight / night. (Phase 3.1)
+struct CockpitInstrumentPanel: View {
+    let speed: String
+    var targetState: InstrumentTargetState = .neutral
+    /// 0...1 fill of the on-target bar under the speed; nil hides the bar (no active target).
+    var targetBarFraction: Double? = nil
+    let altitude: String
+    /// Vertical speed in fpm as a signed display string (e.g. "+480"); nil hides the row.
+    var verticalSpeed: String? = nil
+    let heading: String
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            cell(label: "SPD kt", flex: 1.2) {
+                Text(speed)
+                    .font(.system(size: 30, weight: .medium, design: .monospaced))
+                    .foregroundColor(targetState == .neutral ? theme.textPrimary : targetState.barColor(in: theme))
+                if let fraction = targetBarFraction {
+                    GeometryReader { geo in
+                        Capsule()
+                            .fill(targetState.barColor(in: theme))
+                            .frame(width: max(0, min(1, fraction)) * geo.size.width, height: 4)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .frame(height: 4)
+                    .padding(.top, 3)
+                }
+            }
+            divider
+            cell(label: "ALT ft", flex: 1) {
+                Text(altitude)
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                if let vs = verticalSpeed {
+                    Text(vs)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(theme.onTarget)
+                }
+            }
+            divider
+            cell(label: "HDG", flex: 1) {
+                Text(heading)
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                Text("track")
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.textSecondary)
+            }
+        }
+        .padding(.vertical, 11)
+        .padding(.horizontal, 6)
+        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+    }
+
+    private var divider: some View {
+        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 38)
+    }
+
+    @ViewBuilder
+    private func cell<Content: View>(label: String, flex: CGFloat, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(theme.textSecondary)
+            content()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minWidth: 0)
+        .layoutPriority(Double(flex))
+    }
+}

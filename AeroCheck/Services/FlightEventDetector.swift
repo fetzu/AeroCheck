@@ -283,6 +283,12 @@ class FlightEventDetector: ObservableObject {
         let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
         let now = Date()
 
+        // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded window.
+        // Each emit guards `pendingX == nil`, so a pending event that's never consumed (e.g. its
+        // confirmation overlay was behind the full-screen map) would otherwise silently block EVERY
+        // subsequent event of that type for the rest of the flight.
+        expireStalePendingEvents(now: now)
+
         // Update speed history (keep enough readings for the interval-scaled smoothing window)
         speedHistory.append((timestamp: now, speedKts: rawSpeedKts))
         while speedHistory.count > speedSmoothingReadings {
@@ -376,6 +382,21 @@ class FlightEventDetector: ObservableObject {
     /// Dismiss pending full-stop without recording
     func dismissFullStop() {
         pendingFullStop = nil
+    }
+
+    /// PR-40: clear pending events older than the expiry window so a never-consumed confirmation
+    /// can't block all future detections of that type.
+    private static let pendingEventExpirySeconds: TimeInterval = 180
+    private func expireStalePendingEvents(now: Date) {
+        if let e = pendingGoAround, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingGoAround = nil
+        }
+        if let e = pendingTouchAndGo, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingTouchAndGo = nil
+        }
+        if let e = pendingFullStop, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
+            pendingFullStop = nil
+        }
     }
 
     /// Called by the manual event buttons (LANDED / GO AROUND / TOUCH AND GO) so the automatic

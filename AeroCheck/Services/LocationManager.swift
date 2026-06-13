@@ -55,6 +55,11 @@ class LocationManager: NSObject, ObservableObject {
     private let signalTrulyLostThreshold: TimeInterval = 45.0  // 45 seconds = truly lost (red)
     private let horizontalAccuracyThreshold: CLLocationAccuracy = 100.0  // 100 meters
     private var signalCheckTimer: Timer?
+    /// PR-21: when we last had a good fix but are stationary and have gone stale, we fire a one-shot
+    /// requestLocation() probe and hold at degraded until either a fresh fix lands or this window
+    /// elapses (then it's a genuine loss → red). Stamped when the probe is fired.
+    private var stationaryProbeFiredAt: Date?
+    private static let stationaryProbeWindow: TimeInterval = 8.0
     /// Deferred-start intents: set when start is requested before authorization is decided, so
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
@@ -287,16 +292,47 @@ class LocationManager: NSObject, ObservableObject {
         // Invalidate existing timer to prevent duplicates (e.g. if startTracking and
         // startLocationUpdates are both called)
         signalCheckTimer?.invalidate()
-        signalCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        // PR-21: schedule in .common run-loop mode so the signal check keeps firing during scroll
+        // gestures (scheduledTimer uses .default, which stalls while a UIScrollView tracks).
+        let timer = Timer(timeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkSignalStatus()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        signalCheckTimer = timer
     }
 
     private func stopSignalCheckTimer() {
         signalCheckTimer?.invalidate()
         signalCheckTimer = nil
+    }
+
+    /// Pure, unit-testable GPS signal-status decision (PR-35). Extracted from `checkSignalStatus`
+    /// so the 10 / 20 / 45 s boundaries are pinned by tests and stop drifting from their comments
+    /// (the old inline comments claimed 15 / 45 / 90 s while the constants were 10 / 20 / 45 s).
+    /// `current` is the present status because some escalations only fire from `.good`.
+    nonisolated static func signalStatus(
+        timeSinceLastUpdate: TimeInterval,
+        lastKnownAccuracy: CLLocationAccuracy,
+        current: GPSSignalStatus,
+        degradedThreshold: TimeInterval = 10,
+        lostThreshold: TimeInterval = 20,
+        trulyLostThreshold: TimeInterval = 45,
+        accuracyThreshold: CLLocationAccuracy = 100
+    ) -> GPSSignalStatus {
+        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= accuracyThreshold
+        if timeSinceLastUpdate >= trulyLostThreshold {
+            return .lost                                    // ≥45 s: truly lost (red), regardless of accuracy
+        } else if timeSinceLastUpdate >= lostThreshold {
+            return current == .good ? .degraded : current   // ≥20 s: degrade a good signal
+        } else if lastAccuracyWasGood {
+            return .good                                     // <20 s and last fix was good: stay good
+        } else if timeSinceLastUpdate >= degradedThreshold {
+            return current == .good ? .degraded : current   // ≥10 s with a poor last fix: degrade
+        } else {
+            return current                                   // <10 s, poor last fix: unchanged
+        }
     }
 
     private func checkSignalStatus() {
@@ -316,30 +352,41 @@ class LocationManager: NSObject, ObservableObject {
 
         let now = Date()
         let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
-        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
+        let computed = Self.signalStatus(
+            timeSinceLastUpdate: timeSinceLastUpdate,
+            lastKnownAccuracy: lastKnownAccuracy,
+            current: gpsSignalStatus,
+            degradedThreshold: signalDegradedThreshold,
+            lostThreshold: signalLostThreshold,
+            trulyLostThreshold: signalTrulyLostThreshold,
+            accuracyThreshold: horizontalAccuracyThreshold)
 
-        // Truly lost: no update for 90+ seconds regardless of last accuracy
-        if timeSinceLastUpdate >= signalTrulyLostThreshold {
-            gpsSignalStatus = .lost
-        }
-        // Degraded: no update for 45+ seconds (even if last accuracy was good,
-        // something is wrong after this long)
-        else if timeSinceLastUpdate >= signalLostThreshold {
-            if gpsSignalStatus == .good {
-                gpsSignalStatus = .degraded
+        // PR-21: a parked aircraft (ground mode, 5 m distance filter) receives no callbacks, so
+        // staleness alone would drive the indicator orange→red even with good GPS — training the
+        // pilot to ignore the one indicator that matters. When we last had a good fix and are
+        // plausibly stationary, fire a one-shot requestLocation() probe (which bypasses the distance
+        // filter) and hold at degraded; only go red if no fresh fix arrives within the probe window.
+        // A fresh fix updates lastLocationUpdateTime, so `computed` recovers on the next tick.
+        let lastAccuracyWasGood = lastKnownAccuracy >= 0 && lastKnownAccuracy <= horizontalAccuracyThreshold
+        let stationary = smoothedSpeedMPS < 0.5  // < ~1 kt
+        if computed == .lost && lastAccuracyWasGood && stationary && gpsSignalStatus != .lost {
+            if let firedAt = stationaryProbeFiredAt {
+                if now.timeIntervalSince(firedAt) < Self.stationaryProbeWindow {
+                    gpsSignalStatus = .degraded             // probe in flight — hold short of red
+                    return
+                }
+                stationaryProbeFiredAt = nil                // window elapsed, no fresh fix → genuine loss
+                gpsSignalStatus = .lost
+                return
             }
+            stationaryProbeFiredAt = now
+            locationManager.requestLocation()
+            gpsSignalStatus = .degraded
+            return
         }
-        // If last accuracy was good, stay good — the distance filter (50m) may simply
-        // not have triggered yet because the device hasn't moved enough
-        else if lastAccuracyWasGood {
-            gpsSignalStatus = .good
-        }
-        // Last accuracy was poor and no fresh update for 15+ seconds
-        else if timeSinceLastUpdate >= signalDegradedThreshold {
-            if gpsSignalStatus == .good {
-                gpsSignalStatus = .degraded
-            }
-        }
+
+        stationaryProbeFiredAt = nil
+        gpsSignalStatus = computed
     }
 
     /// Update smoothed speed (EMA) and cached heading from a new location update.

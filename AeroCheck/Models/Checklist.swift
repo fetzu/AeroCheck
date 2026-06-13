@@ -192,12 +192,19 @@ enum BriefingType {
 
 /// A single checklist item
 struct ChecklistItem: Identifiable {
-    let id = UUID()
     let number: Int?
     let challenge: String
     let response: String
     let isHeader: Bool
-    
+
+    /// Deterministic, content-derived identity (PR-28). Remote/premium checklists re-map their
+    /// items via `toLocal()` on every render, so a per-instance `UUID()` made SwiftUI treat each
+    /// render's rows as brand-new — tearing down and rebuilding every `ChecklistItemRow` once per
+    /// second on the live flight screen. A stable id keyed on the item's number/kind/challenge
+    /// keeps `ForEach` identity stable across regenerations (unique within a phase for authored
+    /// checklists). Bundled aircraft are unaffected either way (their items are stored once).
+    var id: String { "\(number.map(String.init) ?? "h").\(isHeader ? "H" : "I").\(challenge)" }
+
     init(number: Int? = nil, challenge: String, response: String = "", isHeader: Bool = false) {
         self.number = number
         self.challenge = challenge

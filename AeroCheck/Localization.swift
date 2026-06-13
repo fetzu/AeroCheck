@@ -743,6 +743,8 @@ enum L10n {
         static let exportFormatGPX = String(localized: "flightDetail.exportFormat.gpx")
         static let exportFormatJSON = String(localized: "flightDetail.exportFormat.json")
         static let exportFormatMessage = String(localized: "flightDetail.exportFormat.message")
+        static let exportFailedTitle = String(localized: "flightDetail.exportFailed.title")
+        static let exportFailedMessage = String(localized: "flightDetail.exportFailed.message")
 
         // Delete
         static let deleteTitle = String(localized: "flightDetail.delete.title")

@@ -3982,6 +3982,40 @@
         }
       }
     },
+    "flightDetail.exportFailed.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This flight could not be exported. Please try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce vol n'a pas pu être exporté. Veuillez réessayer."
+          }
+        }
+      }
+    },
+    "flightDetail.exportFailed.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Failed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de l'export"
+          }
+        }
+      }
+    },
     "flightDetail.exportFormat.title" : {
       "extractionState" : "manual",
       "localizations" : {

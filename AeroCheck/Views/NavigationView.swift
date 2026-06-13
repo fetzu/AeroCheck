@@ -190,7 +190,6 @@ struct NavigationMapView: View {
     // Compact layout state (for small devices)
     @State private var showCompactPanel: Bool = false
     @State private var selectedCompactTab: CompactNavigationTab = .plan
-    @State private var refreshTrigger: Bool = false // For forcing chronometer refresh
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
@@ -243,12 +242,6 @@ struct NavigationMapView: View {
 
     // Shared map state for preserving position between layers
     @StateObject private var mapState = SharedMapState()
-
-    // Timer trigger for time display - use ID to force refresh
-    @State private var timeDisplayId = UUID()
-
-    // Create a dedicated timer that fires every second
-    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     // Track actual map width for accurate scale bar
     @State private var mapWidth: CGFloat = 0
@@ -330,15 +323,6 @@ struct NavigationMapView: View {
     }
 
     /// Formatted current time - computed fresh each time
-    private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        if appState.settings.alwaysUseUTC {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-            return formatter.string(from: Date()) + " (UTC)"
-        }
-        return formatter.string(from: Date())
-    }
 
     /// Current heading from location (cached to prevent snapping to 0° during GPS gaps)
     private var currentHeading: Int {
@@ -410,12 +394,6 @@ struct NavigationMapView: View {
             locationManager.stopLocationUpdates()
             streamingCTRCheckTask?.cancel()
             streamingCTRCheckTask = nil
-        }
-        .onReceive(clockTimer) { _ in
-            // Force the time display to update by changing its ID
-            timeDisplayId = UUID()
-            // Also trigger refresh for compact layout chronometer
-            refreshTrigger.toggle()
         }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
@@ -644,10 +622,9 @@ struct NavigationMapView: View {
                     // Row 1: Time + Speed
                     HStack(spacing: 6) {
                         // Time
-                        Text(formattedTime)
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 11, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         Rectangle()
                             .fill(Color.dimText)
@@ -1131,10 +1108,8 @@ struct NavigationMapView: View {
                         }
                     }
 
-                    Text(flightPlanManager.formattedChronometer)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundColor(.aviationGreen)
-                        .id(refreshTrigger)
+                    NavChronometerText(font: .system(size: 28, weight: .bold, design: .monospaced),
+                                       color: .aviationGreen)
 
                     if flightPlanManager.activeFlightPlan?.chronometerStartTime == nil {
                         Button(action: {
@@ -1709,10 +1684,9 @@ struct NavigationMapView: View {
                 VStack(spacing: 0) {
                     VStack(spacing: 4) {
                         // Time on first row
-                        Text(formattedTime)
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 14, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         // Speed, Altitude, Heading on second row
                         HStack(spacing: 10) {
@@ -1769,11 +1743,10 @@ struct NavigationMapView: View {
                 // Horizontal layout for iPad
                 VStack(spacing: 0) {
                     HStack(spacing: 16) {
-                        // Current time - use id to force refresh
-                        Text(formattedTime)
-                            .font(.system(size: 16, weight: .medium, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                            .id(timeDisplayId)
+                        // Current time
+                        NavClockText(useUTC: appState.settings.alwaysUseUTC,
+                                     font: .system(size: 16, weight: .medium, design: .monospaced),
+                                     color: .primaryText)
 
                         // Divider
                         Rectangle()
@@ -4923,6 +4896,53 @@ class AirspacePolygon: MKPolygon {
             if airspace.airspaceClass == .classE || airspace.airspaceClass == .classG {
                 self.isDashed = true
             }
+        }
+    }
+}
+
+// MARK: - Self-timing clock / chronometer (PR-10)
+
+/// A wall-clock HH:mm:ss display that ticks itself once per second via `TimelineView` instead of the
+/// old `.id(UUID())` hack driven by a top-level 1 Hz timer. The hack changed top-level `@State`
+/// every second, re-evaluating the entire ~2000-line map body; this scopes the per-second redraw to
+/// just this small subview. The `DateFormatter` is cached (was rebuilt per render). (PR-10)
+private struct NavClockText: View {
+    let useUTC: Bool
+    let font: Font
+    let color: Color
+
+    private static let localFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; return f
+    }()
+    private static let utcFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; f.timeZone = TimeZone(identifier: "UTC"); return f
+    }()
+
+    static func string(for date: Date, useUTC: Bool) -> String {
+        useUTC ? utcFormatter.string(from: date) + " (UTC)" : localFormatter.string(from: date)
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(Self.string(for: context.date, useUTC: useUTC))
+                .font(font)
+                .foregroundColor(color)
+        }
+    }
+}
+
+/// The flight-plan chronometer, ticking itself once per second via `TimelineView` rather than the
+/// old top-level `refreshTrigger` `.id()` hack that re-rendered the whole map body. (PR-10)
+private struct NavChronometerText: View {
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    let font: Font
+    let color: Color
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            Text(flightPlanManager.formattedChronometer)
+                .font(font)
+                .foregroundColor(color)
         }
     }
 }

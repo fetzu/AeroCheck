@@ -278,6 +278,13 @@ class OpenAIPDataService: ObservableObject {
         let maxLon = region.center.longitude + region.span.longitudeDelta / 2
 
         return airspaces.filter { airspace in
+            // Fast reject: skip any airspace whose bounding box doesn't overlap the visible region,
+            // without touching its coordinate ring. (PR-11)
+            if let box = airspace.boundingBox,
+               !box.intersects(latRange: minLat...maxLat, lonRange: minLon...maxLon) {
+                return false
+            }
+
             let coords = airspace.polygonCoordinates
             guard !coords.isEmpty else { return false }
 

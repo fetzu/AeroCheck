@@ -27,6 +27,15 @@ struct Airspace: Codable, Identifiable {
     let activity: Int?                   // Activity type code
     let frequencies: [AirspaceFrequency]? // Radio frequencies (e.g., tower freq for CTRs)
 
+    /// Decoded polygon coordinates for map rendering. Memoized ONCE at decode time (PR-11): this was
+    /// a computed property that re-decoded + re-validated the GeoJSON ring on every access — once per
+    /// render and per spatial query, for every airspace on screen.
+    let polygonCoordinates: [CLLocationCoordinate2D]
+
+    /// Precomputed lat/lon bounding box (nil when the ring is empty). Lets bounds/contains queries
+    /// reject an airspace without iterating its coordinate ring. (PR-11)
+    let boundingBox: AirspaceBoundingBox?
+
     // OpenAIP API returns _id, upperLimit, lowerLimit
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -35,13 +44,46 @@ struct Airspace: Codable, Identifiable {
         case lowerCeiling = "lowerLimit"
     }
 
-    /// Decoded polygon coordinates for map rendering
-    var polygonCoordinates: [CLLocationCoordinate2D] {
+    init(id: String, name: String, type: Int, icaoClass: Int?, country: String,
+         upperCeiling: AltitudeLimit, lowerCeiling: AltitudeLimit, geometry: AirspaceGeometry,
+         activity: Int?, frequencies: [AirspaceFrequency]?) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.icaoClass = icaoClass
+        self.country = country
+        self.upperCeiling = upperCeiling
+        self.lowerCeiling = lowerCeiling
+        self.geometry = geometry
+        self.activity = activity
+        self.frequencies = frequencies
+        let coords = Self.decodePolygon(from: geometry)
+        self.polygonCoordinates = coords
+        self.boundingBox = AirspaceBoundingBox(coordinates: coords)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try c.decode(String.self, forKey: .id),
+            name: try c.decode(String.self, forKey: .name),
+            type: try c.decode(Int.self, forKey: .type),
+            icaoClass: try c.decodeIfPresent(Int.self, forKey: .icaoClass),
+            country: try c.decode(String.self, forKey: .country),
+            upperCeiling: try c.decode(AltitudeLimit.self, forKey: .upperCeiling),
+            lowerCeiling: try c.decode(AltitudeLimit.self, forKey: .lowerCeiling),
+            geometry: try c.decode(AirspaceGeometry.self, forKey: .geometry),
+            activity: try c.decodeIfPresent(Int.self, forKey: .activity),
+            frequencies: try c.decodeIfPresent([AirspaceFrequency].self, forKey: .frequencies)
+        )
+    }
+
+    /// Decode + validate the first ring of the GeoJSON geometry into coordinates.
+    /// GeoJSON uses [longitude, latitude] order. PR-04: a position array with fewer than 2 elements
+    /// (or NaN/out-of-range values) is valid JSON but traps on subscript — validate count and range
+    /// at this single choke point so malformed network/cache data can never crash the airspace paths.
+    static func decodePolygon(from geometry: AirspaceGeometry) -> [CLLocationCoordinate2D] {
         guard let firstRing = geometry.coordinates.first else { return [] }
-        // GeoJSON uses [longitude, latitude] order. PR-04: a position array with fewer
-        // than 2 elements (or NaN/out-of-range values) is valid JSON but traps on
-        // subscript — validate count and range at this single choke point so malformed
-        // network/cache data can never crash the in-flight airspace paths.
         return firstRing.compactMap { pair in
             guard pair.count >= 2, GeoValidation.isValidLatLon(pair[1], pair[0]) else { return nil }
             return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
@@ -141,6 +183,8 @@ struct Airspace: Codable, Identifiable {
 
     /// Check if a coordinate falls within this airspace's polygon using ray casting algorithm
     func containsPoint(_ point: CLLocationCoordinate2D) -> Bool {
+        // Fast reject via the precomputed bounding box before the O(n) ray cast. (PR-11)
+        if let box = boundingBox, !box.contains(point) { return false }
         let polygon = polygonCoordinates
         guard polygon.count >= 3 else { return false }
         var inside = false
@@ -190,6 +234,38 @@ struct Airspace: Codable, Identifiable {
     /// Altitude range display string (e.g., "GND → 4500 ft MSL")
     var altitudeRangeString: String {
         "\(lowerCeiling.displayString) → \(upperCeiling.displayString)"
+    }
+}
+
+// MARK: - Airspace Bounding Box
+
+/// Axis-aligned lat/lon bounding box of an airspace ring, precomputed once so bounds/contains
+/// queries can reject without walking the coordinate ring. (PR-11)
+struct AirspaceBoundingBox: Equatable {
+    let minLat: Double
+    let maxLat: Double
+    let minLon: Double
+    let maxLon: Double
+
+    init?(coordinates: [CLLocationCoordinate2D]) {
+        guard let first = coordinates.first else { return nil }
+        var minLa = first.latitude, maxLa = first.latitude
+        var minLo = first.longitude, maxLo = first.longitude
+        for c in coordinates.dropFirst() {
+            minLa = Swift.min(minLa, c.latitude); maxLa = Swift.max(maxLa, c.latitude)
+            minLo = Swift.min(minLo, c.longitude); maxLo = Swift.max(maxLo, c.longitude)
+        }
+        minLat = minLa; maxLat = maxLa; minLon = minLo; maxLon = maxLo
+    }
+
+    func contains(_ p: CLLocationCoordinate2D) -> Bool {
+        p.latitude >= minLat && p.latitude <= maxLat && p.longitude >= minLon && p.longitude <= maxLon
+    }
+
+    /// Whether this box overlaps the given lat/lon ranges (a visible map region).
+    func intersects(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> Bool {
+        maxLat >= latRange.lowerBound && minLat <= latRange.upperBound &&
+        maxLon >= lonRange.lowerBound && minLon <= lonRange.upperBound
     }
 }
 

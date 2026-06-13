@@ -279,7 +279,11 @@ class DataPersistenceManager: ObservableObject {
         let dateStr = formatter.string(from: flight.startTime ?? flight.stopTime ?? Date())
         let plane = flight.airplane.replacingOccurrences(of: " ", with: "_")
             .replacingOccurrences(of: "/", with: "-")
-        return "\(dateStr)_\(plane).json"
+        // PR-19: include a short flight-id suffix so two distinct flights of the same aircraft started
+        // in the same clock minute (a false start ended and immediately restarted) don't resolve to
+        // the same filename and silently overwrite each other. Stable per flight (same id → same name).
+        let idSuffix = flight.id.uuidString.prefix(8)
+        return "\(dateStr)_\(plane)_\(idSuffix).json"
     }
 
     /// Save a single flight to its own file.
@@ -365,6 +369,16 @@ class DataPersistenceManager: ObservableObject {
                     print("[AéroCheck] Failed to load flight \(fileURL.lastPathComponent): \(error.localizedDescription)")
                 }
             }
+
+            // PR-19: keep one flight per id (the freshest by modifiedAt). The collision-safe filename
+            // (above) means a flight re-saved after upgrading from the old name scheme can briefly
+            // exist under both the old and new filename; loading both would otherwise duplicate it.
+            var byId: [UUID: Flight] = [:]
+            for flight in flights {
+                if let existing = byId[flight.id], existing.modifiedAt >= flight.modifiedAt { continue }
+                byId[flight.id] = flight
+            }
+            flights = Array(byId.values)
 
             // Sort by start time (newest first)
             flights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }

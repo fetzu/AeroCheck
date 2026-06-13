@@ -6,6 +6,16 @@ import Foundation
 protocol SubscriptionGating {
     func getUserID() async -> String?
     func shouldAllowPremiumAccess() -> Bool
+    /// True only when premium access is DEFINITIVELY denied (status resolved, not subscribed, no
+    /// valid grace window). Used for the cache-DESTROYING decision so a transient cold-launch state
+    /// can't wipe the offline checklist. (PR-05)
+    func isPremiumAccessDefinitivelyDenied() -> Bool
+}
+
+extension SubscriptionGating {
+    /// Conservative default for conformers without richer state (e.g. test fakes): defer to the
+    /// access check. `SubscriptionManager` overrides this to avoid clearing caches mid-load. (PR-05)
+    func isPremiumAccessDefinitivelyDenied() -> Bool { !shouldAllowPremiumAccess() }
 }
 
 extension SubscriptionManager: SubscriptionGating {}
@@ -123,11 +133,16 @@ class AircraftDataService: ObservableObject {
         let cacheKey = language != nil ? "\(aircraftId)_\(language!)" : aircraftId
 
         // SEC-05 (defense-in-depth — the server gate is authoritative): for a known premium
-        // aircraft, withhold cached/fetched content once the entitlement has lapsed beyond the
-        // grace/offline window, and drop the stale cache so it can't be served offline forever.
+        // aircraft, drop the cached content ONLY once the entitlement is DEFINITIVELY lapsed.
+        // PR-05: this previously used !shouldAllowPremiumAccess(), which is also false during the
+        // transient cold-launch window (status still .unknown, grace not yet loaded) and for a
+        // subscribed user whose last server verification is merely stale — so a widget/deep-link
+        // flight start could destroy the only offline copy of the checklist and lock the pilot out
+        // mid-flight. isPremiumAccessDefinitivelyDenied() never fires on those transient states, so
+        // an uncertain status now serves the cached checklist instead of clearing it.
         if let meta = availableAircraft.first(where: { $0.id == aircraftId }), !meta.isFree,
-           !gating.shouldAllowPremiumAccess() {
-            print("[AircraftDataService] Premium access not allowed for \(aircraftId); withholding checklist")
+           gating.isPremiumAccessDefinitivelyDenied() {
+            print("[AircraftDataService] Premium access definitively denied for \(aircraftId); withholding checklist and clearing cache")
             clearCache(for: cacheKey)
             return nil
         }

@@ -610,6 +610,18 @@ struct FlightPlan: Identifiable, Codable, Equatable {
 
         return bearing
     }
+
+    /// The waypoint carrying the leg data (MC, distance, EET) for the leg ARRIVING at the
+    /// waypoint at `index`. Each leg's data is stored on its DEPARTURE waypoint
+    /// (`waypoints[i]` holds leg `i → i+1`), so the inbound leg to `index` lives on
+    /// `waypoints[index - 1]`. Returns nil for the departure waypoint (index 0) and for
+    /// out-of-range indices. In-flight HUDs display the leg being flown TO the next
+    /// waypoint, so they must read leg data through this accessor, not off the arrival
+    /// waypoint itself (UX-01).
+    func legArriving(at index: Int) -> FlightPlanWaypoint? {
+        guard index > 0, index - 1 < waypoints.count else { return nil }
+        return waypoints[index - 1]
+    }
 }
 
 // MARK: - ICAO Type Mapping

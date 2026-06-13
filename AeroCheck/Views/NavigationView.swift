@@ -954,8 +954,12 @@ struct NavigationMapView: View {
             if let plan = flightPlanManager.activeFlightPlan,
                !plan.waypoints.isEmpty {
                 let displayIndex = compactPreviewIndex ?? plan.currentWaypointIndex
-                let clampedIndex = Swift.min(displayIndex, plan.waypoints.count - 1)
+                let clampedIndex = Swift.max(0, Swift.min(displayIndex, plan.waypoints.count - 1))
                 let displayWaypoint = plan.waypoints[clampedIndex]
+                // Leg data (MC/DIST/EET) for the leg ARRIVING at the displayed waypoint lives
+                // on its departure waypoint, not the arrival waypoint — read it through
+                // legArriving(at:) (UX-01).
+                let legWaypoint = plan.legArriving(at: clampedIndex)
                 let isPreview = compactPreviewIndex != nil && compactPreviewIndex != plan.currentWaypointIndex
 
                 // Waypoint header
@@ -986,7 +990,7 @@ struct NavigationMapView: View {
                         Text(L10n.Nav.mc)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        if clampedIndex > 0, let mc = displayWaypoint.magneticCourse {
+                        if let mc = legWaypoint?.magneticCourse {
                             HStack(alignment: .firstTextBaseline, spacing: 1) {
                                 Text(String(format: "%03d", Int(mc)))
                                     .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -1007,7 +1011,7 @@ struct NavigationMapView: View {
                         Text(L10n.Nav.dist)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        if clampedIndex > 0, let dist = displayWaypoint.distance {
+                        if let dist = legWaypoint?.distance {
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text(String(format: "%.1f", dist))
                                     .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -1028,7 +1032,7 @@ struct NavigationMapView: View {
                         Text("EET")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.dimText)
-                        if clampedIndex > 0, let eet = displayWaypoint.estimatedElapsedTime {
+                        if let eet = legWaypoint?.estimatedElapsedTime {
                             let minutes = Int(eet / 60)
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text("\(minutes)")

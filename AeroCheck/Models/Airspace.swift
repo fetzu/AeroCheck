@@ -38,9 +38,13 @@ struct Airspace: Codable, Identifiable {
     /// Decoded polygon coordinates for map rendering
     var polygonCoordinates: [CLLocationCoordinate2D] {
         guard let firstRing = geometry.coordinates.first else { return [] }
-        // GeoJSON uses [longitude, latitude] order
-        return firstRing.map { pair in
-            CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
+        // GeoJSON uses [longitude, latitude] order. PR-04: a position array with fewer
+        // than 2 elements (or NaN/out-of-range values) is valid JSON but traps on
+        // subscript — validate count and range at this single choke point so malformed
+        // network/cache data can never crash the in-flight airspace paths.
+        return firstRing.compactMap { pair in
+            guard pair.count >= 2, GeoValidation.isValidLatLon(pair[1], pair[0]) else { return nil }
+            return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
         }
     }
 

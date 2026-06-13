@@ -27,6 +27,8 @@
 		A5000016111111110000002 /* GPXImportHygieneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000016111111110000001 /* GPXImportHygieneTests.swift */; };
 		A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000017111111110000001 /* InstrumentAccessibilityTests.swift */; };
 		A5000018111111110000002 /* WatchContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000018111111110000001 /* WatchContractTests.swift */; };
+		A5000019111111110000002 /* FlightPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000019111111110000001 /* FlightPlanTests.swift */; };
+		A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000020111111110000001 /* SpeedIndicatorTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
 		04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */; };
@@ -184,6 +186,8 @@
 		A5000016111111110000001 /* GPXImportHygieneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPXImportHygieneTests.swift; sourceTree = "<group>"; };
 		A5000017111111110000001 /* InstrumentAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstrumentAccessibilityTests.swift; sourceTree = "<group>"; };
 		A5000018111111110000001 /* WatchContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContractTests.swift; sourceTree = "<group>"; };
+		A5000019111111110000001 /* FlightPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanTests.swift; sourceTree = "<group>"; };
+		A5000020111111110000001 /* SpeedIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicatorTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		04C457262F1337A20083040B /* AéroCheck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "AéroCheck.entitlements"; sourceTree = "<group>"; };
@@ -330,6 +334,8 @@
 				A5000016111111110000001 /* GPXImportHygieneTests.swift */,
 				A5000017111111110000001 /* InstrumentAccessibilityTests.swift */,
 				A5000018111111110000001 /* WatchContractTests.swift */,
+				A5000019111111110000001 /* FlightPlanTests.swift */,
+				A5000020111111110000001 /* SpeedIndicatorTests.swift */,
 			);
 			path = AeroCheckTests;
 			sourceTree = "<group>";
@@ -708,6 +714,8 @@
 				A5000016111111110000002 /* GPXImportHygieneTests.swift in Sources */,
 				A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */,
 				A5000018111111110000002 /* WatchContractTests.swift in Sources */,
+				A5000019111111110000002 /* FlightPlanTests.swift in Sources */,
+				A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -25,15 +25,19 @@ struct ContentView: View {
                 if !appState.settings.hasCompletedOnboarding {
                     OnboardingView()
                         .transition(.opacity)
+                } else if companionConnectivityManager.currentRole == .viewer &&
+                          (companionConnectivityManager.connectionState == .connected ||
+                           companionConnectivityManager.connectionState == .reconnecting) {
+                    // A viewer iPhone mirrors the master iPad's flight and has no local flight of
+                    // its own, so this is checked BEFORE `isFlightActive` (always false on the
+                    // viewer — previously a connected viewer fell through to HomeView and never
+                    // showed the companion screen). Staying through `.reconnecting` avoids a flicker
+                    // back to Home on a transient drop; CompanionFlightView shows its own banner. (PR-16)
+                    CompanionFlightView()
+                        .transition(.opacity)
                 } else if appState.isFlightActive {
-                    if companionConnectivityManager.currentRole == .viewer &&
-                       companionConnectivityManager.connectionState == .connected {
-                        CompanionFlightView()
-                            .transition(.opacity)
-                    } else {
-                        FlightView()
-                            .transition(.opacity)
-                    }
+                    FlightView()
+                        .transition(.opacity)
                 } else {
                     HomeView()
                         .transition(.opacity)
@@ -61,6 +65,8 @@ struct ContentView: View {
             }
             .animation(.easeInOut(duration: 0.3), value: appState.settings.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
+            .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.connectionState)
+            .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.currentRole)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
         }

@@ -23,6 +23,9 @@ final class ActiveChecklistTests: XCTestCase {
             stallSpeed: 50, // WT9 is 42 — must never be confused
             pageCount: 4,
             hasParachute: false,
+            language: nil,
+            requestedLanguage: nil,
+            languageFallback: nil,
             crosswindLimits: RemoteCrosswindLimits(takeoff: "17 kt", landing: "17 kt"),
             speeds: [RemoteSpeedReference(name: "Vr-PA28", description: "Rotation", value: "55")],
             targetSpeeds: ["climb": 79],

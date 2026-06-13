@@ -108,6 +108,11 @@ struct RemoteAircraftChecklist: Codable, Identifiable, Equatable {
     let stallSpeed: Int
     let pageCount: Int
     let hasParachute: Bool?  // Whether aircraft has ballistic parachute (BRS/CAPS)
+    // PR-41 / UX-08: the server reports the language actually served plus whether it fell back from
+    // the requested one. Optional + additive — bundled JSONs and older server responses omit them.
+    let language: String?
+    let requestedLanguage: String?
+    let languageFallback: Bool?
     let crosswindLimits: RemoteCrosswindLimits
     let speeds: [RemoteSpeedReference]
     let targetSpeeds: [String: Int?]

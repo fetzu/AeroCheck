@@ -48,6 +48,14 @@ enum L10n {
         }
     }
 
+    // MARK: - Aircraft
+    enum Aircraft {
+        /// Non-blocking notice when a checklist was served in a fallback language. (PR-41)
+        static func checklistLanguageOnly(_ language: String) -> String {
+            String(format: String(localized: "aircraft.checklistLanguageOnly"), language)
+        }
+    }
+
     // MARK: - Stats
     enum Stats {
         static let checks = String(localized: "stats.checks")

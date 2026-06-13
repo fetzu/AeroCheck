@@ -62,6 +62,17 @@ struct ContentView: View {
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
+
+                // PR-41: non-blocking banner when the checklist was served in a fallback language.
+                if let notice = appState.languageFallbackNotice {
+                    VStack {
+                        LanguageFallbackBanner(message: notice) {
+                            appState.languageFallbackNotice = nil
+                        }
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
             .animation(.easeInOut(duration: 0.3), value: appState.settings.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
@@ -69,6 +80,7 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.currentRole)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
+            .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
         }
         .onAppear {
             // Request location permission on app launch
@@ -148,6 +160,41 @@ struct ContentView: View {
             @unknown default:
                 break
             }
+        }
+    }
+}
+
+// MARK: - Language Fallback Banner
+
+/// A non-blocking top banner shown when a checklist was served in a language other than the one
+/// requested. Auto-dismisses after a few seconds and is tappable to dismiss early. (PR-41 / UX-08)
+struct LanguageFallbackBanner: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "globe")
+                .font(.system(size: 15, weight: .semibold))
+            Text(message)
+                .font(.system(size: 14, weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundColor(.cockpitBackground)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(Text(L10n.Button.close))
+        .task {
+            try? await Task.sleep(for: .seconds(6))
+            onDismiss()
         }
     }
 }

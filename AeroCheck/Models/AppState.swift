@@ -368,6 +368,11 @@ class AppState: ObservableObject {
     /// was resumed automatically, so the pilot knows tracking is live again. (PR-01)
     @Published var flightRestoredNotice: String?
 
+    /// Set when the loaded checklist was served in a different language than requested (the requested
+    /// language isn't available for that aircraft), so the pilot is told before flight rather than
+    /// silently shown a foreign-language checklist. Surfaced as a non-blocking banner. (PR-41 / UX-08)
+    @Published var languageFallbackNotice: String?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     @Published var navigationMapState = NavigationMapState()
@@ -542,6 +547,7 @@ class AppState: ObservableObject {
         if let remoteId = settings.selectedRemoteAircraftId {
             if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
                 resolvedRemoteChecklist = checklist
+                noteLanguageFallback(for: checklist, requested: language)
                 print("[AéroCheck] Loaded remote checklist for \(remoteId) (\(language))")
             } else {
                 print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
@@ -561,6 +567,7 @@ class AppState: ObservableObject {
             // First try to get a cached/API version for this language
             if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
                 resolvedRemoteChecklist = checklist
+                noteLanguageFallback(for: checklist, requested: language)
                 print("[AéroCheck] Loaded checklist for bundled aircraft \(bundledId) (\(language))")
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: bundledId, language: language) {
                 // Fall back to bundled resource
@@ -575,7 +582,30 @@ class AppState: ObservableObject {
             resolvedRemoteChecklist = nil
         }
     }
-    
+
+    /// Surfaces a non-blocking notice when the loaded checklist was served in a language other than
+    /// the one requested (the requested language isn't available for that aircraft). (PR-41 / UX-08)
+    private func noteLanguageFallback(for checklist: RemoteAircraftChecklist, requested: String) {
+        // Prefer the server's explicit flag; fall back to comparing served vs requested language.
+        let served = checklist.language
+        let fellBack = checklist.languageFallback ?? (served != nil && served != requested)
+        guard fellBack, let served, served != requested else {
+            return
+        }
+        languageFallbackNotice = L10n.Aircraft.checklistLanguageOnly(Self.languageDisplayName(served))
+    }
+
+    /// Human-readable language name for a checklist language code (aviation languages only).
+    static func languageDisplayName(_ code: String) -> String {
+        switch code.lowercased() {
+        case "en": return "English"
+        case "fr": return "Français"
+        case "de": return "Deutsch"
+        case "it": return "Italiano"
+        default: return code.uppercased()
+        }
+    }
+
     // MARK: - Aircraft Selection
 
     /// Select the aircraft for the next flight by an identifier or registration.

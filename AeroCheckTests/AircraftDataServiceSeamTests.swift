@@ -92,4 +92,41 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         let service = AircraftDataService(subscriptionManager: FakeGating())
         XCTAssertNotNil(service)
     }
+
+    // MARK: - PR-41: additive language-fallback fields
+
+    func testChecklistDecodesAdditiveLanguageFallbackFields() throws {
+        let json = """
+        {"id":"cap10-c","aircraftType":"CAP10","registration":"HB-SAX","modelName":"CAP 10C",
+         "shortModelName":"CAP10","aeroclub":null,"version":"1.0","lastUpdated":"2025","isFree":false,
+         "stallSpeed":50,"pageCount":4,"hasParachute":false,
+         "language":"fr","requestedLanguage":"en","languageFallback":true,
+         "crosswindLimits":{"takeoff":"15 kt","landing":"15 kt"},"speeds":[],
+         "targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}
+        """
+        let c = try JSONDecoder().decode(RemoteAircraftChecklist.self, from: Data(json.utf8))
+        XCTAssertEqual(c.language, "fr")
+        XCTAssertEqual(c.requestedLanguage, "en")
+        XCTAssertEqual(c.languageFallback, true)
+    }
+
+    func testChecklistOmittingLanguageFieldsStaysBackwardCompatible() throws {
+        // An older server response / bundled JSON without the additive fields decodes to nil.
+        let json = """
+        {"id":"wt9-dynamic","aircraftType":"WT9","registration":"F-HVXA","modelName":"WT9",
+         "shortModelName":"WT9","aeroclub":null,"version":"2.1e","lastUpdated":"2025","isFree":true,
+         "stallSpeed":42,"pageCount":4,"hasParachute":true,
+         "crosswindLimits":{"takeoff":"14 kt","landing":"16 kt"},"speeds":[],
+         "targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}
+        """
+        let c = try JSONDecoder().decode(RemoteAircraftChecklist.self, from: Data(json.utf8))
+        XCTAssertNil(c.language)
+        XCTAssertNil(c.languageFallback)
+    }
+
+    func testLanguageDisplayName() {
+        XCTAssertEqual(AppState.languageDisplayName("fr"), "Français")
+        XCTAssertEqual(AppState.languageDisplayName("en"), "English")
+        XCTAssertEqual(AppState.languageDisplayName("xx"), "XX")
+    }
 }

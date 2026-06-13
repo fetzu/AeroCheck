@@ -292,7 +292,9 @@ class DataPersistenceManager: ObservableObject {
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            // PR-09: no .prettyPrinted/.sortedKeys for flight files — they carry a large GPS track,
+            // and pretty-printing/sorting just inflates encode time and file size. Still valid JSON;
+            // existing pretty files decode unchanged.
             let data = try encoder.encode(flight)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
 

@@ -503,8 +503,15 @@ class AppState: ObservableObject {
 
         syncManager.onFlightsUpdated = { [weak self] flights in
             Task { @MainActor in
-                self?.flights = flights
-                self?.persistence.saveFlights(flights)
+                guard let self else { return }
+                // PR-09: persist only the flights whose content actually changed (by modifiedAt),
+                // instead of rewriting EVERY flight file on the main actor on each inbound sync
+                // batch — which previously happened even while a flight was active.
+                let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                self.flights = flights
+                for flight in flights where previousById[flight.id]?.modifiedAt != flight.modifiedAt {
+                    self.persistence.saveFlight(flight)
+                }
                 print("[AéroCheck] Flights updated from iCloud sync")
             }
         }
@@ -672,10 +679,10 @@ class AppState: ObservableObject {
 
         flights.insert(flight, at: 0)
         // PR-14: persist the just-finished flight with a CONFIRMED write before discarding the
-        // crash-recovery checkpoint (active_flight.json) — which is the only durable copy of this
-        // flight. saveFlights() additionally writes the index + iCloud sync (best-effort).
+        // crash-recovery checkpoint (active_flight.json) — the only durable copy of this flight.
+        // PR-09: saveFlight persists + syncs ONLY this flight; loadFlights scans the directory, so
+        // no whole-logbook rewrite/re-upload is needed when one flight is added.
         let saved = saveFlight(flight)
-        saveFlights()
 
         currentFlight = nil
         isFlightActive = false
@@ -1127,7 +1134,9 @@ class AppState: ObservableObject {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].notes = notes
             flights[index].touch() // stamp local edit for CloudKit conflict resolution (ARCH-02)
-            saveFlights()
+            // PR-09: persist + sync ONLY this flight. Editing one note previously rewrote every
+            // flight file on the main actor and re-queued the whole logbook to CloudKit.
+            saveFlight(flights[index])
         }
     }
 
@@ -1135,7 +1144,7 @@ class AppState: ObservableObject {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].name = name
             flights[index].touch()
-            saveFlights()
+            saveFlight(flights[index]) // PR-09: persist + sync only this flight
         }
     }
     
@@ -1267,6 +1276,13 @@ class AppState: ObservableObject {
         } else {
             Self.checkpointQueue.async(execute: write)
         }
+    }
+
+    /// Block until any pending asynchronous checkpoint write (PR-12) has completed. The serial queue
+    /// guarantees ordering, so a no-op `sync` flushes everything queued before it. Used by tests for
+    /// deterministic assertions; harmless in production.
+    func flushPendingCheckpoint() {
+        Self.checkpointQueue.sync {}
     }
 
     /// Restore the active flight state if a recent checkpoint exists.

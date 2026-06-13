@@ -37,6 +37,13 @@ class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     private var recordingInterval: TimeInterval = 5.0
     private var lastRecordedTime: Date?
+
+    /// Event detection runs on its OWN cadence, independent of (and never slower than) the GPS
+    /// *recording* interval. At a slow recording interval (e.g. 30 s) the detector would otherwise
+    /// see one fix per 30 s — far too coarse to resolve a touchdown/go-around — so detection is
+    /// capped to at most this many seconds between fixes it processes. (PR-23)
+    private static let detectionIntervalCapSeconds: TimeInterval = 5.0
+    private var lastDetectionTime: Date?
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
@@ -161,6 +168,7 @@ class LocationManager: NSObject, ObservableObject {
         self.activeChecklist = activeChecklist
         self.recordingInterval = interval
         self.lastRecordedTime = nil
+        self.lastDetectionTime = nil
         self.lastGoodSignalTime = Date()
         self.lastLocationUpdateTime = Date()
         self.gpsSignalStatus = .good
@@ -222,6 +230,7 @@ class LocationManager: NSObject, ObservableObject {
         flightEventDetector = nil
         hasNotifiedTakeoffTime = false
         hasConfiguredDetector = false
+        lastDetectionTime = nil
         // Reset to ground mode for next flight
         isGroundMode = true
         locationManager.distanceFilter = groundModeDistanceFilter
@@ -587,32 +596,40 @@ extension LocationManager: CLLocationManagerDelegate {
                 let point = GPSPoint(from: location)
                 appState.addGPSPoint(point, airportDataService: self.airportDataService)
                 self.lastRecordedTime = now
+            }
 
-                // Process location for flight event detection (go-arounds, touch-and-gos, full stops)
-                if let detector = self.flightEventDetector,
-                   let airportService = self.airportDataService,
-                   (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
-                    // Auto-configure detector with aircraft speeds on first activation
-                    if !self.hasConfiguredDetector {
-                        let checklist = self.activeChecklist ?? .bundledDefault
-                        detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: self.recordingInterval)
-                        self.hasConfiguredDetector = true
-                    }
+            // Event detection runs independently of recording so it isn't starved at slow recording
+            // intervals — feed the detector every fix, capped at `detectionIntervalCapSeconds`. (PR-23)
+            let detectionInterval = min(self.recordingInterval, Self.detectionIntervalCapSeconds)
+            let shouldDetect = self.lastDetectionTime.map { now.timeIntervalSince($0) >= detectionInterval } ?? true
+            if shouldDetect, fixIsUsable, let appState = self.appState,
+               let detector = self.flightEventDetector,
+               let airportService = self.airportDataService,
+               (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
+                self.lastDetectionTime = now
 
-                    // Notify detector of takeoff time once for initial suppression
-                    if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
-                        detector.setTakeoffTime(lineUpTime)
-                        self.hasNotifiedTakeoffTime = true
-                    }
-
-                    // Get nearby airports for event detection
-                    let nearbyAirports = airportService.findNearestAirports(
-                        to: location.coordinate,
-                        limit: 3,
-                        maxDistanceNm: 5.0
-                    )
-                    detector.processLocation(location, nearbyAirports: nearbyAirports)
+                // Auto-configure the detector with aircraft speeds + the DETECTION cadence (so its
+                // reading-count thresholds scale to how often it's actually fed, not the recording
+                // interval). Re-configure if the effective detection interval changed. (PR-23)
+                if !self.hasConfiguredDetector {
+                    let checklist = self.activeChecklist ?? .bundledDefault
+                    detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: detectionInterval)
+                    self.hasConfiguredDetector = true
                 }
+
+                // Notify detector of takeoff time once for initial suppression
+                if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
+                    detector.setTakeoffTime(lineUpTime)
+                    self.hasNotifiedTakeoffTime = true
+                }
+
+                // Get nearby airports for event detection
+                let nearbyAirports = airportService.findNearestAirports(
+                    to: location.coordinate,
+                    limit: 3,
+                    maxDistanceNm: 5.0
+                )
+                detector.processLocation(location, nearbyAirports: nearbyAirports)
             }
         }
     }

@@ -75,10 +75,16 @@ final class FlightEventDetectorTests: XCTestCase {
         }
 
         /// Feed `count` readings at the given altitude/speed, advancing the clock each step.
-        func fly(altFt: Double, speedKts: Double, count: Int) {
+        /// `offsetNm` places the aircraft that many NM north of the field (0 = over the field), to
+        /// drive lateral distance-based zone exits.
+        func fly(altFt: Double, speedKts: Double, count: Int, offsetNm: Double = 0) {
+            let coordinate = CLLocationCoordinate2D(
+                latitude: field.latitude + offsetNm / 60.0, // ~60 NM per degree of latitude
+                longitude: field.longitude
+            )
             for _ in 0..<count {
                 let loc = CLLocation(
-                    coordinate: field.coordinate,
+                    coordinate: coordinate,
                     altitude: altFt * 0.3048,                 // ft → m (field elevation 0 ⇒ AGL == MSL)
                     horizontalAccuracy: 5, verticalAccuracy: 5,
                     course: 0, speed: speedKts / 1.94384,     // kt → m/s
@@ -125,6 +131,19 @@ final class FlightEventDetectorTests: XCTestCase {
         XCTAssertNotNil(d.detector.pendingGoAround, "A fast low pass that climbs away is a go-around")
         XCTAssertNil(d.detector.pendingTouchAndGo)
         XCTAssertNil(d.detector.pendingFullStop)
+    }
+
+    /// (3b) PR-23 descent-then-climb gate: a fast low pass that leaves the zone LATERALLY at the
+    /// same low altitude (never climbs out) must NOT be classed as a go-around.
+    func testLowLateralPassWithoutClimbDoesNotEmitGoAround() {
+        let d = TrajectoryDriver(field: testField())
+        d.fly(altFt: 300, speedKts: 75, count: 4)               // airborne, airport zone
+        d.fly(altFt: 60, speedKts: 75, count: 3)                // low approach, stays fast
+        d.fly(altFt: 60, speedKts: 80, count: 4, offsetNm: 2.0) // depart laterally, no climb
+
+        XCTAssertNil(d.detector.pendingGoAround,
+                     "A low lateral pass with no climb-out is not a go-around (PR-23)")
+        XCTAssertNil(d.detector.pendingTouchAndGo)
     }
 
     /// (4) THE PR-22 regression: touchdown then a 150+ ft climb-out ⇒ go-around, NOT touch-and-go.

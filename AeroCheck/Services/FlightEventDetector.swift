@@ -167,6 +167,12 @@ class FlightEventDetector: ObservableObject {
     /// Minimum speed recorded during low approach (knots)
     private var minSpeedInLowApproach: Double = .infinity
 
+    /// Lowest altitude AGL (feet) seen during the current low-approach pass. Used for the
+    /// descent-then-climb go-around gate: a genuine go-around descends toward the runway and then
+    /// climbs away, so an exit only counts as a go-around if the aircraft actually climbed from this
+    /// low point — not merely left the zone laterally at the same low altitude. (PR-23)
+    private var minAltAglInLowApproach: Double = .infinity
+
     /// Minimum speed recorded during touchdown (knots)
     private var minSpeedInTouchdown: Double = .infinity
 
@@ -251,6 +257,8 @@ class FlightEventDetector: ObservableObject {
     private let lowApproachExitDistanceNm: Double = 1.5
     private let lowApproachEntryAltAglFt: Double = 100.0
     private let lowApproachExitAltAglFt: Double = 150.0
+    /// Climb (feet) above the low-approach low point required to treat an exit as a go-around. (PR-23)
+    private let goAroundClimbMarginFt: Double = 50.0
 
     // Cooldown between events
     private let eventCooldownSeconds: TimeInterval = 45.0
@@ -461,6 +469,7 @@ class FlightEventDetector: ObservableObject {
             state = .lowApproach
             stateEntryTime = now
             minSpeedInLowApproach = speedKts
+            minAltAglInLowApproach = altAglFt
             print("[FlightEventDetector] Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
             return
         }
@@ -481,8 +490,9 @@ class FlightEventDetector: ObservableObject {
     }
 
     private func handleLowApproach(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        // Track minimum speed
+        // Track minimum speed and lowest altitude (for the descent-then-climb go-around gate)
         minSpeedInLowApproach = min(minSpeedInLowApproach, speedKts)
+        minAltAglInLowApproach = min(minAltAglInLowApproach, altAglFt)
 
         // Check for touchdown (speed drops below threshold)
         if speedKts < speedConfig.touchdownSpeedKts {
@@ -498,10 +508,14 @@ class FlightEventDetector: ObservableObject {
             return
         }
 
-        // Check for go-around: exiting low approach zone without touching down
-        // AND minimum speed stayed above go-around threshold (never slowed to landing speed)
+        // Check for go-around: exiting low approach zone without touching down. Require BOTH that the
+        // minimum speed stayed above the go-around threshold (never slowed to landing speed) AND a
+        // genuine descent-then-climb profile — the aircraft climbed clear of its lowest point — so a
+        // low lateral pass that simply leaves the zone at the same altitude isn't mislabelled a
+        // go-around. (PR-23)
         if distanceNm > lowApproachExitDistanceNm || altAglFt > lowApproachExitAltAglFt {
-            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts {
+            let climbedOut = altAglFt - minAltAglInLowApproach > goAroundClimbMarginFt
+            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts && climbedOut {
                 emitGoAround(airport: stateAirport)
             }
             // Transition back to airport zone if still within it, otherwise idle
@@ -740,6 +754,7 @@ class FlightEventDetector: ObservableObject {
         stateAirport = nil
         stateEntryTime = nil
         minSpeedInLowApproach = .infinity
+        minAltAglInLowApproach = .infinity
         minSpeedInTouchdown = .infinity
         touchdownEntryTime = nil
         touchdownAltAglFt = 0

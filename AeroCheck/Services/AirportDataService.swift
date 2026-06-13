@@ -137,6 +137,16 @@ class AirportDataService: ObservableObject {
             }.value
             downloadProgress = 0.45
 
+            // PR-29: a captive portal (typical airfield/hotel Wi-Fi) returns HTTP 200 with an HTML
+            // login page; the CSV parser silently drops every mismatched row, yielding ~0 airports.
+            // Abort before saveToLocal/replacing in-memory state so a bad download can't destroy the
+            // existing ~40K-airport cache (the real file has tens of thousands of rows). Existing
+            // files and in-memory state are left untouched; the catch surfaces downloadError.
+            guard parsedAirports.count >= 1000 else {
+                throw NSError(domain: "AirportData", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                    "Airport data download looked invalid (\(parsedAirports.count) airports parsed — your connection may be redirecting to a login page). Your existing airport data was kept."])
+            }
+
             // Download and parse frequencies (~2MB)
             print("[AirportData] Downloading frequencies...")
             let frequenciesCSV = try await downloadCSV(from: OurAirportsURL.frequencies)

@@ -10,6 +10,7 @@
   "isFree": true,
   "stallSpeed": 42,
   "pageCount": 4,
+  "hasParachute": true,
   "crosswindLimits": {
     "takeoff": "14 kt",
     "landing": "16 kt"

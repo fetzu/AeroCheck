@@ -118,6 +118,13 @@ class FlightEventDetector: ObservableObject {
     /// Pending full-stop event awaiting user confirmation
     @Published var pendingFullStop: DetectedFlightEvent?
 
+    // MARK: - Clock Seam
+
+    /// Injectable clock. Defaults to wall-clock; scripted-trajectory tests substitute a synthetic
+    /// clock so the time-based cooldown / takeoff-suppression / pending-expiry logic is exercised
+    /// deterministically without real-time sleeps. Behaviour in production is identical. (PR-34)
+    var clock: () -> Date = { Date() }
+
     // MARK: - State Machine
 
     private var state: DetectorState = .idle
@@ -281,7 +288,7 @@ class FlightEventDetector: ObservableObject {
     ///   - nearbyAirports: Airports near the current position (from AirportDataService)
     func processLocation(_ location: CLLocation, nearbyAirports: [Airport]) {
         let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
-        let now = Date()
+        let now = clock()
 
         // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded window.
         // Each emit guards `pendingX == nil`, so a pending event that's never consumed (e.g. its
@@ -405,7 +412,8 @@ class FlightEventDetector: ObservableObject {
     /// and (for landings) requires fresh airborne evidence before the next auto landing event.
     /// dismissFullStop() only cleared an already-pending event; a manual LANDED while vacating fires
     /// the detector's pending full stop AFTERWARDS, so the suppression must be set proactively. (PR-07)
-    func notifyManualEvent(_ type: FlightEventType, at time: Date = Date()) {
+    func notifyManualEvent(_ type: FlightEventType, at explicitTime: Date? = nil) {
+        let time = explicitTime ?? clock()
         lastEventTime = time
         touchdownSpeedReadings = 0
         minSpeedInTouchdown = .infinity
@@ -624,7 +632,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -636,10 +644,11 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Go-around detected")
         }
 
-        let event = DetectedFlightEvent(type: .goAround, timestamp: Date(), airport: airport, message: message)
+        let now = clock()
+        let event = DetectedFlightEvent(type: .goAround, timestamp: now, airport: airport, message: message)
         pendingGoAround = event
-        lastEventTime = Date()
-        lastTakeoffTime = Date()
+        lastEventTime = now
+        lastTakeoffTime = now
         print("[FlightEventDetector] GO-AROUND: \(message)")
     }
 
@@ -660,7 +669,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -672,10 +681,11 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Touch-and-go detected")
         }
 
-        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: airport, message: message)
+        let now = clock()
+        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: now, airport: airport, message: message)
         pendingTouchAndGo = event
-        lastEventTime = Date()
-        lastTakeoffTime = Date()
+        lastEventTime = now
+        lastTakeoffTime = now
         // Record landing altitude and require airborne evidence before next landing event
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false
@@ -701,7 +711,7 @@ class FlightEventDetector: ObservableObject {
 
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
-           Date().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
+           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
             print("[FlightEventDetector] Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
@@ -713,9 +723,9 @@ class FlightEventDetector: ObservableObject {
             message = String(localized: "Full-stop landing detected")
         }
 
-        let event = DetectedFlightEvent(type: .fullStop, timestamp: Date(), airport: airport, message: message)
+        let event = DetectedFlightEvent(type: .fullStop, timestamp: clock(), airport: airport, message: message)
         pendingFullStop = event
-        lastEventTime = Date()
+        lastEventTime = clock()
         // Record landing altitude and require airborne evidence before next landing event
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false

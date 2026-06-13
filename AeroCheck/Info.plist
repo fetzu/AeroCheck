@@ -37,9 +37,10 @@
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>AéroCheck needs access to save flight log images to your photo library.</string>
+	<!-- _aerocheck._udp MUST use the ._udp transport label: WiFiAware traps uncatchably on a ._tcp name (RFC6335/6763) when parsing this key, which crashed flight start with companion mode on. Sync with companionWiFiAwareServiceName in CompanionConnectivityManager.swift. -->
 	<key>WiFiAwareServices</key>
 	<dict>
-		<key>_aerocheck._tcp</key>
+		<key>_aerocheck._udp</key>
 		<dict>
 			<key>Publishable</key>
 			<true/>

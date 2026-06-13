@@ -6,17 +6,33 @@ import UIKit
 
 // MARK: - Wi-Fi Aware Service Extensions
 
+/// The Wi-Fi Aware service name shared by the publisher (iPad master) and subscriber (iPhone viewer).
+///
+/// The transport label MUST be `._udp`. Apple's WiFiAware framework validates this name against
+/// RFC6335/RFC6763 while parsing the `WiFiAwareServices` Info.plist key, and TRAPS with an
+/// uncatchable assertion on a `._tcp` name — which crashed the app 100% of the time on flight start
+/// whenever companion mode was enabled (the master's `startListening()` touches
+/// `WAPublishableService.allServices`, forcing that parse). Keep this in exact sync with the
+/// `WiFiAwareServices` key in Info.plist. (See CompanionServiceContractTests.)
+let companionWiFiAwareServiceName = "_aerocheck._udp"
+
 @available(iOS 26.0, *)
 extension WAPublishableService {
     static var aerocheck: WAPublishableService {
-        allServices["_aerocheck._tcp"]!
+        guard let service = allServices[companionWiFiAwareServiceName] else {
+            preconditionFailure("Info.plist WiFiAwareServices is missing publishable '\(companionWiFiAwareServiceName)'")
+        }
+        return service
     }
 }
 
 @available(iOS 26.0, *)
 extension WASubscribableService {
     static var aerocheck: WASubscribableService {
-        allServices["_aerocheck._tcp"]!
+        guard let service = allServices[companionWiFiAwareServiceName] else {
+            preconditionFailure("Info.plist WiFiAwareServices is missing subscribable '\(companionWiFiAwareServiceName)'")
+        }
+        return service
     }
 }
 

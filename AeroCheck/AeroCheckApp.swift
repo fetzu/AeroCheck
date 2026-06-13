@@ -46,6 +46,8 @@ struct AeroCheckApp: App {
                 .environmentObject(flightEventDetector)
                 // Night mode: app-wide, so the flight instruments dim to the red/amber palette. (UX-09)
                 .environment(\.isNightMode, appState.settings.nightMode)
+                // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
+                .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode))
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)

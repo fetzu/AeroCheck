@@ -129,4 +129,31 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         XCTAssertEqual(AppState.languageDisplayName("en"), "English")
         XCTAssertEqual(AppState.languageDisplayName("xx"), "XX")
     }
+
+    // MARK: - PR-17: additive per-registration listing
+
+    func testMetadataDecodesRegistrationsArray() throws {
+        let json = """
+        {"id":"dr400-140b","aircraftType":"DR400","registration":"HB-KFD","modelName":"Robin DR400",
+         "shortModelName":"DR400","aeroclub":"Lausanne Aéroclub","version":"1.0","lastUpdated":"2025",
+         "isFree":false,"stallSpeed":50,"pageCount":4,"hasAccess":true,
+         "registrations":[
+           {"registration":"HB-KFD","modelName":"Robin DR400","shortModelName":"DR400","aeroclub":null,"version":"1.0","lastUpdated":"2025","availableLanguages":["en","fr"]},
+           {"registration":"HB-KFI","modelName":"Robin DR400","shortModelName":"DR400","aeroclub":null,"version":"1.0","lastUpdated":"2025","availableLanguages":["en","fr"]}
+         ]}
+        """
+        let m = try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(json.utf8))
+        XCTAssertEqual(m.registration, "HB-KFD", "Top-level stays the first registration")
+        XCTAssertEqual(m.registrations?.map { $0.registration }, ["HB-KFD", "HB-KFI"])
+    }
+
+    func testMetadataOmittingRegistrationsStaysBackwardCompatible() throws {
+        let json = """
+        {"id":"pa28-181","aircraftType":"PA28","registration":"HB-PFA","modelName":"Piper Archer II",
+         "shortModelName":"PA-28-181","aeroclub":null,"version":"1.0","lastUpdated":"2025",
+         "isFree":false,"stallSpeed":53,"pageCount":4,"hasAccess":false}
+        """
+        let m = try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(json.utf8))
+        XCTAssertNil(m.registrations)
+    }
 }

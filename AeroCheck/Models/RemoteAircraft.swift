@@ -1,6 +1,19 @@
 import Foundation
 
 /// Metadata for an aircraft from the API
+/// Per-registration metadata for a multi-registration aircraft, mirrored from the server's additive
+/// `/available` `registrations` array (PR-17). Foundation for a future per-registration selector.
+struct RemoteAircraftRegistration: Codable, Identifiable, Equatable {
+    var id: String { registration }
+    let registration: String
+    let modelName: String
+    let shortModelName: String
+    let aeroclub: String?
+    let version: String
+    let lastUpdated: String
+    let availableLanguages: [String]?
+}
+
 struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     let id: String
     let aircraftType: String
@@ -15,6 +28,9 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     let pageCount: Int
     var hasAccess: Bool
     var availableLanguages: [String]?
+    /// All registrations of this aircraft (PR-17, additive). Nil for older server responses; the
+    /// top-level fields above reflect the first registration for backward compatibility.
+    var registrations: [RemoteAircraftRegistration]? = nil
 
     /// Converts to local AircraftType if available
     var localAircraftType: AircraftType? {

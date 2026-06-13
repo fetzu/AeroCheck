@@ -1146,8 +1146,11 @@ struct FlightView: View {
             showNavigationMode = true
         } label: {
             ZStack(alignment: .topTrailing) {
-                FlightMiniMap(points: appState.currentFlight?.gpsTrack ?? [])
-                    .allowsHitTesting(false)
+                FlightMiniMap(
+                    points: appState.currentFlight?.gpsTrack ?? [],
+                    currentCoordinate: locationManager.currentLocation?.coordinate
+                )
+                .allowsHitTesting(false)
 
                 // Affordance chip: signals the tile is tappable → full map.
                 HStack(spacing: 4) {
@@ -1731,46 +1734,68 @@ struct CompactAltimeterView: View {
 
 // MARK: - Flight Mini-Map (persistent HUD glance map)
 
-/// A lightweight, glance-only mini-map for the in-flight HUD: follows the live position (`.follow`
-/// user-tracking) and draws the flight track on standard tiles. Deliberately NOT the full nav map —
-/// no SwissTopo / airspace / airport / flight-plan overlays — so a second live map stays cheap. Tap
-/// it (handled by the caller) to open the full `NavigationMapView`. (Phase 3.1)
+/// A lightweight, glance-only mini-map for the in-flight HUD. It recenters on the aircraft and draws
+/// the flight track over the **SwissTopo aviation chart** — ICAO (zoom 7-11) + Segelflugkarte (11-12),
+/// where available — falling back to the Apple base map outside Switzerland / where a tile is missing.
+/// Deliberately lightweight (no airspace / airport / flight-plan overlays); tap it (handled by the
+/// caller) to open the full `NavigationMapView`. (Phase 3.1)
 struct FlightMiniMap: UIViewRepresentable {
     /// The live flight track; the polyline is rebuilt only when the point count changes.
     let points: [GPSPoint]
+    /// The aircraft's current position; the map recenters on it (the caller disables interaction).
+    var currentCoordinate: CLLocationCoordinate2D?
+
+    /// ~40 km across — within the ICAO/Segelflugkarte tile coverage (their tiles stop at zoom 12), so
+    /// the chart actually renders. A tighter follow zoom would fall past the available chart tiles.
+    private static let viewSpanMeters: CLLocationDistance = 40_000
+
+    private static let switzerlandCenter = CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2)
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
         mapView.delegate = context.coordinator
         mapView.overrideUserInterfaceStyle = .dark
         mapView.showsUserLocation = true
-        mapView.setUserTrackingMode(.follow, animated: false)
         mapView.showsCompass = false
         mapView.showsScale = false
         mapView.isPitchEnabled = false
         mapView.isRotateEnabled = false
         mapView.pointOfInterestFilter = .excludingAll
+
+        // SwissTopo ICAO (zoom 7-11) + Segelflugkarte (11-12) aviation chart, where available. Kept as
+        // a NON-replacing overlay so the Apple base map shows through outside Switzerland / where a
+        // tile is missing — the "if available" fallback. Reuses the app's standalone ICAO+Segelflug
+        // WMTS overlay (also used by the flight-plan waypoint picker).
+        let chart = WaypointPickerICAOTileOverlay()
+        chart.canReplaceMapContent = false
+        mapView.addOverlay(chart, level: .aboveLabels)
+
+        // Center on Switzerland (or the first known position) until a fix arrives — avoids an ocean flash.
+        let center = currentCoordinate ?? Self.switzerlandCenter
+        mapView.setRegion(MKCoordinateRegion(center: center,
+                                             latitudinalMeters: Self.viewSpanMeters,
+                                             longitudinalMeters: Self.viewSpanMeters), animated: false)
         return mapView
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         let coordinator = context.coordinator
 
-        // Rebuild the track polyline ONLY when the point count changes — cheap during a live flight,
+        // Rebuild ONLY the track polyline when the point count changes — never the tile overlay, and
         // never an O(n) teardown on every location publish. (mirrors FlightMapView's pattern)
         if coordinator.builtPointCount != points.count {
             coordinator.builtPointCount = points.count
-            mapView.removeOverlays(mapView.overlays)
+            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
             if points.count >= 2 {
                 let coordinates = points.map { $0.coordinate }
-                mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count))
+                mapView.addOverlay(MKPolyline(coordinates: coordinates, count: coordinates.count), level: .aboveLabels)
             }
         }
 
-        // Keep following the aircraft (the caller's tap overlay blocks user panning, but re-assert in
-        // case a re-layout dropped the mode).
-        if mapView.userTrackingMode != .follow {
-            mapView.setUserTrackingMode(.follow, animated: false)
+        // Follow the aircraft by recentering (the caller disables interaction, so we own the camera).
+        // setCenter preserves the span set above, so the chart zoom stays within tile coverage.
+        if let coordinate = currentCoordinate {
+            mapView.setCenter(coordinate, animated: false)
         }
     }
 
@@ -1781,6 +1806,9 @@ struct FlightMiniMap: UIViewRepresentable {
         var builtPointCount = -1
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let tile = overlay as? MKTileOverlay {
+                return MKTileOverlayRenderer(tileOverlay: tile)
+            }
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(Color.aviationGold)

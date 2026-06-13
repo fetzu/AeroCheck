@@ -1055,3 +1055,61 @@ struct CockpitInstrumentPanel: View {
         .layoutPriority(Double(flex))
     }
 }
+
+// MARK: - Cockpit Hero Checklist Item (Phase 3.1 HUD)
+
+/// The one-glance centerpiece of the revamped in-flight HUD: the CURRENT checklist item rendered
+/// large (challenge + response) with the item progress and a tap-to-advance hint. Presentational
+/// and themed via `\.cockpitTheme`; the container supplies the surrounding dimmed completed/next
+/// items. (Phase 3.1)
+struct CockpitHeroChecklistItem: View {
+    let challenge: String
+    var response: String? = nil
+    /// e.g. "item 2 / 5"; nil hides the progress line.
+    var progressText: String? = nil
+    var showAdvanceHint: Bool = true
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if progressText != nil || showAdvanceHint {
+                HStack {
+                    if let progressText {
+                        Text(progressText.uppercased())
+                            .font(.system(size: 12))
+                            .foregroundColor(theme.textSecondary)
+                    }
+                    Spacer(minLength: 8)
+                    if showAdvanceHint {
+                        Label(L10n.ChecklistAction.tapToAdvance, systemImage: "hand.point.up.left")
+                            .labelStyle(.titleAndIcon)
+                            .font(.system(size: 12))
+                            .foregroundColor(theme.action)
+                    }
+                }
+                .padding(.bottom, 1)
+            }
+            Text(challenge)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundColor(theme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let response, !response.isEmpty {
+                Text(response)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundColor(theme.action)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(theme.panel)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(theme.action).frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12).strokeBorder(theme.panelStroke, lineWidth: 0.5)
+        )
+    }
+}

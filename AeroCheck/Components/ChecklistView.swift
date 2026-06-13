@@ -383,13 +383,33 @@ struct ChecklistView: View {
             ScrollViewReader { scrollProxy in
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
-                        ChecklistItemRow(
-                            item: item,
-                            showSeparator: index < visibleItems.count - 1,
-                            isHighlighted: stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count,
-                            isCompleted: stepByStepEnabled && index < highlightedItemIndex,
-                            isCompact: isCompact
-                        )
+                        let isHighlighted = stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count
+                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex
+
+                        Group {
+                            // The CURRENT item becomes the one-glance "hero" (Phase 3.1 HUD): same
+                            // challenge/response data, rendered large and themed. Completed/upcoming
+                            // items stay as normal rows. iPad (regular width) only for now — the
+                            // iPhone keeps its proven inline highlight. The global tap-to-advance hint
+                            // already lives in the header, so it's suppressed on the card.
+                            if isHighlighted && !isCompact {
+                                CockpitHeroChecklistItem(
+                                    challenge: item.challenge,
+                                    response: item.response,
+                                    progressText: "\(index + 1) / \(visibleItems.count)",
+                                    showAdvanceHint: false
+                                )
+                                .padding(.vertical, 4)
+                            } else {
+                                ChecklistItemRow(
+                                    item: item,
+                                    showSeparator: index < visibleItems.count - 1,
+                                    isHighlighted: isHighlighted,
+                                    isCompleted: isCompleted,
+                                    isCompact: isCompact
+                                )
+                            }
+                        }
                         .id(index)
                     }
                     

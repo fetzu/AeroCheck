@@ -102,6 +102,43 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertNil(flight(modifiedAt: Date(), track: [point(47, 200)]).validatedForIngest(), "lon > 180")
     }
 
+    // MARK: - CloudKit record payload (PERF-13: large-track CKAsset offload)
+
+    func testSmallFlightStaysInlineWithNoAsset() throws {
+        let f = flight(modifiedAt: Date(), track: [point(47, 8), point(47.1, 8.1)])
+        let payload = try SyncManager.flightRecordPayload(f)
+
+        XCTAssertNil(payload.asset, "A small flight needs no asset and stays fully inline")
+        let decoded = SyncManager.flightFromPayload(inline: payload.inline, asset: nil)
+        XCTAssertEqual(decoded?.gpsTrack.count, 2, "The inline blob round-trips the full track")
+    }
+
+    func testLargeFlightOffloadsTrackToAssetAndStripsInline() throws {
+        // A track large enough to push the encoded flight past the inline budget.
+        let longTrack = (0..<60_000).map { point(47.0 + Double($0) * 0.00001, 8.0) }
+        let f = flight(modifiedAt: Date(), track: longTrack)
+        let payload = try SyncManager.flightRecordPayload(f)
+
+        XCTAssertNotNil(payload.asset, "An oversized flight must be offloaded to an asset")
+        XCTAssertLessThanOrEqual(payload.inline.count, SyncManager.maxInlineFlightBytes,
+                                 "The inline blob stays under the CloudKit inline cap")
+
+        // The inline copy is track-stripped; only the asset carries the full track.
+        let inlineOnly = SyncManager.flightFromPayload(inline: payload.inline, asset: nil)
+        XCTAssertEqual(inlineOnly?.gpsTrack.count, 0, "Inline copy is track-stripped")
+
+        // The asset is authoritative and is preferred when both are present.
+        let full = SyncManager.flightFromPayload(inline: payload.inline, asset: payload.asset)
+        XCTAssertEqual(full?.gpsTrack.count, longTrack.count,
+                       "The asset payload restores the complete GPS track")
+    }
+
+    func testPayloadRejectsCorruptAndMissingBlobs() {
+        XCTAssertNil(SyncManager.flightFromPayload(inline: nil, asset: nil), "No payload → nil")
+        XCTAssertNil(SyncManager.flightFromPayload(inline: Data("not json".utf8), asset: nil),
+                     "Undecodable payload → nil, never a partial flight")
+    }
+
     // MARK: - Settings clamping
 
     func testSettingsClampsOutOfRangeNumerics() {

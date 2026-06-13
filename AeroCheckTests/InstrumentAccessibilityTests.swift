@@ -80,4 +80,29 @@ final class InstrumentAccessibilityTests: XCTestCase {
         // Same states re-theme under night (red-shift).
         XCTAssertEqual(InstrumentTargetState.stall.barColor(in: .night), CockpitTheme.night.danger)
     }
+
+    // MARK: - On-target proximity bar (Phase 3.1)
+
+    func testBarStateMapsSpeedStateToColorBlindSafeState() {
+        // The bar's state must never disagree with the readout's annunciated speed state.
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .onTarget), .onTarget)
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .offTarget), .caution)
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .stall), .stall)
+    }
+
+    func testTargetBarFractionIsFullAtTargetAndShrinksWithDeviation() {
+        // On target → full bar.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 76, targetSpeed: 76), 1.0, accuracy: 0.0001)
+        // 15 kt off → half (30 kt full-scale).
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 61, targetSpeed: 76), 0.5, accuracy: 0.0001)
+        // Symmetric above/below target.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 86, targetSpeed: 76),
+                       SpeedIndicatorView.targetBarFraction(displaySpeed: 66, targetSpeed: 76), accuracy: 0.0001)
+    }
+
+    func testTargetBarFractionIsFlooredSoTheBarNeverVanishes() {
+        // Far off-target floors at 0.12 (a thin nub still reads "far off" via color), never 0.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 0, targetSpeed: 76), 0.12, accuracy: 0.0001)
+        XCTAssertGreaterThan(SpeedIndicatorView.targetBarFraction(displaySpeed: 200, targetSpeed: 76), 0.0)
+    }
 }

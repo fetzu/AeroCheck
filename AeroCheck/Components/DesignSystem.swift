@@ -420,6 +420,18 @@ struct SpeedIndicatorView: View {
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
             }
             .foregroundColor(.secondaryText)
+
+            // Color-blind-safe proximity bar: WIDTH shows how close to target, COLOR the state — a
+            // glanceable analog complement to the numeric readout and TGT arrow. Hidden when GPS is
+            // lost (no reliable speed to plot), matching the readout. (Phase 3.1)
+            if gpsSignalStatus != .lost {
+                InstrumentTargetBar(
+                    fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
+                    state: SpeedIndicatorView.barState(for: speedState)
+                )
+                .frame(width: 100)
+                .accessibilityHidden(true) // the composed speed value already states the target state in words
+            }
         }
         .onAppear {
             startFlashingIfNeeded()
@@ -478,6 +490,24 @@ struct SpeedIndicatorView: View {
         } else {
             return .offTarget
         }
+    }
+
+    /// Maps the annunciated speed state to the color-blind-safe instrument-bar state. Pure + testable
+    /// so the bar can never disagree with the readout's annunciation. (Phase 3.1)
+    static func barState(for state: SpeedState) -> InstrumentTargetState {
+        switch state {
+        case .onTarget: return .onTarget
+        case .offTarget: return .caution
+        case .stall: return .stall
+        }
+    }
+
+    /// 0...1 proximity-to-target fill for the on-target bar: full at the target speed, shrinking
+    /// linearly with deviation (30 kt full-scale) and floored so the bar never vanishes (a thin nub
+    /// still reads "far off" via its color). Pure + testable. (Phase 3.1)
+    static func targetBarFraction(displaySpeed: Double, targetSpeed: Int) -> Double {
+        let deviation = abs(displaySpeed - Double(targetSpeed))
+        return max(0.12, min(1.0, 1.0 - deviation / 30.0))
     }
 
     private var backgroundColor: Color {
@@ -978,6 +1008,28 @@ enum InstrumentTargetState: Equatable {
     }
 }
 
+/// The color-blind-safe on-target proximity bar: a centered capsule whose WIDTH encodes how close the
+/// live value is to its target (full = on target, shrinking with deviation) and whose COLOR encodes
+/// the target state — so the reading never depends on color alone. Shared by the full instruments and
+/// `CockpitInstrumentPanel` so they render identically in any theme. (Phase 3.1)
+struct InstrumentTargetBar: View {
+    /// 0...1 fill of the bar (1 = on target).
+    let fraction: Double
+    let state: InstrumentTargetState
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(state.barColor(in: theme))
+                .frame(width: max(0, min(1, fraction)) * geo.size.width, height: 4)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(height: 4)
+    }
+}
+
 /// The revamped in-flight instrument strip: speed (with a color-blind-safe on-target bar), altitude
 /// (+ vertical speed) and heading in one Liquid-Glass panel. Purely presentational — the caller
 /// formats the values and computes the target state; the panel themes itself via `\.cockpitTheme`
@@ -1001,14 +1053,8 @@ struct CockpitInstrumentPanel: View {
                     .font(.system(size: 30, weight: .medium, design: .monospaced))
                     .foregroundColor(targetState == .neutral ? theme.textPrimary : targetState.barColor(in: theme))
                 if let fraction = targetBarFraction {
-                    GeometryReader { geo in
-                        Capsule()
-                            .fill(targetState.barColor(in: theme))
-                            .frame(width: max(0, min(1, fraction)) * geo.size.width, height: 4)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .frame(height: 4)
-                    .padding(.top, 3)
+                    InstrumentTargetBar(fraction: fraction, state: targetState)
+                        .padding(.top, 3)
                 }
             }
             divider

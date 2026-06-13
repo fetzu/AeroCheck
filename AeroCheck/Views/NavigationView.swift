@@ -2843,16 +2843,33 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing flight plan overlays and annotations
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
-        mapView.removeOverlays(existingFlightPlanPolylines)
-
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
-        mapView.removeAnnotations(existingWaypointAnnotations)
 
-        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else {
+            // No (valid) plan: clear any existing flight-plan overlays/annotations. (PR-10)
+            mapView.removeOverlays(existingFlightPlanPolylines)
+            mapView.removeAnnotations(existingWaypointAnnotations)
+            context.coordinator.lastFlightPlanSignature = nil
+            return
+        }
 
         let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Diff guard: rebuild only when the waypoints or the current-leg index actually changed.
+        // This previously tore down and re-added every route polyline + waypoint annotation on every
+        // updateUIView (each map pan / GPS tick). (PR-10)
+        let signature = flightPlan.waypoints
+            .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
+            .joined(separator: "|") + "@\(currentWaypointIndex)"
+        if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
+            return
+        }
+        context.coordinator.lastFlightPlanSignature = signature
+
+        // Changed — tear down the old flight-plan layer and redraw it.
+        mapView.removeOverlays(existingFlightPlanPolylines)
+        mapView.removeAnnotations(existingWaypointAnnotations)
 
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
@@ -2980,6 +2997,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     class Coordinator: NSObject, MKMapViewDelegate {
         var parent: NativeMapViewUIKit
         var isUserInteracting = false
+        /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
+        var lastFlightPlanSignature: String?
 
         init(_ parent: NativeMapViewUIKit) {
             self.parent = parent
@@ -3773,16 +3792,33 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateFlightPlanOverlay(_ mapView: MKMapView, context: Context) {
-        // Remove existing flight plan overlays and annotations
         let existingFlightPlanPolylines = mapView.overlays.compactMap { $0 as? FlightPlanRoutePolyline }
-        mapView.removeOverlays(existingFlightPlanPolylines)
-
         let existingWaypointAnnotations = mapView.annotations.compactMap { $0 as? FlightPlanWaypointAnnotation }
-        mapView.removeAnnotations(existingWaypointAnnotations)
 
-        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else { return }
+        guard let flightPlan = activeFlightPlan, flightPlan.waypoints.count >= 2 else {
+            // No (valid) plan: clear any existing flight-plan overlays/annotations. (PR-10)
+            mapView.removeOverlays(existingFlightPlanPolylines)
+            mapView.removeAnnotations(existingWaypointAnnotations)
+            context.coordinator.lastFlightPlanSignature = nil
+            return
+        }
 
         let currentWaypointIndex = flightPlan.currentWaypointIndex
+
+        // Diff guard: rebuild only when the waypoints or the current-leg index actually changed.
+        // This previously tore down and re-added every route polyline + waypoint annotation on every
+        // updateUIView (each map pan / GPS tick). (PR-10)
+        let signature = flightPlan.waypoints
+            .map { "\($0.coordinate.latitude),\($0.coordinate.longitude),\($0.name)" }
+            .joined(separator: "|") + "@\(currentWaypointIndex)"
+        if context.coordinator.lastFlightPlanSignature == signature, !existingWaypointAnnotations.isEmpty {
+            return
+        }
+        context.coordinator.lastFlightPlanSignature = signature
+
+        // Changed — tear down the old flight-plan layer and redraw it.
+        mapView.removeOverlays(existingFlightPlanPolylines)
+        mapView.removeAnnotations(existingWaypointAnnotations)
 
         // Draw route segments
         let coordinates = flightPlan.waypoints.map { $0.coordinate }
@@ -3919,6 +3955,8 @@ struct SwissMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: SwissMapView
+        /// Signature of the last-rendered flight plan, so the overlay is rebuilt only on change. (PR-10)
+        var lastFlightPlanSignature: String?
         var currentLayerType: MapLayerType?
         var currentForceICAO: Bool = false
         var offlineMapManager: OfflineMapManager?

@@ -253,71 +253,10 @@ struct FlightView: View {
                 }
             }
         }
-        // Event confirmation overlays
-        .overlay {
-            if let goAroundEvent = flightEventDetector.pendingGoAround {
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        // Tap outside dismisses
-                        flightEventDetector.dismissGoAround()
-                    }
-                    // VoiceOver: the two-finger-scrub escape gesture dismisses the dialog. (UX-24)
-                    .accessibilityAction(.escape) { flightEventDetector.dismissGoAround() }
-                EventConfirmationView(
-                    event: goAroundEvent,
-                    onConfirm: {
-                        appState.recordGoAround()
-                        flightEventDetector.dismissGoAround()
-                    },
-                    onDismiss: {
-                        flightEventDetector.dismissGoAround()
-                    }
-                )
-            }
-        }
-        .overlay {
-            if let touchAndGoEvent = flightEventDetector.pendingTouchAndGo {
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        // Tap outside dismisses
-                        flightEventDetector.dismissTouchAndGo()
-                    }
-                    .accessibilityAction(.escape) { flightEventDetector.dismissTouchAndGo() }
-                EventConfirmationView(
-                    event: touchAndGoEvent,
-                    onConfirm: {
-                        appState.recordTouchAndGo()
-                        flightEventDetector.dismissTouchAndGo()
-                    },
-                    onDismiss: {
-                        flightEventDetector.dismissTouchAndGo()
-                    }
-                )
-            }
-        }
-        .overlay {
-            if let fullStopEvent = flightEventDetector.pendingFullStop {
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        // Tap outside dismisses
-                        flightEventDetector.dismissFullStop()
-                    }
-                    .accessibilityAction(.escape) { flightEventDetector.dismissFullStop() }
-                EventConfirmationView(
-                    event: fullStopEvent,
-                    onConfirm: {
-                        appState.recordFullStop()
-                        flightEventDetector.dismissFullStop()
-                    },
-                    onDismiss: {
-                        flightEventDetector.dismissFullStop()
-                    }
-                )
-            }
-        }
+        // Event confirmation overlays. The same modifier is also applied inside NavigationMapView
+        // so a detected event's prompt is visible/dismissable while the full-screen map is up — a
+        // .fullScreenCover renders above these overlays otherwise. (PR-40)
+        .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
     }
     
     // MARK: - Main Checklist Area

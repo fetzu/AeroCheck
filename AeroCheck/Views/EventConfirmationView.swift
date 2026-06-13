@@ -185,6 +185,57 @@ struct EventConfirmationView: View {
     }
 }
 
+// MARK: - Reusable Overlay
+
+/// The detected-event confirmation overlays (go-around / touch-and-go / full-stop), extracted into
+/// one modifier so they can be layered over BOTH the checklist `FlightView` and the full-screen
+/// `NavigationMapView`. The map is presented via `.fullScreenCover`, which renders above
+/// `FlightView`'s own overlays — so without applying this inside the map too, a detected event's
+/// prompt was invisible and undismissable whenever the pilot had the map up. (PR-40)
+struct FlightEventConfirmationOverlay: ViewModifier {
+    @ObservedObject var flightEventDetector: FlightEventDetector
+    @ObservedObject var appState: AppState
+
+    func body(content: Content) -> some View {
+        content
+            .overlay { overlay(for: flightEventDetector.pendingGoAround,
+                               record: appState.recordGoAround,
+                               dismiss: flightEventDetector.dismissGoAround) }
+            .overlay { overlay(for: flightEventDetector.pendingTouchAndGo,
+                               record: appState.recordTouchAndGo,
+                               dismiss: flightEventDetector.dismissTouchAndGo) }
+            .overlay { overlay(for: flightEventDetector.pendingFullStop,
+                               record: appState.recordFullStop,
+                               dismiss: flightEventDetector.dismissFullStop) }
+    }
+
+    @ViewBuilder
+    private func overlay(for event: DetectedFlightEvent?,
+                         record: @escaping () -> Void,
+                         dismiss: @escaping () -> Void) -> some View {
+        if let event {
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture { dismiss() } // Tap outside dismisses
+                // VoiceOver: the two-finger-scrub escape gesture dismisses the dialog. (UX-24)
+                .accessibilityAction(.escape) { dismiss() }
+            EventConfirmationView(
+                event: event,
+                onConfirm: { record(); dismiss() },
+                onDismiss: { dismiss() }
+            )
+        }
+    }
+}
+
+extension View {
+    /// Layers the flight-event confirmation prompts over this view. Applied to both `FlightView`
+    /// and `NavigationMapView` so the prompt is always visible/dismissable. (PR-40)
+    func flightEventConfirmationOverlay(detector: FlightEventDetector, appState: AppState) -> some View {
+        modifier(FlightEventConfirmationOverlay(flightEventDetector: detector, appState: appState))
+    }
+}
+
 // MARK: - Preview
 
 #Preview {

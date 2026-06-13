@@ -174,6 +174,7 @@ struct NavigationMapView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     @Binding var isPresented: Bool
@@ -368,6 +369,9 @@ struct NavigationMapView: View {
             }
         }
         .preferredColorScheme(.dark)
+        // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
+        // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
+        .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
         .onAppear {
             // Restore map settings from session state
             selectedLayer = appState.navigationMapState.selectedLayer
@@ -4932,4 +4936,5 @@ class AirspacePolygon: MKPolygon {
         .environmentObject(OfflineMapManager())
         .environmentObject(OpenAIPCacheManager())
         .environmentObject(OpenAIPDataService())
+        .environmentObject(FlightEventDetector())
 }

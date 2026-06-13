@@ -27,6 +27,7 @@
 		A5000016111111110000002 /* GPXImportHygieneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000016111111110000001 /* GPXImportHygieneTests.swift */; };
 		A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000017111111110000001 /* InstrumentAccessibilityTests.swift */; };
 		A5000018111111110000002 /* WatchContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000018111111110000001 /* WatchContractTests.swift */; };
+		A5000022111111110000002 /* CompanionServiceContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000022111111110000001 /* CompanionServiceContractTests.swift */; };
 		A5000019111111110000002 /* FlightPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000019111111110000001 /* FlightPlanTests.swift */; };
 		A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000020111111110000001 /* SpeedIndicatorTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
@@ -187,6 +188,7 @@
 		A5000016111111110000001 /* GPXImportHygieneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPXImportHygieneTests.swift; sourceTree = "<group>"; };
 		A5000017111111110000001 /* InstrumentAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstrumentAccessibilityTests.swift; sourceTree = "<group>"; };
 		A5000018111111110000001 /* WatchContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContractTests.swift; sourceTree = "<group>"; };
+		A5000022111111110000001 /* CompanionServiceContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionServiceContractTests.swift; sourceTree = "<group>"; };
 		A5000019111111110000001 /* FlightPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanTests.swift; sourceTree = "<group>"; };
 		A5000020111111110000001 /* SpeedIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicatorTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
@@ -336,6 +338,7 @@
 				A5000016111111110000001 /* GPXImportHygieneTests.swift */,
 				A5000017111111110000001 /* InstrumentAccessibilityTests.swift */,
 				A5000018111111110000001 /* WatchContractTests.swift */,
+				A5000022111111110000001 /* CompanionServiceContractTests.swift */,
 				A5000019111111110000001 /* FlightPlanTests.swift */,
 				A5000020111111110000001 /* SpeedIndicatorTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
@@ -717,6 +720,7 @@
 				A5000016111111110000002 /* GPXImportHygieneTests.swift in Sources */,
 				A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */,
 				A5000018111111110000002 /* WatchContractTests.swift in Sources */,
+				A5000022111111110000002 /* CompanionServiceContractTests.swift in Sources */,
 				A5000019111111110000002 /* FlightPlanTests.swift in Sources */,
 				A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,

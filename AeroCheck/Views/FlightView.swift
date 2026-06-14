@@ -845,11 +845,13 @@ struct FlightView: View {
     @ViewBuilder
     private var circuitCounterChip: some View {
         if appState.isCircuitMode, let flight = appState.currentFlight {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Text("[").foregroundColor(.dimText)
                 Label("\(flight.touchAndGoCount)", systemImage: "arrow.triangle.2.circlepath")
                 if flight.goAroundCount > 0 {
                     Label("\(flight.goAroundCount)", systemImage: "arrow.up.right.circle")
                 }
+                Text("]").foregroundColor(.dimText)
             }
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(.secondaryText)

@@ -801,22 +801,24 @@ class AppState: ObservableObject {
         return currentHighlightedItem[phase] ?? 0
     }
     
-    /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`).
-    func advanceHighlightedItem() {
+    /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`). `learningMode`
+    /// is the EFFECTIVE mode (the global setting OR temporarily-revealed hidden items), so tap-to-advance
+    /// steps through revealed/learning-mode items too. (Phase 3.1 feedback)
+    func advanceHighlightedItem(learningMode: Bool) {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.advanced(current: currentIndex, visibleCount: visibleCount)
     }
 
-    /// Mark the last item as complete (moves index past the last item)
-    func markLastItemComplete() {
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+    /// Mark the last item as complete (moves index past the last item). `learningMode` = effective mode.
+    func markLastItemComplete(learningMode: Bool) {
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
     }
 
-    /// Check if all items in current phase are completed
-    func areAllItemsCompleted() -> Bool {
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+    /// Check if all items in current phase are completed. `learningMode` = effective mode.
+    func areAllItemsCompleted(learningMode: Bool) -> Bool {
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
     }

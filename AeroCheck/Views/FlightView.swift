@@ -28,6 +28,9 @@ struct FlightView: View {
     @State private var allItemsChecked = false
     @State private var scrollToBottom = false
     @State private var nearestFreqText: String?
+    /// Whether the current phase's hidden (memorizable) items have been temporarily revealed (owned here
+    /// so tap-to-advance can step through them). Reset on phase change. (Phase 3.1 feedback)
+    @State private var hiddenItemsRevealed = false
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
@@ -52,6 +55,20 @@ struct FlightView: View {
         default:
             return false
         }
+    }
+
+    /// Whether the current phase's checklist is "complete" — all items stepped through (in step-by-step
+    /// mode) and any required timestamp action recorded. Drives the NEXT button's ready/greyed look; the
+    /// button stays tappable either way so a phase can still be skipped. (Phase 3.1 feedback)
+    private var nextButtonReady: Bool {
+        let itemsDone = !appState.settings.stepByStepHighlighting || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
+        return itemsDone && !currentPhaseNeedsAction
+    }
+
+    /// Learning mode OR temporarily-revealed hidden items — the set of items the checklist is showing,
+    /// so tap-to-advance and completion stay in sync with what's on screen. (Phase 3.1 feedback)
+    private var effectiveLearningMode: Bool {
+        appState.settings.learningMode || hiddenItemsRevealed
     }
 
     /// Determine if we're on an iPhone-sized device
@@ -205,24 +222,25 @@ struct FlightView: View {
                 .foregroundColor(.aviationGreen)
             }
 
-            // Flight timer — the time itself is just a clock (white); the small dot is the "recording
-            // active" cue, so the whole counter isn't an arbitrary green.
-            HStack(spacing: 6) {
-                StatusIndicator(.active, size: 8)
-                Text(appState.flightDuration)
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
-                    .id(timerTrigger)
-            }
+            // Flight timer — just the elapsed clock (no status dot; GPS status is its own indicator).
+            Text(appState.flightDuration)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .id(timerTrigger)
 
-            // GPS status — icon AND label both reflect the signal status, so it reads as one indicator.
-            HStack(spacing: 4) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 12))
-                Text("GPS")
-                    .font(.system(size: 13, weight: .semibold))
+            // GPS status — icon AND label reflect the signal status; tap to open the flight details
+            // (GPS guide + points/times). (Phase 3.1 feedback)
+            Button(action: { showFlightInfo = true }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 12))
+                    Text("GPS")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(gpsStatusColor)
             }
-            .foregroundColor(gpsStatusColor)
+            .accessibilityLabel(L10n.GPS.status)
+            .accessibilityHint(L10n.Flight.info)
 
             // Flight details / options (consolidates the GPS/points/times panel)
             Button(action: { showFlightInfo = true }) {
@@ -513,7 +531,8 @@ struct FlightView: View {
                                     hourMeterStopInitialValue = ""
                                 }
                                 showHourMeterStop = true
-                            }
+                            },
+                            hiddenItemsRevealed: $hiddenItemsRevealed
                         )
                         .padding(24)
                         .id("checklistContent")
@@ -583,16 +602,16 @@ struct FlightView: View {
                     Image(systemName: "chevron.right")
                 }
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(appState.canGoToNextPhase ? .black : .dimText)
+                // Greyed (but still tappable) until the checklist is complete; full gold when ready.
+                .foregroundColor(nextButtonReady ? .black : .secondaryText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(appState.canGoToNextPhase ? Color.aviationGold : Color.gray.opacity(0.3))
+                        .fill(nextButtonReady ? Color.aviationGold : Color.aviationGold.opacity(0.22))
                 )
             }
-            .disabled(!appState.canGoToNextPhase)
-            .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked && !currentPhaseNeedsAction))
+            .modifier(PulseModifier(isActive: pulseNextButton && nextButtonReady))
         }
     }
 
@@ -967,7 +986,8 @@ struct FlightView: View {
                                     hourMeterStopInitialValue = ""
                                 }
                                 showHourMeterStop = true
-                            }
+                            },
+                            hiddenItemsRevealed: $hiddenItemsRevealed
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)
@@ -1171,17 +1191,18 @@ struct FlightView: View {
     }
 
     private func handleChecklistTap(scrollProxy: ScrollViewProxy) {
+        // Use the EFFECTIVE learning mode so revealed / learning-mode items are part of the step-through.
         let visibleCount = appState.activeChecklist.visibleItemCount(
             for: appState.currentPhase,
-            learningMode: appState.settings.learningMode
+            learningMode: effectiveLearningMode
         )
         let currentIndex = appState.getHighlightedItem(for: appState.currentPhase)
-        
+
         if currentIndex >= visibleCount - 1 {
             // At last item, mark it complete
-            appState.markLastItemComplete()
+            appState.markLastItemComplete(learningMode: effectiveLearningMode)
             allItemsChecked = true
-            
+
             // If this phase has an action button that hasn't been pressed, pulse it first
             if currentPhaseNeedsAction {
                 triggerActionButtonPulse()
@@ -1192,7 +1213,7 @@ struct FlightView: View {
                 triggerNextButtonPulse()
             }
         } else {
-            appState.advanceHighlightedItem()
+            appState.advanceHighlightedItem(learningMode: effectiveLearningMode)
         }
     }
     
@@ -2283,21 +2304,6 @@ struct FlightInfoSheet: View {
                     }
                 }
 
-                Section(L10n.Flight.phases) {
-                    ForEach(ChecklistPhase.allCases) { phase in
-                        HStack {
-                            Circle()
-                                .fill(statusColor(for: phase))
-                                .frame(width: 8, height: 8)
-                            Text(phase.shortTitle)
-                                .font(.system(size: 14))
-                            Spacer()
-                            Text(L10n.Sheet.page(phase.pageNumber))
-                                .font(.system(size: 12))
-                                .foregroundColor(.dimText)
-                        }
-                    }
-                }
             }
             .navigationTitle(L10n.Flight.info)
             .navigationBarTitleDisplayMode(.inline)
@@ -2309,18 +2315,6 @@ struct FlightInfoSheet: View {
         }
         .presentationDetents([.medium, .large])
         .preferredColorScheme(.dark)
-    }
-
-    private func statusColor(for phase: ChecklistPhase) -> Color {
-        if phase == appState.currentPhase {
-            return .aviationGold
-        }
-        switch appState.getPhaseStatus(phase) {
-        case .completed: return .aviationGreen
-        case .skipped: return .orange
-        case .missingAction: return .aviationRed
-        case .notStarted: return .dimText.opacity(0.3)
-        }
     }
 }
 

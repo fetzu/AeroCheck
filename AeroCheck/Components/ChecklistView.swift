@@ -222,9 +222,10 @@ struct ChecklistView: View {
     var engineHourEndInputFormat: String? = nil
     var onEditEngineHourStart: (() -> Void)? = nil
     var onEditEngineHourEnd: (() -> Void)? = nil
+    /// Owned by the parent so tap-to-advance / completion include revealed items. (Phase 3.1)
+    @Binding var hiddenItemsRevealed: Bool
 
     // State for temporarily revealing hidden items
-    @State private var hiddenItemsRevealed: Bool = false
     @State private var revealLongPressProgress: CGFloat = 0
     @State private var revealLongPressTimer: Timer?
     
@@ -286,7 +287,8 @@ struct ChecklistView: View {
          engineHourStartInputFormat: String? = nil,
          engineHourEndInputFormat: String? = nil,
          onEditEngineHourStart: (() -> Void)? = nil,
-         onEditEngineHourEnd: (() -> Void)? = nil) {
+         onEditEngineHourEnd: (() -> Void)? = nil,
+         hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
         self.onEngineStart = onEngineStart
@@ -323,6 +325,7 @@ struct ChecklistView: View {
         self.engineHourEndInputFormat = engineHourEndInputFormat
         self.onEditEngineHourStart = onEditEngineHourStart
         self.onEditEngineHourEnd = onEditEngineHourEnd
+        self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
     var body: some View {

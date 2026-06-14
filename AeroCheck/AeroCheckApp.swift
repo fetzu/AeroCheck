@@ -420,8 +420,10 @@ final class SystemAppearance: ObservableObject {
     }
 
     static func systemIsDark() -> Bool {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
-        return scene?.traitCollection.userInterfaceStyle == .dark
+        // The window scene's trait inherits the app's window-level `.preferredColorScheme(.dark)`
+        // override (so it always reads dark). The SCREEN's trait sits above the window override and
+        // reflects the actual DEVICE appearance. (UIScreen.main is deprecated but is the reliable
+        // device-level source here.)
+        UIScreen.main.traitCollection.userInterfaceStyle == .dark
     }
 }

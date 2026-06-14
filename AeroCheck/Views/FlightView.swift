@@ -593,6 +593,43 @@ struct FlightView: View {
         pulseActionButton = false
     }
 
+    // MARK: - Phase-aware context zone
+
+    /// Phase-aware quick-access tiles for the HUD context column, from a fixed vocabulary so it's
+    /// predictable. This first slice surfaces the synchronous, reuse-existing tiles — V-SPEEDS (a
+    /// labeled tap showing the phase-relevant target inline) and the departure/approach BRIEFINGS for
+    /// their phase clusters. Async tiles (FREQ / NEAREST / WIND) are a later slice. (Phase 3.1)
+    @ViewBuilder
+    private var phaseContextZone: some View {
+        let phase = appState.currentPhase
+        HStack(spacing: 10) {
+            // V-SPEEDS — a labeled tap (no longer a hidden one), with the phase target speed inline.
+            PhaseContextTile(
+                title: L10n.Button.speeds,
+                systemImage: "speedometer",
+                value: appState.activeChecklist.targetSpeed(for: phase).map { "\($0)" },
+                action: { showSpeedReference = true }
+            )
+
+            // Departure / approach briefing for the relevant phase clusters (always reachable here,
+            // not only via the inline checklist button that scrolls away).
+            if phase.briefingType == .departure {
+                PhaseContextTile(
+                    title: L10n.Briefing.departureTitle,
+                    systemImage: "airplane.departure",
+                    action: { showDepartureBriefing = true }
+                )
+            }
+            if phase.briefingType == .approach {
+                PhaseContextTile(
+                    title: L10n.Briefing.approachTitle,
+                    systemImage: "airplane.arrival",
+                    action: { showApproachBriefing = true }
+                )
+            }
+        }
+    }
+
     // MARK: - Compact Layout (iPhone)
 
     private func mainChecklistAreaCompact(geometry: GeometryProxy) -> some View {
@@ -1226,8 +1263,13 @@ struct FlightView: View {
                 miniMap
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 10)
             }
+
+            // Phase-aware quick-access tiles (V-SPEEDS, briefings) below the map. (Phase 3.1)
+            phaseContextZone
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
 
             // Phase overview header
             Text(L10n.Flight.phases)
@@ -2061,6 +2103,50 @@ struct HoldToConfirmButton: View {
         .accessibilityHint(L10n.ChecklistAction.holdToConfirm)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }
+    }
+}
+
+// MARK: - Phase Context Tile
+
+/// A compact, tappable quick-access tile for the phase-aware HUD zone: icon + label, with an optional
+/// inline value (e.g. the phase target speed). Presentational; the caller supplies the action. (Phase 3.1)
+struct PhaseContextTile: View {
+    let title: String
+    let systemImage: String
+    var value: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 17))
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if let value {
+                    Text(value)
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                }
+            }
+            .foregroundColor(.primaryText)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.aviationBlue.opacity(0.18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(Color.aviationBlue.opacity(0.45), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement()
+        .accessibilityLabel(value != nil ? "\(title), \(value!)" : title)
+        .accessibilityAddTraits(.isButton)
     }
 }
 

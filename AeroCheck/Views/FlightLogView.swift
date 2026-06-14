@@ -1252,62 +1252,39 @@ struct FlightDetailView: View {
     
     /// The scrollable detail content, shared by the standalone (pushed) and embedded (2-column) modes.
     private var sectionsStack: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
+            flightHeader
             mapSection
             altitudeGraphSection
-            detailsSection
+            timelineCard
+            engineHoursCard
             planVsActualSection
+            nameField
             notesSection
-            actionsSection
+            actionsRow
         }
-    }
-
-    /// A slim header for embedded mode (no nav bar): flight name + share. (3.3)
-    private var embeddedHeader: some View {
-        HStack {
-            Text(flight.displayName)
-                .font(.system(size: 17, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-            Spacer()
-            Button { showShareCustomization = true } label: {
-                Image(systemName: "square.and.arrow.up").font(.system(size: 17)).foregroundColor(.aviationGold)
-            }
-            .accessibilityLabel(L10n.FlightDetail.exportFormatTitle)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(Color.panelBackground)
     }
 
     var body: some View {
         Group {
             if embedded {
-                VStack(spacing: 0) {
-                    embeddedHeader
-                    ScrollView {
-                        sectionsStack
-                            .padding(24)
-                    }
-                    .background(Color.cockpitBackground)
+                ScrollView {
+                    sectionsStack
+                        .padding(20)
                 }
+                .background(Color.cockpitBackground)
             } else {
                 NavigationStack {
                     ScrollView {
                         sectionsStack
-                            .padding(24)
+                            .padding(20)
                     }
                     .background(Color.cockpitBackground)
-                    .navigationTitle(flight.displayName)
+                    .navigationTitle("")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button(L10n.Button.close) { dismiss() }
-                        }
-                        ToolbarItem(placement: .primaryAction) {
-                            Button(action: { showShareCustomization = true }) {
-                                Image(systemName: "square.and.arrow.up")
-                            }
                         }
                     }
                 }
@@ -1446,164 +1423,213 @@ struct FlightDetailView: View {
 
     // MARK: - Details Section
 
-    private var detailsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(L10n.FlightDetail.flightDetails)
-                .font(.captionText)
+    // MARK: - Redesigned detail sections (round 8)
+
+    private var routeTitle: String {
+        if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
+            return "\(dep) → \(arr)"
+        }
+        return flight.displayName
+    }
+
+    private var subtitleLine: String {
+        var parts: [String] = []
+        if let date = flight.startTime {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMM yyyy"
+            parts.append(formatter.string(from: date))
+        }
+        parts.append(flight.aircraftRegistration ?? flight.airplane)
+        if !flight.name.isEmpty { parts.append(flight.name) }
+        return parts.joined(separator: " · ")
+    }
+
+    private var headerDistanceText: String {
+        let nm = appState.settings.distanceInNauticalMiles
+        let value = nm ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
+        return "\(Int(value.rounded())) \(nm ? "NM" : "km")"
+    }
+
+    private var headerMaxAltText: String {
+        let meters = flight.cachedMaxAltitudeMeters ?? flight.gpsTrack.map { $0.altitude }.max()
+        guard let meters else { return "—" }
+        return "\(Int((meters * 3.28084).rounded())) ft"
+    }
+
+    /// Route hero + subtitle + the four stat chips (replaces the old details/route cards). (round 8)
+    private var flightHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(routeTitle)
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(subtitleLine)
+                .font(.system(size: 13))
                 .foregroundColor(.secondaryText)
-
-            VStack(spacing: 12) {
-                DetailRow(label: L10n.FlightDetail.aircraft, value: flight.aircraftRegistration ?? flight.airplane, icon: "airplane")
-                if let aircraftType = flight.aircraftType {
-                    DetailRow(label: L10n.FlightDetail.aircraftType, value: aircraftType, icon: "info.circle")
-                }
-                if let version = flight.checklistVersion {
-                    DetailRow(label: L10n.FlightDetail.checklistVersion, value: version, icon: "doc.text")
-                }
-                DetailRow(label: L10n.FlightDetail.date, value: flight.formattedDate, icon: "calendar")
-                DetailRow(label: L10n.FlightDetail.flightTime, value: flight.formattedDuration, icon: "clock.fill")
-                DetailRow(label: L10n.FlightDetail.distance, value: flight.formattedDistance, icon: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                DetailRow(label: L10n.FlightDetail.gpsPoints, value: "\(flight.gpsTrack.count)", icon: "location.fill")
-                if flight.goAroundCount > 0 {
-                    DetailRow(label: L10n.FlightDetail.goArounds, value: "\(flight.goAroundCount)", icon: "arrow.up.right.circle.fill")
-                }
-                if flight.touchAndGoCount > 0 {
-                    DetailRow(label: L10n.FlightDetail.touchAndGoes, value: "\(flight.touchAndGoCount)", icon: "arrow.triangle.2.circlepath")
-                }
-                if flight.fullStopCount > 1 {
-                    DetailRow(label: L10n.FlightDetail.fullStops, value: "\(flight.fullStopCount)", icon: "stop.circle.fill")
-                }
+                .lineLimit(2)
+            HStack(spacing: 8) {
+                statChip("TIME", flight.formattedDuration, .aviationGreen)
+                statChip("LDG", "\(flight.totalLandings)", .primaryText)
+                statChip(appState.settings.distanceInNauticalMiles ? "NM" : "KM", headerDistanceText, .primaryText)
+                statChip("MAX", headerMaxAltText, .primaryText)
             }
-            .cardStyle()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            // Route
-            if flight.departureAirportIdent != nil || flight.arrivalAirportIdent != nil || flight.flightPlan != nil {
-                Text(L10n.FlightDetail.route.uppercased())
-                    .font(.captionText)
-                    .foregroundColor(.secondaryText)
-                    .padding(.top, 8)
+    private func statChip(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(.dimText)
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        )
+    }
 
-                VStack(spacing: 12) {
-                    if let dep = flight.departureAirportIdent {
-                        DetailRow(label: L10n.FlightDetail.departure, value: dep, icon: "airplane.departure")
-                    }
-                    if let waypoints = flight.flightPlan?.waypoints, !waypoints.isEmpty {
-                        ForEach(waypoints) { wp in
-                            DetailRow(label: wp.name, value: wp.formattedCoordinate, icon: "mappin")
-                        }
-                    }
-                    if let arr = flight.arrivalAirportIdent {
-                        DetailRow(label: L10n.FlightDetail.arrival, value: arr, icon: "airplane.arrival")
-                    }
-                }
-                .cardStyle()
-            }
-
-            // Chronological times
-            Text(L10n.FlightDetail.flightTimes)
-                .font(.captionText)
-                .foregroundColor(.secondaryText)
-                .padding(.top, 8)
-
+    /// Chronological event timeline card. (round 8)
+    private var timelineCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("TIMELINE").font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
             VStack(spacing: 12) {
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
                 }
-
                 if let engineStart = flight.engineStartTime {
                     TimelineRow(label: L10n.FlightDetail.engineStart, time: timeString(from: engineStart), icon: "engine.combustion", color: .aviationGreen)
                 }
-
                 if let blockOff = flight.blockOffTime {
                     TimelineRow(label: L10n.FlightDetail.blockOff, time: timeString(from: blockOff), icon: "door.left.hand.open", color: .dimText)
                 }
-
                 if let lineUp = flight.lineUpTime {
                     TimelineRow(label: L10n.FlightDetail.takeoff, time: timeString(from: lineUp), icon: "airplane.departure", color: .aviationAmber)
                 }
-
                 if let landing = flight.landingTime {
                     TimelineRow(label: L10n.FlightDetail.landing, time: timeString(from: landing), icon: "airplane.arrival", color: .aviationBlue)
                 }
-
                 if let blockOn = flight.blockOnTime {
                     TimelineRow(label: L10n.FlightDetail.blockOn, time: timeString(from: blockOn), icon: "door.left.hand.closed", color: .dimText)
                 }
-
                 if let shutdown = flight.engineShutdownTime {
                     TimelineRow(label: L10n.FlightDetail.engineShutdown, time: timeString(from: shutdown), icon: "engine.combustion.fill", color: .aviationRed)
                 }
-
                 if let stop = flight.stopTime {
                     TimelineRow(label: L10n.FlightDetail.sessionEnd, time: timeString(from: stop), icon: "stop.fill", color: .dimText)
                 }
             }
             .cardStyle()
+        }
+    }
 
-            // Engine Hours (if logged)
-            if flight.engineHourStart != nil || flight.engineHourEnd != nil {
-                Text(L10n.FlightDetail.engineHours.uppercased())
-                    .font(.captionText)
-                    .foregroundColor(.secondaryText)
-                    .padding(.top, 8)
-
+    @ViewBuilder
+    private var engineHoursCard: some View {
+        if flight.engineHourStart != nil || flight.engineHourEnd != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.FlightDetail.engineHours.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
                 VStack(spacing: 12) {
                     if let start = flight.engineHourStart {
-                        ToggleableHoursRow(
-                            label: L10n.FlightDetail.hoursBefore,
-                            hours: start,
-                            inputFormat: flight.engineHourStartInputFormat,
-                            icon: "gauge.with.dots.needle.0percent",
-                            color: .aviationGold
-                        )
+                        ToggleableHoursRow(label: L10n.FlightDetail.hoursBefore, hours: start, inputFormat: flight.engineHourStartInputFormat, icon: "gauge.with.dots.needle.0percent", color: .aviationGold)
                     }
                     if let end = flight.engineHourEnd {
-                        ToggleableHoursRow(
-                            label: L10n.FlightDetail.hoursAfter,
-                            hours: end,
-                            inputFormat: flight.engineHourEndInputFormat,
-                            icon: "gauge.with.dots.needle.100percent",
-                            color: .aviationGold
-                        )
+                        ToggleableHoursRow(label: L10n.FlightDetail.hoursAfter, hours: end, inputFormat: flight.engineHourEndInputFormat, icon: "gauge.with.dots.needle.100percent", color: .aviationGold)
                     }
                     if let formatted = flight.engineHoursFlownFormatted {
                         HStack {
-                            Image(systemName: "clock.badge.checkmark")
-                                .foregroundColor(.aviationGreen)
-                                .frame(width: 24)
-                            Text(L10n.FlightDetail.hoursFlown)
-                                .font(.bodyText)
-                                .foregroundColor(.secondaryText)
+                            Image(systemName: "clock.badge.checkmark").foregroundColor(.aviationGreen).frame(width: 24)
+                            Text(L10n.FlightDetail.hoursFlown).font(.bodyText).foregroundColor(.secondaryText)
                             Spacer()
-                            Text(formatted)
-                                .font(.system(size: 16, weight: .medium, design: .monospaced))
-                                .foregroundColor(.aviationGreen)
+                            Text(formatted).font(.system(size: 16, weight: .medium, design: .monospaced)).foregroundColor(.aviationGreen)
                         }
                     }
                 }
                 .cardStyle()
             }
+        }
+    }
 
-            // Flight Name editing (moved to be between FLIGHT TIMES and NOTES)
-            Text(L10n.FlightDetail.flightName)
-                .font(.captionText)
-                .foregroundColor(.secondaryText)
-                .padding(.top, 8)
-
+    private var nameField: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.FlightDetail.flightName).font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
             TextField(L10n.FlightDetail.namePlaceholder, text: $flightName)
                 .font(.bodyText)
                 .foregroundColor(.primaryText)
                 .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.cardBackground)
-                )
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
                 .onChange(of: flightName) { _, newValue in
                     appState.updateFlightName(flight, name: newValue)
                 }
         }
     }
-    
+
+    /// Compact actions row: nav plan (if any) · export · share card · delete. (round 8)
+    private var actionsRow: some View {
+        HStack(spacing: 8) {
+            if flight.flightPlan != nil {
+                detailActionButton(title: L10n.FlightDetail.navPlan, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
+            }
+            detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
+            Button { showShareCustomization = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "photo")
+                    Text("Share card").lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.aviationGold))
+            }
+            .buttonStyle(.plain)
+            Button { showDeleteAlert = true } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.aviationRed)
+                    .padding(.vertical, 11)
+                    .padding(.horizontal, 14)
+                    .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.aviationRed.opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showFlightPlan) {
+            if let savedFlightPlan = flight.flightPlan {
+                FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
+                    .environmentObject(appState)
+                    .environmentObject(flightPlanManager)
+                    .environmentObject(airportDataService)
+                    .environmentObject(openAIPDataService)
+            }
+        }
+    }
+
+    private func detailActionButton(title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                Text(title).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Plan vs Actual (3.3)
 
     /// Planned ETO vs actual ATO over each waypoint, with the delta, when the flight was flown against a
@@ -1710,55 +1736,6 @@ struct FlightDetailView: View {
     
     // MARK: - Actions Section
 
-    private var actionsSection: some View {
-        HStack(spacing: 8) {
-            // Flight Plan button (only shown if flight has saved flight plan data)
-            if let savedFlightPlan = flight.flightPlan {
-                Button(action: {
-                    showFlightPlan = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                        Text(L10n.FlightDetail.navPlan)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .sheet(isPresented: $showFlightPlan) {
-                    FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
-                        .environmentObject(appState)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(openAIPDataService)
-                }
-            }
-
-            Button(action: { showExportOptions = true }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.and.arrow.up")
-                    Text(L10n.FlightDetail.export)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-            Button(action: { showDeleteAlert = true }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "trash")
-                    Text(L10n.FlightDetail.delete)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(ActionButtonStyle(color: .aviationRed))
-        }
-    }
-    
     // MARK: - Helpers
 
     private func timeString(from date: Date) -> String {

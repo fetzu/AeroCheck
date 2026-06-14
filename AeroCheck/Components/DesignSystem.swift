@@ -1102,6 +1102,162 @@ struct CockpitInstrumentPanel: View {
     }
 }
 
+// MARK: - Cockpit Instrument Strip (live, safety-bearing)
+
+/// The real in-flight instrument strip for the revamped HUD: SPD / ALT / HDG in one horizontal
+/// Liquid-Glass panel with the color-blind-safe on-target bar — the look of `CockpitInstrumentPanel`,
+/// but carrying the live SAFETY behavior (stall annunciation + aural/haptic alert, GPS-failure flags,
+/// VoiceOver values). The safety LOGIC is the same shared, unit-tested code the boxed instruments use
+/// (`SpeedIndicatorView.annunciationState` / `.accessibilityValue` / `.targetBarFraction` / `.barState`,
+/// `AltimeterView.accessibilityValue`, `StallAlert`, `InstrumentFailureFlag`); only the visual layout
+/// is new. (Phase 3.1)
+struct CockpitInstrumentStrip: View {
+    let speedKnots: Double           // ground speed (display fallback)
+    let targetSpeed: Int?
+    let stallSpeed: Int
+    let gpsSignalStatus: GPSSignalStatus
+    var estimatedAirspeed: Double? = nil
+    var stallAlertEnabled: Bool = false
+    let altitudeFeet: Double
+    var headingDegrees: Double? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.cockpitTheme) private var theme
+    @State private var isFlashing = false
+
+    private var displaySpeed: Double { estimatedAirspeed ?? speedKnots }
+    private var showingEstimatedAirspeed: Bool { estimatedAirspeed != nil }
+
+    private var speedState: SpeedIndicatorView.SpeedState {
+        SpeedIndicatorView.annunciationState(
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed ?? 0, stallSpeed: stallSpeed,
+            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus)
+    }
+
+    private var showFailureFlag: Bool { gpsSignalStatus == .degraded || gpsSignalStatus == .lost }
+    private var failureLevel: InstrumentFailureFlag.FailureLevel { gpsSignalStatus == .lost ? .lost : .degraded }
+
+    private var speedColor: Color {
+        switch speedState {
+        case .onTarget: return theme.onTarget
+        case .offTarget: return theme.warning
+        case .stall:
+            if reduceMotion { return theme.danger }
+            return isFlashing ? theme.danger : theme.danger.opacity(0.7)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            speedCell
+            divider
+            altitudeCell
+            divider
+            headingCell
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 8)
+        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+        .onAppear { if speedState == .stall { startFlash(); fireStallAlert() } }
+        .onChange(of: speedState) { _, newState in
+            if newState == .stall { startFlash(); fireStallAlert() } else { stopFlash() }
+        }
+    }
+
+    private var speedCell: some View {
+        cell(label: showingEstimatedAirspeed ? "IAS kt" : "SPD kt") {
+            ZStack {
+                VStack(spacing: 0) {
+                    if gpsSignalStatus != .lost {
+                        // Static STALL annunciation — never colour/flash alone, steady under Reduce Motion.
+                        if speedState == .stall {
+                            Text("STALL").font(.system(size: 11, weight: .heavy)).foregroundColor(theme.danger)
+                        }
+                        Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(max(0, displaySpeed)))")
+                            .font(.system(size: 30, weight: .medium, design: .monospaced))
+                            .foregroundColor(speedColor)
+                            .minimumScaleFactor(0.6).lineLimit(1)
+                        if let target = targetSpeed {
+                            InstrumentTargetBar(
+                                fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: target),
+                                state: SpeedIndicatorView.barState(for: speedState)
+                            )
+                            .frame(maxWidth: 72).padding(.top, 3)
+                        }
+                    }
+                }
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
+            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
+            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var altitudeCell: some View {
+        cell(label: "ALT ft") {
+            ZStack {
+                if gpsSignalStatus != .lost {
+                    Text("\(Int(max(0, altitudeFeet)))")
+                        .font(.system(size: 24, weight: .medium, design: .monospaced))
+                        .foregroundColor(theme.textPrimary)
+                        .minimumScaleFactor(0.5).lineLimit(1)
+                }
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Altitude")
+        .accessibilityValue(AltimeterView.accessibilityValue(altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var headingCell: some View {
+        cell(label: "HDG") {
+            Text(headingDegrees.map { String(format: "%03d°", (Int($0.rounded()) % 360 + 360) % 360) } ?? "---")
+                .font(.system(size: 24, weight: .medium, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+            Text("track").font(.system(size: 10)).foregroundColor(theme.textSecondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Heading")
+        .accessibilityValue(headingDegrees.map { "\((Int($0.rounded()) % 360 + 360) % 360) degrees track" } ?? "unknown")
+    }
+
+    private var divider: some View {
+        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 44)
+    }
+
+    @ViewBuilder
+    private func cell<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 2) {
+            Text(label).font(.system(size: 11)).foregroundColor(theme.textSecondary)
+            content()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func fireStallAlert() { if stallAlertEnabled { StallAlert.shared.trigger() } }
+
+    private func startFlash() {
+        guard !reduceMotion else { return }
+        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) { isFlashing = true }
+    }
+    private func stopFlash() {
+        withAnimation(.easeInOut(duration: 0.1)) { isFlashing = false }
+    }
+}
+
 // MARK: - Cockpit Hero Checklist Item (Phase 3.1 HUD)
 
 /// The one-glance centerpiece of the revamped in-flight HUD: the CURRENT checklist item rendered

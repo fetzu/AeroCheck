@@ -803,13 +803,13 @@ struct FlightView: View {
                 quickEventButton(
                     title: L10n.ChecklistAction.goAround(language: language),
                     systemImage: "arrow.up.right.circle.fill",
-                    tint: .aviationAmber,
+                    tint: .orange,   // distinct from the gold NEXT (not red/green), caution semantics
                     action: performGoAround
                 )
                 quickEventButton(
                     title: L10n.ChecklistAction.touchAndGo(language: language),
                     systemImage: "arrow.triangle.2.circlepath",
-                    tint: .aviationBlue,
+                    tint: .altimeterBlue,
                     action: performTouchAndGo
                 )
             }
@@ -819,23 +819,22 @@ struct FlightView: View {
 
     private func quickEventButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Image(systemName: systemImage).font(.system(size: 18, weight: .bold))
                 Text(title)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            // Match the action-button family (HoldToConfirmButton): white label, solid tint border,
-            // tinted fill, same height — not the muted outline it had. (round 6 feedback)
-            .foregroundColor(.primaryText)
+            // Match the solid action-button family (NEXT / TimestampActionButton): SOLID tint fill,
+            // black label, corner 14, and the same ~60pt height so they're flush with NEXT. (round 6)
+            .foregroundColor(.black)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
+            .frame(height: 60)
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.18))
-                    RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
-                }
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(tint)
+                    .shadow(color: tint.opacity(0.4), radius: 6, x: 0, y: 3)
             )
         }
         .accessibilityLabel(title)

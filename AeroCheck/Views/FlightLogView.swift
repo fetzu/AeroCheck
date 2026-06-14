@@ -20,34 +20,19 @@ struct FlightLogView: View {
     @State private var exportAllZipData: Data?
     @State private var isPreparingExportAll = false
     
-    @State private var statPeriod: StatPeriod = .all
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// Year scope for the dashboard + list (nil = all time). Defaults to the current year, like a logbook.
+    @State private var selectedYear: Int? = Calendar.current.component(.year, from: Date())
+    /// Optional aircraft filter (registration); nil = all aircraft.
+    @State private var selectedAircraft: String? = nil
 
     enum ExportAllType: Sendable {
         case gpx
         case json
     }
 
-    /// Period scope for the dashboard stats + list. (3.3 Flight Log revamp)
-    enum StatPeriod: String, CaseIterable, Identifiable {
-        case days30, days90, year, all
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .days30: return "30d"
-            case .days90: return "90d"
-            case .year: return "Year"
-            case .all: return "All"
-            }
-        }
-        func includes(_ date: Date, now: Date) -> Bool {
-            switch self {
-            case .all: return true
-            case .year: return date >= (Calendar.current.date(byAdding: .year, value: -1, to: now) ?? now)
-            case .days90: return date >= now.addingTimeInterval(-90 * 86_400)
-            case .days30: return date >= now.addingTimeInterval(-30 * 86_400)
-            }
-        }
-    }
+    /// Per-aircraft accent palette for the hours-by-aircraft bars.
+    private static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationGreen, .aviationAmber, .orange]
     
     var body: some View {
         NavigationStack {
@@ -69,20 +54,15 @@ struct FlightLogView: View {
                     flightList
                 }
             }
-            .navigationTitle(L10n.FlightLog.title)
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Close + import only — the big in-content "Flight Log" title and the gold Export
+                // button live in the dashboard header now (concept). (3.3)
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.FlightLog.close) { dismiss() }
                 }
-                
-                ToolbarItemGroup(placement: .primaryAction) {
-                    if !appState.flights.isEmpty {
-                        Button(action: { showExportAllOptions = true }) {
-                            Image(systemName: "square.and.arrow.up.on.square")
-                        }
-                    }
-                    
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: { showImportPicker = true }) {
                         Image(systemName: "square.and.arrow.down")
                     }
@@ -321,13 +301,41 @@ struct FlightLogView: View {
         }
     }
 
-    /// Sorted flights scoped to the selected period (drives both the dashboard stats and the list).
+    /// Sorted flights scoped to the selected year + aircraft (drives the dashboard stats and the list).
     private var filteredFlights: [Flight] {
-        let now = Date()
-        return sortedFlights.filter { flight in
-            guard let start = flight.startTime else { return statPeriod == .all }
-            return statPeriod.includes(start, now: now)
+        sortedFlights.filter { flight in
+            let yearOK: Bool = {
+                guard let year = selectedYear else { return true }
+                guard let start = flight.startTime else { return false }
+                return Calendar.current.component(.year, from: start) == year
+            }()
+            let aircraftOK = selectedAircraft == nil || (flight.aircraftRegistration ?? flight.airplane) == selectedAircraft
+            return yearOK && aircraftOK
         }
+    }
+
+    /// Distinct years present in the log, most recent first.
+    private var availableYears: [Int] {
+        Set(appState.flights.compactMap { $0.startTime.map { Calendar.current.component(.year, from: $0) } }).sorted(by: >)
+    }
+
+    /// Distinct aircraft (registration) present in the log, in recency order.
+    private var availableAircraft: [String] {
+        var seen: [String] = []
+        for flight in sortedFlights {
+            let key = flight.aircraftRegistration ?? flight.airplane
+            if !seen.contains(key) { seen.append(key) }
+        }
+        return seen
+    }
+
+    private func nauticalMiles(_ km: Double) -> Double { km * 0.539957 }
+
+    private static func groupedNumber(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
     }
 
     private var flightList: some View {
@@ -361,19 +369,21 @@ struct FlightLogView: View {
                 }
             }
 
-            // Surfaced export-all row (in addition to the toolbar button). (3.3)
+            // Surfaced export row: "Export all" + inline format buttons. (3.3 concept)
             if !appState.flights.isEmpty {
                 Section {
-                    Button {
-                        showExportAllOptions = true
-                    } label: {
-                        Label("Export all flights (\(appState.flights.count))", systemImage: "square.and.arrow.up.on.square")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.aviationGold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
+                    HStack(spacing: 8) {
+                        Text("Export all")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondaryText)
+                        Spacer()
+                        exportFormatButton("GPX") { exportAllType = .gpx; prepareExportAll() }
+                        exportFormatButton("JSON") { exportAllType = .json; prepareExportAll() }
+                        exportFormatButton("ZIP") { showExportAllOptions = true }
                     }
-                    .listRowBackground(Color.cardBackground)
+                    .padding(.vertical, 4)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
             }
         }
@@ -393,25 +403,114 @@ struct FlightLogView: View {
 
     private var dashboardHeader: some View {
         let stats = aggregateStats(filteredFlights)
-        return VStack(spacing: 12) {
-            Picker("Period", selection: $statPeriod) {
-                ForEach(StatPeriod.allCases) { period in
-                    Text(period.label).tag(period)
-                }
+        return VStack(spacing: 14) {
+            // Title + year selector + export (concept header)
+            HStack(alignment: .center) {
+                Text("Flight Log")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.primaryText)
+                Spacer()
+                yearMenu
+                exportButton
             }
-            .pickerStyle(.segmented)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), unit: "h", systemImage: "clock", tint: .aviationGold)
-                LogMetricCard(label: "Flights", value: "\(stats.flights)", unit: "", systemImage: "airplane", tint: .altimeterBlue)
-                LogMetricCard(label: "Landings", value: "\(stats.landings)", unit: "", systemImage: "airplane.arrival", tint: .aviationGreen)
-                LogMetricCard(label: "Distance", value: "\(Int(stats.distanceKm.rounded()))", unit: "km", systemImage: "point.topleft.down.to.point.bottomright.curvepath", tint: .aviationAmber)
+            // Metric cards — 4 across on regular width, 2 on compact.
+            LazyVGrid(columns: metricColumns, spacing: 10) {
+                LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
+                LogMetricCard(label: "Flights", value: "\(stats.flights)")
+                LogMetricCard(label: "Landings", value: "\(stats.landings)")
+                LogMetricCard(label: "NM", value: Self.groupedNumber(nauticalMiles(stats.distanceKm)))
             }
 
             if stats.byAircraft.count > 1 {
                 hoursByAircraft(stats.byAircraft)
             }
+
+            // List header: count + aircraft filter.
+            HStack {
+                Text("\(filteredFlights.count) FLIGHTS")
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.5)
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                filterMenu
+            }
+            .padding(.top, 2)
         }
+    }
+
+    private var metricColumns: [GridItem] {
+        let count = horizontalSizeClass == .compact ? 2 : 4
+        return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
+    }
+
+    private var yearMenu: some View {
+        Menu {
+            Picker("Year", selection: $selectedYear) {
+                Text("All time").tag(Int?.none)
+                ForEach(availableYears, id: \.self) { year in
+                    Text(verbatim: "\(year)").tag(Int?.some(year))
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(selectedYear.map { "\($0)" } ?? "All")
+                    .font(.system(size: 15, weight: .medium))
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundColor(.primaryText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+            )
+        }
+    }
+
+    private var exportButton: some View {
+        Button { showExportAllOptions = true } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "square.and.arrow.up").font(.system(size: 14, weight: .semibold))
+                Text("Export").font(.system(size: 15, weight: .semibold))
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold))
+        }
+        .accessibilityLabel(L10n.FlightLog.exportAllTitle)
+    }
+
+    private var filterMenu: some View {
+        Menu {
+            Picker("Aircraft", selection: $selectedAircraft) {
+                Text("All aircraft").tag(String?.none)
+                ForEach(availableAircraft, id: \.self) { aircraft in
+                    Text(aircraft).tag(String?.some(aircraft))
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    .font(.system(size: 13))
+                Text(selectedAircraft ?? "Filter").font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
+        }
+    }
+
+    private func exportFormatButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private func hoursByAircraft(_ items: [(name: String, hours: Double)]) -> some View {
@@ -421,7 +520,7 @@ struct FlightLogView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(0.6)
                 .foregroundColor(.secondaryText)
-            ForEach(items, id: \.name) { item in
+            ForEach(Array(items.enumerated()), id: \.element.name) { index, item in
                 HStack(spacing: 8) {
                     Text(item.name)
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
@@ -431,19 +530,19 @@ struct FlightLogView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.06))
-                            Capsule().fill(Color.aviationGold.opacity(0.65))
+                            Capsule().fill(Self.aircraftPalette[index % Self.aircraftPalette.count])
                                 .frame(width: max(4, geo.size.width * CGFloat(item.hours / max(maxHours, 0.01))))
                         }
                     }
-                    .frame(height: 6)
+                    .frame(height: 7)
                     Text(String(format: "%.1f", item.hours))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(.secondaryText)
-                        .frame(width: 38, alignment: .trailing)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .frame(width: 40, alignment: .trailing)
                 }
             }
         }
-        .padding(12)
+        .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14)
@@ -687,36 +786,28 @@ struct CustomLabelStyle: LabelStyle {
 struct LogMetricCard: View {
     let label: String
     let value: String
-    var unit: String = ""
-    let systemImage: String
-    var tint: Color = .aviationGold
+    var valueColor: Color = .primaryText
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: systemImage).font(.system(size: 13)).foregroundColor(tint)
-                Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondaryText)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value)
-                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                if !unit.isEmpty {
-                    Text(unit).font(.system(size: 13, weight: .medium)).foregroundColor(.dimText)
-                }
-            }
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.secondaryText)
+            Text(value)
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundColor(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.cardBackground)
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label): \(value) \(unit)")
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -750,102 +841,90 @@ struct MiniSparkline: View {
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
-    @EnvironmentObject var appState: AppState
     let flight: Flight
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Date indicator
-            VStack(spacing: 2) {
-                Text(dayString)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundColor(.aviationGold)
-                Text(monthString)
-                    .font(.system(size: 12, weight: .medium))
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                // Route (or circuit) + date
+                HStack(spacing: 8) {
+                    routeView
+                    Text(shortDate)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondaryText)
+                    Spacer(minLength: 0)
+                }
+                // Stats: duration · landings · NM · aircraft
+                Text(statsLine)
+                    .font(.system(size: 13))
                     .foregroundColor(.secondaryText)
-                    .textCase(.uppercase)
-                Text(yearString)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(.aviationGold)
+                    .lineLimit(1)
             }
-            .frame(width: 50)
-            
-            // Flight info
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(flight.displayName)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                    
-                    Spacer()
-                    
-                    Text(flight.formattedDuration)
-                        .font(.system(size: 16, weight: .medium, design: .monospaced))
-                        .foregroundColor(.aviationGreen)
-                }
-                
-                HStack(spacing: 14) {
-                    if let startTime = flight.startTime {
-                        Label {
-                            Text(timeString(from: startTime))
-                        } icon: {
-                            Image(systemName: "clock")
-                                .font(.system(size: 10))
-                        }
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                        .labelStyle(CustomLabelStyle(spacing: 4))
-                    }
 
-                    Label {
-                        Text(flight.formattedDistance)
-                    } icon: {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                            .font(.system(size: 10))
-                    }
-                    .font(.captionText)
-                    .foregroundColor(.secondaryText)
-                    .labelStyle(CustomLabelStyle(spacing: 4))
-
-                    if flight.totalLandings > 0 {
-                        Label {
-                            Text("\(flight.totalLandings)")
-                        } icon: {
-                            Image(systemName: "airplane.arrival")
-                                .font(.system(size: 10))
-                        }
-                        .font(.captionText)
-                        .foregroundColor(.secondaryText)
-                        .labelStyle(CustomLabelStyle(spacing: 4))
-                    }
-
-                    // Circuits tag — touch-and-go count (pattern training). (3.3)
-                    if flight.touchAndGoCount > 0 {
-                        Label {
-                            Text("\(flight.touchAndGoCount)")
-                        } icon: {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 10))
-                        }
-                        .font(.captionText)
-                        .foregroundColor(.altimeterBlue)
-                        .labelStyle(CustomLabelStyle(spacing: 4))
-                    }
-                }
-
-                // Altitude sparkline glance. (3.3)
-                if sparklineAltitudes.count >= 2 {
-                    MiniSparkline(values: sparklineAltitudes, color: .aviationGold.opacity(0.65))
-                        .frame(height: 20)
-                        .padding(.top, 2)
-                }
+            if sparklineAltitudes.count >= 2 {
+                MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
+                    .frame(width: 72, height: 28)
             }
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 14))
                 .foregroundColor(.dimText)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
+    }
+
+    /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (3.3)
+    @ViewBuilder
+    private var routeView: some View {
+        if flight.touchAndGoCount > 0 {
+            HStack(spacing: 7) {
+                Text(primaryIdent)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 13))
+                    .foregroundColor(.altimeterBlue)
+                Text("circuits")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().strokeBorder(Color.orange.opacity(0.6), lineWidth: 1))
+            }
+        } else if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
+            HStack(spacing: 6) {
+                Text(dep).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)).foregroundColor(.dimText)
+                Text(arr).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+            }
+        } else {
+            Text(flight.displayName)
+                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+        }
+    }
+
+    private var primaryIdent: String {
+        flight.departureAirportIdent ?? flight.arrivalAirportIdent ?? (flight.aircraftRegistration ?? flight.airplane)
+    }
+
+    private var statsLine: String {
+        var parts: [String] = [flight.formattedDuration]
+        if flight.totalLandings > 0 {
+            parts.append("\(flight.totalLandings) landing\(flight.totalLandings == 1 ? "" : "s")")
+        }
+        let nm = flight.distanceKilometers * 0.539957
+        if nm >= 0.5 { parts.append("\(Int(nm.rounded())) NM") }
+        parts.append(flight.aircraftRegistration ?? flight.airplane)
+        return parts.joined(separator: " · ")
+    }
+
+    private var shortDate: String {
+        guard let date = flight.startTime else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM"
+        return formatter.string(from: date)
     }
 
     /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (3.3)
@@ -856,36 +935,6 @@ struct FlightRowView: View {
         return (0..<60).map { alts[Int((Double($0) * step).rounded())] }
     }
     
-    private var dayString: String {
-        guard let date = flight.startTime else { return "--" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-    
-    private var monthString: String {
-        guard let date = flight.startTime else { return "---" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
-    }
-
-    private var yearString: String {
-        guard let date = flight.startTime else { return "----" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        return formatter.string(from: date)
-    }
-
-    private func timeString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        if appState.settings.alwaysUseUTC {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-            return formatter.string(from: date) + " (UTC)"
-        }
-        return formatter.string(from: date)
-    }
 }
 
 // MARK: - Flight Detail View

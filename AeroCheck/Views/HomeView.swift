@@ -175,7 +175,7 @@ struct HomeView: View {
                 .environmentObject(appState)
                 .environmentObject(locationManager)
         }
-        .sheet(isPresented: $showFlightLog) {
+        .fullScreenCover(isPresented: $showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)

@@ -25,6 +25,8 @@ struct FlightLogView: View {
     @State private var selectedYear: Int? = Calendar.current.component(.year, from: Date())
     /// Optional aircraft filter (registration); nil = all aircraft.
     @State private var selectedAircraft: String? = nil
+    /// Selected flight for the iPad-landscape 2-column detail pane. (3.3)
+    @State private var selectedFlight: Flight? = nil
 
     enum ExportAllType: Sendable {
         case gpx
@@ -51,7 +53,20 @@ struct FlightLogView: View {
                 } else if appState.flights.isEmpty {
                     emptyState
                 } else {
-                    flightList
+                    GeometryReader { geo in
+                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                            // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
+                            HStack(spacing: 0) {
+                                flightList(twoColumn: true)
+                                    .frame(width: geo.size.width * 0.42)
+                                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                                detailColumn
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        } else {
+                            flightList(twoColumn: false)
+                        }
+                    }
                 }
             }
             .navigationTitle("")
@@ -338,7 +353,27 @@ struct FlightLogView: View {
         return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
     }
 
-    private var flightList: some View {
+    /// The right-hand detail pane in the 2-column layout (or a placeholder until a flight is picked).
+    @ViewBuilder
+    private var detailColumn: some View {
+        if let selected = selectedFlight, appState.flights.contains(where: { $0.id == selected.id }) {
+            FlightDetailView(flight: selected, embedded: true)
+                .id(selected.id)
+        } else {
+            VStack(spacing: 12) {
+                Image(systemName: "airplane.circle")
+                    .font(.system(size: 48))
+                    .foregroundColor(.dimText)
+                Text("Select a flight")
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondaryText)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.cockpitBackground)
+        }
+    }
+
+    private func flightList(twoColumn: Bool) -> some View {
         List {
             Section {
                 dashboardHeader
@@ -358,10 +393,19 @@ struct FlightLogView: View {
                         .listRowSeparator(.hidden)
                 } else {
                     ForEach(filteredFlights) { flight in
-                        NavigationLink(destination: FlightDetailView(flight: flight)) {
-                            FlightRowView(flight: flight)
+                        if twoColumn {
+                            // 2-column: tap selects the right-pane detail (no push).
+                            Button { selectedFlight = flight } label: {
+                                FlightRowView(flight: flight)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(selectedFlight?.id == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
+                        } else {
+                            NavigationLink(destination: FlightDetailView(flight: flight)) {
+                                FlightRowView(flight: flight)
+                            }
+                            .listRowBackground(Color.cardBackground)
                         }
-                        .listRowBackground(Color.cardBackground)
                     }
                     .onDelete { indexSet in
                         deleteFlights(at: indexSet)
@@ -946,6 +990,9 @@ struct FlightDetailView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
     let flight: Flight
+    /// When true, render without the NavigationStack/Close chrome so it can sit in the iPad-landscape
+    /// 2-column detail pane. (3.3)
+    var embedded: Bool = false
 
     @State private var flightName: String = ""
     @State private var notes: String = ""
@@ -995,45 +1042,70 @@ struct FlightDetailView: View {
         }
     }
     
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Map
-                    mapSection
+    /// The scrollable detail content, shared by the standalone (pushed) and embedded (2-column) modes.
+    private var sectionsStack: some View {
+        VStack(spacing: 24) {
+            mapSection
+            altitudeGraphSection
+            detailsSection
+            planVsActualSection
+            notesSection
+            actionsSection
+        }
+    }
 
-                    // Altitude graph
-                    altitudeGraphSection
-
-                    // Flight details
-                    detailsSection
-
-                    // Plan vs actual (only when flown against a saved plan with recorded times)
-                    planVsActualSection
-
-                    // Notes
-                    notesSection
-
-                    // Actions
-                    actionsSection
-                }
-                .padding(24)
+    /// A slim header for embedded mode (no nav bar): flight name + share. (3.3)
+    private var embeddedHeader: some View {
+        HStack {
+            Text(flight.displayName)
+                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+            Spacer()
+            Button { showShareCustomization = true } label: {
+                Image(systemName: "square.and.arrow.up").font(.system(size: 17)).foregroundColor(.aviationGold)
             }
-            .background(Color.cockpitBackground)
-            .navigationTitle(flight.displayName)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.close) { dismiss() }
+            .accessibilityLabel(L10n.FlightDetail.exportFormatTitle)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .background(Color.panelBackground)
+    }
+
+    var body: some View {
+        Group {
+            if embedded {
+                VStack(spacing: 0) {
+                    embeddedHeader
+                    ScrollView {
+                        sectionsStack
+                            .padding(24)
+                    }
+                    .background(Color.cockpitBackground)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showShareCustomization = true }) {
-                        Image(systemName: "square.and.arrow.up")
+            } else {
+                NavigationStack {
+                    ScrollView {
+                        sectionsStack
+                            .padding(24)
+                    }
+                    .background(Color.cockpitBackground)
+                    .navigationTitle(flight.displayName)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(L10n.Button.close) { dismiss() }
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            Button(action: { showShareCustomization = true }) {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
                     }
                 }
+                .preferredColorScheme(.dark)
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             flightName = flight.name
             notes = flight.notes

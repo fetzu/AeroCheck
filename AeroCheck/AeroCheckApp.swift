@@ -53,6 +53,7 @@ struct AeroCheckApp: App {
                 // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
                 .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemAppearance.isDark)))
                 .preferredColorScheme(.dark)
+                .onAppear { systemAppearance.attachIfNeeded() }
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -401,29 +402,50 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
 
 // MARK: - System Appearance
 
-/// Publishes the DEVICE's light/dark setting for the `.system` night-mode preference. Read from the
-/// window scene's trait collection so it is NOT masked by the app's window-level
-/// `.preferredColorScheme(.dark)` override, and refreshed when the app returns to the foreground (which
-/// covers the user toggling the device appearance while away). (Phase 3.1)
+/// Publishes the DEVICE's light/dark setting for the `.system` night-mode preference.
+///
+/// The app forces `.preferredColorScheme(.dark)` on its main window, which masks the device appearance
+/// from EVERY trait collection in that window (and, it turns out, the scene and screen too). The only
+/// source independent of that override is a SEPARATE, hidden window that follows the system — its
+/// trait reflects the real device appearance and fires trait-change callbacks live (so a Control-Centre
+/// dark-mode toggle updates immediately, no foregrounding needed). (Phase 3.1)
 final class SystemAppearance: ObservableObject {
-    @Published private(set) var isDark: Bool = SystemAppearance.systemIsDark()
+    @Published private(set) var isDark: Bool = false
+    private var probeWindow: UIWindow?
 
-    init() {
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(refresh),
-            name: UIApplication.didBecomeActiveNotification, object: nil)
+    /// Attach the hidden probe window once a scene exists. Safe to call repeatedly.
+    func attachIfNeeded() {
+        guard probeWindow == nil else { return }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return }
+
+        let probe = AppearanceProbeViewController()
+        probe.onChange = { [weak self] dark in
+            guard let self, self.isDark != dark else { return }
+            self.isDark = dark
+        }
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = probe
+        window.overrideUserInterfaceStyle = .unspecified   // follow the SYSTEM, not the app's dark override
+        window.windowLevel = UIWindow.Level.normal - 1     // behind everything
+        window.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        window.isUserInteractionEnabled = false
+        window.isHidden = false                            // must be in the hierarchy to receive traits
+        probeWindow = window
+
+        isDark = probe.traitCollection.userInterfaceStyle == .dark
     }
+}
 
-    @objc private func refresh() {
-        let value = SystemAppearance.systemIsDark()
-        if value != isDark { isDark = value }
-    }
+/// Hidden probe whose trait collection follows the SYSTEM (its window doesn't carry the app's dark
+/// override), so it can report the real device appearance and react to changes.
+final class AppearanceProbeViewController: UIViewController {
+    var onChange: ((Bool) -> Void)?
 
-    static func systemIsDark() -> Bool {
-        // The window scene's trait inherits the app's window-level `.preferredColorScheme(.dark)`
-        // override (so it always reads dark). The SCREEN's trait sits above the window override and
-        // reflects the actual DEVICE appearance. (UIScreen.main is deprecated but is the reliable
-        // device-level source here.)
-        UIScreen.main.traitCollection.userInterfaceStyle == .dark
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (vc: AppearanceProbeViewController, _) in
+            vc.onChange?(vc.traitCollection.userInterfaceStyle == .dark)
+        }
     }
 }

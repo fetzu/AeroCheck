@@ -21,6 +21,7 @@ struct FlightView: View {
     @State private var showDepartureBriefing = false
     @State private var showApproachBriefing = false
     @State private var showFlightInfo = false
+    @State private var showGPSStatus = false
     @State private var showNavigationMode = false
     @State private var timerTrigger = false
     @State private var pulseNextButton = false
@@ -228,9 +229,9 @@ struct FlightView: View {
                 .foregroundColor(.primaryText)
                 .id(timerTrigger)
 
-            // GPS status — icon AND label reflect the signal status; tap to open the flight details
-            // (GPS guide + points/times). (Phase 3.1 feedback)
-            Button(action: { showFlightInfo = true }) {
+            // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
+            // popup (status guide + advanced fix info). (Phase 3.1 feedback)
+            Button(action: { showGPSStatus = true }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 12))
@@ -294,6 +295,9 @@ struct FlightView: View {
         }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
+        }
+        .sheet(isPresented: $showGPSStatus) {
+            GPSStatusSheet(locationManager: locationManager)
         }
         // ⚠️ DO NOT CHANGE the presentation style (.fullScreenCover) unless explicitly asked
         // by the user. Using .fullScreenCover guarantees all content is visible on both iPad
@@ -610,8 +614,19 @@ struct FlightView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(nextButtonReady ? Color.aviationGold : Color.aviationGold.opacity(0.22))
                 )
+                // When ready, a soft highlight breathes INSIDE the button (it starts greyed, so an inner
+                // pulse reads better than scaling the whole button). (Phase 3.1 feedback)
+                .overlay {
+                    if nextButtonReady {
+                        TimelineView(.animation) { context in
+                            let phase = (sin(context.date.timeIntervalSinceReferenceDate * 2.4) + 1) / 2
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.white.opacity(0.04 + phase * 0.18))
+                                .allowsHitTesting(false)
+                        }
+                    }
+                }
             }
-            .modifier(PulseModifier(isActive: pulseNextButton && nextButtonReady))
         }
     }
 
@@ -2191,6 +2206,7 @@ struct FlightInfoSheet: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager
     @Environment(\.dismiss) var dismiss
+    @State private var detent: PresentationDetent = .large  // open extended
 
     private var gpsStatusColor: Color {
         // PR-01: a non-recording GPS during an active flight is an alarm, not a dim.
@@ -2305,7 +2321,7 @@ struct FlightInfoSheet: View {
                 }
 
             }
-            .navigationTitle(L10n.Flight.info)
+            .navigationTitle("HUD Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -2313,8 +2329,115 @@ struct FlightInfoSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - GPS Status Sheet (dedicated)
+
+/// Dedicated GPS popup: current signal, a guide explaining each status, and the advanced fix info iOS
+/// exposes (accuracy, fix time, position/altitude). Satellite count / raw GNSS time aren't available
+/// through CoreLocation. (Phase 3.1 feedback)
+struct GPSStatusSheet: View {
+    @EnvironmentObject var appState: AppState
+    @ObservedObject var locationManager: LocationManager
+    @Environment(\.dismiss) var dismiss
+    @State private var detent: PresentationDetent = .large
+
+    private var statusColor: Color {
+        if appState.isFlightActive && !locationManager.isTracking { return .aviationRed }
+        guard locationManager.isTracking else { return .dimText }
+        switch locationManager.gpsSignalStatus {
+        case .good: return .aviationGreen
+        case .degraded: return .orange
+        case .lost: return .aviationRed
+        }
+    }
+
+    private var statusText: String {
+        guard locationManager.isTracking else { return L10n.GPS.signalInactive }
+        switch locationManager.gpsSignalStatus {
+        case .good: return L10n.GPS.signalGood
+        case .degraded: return L10n.GPS.signalDegraded
+        case .lost: return L10n.GPS.signalLost
+        }
+    }
+
+    private func fixTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        if appState.settings.alwaysUseUTC {
+            f.timeZone = TimeZone(identifier: "UTC")
+            return f.string(from: date) + " UTC"
+        }
+        return f.string(from: date)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section(L10n.GPS.currentStatus) {
+                    HStack {
+                        Image(systemName: "location.fill").foregroundColor(statusColor)
+                        Text(L10n.GPS.signal)
+                        Spacer()
+                        Text(statusText).foregroundColor(statusColor).fontWeight(.semibold)
+                    }
+                    if locationManager.backgroundTrackingLimited {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.aviationAmber)
+                            Text(L10n.GPS.backgroundLimited).foregroundColor(.aviationAmber)
+                        }
+                        .font(.system(size: 13))
+                    }
+                }
+
+                if let loc = locationManager.currentLocation {
+                    Section("Fix details") {
+                        detailRow("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
+                        detailRow("Vertical accuracy", loc.verticalAccuracy >= 0 ? "± \(Int(loc.verticalAccuracy.rounded())) m" : "—")
+                        detailRow("Fix time", fixTime(loc.timestamp))
+                        detailRow("Altitude (MSL)", "\(Int((loc.altitude * 3.28084).rounded())) ft")
+                        detailRow("Position", String(format: "%.5f, %.5f", loc.coordinate.latitude, loc.coordinate.longitude))
+                        detailRow(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")
+                    }
+                }
+
+                Section(L10n.GPS.statusTitle) {
+                    guideRow(.aviationGreen, L10n.GPS.signalGood, L10n.GPS.statusGoodDesc)
+                    guideRow(.orange, L10n.GPS.signalDegraded, L10n.GPS.statusDegradedDesc)
+                    guideRow(.aviationRed, L10n.GPS.signalLost, L10n.GPS.statusLostDesc)
+                }
+            }
+            .navigationTitle(L10n.GPS.statusTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.close) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large], selection: $detent)
+        .preferredColorScheme(.dark)
+    }
+
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundColor(.secondaryText)
+            Spacer()
+            Text(value).font(.system(.body, design: .monospaced))
+        }
+    }
+
+    private func guideRow(_ color: Color, _ title: String, _ desc: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle().fill(color).frame(width: 10, height: 10).padding(.top, 5)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).fontWeight(.semibold).foregroundColor(color)
+                Text(desc).font(.system(size: 13)).foregroundColor(.secondaryText)
+            }
+        }
     }
 }
 

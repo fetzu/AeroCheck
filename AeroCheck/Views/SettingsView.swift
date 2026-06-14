@@ -47,13 +47,54 @@ struct SettingsView: View {
             case .about: return L10n.Settings.aboutSubtitle
             }
         }
+        /// Per-section accent for the cockpit icon circle. (Phase 3.5 redesign)
+        var tint: Color {
+            switch self {
+            case .aircraft: return .aviationGold
+            case .checklist: return .altimeterBlue
+            case .navigation: return .aviationGreen
+            case .flightPlanning: return .orange
+            case .sync: return .altimeterBlue
+            case .companion: return .aviationGold
+            case .about: return .secondaryText
+            }
+        }
+        /// Optional row badge (the Beta tag on flight planning).
+        var badge: String? {
+            switch self {
+            case .flightPlanning: return L10n.Tag.beta
+            default: return nil
+            }
+        }
     }
 
     var body: some View {
         NavigationSplitView {
-            List(Section.allCases, selection: $selection) { section in
-                SettingsRow(icon: section.icon, title: section.title, subtitle: section.subtitle)
+            List(selection: $selection) {
+                // Quick-access cockpit-theme picker, surfaced above the sections (non-selectable). (3.5)
+                themePickerCard
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+
+                ForEach(Section.allCases) { section in
+                    SettingsRow(
+                        icon: section.icon,
+                        title: section.title,
+                        subtitle: section.subtitle,
+                        tint: section.tint,
+                        badge: section.badge,
+                        isSelected: section == selection
+                    )
+                    .tag(section)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.cockpitBackground.ignoresSafeArea())
             .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -67,6 +108,33 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (3.5)
+    private var themePickerCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(L10n.Settings.theme)
+                .font(.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundColor(.secondaryText)
+            Picker(L10n.Settings.theme, selection: Binding(
+                get: { appState.settings.themePreference },
+                set: { appState.settings.themePreference = $0; appState.saveSettings() }
+            )) {
+                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
+                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
+                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
+                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        )
     }
 
     @ViewBuilder

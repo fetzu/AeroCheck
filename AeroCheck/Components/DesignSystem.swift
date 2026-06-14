@@ -956,34 +956,70 @@ struct PulseModifier: ViewModifier {
 // MARK: - Settings Row
 
 /// A navigation row component for the settings hub, displaying an icon, title, and subtitle
+/// A settings-hub section row, styled as a cockpit card (tinted icon circle + title/subtitle +
+/// chevron). The reference implementation of the Phase 3 cockpit language for list surfaces: dark
+/// `cardBackground`, per-section accent in a soft circle, a gold-bordered selected state for the iPad
+/// split view, and an optional badge (e.g. BETA). Title/subtitle use semantic fonts so they scale
+/// with Dynamic Type. (Phase 3.5 redesign reference)
 struct SettingsRow: View {
     let icon: String
     let title: String
     let subtitle: String
+    var tint: Color = .aviationGold
+    var badge: String? = nil
+    var isSelected: Bool = false
 
     var body: some View {
-        HStack(spacing: 14) {
-            // Icon in a rounded rectangle
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.aviationGold)
-                .frame(width: 32, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.aviationGold.opacity(0.15))
-                )
+        HStack(spacing: 13) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.16))
+                    .frame(width: 38, height: 38)
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                    .foregroundColor(.primary)
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundColor(.primaryText)
+                    if let badge {
+                        Text(badge)
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(tint))
+                    }
+                }
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.secondaryText)
                     .lineLimit(1)
             }
+
+            Spacer(minLength: 6)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.dimText.opacity(0.7))
+                .accessibilityHidden(true)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(isSelected ? Color.aviationGold.opacity(0.7) : Color.white.opacity(0.06),
+                                      lineWidth: isSelected ? 1.5 : 1)
+                )
+        )
+        .accessibilityElement(children: .combine)
     }
 }
 

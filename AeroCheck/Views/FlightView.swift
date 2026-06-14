@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import CoreLocation
 import MapKit
+import UIKit
 
 /// Main flight view displayed during an active flight
 struct FlightView: View {
@@ -606,19 +607,10 @@ struct FlightView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(nextButtonReady ? Color.aviationGold : Color.aviationGold.opacity(0.22))
                 )
-                // When ready, a soft highlight breathes INSIDE the button (it starts greyed, so an inner
-                // pulse reads better than scaling the whole button). (Phase 3.1 feedback)
-                .overlay {
-                    if nextButtonReady {
-                        TimelineView(.animation) { context in
-                            let phase = (sin(context.date.timeIntervalSinceReferenceDate * 2.4) + 1) / 2
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color.white.opacity(0.04 + phase * 0.18))
-                                .allowsHitTesting(false)
-                        }
-                    }
-                }
             }
+            // When the phase becomes ready, the button itself pulses a few times then settles (finite,
+            // not a loop) — replaces the continuous inner breathing. (round 6 feedback)
+            .modifier(NextReadyPulse(isActive: nextButtonReady))
         }
     }
 
@@ -829,7 +821,6 @@ struct FlightView: View {
                 title: "V-SPEEDS",
                 systemImage: "speedometer",
                 tint: .aviationGreen,
-                value: appState.activeChecklist.targetSpeed(for: phase).map { "\($0)" },
                 action: { openReference(.vSpeeds) }
             )
 
@@ -2449,10 +2440,12 @@ enum HUDReference: Identifiable, Equatable {
         }
     }
 
-    /// Header accent for the panel chrome (matches the phase-context tiles: green ref, gold briefing).
+    /// Accent for the panel's icon + back chevron. GPS is neutral so the chrome never implies a signal
+    /// state (the live status colour lives inside the panel); briefings gold; v-speeds green. (round 6)
     var tint: Color {
         switch self {
-        case .vSpeeds, .gps: return .aviationGreen
+        case .vSpeeds: return .aviationGreen
+        case .gps: return .primaryText
         case .departureBriefing, .approachBriefing: return .aviationGold
         }
     }
@@ -2526,7 +2519,7 @@ struct HUDReferencePanel: View {
             Text(reference.title)
                 .font(.system(size: 13, weight: .bold))
                 .tracking(0.6)
-                .foregroundColor(reference.tint)
+                .foregroundColor(.primaryText)   // neutral title; the icon carries the accent (round 6)
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
@@ -2586,6 +2579,29 @@ private struct DrawerDragDismiss: ViewModifier {
 struct GPSStatusContent: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager
+    // Tap the value to switch units: Vertical defaults to metres, Altitude to feet. (round 6)
+    @State private var verticalInFeet = false
+    @State private var altitudeInMeters = false
+    @State private var positionCopied = false
+
+    /// When GPS is degraded/lost, a short reason shown under the status word ("why"). (round 6)
+    private var statusReason: String? {
+        guard locationManager.isTracking else { return nil }
+        switch locationManager.gpsSignalStatus {
+        case .good:
+            return nil
+        case .degraded:
+            if let acc = locationManager.currentLocation?.horizontalAccuracy, acc >= 0 {
+                return "Reduced accuracy · ± \(Int(acc.rounded())) m"
+            }
+            return "Weak signal"
+        case .lost:
+            if let ts = locationManager.currentLocation?.timestamp {
+                return "No position update for \(Int(Date().timeIntervalSince(ts).rounded())) s"
+            }
+            return "No position fix"
+        }
+    }
 
     private var statusColor: Color {
         if appState.isFlightActive && !locationManager.isTracking { return .aviationRed }
@@ -2618,7 +2634,7 @@ struct GPSStatusContent: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            // Current status
+            // Current status — when degraded/lost, the subtitle explains WHY.
             VStack(spacing: 10) {
                 HStack(spacing: 12) {
                     Image(systemName: "location.fill")
@@ -2628,9 +2644,9 @@ struct GPSStatusContent: View {
                         Text(statusText)
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(statusColor)
-                        Text(L10n.GPS.signal)
+                        Text(statusReason ?? L10n.GPS.signal)
                             .font(.system(size: 12))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(statusReason == nil ? .secondaryText : statusColor)
                     }
                     Spacer(minLength: 0)
                 }
@@ -2647,14 +2663,23 @@ struct GPSStatusContent: View {
             }
             .cardSection()
 
-            // Advanced fix info
+            // Advanced fix info — Vertical / Altitude tap to switch units; Position taps to copy.
             if let loc = locationManager.currentLocation {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     fixTile("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
-                    fixTile("Vertical", loc.verticalAccuracy >= 0 ? "± \(Int(loc.verticalAccuracy.rounded())) m" : "—")
+                    Button { verticalInFeet.toggle() } label: {
+                        fixTile("Vertical", verticalAccuracyText(loc), trailing: "arrow.left.arrow.right")
+                    }
+                    .buttonStyle(.plain)
                     fixTile("Fix time", fixTime(loc.timestamp))
-                    fixTile("Altitude (MSL)", "\(Int((loc.altitude * 3.28084).rounded())) ft")
-                    fixTile("Position", String(format: "%.5f, %.5f", loc.coordinate.latitude, loc.coordinate.longitude))
+                    Button { altitudeInMeters.toggle() } label: {
+                        fixTile("Altitude (MSL)", altitudeText(loc), trailing: "arrow.left.arrow.right")
+                    }
+                    .buttonStyle(.plain)
+                    Button { copyPosition(loc) } label: {
+                        fixTile("Position", positionText(loc), trailing: positionCopied ? "checkmark" : "doc.on.doc")
+                    }
+                    .buttonStyle(.plain)
                     fixTile(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")
                 }
             }
@@ -2673,16 +2698,48 @@ struct GPSStatusContent: View {
         }
     }
 
-    private func fixTile(_ label: String, _ value: String) -> some View {
+    private func verticalAccuracyText(_ loc: CLLocation) -> String {
+        guard loc.verticalAccuracy >= 0 else { return "—" }
+        return verticalInFeet
+            ? "± \(Int((loc.verticalAccuracy * 3.28084).rounded())) ft"
+            : "± \(Int(loc.verticalAccuracy.rounded())) m"
+    }
+
+    private func altitudeText(_ loc: CLLocation) -> String {
+        altitudeInMeters
+            ? "\(Int(loc.altitude.rounded())) m"
+            : "\(Int((loc.altitude * 3.28084).rounded())) ft"
+    }
+
+    private func positionText(_ loc: CLLocation) -> String {
+        String(format: "%.5f, %.5f", loc.coordinate.latitude, loc.coordinate.longitude)
+    }
+
+    private func copyPosition(_ loc: CLLocation) {
+        UIPasteboard.general.string = positionText(loc)
+        positionCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { positionCopied = false }
+    }
+
+    private func fixTile(_ label: String, _ value: String, trailing: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(.secondaryText)
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+                if let trailing {
+                    Image(systemName: trailing)
+                        .font(.system(size: 9))
+                        .foregroundColor(.dimText)
+                }
+                Spacer(minLength: 0)
+            }
             Text(value)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(.primaryText)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)

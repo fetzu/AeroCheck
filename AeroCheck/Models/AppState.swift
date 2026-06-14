@@ -1053,11 +1053,20 @@ class AppState: ObservableObject {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
         
-        // Advancing from the current phase: .missingAction if a required button wasn't pressed, else .completed.
-        phaseCompletionStatus[currentPhase] = currentPhase.hasMissingRequiredAction(
+        // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
+        // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
+        // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
+        // un-worked phase must read as skipped (orange), not done (green). (round 6 regression fix)
+        let checklistWorkedThrough = !settings.stepByStepHighlighting
+            || areAllItemsCompleted(learningMode: settings.learningMode)
+        if currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
             linedUp: lineUpTime != nil,
-            engineShutDown: engineShutdownTime != nil) ? .missingAction : .completed
+            engineShutDown: engineShutdownTime != nil) {
+            phaseCompletionStatus[currentPhase] = .missingAction
+        } else {
+            phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
+        }
         
         // Update highest completed phase
         if currentPhase.rawValue >= highestCompletedPhase.rawValue {

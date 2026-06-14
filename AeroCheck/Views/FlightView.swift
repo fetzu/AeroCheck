@@ -126,8 +126,12 @@ struct FlightView: View {
                 VStack(spacing: 0) {
                     mainChecklistAreaCompact(geometry: geometry)
                 }
+            } else if geometry.size.height > geometry.size.width {
+                // iPad PORTRAIT: vertical stack (instruments → checklist + NEXT → persistent map band).
+                // Portrait is >50% of iPad use, where the side-by-side columns are too cramped. (Phase 3.1)
+                portraitLayout
             } else {
-                // iPad two-column layout: checklist left, HUD context column (mini-map + instruments
+                // iPad LANDSCAPE two-column: checklist left, HUD context column (mini-map + instruments
                 // + phases + flight info) right. The right column carries enough now (Phase 3.1) to
                 // warrant ~40% rather than the old 1/4. (Phase 3.1 — proportion tuning)
                 HStack(spacing: 0) {
@@ -464,6 +468,57 @@ struct FlightView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
                 .background(Color.panelBackground)
+        }
+    }
+
+    // MARK: - iPad Portrait Layout (vertical stack)
+
+    /// iPad portrait stack: a top instruments strip (primary flight data), the reused header + hero
+    /// checklist + NEXT bar in the middle (takes the slack), and the persistent map band at the
+    /// bottom. Reuses `mainChecklistArea` wholesale so the checklist wiring isn't duplicated. (Phase 3.1)
+    private var portraitLayout: some View {
+        VStack(spacing: 0) {
+            // Instruments strip — primary flight data, glanceable at the top of the HUD.
+            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
+                portraitInstrumentStrip
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.panelBackground)
+            }
+
+            // Header + hero checklist + NEXT/nav bar (reused from the landscape main area); takes the
+            // vertical slack so the checklist scrolls in the middle.
+            mainChecklistArea
+
+            // Persistent glance map band at the bottom (tap to open the full nav map).
+            if appState.isFlightActive {
+                miniMap
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
+        }
+        .background(Color.cockpitBackground)
+    }
+
+    /// Speed + altimeter side by side for the portrait top strip — reuses the same safety-bearing
+    /// instruments as the landscape side panel (stall alert, GPS failure flags, VoiceOver intact).
+    private var portraitInstrumentStrip: some View {
+        HStack(alignment: .top, spacing: 16) {
+            FlightSpeedIndicator(
+                gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
+                targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                stallSpeed: appState.activeChecklist.stallSpeed,
+                gpsSignalStatus: locationManager.gpsSignalStatus,
+                estimatedAirspeed: estimatedAirspeed,
+                stallAlertEnabled: appState.settings.stallAlertSound
+            )
+
+            Spacer()
+
+            FlightAltimeter(
+                altitudeFeet: locationManager.currentAltitudeFeet,
+                gpsSignalStatus: locationManager.gpsSignalStatus
+            )
         }
     }
 

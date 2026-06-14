@@ -23,8 +23,11 @@ struct ChecklistProgress {
 }
 
 /// Night-mode preference: off, always on, or follow the device's dark-mode setting. (Phase 3.1)
-enum NightModePreference: String, Codable, CaseIterable, Identifiable, Sendable {
-    case off, on, system
+/// The user's cockpit-theme choice. `auto` follows the device's light/dark setting (light→day,
+/// dark→night); `day`/`sunlight`/`night` force that palette. Replaces the old `NightModePreference`
+/// (off/on/system) — `sunlight` is the high-contrast bright-cockpit palette, now selectable. (Phase 3.5)
+enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
+    case auto, day, sunlight, night
     var id: String { rawValue }
 }
 
@@ -33,23 +36,29 @@ struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
-    /// Night mode dims instruments to a red/amber palette to protect dark adaptation (UX-09). 3-way:
-    /// off / on / follow the device dark-mode setting. (Phase 3.1; migrated from the old `nightMode` Bool)
-    var nightModePreference: NightModePreference = .off
+    /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
+    /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright
+    /// cockpits. (Phase 3.5; migrated from the old `nightModePreference`/`nightMode`)
+    var themePreference: ThemePreference = .day
 
     /// Whether night mode is effectively active, given the device's dark-mode state (only relevant for
-    /// `.system`). Resolved at the injection point because `.system` needs the live appearance.
+    /// `.auto`). Drives the `\.isNightMode` env (instrument dimming). Sunlight is NOT night.
     func effectiveNightMode(systemIsDark: Bool) -> Bool {
-        switch nightModePreference {
-        case .off: return false
-        case .on: return true
-        case .system: return systemIsDark
+        switch themePreference {
+        case .night: return true
+        case .auto: return systemIsDark
+        case .day, .sunlight: return false
         }
     }
 
-    /// The active cockpit theme mode (Phase 3.0/3.1). `.sunlight` becomes selectable when its picker lands.
+    /// The active cockpit theme mode (Phase 3.0/3.1/3.5) resolved against the live device appearance.
     func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
-        effectiveNightMode(systemIsDark: systemIsDark) ? .night : .day
+        switch themePreference {
+        case .day: return .day
+        case .sunlight: return .sunlight
+        case .night: return .night
+        case .auto: return systemIsDark ? .night : .day
+        }
     }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
@@ -145,7 +154,7 @@ struct AppSettings: Codable, Equatable {
         case selectedAircraft
         case selectedRemoteAircraftId
         case keepScreenOn
-        case nightModePreference
+        case themePreference
         case gpsRecordingInterval
         case showSpeedReference
         case stepByStepHighlighting
@@ -180,7 +189,8 @@ struct AppSettings: Codable, Equatable {
 
     /// Legacy keys read only for backward-compatible migration (not encoded).
     private enum LegacyCodingKeys: String, CodingKey {
-        case nightMode
+        case nightMode            // oldest: Bool
+        case nightModePreference  // Phase 3.1: "off"/"on"/"system"
     }
 
     // Default initializer (needed because we have a custom decoder)
@@ -193,14 +203,24 @@ struct AppSettings: Codable, Equatable {
         selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
         selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? true
-        // 3-way night mode; migrate the legacy `nightMode` Bool from older saves.
-        if let pref = try container.decodeIfPresent(NightModePreference.self, forKey: .nightModePreference) {
-            nightModePreference = pref
-        } else if let legacyContainer = try? decoder.container(keyedBy: LegacyCodingKeys.self),
-                  let legacy = try? legacyContainer.decodeIfPresent(Bool.self, forKey: .nightMode) {
-            nightModePreference = legacy ? .on : .off
+        // Theme preference (auto/day/sunlight/night). Migrate older saves:
+        //   nightModePreference "off"→.day "on"→.night "system"→.auto  ·  legacy nightMode Bool true→.night.
+        if let pref = try container.decodeIfPresent(ThemePreference.self, forKey: .themePreference) {
+            themePreference = pref
+        } else if let legacyContainer = try? decoder.container(keyedBy: LegacyCodingKeys.self) {
+            if let oldPref = try? legacyContainer.decodeIfPresent(String.self, forKey: .nightModePreference) {
+                switch oldPref {
+                case "on": themePreference = .night
+                case "system": themePreference = .auto
+                default: themePreference = .day
+                }
+            } else if let legacy = try? legacyContainer.decodeIfPresent(Bool.self, forKey: .nightMode) {
+                themePreference = legacy ? .night : .day
+            } else {
+                themePreference = .day
+            }
         } else {
-            nightModePreference = .off
+            themePreference = .day
         }
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true

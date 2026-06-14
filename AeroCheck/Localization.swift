@@ -321,6 +321,13 @@ enum L10n {
         static let nightModeOff = String(localized: "settings.display.nightMode.off")
         static let nightModeOn = String(localized: "settings.display.nightMode.on")
         static let nightModeSystem = String(localized: "settings.display.nightMode.system")
+        // Cockpit theme (Phase 3.5 — replaces the night-mode picker; sunlight now selectable)
+        static let theme = String(localized: "settings.display.theme")
+        static let themeFooter = String(localized: "settings.display.themeDesc")
+        static let themeAuto = String(localized: "settings.display.theme.auto")
+        static let themeDay = String(localized: "settings.display.theme.day")
+        static let themeSunlight = String(localized: "settings.display.theme.sunlight")
+        static let themeNight = String(localized: "settings.display.theme.night")
 
         // Navigation
         static let navigation = String(localized: "settings.navigation")

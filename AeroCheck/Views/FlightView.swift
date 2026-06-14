@@ -2439,16 +2439,17 @@ struct FlightInfoSheet: View {
                         toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
                         rowDivider
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(L10n.Settings.nightMode)
+                            Text(L10n.Settings.theme)
                                 .font(.system(size: 15))
                                 .foregroundColor(.primaryText)
-                            Picker(L10n.Settings.nightMode, selection: Binding(
-                                get: { appState.settings.nightModePreference },
-                                set: { appState.settings.nightModePreference = $0; appState.saveSettings() }
+                            Picker(L10n.Settings.theme, selection: Binding(
+                                get: { appState.settings.themePreference },
+                                set: { appState.settings.themePreference = $0; appState.saveSettings() }
                             )) {
-                                Text(L10n.Settings.nightModeOff).tag(NightModePreference.off)
-                                Text(L10n.Settings.nightModeOn).tag(NightModePreference.on)
-                                Text(L10n.Settings.nightModeSystem).tag(NightModePreference.system)
+                                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
+                                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
+                                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
+                                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
                             }
                             .pickerStyle(.segmented)
                             .labelsHidden()

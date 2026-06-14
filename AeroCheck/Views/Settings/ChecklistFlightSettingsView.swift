@@ -11,7 +11,7 @@ struct ChecklistFlightSettingsView: View {
     @State private var logEngineHours: Bool = false
     @State private var keepScreenOn: Bool = true
     @State private var alwaysUseUTC: Bool = false
-    @State private var nightModePreference: NightModePreference = .off
+    @State private var themePreference: ThemePreference = .day
     @State private var isLoadingSettings: Bool = false
 
     var body: some View {
@@ -31,7 +31,7 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: logEngineHours) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: keepScreenOn) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: alwaysUseUTC) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: nightModePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: themePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
     // MARK: - Checklist Section
@@ -77,10 +77,11 @@ struct ChecklistFlightSettingsView: View {
         Section {
             Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
             Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
-            Picker(L10n.Settings.nightMode, selection: $nightModePreference) {
-                Text(L10n.Settings.nightModeOff).tag(NightModePreference.off)
-                Text(L10n.Settings.nightModeOn).tag(NightModePreference.on)
-                Text(L10n.Settings.nightModeSystem).tag(NightModePreference.system)
+            Picker(L10n.Settings.theme, selection: $themePreference) {
+                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
+                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
+                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
+                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
             }
         } header: {
             Label(L10n.Settings.display, systemImage: "sun.max.fill")
@@ -88,7 +89,7 @@ struct ChecklistFlightSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.Settings.keepScreenOnFooter)
                 Text(L10n.Settings.alwaysUseUTCFooter)
-                Text(L10n.Settings.nightModeFooter)
+                Text(L10n.Settings.themeFooter)
             }
         }
     }
@@ -104,7 +105,7 @@ struct ChecklistFlightSettingsView: View {
         logEngineHours = appState.settings.logEngineHours
         keepScreenOn = appState.settings.keepScreenOn
         alwaysUseUTC = appState.settings.alwaysUseUTC
-        nightModePreference = appState.settings.nightModePreference
+        themePreference = appState.settings.themePreference
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -118,7 +119,7 @@ struct ChecklistFlightSettingsView: View {
         appState.settings.logEngineHours = logEngineHours
         appState.settings.keepScreenOn = keepScreenOn
         appState.settings.alwaysUseUTC = alwaysUseUTC
-        appState.settings.nightModePreference = nightModePreference
+        appState.settings.themePreference = themePreference
         appState.saveSettings()
         UIApplication.shared.isIdleTimerDisabled = keepScreenOn
     }

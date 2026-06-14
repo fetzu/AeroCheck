@@ -360,6 +360,22 @@ struct FlightLogView: View {
                     }
                 }
             }
+
+            // Surfaced export-all row (in addition to the toolbar button). (3.3)
+            if !appState.flights.isEmpty {
+                Section {
+                    Button {
+                        showExportAllOptions = true
+                    } label: {
+                        Label("Export all flights (\(appState.flights.count))", systemImage: "square.and.arrow.up.on.square")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.aviationGold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .listRowBackground(Color.cardBackground)
+                }
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -704,6 +720,33 @@ struct LogMetricCard: View {
     }
 }
 
+/// A tiny line sparkline (e.g. a flight's altitude profile) for list rows. Normalised to its own
+/// min/max so the shape is visible regardless of absolute values. (3.3)
+struct MiniSparkline: View {
+    let values: [Double]
+    var color: Color = .aviationGold
+
+    var body: some View {
+        GeometryReader { geo in
+            if values.count >= 2 {
+                let minValue = values.min() ?? 0
+                let maxValue = values.max() ?? 1
+                let range = max(maxValue - minValue, 1)
+                Path { path in
+                    for (index, value) in values.enumerated() {
+                        let x = geo.size.width * CGFloat(index) / CGFloat(values.count - 1)
+                        let y = geo.size.height * (1 - CGFloat((value - minValue) / range))
+                        if index == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                        else { path.addLine(to: CGPoint(x: x, y: y)) }
+                    }
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineJoin: .round))
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
@@ -764,23 +807,53 @@ struct FlightRowView: View {
                     .foregroundColor(.secondaryText)
                     .labelStyle(CustomLabelStyle(spacing: 4))
 
-                    Label {
-                        Text("\(flight.gpsTrack.count) \(L10n.FlightLog.pts)")
-                    } icon: {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 10))
+                    if flight.totalLandings > 0 {
+                        Label {
+                            Text("\(flight.totalLandings)")
+                        } icon: {
+                            Image(systemName: "airplane.arrival")
+                                .font(.system(size: 10))
+                        }
+                        .font(.captionText)
+                        .foregroundColor(.secondaryText)
+                        .labelStyle(CustomLabelStyle(spacing: 4))
                     }
-                    .font(.captionText)
-                    .foregroundColor(.secondaryText)
-                    .labelStyle(CustomLabelStyle(spacing: 4))
+
+                    // Circuits tag — touch-and-go count (pattern training). (3.3)
+                    if flight.touchAndGoCount > 0 {
+                        Label {
+                            Text("\(flight.touchAndGoCount)")
+                        } icon: {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10))
+                        }
+                        .font(.captionText)
+                        .foregroundColor(.altimeterBlue)
+                        .labelStyle(CustomLabelStyle(spacing: 4))
+                    }
+                }
+
+                // Altitude sparkline glance. (3.3)
+                if sparklineAltitudes.count >= 2 {
+                    MiniSparkline(values: sparklineAltitudes, color: .aviationGold.opacity(0.65))
+                        .frame(height: 20)
+                        .padding(.top, 2)
                 }
             }
-            
+
             Image(systemName: "chevron.right")
                 .font(.system(size: 14))
                 .foregroundColor(.dimText)
         }
         .padding(.vertical, 8)
+    }
+
+    /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (3.3)
+    private var sparklineAltitudes: [Double] {
+        let alts = flight.gpsTrack.map { $0.altitude * 3.28084 }
+        guard alts.count > 60 else { return alts }
+        let step = Double(alts.count - 1) / 59
+        return (0..<60).map { alts[Int((Double($0) * step).rounded())] }
     }
     
     private var dayString: String {
@@ -885,6 +958,9 @@ struct FlightDetailView: View {
 
                     // Flight details
                     detailsSection
+
+                    // Plan vs actual (only when flown against a saved plan with recorded times)
+                    planVsActualSection
 
                     // Notes
                     notesSection
@@ -1201,8 +1277,87 @@ struct FlightDetailView: View {
         }
     }
     
+    // MARK: - Plan vs Actual (3.3)
+
+    /// Planned ETO vs actual ATO over each waypoint, with the delta, when the flight was flown against a
+    /// saved plan that recorded times. Hidden otherwise. (3.3 Flight Log revamp)
+    @ViewBuilder
+    private var planVsActualSection: some View {
+        if let plan = flight.flightPlan {
+            let rows = plan.waypoints.filter { $0.estimatedTimeOver != nil || $0.actualTimeOver != nil }
+            if !rows.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("PLAN vs ACTUAL")
+                        .font(.system(size: 12, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundColor(.secondaryText)
+
+                    HStack {
+                        Text("Waypoint").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("ETO").frame(width: 60, alignment: .trailing)
+                        Text("ATO").frame(width: 60, alignment: .trailing)
+                        Text("Δ").frame(width: 56, alignment: .trailing)
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.dimText)
+
+                    ForEach(rows) { waypoint in
+                        HStack {
+                            Text(waypoint.name)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(waypoint.estimatedTimeOver.map(planTimeString) ?? "—")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundColor(.secondaryText)
+                                .frame(width: 60, alignment: .trailing)
+                            Text(waypoint.actualTimeOver.map(planTimeString) ?? "—")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                                .frame(width: 60, alignment: .trailing)
+                            planDeltaView(eto: waypoint.estimatedTimeOver, ato: waypoint.actualTimeOver)
+                                .frame(width: 56, alignment: .trailing)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.cardBackground))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func planDeltaView(eto: Date?, ato: Date?) -> some View {
+        if let eto, let ato {
+            let delta = ato.timeIntervalSince(eto)   // positive = behind/late
+            let minutes = Int(abs(delta)) / 60
+            let seconds = Int(abs(delta)) % 60
+            let sign = delta > 0.5 ? "+" : (delta < -0.5 ? "-" : "")
+            // Within a minute = on time (green); late = orange; early = blue.
+            let color: Color = abs(delta) < 60 ? .aviationGreen : (delta > 0 ? .orange : .altimeterBlue)
+            Text("\(sign)\(minutes):\(String(format: "%02d", seconds))")
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+        } else {
+            Text("—")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.dimText)
+        }
+    }
+
+    private func planTimeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        if appState.settings.alwaysUseUTC {
+            formatter.timeZone = TimeZone(identifier: "UTC")
+        }
+        return formatter.string(from: date)
+    }
+
     // MARK: - Notes Section
-    
+
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Notes
@@ -1614,43 +1769,62 @@ struct AltitudeChartView: View {
     /// Downsample target for the overview chart line.
     private static let maxChartPoints = 400
 
-    // PR-26: the altitude line and Y-range are computed ONCE (the line downsampled to ~400 points),
-    // cached in @State, and populated in onAppear — instead of being O(n) computed properties that
-    // re-ran on every body re-evaluation during a scrub of a multi-hour flight.
-    @State private var altitudeData: [(time: Date, altitude: Double)] = []
-    @State private var altitudeRange: ClosedRange<Double> = 0...1000
+    /// Which series the chart plots; toggled by the pilot. (3.3)
+    enum ChartMode: String, CaseIterable, Identifiable {
+        case altitude, speed
+        var id: String { rawValue }
+        var label: String { self == .altitude ? "Altitude" : "Speed" }
+        var unit: String { self == .altitude ? "ft" : "kt" }
+    }
+    @State private var mode: ChartMode = .altitude
 
-    /// Populate the cached chart line + Y-range once. The line is stride-downsampled; the Y-range is
-    /// taken from the FULL track so a peak between samples never clips the axis. (PR-26)
+    struct ChartSample { let time: Date; let value: Double }
+
+    // PR-26: each series + Y-range is computed ONCE (downsampled to ~400 points), cached in @State,
+    // populated in onAppear — not O(n) computed properties re-run on every scrub frame. Both altitude
+    // (ft) and speed (kt) are cached so the toggle is instant. (3.3 adds speed)
+    @State private var altitudeData: [ChartSample] = []
+    @State private var altitudeRange: ClosedRange<Double> = 0...1000
+    @State private var speedData: [ChartSample] = []
+    @State private var speedRange: ClosedRange<Double> = 0...100
+
+    private var displayData: [ChartSample] { mode == .altitude ? altitudeData : speedData }
+    private var displayRange: ClosedRange<Double> { mode == .altitude ? altitudeRange : speedRange }
+
+    /// Populate the cached series + Y-ranges once. Lines are stride-downsampled; the Y-range is taken
+    /// from the FULL track so a peak between samples never clips the axis. (PR-26 / 3.3)
     private func populateAltitudeCacheIfNeeded() {
         guard altitudeData.isEmpty, !gpsTrack.isEmpty else { return }
-        altitudeData = Self.downsampledAltitude(gpsTrack, maxPoints: Self.maxChartPoints)
+        altitudeData = Self.downsample(gpsTrack, maxPoints: Self.maxChartPoints) { $0.altitude * 3.28084 }
+        speedData = Self.downsample(gpsTrack, maxPoints: Self.maxChartPoints) { max(0, $0.speed * 1.94384) }
         let altsFeet = gpsTrack.map { $0.altitude * 3.28084 }
-        altitudeRange = Self.paddedAltitudeRange(min: altsFeet.min() ?? 0, max: altsFeet.max() ?? 1000)
+        altitudeRange = Self.paddedRange(min: altsFeet.min() ?? 0, max: altsFeet.max() ?? 1000, pad: 500, snap: 100)
+        let speedsKt = gpsTrack.map { max(0, $0.speed * 1.94384) }
+        speedRange = Self.paddedRange(min: 0, max: speedsKt.max() ?? 100, pad: 10, snap: 10)
     }
 
-    /// Stride-downsample the track to feet-altitude points, always keeping the last point so the
-    /// chart spans the full flight.
-    static func downsampledAltitude(_ track: [GPSPoint], maxPoints: Int) -> [(time: Date, altitude: Double)] {
-        let feet = track.map { (time: $0.timestamp, altitude: $0.altitude * 3.28084) }
-        guard feet.count > maxPoints, maxPoints > 1 else { return feet }
-        let step = Double(feet.count - 1) / Double(maxPoints - 1)
-        var result: [(time: Date, altitude: Double)] = []
+    /// Stride-downsample the track via a value extractor, always keeping the last point so the chart
+    /// spans the full flight.
+    static func downsample(_ track: [GPSPoint], maxPoints: Int, value: (GPSPoint) -> Double) -> [ChartSample] {
+        let samples = track.map { ChartSample(time: $0.timestamp, value: value($0)) }
+        guard samples.count > maxPoints, maxPoints > 1 else { return samples }
+        let step = Double(samples.count - 1) / Double(maxPoints - 1)
+        var result: [ChartSample] = []
         result.reserveCapacity(maxPoints + 1)
         var pos = 0.0
-        while Int(pos.rounded()) < feet.count {
-            result.append(feet[Int(pos.rounded())])
+        while Int(pos.rounded()) < samples.count {
+            result.append(samples[Int(pos.rounded())])
             pos += step
         }
-        if let last = feet.last, result.last?.time != last.time { result.append(last) }
+        if let last = samples.last, result.last?.time != last.time { result.append(last) }
         return result
     }
 
-    /// Y-range with 500 ft padding, snapped to 100 ft, never below 0.
-    static func paddedAltitudeRange(min minAlt: Double, max maxAlt: Double) -> ClosedRange<Double> {
-        let lowerBound = Swift.max(0, floor((minAlt - 500) / 100) * 100)
-        let upperBound = ceil((maxAlt + 500) / 100) * 100
-        return lowerBound...upperBound
+    /// Range with `pad` padding, snapped to `snap`, never below 0.
+    static func paddedRange(min minVal: Double, max maxVal: Double, pad: Double, snap: Double) -> ClosedRange<Double> {
+        let lowerBound = Swift.max(0, floor((minVal - pad) / snap) * snap)
+        let upperBound = ceil((maxVal + pad) / snap) * snap
+        return lowerBound...(upperBound > lowerBound ? upperBound : lowerBound + snap)
     }
 
     /// Flight event annotations to display on the chart
@@ -1689,11 +1863,11 @@ struct AltitudeChartView: View {
         return annotations
     }
 
-    /// Find the altitude at the selected time. Binary search (O(log n)) over the chronological track
-    /// instead of an O(n) `min(by:)` on every scrub frame. (PR-26)
-    private var selectedAltitude: Double? {
-        guard let time = selectedTime else { return nil }
-        return gpsTrack.closestByTimestamp(to: time).map { $0.altitude * 3.28084 }
+    /// Value (ft or kt, per `mode`) at the selected time. Binary search (O(log n)) over the
+    /// chronological track instead of an O(n) `min(by:)` on every scrub frame. (PR-26 / 3.3)
+    private var selectedValue: Double? {
+        guard let time = selectedTime, let point = gpsTrack.closestByTimestamp(to: time) else { return nil }
+        return mode == .altitude ? point.altitude * 3.28084 : max(0, point.speed * 1.94384)
     }
 
     var body: some View {
@@ -1702,23 +1876,31 @@ struct AltitudeChartView: View {
                 .font(.captionText)
                 .foregroundColor(.dimText)
         } else {
+          VStack(spacing: 8) {
+            // Speed ⇄ altitude toggle. (3.3)
+            Picker("Series", selection: $mode) {
+                Text("Altitude").tag(ChartMode.altitude)
+                Text("Speed").tag(ChartMode.speed)
+            }
+            .pickerStyle(.segmented)
+
             Chart {
-                // Altitude line
-                ForEach(altitudeData, id: \.time) { point in
+                // Series line
+                ForEach(displayData, id: \.time) { point in
                     LineMark(
                         x: .value("Time", point.time),
-                        y: .value("Altitude", point.altitude)
+                        y: .value(mode.label, point.value)
                     )
                     .foregroundStyle(Color.altimeterBlue)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                 }
 
                 // Area fill under the line
-                ForEach(altitudeData, id: \.time) { point in
+                ForEach(displayData, id: \.time) { point in
                     AreaMark(
                         x: .value("Time", point.time),
-                        yStart: .value("Baseline", altitudeRange.lowerBound),
-                        yEnd: .value("Altitude", point.altitude)
+                        yStart: .value("Baseline", displayRange.lowerBound),
+                        yEnd: .value(mode.label, point.value)
                     )
                     .foregroundStyle(
                         LinearGradient(
@@ -1748,19 +1930,19 @@ struct AltitudeChartView: View {
                 }
 
                 // Selection indicator
-                if let time = selectedTime, let altitude = selectedAltitude {
+                if let time = selectedTime, let value = selectedValue {
                     RuleMark(x: .value("Selected", time))
                         .foregroundStyle(Color.aviationGold.opacity(0.8))
                         .lineStyle(StrokeStyle(lineWidth: 2))
 
                     PointMark(
                         x: .value("Selected", time),
-                        y: .value("Altitude", altitude)
+                        y: .value(mode.label, value)
                     )
                     .foregroundStyle(Color.aviationGold)
                     .symbolSize(100)
                     .annotation(position: .top, spacing: 8) {
-                        Text("\(Int(altitude)) ft")
+                        Text("\(Int(value)) \(mode.unit)")
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
                             .padding(.horizontal, 6)
@@ -1787,17 +1969,17 @@ struct AltitudeChartView: View {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                         .foregroundStyle(Color.dimText.opacity(0.3))
                     AxisValueLabel {
-                        if let altitude = value.as(Double.self) {
-                            Text("\(Int(altitude)) ft")
+                        if let v = value.as(Double.self) {
+                            Text("\(Int(v)) \(mode.unit)")
                                 .font(.system(size: 10))
                                 .foregroundStyle(Color.secondaryText)
                         }
                     }
                 }
             }
-            .chartYScale(domain: altitudeRange)
+            .chartYScale(domain: displayRange)
             .chartYAxisLabel(position: .leading, alignment: .center) {
-                Text(L10n.FlightDetail.altitudeFtMSL)
+                Text(mode == .altitude ? L10n.FlightDetail.altitudeFtMSL : "Speed (kt)")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.secondaryText)
             }
@@ -1834,6 +2016,7 @@ struct AltitudeChartView: View {
                 }
             }
             .onAppear { populateAltitudeCacheIfNeeded() }
+          }
         }
     }
 }

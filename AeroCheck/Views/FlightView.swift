@@ -115,6 +115,10 @@ struct FlightView: View {
         )
     }
 
+    /// Width of the left (checklist) column in the iPad two-column layout; the HUD context column
+    /// takes the rest. Tune here. (Phase 3.1)
+    private static let checklistColumnFraction: CGFloat = 0.6
+
     var body: some View {
         GeometryReader { geometry in
             if isCompactWidth(geometry) {
@@ -123,15 +127,17 @@ struct FlightView: View {
                     mainChecklistAreaCompact(geometry: geometry)
                 }
             } else {
-                // iPad layout: side panel
+                // iPad two-column layout: checklist left, HUD context column (mini-map + instruments
+                // + phases + flight info) right. The right column carries enough now (Phase 3.1) to
+                // warrant ~40% rather than the old 1/4. (Phase 3.1 — proportion tuning)
                 HStack(spacing: 0) {
                     // Main checklist area
                     mainChecklistArea
-                        .frame(width: geometry.size.width * 0.75)
+                        .frame(width: geometry.size.width * Self.checklistColumnFraction)
 
-                    // Side panel
+                    // HUD context column
                     sidePanel
-                        .frame(width: geometry.size.width * 0.25)
+                        .frame(width: geometry.size.width * (1 - Self.checklistColumnFraction))
                         .background(Color.panelBackground)
                 }
             }

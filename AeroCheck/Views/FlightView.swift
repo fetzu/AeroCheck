@@ -215,6 +215,8 @@ struct FlightView: View {
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
 
+            circuitCounterChip
+
             Spacer()
 
             if companionConnectivityManager.connectionState == .connected {
@@ -818,22 +820,43 @@ struct FlightView: View {
     private func quickEventButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
-                Image(systemName: systemImage).font(.system(size: 18, weight: .semibold))
+                Image(systemName: systemImage).font(.system(size: 18, weight: .bold))
                 Text(title)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .foregroundColor(tint)
+            // Match the action-button family (HoldToConfirmButton): white label, solid tint border,
+            // tinted fill, same height — not the muted outline it had. (round 6 feedback)
+            .foregroundColor(.primaryText)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .frame(height: 54)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(tint.opacity(0.16))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(tint.opacity(0.5), lineWidth: 1))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.18))
+                    RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
+                }
             )
         }
         .accessibilityLabel(title)
+    }
+
+    /// Subtle circuit-stats readout in the HUD top bar (circuit mode only): touch-and-goes and, if any,
+    /// go-arounds done. Deliberately non-prominent — dim and small. (round 6 feedback)
+    @ViewBuilder
+    private var circuitCounterChip: some View {
+        if appState.isCircuitMode, let flight = appState.currentFlight {
+            HStack(spacing: 8) {
+                Label("\(flight.touchAndGoCount)", systemImage: "arrow.triangle.2.circlepath")
+                if flight.goAroundCount > 0 {
+                    Label("\(flight.goAroundCount)", systemImage: "arrow.up.right.circle")
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.secondaryText)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(flight.touchAndGoCount) touch and go, \(flight.goAroundCount) go around")
+        }
     }
 
     // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so

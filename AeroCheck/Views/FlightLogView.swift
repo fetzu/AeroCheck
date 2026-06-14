@@ -26,6 +26,8 @@ struct FlightLogView: View {
     @State private var selectedAircraft: String? = nil
     /// Selected flight for the iPad-landscape 2-column detail pane. (3.3)
     @State private var selectedFlight: Flight? = nil
+    /// Non-nil while the stats share-card customization sheet is open (snapshot of the current filter). (3.3)
+    @State private var statsShareData: StatsShareCardData? = nil
 
     enum ExportAllType: Sendable {
         case gpx
@@ -91,6 +93,9 @@ struct FlightLogView: View {
                     ZIPFile(data: zipData, filename: filename)
                 ])
             }
+        }
+        .sheet(item: $statsShareData) { data in
+            StatsShareCardCustomizationView(data: data, appState: appState)
         }
         .overlay {
             if isPreparingExportAll {
@@ -586,26 +591,26 @@ struct FlightLogView: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Render a stats-summary image of the currently-filtered flights and present the share sheet. (round 7)
-    private func shareStatsCard() {
+    /// Snapshot the currently-filtered stats and open the customization sheet. The sheet owns the
+    /// theme/accent/layout choices, live preview, and the final render+share. (round 10)
+    private func openStatsShareSheet() {
         let stats = aggregateStats(filteredFlights)
-        let byAircraft = stats.byAircraft.enumerated().map { index, item in
-            (name: item.name, hours: item.hours, color: Self.aircraftPalette[index % Self.aircraftPalette.count])
+        let slices = stats.byAircraft.enumerated().map { index, item in
+            StatsShareCardData.AircraftSlice(
+                name: item.name,
+                hours: item.hours,
+                color: Self.aircraftPalette[index % Self.aircraftPalette.count]
+            )
         }
-        let card = FlightLogStatsShareCard(
+        statsShareData = StatsShareCardData(
             periodLabel: shareScopeLabel,
             hours: stats.totalHours,
             flights: stats.flights,
             landings: stats.landings,
             distance: distanceValue(stats.distanceKm),
             unit: distanceUnitLabel,
-            byAircraft: byAircraft
+            byAircraft: slices
         )
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 2
-        if let image = renderer.uiImage {
-            presentImageShareSheet(image: image)
-        }
     }
 
     private var yearMenu: some View {
@@ -659,9 +664,9 @@ struct FlightLogView: View {
         .accessibilityLabel("Export")
     }
 
-    /// Secondary action: the stats-summary share card of the current filter. (round 8)
+    /// Secondary action: open the stats-summary share-card customization sheet for the current filter. (round 10)
     private var shareCardButton: some View {
-        Button { shareStatsCard() } label: {
+        Button { openStatsShareSheet() } label: {
             Image(systemName: "photo")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.black)
@@ -1016,10 +1021,91 @@ struct MiniSparkline: View {
     }
 }
 
-// MARK: - Flight Log stats share card (round 7)
+// MARK: - Flight Log stats share card (round 7 / customizable round 10)
+
+/// Accent color choices for the stats share card — drives the "FLIGHT LOG" label, the airplane
+/// glyph, the HOURS/hero value, and the footer URL. (3.3 share-card customization)
+enum StatsCardAccent: String, CaseIterable, Identifiable {
+    case gold, blue, green, orange, red
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .gold: return "Gold"
+        case .blue: return "Blue"
+        case .green: return "Green"
+        case .orange: return "Orange"
+        case .red: return "Red"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .gold: return .aviationGold
+        case .blue: return .altimeterBlue
+        case .green: return .aviationGreen
+        case .orange: return .orange
+        case .red: return .aviationRed
+        }
+    }
+}
+
+/// Layout variants for the stats share card. (3.3 share-card customization)
+enum StatsCardLayout: String, CaseIterable, Identifiable {
+    case standard   // four equal stat tiles in a row
+    case hero       // a big HOURS hero, then three smaller tiles
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .standard: return "Tiles"
+        case .hero: return "Hero"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .standard: return "square.grid.2x2"
+        case .hero: return "rectangle.grid.1x2"
+        }
+    }
+}
+
+/// Bundle of customization choices for the stats share card. Theme defaults to the single-flight
+/// card's theme so the two share surfaces stay visually consistent. (3.3 share-card customization)
+struct StatsShareCardOptions {
+    var theme: ShareCardColorScheme = .darkBlue
+    var accent: StatsCardAccent = .gold
+    var layout: StatsCardLayout = .standard
+    var showByAircraft: Bool = true
+    var showPeriod: Bool = true
+}
+
+/// An immutable snapshot of the filtered-log stats, taken when the share sheet opens so the
+/// customization preview/render works from a stable dataset. (3.3 share-card customization)
+struct StatsShareCardData: Identifiable {
+    let id = UUID()
+    let periodLabel: String
+    let hours: Double
+    let flights: Int
+    let landings: Int
+    let distance: Double
+    let unit: String
+    let byAircraft: [AircraftSlice]
+
+    struct AircraftSlice: Identifiable {
+        let id = UUID()
+        let name: String
+        let hours: Double
+        let color: Color
+    }
+}
 
 /// A shareable stats-summary image of the (filtered) Flight Log: period + the four metric cards +
-/// hours-by-aircraft. Rendered via ImageRenderer. (round 7)
+/// hours-by-aircraft. Theme/accent/layout/content are customizable. Rendered via ImageRenderer.
+/// Fixed 1080×1350 (4:5 portrait) so the preview/render size is predictable. (round 7 / round 10)
 struct FlightLogStatsShareCard: View {
     let periodLabel: String
     let hours: Double
@@ -1028,6 +1114,10 @@ struct FlightLogStatsShareCard: View {
     let distance: Double
     let unit: String
     let byAircraft: [(name: String, hours: Double, color: Color)]
+    var options = StatsShareCardOptions()
+
+    private var theme: ShareCardColorScheme { options.theme }
+    private var accent: Color { options.accent.color }
 
     private static func grouped(_ value: Double) -> String {
         let formatter = NumberFormatter()
@@ -1037,78 +1127,125 @@ struct FlightLogStatsShareCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 40) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("FLIGHT LOG")
-                        .font(.system(size: 26, weight: .semibold)).tracking(6)
-                        .foregroundColor(.aviationGold)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 40) {
+                header
+                stats
+                if options.showByAircraft && !byAircraft.isEmpty {
+                    byAircraftSection
+                }
+            }
+            Spacer(minLength: 24)
+            footer
+        }
+        .padding(64)
+        .frame(width: 1080, height: 1350, alignment: .topLeading)
+        .background(theme.backgroundColor)
+    }
+
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("FLIGHT LOG")
+                    .font(.system(size: 26, weight: .semibold)).tracking(6)
+                    .foregroundColor(accent)
+                if options.showPeriod {
                     Text(periodLabel)
                         .font(.system(size: 64, weight: .bold))
-                        .foregroundColor(.primaryText)
+                        .foregroundColor(theme.primaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 }
-                Spacer()
-                Image(systemName: "airplane")
-                    .font(.system(size: 54))
-                    .foregroundColor(.aviationGold)
             }
+            Spacer()
+            Image(systemName: "airplane")
+                .font(.system(size: 54))
+                .foregroundColor(accent)
+        }
+    }
 
+    @ViewBuilder
+    private var stats: some View {
+        switch options.layout {
+        case .standard:
             HStack(spacing: 20) {
-                statTile("HOURS", String(format: "%.1f", hours), .aviationGold)
-                statTile("FLIGHTS", "\(flights)", .primaryText)
-                statTile("LANDINGS", "\(landings)", .primaryText)
-                statTile(unit.uppercased(), Self.grouped(distance), .primaryText)
+                statTile("HOURS", String(format: "%.1f", hours), accent)
+                statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
+                statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
             }
-
-            if !byAircraft.isEmpty {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("HOURS BY AIRCRAFT")
-                        .font(.system(size: 22, weight: .semibold)).tracking(2)
-                        .foregroundColor(.secondaryText)
-                    let maxHours = byAircraft.map(\.hours).max() ?? 1
-                    ForEach(Array(byAircraft.enumerated()), id: \.offset) { _, item in
-                        HStack(spacing: 24) {
-                            Text(item.name)
-                                .font(.system(size: 30, weight: .semibold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                                .frame(width: 240, alignment: .leading)
-                                .lineLimit(1)
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Capsule().fill(Color.white.opacity(0.08))
-                                    Capsule().fill(item.color)
-                                        .frame(width: max(24, geo.size.width * CGFloat(item.hours / max(maxHours, 0.01))))
-                                }
-                            }
-                            .frame(height: 22)
-                            Text(String(format: "%.1f", item.hours))
-                                .font(.system(size: 30, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                                .frame(width: 110, alignment: .trailing)
-                        }
-                    }
+        case .hero:
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("HOURS")
+                        .font(.system(size: 24, weight: .semibold)).tracking(2)
+                        .foregroundColor(theme.secondaryTextColor)
+                    Text(String(format: "%.1f", hours))
+                        .font(.system(size: 170, weight: .bold, design: .rounded))
+                        .foregroundColor(accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 }
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(32)
+                .background(RoundedRectangle(cornerRadius: 28).fill(theme.cardOverlayColor))
 
-            HStack(alignment: .bottom) {
-                Image(systemName: "airplane.circle.fill").font(.system(size: 34)).foregroundColor(.aviationGold)
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("AeroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(.primaryText)
-                    Text("aerocheck.app").font(.system(size: 20)).foregroundColor(.aviationGold)
+                HStack(spacing: 20) {
+                    statTile("FLIGHTS", "\(flights)", theme.primaryTextColor)
+                    statTile("LANDINGS", "\(landings)", theme.primaryTextColor)
+                    statTile(unit.uppercased(), Self.grouped(distance), theme.primaryTextColor)
                 }
             }
         }
-        .padding(60)
-        .frame(width: 1080)
-        .background(Color.cockpitBackground)
+    }
+
+    private var byAircraftSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("HOURS BY AIRCRAFT")
+                .font(.system(size: 22, weight: .semibold)).tracking(2)
+                .foregroundColor(theme.secondaryTextColor)
+            let maxHours = byAircraft.map(\.hours).max() ?? 1
+            // Cap at the top 4 aircraft so the fixed-height card never overflows.
+            ForEach(Array(byAircraft.prefix(4).enumerated()), id: \.offset) { _, item in
+                HStack(spacing: 24) {
+                    Text(item.name)
+                        .font(.system(size: 30, weight: .semibold, design: .monospaced))
+                        .foregroundColor(theme.primaryTextColor)
+                        .frame(width: 240, alignment: .leading)
+                        .lineLimit(1)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(theme.cardOverlayColor)
+                            Capsule().fill(item.color)
+                                .frame(width: max(24, geo.size.width * CGFloat(item.hours / max(maxHours, 0.01))))
+                        }
+                    }
+                    .frame(height: 22)
+                    Text(String(format: "%.1f", item.hours))
+                        .font(.system(size: 30, weight: .bold, design: .monospaced))
+                        .foregroundColor(theme.primaryTextColor)
+                        .frame(width: 110, alignment: .trailing)
+                }
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(alignment: .bottom) {
+            Image(systemName: "airplane.circle.fill").font(.system(size: 34)).foregroundColor(accent)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("AeroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(theme.primaryTextColor)
+                Text("aerocheck.app").font(.system(size: 20)).foregroundColor(accent)
+            }
+        }
     }
 
     private func statTile(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(label)
                 .font(.system(size: 20, weight: .semibold)).tracking(1)
-                .foregroundColor(.secondaryText)
+                .foregroundColor(theme.secondaryTextColor)
             Text(value)
                 .font(.system(size: 58, weight: .bold, design: .rounded))
                 .foregroundColor(color)
@@ -1117,7 +1254,7 @@ struct FlightLogStatsShareCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(26)
-        .background(RoundedRectangle(cornerRadius: 24).fill(Color.cardBackground))
+        .background(RoundedRectangle(cornerRadius: 24).fill(theme.cardOverlayColor))
     }
 }
 
@@ -3387,6 +3524,252 @@ struct ShareCardCustomizationView: View {
         context.setStrokeColor(UIColor.white.cgColor)
         context.setLineWidth(2 * scale)
         context.strokeEllipse(in: rect)
+    }
+}
+
+// MARK: - Stats Share Card Customization View
+
+/// Customization sheet for the Flight-Log stats share card: live preview + theme / accent / layout
+/// pickers and content toggles, then a full-res render → share. Mirrors `ShareCardCustomizationView`
+/// (the single-flight sheet). (3.3 share-card customization)
+struct StatsShareCardCustomizationView: View {
+    let data: StatsShareCardData
+    @ObservedObject var appState: AppState
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var options: StatsShareCardOptions
+    @State private var isGenerating = false
+
+    init(data: StatsShareCardData, appState: AppState) {
+        self.data = data
+        self.appState = appState
+        var opts = StatsShareCardOptions()
+        // Inherit the single-flight card's theme so the two share surfaces feel consistent.
+        opts.theme = appState.settings.shareCardColorScheme
+        _options = State(initialValue: opts)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    cardPreview
+                        .padding(.top, 12)
+                        .padding(.horizontal, 24)
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            themePicker
+                            accentPicker
+                            layoutPicker
+                            contentToggles
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                    }
+                    .frame(maxHeight: 280)
+
+                    shareButton
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                }
+            }
+            .navigationTitle("Share Stats")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.close) { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Card
+
+    private var cardView: FlightLogStatsShareCard {
+        FlightLogStatsShareCard(
+            periodLabel: data.periodLabel,
+            hours: data.hours,
+            flights: data.flights,
+            landings: data.landings,
+            distance: data.distance,
+            unit: data.unit,
+            byAircraft: data.byAircraft.map { (name: $0.name, hours: $0.hours, color: $0.color) },
+            options: options
+        )
+    }
+
+    private var cardPreview: some View {
+        GeometryReader { geo in
+            let aspect: CGFloat = 1080.0 / 1350.0
+            let w = min(geo.size.width, geo.size.height * aspect)
+            let h = w / aspect
+            cardView
+                .scaleEffect(w / 1080.0)
+                .frame(width: w, height: h)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    // MARK: - Theme
+
+    private var themePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("COLOR THEME")
+            HStack(spacing: 12) {
+                ForEach(ShareCardColorScheme.allCases) { scheme in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            options.theme = scheme
+                            appState.settings.shareCardColorScheme = scheme
+                            appState.saveSettings()
+                        }
+                    } label: {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle().fill(scheme.dotColor).frame(width: 32, height: 32)
+                                    .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                                if options.theme == scheme {
+                                    Circle().stroke(Color.aviationGold, lineWidth: 2.5).frame(width: 40, height: 40)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            Text(scheme.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(options.theme == scheme ? .aviationGold : .secondaryText)
+                                .fixedSize()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Accent
+
+    private var accentPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("ACCENT")
+            HStack(spacing: 12) {
+                ForEach(StatsCardAccent.allCases) { accent in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { options.accent = accent }
+                    } label: {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle().fill(accent.color).frame(width: 32, height: 32)
+                                    .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                                if options.accent == accent {
+                                    Circle().stroke(Color.white, lineWidth: 2.5).frame(width: 40, height: 40)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            Text(accent.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(options.accent == accent ? .primaryText : .secondaryText)
+                                .fixedSize()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Layout
+
+    private var layoutPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("LAYOUT")
+            HStack(spacing: 10) {
+                ForEach(StatsCardLayout.allCases) { layout in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { options.layout = layout }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: layout.icon).font(.system(size: 13, weight: .medium))
+                            Text(layout.displayName).font(.system(size: 13, weight: .semibold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(options.layout == layout ? Color.aviationGold : Color.cardBackground))
+                        .foregroundColor(options.layout == layout ? .black : .white)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Content toggles
+
+    private var contentToggles: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("CONTENT")
+            VStack(spacing: 10) {
+                toggleRow("Hours by aircraft", isOn: $options.showByAircraft)
+                toggleRow("Period title", isOn: $options.showPeriod)
+            }
+        }
+    }
+
+    private func toggleRow(_ label: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(label).font(.system(size: 15)).foregroundColor(.primaryText)
+        }
+        .tint(.aviationGold)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(.secondaryText)
+            .tracking(1.5)
+    }
+
+    // MARK: - Share
+
+    private var shareButton: some View {
+        Button {
+            Task { await generateAndShare() }
+        } label: {
+            HStack(spacing: 8) {
+                if isGenerating { ProgressView().tint(.black) }
+                else { Image(systemName: "square.and.arrow.up") }
+                Text("Share").font(.system(size: 18, weight: .bold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationGold))
+            .foregroundColor(.black)
+        }
+        .disabled(isGenerating)
+    }
+
+    @MainActor
+    private func generateAndShare() async {
+        isGenerating = true
+        let renderer = ImageRenderer(content: cardView)
+        renderer.scale = 2.0
+        renderer.proposedSize = ProposedViewSize(width: 1080, height: 1350)
+
+        // ImageRenderer can return nil on first invocation for complex views — retry briefly.
+        var uiImage: UIImage?
+        for attempt in 0..<3 {
+            uiImage = renderer.uiImage
+            if uiImage != nil { break }
+            if attempt < 2 { try? await Task.sleep(nanoseconds: 200_000_000) }
+        }
+
+        isGenerating = false
+        guard let image = uiImage else { return }
+        presentImageShareSheet(image: image)
     }
 }
 

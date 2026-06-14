@@ -1469,6 +1469,44 @@ struct TimeInfoRow: View {
 
 // MARK: - Phase Row Button
 
+/// A compact segmented phase progress bar for the HUD top region: one segment per phase, colored by
+/// completion status, the current phase taller + gold. Tapping a segment jumps to that phase — this is
+/// the back/forward navigation in the revamped HUD (replacing the PREV button and the phase list).
+/// (Phase 3.1)
+struct PhaseProgressBar: View {
+    let phases: [ChecklistPhase]
+    let currentPhase: ChecklistPhase
+    let status: (ChecklistPhase) -> PhaseCompletionStatus
+    let onSelect: (ChecklistPhase) -> Void
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(phases, id: \.self) { phase in
+                let isCurrent = phase == currentPhase
+                Button { onSelect(phase) } label: {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(color(for: phase, isCurrent: isCurrent))
+                        .frame(height: isCurrent ? 8 : 5)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(phase.shortTitle)
+                .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+    }
+
+    private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {
+        if isCurrent { return .aviationGold }
+        switch status(phase) {
+        case .completed: return .aviationGreen
+        case .skipped: return .orange
+        case .missingAction: return .aviationRed
+        case .notStarted: return .dimText.opacity(0.3)
+        }
+    }
+}
+
 struct PhaseRowButton: View {
     let phase: ChecklistPhase
     let isActive: Bool

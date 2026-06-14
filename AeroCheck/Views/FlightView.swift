@@ -1737,10 +1737,11 @@ struct CompactAltimeterView: View {
 
 /// A lightweight, glance-only mini-map for the in-flight HUD. It recenters on the aircraft, draws the
 /// flight track, and **mirrors the chart layer the pilot picked in the full nav map** — ICAO+Segelflug,
-/// Landeskarten, SWISSIMAGE, or Apple standard/satellite. Swisstopo layers are non-replacing overlays,
-/// so the Apple base map shows through outside Switzerland / where a tile is missing ("if available").
-/// Deliberately lightweight (no airspace / airport / flight-plan overlays); tap it (handled by the
-/// caller) to open the full `NavigationMapView`. (Phase 3.1)
+/// Landeskarten, SWISSIMAGE, or Apple standard/satellite. Swisstopo charts are content-replacing, so
+/// MapKit drops the Apple Maps logo (oversized on a small map) — they have full coverage over
+/// Switzerland; outside it the area is blank rather than Apple tiles. Deliberately lightweight (no
+/// airspace / airport / flight-plan overlays); tap it (handled by the caller) to open the full
+/// `NavigationMapView`. (Phase 3.1)
 struct FlightMiniMap: UIViewRepresentable {
     /// The live flight track; the polyline is rebuilt only when the point count changes.
     let points: [GPSPoint]
@@ -1806,8 +1807,10 @@ struct FlightMiniMap: UIViewRepresentable {
     }
 
     /// Sets the base map + swisstopo tile overlay for `layer`. The chart tile is INSERTED below any
-    /// existing track polyline (so the gold track stays on top) and kept non-replacing so the Apple
-    /// base shows through where a tile is missing. Reuses the app's standalone swisstopo overlays.
+    /// existing track polyline (so the gold track stays on top). Swisstopo charts are CONTENT-REPLACING
+    /// (`canReplaceMapContent = true`, matching the waypoint picker) so MapKit drops the oversized Apple
+    /// Maps attribution logo on this small glance map — swisstopo has full coverage over Switzerland;
+    /// outside it the area is blank rather than Apple tiles. Reuses the app's standalone overlays.
     private func configureLayer(_ mapView: MKMapView, layer: MapLayerType) {
         mapView.removeOverlays(mapView.overlays.filter { $0 is MKTileOverlay })
 
@@ -1819,13 +1822,13 @@ struct FlightMiniMap: UIViewRepresentable {
         case .icao:
             mapView.mapType = .standard
             let chart = WaypointPickerICAOTileOverlay()  // ICAO z7-11 + Segelflugkarte z11-12
-            chart.canReplaceMapContent = false
+            chart.canReplaceMapContent = true
             mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
         case .landeskarten, .swissimage:
             mapView.mapType = .standard
             if let identifier = layer.swisstopoLayerIdentifier {
                 let chart = WaypointPickerSwisstopoTileOverlay(layerIdentifier: identifier, tileExtension: layer.tileExtension)
-                chart.canReplaceMapContent = false
+                chart.canReplaceMapContent = true
                 mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
             }
         }

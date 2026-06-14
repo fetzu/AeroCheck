@@ -58,6 +58,7 @@ struct AppSettings: Codable, Equatable {
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
+    var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
     var stallAlertSound: Bool = false // When true, plays an aural + haptic stall alert (UX-02)
 
@@ -152,6 +153,7 @@ struct AppSettings: Codable, Equatable {
         case forceICAOChartLayer
         case offlineMode
         case alwaysUseUTC
+        case distanceInNauticalMiles
         case showEstimatedAirspeed
         case stallAlertSound
         case enableFlightPlanning
@@ -207,6 +209,7 @@ struct AppSettings: Codable, Equatable {
         forceICAOChartLayer = try container.decodeIfPresent(Bool.self, forKey: .forceICAOChartLayer) ?? false
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
+        distanceInNauticalMiles = try container.decodeIfPresent(Bool.self, forKey: .distanceInNauticalMiles) ?? true
         showEstimatedAirspeed = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedAirspeed) ?? false
         stallAlertSound = try container.decodeIfPresent(Bool.self, forKey: .stallAlertSound) ?? false
         enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false

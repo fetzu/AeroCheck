@@ -27,6 +27,8 @@ struct FlightLogView: View {
     @State private var selectedAircraft: String? = nil
     /// Selected flight for the iPad-landscape 2-column detail pane. (3.3)
     @State private var selectedFlight: Flight? = nil
+    /// Which flights the export dialog acts on (filtered from the header, all from the sticky bar). (round 7)
+    @State private var exportScope: [Flight] = []
 
     enum ExportAllType: Sendable {
         case gpx
@@ -53,19 +55,22 @@ struct FlightLogView: View {
                 } else if appState.flights.isEmpty {
                     emptyState
                 } else {
-                    GeometryReader { geo in
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
-                            // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
-                            HStack(spacing: 0) {
-                                flightList(twoColumn: true)
-                                    .frame(width: geo.size.width * 0.42)
-                                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
-                                detailColumn
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 0) {
+                        GeometryReader { geo in
+                            if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                                // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
+                                HStack(spacing: 0) {
+                                    flightList(twoColumn: true)
+                                        .frame(width: geo.size.width * 0.42)
+                                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                                    detailColumn
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                }
+                            } else {
+                                flightList(twoColumn: false)
                             }
-                        } else {
-                            flightList(twoColumn: false)
                         }
+                        exportBar
                     }
                 }
             }
@@ -88,15 +93,15 @@ struct FlightLogView: View {
         .confirmationDialog(L10n.FlightLog.exportAllTitle, isPresented: $showExportAllOptions, titleVisibility: .visible) {
             Button(L10n.FlightLog.exportAllGPX) {
                 exportAllType = .gpx
-                prepareExportAll()
+                prepareExportAll(exportScope)
             }
             Button(L10n.FlightLog.exportAllJSON) {
                 exportAllType = .json
-                prepareExportAll()
+                prepareExportAll(exportScope)
             }
             Button(L10n.Button.cancel, role: .cancel) { }
         } message: {
-            Text(L10n.FlightLog.exportAllMessage(appState.flights.count))
+            Text(L10n.FlightLog.exportAllMessage(exportScope.count))
         }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
@@ -143,8 +148,7 @@ struct FlightLogView: View {
     
     /// Serialize every flight and zip them off the main actor, then present the share sheet.
     /// Keeps the heavy serialize/CRC/zip work out of the `.sheet` content builder. (PERF-12)
-    private func prepareExportAll() {
-        let flights = appState.flights
+    private func prepareExportAll(_ flights: [Flight]) {
         let type = exportAllType
         isPreparingExportAll = true
         Task { @MainActor in
@@ -344,8 +348,6 @@ struct FlightLogView: View {
         return seen
     }
 
-    private func nauticalMiles(_ km: Double) -> Double { km * 0.539957 }
-
     private static func groupedNumber(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -396,13 +398,13 @@ struct FlightLogView: View {
                         if twoColumn {
                             // 2-column: tap selects the right-pane detail (no push).
                             Button { selectedFlight = flight } label: {
-                                FlightRowView(flight: flight)
+                                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
                             }
                             .buttonStyle(.plain)
                             .listRowBackground(selectedFlight?.id == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
                         } else {
                             NavigationLink(destination: FlightDetailView(flight: flight)) {
-                                FlightRowView(flight: flight)
+                                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
                             }
                             .listRowBackground(Color.cardBackground)
                         }
@@ -412,27 +414,29 @@ struct FlightLogView: View {
                     }
                 }
             }
-
-            // Surfaced export row: "Export all" + inline format buttons. (3.3 concept)
-            if !appState.flights.isEmpty {
-                Section {
-                    HStack(spacing: 8) {
-                        Text("Export all")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondaryText)
-                        Spacer()
-                        exportFormatButton("GPX") { exportAllType = .gpx; prepareExportAll() }
-                        exportFormatButton("JSON") { exportAllType = .json; prepareExportAll() }
-                        exportFormatButton("ZIP") { showExportAllOptions = true }
-                    }
-                    .padding(.vertical, 4)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
-            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Sticky bottom bar so export-all is always reachable without scrolling past every flight. Exports
+    /// ALL flights (the header's Export button handles the filtered/listed subset). (round 7)
+    private var exportBar: some View {
+        HStack(spacing: 8) {
+            Text("Export all")
+                .font(.system(size: 14))
+                .foregroundColor(.secondaryText)
+            Spacer()
+            exportFormatButton("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
+            exportFormatButton("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
+            exportFormatButton("ZIP") { exportScope = appState.flights; showExportAllOptions = true }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.panelBackground)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+        }
     }
 
     /// Delete flights by mapping the (period-filtered) list indices back to the flight objects.
@@ -463,7 +467,11 @@ struct FlightLogView: View {
                 LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), valueColor: .aviationGold)
                 LogMetricCard(label: "Flights", value: "\(stats.flights)")
                 LogMetricCard(label: "Landings", value: "\(stats.landings)")
-                LogMetricCard(label: "NM", value: Self.groupedNumber(nauticalMiles(stats.distanceKm)))
+                // Tap the distance card to toggle NM ⇄ km (persisted; also affects the list rows).
+                Button { toggleDistanceUnit() } label: {
+                    LogMetricCard(label: distanceUnitLabel, value: Self.groupedNumber(distanceValue(stats.distanceKm)))
+                }
+                .buttonStyle(.plain)
             }
 
             if stats.byAircraft.count > 1 {
@@ -488,6 +496,14 @@ struct FlightLogView: View {
         return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
     }
 
+    // Distance unit (persisted) — toggled by tapping the distance card. (round 7)
+    private var distanceUnitLabel: String { appState.settings.distanceInNauticalMiles ? "NM" : "km" }
+    private func distanceValue(_ km: Double) -> Double { appState.settings.distanceInNauticalMiles ? km * 0.539957 : km }
+    private func toggleDistanceUnit() {
+        appState.settings.distanceInNauticalMiles.toggle()
+        appState.saveSettings()
+    }
+
     private var yearMenu: some View {
         Menu {
             Picker("Year", selection: $selectedYear) {
@@ -498,7 +514,8 @@ struct FlightLogView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(selectedYear.map { "\($0)" } ?? "All")
+                // verbatim + String() so the year never gets a thousands separator ("2'026"). (round 7)
+                Text(verbatim: selectedYear.map { String($0) } ?? "All")
                     .font(.system(size: 15, weight: .medium))
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
             }
@@ -514,7 +531,12 @@ struct FlightLogView: View {
     }
 
     private var exportButton: some View {
-        Button { showExportAllOptions = true } label: {
+        // Exports the FILTERED/listed flights (export-all lives in the sticky bar). .plain so the
+        // surrounding List row doesn't adopt this button as a whole-row tap. (round 7)
+        Button {
+            exportScope = filteredFlights
+            showExportAllOptions = true
+        } label: {
             HStack(spacing: 5) {
                 Image(systemName: "square.and.arrow.up").font(.system(size: 14, weight: .semibold))
                 Text("Export").font(.system(size: 15, weight: .semibold))
@@ -524,7 +546,8 @@ struct FlightLogView: View {
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold))
         }
-        .accessibilityLabel(L10n.FlightLog.exportAllTitle)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Export listed flights")
     }
 
     private var filterMenu: some View {
@@ -886,10 +909,18 @@ struct MiniSparkline: View {
 
 struct FlightRowView: View {
     let flight: Flight
+    var nauticalMiles: Bool = true
 
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
+                // Custom name (if set) above the route, small/grey like the stats line. (round 7)
+                if !flight.name.isEmpty {
+                    Text(flight.name)
+                        .font(.system(size: 12))
+                        .foregroundColor(.dimText)
+                        .lineLimit(1)
+                }
                 // Route (or circuit) + date
                 HStack(spacing: 8) {
                     routeView
@@ -958,8 +989,8 @@ struct FlightRowView: View {
         if flight.totalLandings > 0 {
             parts.append("\(flight.totalLandings) landing\(flight.totalLandings == 1 ? "" : "s")")
         }
-        let nm = flight.distanceKilometers * 0.539957
-        if nm >= 0.5 { parts.append("\(Int(nm.rounded())) NM") }
+        let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
+        if distance >= 0.5 { parts.append("\(Int(distance.rounded())) \(nauticalMiles ? "NM" : "km")") }
         parts.append(flight.aircraftRegistration ?? flight.airplane)
         return parts.joined(separator: " · ")
     }

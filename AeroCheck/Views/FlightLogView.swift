@@ -340,7 +340,7 @@ struct FlightLogView: View {
     @ViewBuilder
     private var detailColumn: some View {
         if let selected = selectedFlight, appState.flights.contains(where: { $0.id == selected.id }) {
-            FlightDetailView(flight: selected, embedded: true)
+            FlightDetailView(flight: selected)
                 .id(selected.id)
         } else {
             VStack(spacing: 12) {
@@ -507,7 +507,7 @@ struct FlightLogView: View {
 
             // List header: count + aircraft filter.
             HStack {
-                Text("\(filteredFlights.count) FLIGHTS")
+                Text("\(stats.flights) FLIGHTS")
                     .font(.system(size: 12, weight: .semibold))
                     .tracking(0.5)
                     .foregroundColor(.secondaryText)
@@ -617,14 +617,10 @@ struct FlightLogView: View {
         Button { shareStatsCard() } label: {
             Image(systemName: "photo")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.primaryText)
+                .foregroundColor(.black)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.cardBackground)
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
-                )
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Share stats card")
@@ -1181,10 +1177,13 @@ struct FlightRowView: View {
 
     /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (3.3)
     private var sparklineAltitudes: [Double] {
-        let alts = flight.gpsTrack.map { $0.altitude * 3.28084 }
-        guard alts.count > 60 else { return alts }
-        let step = Double(alts.count - 1) / 59
-        return (0..<60).map { alts[Int((Double($0) * step).rounded())] }
+        // Sample ~60 points by striding the track directly — don't `.map` the whole (possibly
+        // thousands-long) GPS track on every row render. (round 9 perf)
+        let track = flight.gpsTrack
+        guard track.count > 1 else { return track.map { $0.altitude * 3.28084 } }
+        let target = min(60, track.count)
+        let step = Double(track.count - 1) / Double(target - 1)
+        return (0..<target).map { track[Int((Double($0) * step).rounded())].altitude * 3.28084 }
     }
     
 }
@@ -1198,9 +1197,6 @@ struct FlightDetailView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
     let flight: Flight
-    /// When true, render without the NavigationStack/Close chrome so it can sit in the iPad-landscape
-    /// 2-column detail pane. (3.3)
-    var embedded: Bool = false
 
     @State private var flightName: String = ""
     @State private var notes: String = ""
@@ -1266,31 +1262,14 @@ struct FlightDetailView: View {
     }
 
     var body: some View {
-        Group {
-            if embedded {
-                ScrollView {
-                    sectionsStack
-                        .padding(20)
-                }
-                .background(Color.cockpitBackground)
-            } else {
-                NavigationStack {
-                    ScrollView {
-                        sectionsStack
-                            .padding(20)
-                    }
-                    .background(Color.cockpitBackground)
-                    .navigationTitle("")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button(L10n.Button.close) { dismiss() }
-                        }
-                    }
-                }
-                .preferredColorScheme(.dark)
-            }
+        // No own NavigationStack/Close: pushed (single column) it inherits the nav back button; in the
+        // 2-column pane it's a placed pane. Either way the redundant Close is gone. (round 9)
+        ScrollView {
+            sectionsStack
+                .padding(20)
         }
+        .background(Color.cockpitBackground)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             flightName = flight.name
             notes = flight.notes
@@ -1968,15 +1947,19 @@ struct FlightMapView: UIViewRepresentable {
             }
         }
 
-        // Update ONLY the selected-position marker on scrub.
-        if let existing = coordinator.selectedAnnotation {
+        // Update ONLY the selected-position marker on scrub. MOVE the existing annotation in place
+        // (KVO on `coordinate`) instead of remove+add, which flickered the marker each frame. (round 9)
+        if let selected = selectedPoint {
+            if let existing = coordinator.selectedAnnotation {
+                existing.coordinate = selected.coordinate
+            } else {
+                let annotation = FlightAnnotation(coordinate: selected.coordinate, title: "Position", isStart: false, isSelected: true)
+                mapView.addAnnotation(annotation)
+                coordinator.selectedAnnotation = annotation
+            }
+        } else if let existing = coordinator.selectedAnnotation {
             mapView.removeAnnotation(existing)
             coordinator.selectedAnnotation = nil
-        }
-        if let selected = selectedPoint {
-            let annotation = FlightAnnotation(coordinate: selected.coordinate, title: "Position", isStart: false, isSelected: true)
-            mapView.addAnnotation(annotation)
-            coordinator.selectedAnnotation = annotation
         }
     }
 
@@ -2043,7 +2026,8 @@ struct FlightMapView: UIViewRepresentable {
 }
 
 class FlightAnnotation: NSObject, MKAnnotation {
-    let coordinate: CLLocationCoordinate2D
+    // KVO-observable so the selection marker can be MOVED in place on scrub (no remove/add flicker).
+    @objc dynamic var coordinate: CLLocationCoordinate2D
     let title: String?
     let isStart: Bool
     let isSelected: Bool

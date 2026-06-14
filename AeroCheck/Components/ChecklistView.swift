@@ -11,9 +11,12 @@ struct TimestampActionButton: View {
     let timestampLabel: String
     var timestampSuffix: String = ""
     let isPulsing: Bool
+    /// HUD bottom-bar style: single row at NEXT's height/corner radius (no timestamp/hint stacked
+    /// below), so it sits flush next to the NEXT button. (Phase 3.1)
+    var compact: Bool = false
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
-    
+
     @State private var isPressed = false
     @State private var showUpdateConfirmation = false
     @State private var longPressProgress: CGFloat = 0
@@ -24,30 +27,30 @@ struct TimestampActionButton: View {
     }
     
     var body: some View {
-        VStack(spacing: 8) {
-            // The button
+        VStack(spacing: compact ? 0 : 8) {
+            // The button — black text on the colour, matching the NEXT button. (Phase 3.1)
             HStack {
                 Image(systemName: icon)
                 Text(title)
             }
-            .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .font(.system(size: compact ? 20 : 18, weight: .bold))
+            .foregroundColor(compact ? .black : .white)
+            .padding(.horizontal, compact ? 18 : 24)
+            .padding(.vertical, compact ? 18 : 14)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: compact ? 14 : 10)
                         .fill(hasBeenPressed ? color.opacity(0.5) : color)
                         .shadow(color: color.opacity(hasBeenPressed ? 0.2 : 0.4), radius: 6, x: 0, y: 3)
-                    
+
                     // Long press progress indicator
                     if longPressProgress > 0 && hasBeenPressed {
                         GeometryReader { geo in
-                            RoundedRectangle(cornerRadius: 10)
+                            RoundedRectangle(cornerRadius: compact ? 14 : 10)
                                 .fill(color.opacity(0.8))
                                 .frame(width: geo.size.width * longPressProgress)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .clipShape(RoundedRectangle(cornerRadius: compact ? 14 : 10))
                     }
                 }
             )
@@ -75,15 +78,14 @@ struct TimestampActionButton: View {
                     }
             )
             
-            // Timestamp display
-            if let time = timestamp {
+            // Timestamp display + hold hint (full mode only — the compact HUD button is a single row).
+            if !compact, let time = timestamp {
                 Text("\(timestampLabel): \(time)\(timestampSuffix)")
                     .font(.captionText)
                     .foregroundColor(color)
             }
-            
-            // Long press hint when already pressed
-            if hasBeenPressed {
+
+            if !compact, hasBeenPressed {
                 Text(L10n.ChecklistAction.holdToUpdate)
                     .font(.system(size: 10))
                     .foregroundColor(.dimText)
@@ -432,10 +434,12 @@ struct ChecklistView: View {
                 }
                 // Tap gesture handled by parent view for larger tap area
                 .onChange(of: highlightedItemIndex) { _, newIndex in
-                    // Auto-scroll to highlighted item
+                    // Keep the current item near the TOP so completed items scroll up out of the way and
+                    // the upcoming items dominate the view — but not flush-top, so the just-completed
+                    // item stays visible for confirmation. (Phase 3.1 feedback)
                     if newIndex < visibleItems.count {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            scrollProxy.scrollTo(newIndex, anchor: .center)
+                            scrollProxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.12))
                         }
                     }
                 }
@@ -724,10 +728,7 @@ struct ChecklistItemRow: View {
     }
     
     // Past/future rows are deliberately muted "one-liners" so the current item (rendered as the hero
-    // card) is the focus — the numbering is subtle, not the prominent gold of the old design. (Phase 3.1)
-    private var numberColor: Color {
-        .dimText
-    }
+    // card) is the focus. (Phase 3.1)
 
     private var challengeColor: Color {
         isCompleted ? .dimText : .secondaryText
@@ -750,25 +751,17 @@ struct ChecklistItemRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline, spacing: 0) {
-                // Item number - fixed width to prevent wrapping
-                if let number = item.number {
-                    HStack(spacing: isCompact ? 2 : 4) {
-                        if isCompleted {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: isCompact ? 11 : 14, weight: .bold))
-                                .foregroundColor(.aviationGreen.opacity(0.6))
-                        }
-                        Text("\(number).")
-                            .font(itemFont)
-                            .foregroundColor(numberColor)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                // Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
+                // intentionally dropped: it added clutter to the muted past/future rows. (Phase 3.1)
+                Group {
+                    if isCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: isCompact ? 10 : 12, weight: .bold))
+                            .foregroundColor(.aviationGreen.opacity(0.7))
                     }
-                    .frame(minWidth: isCompleted ? (isCompact ? 44 : 60) : (isCompact ? 28 : 40), alignment: .trailing)
-                    .padding(.trailing, isCompact ? 6 : 10)
-                } else {
-                    Spacer().frame(width: isCompact ? 34 : 50)
                 }
+                .frame(width: isCompact ? 18 : 22, alignment: .leading)
+                .padding(.trailing, isCompact ? 4 : 6)
 
                 // Challenge text
                 Text(item.challenge)
@@ -813,7 +806,7 @@ struct ChecklistItemRow: View {
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
-                    .padding(.leading, isCompact ? 34 : 50)
+                    .padding(.leading, isCompact ? 22 : 28)
             }
         }
     }

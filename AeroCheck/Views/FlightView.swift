@@ -205,24 +205,24 @@ struct FlightView: View {
                 .foregroundColor(.aviationGreen)
             }
 
-            // Flight timer
+            // Flight timer — the time itself is just a clock (white); the small dot is the "recording
+            // active" cue, so the whole counter isn't an arbitrary green.
             HStack(spacing: 6) {
                 StatusIndicator(.active, size: 8)
                 Text(appState.flightDuration)
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGreen)
+                    .foregroundColor(.primaryText)
                     .id(timerTrigger)
             }
 
-            // GPS status
+            // GPS status — icon AND label both reflect the signal status, so it reads as one indicator.
             HStack(spacing: 4) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(gpsStatusColor)
                 Text("GPS")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.secondaryText)
             }
+            .foregroundColor(gpsStatusColor)
 
             // Flight details / options (consolidates the GPS/points/times panel)
             Button(action: { showFlightInfo = true }) {
@@ -611,6 +611,7 @@ struct FlightView: View {
                 timestamp: appState.formattedEngineStartTime,
                 timestampLabel: L10n.ChecklistAction.started(language: lang),
                 isPulsing: pulseActionButton,
+                compact: true,
                 onFirstPress: { performEngineStart() },
                 onUpdateTime: { performEngineStartUpdate() }
             )
@@ -623,6 +624,7 @@ struct FlightView: View {
                 timestampLabel: L10n.ChecklistAction.lineUp(language: lang),
                 timestampSuffix: " (+2 min)",
                 isPulsing: pulseActionButton,
+                compact: true,
                 onFirstPress: { performLineUp() },
                 onUpdateTime: { performLineUpUpdate() }
             )
@@ -634,6 +636,7 @@ struct FlightView: View {
                 timestamp: appState.formattedEngineShutdownTime,
                 timestampLabel: L10n.ChecklistAction.shutdown(language: lang),
                 isPulsing: pulseActionButton,
+                compact: true,
                 onFirstPress: { performEngineShutdown() },
                 onUpdateTime: { performEngineShutdownUpdate() }
             )

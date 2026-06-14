@@ -65,8 +65,11 @@ struct FlightPlanningView: View {
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)
             }
-            .sheet(item: $selectedPlan) { plan in
-                FlightPlanEditorView(flightPlan: plan)
+            // Map-centric builder is the default creation/edit path (Phase 3.4); full-screen so
+            // iPad gets the two-column map+list layout. The dense table editor is reachable from
+            // inside the builder ("Table"). Presented by id so it always reads the live plan.
+            .fullScreenCover(item: $selectedPlan) { plan in
+                FlightPlanMapBuilderView(planId: plan.id)
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)

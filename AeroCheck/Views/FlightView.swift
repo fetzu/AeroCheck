@@ -1148,7 +1148,8 @@ struct FlightView: View {
             ZStack(alignment: .topTrailing) {
                 FlightMiniMap(
                     points: appState.currentFlight?.gpsTrack ?? [],
-                    currentCoordinate: locationManager.currentLocation?.coordinate
+                    currentCoordinate: locationManager.currentLocation?.coordinate,
+                    layer: appState.navigationMapState.selectedLayer
                 )
                 .allowsHitTesting(false)
 
@@ -1734,9 +1735,10 @@ struct CompactAltimeterView: View {
 
 // MARK: - Flight Mini-Map (persistent HUD glance map)
 
-/// A lightweight, glance-only mini-map for the in-flight HUD. It recenters on the aircraft and draws
-/// the flight track over the **SwissTopo aviation chart** — ICAO (zoom 7-11) + Segelflugkarte (11-12),
-/// where available — falling back to the Apple base map outside Switzerland / where a tile is missing.
+/// A lightweight, glance-only mini-map for the in-flight HUD. It recenters on the aircraft, draws the
+/// flight track, and **mirrors the chart layer the pilot picked in the full nav map** — ICAO+Segelflug,
+/// Landeskarten, SWISSIMAGE, or Apple standard/satellite. Swisstopo layers are non-replacing overlays,
+/// so the Apple base map shows through outside Switzerland / where a tile is missing ("if available").
 /// Deliberately lightweight (no airspace / airport / flight-plan overlays); tap it (handled by the
 /// caller) to open the full `NavigationMapView`. (Phase 3.1)
 struct FlightMiniMap: UIViewRepresentable {
@@ -1744,10 +1746,13 @@ struct FlightMiniMap: UIViewRepresentable {
     let points: [GPSPoint]
     /// The aircraft's current position; the map recenters on it (the caller disables interaction).
     var currentCoordinate: CLLocationCoordinate2D?
+    /// Mirrors `AppState.navigationMapState.selectedLayer` (live, via @Published) so the mini-map
+    /// shows the same chart the pilot chose in the full nav map.
+    var layer: MapLayerType
 
-    /// ~40 km across — within the ICAO/Segelflugkarte tile coverage (their tiles stop at zoom 12), so
-    /// the chart actually renders. A tighter follow zoom would fall past the available chart tiles.
-    private static let viewSpanMeters: CLLocationDistance = 40_000
+    /// ~20 km across. Still within ICAO/Segelflugkarte coverage (their tiles stop at zoom 12); the
+    /// finer swisstopo layers (Landeskarten / SWISSIMAGE) reach zoom 18, so they sharpen further in.
+    private static let viewSpanMeters: CLLocationDistance = 20_000
 
     private static let switzerlandCenter = CLLocationCoordinate2D(latitude: 46.8, longitude: 8.2)
 
@@ -1762,13 +1767,8 @@ struct FlightMiniMap: UIViewRepresentable {
         mapView.isRotateEnabled = false
         mapView.pointOfInterestFilter = .excludingAll
 
-        // SwissTopo ICAO (zoom 7-11) + Segelflugkarte (11-12) aviation chart, where available. Kept as
-        // a NON-replacing overlay so the Apple base map shows through outside Switzerland / where a
-        // tile is missing — the "if available" fallback. Reuses the app's standalone ICAO+Segelflug
-        // WMTS overlay (also used by the flight-plan waypoint picker).
-        let chart = WaypointPickerICAOTileOverlay()
-        chart.canReplaceMapContent = false
-        mapView.addOverlay(chart, level: .aboveLabels)
+        configureLayer(mapView, layer: layer)
+        context.coordinator.currentLayer = layer
 
         // Center on Switzerland (or the first known position) until a fix arrives — avoids an ocean flash.
         let center = currentCoordinate ?? Self.switzerlandCenter
@@ -1780,6 +1780,12 @@ struct FlightMiniMap: UIViewRepresentable {
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
         let coordinator = context.coordinator
+
+        // Re-skin when the pilot switches the nav layer (live, via the @Published navigationMapState).
+        if coordinator.currentLayer != layer {
+            coordinator.currentLayer = layer
+            configureLayer(mapView, layer: layer)
+        }
 
         // Rebuild ONLY the track polyline when the point count changes — never the tile overlay, and
         // never an O(n) teardown on every location publish. (mirrors FlightMapView's pattern)
@@ -1799,11 +1805,39 @@ struct FlightMiniMap: UIViewRepresentable {
         }
     }
 
+    /// Sets the base map + swisstopo tile overlay for `layer`. The chart tile is INSERTED below any
+    /// existing track polyline (so the gold track stays on top) and kept non-replacing so the Apple
+    /// base shows through where a tile is missing. Reuses the app's standalone swisstopo overlays.
+    private func configureLayer(_ mapView: MKMapView, layer: MapLayerType) {
+        mapView.removeOverlays(mapView.overlays.filter { $0 is MKTileOverlay })
+
+        switch layer {
+        case .standard:
+            mapView.mapType = .standard
+        case .satellite:
+            mapView.mapType = .hybrid
+        case .icao:
+            mapView.mapType = .standard
+            let chart = WaypointPickerICAOTileOverlay()  // ICAO z7-11 + Segelflugkarte z11-12
+            chart.canReplaceMapContent = false
+            mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
+        case .landeskarten, .swissimage:
+            mapView.mapType = .standard
+            if let identifier = layer.swisstopoLayerIdentifier {
+                let chart = WaypointPickerSwisstopoTileOverlay(layerIdentifier: identifier, tileExtension: layer.tileExtension)
+                chart.canReplaceMapContent = false
+                mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
+            }
+        }
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     class Coordinator: NSObject, MKMapViewDelegate {
         /// Track length the polyline was last built for (-1 = not yet built).
         var builtPointCount = -1
+        /// The layer currently configured on the map, to detect live switches.
+        var currentLayer: MapLayerType?
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {

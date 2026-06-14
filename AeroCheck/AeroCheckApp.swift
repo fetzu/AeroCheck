@@ -47,12 +47,14 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
                 // Night mode: app-wide, so the flight instruments dim to the red/amber palette. The
-                // `.system` preference follows the device's dark-mode state (read independently of the
-                // app's forced `.preferredColorScheme(.dark)`). (UX-09 / Phase 3.1)
+                // `.system` preference follows the DEVICE's dark-mode state, readable because the app now
+                // forces dark at the WINDOW level (WindowAppearanceEnforcer) instead of via SwiftUI's
+                // `.preferredColorScheme`, which applied a SCENE-level override that masked every probe
+                // (so `.system` was stuck on "dark" no matter the device). (round 6)
                 .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemAppearance.isDark))
                 // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
                 .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemAppearance.isDark)))
-                .preferredColorScheme(.dark)
+                .background(WindowAppearanceEnforcer())
                 .onAppear { systemAppearance.attachIfNeeded() }
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -402,13 +404,33 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
 
 // MARK: - System Appearance
 
+/// Forces the app's own window(s) to dark at the WINDOW level, so the cockpit UI stays dark while the
+/// SCENE trait keeps following the device. Replaces the app-wide `.preferredColorScheme(.dark)`, which
+/// applied a SCENE-level override — that masked the device appearance in EVERY window of the scene,
+/// including a separate probe, so `.system` night mode was stuck reading "dark". Overriding per-window
+/// leaves the scene clean for `SystemAppearance` to read. (round 6)
+struct WindowAppearanceEnforcer: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // Re-assert on every SwiftUI update so it survives window changes / sheet presentations.
+        DispatchQueue.main.async {
+            uiView.window?.overrideUserInterfaceStyle = .dark
+        }
+    }
+}
+
 /// Publishes the DEVICE's light/dark setting for the `.system` night-mode preference.
 ///
-/// The app forces `.preferredColorScheme(.dark)` on its main window, which masks the device appearance
-/// from EVERY trait collection in that window (and, it turns out, the scene and screen too). The only
-/// source independent of that override is a SEPARATE, hidden window that follows the system — its
-/// trait reflects the real device appearance and fires trait-change callbacks live (so a Control-Centre
-/// dark-mode toggle updates immediately, no foregrounding needed). (Phase 3.1)
+/// Now that the app forces dark per-WINDOW (see `WindowAppearanceEnforcer`) instead of per-scene, the
+/// scene's trait follows the real device appearance again. A hidden `.unspecified` probe window in that
+/// scene therefore reports the true device light/dark and fires trait-change callbacks live (so a
+/// Control-Centre toggle updates immediately, no foregrounding needed). (round 6)
 final class SystemAppearance: ObservableObject {
     @Published private(set) var isDark: Bool = false
     private var probeWindow: UIWindow?
@@ -432,6 +454,12 @@ final class SystemAppearance: ObservableObject {
         window.isUserInteractionEnabled = false
         window.isHidden = false                            // must be in the hierarchy to receive traits
         probeWindow = window
+
+        // Belt-and-suspenders: force the app's existing window(s) dark at the WINDOW level (the probe
+        // stays `.unspecified`). The WindowAppearanceEnforcer keeps this asserted as windows change.
+        for appWindow in scene.windows where appWindow !== window {
+            appWindow.overrideUserInterfaceStyle = .dark
+        }
 
         isDark = probe.traitCollection.userInterfaceStyle == .dark
     }

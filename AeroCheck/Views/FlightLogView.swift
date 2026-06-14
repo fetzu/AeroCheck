@@ -20,9 +20,33 @@ struct FlightLogView: View {
     @State private var exportAllZipData: Data?
     @State private var isPreparingExportAll = false
     
+    @State private var statPeriod: StatPeriod = .all
+
     enum ExportAllType: Sendable {
         case gpx
         case json
+    }
+
+    /// Period scope for the dashboard stats + list. (3.3 Flight Log revamp)
+    enum StatPeriod: String, CaseIterable, Identifiable {
+        case days30, days90, year, all
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .days30: return "30d"
+            case .days90: return "90d"
+            case .year: return "Year"
+            case .all: return "All"
+            }
+        }
+        func includes(_ date: Date, now: Date) -> Bool {
+            switch self {
+            case .all: return true
+            case .year: return date >= (Calendar.current.date(byAdding: .year, value: -1, to: now) ?? now)
+            case .days90: return date >= now.addingTimeInterval(-90 * 86_400)
+            case .days30: return date >= now.addingTimeInterval(-30 * 86_400)
+            }
+        }
     }
     
     var body: some View {
@@ -297,28 +321,154 @@ struct FlightLogView: View {
         }
     }
 
+    /// Sorted flights scoped to the selected period (drives both the dashboard stats and the list).
+    private var filteredFlights: [Flight] {
+        let now = Date()
+        return sortedFlights.filter { flight in
+            guard let start = flight.startTime else { return statPeriod == .all }
+            return statPeriod.includes(start, now: now)
+        }
+    }
+
     private var flightList: some View {
         List {
-            ForEach(sortedFlights) { flight in
-                NavigationLink(destination: FlightDetailView(flight: flight)) {
-                    FlightRowView(flight: flight)
-                }
-                .listRowBackground(Color.cardBackground)
+            Section {
+                dashboardHeader
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
             }
-            .onDelete { indexSet in
-                deleteFlights(at: indexSet)
+
+            Section {
+                if filteredFlights.isEmpty {
+                    Text(L10n.FlightLog.title)
+                        .font(.system(size: 14))
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 24)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                } else {
+                    ForEach(filteredFlights) { flight in
+                        NavigationLink(destination: FlightDetailView(flight: flight)) {
+                            FlightRowView(flight: flight)
+                        }
+                        .listRowBackground(Color.cardBackground)
+                    }
+                    .onDelete { indexSet in
+                        deleteFlights(at: indexSet)
+                    }
+                }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
 
-    /// Delete flights from the sorted list by mapping indices back to the original array
+    /// Delete flights by mapping the (period-filtered) list indices back to the flight objects.
     private func deleteFlights(at indexSet: IndexSet) {
-        let flightsToDelete = indexSet.map { sortedFlights[$0] }
+        let flightsToDelete = indexSet.map { filteredFlights[$0] }
         for flight in flightsToDelete {
             appState.deleteFlight(flight)
         }
+    }
+
+    // MARK: - Dashboard (3.3 Flight Log revamp)
+
+    private var dashboardHeader: some View {
+        let stats = aggregateStats(filteredFlights)
+        return VStack(spacing: 12) {
+            Picker("Period", selection: $statPeriod) {
+                ForEach(StatPeriod.allCases) { period in
+                    Text(period.label).tag(period)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                LogMetricCard(label: "Hours", value: String(format: "%.1f", stats.totalHours), unit: "h", systemImage: "clock", tint: .aviationGold)
+                LogMetricCard(label: "Flights", value: "\(stats.flights)", unit: "", systemImage: "airplane", tint: .altimeterBlue)
+                LogMetricCard(label: "Landings", value: "\(stats.landings)", unit: "", systemImage: "airplane.arrival", tint: .aviationGreen)
+                LogMetricCard(label: "Distance", value: "\(Int(stats.distanceKm.rounded()))", unit: "km", systemImage: "point.topleft.down.to.point.bottomright.curvepath", tint: .aviationAmber)
+            }
+
+            if stats.byAircraft.count > 1 {
+                hoursByAircraft(stats.byAircraft)
+            }
+        }
+    }
+
+    private func hoursByAircraft(_ items: [(name: String, hours: Double)]) -> some View {
+        let maxHours = items.map(\.hours).max() ?? 1
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("HOURS BY AIRCRAFT")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(.secondaryText)
+            ForEach(items, id: \.name) { item in
+                HStack(spacing: 8) {
+                    Text(item.name)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                        .frame(width: 76, alignment: .leading)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.06))
+                            Capsule().fill(Color.aviationGold.opacity(0.65))
+                                .frame(width: max(4, geo.size.width * CGFloat(item.hours / max(maxHours, 0.01))))
+                        }
+                    }
+                    .frame(height: 6)
+                    Text(String(format: "%.1f", item.hours))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                        .frame(width: 38, alignment: .trailing)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        )
+    }
+
+    private struct LogStats {
+        var flights: Int
+        var totalHours: Double
+        var landings: Int
+        var distanceKm: Double
+        var byAircraft: [(name: String, hours: Double)]
+    }
+
+    /// Aggregate logbook stats over the given flights. Hours prefer block time, then flight time, then
+    /// the engine-start→shutdown duration. (3.3)
+    private func aggregateStats(_ flights: [Flight]) -> LogStats {
+        var totalSeconds = 0.0
+        var landings = 0
+        var distance = 0.0
+        var perAircraft: [String: Double] = [:]
+        for flight in flights {
+            let seconds = flight.blockTime ?? flight.flightTime ?? flight.duration ?? 0
+            totalSeconds += seconds
+            landings += flight.totalLandings
+            distance += flight.distanceKilometers
+            let key = flight.aircraftRegistration ?? flight.airplane
+            perAircraft[key, default: 0] += seconds
+        }
+        let byAircraft = perAircraft
+            .map { (name: $0.key, hours: $0.value / 3600) }
+            .sorted { $0.hours > $1.hours }
+        return LogStats(
+            flights: flights.count,
+            totalHours: totalSeconds / 3600,
+            landings: landings,
+            distanceKm: distance,
+            byAircraft: byAircraft
+        )
     }
     
     // MARK: - Import Handler
@@ -511,6 +661,46 @@ struct CustomLabelStyle: LabelStyle {
             configuration.icon
             configuration.title
         }
+    }
+}
+
+// MARK: - Dashboard metric card (3.3)
+
+/// A compact metric card for the Flight Log dashboard: label + icon, then a big value with an optional
+/// unit. (3.3 Flight Log revamp)
+struct LogMetricCard: View {
+    let label: String
+    let value: String
+    var unit: String = ""
+    let systemImage: String
+    var tint: Color = .aviationGold
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage).font(.system(size: 13)).foregroundColor(tint)
+                Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondaryText)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                if !unit.isEmpty {
+                    Text(unit).font(.system(size: 13, weight: .medium)).foregroundColor(.dimText)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value) \(unit)")
     }
 }
 

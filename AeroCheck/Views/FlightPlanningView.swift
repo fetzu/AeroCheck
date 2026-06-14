@@ -158,12 +158,11 @@ struct FlightPlanningView: View {
                         .onTapGesture {
                             selectedPlan = activePlan
                         }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
                 } header: {
-                    HStack {
-                        Label(L10n.Nav.activeFlightPlan, systemImage: "airplane.circle.fill")
-                        Spacer()
-                        StatusIndicator(.active, size: 8)
-                    }
+                    cockpitSectionHeader(L10n.Nav.activeFlightPlan, tint: .aviationGreen, showDot: true)
                 }
             }
 
@@ -175,6 +174,9 @@ struct FlightPlanningView: View {
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedPlan = plan
@@ -274,11 +276,26 @@ struct FlightPlanningView: View {
                     flightPlanManager.deleteFlightPlans(at: offsets)
                 }
             } header: {
-                Label(L10n.Nav.allFlightPlans, systemImage: "list.bullet")
+                cockpitSectionHeader(L10n.Nav.allFlightPlans, tint: .secondaryText, showDot: false)
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Cockpit-style section header: tracked uppercase label with an optional status dot. (Phase 3.5 redesign)
+    private func cockpitSectionHeader(_ title: String, tint: Color, showDot: Bool) -> some View {
+        HStack(spacing: 7) {
+            if showDot {
+                Circle().fill(tint).frame(width: 6, height: 6)
+            }
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .tracking(0.6)
+                .foregroundColor(tint)
+            Spacer()
+        }
+        .textCase(nil)
     }
 
     // MARK: - Import Handler
@@ -322,85 +339,67 @@ struct FlightPlanRow: View {
     let plan: FlightPlan
     let isActive: Bool
 
-    var body: some View {
-        HStack(spacing: 12) {
-            // Status indicator
-            VStack {
-                if isActive {
-                    Image(systemName: "airplane.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.aviationGreen)
-                } else {
-                    Image(systemName: "map")
-                        .font(.system(size: 24))
-                        .foregroundColor(.aviationGold)
-                }
-            }
-            .frame(width: 32)
+    private var tint: Color { isActive ? .aviationGreen : .aviationGold }
+    private var icon: String { isActive ? "airplane.circle.fill" : "point.topleft.down.to.point.bottomright.curvepath" }
 
-            // Plan details
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.primaryText)
-
-                    if isActive {
-                        Text(L10n.Nav.active)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.aviationGreen)
-                            )
-                    }
-                }
-
-                HStack(spacing: 8) {
-                    Text(plan.aircraftRegistration)
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundColor(.secondaryText)
-
-                    Text("•")
-                        .foregroundColor(.dimText)
-
-                    Text(L10n.Nav.waypointsCount(plan.waypoints.count))
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondaryText)
-
-                    if plan.totalDistance > 0 {
-                        Text("•")
-                            .foregroundColor(.dimText)
-
-                        Text(String(format: "%.1f NM", plan.totalDistance))
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondaryText)
-                    }
-                }
-
-                if let departureTime = plan.plannedDepartureTime {
-                    Text(formatDate(departureTime))
-                        .font(.system(size: 12))
-                        .foregroundColor(.dimText)
-                }
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14))
-                .foregroundColor(.dimText)
-        }
-        .padding(.vertical, 8)
+    /// Compact mono stats line: "F-HVXA · 5 WP · 86 NM" (WP/NM are ICAO-style, intentionally untranslated).
+    private var statsLine: String {
+        var parts: [String] = [plan.aircraftRegistration, "\(plan.waypoints.count) WP"]
+        if plan.totalDistance > 0 { parts.append(String(format: "%.0f NM", plan.totalDistance)) }
+        return parts.joined(separator: " · ")
     }
 
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+    var body: some View {
+        HStack(spacing: 13) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.16))
+                    .frame(width: 38, height: 38)
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    if isActive {
+                        Text(L10n.Nav.active)
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
+                    }
+                }
+                Text(statsLine)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.dimText.opacity(0.7))
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(isActive ? Color.aviationGreen.opacity(0.35) : Color.white.opacity(0.06), lineWidth: 1)
+                )
+        )
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -411,79 +410,73 @@ struct ActiveFlightPlanRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
             HStack {
                 Text(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.headline)
                     .foregroundColor(.primaryText)
-
                 Spacer()
-
                 Text(plan.aircraftRegistration)
-                    .font(.system(size: 14, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.aviationGold)
             }
 
-            // Progress
             if !plan.waypoints.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(L10n.Nav.progress)
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundColor(.secondaryText)
-
                         Spacer()
-
                         Text("\(plan.currentWaypointIndex)/\(plan.waypoints.count)")
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(.secondaryText)
                     }
-
                     ProgressView(value: plan.progress)
                         .progressViewStyle(LinearProgressViewStyle(tint: .aviationGreen))
                 }
 
-                // Next waypoint info
                 if let nextWaypoint = plan.nextWaypoint {
-                    HStack {
-                        VStack(alignment: .leading) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(L10n.Nav.next)
-                                .font(.system(size: 10))
+                                .font(.system(size: 10)).tracking(0.4)
                                 .foregroundColor(.dimText)
                             Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
                                 .foregroundColor(.primaryText)
+                                .lineLimit(1)
                         }
-
-                        Spacer()
-
-                        if let distance = nextWaypoint.distance {
-                            VStack(alignment: .trailing) {
-                                Text(L10n.Nav.dist)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.dimText)
-                                Text(String(format: "%.1f NM", distance))
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                            }
-                        }
-
+                        Spacer(minLength: 6)
                         if let mc = nextWaypoint.magneticCourse {
-                            VStack(alignment: .trailing) {
-                                Text(L10n.Nav.mc)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.dimText)
-                                Text(String(format: "%03d°", Int(mc)))
-                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(.primaryText)
-                            }
+                            statColumn(L10n.Nav.mc, String(format: "%03d°", Int(mc)), .altimeterBlue)
+                        }
+                        if let distance = nextWaypoint.distance {
+                            statColumn(L10n.Nav.dist, String(format: "%.0f NM", distance), .primaryText)
                         }
                     }
-                    .padding(.top, 4)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.cockpitBackground))
                 }
             }
         }
-        .padding(.vertical, 8)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.aviationGreen.opacity(0.35), lineWidth: 1))
+        )
+        .contentShape(Rectangle())
+    }
+
+    private func statColumn(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(label)
+                .font(.system(size: 10)).tracking(0.4)
+                .foregroundColor(.dimText)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundColor(color)
+        }
     }
 }
 

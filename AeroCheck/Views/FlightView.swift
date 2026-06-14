@@ -175,7 +175,8 @@ struct FlightView: View {
             phases: visiblePhases,
             currentPhase: appState.currentPhase,
             status: { appState.getPhaseStatus($0) },
-            onSelect: { appState.goToPhase($0) }
+            onSelect: { appState.goToPhase($0) },
+            isCircuitMode: appState.isCircuitMode
         )
     }
 
@@ -562,6 +563,7 @@ struct FlightView: View {
             // PREV to the tappable phase progress bar.
             HStack(spacing: 12) {
                 hudPhaseActionButton
+                circuitQuickEventButtons
                 hudNextButton
             }
             .padding(.horizontal, 16)
@@ -749,9 +751,13 @@ struct FlightView: View {
     private var eventActionsRow: some View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
-        if phase.showsGoAroundButtons || phase.showsLandedButton {
+        // In circuit mode GO-AROUND / TOUCH & GO become single-tap buttons beside NEXT
+        // (circuitQuickEventButtons) for fast missed-detection recovery, so they're omitted here.
+        // Outside circuit mode they stay hold-to-confirm. FULL-STOP stays hold-to-confirm always.
+        let showHoldGoAround = phase.showsGoAroundButtons && !appState.isCircuitMode
+        if showHoldGoAround || phase.showsLandedButton {
             HStack(spacing: 10) {
-                if phase.showsGoAroundButtons {
+                if showHoldGoAround {
                     HoldToConfirmButton(
                         title: L10n.ChecklistAction.goAround(language: language),
                         systemImage: "arrow.up.right.circle.fill",
@@ -780,6 +786,50 @@ struct FlightView: View {
             .padding(.horizontal, 16)
             .padding(.top, 10)
         }
+    }
+
+    /// In circuit mode, single-tap GO-AROUND / TOUCH & GO shown beside NEXT in the HUD bottom bar so a
+    /// missed auto-detection can be corrected instantly (jump back to the CLIMB check). Hold-to-confirm
+    /// is too slow here; the accepted trade-off is a small accidental-tap risk during circuit training.
+    @ViewBuilder
+    private var circuitQuickEventButtons: some View {
+        let phase = appState.currentPhase
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        if appState.isCircuitMode && phase.showsGoAroundButtons {
+            quickEventButton(
+                title: L10n.ChecklistAction.goAround(language: language),
+                systemImage: "arrow.up.right.circle.fill",
+                tint: .aviationAmber,
+                action: performGoAround
+            )
+            quickEventButton(
+                title: L10n.ChecklistAction.touchAndGo(language: language),
+                systemImage: "arrow.triangle.2.circlepath",
+                tint: .aviationBlue,
+                action: performTouchAndGo
+            )
+        }
+    }
+
+    private func quickEventButton(title: String, systemImage: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: systemImage).font(.system(size: 18, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 10, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundColor(tint)
+            .frame(width: 88)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(tint.opacity(0.16))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(tint.opacity(0.5), lineWidth: 1))
+            )
+        }
+        .accessibilityLabel(title)
     }
 
     // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so
@@ -1535,22 +1585,76 @@ struct PhaseProgressBar: View {
     let currentPhase: ChecklistPhase
     let status: (ChecklistPhase) -> PhaseCompletionStatus
     let onSelect: (ChecklistPhase) -> Void
+    var isCircuitMode: Bool = false
+
+    /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
+    /// cruise/descent are filtered out, so the bracket draws as one continuous span. (round 6)
+    private var loopPhases: [ChecklistPhase] {
+        guard isCircuitMode else { return [] }
+        return phases.filter { $0 == .climb || $0 == .approach || $0 == .landing }
+    }
+
+    private var loopMiddle: ChecklistPhase? {
+        loopPhases.isEmpty ? nil : loopPhases[loopPhases.count / 2]
+    }
 
     var body: some View {
-        HStack(spacing: 3) {
-            ForEach(phases, id: \.self) { phase in
-                let isCurrent = phase == currentPhase
-                Button { onSelect(phase) } label: {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color(for: phase, isCurrent: isCurrent))
-                        .frame(height: isCurrent ? 8 : 5)
-                        .frame(maxWidth: .infinity)
+        VStack(spacing: 3) {
+            if !loopPhases.isEmpty {
+                circuitBracket
+            }
+            HStack(spacing: 3) {
+                ForEach(phases, id: \.self) { phase in
+                    let isCurrent = phase == currentPhase
+                    Button { onSelect(phase) } label: {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(color(for: phase, isCurrent: isCurrent))
+                            .frame(height: isCurrent ? 8 : 5)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(phase.shortTitle)
+                    .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(phase.shortTitle)
-                .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
             }
         }
+    }
+
+    /// A repeat (↻) bracket over the looping pattern segments, so the circuit cycle reads at a glance.
+    /// Aligns to the segments below (same spacing + equal-width cells); a leading/trailing tick encloses
+    /// the span and the ↻ badge sits at its centre. (round 6)
+    private var circuitBracket: some View {
+        HStack(spacing: 3) {
+            ForEach(phases, id: \.self) { phase in
+                ZStack {
+                    if loopPhases.contains(phase) {
+                        Rectangle().fill(Color.altimeterBlue).frame(height: 2)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .leading) {
+                    if phase == loopPhases.first {
+                        Rectangle().fill(Color.altimeterBlue).frame(width: 2, height: 7)
+                    }
+                }
+                .overlay(alignment: .trailing) {
+                    if phase == loopPhases.last {
+                        Rectangle().fill(Color.altimeterBlue).frame(width: 2, height: 7)
+                    }
+                }
+                .overlay {
+                    if phase == loopMiddle {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.altimeterBlue)
+                            .padding(.horizontal, 3)
+                            .background(Color.panelBackground)
+                    }
+                }
+            }
+        }
+        .frame(height: 9)
+        .accessibilityLabel("Circuit pattern repeats from climb to landing")
     }
 
     private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {

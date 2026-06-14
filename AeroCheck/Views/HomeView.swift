@@ -337,6 +337,7 @@ struct HomeView: View {
                     .font(.system(size: isCompact ? 18 : 22))
                     .foregroundColor(.secondaryText)
             }
+            .accessibilityLabel(L10n.Settings.title)
         }
     }
     
@@ -434,6 +435,8 @@ struct HomeView: View {
                     }
                 }
                 .padding(.top, isCompact ? 2 : 4)
+                .accessibilityElement()
+                .accessibilityLabel("Aircraft \(selectedAircraftIndex + 1) of \(aircraft.count)")
             }
 
             AviationDivider()
@@ -537,6 +540,8 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
+            // The text label is hidden on iPhone (compact); always expose it to VoiceOver.
+            .accessibilityLabel(appState.flights.isEmpty ? L10n.Button.flightLog : "\(L10n.Button.flightLog), \(appState.flights.count)")
 
             Spacer()
 
@@ -552,6 +557,7 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityLabel(L10n.Button.nav)
 
             Spacer()
 
@@ -567,6 +573,7 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityLabel(L10n.Button.speeds)
         }
     }
 
@@ -654,15 +661,18 @@ struct QuickStatView: View {
             Image(systemName: icon)
                 .font(.system(size: isCompact ? 16 : 20))
                 .foregroundColor(.aviationBlue)
-            
+                .accessibilityHidden(true)
+
             Text(value)
                 .font(.system(size: isCompact ? 18 : 24, weight: .bold, design: .monospaced))
                 .foregroundColor(.primaryText)
-            
+
             Text(label)
                 .font(.system(size: isCompact ? 11 : 13))
                 .foregroundColor(.secondaryText)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 }
 

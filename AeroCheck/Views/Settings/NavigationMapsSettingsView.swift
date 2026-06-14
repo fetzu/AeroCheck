@@ -215,6 +215,7 @@ struct NavigationMapsSettingsView: View {
                     if openAIPDataService.needsUpdate {
                         Image(systemName: "exclamationmark.circle.fill")
                             .foregroundColor(.aviationAmber)
+                            .accessibilityLabel(L10n.Settings.airportUpdateAvailable)
                     }
                 }
             }
@@ -291,6 +292,7 @@ struct NavigationMapsSettingsView: View {
                         Image(systemName: "exclamationmark.circle.fill")
                             .foregroundColor(.aviationAmber)
                             .help(L10n.Settings.airportUpdateAvailable)
+                            .accessibilityLabel(L10n.Settings.airportUpdateAvailable)
                     }
                 }
 

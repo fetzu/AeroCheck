@@ -81,7 +81,7 @@ struct FlightPlanningSettingsView: View {
             HStack {
                 Label(L10n.Settings.flightPlanning, systemImage: "map.fill")
                 Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption2.weight(.bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -123,7 +123,7 @@ struct FlightPlanningSettingsView: View {
             HStack {
                 Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
                 Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption2.weight(.bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

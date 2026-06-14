@@ -271,7 +271,7 @@ struct AboutSettingsView: View {
                 HStack {
                     Label("Developer Options", systemImage: "hammer.fill")
                     Text(L10n.Tag.dev)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)

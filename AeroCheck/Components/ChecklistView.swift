@@ -1016,14 +1016,13 @@ struct CompactSpeedRow: View {
 
 // MARK: - Briefing Views
 
-struct DepartureBriefingView: View {
+/// Departure briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (Phase 3.1)
+struct DepartureBriefingContent: View {
     let context: BriefingContext
-    @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                     // Departure Section
                     BriefingSection(title: L10n.Briefing.departureTitle.uppercased()) {
                         if let airport = context.departureAirport {
@@ -1076,31 +1075,17 @@ struct DepartureBriefingView: View {
                         )
                     }
 
-                    Spacer()
-                }
-                .padding(24)
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Briefing.departureTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Briefing.close) { dismiss() }
-                }
-            }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
-struct ApproachBriefingView: View {
+/// Approach briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (Phase 3.1)
+struct ApproachBriefingContent: View {
     let context: BriefingContext
-    @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                     // Approach Section
                     BriefingSection(title: L10n.Briefing.approachTitle.uppercased()) {
                         if let airport = context.destinationAirport {
@@ -1144,20 +1129,7 @@ struct ApproachBriefingView: View {
                         EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                     }
 
-                    Spacer()
-                }
-                .padding(24)
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Briefing.approachTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Briefing.close) { dismiss() }
-                }
-            }
         }
-        .preferredColorScheme(.dark)
     }
 }
 

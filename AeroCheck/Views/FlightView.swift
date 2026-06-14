@@ -13,16 +13,16 @@ struct FlightView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @State private var showPhaseSelector = false
-    @State private var showSpeedReference = false
     @State private var showEndFlightAlert = false
     @State private var showAbandonFlightAlert = false
     @State private var abandonFlightProgress: CGFloat = 0
     @State private var abandonFlightTimer: Timer?
-    @State private var showDepartureBriefing = false
-    @State private var showApproachBriefing = false
     @State private var showFlightInfo = false
-    @State private var showGPSStatus = false
     @State private var showNavigationMode = false
+    /// The reference popup currently shown in the HUD context slot (Pattern B of the A+B hybrid):
+    /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
+    /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (Phase 3.1)
+    @State private var activeReference: HUDReference? = nil
     @State private var timerTrigger = false
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
@@ -231,7 +231,7 @@ struct FlightView: View {
 
             // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
             // popup (status guide + advanced fix info). (Phase 3.1 feedback)
-            Button(action: { showGPSStatus = true }) {
+            Button(action: { openReference(.gps) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 12))
@@ -260,11 +260,16 @@ struct FlightView: View {
                 VStack(spacing: 0) {
                     mainChecklistAreaCompact(geometry: geometry)
                 }
+                // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer; iPhone has no
+                // side column, so Pattern B degrades to a cockpit-styled sheet. (Phase 3.1)
+                .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.66) }
             } else if geometry.size.height > geometry.size.width {
                 // iPad PORTRAIT: full-width top bar + phase bar, then the vertical stack. (Phase 3.1 HUD)
                 hudShell {
                     portraitLayout
                 }
+                // Reference popups → themed bottom drawer over the stack (no side column in portrait).
+                .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6) }
             } else {
                 // iPad LANDSCAPE: full-width top bar + phase bar, then checklist-left / context-right.
                 // (Phase 3.1 HUD)
@@ -283,21 +288,8 @@ struct FlightView: View {
         .sheet(isPresented: $showPhaseSelector) {
             PhaseSelectorView()
         }
-        .sheet(isPresented: $showSpeedReference) {
-            SpeedReferenceSheet()
-                .environmentObject(appState)
-        }
-        .sheet(isPresented: $showDepartureBriefing) {
-            DepartureBriefingView(context: briefingContext)
-        }
-        .sheet(isPresented: $showApproachBriefing) {
-            ApproachBriefingView(context: briefingContext)
-        }
         .sheet(isPresented: $showFlightInfo) {
             FlightInfoSheet(locationManager: locationManager)
-        }
-        .sheet(isPresented: $showGPSStatus) {
-            GPSStatusSheet(locationManager: locationManager)
         }
         // ⚠️ DO NOT CHANGE the presentation style (.fullScreenCover) unless explicitly asked
         // by the user. Using .fullScreenCover guarantees all content is visible on both iPad
@@ -486,9 +478,9 @@ struct FlightView: View {
                             onBriefingTap: { briefingType in
                                 switch briefingType {
                                 case .departure:
-                                    showDepartureBriefing = true
+                                    openReference(.departureBriefing)
                                 case .approach:
-                                    showApproachBriefing = true
+                                    openReference(.approachBriefing)
                                 }
                             },
                             onTapToAdvance: {
@@ -838,7 +830,7 @@ struct FlightView: View {
                 systemImage: "speedometer",
                 tint: .aviationGreen,
                 value: appState.activeChecklist.targetSpeed(for: phase).map { "\($0)" },
-                action: { showSpeedReference = true }
+                action: { openReference(.vSpeeds) }
             )
 
             // Departure / approach briefing for the relevant phase clusters (always reachable here,
@@ -849,7 +841,7 @@ struct FlightView: View {
                     title: "BRIEFING",
                     systemImage: "airplane.departure",
                     tint: .aviationGold,
-                    action: { showDepartureBriefing = true }
+                    action: { openReference(.departureBriefing) }
                 )
             }
             if phase.briefingType == .approach {
@@ -857,7 +849,7 @@ struct FlightView: View {
                     title: "BRIEFING",
                     systemImage: "airplane.arrival",
                     tint: .aviationGold,
-                    action: { showApproachBriefing = true }
+                    action: { openReference(.approachBriefing) }
                 )
             }
         }
@@ -957,8 +949,8 @@ struct FlightView: View {
                             onLandedUpdate: { appState.updateLandingTime() },
                             onBriefingTap: { briefingType in
                                 switch briefingType {
-                                case .departure: showDepartureBriefing = true
-                                case .approach: showApproachBriefing = true
+                                case .departure: openReference(.departureBriefing)
+                                case .approach: openReference(.approachBriefing)
                                 }
                             },
                             onTapToAdvance: { handleChecklistTap(scrollProxy: scrollProxy) },
@@ -1141,7 +1133,7 @@ struct FlightView: View {
             }
 
             // Speeds button
-            Button(action: { showSpeedReference = true }) {
+            Button(action: { openReference(.vSpeeds) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "speedometer")
                         .font(.system(size: 14))
@@ -1326,21 +1318,78 @@ struct FlightView: View {
 
     // MARK: - Side Panel
 
+    @ViewBuilder
     private var sidePanel: some View {
-        VStack(spacing: 10) {
-            // Persistent map (tall — fills the slack); NEAREST strip + NAV chip overlaid. Tap → full map.
-            if appState.isFlightActive {
-                miniMapContent
-                    .frame(maxHeight: .infinity)
+        if let reference = activeReference {
+            // Pattern B (iPad landscape): the reference popup takes over the right column over the map;
+            // the checklist stays live on the left, back/close restores the map. (Phase 3.1)
+            HUDReferencePanel(
+                reference: reference,
+                presentation: .docked,
+                locationManager: locationManager,
+                briefingContext: reference.isBriefing ? briefingContext : nil,
+                onClose: closeReference
+            )
+            .padding(12)
+            .transition(.opacity)
+        } else {
+            VStack(spacing: 10) {
+                // Persistent map (tall — fills the slack); NEAREST strip + NAV chip overlaid. Tap → full map.
+                if appState.isFlightActive {
+                    miniMapContent
+                        .frame(maxHeight: .infinity)
+                }
+
+                // Hold-to-confirm GO-AROUND / T&G / FULL-STOP for the relevant phases (empty otherwise).
+                eventActionsRow
+
+                // Phase-aware tiles (V-SPEEDS / briefings).
+                phaseContextZone
             }
-
-            // Hold-to-confirm GO-AROUND / T&G / FULL-STOP for the relevant phases (empty otherwise).
-            eventActionsRow
-
-            // Phase-aware tiles (V-SPEEDS / briefings).
-            phaseContextZone
+            .padding(12)
         }
-        .padding(12)
+    }
+
+    // MARK: - HUD reference popups (Pattern B)
+
+    /// Open a reference popup in the HUD context slot (docked column on iPad landscape, bottom drawer
+    /// on iPad portrait / iPhone). Animated so the docked swap cross-fades and the drawer slides up.
+    private func openReference(_ reference: HUDReference) {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+            activeReference = reference
+        }
+    }
+
+    private func closeReference() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+            activeReference = nil
+        }
+    }
+
+    /// The bottom-drawer presentation of a reference popup for iPad portrait / iPhone: a dimming scrim
+    /// (tap to dismiss) with the cockpit-themed panel rising from the bottom, leaving the instruments
+    /// and current checklist item visible above. (Phase 3.1)
+    @ViewBuilder
+    private func referenceDrawerOverlay(maxHeight: CGFloat) -> some View {
+        if let reference = activeReference {
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.22)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { closeReference() }
+                    .transition(.opacity)
+
+                HUDReferencePanel(
+                    reference: reference,
+                    presentation: .drawer,
+                    locationManager: locationManager,
+                    briefingContext: reference.isBriefing ? briefingContext : nil,
+                    onClose: closeReference
+                )
+                .frame(maxHeight: maxHeight)
+                .transition(.move(edge: .bottom))
+            }
+        }
     }
 
     // MARK: - Mini-Map (iPad side panel)
@@ -2363,16 +2412,180 @@ struct FlightInfoSheet: View {
     }
 }
 
-// MARK: - GPS Status Sheet (dedicated)
+// MARK: - HUD reference popups (Pattern B)
 
-/// Dedicated GPS popup: current signal, a guide explaining each status, and the advanced fix info iOS
-/// exposes (accuracy, fix time, position/altitude). Satellite count / raw GNSS time aren't available
-/// through CoreLocation. (Phase 3.1 feedback)
-struct GPSStatusSheet: View {
+/// A reference popup that pairs with the live checklist (V-speeds, GPS, briefings). In the approved
+/// A+B hybrid these render as Pattern B: docked into the iPad-landscape right column (over the map),
+/// or as a cockpit-themed bottom drawer on iPad portrait / iPhone. (Phase 3.1 popup redesign)
+enum HUDReference: Identifiable, Equatable {
+    case vSpeeds
+    case gps
+    case departureBriefing
+    case approachBriefing
+
+    var id: Int {
+        switch self {
+        case .vSpeeds: return 0
+        case .gps: return 1
+        case .departureBriefing: return 2
+        case .approachBriefing: return 3
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .vSpeeds: return "V-SPEEDS"
+        case .gps: return L10n.GPS.statusTitle
+        case .departureBriefing, .approachBriefing: return "BRIEFING"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .vSpeeds: return "speedometer"
+        case .gps: return "location.fill"
+        case .departureBriefing: return "airplane.departure"
+        case .approachBriefing: return "airplane.arrival"
+        }
+    }
+
+    /// Header accent for the panel chrome (matches the phase-context tiles: green ref, gold briefing).
+    var tint: Color {
+        switch self {
+        case .vSpeeds, .gps: return .aviationGreen
+        case .departureBriefing, .approachBriefing: return .aviationGold
+        }
+    }
+
+    var isBriefing: Bool { self == .departureBriefing || self == .approachBriefing }
+}
+
+/// Shared cockpit-themed container for a reference popup. The SAME view renders in two presentations:
+/// `.docked` (fills the iPad-landscape right column, back-arrow header restores the map) and `.drawer`
+/// (a bottom drawer with a grabber + drag-down to dismiss, for iPad portrait / iPhone). The content is
+/// identical in both — only the chrome differs. (Phase 3.1 popup redesign)
+struct HUDReferencePanel: View {
+    enum Presentation { case docked, drawer }
+
+    let reference: HUDReference
+    var presentation: Presentation = .docked
+    @ObservedObject var locationManager: LocationManager
+    var briefingContext: BriefingContext? = nil
+    let onClose: () -> Void
+
+    @EnvironmentObject var appState: AppState
+
+    private var corners: AnyShape {
+        switch presentation {
+        case .docked: return AnyShape(RoundedRectangle(cornerRadius: 12))
+        case .drawer: return AnyShape(UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18))
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if presentation == .drawer {
+                    Capsule()
+                        .fill(Color.white.opacity(0.22))
+                        .frame(width: 38, height: 4)
+                        .padding(.vertical, 7)
+                }
+                header
+            }
+            .background(Color.panelBackground)
+            .modifier(DrawerDragDismiss(enabled: presentation == .drawer, onClose: onClose))
+
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+
+            ScrollView {
+                content
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 22)
+            }
+        }
+        .background(Color.panelBackground)
+        .clipShape(corners)
+        .overlay(corners.stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            if presentation == .docked {
+                Button(action: onClose) {
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(reference.tint)
+                }
+                .accessibilityLabel(L10n.Button.close)
+            }
+            Image(systemName: reference.systemImage)
+                .font(.system(size: 14))
+                .foregroundColor(reference.tint)
+            Text(reference.title)
+                .font(.system(size: 13, weight: .bold))
+                .tracking(0.6)
+                .foregroundColor(reference.tint)
+            Spacer()
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondaryText)
+            }
+            .accessibilityLabel(L10n.Button.close)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch reference {
+        case .vSpeeds:
+            SpeedReferenceView(activeChecklist: appState.activeChecklist)
+        case .gps:
+            GPSStatusContent(locationManager: locationManager)
+        case .departureBriefing:
+            if let context = briefingContext {
+                DepartureBriefingContent(context: context)
+            }
+        case .approachBriefing:
+            if let context = briefingContext {
+                ApproachBriefingContent(context: context)
+            }
+        }
+    }
+}
+
+/// Adds drag-down-to-dismiss to the drawer header only (so it doesn't fight the content ScrollView).
+private struct DrawerDragDismiss: ViewModifier {
+    let enabled: Bool
+    let onClose: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled {
+            content.gesture(
+                DragGesture(minimumDistance: 10)
+                    .onEnded { value in
+                        if value.translation.height > 60 { onClose() }
+                    }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - GPS status content (cockpit-styled, hosted in HUDReferencePanel)
+
+/// Dedicated GPS reference: current signal, the advanced fix info iOS exposes (accuracy, fix time,
+/// position/altitude), and a guide explaining each status. Satellite count / raw GNSS time aren't
+/// available through CoreLocation. Cockpit cards (no system List). (Phase 3.1 popup redesign)
+struct GPSStatusContent: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager
-    @Environment(\.dismiss) var dismiss
-    @State private var detent: PresentationDetent = .large
 
     private var statusColor: Color {
         if appState.isFlightActive && !locationManager.isTracking { return .aviationRed }
@@ -2404,69 +2617,105 @@ struct GPSStatusSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section(L10n.GPS.currentStatus) {
-                    HStack {
-                        Image(systemName: "location.fill").foregroundColor(statusColor)
+        VStack(spacing: 14) {
+            // Current status
+            VStack(spacing: 10) {
+                HStack(spacing: 12) {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(statusColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(statusText)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(statusColor)
                         Text(L10n.GPS.signal)
-                        Spacer()
-                        Text(statusText).foregroundColor(statusColor).fontWeight(.semibold)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondaryText)
                     }
-                    if locationManager.backgroundTrackingLimited {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.aviationAmber)
-                            Text(L10n.GPS.backgroundLimited).foregroundColor(.aviationAmber)
-                        }
-                        .font(.system(size: 13))
-                    }
+                    Spacer(minLength: 0)
                 }
-
-                if let loc = locationManager.currentLocation {
-                    Section("Fix details") {
-                        detailRow("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
-                        detailRow("Vertical accuracy", loc.verticalAccuracy >= 0 ? "± \(Int(loc.verticalAccuracy.rounded())) m" : "—")
-                        detailRow("Fix time", fixTime(loc.timestamp))
-                        detailRow("Altitude (MSL)", "\(Int((loc.altitude * 3.28084).rounded())) ft")
-                        detailRow("Position", String(format: "%.5f, %.5f", loc.coordinate.latitude, loc.coordinate.longitude))
-                        detailRow(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")
+                if locationManager.backgroundTrackingLimited {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.aviationAmber)
+                        Text(L10n.GPS.backgroundLimited)
+                            .foregroundColor(.aviationAmber)
+                        Spacer(minLength: 0)
                     }
-                }
-
-                Section(L10n.GPS.statusTitle) {
-                    guideRow(.aviationGreen, L10n.GPS.signalGood, L10n.GPS.statusGoodDesc)
-                    guideRow(.orange, L10n.GPS.signalDegraded, L10n.GPS.statusDegradedDesc)
-                    guideRow(.aviationRed, L10n.GPS.signalLost, L10n.GPS.statusLostDesc)
+                    .font(.system(size: 13))
                 }
             }
-            .navigationTitle(L10n.GPS.statusTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.close) { dismiss() }
+            .cardSection()
+
+            // Advanced fix info
+            if let loc = locationManager.currentLocation {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    fixTile("Accuracy", loc.horizontalAccuracy >= 0 ? "± \(Int(loc.horizontalAccuracy.rounded())) m" : "—")
+                    fixTile("Vertical", loc.verticalAccuracy >= 0 ? "± \(Int(loc.verticalAccuracy.rounded())) m" : "—")
+                    fixTile("Fix time", fixTime(loc.timestamp))
+                    fixTile("Altitude (MSL)", "\(Int((loc.altitude * 3.28084).rounded())) ft")
+                    fixTile("Position", String(format: "%.5f, %.5f", loc.coordinate.latitude, loc.coordinate.longitude))
+                    fixTile(L10n.GPS.pointsRecorded, "\(appState.currentFlight?.gpsTrack.count ?? 0)")
                 }
             }
+
+            // Status guide
+            VStack(alignment: .leading, spacing: 12) {
+                Text(L10n.GPS.statusTitle.uppercased())
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.6)
+                    .foregroundColor(.secondaryText)
+                guideRow(.aviationGreen, L10n.GPS.signalGood, L10n.GPS.statusGoodDesc)
+                guideRow(.orange, L10n.GPS.signalDegraded, L10n.GPS.statusDegradedDesc)
+                guideRow(.aviationRed, L10n.GPS.signalLost, L10n.GPS.statusLostDesc)
+            }
+            .cardSection()
         }
-        .presentationDetents([.medium, .large], selection: $detent)
-        .preferredColorScheme(.dark)
     }
 
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label).foregroundColor(.secondaryText)
-            Spacer()
-            Text(value).font(.system(.body, design: .monospaced))
+    private func fixTile(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.secondaryText)
+            Text(value)
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.cockpitBackground)
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        )
     }
 
     private func guideRow(_ color: Color, _ title: String, _ desc: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Circle().fill(color).frame(width: 10, height: 10).padding(.top, 5)
+            Circle().fill(color).frame(width: 9, height: 9).padding(.top, 5)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).fontWeight(.semibold).foregroundColor(color)
-                Text(desc).font(.system(size: 13)).foregroundColor(.secondaryText)
+                Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(color)
+                Text(desc).font(.system(size: 12)).foregroundColor(.secondaryText)
             }
+            Spacer(minLength: 0)
         }
+    }
+}
+
+/// Cockpit card wrapper shared by the reference popups (dark card, hairline border).
+private extension View {
+    func cardSection() -> some View {
+        self
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+            )
     }
 }
 

@@ -2222,13 +2222,13 @@ struct FlightMiniMap: UIViewRepresentable {
             mapView.mapType = .hybrid
         case .icao:
             mapView.mapType = .standard
-            let chart = WaypointPickerICAOTileOverlay()  // ICAO z7-11 + Segelflugkarte z11-12
+            let chart = ICAOSegelflugkarteTileOverlay()  // ICAO z7-11 + Segelflugkarte z11-12
             chart.canReplaceMapContent = true
             mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
         case .landeskarten, .swissimage:
             mapView.mapType = .standard
             if let identifier = layer.swisstopoLayerIdentifier {
-                let chart = WaypointPickerSwisstopoTileOverlay(layerIdentifier: identifier, tileExtension: layer.tileExtension)
+                let chart = SwisstopoTileOverlay(layerIdentifier: identifier, tileExtension: layer.tileExtension)
                 chart.canReplaceMapContent = true
                 mapView.insertOverlay(chart, at: 0, level: .aboveLabels)
             }

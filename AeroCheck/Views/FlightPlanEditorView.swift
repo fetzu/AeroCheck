@@ -1995,13 +1995,13 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
 
         case .icao:
             mapView.mapType = .standard
-            let overlay = WaypointPickerICAOTileOverlay()
+            let overlay = ICAOSegelflugkarteTileOverlay()
             overlay.canReplaceMapContent = true
             mapView.addOverlay(overlay, level: .aboveLabels)
 
         case .swissimage:
             mapView.mapType = .standard
-            let overlay = WaypointPickerSwisstopoTileOverlay(
+            let overlay = SwisstopoTileOverlay(
                 layerIdentifier: "ch.swisstopo.swissimage",
                 tileExtension: "jpeg"
             )
@@ -2080,64 +2080,6 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
             guard let airportAnnotation = view.annotation as? AirportAnnotation else { return }
             parent.onAirportTapped?(airportAnnotation.airport)
         }
-    }
-}
-
-// MARK: - Waypoint Picker Tile Overlays
-
-/// ICAO/Segelflugkarte tile overlay for waypoint picker
-class WaypointPickerICAOTileOverlay: MKTileOverlay {
-    private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
-    private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
-
-    override init(urlTemplate URLTemplate: String?) {
-        super.init(urlTemplate: "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png")
-        self.minimumZ = 7
-        self.maximumZ = 12  // Segelflugkarte max zoom is 12
-    }
-
-    convenience init() {
-        self.init(urlTemplate: nil)
-    }
-
-    override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        let layerIdentifier: String
-        let finalZ: Int
-
-        // ICAO for zoom 7-11, Segelflugkarte for zoom 11-12
-        if path.z <= 11 {
-            layerIdentifier = icaoLayerIdentifier
-            finalZ = min(max(path.z, 7), 11)
-        } else {
-            layerIdentifier = segelflugkarteLayerIdentifier
-            finalZ = min(max(path.z, 11), 12)
-        }
-
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"
-        return URL(string: urlString) ?? URL(string: "about:blank")!
-    }
-}
-
-/// SwissImage tile overlay for waypoint picker
-class WaypointPickerSwisstopoTileOverlay: MKTileOverlay {
-    let layerIdentifier: String
-    let tileExtension: String
-
-    init(layerIdentifier: String, tileExtension: String = "png") {
-        self.layerIdentifier = layerIdentifier
-        self.tileExtension = tileExtension
-
-        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/{z}/{x}/{y}.\(tileExtension)"
-        super.init(urlTemplate: urlTemplate)
-
-        self.minimumZ = 7
-        self.maximumZ = 18
-    }
-
-    override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        let clampedZ = min(max(path.z, 7), 18)
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
-        return URL(string: urlString) ?? URL(string: "about:blank")!
     }
 }
 

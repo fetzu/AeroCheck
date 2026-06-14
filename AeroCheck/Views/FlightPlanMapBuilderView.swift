@@ -575,12 +575,12 @@ struct RouteBuilderMapView: UIViewRepresentable {
             mapView.mapType = .standard
         case .icao:
             mapView.mapType = .standard
-            let overlay = WaypointPickerICAOTileOverlay()
+            let overlay = ICAOSegelflugkarteTileOverlay()
             overlay.canReplaceMapContent = true
             mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
         case .swissimage:
             mapView.mapType = .standard
-            let overlay = WaypointPickerSwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
+            let overlay = SwisstopoTileOverlay(layerIdentifier: "ch.swisstopo.swissimage", tileExtension: "jpeg")
             overlay.canReplaceMapContent = true
             mapView.insertOverlay(overlay, at: 0, level: .aboveLabels)
         }

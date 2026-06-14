@@ -165,15 +165,21 @@ final class FlightMergeValidationTests: XCTestCase {
 
     // MARK: - Night mode persistence (UX-09)
 
-    func testNightModeDefaultsOffAndRoundTrips() throws {
-        // Backward compatibility: settings saved before nightMode existed (key absent) decode to off.
-        let legacy = Data(#"{"keepScreenOn":true}"#.utf8)
-        let decodedLegacy = try JSONDecoder().decode(AppSettings.self, from: legacy)
-        XCTAssertFalse(decodedLegacy.nightMode, "Absent nightMode defaults to off")
+    func testNightModeDefaultsOffMigratesAndRoundTrips() throws {
+        // Absent preference (and absent legacy key) defaults to off.
+        let absent = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"keepScreenOn":true}"#.utf8))
+        XCTAssertEqual(absent.nightModePreference, .off, "Absent night-mode preference defaults to off")
 
+        // Legacy `nightMode` Bool migrates to the 3-way preference.
+        let legacyOn = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightMode":true}"#.utf8))
+        XCTAssertEqual(legacyOn.nightModePreference, .on)
+        let legacyOff = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightMode":false}"#.utf8))
+        XCTAssertEqual(legacyOff.nightModePreference, .off)
+
+        // The 3-way preference round-trips.
         var s = AppSettings()
-        s.nightMode = true
+        s.nightModePreference = .system
         let roundTripped = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
-        XCTAssertTrue(roundTripped.nightMode)
+        XCTAssertEqual(roundTripped.nightModePreference, .system)
     }
 }

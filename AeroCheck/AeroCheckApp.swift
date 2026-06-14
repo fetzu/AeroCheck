@@ -1,9 +1,11 @@
 import SwiftUI
 import WatchConnectivity
+import UIKit
 
 /// Main application entry point
 @main
 struct AeroCheckApp: App {
+    @StateObject private var systemAppearance = SystemAppearance()
     @StateObject private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager = OfflineMapManager()
@@ -44,10 +46,12 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
-                // Night mode: app-wide, so the flight instruments dim to the red/amber palette. (UX-09)
-                .environment(\.isNightMode, appState.settings.nightMode)
+                // Night mode: app-wide, so the flight instruments dim to the red/amber palette. The
+                // `.system` preference follows the device's dark-mode state (read independently of the
+                // app's forced `.preferredColorScheme(.dark)`). (UX-09 / Phase 3.1)
+                .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemAppearance.isDark))
                 // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
-                .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode))
+                .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemAppearance.isDark)))
                 .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -392,5 +396,32 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
         // Wait for first completion
         _ = await group.next()
         group.cancelAll()
+    }
+}
+
+// MARK: - System Appearance
+
+/// Publishes the DEVICE's light/dark setting for the `.system` night-mode preference. Read from the
+/// window scene's trait collection so it is NOT masked by the app's window-level
+/// `.preferredColorScheme(.dark)` override, and refreshed when the app returns to the foreground (which
+/// covers the user toggling the device appearance while away). (Phase 3.1)
+final class SystemAppearance: ObservableObject {
+    @Published private(set) var isDark: Bool = SystemAppearance.systemIsDark()
+
+    init() {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(refresh),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    @objc private func refresh() {
+        let value = SystemAppearance.systemIsDark()
+        if value != isDark { isDark = value }
+    }
+
+    static func systemIsDark() -> Bool {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        return scene?.traitCollection.userInterfaceStyle == .dark
     }
 }

@@ -22,16 +22,35 @@ struct ChecklistProgress {
     var currentHighlightedItem: [ChecklistPhase: Int] = [:]
 }
 
+/// Night-mode preference: off, always on, or follow the device's dark-mode setting. (Phase 3.1)
+enum NightModePreference: String, Codable, CaseIterable, Identifiable, Sendable {
+    case off, on, system
+    var id: String { rawValue }
+}
+
 /// Application-wide settings
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
-    var nightMode: Bool = false // Dim red/amber instrument palette to protect dark adaptation (UX-09)
+    /// Night mode dims instruments to a red/amber palette to protect dark adaptation (UX-09). 3-way:
+    /// off / on / follow the device dark-mode setting. (Phase 3.1; migrated from the old `nightMode` Bool)
+    var nightModePreference: NightModePreference = .off
 
-    /// The active cockpit theme mode (Phase 3.0). Derived from `nightMode` for now — night-mode
-    /// users map to `.night`; `.sunlight` becomes selectable when the Settings theme picker lands.
-    var cockpitThemeMode: CockpitThemeMode { nightMode ? .night : .day }
+    /// Whether night mode is effectively active, given the device's dark-mode state (only relevant for
+    /// `.system`). Resolved at the injection point because `.system` needs the live appearance.
+    func effectiveNightMode(systemIsDark: Bool) -> Bool {
+        switch nightModePreference {
+        case .off: return false
+        case .on: return true
+        case .system: return systemIsDark
+        }
+    }
+
+    /// The active cockpit theme mode (Phase 3.0/3.1). `.sunlight` becomes selectable when its picker lands.
+    func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
+        effectiveNightMode(systemIsDark: systemIsDark) ? .night : .day
+    }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
@@ -125,7 +144,7 @@ struct AppSettings: Codable, Equatable {
         case selectedAircraft
         case selectedRemoteAircraftId
         case keepScreenOn
-        case nightMode
+        case nightModePreference
         case gpsRecordingInterval
         case showSpeedReference
         case stepByStepHighlighting
@@ -157,6 +176,11 @@ struct AppSettings: Codable, Equatable {
         // marketingMode is intentionally excluded
     }
 
+    /// Legacy keys read only for backward-compatible migration (not encoded).
+    private enum LegacyCodingKeys: String, CodingKey {
+        case nightMode
+    }
+
     // Default initializer (needed because we have a custom decoder)
     init() {}
 
@@ -167,7 +191,15 @@ struct AppSettings: Codable, Equatable {
         selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
         selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? true
-        nightMode = try container.decodeIfPresent(Bool.self, forKey: .nightMode) ?? false
+        // 3-way night mode; migrate the legacy `nightMode` Bool from older saves.
+        if let pref = try container.decodeIfPresent(NightModePreference.self, forKey: .nightModePreference) {
+            nightModePreference = pref
+        } else if let legacyContainer = try? decoder.container(keyedBy: LegacyCodingKeys.self),
+                  let legacy = try? legacyContainer.decodeIfPresent(Bool.self, forKey: .nightMode) {
+            nightModePreference = legacy ? .on : .off
+        } else {
+            nightModePreference = .off
+        }
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
         stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true

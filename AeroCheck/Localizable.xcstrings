@@ -12391,6 +12391,27 @@
         }
       }
     },
+    "settings.display.nightMode.off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Off" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Désactivé" } }
+      }
+    },
+    "settings.display.nightMode.on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "On" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Activé" } }
+      }
+    },
+    "settings.display.nightMode.system" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "System" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Système" } }
+      }
+    },
     "settings.display.nightMode" : {
       "localizations" : {
         "en" : {

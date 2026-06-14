@@ -63,12 +63,22 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(CockpitTheme.night.danger, .nightStall)
     }
 
-    func testCockpitThemeModeDerivesFromNightMode() {
+    func testNightModePreferenceResolvesEffectiveModeAndTheme() {
         var s = AppSettings()
-        s.nightMode = true
-        XCTAssertEqual(s.cockpitThemeMode, .night)
-        s.nightMode = false
-        XCTAssertEqual(s.cockpitThemeMode, .day)
+        s.nightModePreference = .on
+        XCTAssertTrue(s.effectiveNightMode(systemIsDark: false))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .night)
+
+        s.nightModePreference = .off
+        XCTAssertFalse(s.effectiveNightMode(systemIsDark: true))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true), .day)
+
+        // .system follows the device dark-mode flag.
+        s.nightModePreference = .system
+        XCTAssertTrue(s.effectiveNightMode(systemIsDark: true))
+        XCTAssertFalse(s.effectiveNightMode(systemIsDark: false))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true), .night)
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .day)
     }
 
     func testInstrumentTargetStateBarColorMapsToTheme() {

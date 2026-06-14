@@ -2207,7 +2207,14 @@ struct FlightInfoSheet: View {
                 Section("Options") {
                     Toggle(L10n.Settings.learningMode, isOn: optionBinding(\.learningMode))
                     Toggle(L10n.Settings.alwaysUseUTC, isOn: optionBinding(\.alwaysUseUTC))
-                    Toggle(L10n.Settings.nightMode, isOn: optionBinding(\.nightMode))
+                    Picker(L10n.Settings.nightMode, selection: Binding(
+                        get: { appState.settings.nightModePreference },
+                        set: { appState.settings.nightModePreference = $0; appState.saveSettings() }
+                    )) {
+                        Text(L10n.Settings.nightModeOff).tag(NightModePreference.off)
+                        Text(L10n.Settings.nightModeOn).tag(NightModePreference.on)
+                        Text(L10n.Settings.nightModeSystem).tag(NightModePreference.system)
+                    }
                 }
 
                 Section(L10n.GPS.status) {

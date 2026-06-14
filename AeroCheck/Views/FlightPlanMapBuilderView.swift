@@ -33,6 +33,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var searchResults: [Airport] = []
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
+    @State private var showTerrain = false
+    @State private var exportItem: FlightPlanExportItem?
 
     /// Live plan from the manager (single source of truth).
     private var plan: FlightPlan? {
@@ -99,6 +101,13 @@ struct FlightPlanMapBuilderView: View {
                 )
                 .environmentObject(appState)
                 .environmentObject(airportDataService)
+            }
+            .sheet(isPresented: $showTerrain) {
+                TerrainProfileView(waypoints: waypoints)
+                    .environmentObject(appState)
+            }
+            .sheet(item: $exportItem) { item in
+                FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
             }
         }
         .preferredColorScheme(.dark)
@@ -235,8 +244,34 @@ struct FlightPlanMapBuilderView: View {
             } else {
                 waypointList
             }
+            panelActions
         }
         .background(Color.cockpitBackground)
+    }
+
+    private var panelActions: some View {
+        HStack(spacing: 10) {
+            Button { showTerrain = true } label: {
+                Label("Terrain", systemImage: "mountain.2.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
+                    .foregroundColor(.primaryText)
+            }
+            Button { exportGPX() } label: {
+                Label("Export GPX", systemImage: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.aviationGold))
+                    .foregroundColor(.black)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .disabled(waypoints.count < 2)
+        .opacity(waypoints.count < 2 ? 0.4 : 1)
     }
 
     private var routeSummary: some View {
@@ -336,6 +371,12 @@ struct FlightPlanMapBuilderView: View {
             wp.altitude = Double(elevation)
         }
         flightPlanManager.updateWaypoint(wp, in: planId)
+    }
+
+    /// Export the route as an avionics-compatible GPX (Dynon / Garmin) via the shared service.
+    private func exportGPX() {
+        guard let plan, let data = FlightPlanExportService.exportToAvionicsGPX(plan) else { return }
+        exportItem = FlightPlanExportItem(data: data, filename: plan.exportFilename, format: .gpx)
     }
 
     /// Center the map on the existing route once when opening an already-populated plan.

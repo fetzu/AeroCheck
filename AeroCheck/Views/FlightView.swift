@@ -2236,91 +2236,84 @@ struct FlightInfoSheet: View {
         )
     }
 
+    /// Engine-start / line-up / landing / shutdown rows that have actually been recorded.
+    private var timeEntries: [(icon: String, color: Color, label: String, value: String)] {
+        var rows: [(icon: String, color: Color, label: String, value: String)] = []
+        if let t = appState.formattedEngineStartTime { rows.append((icon: "engine.combustion", color: .aviationGreen, label: L10n.Time.engineStart, value: t)) }
+        if let t = appState.formattedLineUpTime { rows.append((icon: "airplane.departure", color: .aviationAmber, label: L10n.Time.takeoff, value: t)) }
+        if let t = appState.formattedLandingTime { rows.append((icon: "airplane.arrival", color: .aviationBlue, label: L10n.Time.landing, value: t)) }
+        if let t = appState.formattedEngineShutdownTime { rows.append((icon: "engine.combustion.fill", color: .aviationRed, label: L10n.Time.shutdown, value: t)) }
+        return rows
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                // Quick in-flight options — the most useful settings without leaving the flight.
-                // ("Options" is identical in EN/FR, so no separate localization entry is needed.)
-                Section("Options") {
-                    Toggle(L10n.Settings.learningMode, isOn: optionBinding(\.learningMode))
-                    Toggle(L10n.Settings.alwaysUseUTC, isOn: optionBinding(\.alwaysUseUTC))
-                    Picker(L10n.Settings.nightMode, selection: Binding(
-                        get: { appState.settings.nightModePreference },
-                        set: { appState.settings.nightModePreference = $0; appState.saveSettings() }
-                    )) {
-                        Text(L10n.Settings.nightModeOff).tag(NightModePreference.off)
-                        Text(L10n.Settings.nightModeOn).tag(NightModePreference.on)
-                        Text(L10n.Settings.nightModeSystem).tag(NightModePreference.system)
-                    }
-                }
-
-                Section(L10n.GPS.status) {
-                    HStack {
-                        Image(systemName: "location.fill")
-                            .foregroundColor(gpsStatusColor)
-                        Text(L10n.GPS.signal)
-                        Spacer()
-                        Text(gpsStatusText)
-                            .foregroundColor(gpsStatusColor)
-                    }
-
-                    HStack {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
-                            .foregroundColor(.aviationBlue)
-                        Text(L10n.GPS.pointsRecorded)
-                        Spacer()
-                        Text("\(appState.currentFlight?.gpsTrack.count ?? 0)")
-                            .foregroundColor(.primaryText)
-                    }
-                }
-
-                Section(L10n.Flight.times) {
-                    if let engineTime = appState.formattedEngineStartTime {
-                        HStack {
-                            Image(systemName: "engine.combustion")
-                                .foregroundColor(.aviationGreen)
-                            Text(L10n.Time.engineStart)
-                            Spacer()
-                            Text(engineTime)
-                                .font(.system(.body, design: .monospaced))
+            ScrollView {
+                VStack(spacing: 14) {
+                    // Quick in-flight options — the most useful settings without leaving the flight.
+                    // ("Options" is identical in EN/FR, so no separate localization entry is needed.)
+                    settingsCard(title: "Options") {
+                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
+                        rowDivider
+                        toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
+                        rowDivider
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.Settings.nightMode)
+                                .font(.system(size: 15))
+                                .foregroundColor(.primaryText)
+                            Picker(L10n.Settings.nightMode, selection: Binding(
+                                get: { appState.settings.nightModePreference },
+                                set: { appState.settings.nightModePreference = $0; appState.saveSettings() }
+                            )) {
+                                Text(L10n.Settings.nightModeOff).tag(NightModePreference.off)
+                                Text(L10n.Settings.nightModeOn).tag(NightModePreference.on)
+                                Text(L10n.Settings.nightModeSystem).tag(NightModePreference.system)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
                         }
                     }
 
-                    if let lineUpTime = appState.formattedLineUpTime {
-                        HStack {
-                            Image(systemName: "airplane.departure")
-                                .foregroundColor(.aviationAmber)
-                            Text(L10n.Time.takeoff)
+                    settingsCard(title: L10n.GPS.status) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "location.fill").foregroundColor(gpsStatusColor)
+                            Text(L10n.GPS.signal).font(.system(size: 15)).foregroundColor(.primaryText)
                             Spacer()
-                            Text(lineUpTime)
-                                .font(.system(.body, design: .monospaced))
+                            Text(gpsStatusText).font(.system(size: 15, weight: .semibold)).foregroundColor(gpsStatusColor)
                         }
-                    }
-
-                    if let landingTime = appState.formattedLandingTime {
-                        HStack {
-                            Image(systemName: "airplane.arrival")
+                        rowDivider
+                        HStack(spacing: 10) {
+                            Image(systemName: "point.topleft.down.to.point.bottomright.curvepath.fill")
                                 .foregroundColor(.aviationBlue)
-                            Text(L10n.Time.landing)
+                            Text(L10n.GPS.pointsRecorded).font(.system(size: 15)).foregroundColor(.primaryText)
                             Spacer()
-                            Text(landingTime)
-                                .font(.system(.body, design: .monospaced))
+                            Text("\(appState.currentFlight?.gpsTrack.count ?? 0)")
+                                .font(.system(size: 15, design: .monospaced)).foregroundColor(.secondaryText)
                         }
                     }
 
-                    if let shutdownTime = appState.formattedEngineShutdownTime {
-                        HStack {
-                            Image(systemName: "engine.combustion.fill")
-                                .foregroundColor(.aviationRed)
-                            Text(L10n.Time.shutdown)
-                            Spacer()
-                            Text(shutdownTime)
-                                .font(.system(.body, design: .monospaced))
+                    settingsCard(title: L10n.Flight.times) {
+                        if timeEntries.isEmpty {
+                            HStack {
+                                Text(L10n.GPS.signalInactive).font(.system(size: 14)).foregroundColor(.dimText)
+                                Spacer()
+                            }
+                        } else {
+                            ForEach(Array(timeEntries.enumerated()), id: \.offset) { idx, row in
+                                if idx > 0 { rowDivider }
+                                HStack(spacing: 10) {
+                                    Image(systemName: row.icon).foregroundColor(row.color).frame(width: 22)
+                                    Text(row.label).font(.system(size: 15)).foregroundColor(.primaryText)
+                                    Spacer()
+                                    Text(row.value).font(.system(size: 15, design: .monospaced)).foregroundColor(.primaryText)
+                                }
+                            }
                         }
                     }
                 }
-
+                .padding(16)
             }
+            .background(Color.cockpitBackground)
             .navigationTitle("HUD Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2330,7 +2323,43 @@ struct FlightInfoSheet: View {
             }
         }
         .presentationDetents([.medium, .large], selection: $detent)
+        .presentationBackground(Color.cockpitBackground)
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Cockpit-styled section helpers
+
+    @ViewBuilder
+    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 12, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(.secondaryText)
+            VStack(spacing: 10) { content() }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                        )
+                )
+        }
+    }
+
+    private func toggleRow(_ title: String, _ binding: Binding<Bool>) -> some View {
+        HStack {
+            Text(title).font(.system(size: 15)).foregroundColor(.primaryText)
+            Spacer()
+            Toggle("", isOn: binding).labelsHidden().tint(.aviationGreen)
+        }
+    }
+
+    private var rowDivider: some View {
+        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
     }
 }
 

@@ -230,7 +230,7 @@ struct FlightView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.secondaryText)
             }
-            .accessibilityLabel(L10n.GPS.status)
+            .accessibilityLabel(L10n.Flight.info)
         }
     }
 
@@ -2191,9 +2191,25 @@ struct FlightInfoSheet: View {
         }
     }
 
+    /// A toggle binding to an AppSettings Bool that persists on change.
+    private func optionBinding(_ keyPath: WritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { appState.settings[keyPath: keyPath] },
+            set: { appState.settings[keyPath: keyPath] = $0; appState.saveSettings() }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                // Quick in-flight options — the most useful settings without leaving the flight.
+                // ("Options" is identical in EN/FR, so no separate localization entry is needed.)
+                Section("Options") {
+                    Toggle(L10n.Settings.learningMode, isOn: optionBinding(\.learningMode))
+                    Toggle(L10n.Settings.alwaysUseUTC, isOn: optionBinding(\.alwaysUseUTC))
+                    Toggle(L10n.Settings.nightMode, isOn: optionBinding(\.nightMode))
+                }
+
                 Section(L10n.GPS.status) {
                     HStack {
                         Image(systemName: "location.fill")

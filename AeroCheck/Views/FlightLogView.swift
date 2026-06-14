@@ -384,39 +384,101 @@ struct FlightLogView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
             }
 
-            Section {
-                if filteredFlights.isEmpty {
-                    Text(L10n.FlightLog.title)
+            if filteredFlights.isEmpty {
+                Section {
+                    Text("No flights in this period")
                         .font(.system(size: 14))
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 24)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                } else {
-                    ForEach(filteredFlights) { flight in
-                        if twoColumn {
-                            // 2-column: tap selects the right-pane detail (no push).
-                            Button { selectedFlight = flight } label: {
-                                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
-                            }
-                            .buttonStyle(.plain)
-                            .listRowBackground(selectedFlight?.id == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
-                        } else {
-                            NavigationLink(destination: FlightDetailView(flight: flight)) {
-                                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
-                            }
-                            .listRowBackground(Color.cardBackground)
+                }
+            } else {
+                // Grouped into logbook "pages" by month, newest first. (round 7, option B)
+                ForEach(monthGroups) { group in
+                    Section {
+                        ForEach(group.flights) { flight in
+                            flightRow(flight, twoColumn: twoColumn)
                         }
-                    }
-                    .onDelete { indexSet in
-                        deleteFlights(at: indexSet)
+                        .onDelete { offsets in deleteFlights(group.flights, at: offsets) }
+                    } header: {
+                        monthHeader(group)
                     }
                 }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+    }
+
+    @ViewBuilder
+    private func flightRow(_ flight: Flight, twoColumn: Bool) -> some View {
+        if twoColumn {
+            // 2-column: tap selects the right-pane detail (no push).
+            Button { selectedFlight = flight } label: {
+                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(selectedFlight?.id == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
+        } else {
+            NavigationLink(destination: FlightDetailView(flight: flight)) {
+                FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+            }
+            .listRowBackground(Color.cardBackground)
+        }
+    }
+
+    private func monthHeader(_ group: MonthGroup) -> some View {
+        HStack(spacing: 8) {
+            Text(group.label)
+                .font(.system(size: 12, weight: .bold))
+                .tracking(0.6)
+                .foregroundColor(.aviationGold)
+            Spacer()
+            Text("\(group.flights.count) flight\(group.flights.count == 1 ? "" : "s") · \(String(format: "%.1f", group.totalHours)) h")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondaryText)
+        }
+        .textCase(nil)
+    }
+
+    private struct MonthGroup: Identifiable {
+        let id: String
+        let label: String
+        let flights: [Flight]
+        let totalHours: Double
+    }
+
+    /// `filteredFlights` grouped by month (newest first; flights already sorted newest-first). (round 7)
+    private var monthGroups: [MonthGroup] {
+        let calendar = Calendar.current
+        var order: [String] = []
+        var buckets: [String: [Flight]] = [:]
+        for flight in filteredFlights {
+            let key: String
+            if let date = flight.startTime {
+                let comps = calendar.dateComponents([.year, .month], from: date)
+                key = String(format: "%04d-%02d", comps.year ?? 0, comps.month ?? 0)
+            } else {
+                key = "0000-00"
+            }
+            if buckets[key] == nil { buckets[key] = []; order.append(key) }
+            buckets[key]?.append(flight)
+        }
+        return order.map { key in
+            let flights = buckets[key] ?? []
+            let hours = flights.reduce(0.0) { $0 + (($1.blockTime ?? $1.flightTime ?? $1.duration ?? 0) / 3600) }
+            let label: String
+            if key == "0000-00" {
+                label = "UNDATED"
+            } else {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "MMMM yyyy"
+                label = (flights.first?.startTime).map { formatter.string(from: $0).uppercased() } ?? key
+            }
+            return MonthGroup(id: key, label: label, flights: flights, totalHours: hours)
+        }
     }
 
     /// Sticky bottom bar so export-all is always reachable without scrolling past every flight. Exports
@@ -430,6 +492,18 @@ struct FlightLogView: View {
             exportFormatButton("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
             exportFormatButton("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
             exportFormatButton("ZIP") { exportScope = appState.flights; showExportAllOptions = true }
+            // Stats summary image of the CURRENT filter (year + aircraft). (round 7)
+            Button { shareStatsCard() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "photo").font(.system(size: 12))
+                    Text("Share card").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.black)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.aviationGold))
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -439,11 +513,10 @@ struct FlightLogView: View {
         }
     }
 
-    /// Delete flights by mapping the (period-filtered) list indices back to the flight objects.
-    private func deleteFlights(at indexSet: IndexSet) {
-        let flightsToDelete = indexSet.map { filteredFlights[$0] }
-        for flight in flightsToDelete {
-            appState.deleteFlight(flight)
+    /// Delete swiped flights within a month group.
+    private func deleteFlights(_ flights: [Flight], at offsets: IndexSet) {
+        for index in offsets {
+            appState.deleteFlight(flights[index])
         }
     }
 
@@ -502,6 +575,36 @@ struct FlightLogView: View {
     private func toggleDistanceUnit() {
         appState.settings.distanceInNauticalMiles.toggle()
         appState.saveSettings()
+    }
+
+    /// Label describing the share-card scope, e.g. "F-HVXA · 2026" or "All time". (round 7)
+    private var shareScopeLabel: String {
+        var parts: [String] = []
+        if let aircraft = selectedAircraft { parts.append(aircraft) }
+        parts.append(selectedYear.map { String($0) } ?? "All time")
+        return parts.joined(separator: " · ")
+    }
+
+    /// Render a stats-summary image of the currently-filtered flights and present the share sheet. (round 7)
+    private func shareStatsCard() {
+        let stats = aggregateStats(filteredFlights)
+        let byAircraft = stats.byAircraft.enumerated().map { index, item in
+            (name: item.name, hours: item.hours, color: Self.aircraftPalette[index % Self.aircraftPalette.count])
+        }
+        let card = FlightLogStatsShareCard(
+            periodLabel: shareScopeLabel,
+            hours: stats.totalHours,
+            flights: stats.flights,
+            landings: stats.landings,
+            distance: distanceValue(stats.distanceKm),
+            unit: distanceUnitLabel,
+            byAircraft: byAircraft
+        )
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 2
+        if let image = renderer.uiImage {
+            presentImageShareSheet(image: image)
+        }
     }
 
     private var yearMenu: some View {
@@ -905,6 +1008,110 @@ struct MiniSparkline: View {
     }
 }
 
+// MARK: - Flight Log stats share card (round 7)
+
+/// A shareable stats-summary image of the (filtered) Flight Log: period + the four metric cards +
+/// hours-by-aircraft. Rendered via ImageRenderer. (round 7)
+struct FlightLogStatsShareCard: View {
+    let periodLabel: String
+    let hours: Double
+    let flights: Int
+    let landings: Int
+    let distance: Double
+    let unit: String
+    let byAircraft: [(name: String, hours: Double, color: Color)]
+
+    private static func grouped(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 40) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("FLIGHT LOG")
+                        .font(.system(size: 26, weight: .semibold)).tracking(6)
+                        .foregroundColor(.aviationGold)
+                    Text(periodLabel)
+                        .font(.system(size: 64, weight: .bold))
+                        .foregroundColor(.primaryText)
+                }
+                Spacer()
+                Image(systemName: "airplane")
+                    .font(.system(size: 54))
+                    .foregroundColor(.aviationGold)
+            }
+
+            HStack(spacing: 20) {
+                statTile("HOURS", String(format: "%.1f", hours), .aviationGold)
+                statTile("FLIGHTS", "\(flights)", .primaryText)
+                statTile("LANDINGS", "\(landings)", .primaryText)
+                statTile(unit.uppercased(), Self.grouped(distance), .primaryText)
+            }
+
+            if !byAircraft.isEmpty {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("HOURS BY AIRCRAFT")
+                        .font(.system(size: 22, weight: .semibold)).tracking(2)
+                        .foregroundColor(.secondaryText)
+                    let maxHours = byAircraft.map(\.hours).max() ?? 1
+                    ForEach(Array(byAircraft.enumerated()), id: \.offset) { _, item in
+                        HStack(spacing: 24) {
+                            Text(item.name)
+                                .font(.system(size: 30, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                                .frame(width: 240, alignment: .leading)
+                                .lineLimit(1)
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Color.white.opacity(0.08))
+                                    Capsule().fill(item.color)
+                                        .frame(width: max(24, geo.size.width * CGFloat(item.hours / max(maxHours, 0.01))))
+                                }
+                            }
+                            .frame(height: 22)
+                            Text(String(format: "%.1f", item.hours))
+                                .font(.system(size: 30, weight: .bold, design: .monospaced))
+                                .foregroundColor(.primaryText)
+                                .frame(width: 110, alignment: .trailing)
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Spacer()
+                HStack(spacing: 10) {
+                    Image(systemName: "airplane.circle.fill").font(.system(size: 30)).foregroundColor(.aviationGold)
+                    Text("AeroCheck").font(.system(size: 28, weight: .semibold)).foregroundColor(.dimText)
+                }
+            }
+        }
+        .padding(60)
+        .frame(width: 1080)
+        .background(Color.cockpitBackground)
+    }
+
+    private func statTile(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(label)
+                .font(.system(size: 20, weight: .semibold)).tracking(1)
+                .foregroundColor(.secondaryText)
+            Text(value)
+                .font(.system(size: 58, weight: .bold, design: .rounded))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(26)
+        .background(RoundedRectangle(cornerRadius: 24).fill(Color.cardBackground))
+    }
+}
+
 // MARK: - Flight Row View
 
 struct FlightRowView: View {
@@ -912,40 +1119,50 @@ struct FlightRowView: View {
     var nauticalMiles: Bool = true
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
+        HStack(spacing: 10) {
+            // Day of month — the month/year lives in the section header (option B). (round 7)
+            Text(dayNumber)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(.primaryText)
+                .frame(width: 26)
+
+            VStack(alignment: .leading, spacing: 3) {
                 // Custom name (if set) above the route, small/grey like the stats line. (round 7)
                 if !flight.name.isEmpty {
                     Text(flight.name)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.dimText)
                         .lineLimit(1)
                 }
-                // Route (or circuit) + date
-                HStack(spacing: 8) {
-                    routeView
-                    Text(shortDate)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondaryText)
-                    Spacer(minLength: 0)
-                }
-                // Stats: duration · landings · NM · aircraft
+                routeView
+                // Secondary: aircraft · landings · distance (time is featured on the right).
                 Text(statsLine)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondaryText)
+                    .font(.system(size: 11))
+                    .foregroundColor(.dimText)
                     .lineLimit(1)
             }
 
+            Spacer(minLength: 6)
+
             if sparklineAltitudes.count >= 2 {
                 MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
-                    .frame(width: 72, height: 28)
+                    .frame(width: 54, height: 22)
             }
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14))
-                .foregroundColor(.dimText)
+            // Total time — the featured logbook value.
+            Text(flight.formattedDuration)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(.aviationGreen)
+                .frame(width: 46, alignment: .trailing)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
+    }
+
+    private var dayNumber: String {
+        guard let date = flight.startTime else { return "—" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter.string(from: date)
     }
 
     /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (3.3)
@@ -985,21 +1202,13 @@ struct FlightRowView: View {
     }
 
     private var statsLine: String {
-        var parts: [String] = [flight.formattedDuration]
+        var parts: [String] = [flight.aircraftRegistration ?? flight.airplane]
         if flight.totalLandings > 0 {
-            parts.append("\(flight.totalLandings) landing\(flight.totalLandings == 1 ? "" : "s")")
+            parts.append("\(flight.totalLandings) ldg")
         }
         let distance = nauticalMiles ? flight.distanceKilometers * 0.539957 : flight.distanceKilometers
         if distance >= 0.5 { parts.append("\(Int(distance.rounded())) \(nauticalMiles ? "NM" : "km")") }
-        parts.append(flight.aircraftRegistration ?? flight.airplane)
         return parts.joined(separator: " · ")
-    }
-
-    private var shortDate: String {
-        guard let date = flight.startTime else { return "" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-        return formatter.string(from: date)
     }
 
     /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (3.3)

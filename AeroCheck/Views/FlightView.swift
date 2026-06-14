@@ -1319,6 +1319,7 @@ struct FlightView: View {
                 presentation: .docked,
                 locationManager: locationManager,
                 briefingContext: reference.isBriefing ? briefingContext : nil,
+                aglFeet: reference == .vSpeeds ? currentAGLFeet : nil,
                 onClose: closeReference
             )
             .padding(12)
@@ -1357,6 +1358,13 @@ struct FlightView: View {
         }
     }
 
+    /// Height above the departure field (the flight's first recorded altitude is the field elevation),
+    /// used to switch the climb V-speed highlight Vx → Vy at 300 ft AGL. nil until both fixes exist.
+    private var currentAGLFeet: Double? {
+        guard let groundMeters = appState.currentFlight?.gpsTrack.first?.altitude else { return nil }
+        return locationManager.currentAltitudeFeet - groundMeters * 3.28084
+    }
+
     /// The bottom-drawer presentation of a reference popup for iPad portrait / iPhone: a dimming scrim
     /// (tap to dismiss) with the cockpit-themed panel rising from the bottom, leaving the instruments
     /// and current checklist item visible above. (Phase 3.1)
@@ -1375,6 +1383,7 @@ struct FlightView: View {
                     presentation: .drawer,
                     locationManager: locationManager,
                     briefingContext: reference.isBriefing ? briefingContext : nil,
+                    aglFeet: reference == .vSpeeds ? currentAGLFeet : nil,
                     onClose: closeReference
                 )
                 .frame(maxHeight: maxHeight)
@@ -2464,6 +2473,7 @@ struct HUDReferencePanel: View {
     var presentation: Presentation = .docked
     @ObservedObject var locationManager: LocationManager
     var briefingContext: BriefingContext? = nil
+    var aglFeet: Double? = nil
     let onClose: () -> Void
 
     @EnvironmentObject var appState: AppState
@@ -2536,7 +2546,11 @@ struct HUDReferencePanel: View {
     private var content: some View {
         switch reference {
         case .vSpeeds:
-            SpeedReferenceView(activeChecklist: appState.activeChecklist)
+            InFlightSpeedReference(
+                activeChecklist: appState.activeChecklist,
+                currentPhase: appState.currentPhase,
+                aglFeet: aglFeet
+            )
         case .gps:
             GPSStatusContent(locationManager: locationManager)
         case .departureBriefing:
@@ -2773,6 +2787,119 @@ private extension View {
                     .fill(Color.cardBackground)
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             )
+    }
+}
+
+// MARK: - In-flight V-speeds (phase-aware highlight, hosted in HUDReferencePanel)
+
+/// The V-speeds reference shown in the HUD panel: a scannable list (V-name accent · description muted ·
+/// value bright white, right-aligned) with the phase-relevant speed(s) highlighted and Vne in red. The
+/// climb highlight switches Vx → Vy at 300 ft AGL; cruise = Vc (or Va); descent = Va + Vbg. (round 6)
+struct InFlightSpeedReference: View {
+    let activeChecklist: ActiveChecklist
+    let currentPhase: ChecklistPhase
+    let aglFeet: Double?
+
+    private var speeds: [SpeedReference] { activeChecklist.speeds }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(activeChecklist.registration)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Text("IAS · kt")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.dimText)
+            }
+
+            VStack(spacing: 5) {
+                ForEach(speeds) { speed in
+                    speedRow(speed)
+                }
+            }
+
+            let crosswind = activeChecklist.crosswindLimits
+            HStack {
+                Text("Max crosswind")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Text("T/O \(crosswind.takeoff) · LDG \(crosswind.landing)")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationAmber)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private func speedRow(_ speed: SpeedReference) -> some View {
+        let highlighted = isHighlighted(speed)
+        let isVne = speed.name.lowercased() == "vne"
+        return HStack(spacing: 10) {
+            // Left accent bar marks the phase-relevant row(s).
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(highlighted ? (isVne ? Color.aviationRed : Color.aviationGold) : Color.clear)
+                .frame(width: 3)
+            Text(speed.name)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(isVne ? .aviationRed : .aviationGold)
+                .frame(width: 58, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(speed.description)
+                .font(.system(size: 12))
+                .foregroundColor(.dimText)
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(speed.value)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(isVne ? .aviationRed : .primaryText)
+                Text("kt")
+                    .font(.system(size: 11))
+                    .foregroundColor(.dimText)
+            }
+        }
+        .padding(.vertical, 7)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(highlighted ? (isVne ? Color.aviationRed.opacity(0.12) : Color.aviationGold.opacity(0.14)) : Color.clear)
+        )
+    }
+
+    private func isHighlighted(_ speed: SpeedReference) -> Bool {
+        highlightNames.contains(speed.name.lowercased())
+    }
+
+    /// Phase-relevant V-speed names to highlight, resolved against what the aircraft actually defines.
+    /// Mapping per user: line-up = Vr; climb = Vx until 300 ft AGL then Vy (Vy when AGL unknown);
+    /// cruise = Vc (else Va); descent = Va + Vbg; approach = Vapp; landing = Vfinal/Vref + Vso. (round 6)
+    private var highlightNames: Set<String> {
+        let available = Set(speeds.map { $0.name.lowercased() })
+        func resolve(_ wanted: [String], fallback: [String] = []) -> [String] {
+            let hit = wanted.filter { available.contains($0) }
+            return hit.isEmpty ? fallback.filter { available.contains($0) } : hit
+        }
+        switch currentPhase {
+        case .beforeDeparture, .lineUp:
+            return Set(resolve(["vr"]))
+        case .climb:
+            let belowTransition = aglFeet.map { $0 < 300 } ?? false
+            return Set(resolve(belowTransition ? ["vx"] : ["vy"], fallback: ["vy", "vx"]))
+        case .cruise:
+            return Set(resolve(["vc"], fallback: ["va"]))
+        case .descent:
+            return Set(resolve(["va", "vbg"]))
+        case .approach:
+            return Set(resolve(["vapp"]))
+        case .landing:
+            return Set(resolve(["vfinal", "vref", "vso"]))
+        default:
+            return []
+        }
     }
 }
 

@@ -12,7 +12,6 @@ struct FlightLogView: View {
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
-    @State private var showExportAllOptions = false
     @State private var showExportAllSheet = false
     @State private var exportAllType: ExportAllType = .gpx
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
@@ -27,8 +26,6 @@ struct FlightLogView: View {
     @State private var selectedAircraft: String? = nil
     /// Selected flight for the iPad-landscape 2-column detail pane. (3.3)
     @State private var selectedFlight: Flight? = nil
-    /// Which flights the export dialog acts on (filtered from the header, all from the sticky bar). (round 7)
-    @State private var exportScope: [Flight] = []
 
     enum ExportAllType: Sendable {
         case gpx
@@ -55,22 +52,19 @@ struct FlightLogView: View {
                 } else if appState.flights.isEmpty {
                     emptyState
                 } else {
-                    VStack(spacing: 0) {
-                        GeometryReader { geo in
-                            if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
-                                // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
-                                HStack(spacing: 0) {
-                                    flightList(twoColumn: true)
-                                        .frame(width: geo.size.width * 0.42)
-                                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
-                                    detailColumn
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                }
-                            } else {
-                                flightList(twoColumn: false)
+                    GeometryReader { geo in
+                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                            // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
+                            HStack(spacing: 0) {
+                                flightList(twoColumn: true)
+                                    .frame(width: geo.size.width * 0.42)
+                                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                                detailColumn
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
+                        } else {
+                            flightList(twoColumn: false)
                         }
-                        exportBar
                     }
                 }
             }
@@ -90,19 +84,6 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .confirmationDialog(L10n.FlightLog.exportAllTitle, isPresented: $showExportAllOptions, titleVisibility: .visible) {
-            Button(L10n.FlightLog.exportAllGPX) {
-                exportAllType = .gpx
-                prepareExportAll(exportScope)
-            }
-            Button(L10n.FlightLog.exportAllJSON) {
-                exportAllType = .json
-                prepareExportAll(exportScope)
-            }
-            Button(L10n.Button.cancel, role: .cancel) { }
-        } message: {
-            Text(L10n.FlightLog.exportAllMessage(exportScope.count))
-        }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
@@ -483,36 +464,6 @@ struct FlightLogView: View {
 
     /// Sticky bottom bar so export-all is always reachable without scrolling past every flight. Exports
     /// ALL flights (the header's Export button handles the filtered/listed subset). (round 7)
-    private var exportBar: some View {
-        HStack(spacing: 8) {
-            Text("Export all")
-                .font(.system(size: 14))
-                .foregroundColor(.secondaryText)
-            Spacer()
-            exportFormatButton("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
-            exportFormatButton("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
-            exportFormatButton("ZIP") { exportScope = appState.flights; showExportAllOptions = true }
-            // Stats summary image of the CURRENT filter (year + aircraft). (round 7)
-            Button { shareStatsCard() } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "photo").font(.system(size: 12))
-                    Text("Share card").font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(.black)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(Color.aviationGold))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color.panelBackground)
-        .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-        }
-    }
-
     /// Delete swiped flights within a month group.
     private func deleteFlights(_ flights: [Flight], at offsets: IndexSet) {
         for index in offsets {
@@ -530,9 +481,12 @@ struct FlightLogView: View {
                 Text("Flight Log")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.primaryText)
-                Spacer()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 8)
                 yearMenu
-                exportButton
+                shareCardButton
+                exportMenu
             }
 
             // Metric cards — 4 across on regular width, 2 on compact.
@@ -633,12 +587,18 @@ struct FlightLogView: View {
         }
     }
 
-    private var exportButton: some View {
-        // Exports the FILTERED/listed flights (export-all lives in the sticky bar). .plain so the
-        // surrounding List row doesn't adopt this button as a whole-row tap. (round 7)
-        Button {
-            exportScope = filteredFlights
-            showExportAllOptions = true
+    /// One Export entry: scope (listed/all) × format (GPX/JSON). Each downloads a .zip bundle of that
+    /// format, so there's no separate "ZIP" option and no second export affordance. (round 8)
+    private var exportMenu: some View {
+        Menu {
+            Section("Listed (\(filteredFlights.count))") {
+                Button("GPX") { exportAllType = .gpx; prepareExportAll(filteredFlights) }
+                Button("JSON") { exportAllType = .json; prepareExportAll(filteredFlights) }
+            }
+            Section("All flights (\(appState.flights.count))") {
+                Button("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
+                Button("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
+            }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "square.and.arrow.up").font(.system(size: 14, weight: .semibold))
@@ -649,8 +609,25 @@ struct FlightLogView: View {
             .padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationGold))
         }
+        .accessibilityLabel("Export")
+    }
+
+    /// Secondary action: the stats-summary share card of the current filter. (round 8)
+    private var shareCardButton: some View {
+        Button { shareStatsCard() } label: {
+            Image(systemName: "photo")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.cardBackground)
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+                )
+        }
         .buttonStyle(.plain)
-        .accessibilityLabel("Export listed flights")
+        .accessibilityLabel("Share stats card")
     }
 
     private var filterMenu: some View {
@@ -669,18 +646,6 @@ struct FlightLogView: View {
             }
             .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
         }
-    }
-
-    private func exportFormatButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.primaryText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 
     private func hoursByAircraft(_ items: [(name: String, hours: Double)]) -> some View {
@@ -1082,11 +1047,12 @@ struct FlightLogStatsShareCard: View {
                 }
             }
 
-            HStack {
+            HStack(alignment: .bottom) {
+                Image(systemName: "airplane.circle.fill").font(.system(size: 34)).foregroundColor(.aviationGold)
                 Spacer()
-                HStack(spacing: 10) {
-                    Image(systemName: "airplane.circle.fill").font(.system(size: 30)).foregroundColor(.aviationGold)
-                    Text("AeroCheck").font(.system(size: 28, weight: .semibold)).foregroundColor(.dimText)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("AeroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(.primaryText)
+                    Text("aerocheck.app").font(.system(size: 20)).foregroundColor(.aviationGold)
                 }
             }
         }
@@ -1144,16 +1110,18 @@ struct FlightRowView: View {
 
             Spacer(minLength: 6)
 
-            if sparklineAltitudes.count >= 2 {
-                MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
-                    .frame(width: 54, height: 22)
+            // Featured total time ON TOP of the altitude sparkline; one line, never wraps. (round 8)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(flight.formattedDuration)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGreen)
+                    .lineLimit(1)
+                    .fixedSize()
+                if sparklineAltitudes.count >= 2 {
+                    MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
+                        .frame(width: 66, height: 18)
+                }
             }
-
-            // Total time — the featured logbook value.
-            Text(flight.formattedDuration)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundColor(.aviationGreen)
-                .frame(width: 46, alignment: .trailing)
         }
         .padding(.vertical, 8)
     }
@@ -1438,10 +1406,8 @@ struct FlightDetailView: View {
 
     private var altitudeGraphSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.FlightDetail.altitudeProfile)
-                .font(.captionText)
-                .foregroundColor(.secondaryText)
-
+            // No static title — the Altitude/Speed toggle below the chart is the label (it lied when
+            // switched to speed). (round 8)
             if flight.gpsTrack.isEmpty {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.cardBackground)
@@ -2237,14 +2203,7 @@ struct AltitudeChartView: View {
                 .font(.captionText)
                 .foregroundColor(.dimText)
         } else {
-          VStack(spacing: 8) {
-            // Speed ⇄ altitude toggle. (3.3)
-            Picker("Series", selection: $mode) {
-                Text("Altitude").tag(ChartMode.altitude)
-                Text("Speed").tag(ChartMode.speed)
-            }
-            .pickerStyle(.segmented)
-
+          VStack(spacing: 10) {
             Chart {
                 // Series line
                 ForEach(displayData, id: \.time) { point in
@@ -2376,7 +2335,15 @@ struct AltitudeChartView: View {
                         )
                 }
             }
+            .padding(.top, 18)   // room for the top phase-event icon annotations
             .onAppear { populateAltitudeCacheIfNeeded() }
+
+            // Altitude ⇄ speed toggle BELOW the chart, so the top phase icons don't overlap it. (round 8)
+            Picker("Series", selection: $mode) {
+                Text("Altitude").tag(ChartMode.altitude)
+                Text("Speed").tag(ChartMode.speed)
+            }
+            .pickerStyle(.segmented)
           }
         }
     }

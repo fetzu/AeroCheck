@@ -109,6 +109,11 @@ struct Flight: Identifiable, Codable {
     var cachedMaxAltitudeMeters: Double?
     var cachedDurationSeconds: Double?
 
+    /// User-pinned flag. Favorited flights sort to the top of the logbook and show a gold star.
+    /// Optional + backward-compatible: legacy records decode to `false`. Toggling bumps `modifiedAt`
+    /// so it rides the CloudKit conflict tiebreaker like any other scalar edit. (3.3 favorites)
+    var isFavorite: Bool
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     static let currentSchemaVersion = 1
@@ -128,6 +133,7 @@ struct Flight: Identifiable, Codable {
         case goAroundTimes, touchAndGoTimes, fullStopTimes
         case modifiedAt, schemaVersion
         case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
+        case isFavorite
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -192,6 +198,9 @@ struct Flight: Identifiable, Codable {
         cachedDistanceKm = try container.decodeIfPresent(Double.self, forKey: .cachedDistanceKm)
         cachedMaxAltitudeMeters = try container.decodeIfPresent(Double.self, forKey: .cachedMaxAltitudeMeters)
         cachedDurationSeconds = try container.decodeIfPresent(Double.self, forKey: .cachedDurationSeconds)
+
+        // New in 3.3 — legacy records (and imports) default to not-favorited.
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
     }
 
     init(
@@ -233,7 +242,8 @@ struct Flight: Identifiable, Codable {
         schemaVersion: Int = Flight.currentSchemaVersion,
         cachedDistanceKm: Double? = nil,
         cachedMaxAltitudeMeters: Double? = nil,
-        cachedDurationSeconds: Double? = nil
+        cachedDurationSeconds: Double? = nil,
+        isFavorite: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -274,6 +284,7 @@ struct Flight: Identifiable, Codable {
         self.cachedDistanceKm = cachedDistanceKm
         self.cachedMaxAltitudeMeters = cachedMaxAltitudeMeters
         self.cachedDurationSeconds = cachedDurationSeconds
+        self.isFavorite = isFavorite
     }
 
     /// Stamp the flight as locally modified (drives the CloudKit conflict tiebreaker). (ARCH-02)

@@ -1227,6 +1227,17 @@ class AppState: ObservableObject {
             saveFlight(flights[index]) // PR-09: persist + sync only this flight
         }
     }
+
+    /// Toggle the user-pinned "favorite" flag. Favorited flights pin to the top of the logbook.
+    /// Mirrors `updateFlightName`: mutate in place, stamp `modifiedAt`, persist + sync only this
+    /// flight so the star rides CloudKit's conflict tiebreaker. (3.3 favorites)
+    func toggleFavorite(_ flight: Flight) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].isFavorite.toggle()
+            flights[index].touch()
+            saveFlight(flights[index])
+        }
+    }
     
     // MARK: - Persistence
 

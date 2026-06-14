@@ -376,6 +376,19 @@ struct FlightLogView: View {
                         .listRowSeparator(.hidden)
                 }
             } else {
+                // Pinned favorites float above the month pages. (3.3 favorites)
+                let favorites = favoriteFlights
+                if !favorites.isEmpty {
+                    Section {
+                        ForEach(favorites) { flight in
+                            flightRow(flight, twoColumn: twoColumn)
+                        }
+                        .onDelete { offsets in deleteFlights(favorites, at: offsets) }
+                    } header: {
+                        favoritesHeader(count: favorites.count)
+                    }
+                }
+
                 // Grouped into logbook "pages" by month, newest first. (round 7, option B)
                 ForEach(monthGroups) { group in
                     Section {
@@ -402,12 +415,45 @@ struct FlightLogView: View {
             }
             .buttonStyle(.plain)
             .listRowBackground(selectedFlight?.id == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
+            .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
         } else {
             NavigationLink(destination: FlightDetailView(flight: flight)) {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
             }
             .listRowBackground(Color.cardBackground)
+            .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
         }
+    }
+
+    /// Leading (swipe-right) favorite toggle. Trailing swipe stays the iOS-conventional delete. (3.3)
+    private func favoriteSwipeButton(_ flight: Flight) -> some View {
+        Button {
+            withAnimation { appState.toggleFavorite(flight) }
+        } label: {
+            Label(flight.isFavorite ? "Unfavorite" : "Favorite",
+                  systemImage: flight.isFavorite ? "star.slash.fill" : "star.fill")
+        }
+        .tint(.aviationGold)
+    }
+
+    /// Favorited flights within the current filter, newest first (pinned above the month pages). (3.3)
+    private var favoriteFlights: [Flight] {
+        filteredFlights.filter { $0.isFavorite }
+    }
+
+    private func favoritesHeader(count: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(.aviationGold)
+            Text("FAVORITES")
+                .font(.system(size: 12, weight: .bold))
+                .tracking(0.6)
+                .foregroundColor(.aviationGold)
+            Spacer()
+            Text("\(count)")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondaryText)
+        }
+        .textCase(nil)
     }
 
     private func monthHeader(_ group: MonthGroup) -> some View {
@@ -431,12 +477,13 @@ struct FlightLogView: View {
         let totalHours: Double
     }
 
-    /// `filteredFlights` grouped by month (newest first; flights already sorted newest-first). (round 7)
+    /// `filteredFlights` grouped by month (newest first; flights already sorted newest-first).
+    /// Favorites are excluded — they live in their own pinned section so they aren't shown twice. (round 7 / 3.3)
     private var monthGroups: [MonthGroup] {
         let calendar = Calendar.current
         var order: [String] = []
         var buckets: [String: [Flight]] = [:]
-        for flight in filteredFlights {
+        for flight in filteredFlights where !flight.isFavorite {
             let key: String
             if let date = flight.startTime {
                 let comps = calendar.dateComponents([.year, .month], from: date)
@@ -1108,11 +1155,18 @@ struct FlightRowView: View {
 
             // Featured total time ON TOP of the altitude sparkline; one line, never wraps. (round 8)
             VStack(alignment: .trailing, spacing: 3) {
-                Text(flight.formattedDuration)
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGreen)
-                    .lineLimit(1)
-                    .fixedSize()
+                HStack(spacing: 4) {
+                    if flight.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.aviationGold)
+                    }
+                    Text(flight.formattedDuration)
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundColor(.aviationGreen)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
                 if sparklineAltitudes.count >= 2 {
                     MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
                         .frame(width: 66, height: 18)

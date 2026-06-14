@@ -163,6 +163,7 @@ struct FlightPlanMapBuilderView: View {
                     Button { searchText = ""; searchResults = [] } label: {
                         Image(systemName: "xmark.circle.fill").foregroundColor(.dimText)
                     }
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(10)
@@ -434,6 +435,7 @@ private struct WaypointBuilderRow: View {
                 .foregroundColor(.black)
                 .frame(width: 26, height: 26)
                 .background(Circle().fill(Color.aviationGold))
+                .accessibilityLabel("Waypoint \(index + 1)")
 
             VStack(alignment: .leading, spacing: 3) {
                 Button(action: onTap) {
@@ -467,9 +469,11 @@ private struct WaypointBuilderRow: View {
                     .foregroundColor(.primaryText)
                     .frame(width: 52)
                     .focused($altitudeFocused)
+                    .accessibilityLabel("Planned altitude in feet")
                 Text("ft")
                     .font(.system(size: 11))
                     .foregroundColor(.secondaryText)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)

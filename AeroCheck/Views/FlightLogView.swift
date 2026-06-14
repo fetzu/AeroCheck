@@ -1297,16 +1297,19 @@ struct FlightRowView: View {
                         Image(systemName: "star.fill")
                             .font(.system(size: 10))
                             .foregroundColor(.aviationGold)
+                            .accessibilityLabel("Favorite")
                     }
                     Text(flight.formattedDuration)
                         .font(.system(size: 15, weight: .bold, design: .monospaced))
                         .foregroundColor(.aviationGreen)
                         .lineLimit(1)
                         .fixedSize()
+                        .accessibilityLabel("Duration \(flight.formattedDuration)")
                 }
                 if sparklineAltitudes.count >= 2 {
                     MiniSparkline(values: sparklineAltitudes, color: .altimeterBlue)
                         .frame(width: 66, height: 18)
+                        .accessibilityHidden(true) // decorative altitude glance
                 }
             }
         }

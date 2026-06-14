@@ -953,42 +953,6 @@ struct PulseModifier: ViewModifier {
     }
 }
 
-/// A finite "ready" pulse for the NEXT button: when `isActive` becomes true the button scales up and
-/// back a few times, then settles (no continuous loop). Timing mirrors the old PulseModifier. (round 6)
-struct NextReadyPulse: ViewModifier {
-    let isActive: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulseCount = 0
-    @State private var scaledUp = false
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(scaledUp ? 1.04 : 1.0)
-            .brightness(scaledUp ? 0.06 : 0)
-            .animation(.easeInOut(duration: 0.38), value: scaledUp)
-            .onChange(of: isActive) { _, on in
-                if on { startPulse() } else { pulseCount = 0; scaledUp = false }
-            }
-            .onAppear { if isActive { startPulse() } }
-    }
-
-    private func startPulse() {
-        guard !reduceMotion else { return }   // honour Reduce Motion (UX-18)
-        pulseCount = 0
-        doPulse()
-    }
-
-    private func doPulse() {
-        guard pulseCount < 3 else { scaledUp = false; return }
-        scaledUp = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
-            scaledUp = false
-            pulseCount += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) { doPulse() }
-        }
-    }
-}
-
 // MARK: - Settings Row
 
 /// A navigation row component for the settings hub, displaying an icon, title, and subtitle

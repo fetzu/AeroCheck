@@ -5,7 +5,6 @@ import UIKit
 /// Main application entry point
 @main
 struct AeroCheckApp: App {
-    @StateObject private var systemAppearance = SystemAppearance()
     @StateObject private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager = OfflineMapManager()
@@ -32,6 +31,7 @@ struct AeroCheckApp: App {
 
     var body: some Scene {
         WindowGroup {
+            AppRootView(appState: appState) {
             ContentView()
                 .environmentObject(appState)
                 .environmentObject(locationManager)
@@ -46,16 +46,6 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
-                // Night mode: app-wide, so the flight instruments dim to the red/amber palette. The
-                // `.system` preference follows the DEVICE's dark-mode state, readable because the app now
-                // forces dark at the WINDOW level (WindowAppearanceEnforcer) instead of via SwiftUI's
-                // `.preferredColorScheme`, which applied a SCENE-level override that masked every probe
-                // (so `.system` was stuck on "dark" no matter the device). (round 6)
-                .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemAppearance.isDark))
-                // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
-                .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemAppearance.isDark)))
-                .background(WindowAppearanceEnforcer())
-                .onAppear { systemAppearance.attachIfNeeded() }
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -136,6 +126,7 @@ struct AeroCheckApp: App {
                 .onChange(of: appState.isFlightActive) { _, isActive in
                     handleFlightStateChange(isActive: isActive)
                 }
+            }
         }
 
         #if os(macOS)
@@ -402,78 +393,36 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
     }
 }
 
-// MARK: - System Appearance
+// MARK: - App appearance
 
-/// Forces the app's own window(s) to dark at the WINDOW level, so the cockpit UI stays dark while the
-/// SCENE trait keeps following the device. Replaces the app-wide `.preferredColorScheme(.dark)`, which
-/// applied a SCENE-level override — that masked the device appearance in EVERY window of the scene,
-/// including a separate probe, so `.system` night mode was stuck reading "dark". Overriding per-window
-/// leaves the scene clean for `SystemAppearance` to read. (round 6)
-struct WindowAppearanceEnforcer: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = false
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // Re-assert on every SwiftUI update so it survives window changes / sheet presentations.
-        DispatchQueue.main.async {
-            uiView.window?.overrideUserInterfaceStyle = .dark
-        }
-    }
-}
-
-/// Publishes the DEVICE's light/dark setting for the `.system` night-mode preference.
+/// Forces the app's SwiftUI UI to dark with `.environment(\.colorScheme, .dark)` — a SUBTREE-local
+/// override that does NOT touch the window/presentation — so this wrapper, which sits ABOVE that
+/// override, can still read the DEVICE's real light/dark via `@Environment(\.colorScheme)` to drive the
+/// `.system` night-mode preference.
 ///
-/// Now that the app forces dark per-WINDOW (see `WindowAppearanceEnforcer`) instead of per-scene, the
-/// scene's trait follows the real device appearance again. A hidden `.unspecified` probe window in that
-/// scene therefore reports the true device light/dark and fires trait-change callbacks live (so a
-/// Control-Centre toggle updates immediately, no foregrounding needed). (round 6)
-final class SystemAppearance: ObservableObject {
-    @Published private(set) var isDark: Bool = false
-    private var probeWindow: UIWindow?
+/// Why not `.preferredColorScheme(.dark)`: per Apple, that sets the presentation/window level and
+/// propagates UP the hierarchy, so once applied the system scheme can no longer be read — it masked
+/// every probe (window/scene/screen), which is why the earlier four attempts all failed.
+/// `.environment(\.colorScheme, _)` is local-only, leaving the device setting readable. (round 6)
+struct AppRootView<Content: View>: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.colorScheme) private var systemColorScheme
+    private let content: Content
 
-    /// Attach the hidden probe window once a scene exists. Safe to call repeatedly.
-    func attachIfNeeded() {
-        guard probeWindow == nil else { return }
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return }
-
-        let probe = AppearanceProbeViewController()
-        probe.onChange = { [weak self] dark in
-            guard let self, self.isDark != dark else { return }
-            self.isDark = dark
-        }
-        let window = UIWindow(windowScene: scene)
-        window.rootViewController = probe
-        window.overrideUserInterfaceStyle = .unspecified   // follow the SYSTEM, not the app's dark override
-        window.windowLevel = UIWindow.Level.normal - 1     // behind everything
-        window.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-        window.isUserInteractionEnabled = false
-        window.isHidden = false                            // must be in the hierarchy to receive traits
-        probeWindow = window
-
-        // Belt-and-suspenders: force the app's existing window(s) dark at the WINDOW level (the probe
-        // stays `.unspecified`). The WindowAppearanceEnforcer keeps this asserted as windows change.
-        for appWindow in scene.windows where appWindow !== window {
-            appWindow.overrideUserInterfaceStyle = .dark
-        }
-
-        isDark = probe.traitCollection.userInterfaceStyle == .dark
+    init(appState: AppState, @ViewBuilder content: () -> Content) {
+        self.appState = appState
+        self.content = content()
     }
-}
 
-/// Hidden probe whose trait collection follows the SYSTEM (its window doesn't carry the app's dark
-/// override), so it can report the real device appearance and react to changes.
-final class AppearanceProbeViewController: UIViewController {
-    var onChange: ((Bool) -> Void)?
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (vc: AppearanceProbeViewController, _) in
-            vc.onChange?(vc.traitCollection.userInterfaceStyle == .dark)
-        }
+    var body: some View {
+        let systemIsDark = systemColorScheme == .dark
+        content
+            // Night mode: dims the flight instruments to the red/amber palette; `.system` follows the
+            // device scheme read above (UX-09 / Phase 3.1).
+            .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
+            // Cockpit theme: app-wide semantic palette the revamped screens read (Phase 3.0).
+            .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
+            // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
+            .environment(\.colorScheme, .dark)
     }
 }

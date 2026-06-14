@@ -610,9 +610,9 @@ struct FlightView: View {
                         .fill(nextButtonReady ? Color.aviationGold : Color.aviationGold.opacity(0.22))
                 )
             }
-            // When the phase becomes ready, the button itself pulses a few times then settles (finite,
-            // not a loop) — replaces the continuous inner breathing. (round 6 feedback)
-            .modifier(NextReadyPulse(isActive: nextButtonReady))
+            // When the phase becomes ready, a finite gold halo pulses AROUND the button then settles
+            // (no resize, no loop) — reuses the shared PulseModifier. (round 6 feedback)
+            .modifier(PulseModifier(isActive: nextButtonReady))
         }
     }
 
@@ -796,18 +796,22 @@ struct FlightView: View {
         let phase = appState.currentPhase
         let language = appState.settings.checklistLanguage.resolvedLanguage
         if appState.isCircuitMode && phase.showsGoAroundButtons {
-            quickEventButton(
-                title: L10n.ChecklistAction.goAround(language: language),
-                systemImage: "arrow.up.right.circle.fill",
-                tint: .aviationAmber,
-                action: performGoAround
-            )
-            quickEventButton(
-                title: L10n.ChecklistAction.touchAndGo(language: language),
-                systemImage: "arrow.triangle.2.circlepath",
-                tint: .aviationBlue,
-                action: performTouchAndGo
-            )
+            // The pair shares ~50% of the bottom bar (so each button ≈ 25%, leaving NEXT ≈ 50%).
+            HStack(spacing: 12) {
+                quickEventButton(
+                    title: L10n.ChecklistAction.goAround(language: language),
+                    systemImage: "arrow.up.right.circle.fill",
+                    tint: .aviationAmber,
+                    action: performGoAround
+                )
+                quickEventButton(
+                    title: L10n.ChecklistAction.touchAndGo(language: language),
+                    systemImage: "arrow.triangle.2.circlepath",
+                    tint: .aviationBlue,
+                    action: performTouchAndGo
+                )
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -821,7 +825,7 @@ struct FlightView: View {
                     .minimumScaleFactor(0.7)
             }
             .foregroundColor(tint)
-            .frame(width: 88)
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 14)

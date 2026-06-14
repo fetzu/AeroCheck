@@ -490,10 +490,14 @@ struct FlightView: View {
             // vertical slack so the checklist scrolls in the middle.
             mainChecklistArea
 
+            // Hold-to-confirm GO-AROUND / T&G / FULL-STOP for the relevant phases (empty otherwise).
+            eventActionsRow
+
             // Persistent glance map band at the bottom (tap to open the full nav map).
             if appState.isFlightActive {
                 miniMap
                     .padding(.horizontal, 16)
+                    .padding(.top, 10)
                     .padding(.bottom, 12)
             }
         }
@@ -520,6 +524,73 @@ struct FlightView: View {
                 gpsSignalStatus: locationManager.gpsSignalStatus
             )
         }
+    }
+
+    // MARK: - Event Actions (hold-to-confirm)
+
+    /// Always-accessible GO-AROUND / TOUCH & GO / FULL-STOP buttons for the relevant phases, so the
+    /// pilot doesn't have to scroll the checklist to reach them. Gated on the same phase flags as the
+    /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
+    /// when no event applies to the current phase. (Phase 3.1)
+    @ViewBuilder
+    private var eventActionsRow: some View {
+        let phase = appState.currentPhase
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        if phase.showsGoAroundButtons || phase.showsLandedButton {
+            HStack(spacing: 10) {
+                if phase.showsGoAroundButtons {
+                    HoldToConfirmButton(
+                        title: L10n.ChecklistAction.goAround(language: language),
+                        systemImage: "arrow.up.right.circle.fill",
+                        tint: .aviationAmber,
+                        count: appState.currentFlight?.goAroundCount ?? 0,
+                        action: performGoAround
+                    )
+                    HoldToConfirmButton(
+                        title: L10n.ChecklistAction.touchAndGo(language: language),
+                        systemImage: "arrow.triangle.2.circlepath",
+                        tint: .aviationBlue,
+                        count: appState.currentFlight?.touchAndGoCount ?? 0,
+                        action: performTouchAndGo
+                    )
+                }
+                if phase.showsLandedButton {
+                    HoldToConfirmButton(
+                        title: L10n.ChecklistAction.landed(language: language),
+                        systemImage: "airplane.arrival",
+                        tint: .aviationBlue,
+                        count: appState.currentFlight?.fullStopCount ?? 0,
+                        action: performLanded
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+        }
+    }
+
+    // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so
+    // the HUD buttons and the checklist buttons log identically — no double-counting. (Phase 3.1)
+    private func performGoAround() {
+        appState.recordGoAround()
+        flightEventDetector.notifyManualEvent(.goAround)
+        pulseActionButton = false
+        pulseNextButton = false
+        allItemsChecked = false
+    }
+
+    private func performTouchAndGo() {
+        appState.recordTouchAndGo()
+        flightEventDetector.notifyManualEvent(.touchAndGo)
+        pulseActionButton = false
+        pulseNextButton = false
+        allItemsChecked = false
+    }
+
+    private func performLanded() {
+        appState.recordLanding()
+        flightEventDetector.notifyManualEvent(.fullStop)
+        pulseActionButton = false
     }
 
     // MARK: - Compact Layout (iPhone)
@@ -1917,6 +1988,79 @@ struct FlightMiniMap: UIViewRepresentable {
             }
             return MKOverlayRenderer(overlay: overlay)
         }
+    }
+}
+
+// MARK: - Hold-to-Confirm Button
+
+/// A press-and-hold button for consequential flight events (GO-AROUND, TOUCH & GO, FULL STOP). The
+/// action fires only after a deliberate ~1 s hold — a fill sweeps to show progress and releasing
+/// early cancels — so a stray cockpit touch can't trigger a go-around. VoiceOver activation fires
+/// immediately (it's already a deliberate action). Optionally shows a running count. (Phase 3.1)
+struct HoldToConfirmButton: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var count: Int = 0
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 0
+
+    private let holdDuration: TimeInterval = 1.0
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.18))
+
+            // Hold-progress fill.
+            GeometryReader { geo in
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(tint.opacity(0.5))
+                    .frame(width: geo.size.width * progress)
+            }
+
+            RoundedRectangle(cornerRadius: 12).strokeBorder(tint, lineWidth: 2)
+
+            HStack(spacing: 8) {
+                Image(systemName: systemImage).font(.system(size: 16, weight: .bold))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(L10n.ChecklistAction.holdToConfirm)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.secondaryText)
+                }
+                if count > 0 {
+                    Spacer(minLength: 4)
+                    Text("\(count)").font(.system(size: 17, weight: .heavy, design: .monospaced))
+                }
+            }
+            .foregroundColor(.primaryText)
+            .padding(.horizontal, 12)
+        }
+        .frame(height: 54)
+        .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onLongPressGesture(minimumDuration: holdDuration, maximumDistance: 60) {
+            action()
+            withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
+        } onPressingChanged: { pressing in
+            if reduceMotion {
+                progress = pressing ? 1 : 0  // no sweep, but the hold is still required to fire
+            } else {
+                withAnimation(.linear(duration: pressing ? holdDuration : 0.2)) {
+                    progress = pressing ? 1 : 0
+                }
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(count > 0 ? "\(title), \(count)" : title)
+        .accessibilityHint(L10n.ChecklistAction.holdToConfirm)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
     }
 }
 

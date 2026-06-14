@@ -735,6 +735,7 @@ enum L10n {
             String(format: String(localized: "checklist.page"), n)
         }
         static let tapToAdvance = String(localized: "checklist.tapToAdvance")
+        static let holdToConfirm = String(localized: "checklist.holdToConfirm")
         static let airspeedsAFM = String(localized: "checklist.airspeeds.afm")
         static let maxCrosswind = String(localized: "checklist.maxCrosswind")
         static func crosswindFormat(takeoff: String, landing: String) -> String {

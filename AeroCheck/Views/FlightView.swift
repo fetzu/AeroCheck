@@ -173,7 +173,8 @@ struct FlightView: View {
                     .padding(.vertical, 4)
                     .background(Capsule().fill(Color.aviationGold.opacity(0.18)))
             }
-            Text(L10n.Flight.phase(appState.currentPhase.rawValue + 1, ChecklistPhase.allCases.count))
+            // Just the counter — the phase NAME is already in the badge, so "Phase" is redundant.
+            Text("\(appState.currentPhase.rawValue + 1) / \(ChecklistPhase.allCases.count)")
                 .font(.captionText)
                 .foregroundColor(.secondaryText)
 
@@ -397,64 +398,12 @@ struct FlightView: View {
                         ChecklistView(
                             phase: appState.currentPhase,
                             activeChecklist: appState.activeChecklist,
-                            onEngineStart: {
-                                appState.recordEngineStart()
-                                pulseActionButton = false
-                                // Now pulse NEXT button if all items checked
-                                if allItemsChecked {
-                                    triggerNextButtonPulse()
-                                }
-                            },
-                            onEngineStartUpdate: {
-                                appState.recordEngineStart()
-                            },
-                            onLineUp: {
-                                appState.recordLineUpTime()
-                                // Update flight plan departure time to now
-                                if let lineUpTime = appState.lineUpTime {
-                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
-                                }
-                                pulseActionButton = false
-                                // Now pulse NEXT button if all items checked
-                                if allItemsChecked {
-                                    triggerNextButtonPulse()
-                                }
-                            },
-                            onLineUpUpdate: {
-                                appState.recordLineUpTime()
-                                // Update flight plan departure time
-                                if let lineUpTime = appState.lineUpTime {
-                                    flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
-                                }
-                            },
-                            onEngineShutdown: {
-                                appState.recordEngineShutdown()
-                                pulseActionButton = false
-                                // Show hour meter input if enabled
-                                if appState.settings.logEngineHours {
-                                    hourMeterStopInitialValue = ""
-                                    showHourMeterStop = true
-                                }
-                                // Now pulse NEXT button if all items checked
-                                if allItemsChecked {
-                                    triggerNextButtonPulse()
-                                }
-                            },
-                            onEngineShutdownUpdate: {
-                                appState.recordEngineShutdown()
-                                // Re-show hour meter with previous value pre-filled
-                                if appState.settings.logEngineHours {
-                                    if let prevEnd = appState.currentFlight?.engineHourEnd {
-                                        let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
-                                        hourMeterStopInitialValue = prevFormat == "time"
-                                            ? Flight.formatHoursTime(prevEnd)
-                                            : Flight.formatHoursDecimal(prevEnd)
-                                    } else {
-                                        hourMeterStopInitialValue = ""
-                                    }
-                                    showHourMeterStop = true
-                                }
-                            },
+                            onEngineStart: { performEngineStart() },
+                            onEngineStartUpdate: { performEngineStartUpdate() },
+                            onLineUp: { performLineUp() },
+                            onLineUpUpdate: { performLineUpUpdate() },
+                            onEngineShutdown: { performEngineShutdown() },
+                            onEngineShutdownUpdate: { performEngineShutdownUpdate() },
                             onGoAround: {
                                 appState.recordGoAround()
                                 flightEventDetector.notifyManualEvent(.goAround) // PR-07: suppress a duplicate auto-detect
@@ -520,6 +469,7 @@ struct FlightView: View {
                             highlightedItemIndex: appState.getHighlightedItem(for: appState.currentPhase),
                             pulseActionButton: pulseActionButton,
                             checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage,
+                            hudMode: true,
                             engineHourStart: appState.settings.logEngineHours ? appState.currentFlight?.engineHourStart : nil,
                             engineHourEnd: appState.settings.logEngineHours ? appState.currentFlight?.engineHourEnd : nil,
                             engineHourStartInputFormat: appState.currentFlight?.engineHourStartInputFormat,
@@ -573,12 +523,16 @@ struct FlightView: View {
             }
             .background(Color.cockpitBackground)
 
-            // Big NEXT (or END FLIGHT) button — the single primary action; NAV moved to the map,
-            // SPEEDS to the V-SPEEDS tile, PREV to the tappable phase progress bar.
-            hudNextButton
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.panelBackground)
+            // Bottom bar: the phase's timestamp action (engine-start / ready-for-line-up / shutdown,
+            // when applicable) next to the big NEXT. NAV moved to the map, SPEEDS to the V-SPEEDS tile,
+            // PREV to the tappable phase progress bar.
+            HStack(spacing: 12) {
+                hudPhaseActionButton
+                hudNextButton
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.panelBackground)
         }
     }
 
@@ -621,6 +575,98 @@ struct FlightView: View {
             }
             .disabled(!appState.canGoToNextPhase)
             .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked && !currentPhaseNeedsAction))
+        }
+    }
+
+    /// The phase's timestamp action (engine-start / ready-for-line-up / shutdown) shown next to NEXT in
+    /// the HUD bottom bar — moved out of the checklist scroll so it's always reachable, not scrolled
+    /// away. Mutually exclusive per phase; empty otherwise. (Phase 3.1)
+    @ViewBuilder
+    private var hudPhaseActionButton: some View {
+        let phase = appState.currentPhase
+        let lang = appState.settings.checklistLanguage.resolvedLanguage
+        if phase.showsEngineStartButton {
+            TimestampActionButton(
+                title: L10n.ChecklistAction.engineStart(language: lang),
+                icon: "engine.combustion.fill",
+                color: .aviationGreen,
+                timestamp: appState.formattedEngineStartTime,
+                timestampLabel: L10n.ChecklistAction.started(language: lang),
+                isPulsing: pulseActionButton,
+                onFirstPress: { performEngineStart() },
+                onUpdateTime: { performEngineStartUpdate() }
+            )
+        } else if phase.showsLineUpButton {
+            TimestampActionButton(
+                title: L10n.ChecklistAction.readyForLineUp(language: lang),
+                icon: "airplane.departure",
+                color: .aviationAmber,
+                timestamp: appState.formattedLineUpTime,
+                timestampLabel: L10n.ChecklistAction.lineUp(language: lang),
+                timestampSuffix: " (+2 min)",
+                isPulsing: pulseActionButton,
+                onFirstPress: { performLineUp() },
+                onUpdateTime: { performLineUpUpdate() }
+            )
+        } else if phase.showsEngineShutdownButton {
+            TimestampActionButton(
+                title: L10n.ChecklistAction.engineShutdown(language: lang),
+                icon: "engine.combustion.fill",
+                color: .aviationRed,
+                timestamp: appState.formattedEngineShutdownTime,
+                timestampLabel: L10n.ChecklistAction.shutdown(language: lang),
+                isPulsing: pulseActionButton,
+                onFirstPress: { performEngineShutdown() },
+                onUpdateTime: { performEngineShutdownUpdate() }
+            )
+        }
+    }
+
+    // Phase timestamp actions — shared by the HUD bottom-bar button (iPad) and the in-checklist
+    // buttons (these methods back the iPad ChecklistView callbacks too, so behavior can't diverge).
+    private func performEngineStart() {
+        appState.recordEngineStart()
+        pulseActionButton = false
+        if allItemsChecked { triggerNextButtonPulse() }
+    }
+    private func performEngineStartUpdate() {
+        appState.recordEngineStart()
+    }
+    private func performLineUp() {
+        appState.recordLineUpTime()
+        if let lineUpTime = appState.lineUpTime {
+            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+        }
+        pulseActionButton = false
+        if allItemsChecked { triggerNextButtonPulse() }
+    }
+    private func performLineUpUpdate() {
+        appState.recordLineUpTime()
+        if let lineUpTime = appState.lineUpTime {
+            flightPlanManager.updateDepartureTimeFromLineUp(lineUpTime)
+        }
+    }
+    private func performEngineShutdown() {
+        appState.recordEngineShutdown()
+        pulseActionButton = false
+        if appState.settings.logEngineHours {
+            hourMeterStopInitialValue = ""
+            showHourMeterStop = true
+        }
+        if allItemsChecked { triggerNextButtonPulse() }
+    }
+    private func performEngineShutdownUpdate() {
+        appState.recordEngineShutdown()
+        if appState.settings.logEngineHours {
+            if let prevEnd = appState.currentFlight?.engineHourEnd {
+                let prevFormat = appState.currentFlight?.engineHourEndInputFormat ?? "decimal"
+                hourMeterStopInitialValue = prevFormat == "time"
+                    ? Flight.formatHoursTime(prevEnd)
+                    : Flight.formatHoursDecimal(prevEnd)
+            } else {
+                hourMeterStopInitialValue = ""
+            }
+            showHourMeterStop = true
         }
     }
 
@@ -733,25 +779,29 @@ struct FlightView: View {
         HStack(spacing: 10) {
             // V-SPEEDS — a labeled tap (no longer a hidden one), with the phase target speed inline.
             PhaseContextTile(
-                title: L10n.Button.speeds,
+                title: "V-SPEEDS",
                 systemImage: "speedometer",
+                tint: .aviationGreen,
                 value: appState.activeChecklist.targetSpeed(for: phase).map { "\($0)" },
                 action: { showSpeedReference = true }
             )
 
             // Departure / approach briefing for the relevant phase clusters (always reachable here,
-            // not only via the inline checklist button that scrolls away).
+            // not only via the inline checklist button that scrolls away). The icon distinguishes
+            // departure vs approach.
             if phase.briefingType == .departure {
                 PhaseContextTile(
-                    title: L10n.Briefing.departureTitle,
+                    title: "BRIEFING",
                     systemImage: "airplane.departure",
+                    tint: .aviationGold,
                     action: { showDepartureBriefing = true }
                 )
             }
             if phase.briefingType == .approach {
                 PhaseContextTile(
-                    title: L10n.Briefing.approachTitle,
+                    title: "BRIEFING",
                     systemImage: "airplane.arrival",
+                    tint: .aviationGold,
                     action: { showApproachBriefing = true }
                 )
             }
@@ -1298,7 +1348,7 @@ struct FlightView: View {
             .foregroundColor(.primaryText)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial)
+            .background(Color.black.opacity(0.62))
         }
     }
 
@@ -2052,33 +2102,37 @@ struct HoldToConfirmButton: View {
 struct PhaseContextTile: View {
     let title: String
     let systemImage: String
+    /// Accent for the icon + label (e.g. green for V-SPEEDS, gold for BRIEFING), matching the concept.
+    var tint: Color = .primaryText
     var value: String? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 17))
+                    .font(.system(size: 18))
+                    .foregroundColor(tint)
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(tint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 if let value {
                     Text(value)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundColor(.primaryText)
                 }
             }
-            .foregroundColor(.primaryText)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .padding(.horizontal, 6)
             .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.aviationBlue.opacity(0.18))
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(Color.aviationBlue.opacity(0.45), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
                     )
             )
         }

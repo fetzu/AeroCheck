@@ -208,6 +208,10 @@ struct ChecklistView: View {
     var pulseActionButton: Bool = false
     var isCompact: Bool = false
     var checklistLanguage: String = "en" // Language code for button translations
+    /// When embedded in the iPad HUD: hide the redundant page/title header, the inline briefing banner
+    /// (it's a phase-aware tile), and the inline action buttons (engine-start / line-up / events live
+    /// in the HUD bottom bar + event row). (Phase 3.1)
+    var hudMode: Bool = false
 
     // Engine hours display
     var engineHourStart: Double? = nil
@@ -274,6 +278,7 @@ struct ChecklistView: View {
          pulseActionButton: Bool = false,
          isCompact: Bool = false,
          checklistLanguage: String = "en",
+         hudMode: Bool = false,
          engineHourStart: Double? = nil,
          engineHourEnd: Double? = nil,
          engineHourStartInputFormat: String? = nil,
@@ -309,6 +314,7 @@ struct ChecklistView: View {
         self.pulseActionButton = pulseActionButton
         self.isCompact = isCompact
         self.checklistLanguage = checklistLanguage
+        self.hudMode = hudMode
         self.engineHourStart = engineHourStart
         self.engineHourEnd = engineHourEnd
         self.engineHourStartInputFormat = engineHourStartInputFormat
@@ -321,9 +327,11 @@ struct ChecklistView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Page indicator with optional step-by-step hint
             HStack {
-                Text(L10n.ChecklistAction.page(phase.pageNumber))
-                    .font(isCompact ? .system(size: 11) : .captionText)
-                    .foregroundColor(.dimText)
+                if !hudMode {
+                    Text(L10n.ChecklistAction.page(phase.pageNumber))
+                        .font(isCompact ? .system(size: 11) : .captionText)
+                        .foregroundColor(.dimText)
+                }
 
                 Spacer()
 
@@ -339,8 +347,8 @@ struct ChecklistView: View {
             }
             .padding(.bottom, isCompact ? 4 : 8)
 
-            // Briefing text if applicable (tappable)
-            if let briefingText = phase.briefingText, let briefingType = phase.briefingType {
+            // Briefing text if applicable (tappable). Hidden in HUD mode — it's a phase-aware tile there.
+            if !hudMode, let briefingText = phase.briefingText, let briefingType = phase.briefingType {
                 Button(action: { onBriefingTap?(briefingType) }) {
                     HStack {
                         Text(briefingText)
@@ -366,18 +374,20 @@ struct ChecklistView: View {
                 .padding(.bottom, isCompact ? 8 : 16)
             }
 
-            // Checklist title
-            HStack {
-                Text(phase.title)
-                    .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
-                    .foregroundColor(.aviationGold)
-                    .textCase(.uppercase)
-                    .tracking(isCompact ? 1 : 2)
-                Spacer()
-            }
+            // Checklist title + divider. Hidden in HUD mode — the phase name is in the top-bar badge.
+            if !hudMode {
+                HStack {
+                    Text(phase.title)
+                        .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
+                        .foregroundColor(.aviationGold)
+                        .textCase(.uppercase)
+                        .tracking(isCompact ? 1 : 2)
+                    Spacer()
+                }
 
-            AviationDivider()
-                .padding(.vertical, isCompact ? 8 : 12)
+                AviationDivider()
+                    .padding(.vertical, isCompact ? 8 : 12)
+            }
             
             // Checklist items with optional step-by-step highlighting
             ScrollViewReader { scrollProxy in
@@ -463,8 +473,9 @@ struct ChecklistView: View {
                 }
             }
 
-            // Special buttons
-            if phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
+            // Special buttons (engine-start / ready-for-line-up / shutdown). In HUD mode these move to
+            // the bottom bar next to NEXT, so they're hidden here.
+            if !hudMode, phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
                 Spacer().frame(height: 24)
 
                 HStack {
@@ -517,8 +528,8 @@ struct ChecklistView: View {
                 }
             }
 
-            // Go Around / Touch and Go buttons
-            if phase.showsGoAroundButtons {
+            // Go Around / Touch and Go buttons. In HUD mode these live in the event-actions row.
+            if !hudMode, phase.showsGoAroundButtons {
                 Spacer().frame(height: 24)
 
                 HStack(spacing: 16) {
@@ -550,8 +561,8 @@ struct ChecklistView: View {
                 }
             }
 
-            // Full Stop Landing button
-            if phase.showsLandedButton {
+            // Full Stop Landing button. In HUD mode this lives in the event-actions row.
+            if !hudMode, phase.showsLandedButton {
                 Spacer().frame(height: 24)
 
                 HStack(spacing: 16) {
@@ -712,38 +723,28 @@ struct ChecklistItemRow: View {
         self.isCompact = isCompact
     }
     
+    // Past/future rows are deliberately muted "one-liners" so the current item (rendered as the hero
+    // card) is the focus — the numbering is subtle, not the prominent gold of the old design. (Phase 3.1)
     private var numberColor: Color {
-        if isCompleted {
-            return .aviationGreen.opacity(0.6)
-        } else if isHighlighted {
-            return .aviationGold
-        }
-        return .aviationGold
+        .dimText
     }
-    
+
     private var challengeColor: Color {
-        if isCompleted {
-            return .primaryText.opacity(0.5)
-        }
-        return .primaryText
+        isCompleted ? .dimText : .secondaryText
     }
-    
+
     private var responseColor: Color {
-        if isCompleted {
-            return .secondaryText.opacity(0.5)
-        }
-        return .secondaryText
+        isCompleted ? .dimText.opacity(0.7) : .dimText
     }
-    
-    // Scalable equivalents of the fixed 16/22pt checklist fonts: text-style-based so the primary
-    // checklist reading content honours Dynamic Type (the challenge/response already wrap vertically
-    // via .fixedSize, so large sizes grow the row instead of clipping). (UX-14)
+
+    // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
+    // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / Phase 3.1)
     private var itemFont: Font {
-        .system(isCompact ? .callout : .title2, design: .monospaced).weight(.medium)
+        .system(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
     }
 
     private var responseFont: Font {
-        .system(isCompact ? .callout : .title2, design: .monospaced)
+        .system(isCompact ? .subheadline : .callout, design: .monospaced)
     }
 
     var body: some View {
@@ -791,7 +792,7 @@ struct ChecklistItemRow: View {
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, isCompact ? 6 : 10)
+            .padding(.vertical, isCompact ? 4 : 6)
             .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(
                 Group {

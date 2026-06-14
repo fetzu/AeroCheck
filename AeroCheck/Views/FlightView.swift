@@ -27,6 +27,7 @@ struct FlightView: View {
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
     @State private var scrollToBottom = false
+    @State private var nearestFreqText: String?
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
@@ -119,6 +120,102 @@ struct FlightView: View {
     /// takes the rest. Tune here. (Phase 3.1)
     private static let checklistColumnFraction: CGFloat = 0.6
 
+    // MARK: - HUD shell (top bar + phase progress bar over the content)
+
+    /// Wraps the iPad HUD: the full-width top bar and tappable phase progress bar span both columns,
+    /// with the orientation-specific content below. Also drives the throttled NEAREST lookup. (Phase 3.1)
+    private func hudShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            hudTopBar
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.panelBackground)
+
+            phaseProgressBarView
+                .padding(.horizontal, 20)
+                .padding(.top, 2)
+                .padding(.bottom, 8)
+                .background(Color.panelBackground)
+
+            content()
+        }
+        .onAppear { updateNearestFrequency() }
+        .onChange(of: coarseLocationKey) { _, _ in updateNearestFrequency() }
+        .onChange(of: airportDataService.isDataAvailable) { _, _ in updateNearestFrequency() }
+    }
+
+    /// Phases shown in the progress bar (Cruise/Descent hidden in circuit mode, matching the old list).
+    private var visiblePhases: [ChecklistPhase] {
+        ChecklistPhase.allCases.filter { phase in
+            !(appState.isCircuitMode && (phase == .cruise || phase == .descent))
+        }
+    }
+
+    private var phaseProgressBarView: some View {
+        PhaseProgressBar(
+            phases: visiblePhases,
+            currentPhase: appState.currentPhase,
+            status: { appState.getPhaseStatus($0) },
+            onSelect: { appState.goToPhase($0) }
+        )
+    }
+
+    /// Full-width HUD top bar: aircraft · tappable phase badge · counter ‖ timer · GPS · options.
+    private var hudTopBar: some View {
+        HStack(spacing: 12) {
+            abandonableAircraftIdentifier(iconSize: 20, isCompact: false)
+
+            Button(action: { showPhaseSelector = true }) {
+                Text(appState.currentPhase.shortTitle)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.aviationGold)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.aviationGold.opacity(0.18)))
+            }
+            Text(L10n.Flight.phase(appState.currentPhase.rawValue + 1, ChecklistPhase.allCases.count))
+                .font(.captionText)
+                .foregroundColor(.secondaryText)
+
+            Spacer()
+
+            if companionConnectivityManager.connectionState == .connected {
+                HStack(spacing: 4) {
+                    Image(systemName: "iphone").font(.system(size: 12))
+                    StatusIndicator(.active, size: 8)
+                }
+                .foregroundColor(.aviationGreen)
+            }
+
+            // Flight timer
+            HStack(spacing: 6) {
+                StatusIndicator(.active, size: 8)
+                Text(appState.flightDuration)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGreen)
+                    .id(timerTrigger)
+            }
+
+            // GPS status
+            HStack(spacing: 4) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(gpsStatusColor)
+                Text("GPS")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondaryText)
+            }
+
+            // Flight details / options (consolidates the GPS/points/times panel)
+            Button(action: { showFlightInfo = true }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18))
+                    .foregroundColor(.secondaryText)
+            }
+            .accessibilityLabel(L10n.GPS.status)
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             if isCompactWidth(geometry) {
@@ -127,22 +224,21 @@ struct FlightView: View {
                     mainChecklistAreaCompact(geometry: geometry)
                 }
             } else if geometry.size.height > geometry.size.width {
-                // iPad PORTRAIT: vertical stack (instruments → checklist + NEXT → persistent map band).
-                // Portrait is >50% of iPad use, where the side-by-side columns are too cramped. (Phase 3.1)
-                portraitLayout
+                // iPad PORTRAIT: full-width top bar + phase bar, then the vertical stack. (Phase 3.1 HUD)
+                hudShell {
+                    portraitLayout
+                }
             } else {
-                // iPad LANDSCAPE two-column: checklist left, HUD context column (mini-map + instruments
-                // + phases + flight info) right. The right column carries enough now (Phase 3.1) to
-                // warrant ~40% rather than the old 1/4. (Phase 3.1 — proportion tuning)
-                HStack(spacing: 0) {
-                    // Main checklist area
-                    mainChecklistArea
-                        .frame(width: geometry.size.width * Self.checklistColumnFraction)
-
-                    // HUD context column
-                    sidePanel
-                        .frame(width: geometry.size.width * (1 - Self.checklistColumnFraction))
-                        .background(Color.panelBackground)
+                // iPad LANDSCAPE: full-width top bar + phase bar, then checklist-left / context-right.
+                // (Phase 3.1 HUD)
+                hudShell {
+                    HStack(spacing: 0) {
+                        hudLeftColumn
+                            .frame(width: geometry.size.width * Self.checklistColumnFraction)
+                        sidePanel
+                            .frame(width: geometry.size.width * (1 - Self.checklistColumnFraction))
+                            .background(Color.panelBackground)
+                    }
                 }
             }
         }
@@ -272,14 +368,28 @@ struct FlightView: View {
     
     // MARK: - Main Checklist Area
     
-    private var mainChecklistArea: some View {
+    /// The HUD left column: the live instrument strip (top), the checklist with the hero item
+    /// (scrolls, takes the slack), and the big NEXT button (bottom). The full-width top bar + phase
+    /// progress bar live above both columns in the body. (Phase 3.1 HUD rebuild)
+    private var hudLeftColumn: some View {
         VStack(spacing: 0) {
-            // Header bar
-            headerBar
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-                .background(Color.panelBackground)
-            
+            // Live SPD/ALT/HDG instrument strip (flight phases only).
+            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
+                CockpitInstrumentStrip(
+                    speedKnots: locationManager.displaySpeedKnots,
+                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                    stallSpeed: appState.activeChecklist.stallSpeed,
+                    gpsSignalStatus: locationManager.gpsSignalStatus,
+                    estimatedAirspeed: estimatedAirspeed,
+                    stallAlertEnabled: appState.settings.stallAlertSound,
+                    altitudeFeet: locationManager.currentAltitudeFeet,
+                    headingDegrees: locationManager.currentCourseDegrees
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+            }
+
             // Checklist content - entire area is tappable
             ScrollViewReader { scrollProxy in
                 ScrollView {
@@ -462,12 +572,55 @@ struct FlightView: View {
                 }
             }
             .background(Color.cockpitBackground)
-            
-            // Navigation bar
-            navigationBar
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+
+            // Big NEXT (or END FLIGHT) button — the single primary action; NAV moved to the map,
+            // SPEEDS to the V-SPEEDS tile, PREV to the tappable phase progress bar.
+            hudNextButton
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
                 .background(Color.panelBackground)
+        }
+    }
+
+    // MARK: - HUD primary action (NEXT / END FLIGHT)
+
+    @ViewBuilder
+    private var hudNextButton: some View {
+        if appState.isLastPhase {
+            Button(action: { showEndFlightAlert = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "flag.checkered")
+                    Text(L10n.Button.end)
+                }
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationRed))
+            }
+            .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
+        } else {
+            Button(action: {
+                pulseNextButton = false
+                pulseActionButton = false
+                allItemsChecked = false
+                appState.nextPhase()
+            }) {
+                HStack(spacing: 8) {
+                    Text(L10n.Button.next)
+                    Image(systemName: "chevron.right")
+                }
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(appState.canGoToNextPhase ? .black : .dimText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(appState.canGoToNextPhase ? Color.aviationGold : Color.gray.opacity(0.3))
+                )
+            }
+            .disabled(!appState.canGoToNextPhase)
+            .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked && !currentPhaseNeedsAction))
         }
     }
 
@@ -478,28 +631,25 @@ struct FlightView: View {
     /// bottom. Reuses `mainChecklistArea` wholesale so the checklist wiring isn't duplicated. (Phase 3.1)
     private var portraitLayout: some View {
         VStack(spacing: 0) {
-            // Instruments strip — primary flight data, glanceable at the top of the HUD.
-            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
-                portraitInstrumentStrip
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.panelBackground)
-            }
-
-            // Header + hero checklist + NEXT/nav bar (reused from the landscape main area); takes the
-            // vertical slack so the checklist scrolls in the middle.
-            mainChecklistArea
+            // Instruments + hero checklist + NEXT (takes the vertical slack so the checklist scrolls).
+            hudLeftColumn
 
             // Hold-to-confirm GO-AROUND / T&G / FULL-STOP for the relevant phases (empty otherwise).
             eventActionsRow
 
-            // Persistent glance map band at the bottom (tap to open the full nav map).
+            // Persistent map band (tap to open the full nav map).
             if appState.isFlightActive {
-                miniMap
+                miniMapContent
+                    .frame(height: 200)
                     .padding(.horizontal, 16)
                     .padding(.top, 10)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 6)
             }
+
+            // Phase-aware tiles (V-SPEEDS / briefings).
+            phaseContextZone
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
         }
         .background(Color.cockpitBackground)
     }
@@ -1234,80 +1384,20 @@ struct FlightView: View {
     // MARK: - Side Panel
 
     private var sidePanel: some View {
-        VStack(spacing: 0) {
-            // Speed indicator (only during flight phases that need it)
-            if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
-                FlightSpeedIndicator(
-                    gpsSpeedMetersPerSecond: locationManager.displaySpeedMPS,
-                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                    stallSpeed: appState.activeChecklist.stallSpeed,
-                    gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed,
-                    stallAlertEnabled: appState.settings.stallAlertSound
-                )
-                .padding(.vertical, 16)
-
-                // Altimeter display below speed indicator
-                FlightAltimeter(
-                    altitudeFeet: locationManager.currentAltitudeFeet,
-                    gpsSignalStatus: locationManager.gpsSignalStatus
-                )
-                .padding(.bottom, 16)
-
-                AviationDivider(color: .dimText)
-            }
-
-            // Persistent glance mini-map: follows the aircraft + shows the track, tap to open the
-            // full nav map (a bigger, more discoverable target than the small NAV button). (Phase 3.1)
+        VStack(spacing: 10) {
+            // Persistent map (tall — fills the slack); NEAREST strip + NAV chip overlaid. Tap → full map.
             if appState.isFlightActive {
-                miniMap
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
+                miniMapContent
+                    .frame(maxHeight: .infinity)
             }
 
-            // Phase-aware quick-access tiles (V-SPEEDS, briefings) below the map. (Phase 3.1)
+            // Hold-to-confirm GO-AROUND / T&G / FULL-STOP for the relevant phases (empty otherwise).
+            eventActionsRow
+
+            // Phase-aware tiles (V-SPEEDS / briefings).
             phaseContextZone
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
-
-            // Phase overview header
-            Text(L10n.Flight.phases)
-                .font(.captionText)
-                .foregroundColor(.secondaryText)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
-            
-            AviationDivider(color: .dimText)
-            
-            // Phase list
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(ChecklistPhase.allCases.filter { phase in
-                        // Hide CRUISE and DESCENT in circuit mode
-                        if appState.isCircuitMode && (phase == .cruise || phase == .descent) {
-                            return false
-                        }
-                        return true
-                    }) { phase in
-                        PhaseRowButton(
-                            phase: phase,
-                            isActive: phase == appState.currentPhase,
-                            status: appState.getPhaseStatus(phase)
-                        ) {
-                            appState.goToPhase(phase)
-                        }
-                    }
-                }
-                .padding(.vertical, 8)
-            }
-            
-            AviationDivider(color: .dimText)
-            
-            // Flight info
-            flightInfoPanel
-                .padding(16)
         }
+        .padding(12)
     }
 
     // MARK: - Mini-Map (iPad side panel)
@@ -1315,26 +1405,25 @@ struct FlightView: View {
     /// The persistent glance mini-map, wrapped as a button that opens the full nav map. The map
     /// itself has hit-testing disabled (it follows programmatically), so the whole tile is one big,
     /// discoverable NAV target. (Phase 3.1)
-    private var miniMap: some View {
+    /// The persistent map tile, filling whatever frame the caller gives it (tall in the landscape
+    /// right column, a band in portrait). Tapping it opens the full nav map; the NEAREST-frequency
+    /// strip is overlaid along the bottom. (Phase 3.1 HUD rebuild)
+    private var miniMapContent: some View {
         Button {
             showNavigationMode = true
         } label: {
-            ZStack(alignment: .topTrailing) {
-                FlightMiniMap(
-                    points: appState.currentFlight?.gpsTrack ?? [],
-                    currentCoordinate: locationManager.currentLocation?.coordinate,
-                    layer: appState.navigationMapState.selectedLayer
-                )
-                .allowsHitTesting(false)
-
+            FlightMiniMap(
+                points: appState.currentFlight?.gpsTrack ?? [],
+                currentCoordinate: locationManager.currentLocation?.coordinate,
+                layer: appState.navigationMapState.selectedLayer
+            )
+            .allowsHitTesting(false)
+            .overlay(alignment: .topTrailing) {
                 // Affordance chip: signals the tile is tappable → full map.
                 HStack(spacing: 4) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 9))
-                    Text(L10n.Button.nav)
-                        .font(.system(size: 11, weight: .semibold))
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 9))
+                    Image(systemName: "map.fill").font(.system(size: 9))
+                    Text(L10n.Button.nav).font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 9))
                 }
                 .foregroundColor(.primaryText)
                 .padding(.horizontal, 8)
@@ -1343,7 +1432,10 @@ struct FlightView: View {
                 .padding(8)
                 .allowsHitTesting(false)
             }
-            .frame(height: 170)
+            .overlay(alignment: .bottom) {
+                hudNearestStrip.allowsHitTesting(false)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -1354,6 +1446,50 @@ struct FlightView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(L10n.Button.nav)
         .accessibilityHint("Opens the full navigation map")
+    }
+
+    /// NEAREST-airport frequency strip overlaid on the map (e.g. "LSZB TWR 121.075"). Throttled via a
+    /// coarse-location key so the spatial query doesn't run on every frame. Hidden until data loads.
+    @ViewBuilder
+    private var hudNearestStrip: some View {
+        if let text = nearestFreqText {
+            HStack(spacing: 6) {
+                Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 11))
+                Text("NEAREST").font(.system(size: 11, weight: .semibold))
+                Spacer(minLength: 8)
+                Text(text).font(.system(size: 13, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.primaryText)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial)
+        }
+    }
+
+    /// ~1 nm location bucket so the NEAREST spatial query only recomputes when the aircraft actually
+    /// moves a meaningful distance, not on every timer tick / location publish.
+    private var coarseLocationKey: String {
+        guard let c = locationManager.currentLocation?.coordinate else { return "none" }
+        return "\(Int((c.latitude * 50).rounded()))_\(Int((c.longitude * 50).rounded()))"
+    }
+
+    private func updateNearestFrequency() {
+        guard let coord = locationManager.currentLocation?.coordinate, airportDataService.isDataAvailable else {
+            nearestFreqText = nil
+            return
+        }
+        let nearby = airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
+        for airport in nearby {
+            let freqs = airportDataService.getFrequencies(for: airport.ident)
+            let pick = freqs.first(where: { $0.type == "TWR" })
+                ?? freqs.first(where: { ["APP", "ATIS", "GND"].contains($0.type) })
+                ?? freqs.first
+            if let f = pick {
+                nearestFreqText = "\(airport.ident) \(f.type) \(f.formattedFrequency)"
+                return
+            }
+        }
+        nearestFreqText = nil
     }
 
     // MARK: - Flight Info Panel

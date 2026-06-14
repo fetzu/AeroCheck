@@ -23,6 +23,9 @@ class LocationManager: NSObject, ObservableObject {
     // MARK: - Published Properties
 
     @Published var currentLocation: CLLocation?
+    /// Smoothed vertical speed in feet per minute (climb +, descent −), derived from GPS altitude over
+    /// a short window. nil until enough samples exist. (Phase 3.1 — instrument strip VSI)
+    @Published private(set) var verticalSpeedFpm: Double?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var isTracking: Bool = false
     @Published var isLocationUpdatesActive: Bool = false // True when GPS is active (even without flight tracking)
@@ -37,6 +40,10 @@ class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     private var recordingInterval: TimeInterval = 5.0
     private var lastRecordedTime: Date?
+
+    /// Rolling (time, altitude-ft) samples over the last ~12 s, for the smoothed vertical speed.
+    private var altitudeSamples: [(time: Date, altFt: Double)] = []
+    private let verticalSpeedWindow: TimeInterval = 12.0
 
     /// Event detection runs on its OWN cadence, independent of (and never slower than) the GPS
     /// *recording* interval. At a slow recording interval (e.g. 30 s) the detector would otherwise
@@ -214,6 +221,8 @@ class LocationManager: NSObject, ObservableObject {
 
     func stopTracking() {
         isTracking = false
+        altitudeSamples.removeAll()
+        verticalSpeedFpm = nil
         // PR-39: clear the display-session flag too — stopLocationUpdates is a no-op while tracking,
         // so without this a view gated on (isTracking || isLocationUpdatesActive) would keep showing
         // "GPS active" after the flight ends with GPS off.
@@ -527,6 +536,27 @@ class LocationManager: NSObject, ObservableObject {
         currentAltitudeMeters * 3.28084 // meters to feet
     }
 
+    /// Derive a smoothed vertical speed (fpm) from the GPS altitude trend over the last ~12 s. GPS
+    /// altitude is noisy, so the value is averaged across the window and EMA-smoothed; nil until there
+    /// are at least two samples spanning ≥2 s. (Phase 3.1 — instrument strip VSI)
+    private func updateVerticalSpeed(altitudeFt: Double) {
+        let now = Date()
+        altitudeSamples.append((now, altitudeFt))
+        let cutoff = now.addingTimeInterval(-verticalSpeedWindow)
+        altitudeSamples.removeAll { $0.time < cutoff }
+
+        guard let oldest = altitudeSamples.first, altitudeSamples.count >= 2 else {
+            verticalSpeedFpm = nil
+            return
+        }
+        let dt = now.timeIntervalSince(oldest.time)
+        guard dt >= 2 else { return }
+
+        let fpm = ((altitudeFt - oldest.altFt) / dt) * 60.0
+        // Light EMA so the readout doesn't jitter with GPS altitude noise.
+        verticalSpeedFpm = verticalSpeedFpm.map { $0 * 0.5 + fpm * 0.5 } ?? fpm
+    }
+
     // MARK: - GPS Status Override (for Marketing Mode)
 
     /// Override the GPS signal status (used by marketing mode to show stable GPS)
@@ -560,6 +590,9 @@ extension LocationManager: CLLocationManagerDelegate {
 
             // Update smoothed speed and cached heading
             self.updateSmoothedValues(from: location)
+
+            // Update smoothed vertical speed from the GPS altitude trend
+            self.updateVerticalSpeed(altitudeFt: location.altitude * 3.28084)
 
             // Update signal quality based on accuracy
             self.updateSignalQuality(from: location)

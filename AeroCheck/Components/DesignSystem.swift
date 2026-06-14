@@ -1120,6 +1120,15 @@ struct CockpitInstrumentStrip: View {
     var stallAlertEnabled: Bool = false
     let altitudeFeet: Double
     var headingDegrees: Double? = nil
+    var verticalSpeedFPM: Double? = nil
+
+    /// Vertical speed for the ALT cell, formatted (e.g. "↑480" / "↓300") with a colour — shown only
+    /// above ±50 fpm so level flight stays clean. Hidden when GPS is lost.
+    private var verticalSpeedDisplay: (text: String, color: Color)? {
+        guard gpsSignalStatus != .lost, let vs = verticalSpeedFPM, abs(vs) >= 50 else { return nil }
+        let rounded = Int((vs / 10).rounded()) * 10
+        return (vs > 0 ? "↑\(abs(rounded))" : "↓\(abs(rounded))", vs > 0 ? theme.onTarget : theme.info)
+    }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.cockpitTheme) private var theme
@@ -1205,10 +1214,17 @@ struct CockpitInstrumentStrip: View {
         cell(label: "ALT ft") {
             ZStack {
                 if gpsSignalStatus != .lost {
-                    Text("\(Int(max(0, altitudeFeet)))")
-                        .font(.system(size: 24, weight: .medium, design: .monospaced))
-                        .foregroundColor(theme.textPrimary)
-                        .minimumScaleFactor(0.5).lineLimit(1)
+                    VStack(spacing: 1) {
+                        Text("\(Int(max(0, altitudeFeet)))")
+                            .font(.system(size: 24, weight: .medium, design: .monospaced))
+                            .foregroundColor(theme.textPrimary)
+                            .minimumScaleFactor(0.5).lineLimit(1)
+                        if let vs = verticalSpeedDisplay {
+                            Text(vs.text)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundColor(vs.color)
+                        }
+                    }
                 }
                 if showFailureFlag {
                     InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))

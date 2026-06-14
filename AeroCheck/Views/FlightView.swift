@@ -161,6 +161,23 @@ struct FlightView: View {
     }
 
     /// Full-width HUD top bar: aircraft · tappable phase badge · counter ‖ timer · GPS · options.
+    /// Top-bar phase-badge tint by flight stage, so the chip reads at a glance (was always gold):
+    /// ground prep = blue, departure = gold, airborne = green, arrival = orange, wrap-up = grey.
+    private var phaseBadgeColor: Color {
+        switch appState.currentPhase {
+        case .preflight, .beforeEngineStart, .engineStart, .afterEngineStart, .taxi, .runup:
+            return .altimeterBlue
+        case .beforeDeparture, .lineUp:
+            return .aviationGold
+        case .climb, .cruise, .descent:
+            return .aviationGreen
+        case .approach, .landing:
+            return .orange
+        case .afterLanding, .shutdown, .hangar:
+            return .secondaryText
+        }
+    }
+
     private var hudTopBar: some View {
         HStack(spacing: 12) {
             abandonableAircraftIdentifier(iconSize: 20, isCompact: false)
@@ -168,10 +185,10 @@ struct FlightView: View {
             Button(action: { showPhaseSelector = true }) {
                 Text(appState.currentPhase.shortTitle)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(phaseBadgeColor)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.aviationGold.opacity(0.18)))
+                    .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
             }
             // Just the counter — the phase NAME is already in the badge, so "Phase" is redundant.
             Text("\(appState.currentPhase.rawValue + 1) / \(ChecklistPhase.allCases.count)")
@@ -384,7 +401,8 @@ struct FlightView: View {
                     estimatedAirspeed: estimatedAirspeed,
                     stallAlertEnabled: appState.settings.stallAlertSound,
                     altitudeFeet: locationManager.currentAltitudeFeet,
-                    headingDegrees: locationManager.currentCourseDegrees
+                    headingDegrees: locationManager.currentCourseDegrees,
+                    verticalSpeedFPM: locationManager.verticalSpeedFpm
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 12)

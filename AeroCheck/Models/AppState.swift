@@ -91,6 +91,7 @@ struct AppSettings: Codable, Equatable {
 
     // Airport data overlay
     var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
+    var showTrackVector: Bool = false // When true, draws a ground-track trend vector ahead of the aircraft (3.5)
 
     // OpenAIP aviation data overlay
     var showOpenAIPOverlay: Bool = false // When true, shows OpenAIP airspace tiles on navigation map
@@ -174,6 +175,7 @@ struct AppSettings: Codable, Equatable {
         case iCloudSyncEnabled
         case checklistLanguage
         case showAirportsOnMap
+        case showTrackVector
         case logEngineHours
         case hasCompletedOnboarding
         case gpsPriority
@@ -241,6 +243,7 @@ struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .iCloudSyncEnabled) ?? true
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
+        showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision

@@ -11,6 +11,7 @@ struct NavigationMapsSettingsView: View {
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
     @State private var showAirportsOnMap: Bool = false
+    @State private var showTrackVector: Bool = false
     @State private var showOpenAIPOverlay: Bool = false
     @State private var enableAirspaceStreaming: Bool = false
     @State private var showAirspaceStreamingWarning: Bool = false
@@ -34,6 +35,7 @@ struct NavigationMapsSettingsView: View {
         .onChange(of: forceICAOChartLayer) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: offlineMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showAirportsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: showTrackVector) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showOpenAIPOverlay) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: enableAirspaceStreaming) { _, _ in if !isLoadingSettings { saveSettings() } }
         .sheet(isPresented: $showAirspaceStreamingWarning) {
@@ -298,6 +300,11 @@ struct NavigationMapsSettingsView: View {
 
                 Toggle(L10n.Settings.showAirportsOnMap, isOn: $showAirportsOnMap)
 
+                Toggle(L10n.Nav.trackVector, isOn: $showTrackVector)
+                Text(L10n.Nav.trackVectorDesc)
+                    .font(.caption)
+                    .foregroundColor(.secondaryText)
+
                 Button(action: {
                     Task { await airportDataService.downloadData() }
                 }) {
@@ -356,6 +363,7 @@ struct NavigationMapsSettingsView: View {
         forceICAOChartLayer = appState.settings.forceICAOChartLayer
         offlineMode = appState.settings.offlineMode
         showAirportsOnMap = appState.settings.showAirportsOnMap
+        showTrackVector = appState.settings.showTrackVector
         showOpenAIPOverlay = appState.settings.showOpenAIPOverlay
         enableAirspaceStreaming = appState.settings.enableAirspaceStreaming
         DispatchQueue.main.async {
@@ -367,6 +375,7 @@ struct NavigationMapsSettingsView: View {
         appState.settings.forceICAOChartLayer = forceICAOChartLayer
         appState.settings.offlineMode = offlineMode
         appState.settings.showAirportsOnMap = showAirportsOnMap
+        appState.settings.showTrackVector = showTrackVector
         appState.settings.showOpenAIPOverlay = showOpenAIPOverlay
         appState.settings.enableAirspaceStreaming = enableAirspaceStreaming
         appState.saveSettings()

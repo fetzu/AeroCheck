@@ -190,6 +190,12 @@ struct NavigationMapView: View {
     /// Phase-aware frequencies for the sheet's right column + the collapsed chip. Cached (recomputed
     /// on phase / significant-move) rather than per-render, since it does a nearest-airport query. (3.5 C2)
     @State private var phaseFreqItems: [PhaseFrequency] = []
+    // Track-vector smoothing — EMA of ground speed + ground track (track averaged circularly via
+    // sin/cos so it doesn't wrap). Favours recent samples (~10 s time constant). (3.5 C4)
+    @State private var smoothedGroundSpeed: Double = 0
+    @State private var smoothedTrackSin: Double = 0
+    @State private var smoothedTrackCos: Double = 1
+    @State private var hasTrackVectorEMA = false
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
@@ -431,6 +437,7 @@ struct NavigationMapView: View {
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
             locationUpdateCounter += 1
+            updateTrackVectorEMA()
 
             if isFollowingAircraft, let location = newLocation {
                 updateMapStateForLocation(location)
@@ -1636,6 +1643,7 @@ struct NavigationMapView: View {
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
+                trackVectorOverlays: trackVectorOverlays,
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
@@ -1662,6 +1670,7 @@ struct NavigationMapView: View {
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
+                trackVectorOverlays: trackVectorOverlays,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 }
@@ -1826,6 +1835,19 @@ struct NavigationMapView: View {
             }
 
             Spacer()
+
+            // Track-vector toggle — grouped with the airspace/layer map-display controls. (3.5 C4)
+            Button(action: {
+                appState.settings.showTrackVector.toggle()
+                appState.saveSettings()
+            }) {
+                Image(systemName: "location.north.line")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(appState.settings.showTrackVector ? .aviationGold : .secondaryText)
+                    .frame(width: 44, height: 44)
+                    .background(Color.panelBackground.opacity(0.92), in: Circle())
+            }
+            .accessibilityLabel(L10n.Nav.trackVector)
 
             // OpenAIP overlay toggle
             Button(action: {
@@ -2133,6 +2155,64 @@ struct NavigationMapView: View {
         // Emergency, always pinned at the end.
         items.append(PhaseFrequency(station: SwissCommonFrequency.emergency.name, freq: SwissCommonFrequency.emergency.frequency, highlighted: false, isEmergency: true))
         phaseFreqItems = items
+    }
+
+    // MARK: - Track vector (3.5 C4)
+
+    /// Update the EMA of ground speed + ground track on each GPS fix. Track is averaged via sin/cos so
+    /// it never wraps; α≈0.15 favours recent fixes (~10 s time constant). (3.5 C4)
+    private func updateTrackVectorEMA() {
+        let gs = max(0, locationManager.currentSpeedKnots)
+        let alpha = 0.15
+        if !hasTrackVectorEMA {
+            smoothedGroundSpeed = gs
+            if let course = locationManager.currentCourseDegrees {
+                smoothedTrackSin = sin(course * .pi / 180)
+                smoothedTrackCos = cos(course * .pi / 180)
+            }
+            hasTrackVectorEMA = true
+            return
+        }
+        smoothedGroundSpeed = alpha * gs + (1 - alpha) * smoothedGroundSpeed
+        // Course is unreliable at very low speed — only fold it in while genuinely moving.
+        if gs > 3, let course = locationManager.currentCourseDegrees {
+            smoothedTrackSin = alpha * sin(course * .pi / 180) + (1 - alpha) * smoothedTrackSin
+            smoothedTrackCos = alpha * cos(course * .pi / 180) + (1 - alpha) * smoothedTrackCos
+        }
+    }
+
+    /// The trend-vector overlays (main line + 1/2/5-min perpendicular ticks) along the smoothed track.
+    /// Empty when disabled, stationary (<5 kt), or no fix. (3.5 C4)
+    private var trackVectorOverlays: [TrackVectorPolyline] {
+        guard appState.settings.showTrackVector, hasTrackVectorEMA, smoothedGroundSpeed >= 5,
+              let origin = locationManager.currentLocation?.coordinate else { return [] }
+        let track = atan2(smoothedTrackSin, smoothedTrackCos) * 180 / .pi
+        let gsMS = smoothedGroundSpeed * 0.514444 // knots → m/s
+        var overlays: [TrackVectorPolyline] = []
+        let end = projectedCoordinate(from: origin, bearingDeg: track, distanceMeters: gsMS * 300) // 5 min
+        var line = [origin, end]
+        overlays.append(TrackVectorPolyline(coordinates: &line, count: 2))
+        let tickHalf = max(120.0, gsMS * 5)
+        for minutes in [1.0, 2.0, 5.0] {
+            let pt = projectedCoordinate(from: origin, bearingDeg: track, distanceMeters: gsMS * 60 * minutes)
+            let a = projectedCoordinate(from: pt, bearingDeg: track + 90, distanceMeters: tickHalf)
+            let b = projectedCoordinate(from: pt, bearingDeg: track - 90, distanceMeters: tickHalf)
+            var tick = [a, b]
+            overlays.append(TrackVectorPolyline(coordinates: &tick, count: 2))
+        }
+        return overlays
+    }
+
+    /// Geodesic forward projection: a coordinate `distanceMeters` from `c` along `bearingDeg`. (3.5 C4)
+    private func projectedCoordinate(from c: CLLocationCoordinate2D, bearingDeg: Double, distanceMeters: Double) -> CLLocationCoordinate2D {
+        let R = 6_371_000.0
+        let d = distanceMeters / R
+        let t = bearingDeg * .pi / 180
+        let lat1 = c.latitude * .pi / 180
+        let lon1 = c.longitude * .pi / 180
+        let lat2 = asin(sin(lat1) * cos(d) + cos(lat1) * sin(d) * cos(t))
+        let lon2 = lon1 + atan2(sin(t) * sin(d) * cos(lat1), cos(d) - sin(lat1) * sin(lat2))
+        return CLLocationCoordinate2D(latitude: lat2 * 180 / .pi, longitude: lon2 * 180 / .pi)
     }
 
     /// Expanded sheet — LEFT column = flight-plan/nav (chrono, waypoint list, live data, progress);
@@ -3399,6 +3479,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var showOpenAIPOverlay: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
+    var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
 
     func makeUIView(context: Context) -> MKMapView {
@@ -3442,6 +3523,11 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update airspace polygon overlays
         updateAirspaceOverlays(mapView, context: context)
+
+        // Track vector — rebuilt each update (it moves with every fix). (3.5 C4)
+        let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
+        mapView.removeOverlays(existingTrackVector)
+        for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
 
         // Handle heading reset request (user tapped compass)
         if mapState.pendingHeadingReset {
@@ -3750,6 +3836,13 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             // GPS track (gold)
+            if let trackVector = overlay as? TrackVectorPolyline {
+                let renderer = MKPolylineRenderer(polyline: trackVector)
+                renderer.strokeColor = UIColor(red: 0.20, green: 0.85, blue: 0.85, alpha: 0.95)
+                renderer.lineWidth = 2.5
+                return renderer
+            }
+
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1.0)
@@ -4149,6 +4242,7 @@ struct SwissMapView: UIViewRepresentable {
     var showOpenAIPOverlay: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []
+    var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
@@ -4358,6 +4452,11 @@ struct SwissMapView: UIViewRepresentable {
                 mapView.addOverlay(polygon, level: .aboveLabels)
             }
         }
+
+        // Track vector — rebuilt each update (it moves with every fix). (3.5 C4)
+        let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
+        mapView.removeOverlays(existingTrackVector)
+        for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
 
         // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
@@ -4741,6 +4840,13 @@ struct SwissMapView: UIViewRepresentable {
 
             // GPS track - use magenta on ICAO/Segelflugkarte layers for visibility,
             // gold on other layers
+            if let trackVector = overlay as? TrackVectorPolyline {
+                let renderer = MKPolylineRenderer(polyline: trackVector)
+                renderer.strokeColor = UIColor(red: 0.20, green: 0.85, blue: 0.85, alpha: 0.95)
+                renderer.lineWidth = 2.5
+                return renderer
+            }
+
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 let isICAOLayer = (currentLayerType ?? parent.layerType) == .icao
@@ -5032,6 +5138,9 @@ class FlightPlanWaypointAnnotation: NSObject, MKAnnotation {
 class FlightPlanRoutePolyline: MKPolyline {
     var isCompletedSegment: Bool = false
 }
+
+/// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (3.5 C4)
+class TrackVectorPolyline: MKPolyline {}
 
 // MARK: - Swisstopo tile overlays
 // `ICAOSegelflugkarteTileOverlay` and `SwisstopoTileOverlay` moved to the shared

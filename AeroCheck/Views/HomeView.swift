@@ -442,23 +442,11 @@ struct HomeView: View {
             AviationDivider()
                 .padding(.horizontal, isCompact ? 16 : (isLandscape ? 20 : 40))
 
-            // Quick stats
-            HStack(spacing: isCompact ? 16 : (isLandscape ? 24 : 40)) {
-                QuickStatView(
-                    icon: "list.bullet.clipboard.fill",
-                    value: "\(ChecklistPhase.allCases.count)",
-                    label: L10n.Stats.checks,
-                    isCompact: isLandscape || isCompact
-                )
-                .frame(maxWidth: .infinity)
-
-                QuickStatView(
-                    icon: "list.bullet",
-                    value: cachedItemCountText,
-                    label: L10n.Stats.items,
-                    isCompact: isLandscape || isCompact
-                )
-                .frame(maxWidth: .infinity)
+            // Quick stats — cockpit stat chips (checklist version / phases / items). (3.5 redesign)
+            HStack(spacing: isCompact ? 8 : 10) {
+                homeStatChip("CHECKLIST", selectedAircraft.map { "v\($0.version)" } ?? "—", .aviationGold, compact: isLandscape || isCompact)
+                homeStatChip("PHASES", "\(ChecklistPhase.allCases.count)", .altimeterBlue, compact: isLandscape || isCompact)
+                homeStatChip("ITEMS", cachedItemCountText, .primaryText, compact: isLandscape || isCompact)
             }
         }
         .padding(isCompact ? 12 : (isLandscape ? 14 : 32))
@@ -495,6 +483,27 @@ struct HomeView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// A cockpit stat chip for the home card: tiny tracked label over a mono value, on the darker
+    /// cockpit surface for contrast against the card. (Phase 3.5 redesign)
+    private func homeStatChip(_ label: String, _ value: String, _ color: Color, compact: Bool) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: compact ? 10 : 11, weight: .semibold)).tracking(0.4)
+                .foregroundColor(.secondaryText)
+                .lineLimit(1)
+            Text(value)
+                .font(.system(size: compact ? 15 : 18, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, compact ? 8 : 10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.cockpitBackground))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     /// Update the cached item count text — avoids disk I/O on every render

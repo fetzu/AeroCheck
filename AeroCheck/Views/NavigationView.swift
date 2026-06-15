@@ -1990,7 +1990,13 @@ struct NavigationMapView: View {
                     }
                     Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
                 }
-                bottomControlRow
+                // Degrade the row when horizontal space runs out: MARK/START labels → icons (compact),
+                // then drop the +/− zoom buttons (minimal). ViewThatFits picks the first that fits. (3.5)
+                ViewThatFits(in: .horizontal) {
+                    bottomControlRow(.full)
+                    bottomControlRow(.compact)
+                    bottomControlRow(.minimal)
+                }
             }
             .background(
                 Color.panelBackground.opacity(0.92)
@@ -2013,6 +2019,19 @@ struct NavigationMapView: View {
                 Button(L10n.Button.cancel, role: .cancel) { legResumeTarget = nil }
             } message: { _ in
                 Text(L10n.Nav.resumeLegMessage)
+            }
+            // Covers for the row-2 buttons — declared once on the bar (the buttons live inside the
+            // ViewThatFits candidates). (3.5)
+            .fullScreenCover(isPresented: $showFlightPlanning) {
+                FlightPlanningView()
+                    .environmentObject(appState)
+                    .environmentObject(flightPlanManager)
+                    .environmentObject(airportDataService)
+                    .environmentObject(aircraftDataService)
+                    .environmentObject(openAIPDataService)
+            }
+            .fullScreenCover(isPresented: $showGPSStatusModal) {
+                GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
             }
         }
     }
@@ -2489,17 +2508,20 @@ struct NavigationMapView: View {
                     .foregroundColor(isCurrent ? .aviationGold : .primaryText)
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                HStack(spacing: 7) {
-                    // Heading + distance (kept). (3.5)
-                    if let mc = leg?.magneticCourse {
-                        Text(String(format: "%03d°", Int(mc))).foregroundColor(.secondaryText)
-                    }
-                    if let d = leg?.distance {
-                        Text(String(format: "%.1f", d)).foregroundColor(.secondaryText)
-                    }
-                    // Planned leg time (EET) → actual / live, with an ahead/over delta. (3.5)
-                    legTimingCell(planned: leg?.totalLegEET, actual: actual,
-                                  running: isCurrent && flightPlanManager.isChronometerRunning)
+                // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
+                // whether or not a leg has been flown yet. (3.5 — column alignment)
+                HStack(spacing: 6) {
+                    Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
+                        .foregroundColor(.secondaryText).frame(width: 38, alignment: .trailing)
+                    Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
+                        .foregroundColor(.secondaryText).frame(width: 40, alignment: .trailing)
+                    Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
+                        .foregroundColor(.dimText).frame(width: 44, alignment: .trailing)
+                    Text(actual.map { formatClock($0) } ?? "")            // ACT / live
+                        .foregroundColor(isCurrent ? .aviationGold : .aviationGreen)
+                        .frame(width: 44, alignment: .trailing)
+                    legDeltaText(planned: leg?.totalLegEET, actual: actual)  // Δ ahead/over
+                        .frame(width: 52, alignment: .trailing)
                 }
                 .font(.system(size: 10, design: .monospaced))
                 .lineLimit(1)
@@ -2527,25 +2549,15 @@ struct NavigationMapView: View {
         return nil
     }
 
-    /// Planned leg time (EET) → actual / live with an ahead (▲) / over (▼) delta; planned only for a
-    /// future leg. (3.5 — leg-timing table)
+    /// The ▲ ahead / ▼ over delta of actual vs planned leg time, or blank when not yet comparable. (3.5)
     @ViewBuilder
-    private func legTimingCell(planned: TimeInterval?, actual: TimeInterval?, running: Bool) -> some View {
-        if let actual {
-            HStack(spacing: 3) {
-                if let planned {
-                    Text(formatClock(planned)).foregroundColor(.dimText)
-                    Text("→").foregroundColor(.dimText)
-                }
-                Text(formatClock(actual)).foregroundColor(running ? .aviationGold : .aviationGreen)
-                if let planned {
-                    let d = planned - actual
-                    Text((d >= 0 ? "▲" : "▼") + formatClock(abs(d)))
-                        .foregroundColor(d >= 0 ? .aviationGreen : .aviationAmber)
-                }
-            }
-        } else if let planned {
-            Text(formatClock(planned)).foregroundColor(.dimText)
+    private func legDeltaText(planned: TimeInterval?, actual: TimeInterval?) -> some View {
+        if let planned, let actual {
+            let d = planned - actual
+            Text((d >= 0 ? "▲" : "▼") + formatClock(abs(d)))
+                .foregroundColor(d >= 0 ? .aviationGreen : .aviationAmber)
+        } else {
+            Text("")
         }
     }
 
@@ -2671,22 +2683,28 @@ struct NavigationMapView: View {
         }
     }
 
+    /// How dense the bottom control row renders — ViewThatFits picks the first that fits, degrading the
+    /// MARK/START labels to icon-only (compact), then dropping the +/− zoom buttons (minimal, pinch
+    /// still zooms). (3.5 — responsive row 2)
+    enum BarDensity { case full, compact, minimal }
+
     /// VFR leg timer on row 2 — times the current leg, compares it to the planned leg time (▲ ahead /
     /// ▼ over), and MARK records the crossing + restarts the leg. Pause/resume + reset. Idle shows just
     /// a START button. Plan-scoped, always visible without opening the drawer. (3.5 — leg timer)
     @ViewBuilder
-    private var legTimerCluster: some View {
+    private func legTimerCluster(_ density: BarDensity) -> some View {
         if let plan = flightPlanManager.activeFlightPlan {
             let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
             let canMark = plan.currentWaypointIndex < plan.waypoints.count
             let legLabel = currentLegLabel(plan)
+            let iconOnly = density != .full  // MARK/START shrink to their icon when space is tight
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let running = flightPlanManager.isChronometerRunning
                 let elapsed = flightPlanManager.chronometerElapsed
                 let started = running || elapsed > 0.5
                 HStack(spacing: 6) {
                     if !started {
-                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false) {
+                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false, iconOnly: iconOnly) {
                             flightPlanManager.startChronometer()
                         }
                     } else {
@@ -2694,7 +2712,7 @@ struct NavigationMapView: View {
                         if canMark {
                             let markName = plan.waypoints[plan.currentWaypointIndex].name
                             let markLabel = markName.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(markName)"
-                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: .aviationGold, filled: true) {
+                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: .aviationGold, filled: true, iconOnly: iconOnly) {
                                 flightPlanManager.markWaypoint()
                             }
                         }
@@ -2741,19 +2759,21 @@ struct NavigationMapView: View {
         .padding(.horizontal, 9).frame(height: 32)
         .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05))
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.10), lineWidth: 1)))
+        .fixedSize(horizontal: true, vertical: false)  // one line — never wrap the timer text
     }
 
-    private func legPillButton(icon: String, label: String, tint: Color, filled: Bool, action: @escaping () -> Void) -> some View {
+    private func legPillButton(icon: String, label: String, tint: Color, filled: Bool, iconOnly: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon).font(.system(size: 12, weight: .semibold))
-                Text(label).font(.system(size: 12, weight: .semibold))
+                if !iconOnly { Text(label).font(.system(size: 12, weight: .semibold)).fixedSize() }
             }
             .foregroundColor(filled ? .black : tint)
-            .padding(.horizontal, 10).frame(height: 32)
+            .padding(.horizontal, iconOnly ? 8 : 10).frame(height: 32)
             .background(RoundedRectangle(cornerRadius: 7).fill(filled ? tint : tint.opacity(0.16)))
             .contentShape(Rectangle())
         }
+        .accessibilityLabel(label)
     }
 
     private func legIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -2773,7 +2793,7 @@ struct NavigationMapView: View {
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
-    private var bottomControlRow: some View {
+    private func bottomControlRow(_ density: BarDensity) -> some View {
         HStack(spacing: 12) {
             if appState.settings.enableFlightPlanning {
                 Button(action: { showFlightPlanning = true }) {
@@ -2788,14 +2808,6 @@ struct NavigationMapView: View {
                     .frame(width: 50, height: 40)
                     .contentShape(Rectangle())
                 }
-                .fullScreenCover(isPresented: $showFlightPlanning) {
-                    FlightPlanningView()
-                        .environmentObject(appState)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(aircraftDataService)
-                        .environmentObject(openAIPDataService)
-                }
             }
 
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
@@ -2805,7 +2817,7 @@ struct NavigationMapView: View {
             Spacer()
 
             // Leg timer — centered on row 2, always visible without opening the drawer. (3.5)
-            legTimerCluster
+            legTimerCluster(density)
 
             Spacer()
 
@@ -2821,9 +2833,6 @@ struct NavigationMapView: View {
                 .frame(height: 40)
                 .contentShape(Rectangle())
             }
-            .fullScreenCover(isPresented: $showGPSStatusModal) {
-                GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
-            }
 
             // Single tracking button: free → center & follow → track-up → free.
             Button(action: cycleTracking) {
@@ -2836,29 +2845,32 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.Nav.navigation)
             .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
 
-            // Zoom out / in (kept for gloved / turbulence use, docked far-right).
-            HStack(spacing: 0) {
-                Button(action: { zoom(by: 2.0) }) {
-                    Image(systemName: "minus")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
+            // Zoom out / in (kept for gloved / turbulence use, docked far-right). First thing dropped
+            // when horizontal space runs out — pinch still zooms. (3.5)
+            if density != .minimal {
+                HStack(spacing: 0) {
+                    Button(action: { zoom(by: 2.0) }) {
+                        Image(systemName: "minus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 40, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Nav.zoomOut)
+                    Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5, height: 22)
+                    Button(action: { zoom(by: 0.5) }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primaryText)
+                            .frame(width: 40, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Nav.zoomIn)
                 }
-                .accessibilityLabel(L10n.Nav.zoomOut)
-                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5, height: 22)
-                Button(action: { zoom(by: 0.5) }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel(L10n.Nav.zoomIn)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                )
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.14), lineWidth: 0.5)
-            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

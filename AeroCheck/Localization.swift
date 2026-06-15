@@ -1196,6 +1196,7 @@ enum L10n {
         static let plannedAltitude = String(localized: "nav.plannedAltitude")
         static let groundLevelNA = String(localized: "nav.groundLevelNA")
         static let navigation = String(localized: "nav.navigation")
+        static let speeds = String(localized: "nav.speeds")
         static let groundSpeed = String(localized: "nav.groundSpeed")
         static let windDirection = String(localized: "nav.windDirection")
         static let windSpeed = String(localized: "nav.windSpeed")

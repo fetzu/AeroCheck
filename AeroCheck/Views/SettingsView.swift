@@ -6,6 +6,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    var onClose: (() -> Void)? = nil
+
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
     /// iPhone push-navigation path.
@@ -135,7 +139,7 @@ struct SettingsView: View {
         .toolbar {
             // Top-left, matching the app convention (Flight Log, flight-plan list). (Phase 3.5)
             ToolbarItem(placement: .cancellationAction) {
-                Button(L10n.Settings.done) { dismiss() }
+                Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
             }
         }
     }

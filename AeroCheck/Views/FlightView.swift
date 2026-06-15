@@ -1832,6 +1832,10 @@ struct SpeedReferenceSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    var onClose: (() -> Void)? = nil
+
     private var isIPad: Bool {
         UIDevice.current.userInterfaceIdiom == .pad
     }
@@ -1849,7 +1853,7 @@ struct SpeedReferenceSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.close) { dismiss() }
+                    Button(L10n.Button.close) { if let onClose { onClose() } else { dismiss() } }
                 }
             }
         }

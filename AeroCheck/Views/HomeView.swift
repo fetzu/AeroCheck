@@ -106,6 +106,9 @@ struct HomeView: View {
     @State private var showFlightPlanning = false
     @State private var selectedAircraftIndex: Int = 0
     @State private var cachedItemCountText: String = "—"
+    /// Mirrors the body's rail-layout test (iPad landscape). When true, the rail destinations present
+    /// as leading-edge slide-in overlays instead of the default bottom covers. (3.5 — device feedback)
+    @State private var useRailLayout: Bool = false
 
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -141,46 +144,58 @@ struct HomeView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let isLandscape = geometry.size.width > geometry.size.height
-            let isCompact = isCompactWidth(geometry)
+        ZStack {
+            GeometryReader { geometry in
+                let isLandscape = geometry.size.width > geometry.size.height
+                let isCompact = isCompactWidth(geometry)
+                let rail = isLandscape && geometry.size.width >= 900
 
-            ZStack {
-                // Background
-                Color.cockpitBackground
-                    .ignoresSafeArea()
+                ZStack {
+                    // Background
+                    Color.cockpitBackground
+                        .ignoresSafeArea()
 
-                if isLandscape && geometry.size.width >= 900 {
-                    // iPad landscape: command rail (nav) + hero canvas. (3.5 redesign — Direction 1)
-                    HStack(spacing: 0) {
-                        navRail
-                        heroCanvas(landscape: true, isCompact: false)
-                    }
-                } else {
-                    // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
-                    VStack(spacing: 0) {
-                        brandHeader(isCompact: isCompact)
-                            .padding(.horizontal, isCompact ? 16 : 24)
-                            .padding(.top, isCompact ? 12 : 20)
-                        heroCanvas(landscape: isLandscape, isCompact: isCompact)
-                        navTabBar
+                    if rail {
+                        // iPad landscape: command rail (nav) + hero canvas. (3.5 redesign — Direction 1)
+                        HStack(spacing: 0) {
+                            navRail
+                            heroCanvas(landscape: true, isCompact: false)
+                        }
+                    } else {
+                        // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
+                        VStack(spacing: 0) {
+                            brandHeader(isCompact: isCompact)
+                                .padding(.horizontal, isCompact ? 16 : 24)
+                                .padding(.top, isCompact ? 12 : 20)
+                            heroCanvas(landscape: isLandscape, isCompact: isCompact)
+                            navTabBar
+                        }
                     }
                 }
+                .onAppear { useRailLayout = rail }
+                .onChange(of: geometry.size) { _, _ in
+                    if useRailLayout != rail { useRailLayout = rail }
+                }
             }
+
+            // In the rail layout, the four rail destinations slide in from the leading edge (they sit
+            // "behind" the left rail), rather than the default bottom cover. Portrait keeps the covers
+            // below. (3.5 — device feedback)
+            railDestinationOverlays
         }
-        .fullScreenCover(isPresented: $showSettings) {
+        .fullScreenCover(isPresented: coverBinding($showSettings)) {
             SettingsView()
                 .environmentObject(appState)
                 .environmentObject(locationManager)
         }
-        .fullScreenCover(isPresented: $showFlightLog) {
+        .fullScreenCover(isPresented: coverBinding($showFlightLog)) {
             FlightLogView()
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
         }
-        .sheet(isPresented: $showSpeedReference) {
+        .sheet(isPresented: coverBinding($showSpeedReference)) {
             SpeedReferenceSheet()
                 .environmentObject(appState)
         }
@@ -192,7 +207,7 @@ struct HomeView: View {
                 .environmentObject(aircraftDataService)
                 .environmentObject(openAIPDataService)
         }
-        .fullScreenCover(isPresented: $showNavigation) {
+        .fullScreenCover(isPresented: coverBinding($showNavigation)) {
             NavigationMapView(isPresented: $showNavigation)
                 .environmentObject(appState)
                 .environmentObject(locationManager)
@@ -261,6 +276,70 @@ struct HomeView: View {
         }
         .onChange(of: appState.settings.hiddenAeroclubs) { _, _ in
             syncSelectedAircraftIndex()
+        }
+    }
+
+    // MARK: - Rail destination presentation
+
+    /// Routes a rail destination to the default bottom cover only in the portrait/compact layout.
+    /// In the rail layout it stays unpresented here so `railDestinationOverlays` can slide it in from
+    /// the leading edge instead. (3.5 — device feedback)
+    private func coverBinding(_ flag: Binding<Bool>) -> Binding<Bool> {
+        Binding(
+            get: { flag.wrappedValue && !useRailLayout },
+            set: { if !$0 { flag.wrappedValue = false } }
+        )
+    }
+
+    /// The four rail destinations, presented as full-screen overlays that slide in from the leading
+    /// edge (they live "behind" the left rail). Each destination still owns its dismissal: Settings /
+    /// Flight Log / Speeds route their close button to `onClose`; NavigationMapView flips its own
+    /// `isPresented` binding. The per-flag `.animation` drives both the slide-in and the slide-out. (3.5)
+    @ViewBuilder
+    private var railDestinationOverlays: some View {
+        if useRailLayout {
+            ZStack {
+                if showSettings {
+                    SettingsView(onClose: { showSettings = false })
+                        .environmentObject(appState)
+                        .environmentObject(locationManager)
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                        .transition(.move(edge: .leading))
+                }
+                if showFlightLog {
+                    FlightLogView(onClose: { showFlightLog = false })
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
+                        .environmentObject(openAIPDataService)
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                        .transition(.move(edge: .leading))
+                }
+                if showSpeedReference {
+                    SpeedReferenceSheet(onClose: { showSpeedReference = false })
+                        .environmentObject(appState)
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                        .transition(.move(edge: .leading))
+                }
+                if showNavigation {
+                    NavigationMapView(isPresented: $showNavigation)
+                        .environmentObject(appState)
+                        .environmentObject(locationManager)
+                        .environmentObject(offlineMapManager)
+                        .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
+                        .environmentObject(aircraftDataService)
+                        .environmentObject(openAIPCacheManager)
+                        .environmentObject(openAIPDataService)
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                        .transition(.move(edge: .leading))
+                }
+            }
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.3), value: showSettings)
+            .animation(.easeInOut(duration: 0.3), value: showFlightLog)
+            .animation(.easeInOut(duration: 0.3), value: showSpeedReference)
+            .animation(.easeInOut(duration: 0.3), value: showNavigation)
         }
     }
 
@@ -392,18 +471,19 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Flight-plan + last-flight strips: side by side on a wide canvas, stacked otherwise. (3.5)
+    /// Last-flight + flight-plan strips: side by side on a wide canvas, stacked otherwise. Ordered
+    /// past → future (left/top = last flight, right/bottom = flight plan). (3.5 — device feedback)
     @ViewBuilder
     private func activityStrips(sideBySide: Bool) -> some View {
         if sideBySide {
             HStack(spacing: 12) {
-                flightPlanStrip
                 lastFlightStrip
+                flightPlanStrip
             }
         } else {
             VStack(spacing: 12) {
-                flightPlanStrip
                 lastFlightStrip
+                flightPlanStrip
             }
         }
     }
@@ -478,9 +558,11 @@ struct HomeView: View {
     /// The four destination buttons — laid out vertically (rail) or horizontally (tab bar). (3.5)
     @ViewBuilder
     private var navButtons: some View {
-        navButton("clock.arrow.circlepath", L10n.Button.flightLog, tint: .aviationGold, badge: appState.flights.count) { showFlightLog = true }
-        navButton("map.fill", L10n.Button.nav, tint: .altimeterBlue) { showNavigation = true }
-        navButton("speedometer", L10n.Button.speeds, tint: .aviationGreen) { showSpeedReference = true }
+        // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
+        // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (3.5 — device feedback)
+        navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { showFlightLog = true }
+        navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
+        navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
         navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { showSettings = true }
     }
 
@@ -557,15 +639,30 @@ struct HomeView: View {
         }
     }
 
-    /// Smart flight-plan strip: the active plan (route + waypoints) if one is set, else "N saved",
-    /// else nothing. Taps into the flight-plan list. (3.5 — device feedback)
+    /// Smart flight-plan strip, in priority order: the active plan (route + waypoints), else a plan
+    /// scheduled for today (route + departure time, gold), else the saved-count link, else nothing.
+    /// Taps into the flight-plan list. (3.5 — device feedback)
     @ViewBuilder
     private var flightPlanStrip: some View {
         if let active = flightPlanManager.activeFlightPlan {
             flightPlanStripCard(title: planRoute(active), detail: "\(active.waypoints.count) WP", accent: .altimeterBlue)
+        } else if let today = todaysFlightPlan, let departure = today.plannedDepartureTime {
+            flightPlanStripCard(title: planRoute(today), detail: departure.formatted(date: .omitted, time: .shortened), accent: .aviationGold)
         } else if !flightPlanManager.flightPlans.isEmpty {
             flightPlanStripCard(title: L10n.Nav.flightPlans, detail: "\(flightPlanManager.flightPlans.count)", accent: .secondaryText)
         }
+    }
+
+    /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
+    /// imminent flight is one tap away instead of buried behind the generic list. (3.5)
+    private var todaysFlightPlan: FlightPlan? {
+        let calendar = Calendar.current
+        return flightPlanManager.flightPlans
+            .filter { plan in
+                guard let departure = plan.plannedDepartureTime else { return false }
+                return calendar.isDateInToday(departure)
+            }
+            .min { ($0.plannedDepartureTime ?? .distantFuture) < ($1.plannedDepartureTime ?? .distantFuture) }
     }
 
     private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
@@ -704,8 +801,8 @@ struct HomeView: View {
                                 .animation(.easeInOut(duration: 0.2), value: selectedAircraftIndex)
                         }
                     }
-                    Text("\(selectedAircraftIndex + 1) / \(aircraft.count) " + L10n.Nav.aircraft.uppercased())
-                        .font(.system(size: 9, weight: .semibold)).tracking(0.4)
+                    Text("\(selectedAircraftIndex + 1) / \(aircraft.count)")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(0.4)
                         .foregroundColor(.dimText)
                 }
                 .padding(.horizontal, 10)

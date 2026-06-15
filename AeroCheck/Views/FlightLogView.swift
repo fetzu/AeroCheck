@@ -9,6 +9,10 @@ struct FlightLogView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.dismiss) var dismiss
+
+    /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    var onClose: (() -> Void)? = nil
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
@@ -76,7 +80,7 @@ struct FlightLogView: View {
                 // Close + import only — the big in-content "Flight Log" title and the gold Export
                 // button live in the dashboard header now (concept). (3.3)
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.FlightLog.close) { dismiss() }
+                    Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showImportPicker = true }) {

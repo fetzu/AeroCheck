@@ -2104,57 +2104,74 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Recompute the cached phase-aware frequency list. Called on phase change + significant map move
-    /// (not per-render — it does a nearest-airport spatial query).
+    /// Recompute the cached frequency list: the nearest field's VFR contact (regardless of plan, and
+    /// highlighted as the active freq) + the route's departure / next / destination (auto-completed
+    /// from the DB when a waypoint is an airfield) + area Info/FIS + emergency, deduped. Cached
+    /// (recomputed on phase change + significant move). (3.5 — comprehensive route freqs)
     private func recomputePhaseFrequencies() {
         guard appState.settings.enableFlightPlanning else { phaseFreqItems = []; return }
         var items: [PhaseFrequency] = []
-        let phase = appState.currentPhase
-        let group = freqPhaseGroup(phase)
-        let types = relevantFreqTypes(for: phase)
-
-        func rank(_ f: AirportFrequency) -> Int {
-            types.firstIndex(where: { f.type.uppercased().contains($0) }) ?? types.count
+        var seen = Set<String>()
+        func add(_ station: String, _ freq: String, highlighted: Bool = false, emergency: Bool = false) {
+            let key = freq + "|" + station
+            guard !seen.contains(key) else { return }
+            seen.insert(key)
+            items.append(PhaseFrequency(station: station, freq: freq, highlighted: highlighted, isEmergency: emergency))
         }
 
-        // Route frequencies first: the current target waypoint and the one after it, if assigned a
-        // frequency — the freqs to tune for the upcoming legs. (3.5 — VFR route freqs)
-        if let plan = flightPlanManager.activeFlightPlan {
+        // Nearest airfield's VFR contact frequency — regardless of the flight plan; the active one.
+        if let loc = locationManager.currentLocation, airportDataService.isDataAvailable,
+           let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: 40).first,
+           let contact = vfrContactFreq(for: apt.ident) {
+            add("\(apt.ident) \(contact.type)", contact.freq, highlighted: true)
+        }
+
+        // Route: departure (first), the next target waypoint, and the destination (last) — auto-completed
+        // for airfields without a manual frequency.
+        if let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty {
+            if let dep = waypointFreq(plan.waypoints.first!) { add(dep.label, dep.freq) }
             let idx = plan.currentWaypointIndex
-            for i in [idx, idx + 1] where plan.waypoints.indices.contains(i) {
-                let wp = plan.waypoints[i]
-                if let f = wp.frequency, !f.isEmpty {
-                    let label = wp.name.isEmpty ? "WPT \(i + 1)" : wp.name
-                    items.append(PhaseFrequency(station: label, freq: f, highlighted: items.isEmpty, isEmergency: false))
-                }
+            if plan.waypoints.indices.contains(idx), let nx = waypointFreq(plan.waypoints[idx]) { add(nx.label, nx.freq) }
+            if let dest = waypointFreq(plan.waypoints.last!) { add(dest.label, dest.freq) }
+        }
+
+        // Area Info / FIS for the current Swiss sector.
+        if let loc = locationManager.currentLocation, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
+            for sf in areaFreqs(for: SwissAirspaceSectors.getSector(for: loc.coordinate)) {
+                add(sf.name, sf.frequency)
             }
         }
 
-        if let loc = locationManager.currentLocation {
-            // Enroute: area FIS / Info for the current sector first.
-            if group == .enroute, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
-                let sector = SwissAirspaceSectors.getSector(for: loc.coordinate)
-                for sf in areaFreqs(for: sector) {
-                    items.append(PhaseFrequency(station: sf.name, freq: sf.frequency, highlighted: items.isEmpty, isEmergency: false))
-                }
-            }
-            // Nearest airport — ALL of its frequencies, the phase-relevant types sorted first and the
-            // top one highlighted. (3.5 fix — no separate "all frequencies" panel needed.)
-            if airportDataService.isDataAvailable {
-                let maxNm: Double = group == .enroute ? 25 : 40
-                if let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: maxNm).first {
-                    let freqs = airportDataService.getFrequencies(for: apt.ident).sorted { rank($0) < rank($1) }
-                    for (i, f) in freqs.enumerated() {
-                        let isRelevant = rank(f) < types.count
-                        items.append(PhaseFrequency(station: "\(apt.ident) \(f.type)", freq: f.formattedFrequency,
-                                                    highlighted: i == 0 && isRelevant, isEmergency: false))
-                    }
-                }
+        // Emergency, always last.
+        add(SwissCommonFrequency.emergency.name, SwissCommonFrequency.emergency.frequency, emergency: true)
+        phaseFreqItems = items
+    }
+
+    /// The best VFR contact frequency for an airfield ident — prefers TWR / AFIS / INFO / A-G over an
+    /// APP/GND frequency (rarely the VFR initial contact, and was being shown wrongly). (3.5)
+    private static let vfrContactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO", "ATIS"]
+    private func vfrContactFreq(for ident: String) -> (type: String, freq: String)? {
+        let freqs = airportDataService.getFrequencies(for: ident)
+        guard !freqs.isEmpty else { return nil }
+        for type in Self.vfrContactPriority {
+            if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
+                return (f.type, f.formattedFrequency)
             }
         }
-        // Emergency, always pinned at the end.
-        items.append(PhaseFrequency(station: SwissCommonFrequency.emergency.name, freq: SwissCommonFrequency.emergency.frequency, highlighted: false, isEmergency: true))
-        phaseFreqItems = items
+        return freqs.first.map { ($0.type, $0.formattedFrequency) }
+    }
+
+    /// A waypoint's frequency: the manually-entered one, else auto-completed from the DB when the
+    /// waypoint name is an airfield ident. (3.5)
+    private func waypointFreq(_ wp: FlightPlanWaypoint) -> (label: String, freq: String)? {
+        let name = wp.name.isEmpty ? nil : wp.name
+        if let f = wp.frequency, !f.isEmpty {
+            return (name ?? "WPT", f)
+        }
+        if let ident = name, airportDataService.isDataAvailable, let contact = vfrContactFreq(for: ident) {
+            return ("\(ident) \(contact.type)", contact.freq)
+        }
+        return nil
     }
 
     // MARK: - Track vector (3.5 C4)

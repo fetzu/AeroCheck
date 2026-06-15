@@ -42,4 +42,56 @@ final class AppStateFlightStartTests: XCTestCase {
         XCTAssertNil(appState.flightStartError)
         appState.isFlightActive = false
     }
+
+    // MARK: - Cruise check (manual-start countdown, 3.5)
+
+    /// The countdown is MANUAL: until the pilot starts it (cruiseCheckStartTime == nil) it never goes
+    /// due, even long past the interval, and the button shows the full interval.
+    func testCruiseCheckIdleUntilStarted() {
+        let appState = AppState()
+        appState.currentPhase = .cruise
+        let t0 = Date(timeIntervalSinceReferenceDate: 0)
+        XCTAssertEqual(appState.cruiseCheckRemaining(now: t0), AppState.cruiseCheckInterval, accuracy: 0.001)
+        appState.evaluateCruiseCheck(now: t0.addingTimeInterval(AppState.cruiseCheckInterval + 100))
+        XCTAssertFalse(appState.cruiseCheckDue, "An un-started countdown must never become due")
+        XCTAssertNil(appState.cruiseCheckStartTime)
+    }
+
+    /// Once started, it becomes due at the interval and re-arms the Cruise checklist.
+    func testCruiseCheckDueAfterIntervalOnceStarted() {
+        let appState = AppState()
+        appState.currentPhase = .cruise
+        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        appState.cruiseCheckStartTime = start
+        appState.evaluateCruiseCheck(now: start.addingTimeInterval(AppState.cruiseCheckInterval - 5))
+        XCTAssertFalse(appState.cruiseCheckDue)
+        XCTAssertEqual(appState.cruiseCheckRemaining(now: start.addingTimeInterval(AppState.cruiseCheckInterval - 5)), 5, accuracy: 0.001)
+        appState.evaluateCruiseCheck(now: start.addingTimeInterval(AppState.cruiseCheckInterval))
+        XCTAssertTrue(appState.cruiseCheckDue)
+        XCTAssertEqual(appState.currentHighlightedItem[.cruise], 0, "Due must re-arm the Cruise checklist highlight")
+        XCTAssertNil(appState.phaseCompletionStatus[.cruise], "Due must clear Cruise completion")
+    }
+
+    /// Arming (tap-to-start / acknowledge / hold-to-reset) clears due and restarts the countdown.
+    func testArmCruiseCheckClearsDueAndResetsCountdown() {
+        let appState = AppState()
+        appState.currentPhase = .cruise
+        appState.cruiseCheckDue = true
+        appState.armCruiseCheck()
+        XCTAssertFalse(appState.cruiseCheckDue)
+        let start = try! XCTUnwrap(appState.cruiseCheckStartTime)
+        XCTAssertEqual(appState.cruiseCheckRemaining(now: start), AppState.cruiseCheckInterval, accuracy: 0.5)
+    }
+
+    /// Leaving cruise clears the reminder and idles the countdown.
+    func testLeavingCruiseClearsTimer() {
+        let appState = AppState()
+        appState.currentPhase = .cruise
+        appState.cruiseCheckStartTime = Date()
+        appState.cruiseCheckDue = true
+        appState.currentPhase = .descent
+        appState.evaluateCruiseCheck()
+        XCTAssertFalse(appState.cruiseCheckDue, "Leaving cruise clears the reminder")
+        XCTAssertNil(appState.cruiseCheckStartTime, "Leaving cruise idles the countdown")
+    }
 }

@@ -449,7 +449,6 @@ struct NavigationMapView: View {
             // valid vector after a Nav→Checklist→Nav round trip. (3.5 fix)
             updateTrackVectorEMA()
         }
-        .cruiseCheckReminder(appState: appState)
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: airportDataService.isDataAvailable) { _, available in
             recomputeMapSpatialContent(force: true)
@@ -2135,6 +2134,12 @@ struct NavigationMapView: View {
     /// highlighted as the active freq) + the route's departure / next / destination (auto-completed
     /// from the DB when a waypoint is an airfield) + area Info/FIS + emergency, deduped. Cached
     /// (recomputed on phase change + significant move). (3.5 — comprehensive route freqs)
+    /// A planned-elapsed-time duration as "H:MM" (e.g. 34 min → "0:34", 1h05 → "1:05"). (3.5)
+    private func eetDurationText(_ t: TimeInterval) -> String {
+        let total = Int(t.rounded())
+        return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
+    }
+
     private func recomputePhaseFrequencies() {
         guard appState.settings.enableFlightPlanning else { phaseFreqItems = []; return }
         var items: [PhaseFrequency] = []
@@ -2442,10 +2447,14 @@ struct NavigationMapView: View {
                     if let d = leg?.distance {
                         Text(String(format: "%.1f", d)).foregroundColor(.secondaryText)
                     }
+                    // One time value per row, by context: passed → ATO (actual clock); ahead & airborne
+                    // → ETO (arrival clock); pre-flight / no ground speed → EET (planned duration). (3.5)
                     if let ato = wpt.actualTimeOver {
                         Text("ATO \(ato.formatted(date: .omitted, time: .shortened))").foregroundColor(.aviationGreen)
-                    } else if let eto = wpt.estimatedTimeOver {
+                    } else if appState.isFlightActive, let eto = wpt.estimatedTimeOver {
                         Text("ETO \(eto.formatted(date: .omitted, time: .shortened))").foregroundColor(.dimText)
+                    } else if let eet = wpt.cumulativeEET {
+                        Text("EET \(eetDurationText(eet))").foregroundColor(.dimText)
                     }
                 }
                 .font(.system(size: 11, design: .monospaced))
@@ -3254,68 +3263,6 @@ struct RadioFrequencyOverlayView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
-    }
-}
-
-/// Common Swiss aviation frequencies
-/// A transient FREDA cruise-check reminder banner. Appears when `appState.cruiseCheckDue` flips true
-/// and auto-dismisses after 30 s (the amber phase indicator persists until acknowledged). Reusable
-/// across the nav map and the flight HUD. (3.5 — re-cruise)
-struct CruiseCheckReminderModifier: ViewModifier {
-    @ObservedObject var appState: AppState
-    @State private var show = false
-    @State private var dismissWork: DispatchWorkItem?
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(alignment: .top) {
-                if show {
-                    banner
-                        .padding(.top, 64)
-                        .padding(.horizontal, 40)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .onChange(of: appState.cruiseCheckDue) { _, due in
-                dismissWork?.cancel()
-                if due {
-                    withAnimation(.spring(response: 0.4)) { show = true }
-                    let work = DispatchWorkItem { withAnimation { show = false } }
-                    dismissWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
-                } else {
-                    withAnimation { show = false }
-                }
-            }
-    }
-
-    private var banner: some View {
-        Button(action: {
-            appState.acknowledgeCruiseCheck()
-            withAnimation { show = false }
-        }) {
-            HStack(spacing: 11) {
-                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 17, weight: .bold))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(L10n.Nav.cruiseCheckDue).font(.system(size: 13, weight: .bold))
-                    Text(L10n.Nav.cruiseCheckHint).font(.system(size: 11)).opacity(0.85)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 20))
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 16).padding(.vertical, 11)
-            .frame(maxWidth: 460)
-            .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-extension View {
-    func cruiseCheckReminder(appState: AppState) -> some View {
-        modifier(CruiseCheckReminderModifier(appState: appState))
     }
 }
 

@@ -377,7 +377,6 @@ struct FlightView: View {
         .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
         }
-        .cruiseCheckReminder(appState: appState)
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
             appState.evaluateCruiseCheck()
             // Show hour meter input when navigating TO Engine Start phase
@@ -574,12 +573,65 @@ struct FlightView: View {
             HStack(spacing: 12) {
                 hudPhaseActionButton
                 circuitQuickEventButtons
+                cruiseCheckButton
                 hudNextButton
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(Color.panelBackground)
         }
+    }
+
+    // MARK: - Cruise check (3.5)
+
+    /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT. It shows
+    /// the countdown to the next cruise check. The countdown is MANUAL: tap to start (idle) or to
+    /// acknowledge + restart (when due); hold 2 s to reset/re-arm at any time. When due it turns amber
+    /// and pulses (and the Cruise checklist re-arms). Hidden outside the Cruise phase. (3.5)
+    @ViewBuilder
+    private var cruiseCheckButton: some View {
+        if appState.currentPhase == .cruise {
+            let due = appState.cruiseCheckDue
+            let started = appState.cruiseCheckStartTime != nil
+            let colors = cruiseCheckColors(due: due, started: started)
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = appState.cruiseCheckRemaining(now: context.date)
+                VStack(spacing: 1) {
+                    Text(due ? "\u{27F3} \(L10n.Nav.checkNow)" : L10n.Nav.cruise)
+                        .font(.system(size: due ? 13 : 11, weight: .bold)).tracking(0.5)
+                    Text(due ? L10n.Nav.holdToReset : cruiseTimeText(remaining))
+                        .font(.system(size: due ? 11 : 18, weight: .semibold, design: .monospaced))
+                }
+                .foregroundColor(colors.label)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(colors.fill)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.stroke, lineWidth: 1))
+                )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+            .onTapGesture { if due || !started { appState.armCruiseCheck() } }
+            .onLongPressGesture(minimumDuration: 2) { appState.armCruiseCheck() }
+            .modifier(PulseModifier(isActive: due))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(L10n.Nav.cruise)
+            .accessibilityHint(L10n.Nav.holdToReset)
+        }
+    }
+
+    /// (label, fill, stroke) for the CRUISE button by state: due = amber, running = green, idle = dim.
+    private func cruiseCheckColors(due: Bool, started: Bool) -> (label: Color, fill: Color, stroke: Color) {
+        if due { return (.black, .aviationAmber, Color(red: 1.0, green: 0.81, blue: 0.52)) }
+        if started { return (.aviationGreen, Color.aviationGreen.opacity(0.14), Color.aviationGreen.opacity(0.5)) }
+        return (.secondaryText, Color.white.opacity(0.05), Color.white.opacity(0.12))
+    }
+
+    /// Countdown remaining as "M:SS". (3.5)
+    private func cruiseTimeText(_ remaining: TimeInterval) -> String {
+        let s = Int(remaining.rounded())
+        return String(format: "%d:%02d", s / 60, s % 60)
     }
 
     // MARK: - HUD primary action (NEXT / END FLIGHT)

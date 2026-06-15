@@ -1152,6 +1152,9 @@ enum L10n {
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
         static let cruiseCheckDue = String(localized: "nav.cruiseCheckDue")
         static let cruiseCheckHint = String(localized: "nav.cruiseCheckHint")
+        static let cruise = String(localized: "nav.cruise")
+        static let checkNow = String(localized: "nav.checkNow")
+        static let holdToReset = String(localized: "nav.holdToReset")
 
         // Airspace Conflicts
         static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")

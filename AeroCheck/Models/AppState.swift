@@ -385,36 +385,47 @@ class AppState: ObservableObject {
     /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
     /// is a check every 10–15 minutes in cruise. (3.5)
     static let cruiseCheckInterval: TimeInterval = 60 // TEMP: 1 min for device testing — restore to 15 * 60
-    /// True when a cruise (FREDA) check is due/overdue — drives the amber phase indicator + reminder.
+    /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (3.5)
     @Published var cruiseCheckDue: Bool = false
-    /// When cruise was entered or the check was last acknowledged; nil outside cruise.
-    private var lastCruiseCheckTime: Date?
+    /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is
+    /// MANUAL — the pilot starts it from the CRUISE button on the Cruise checklist page, so a busy
+    /// pilot is never reminded for a check they haven't begun timing. (3.5 — manual start)
+    @Published var cruiseCheckStartTime: Date?
 
-    /// Re-evaluate whether a cruise check is due. Call periodically (≈20–30 s) and on phase change
-    /// while a flight is active. (3.5)
+    /// Seconds remaining until the next cruise check is due — the full interval while idle. (3.5)
+    func cruiseCheckRemaining(now: Date = Date()) -> TimeInterval {
+        guard let start = cruiseCheckStartTime else { return Self.cruiseCheckInterval }
+        return max(0, Self.cruiseCheckInterval - now.timeIntervalSince(start))
+    }
+
+    /// Re-evaluate whether a cruise check is due. The countdown only runs once the pilot has started
+    /// it (`cruiseCheckStartTime != nil`); leaving cruise clears + idles it. Call periodically while
+    /// in cruise. (3.5)
     func evaluateCruiseCheck(now: Date = Date()) {
-        // Fires whenever the checklist is in the Cruise phase (not gated on isFlightActive, so it works
-        // while navigating). Leaving cruise clears it and restarts the interval for next time. (3.5)
         guard currentPhase == .cruise else {
             if cruiseCheckDue { cruiseCheckDue = false }
-            lastCruiseCheckTime = nil
+            cruiseCheckStartTime = nil
             return
         }
-        if lastCruiseCheckTime == nil { lastCruiseCheckTime = now }
-        if let last = lastCruiseCheckTime, now.timeIntervalSince(last) >= Self.cruiseCheckInterval, !cruiseCheckDue {
+        guard let start = cruiseCheckStartTime else { return } // idle until the pilot starts it
+        if !cruiseCheckDue, now.timeIntervalSince(start) >= Self.cruiseCheckInterval {
             cruiseCheckDue = true
-            // Re-arm the Cruise checklist so the pilot re-runs FREDA: reset its highlight to the first
-            // item and clear its completion status (items show undone again). (3.5)
+            // Re-arm the Cruise checklist so the pilot re-runs the check: reset its highlight to the
+            // first item and clear its completion status (items show undone again). (3.5)
             currentHighlightedItem[.cruise] = 0
             phaseCompletionStatus[.cruise] = nil
         }
     }
 
-    /// Acknowledge the cruise check: clear the reminder and restart the interval. (3.5)
-    func acknowledgeCruiseCheck() {
-        lastCruiseCheckTime = Date()
+    /// Start / re-arm the cruise-check countdown from the full interval. One method backs every gesture:
+    /// tap-to-start (idle), tap-to-acknowledge (due), and hold-to-reset (any time). (3.5 — manual start)
+    func armCruiseCheck() {
+        cruiseCheckStartTime = Date()
         cruiseCheckDue = false
     }
+
+    /// Acknowledge a due cruise check — identical to re-arming the countdown. (3.5)
+    func acknowledgeCruiseCheck() { armCruiseCheck() }
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     @Published var flightStartError: String?

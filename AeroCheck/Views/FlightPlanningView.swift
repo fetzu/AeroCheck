@@ -56,118 +56,133 @@ struct FlightPlanningView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.cockpitBackground.ignoresSafeArea()
-
-                if flightPlanManager.flightPlans.isEmpty {
-                    emptyState
-                } else {
-                    GeometryReader { geo in
-                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
-                            // iPad landscape: master (plan list) + read-only detail pane. (3.5)
-                            HStack(spacing: 0) {
-                                plansList(twoColumn: true)
-                                    .frame(width: geo.size.width * 0.40)
-                                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+        Group {
+            if flightPlanManager.flightPlans.isEmpty {
+                listNavStack { emptyState }
+            } else {
+                GeometryReader { geo in
+                    if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                        // iPad landscape: master (list, in its OWN nav bar so the toolbar belongs to
+                        // the list) + read-only detail pane in its own nav bar. (3.5 — user feedback)
+                        HStack(spacing: 0) {
+                            listNavStack { plansList(twoColumn: true) }
+                                .frame(width: geo.size.width * 0.40)
+                            Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                            NavigationStack {
                                 planDetailColumn
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
-                        } else {
-                            plansList(twoColumn: false)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                    } else {
+                        listNavStack { plansList(twoColumn: false) }
                     }
-                }
-            }
-            .navigationTitle(L10n.Nav.flightPlans)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-
-                if availableAircraft.count > 1 {
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Picker(L10n.Nav.aircraft, selection: $selectedAircraft) {
-                                Text(L10n.Nav.allAircraft).tag(String?.none)
-                                ForEach(availableAircraft, id: \.self) { reg in
-                                    Text(reg).tag(String?.some(reg))
-                                }
-                            }
-                        } label: {
-                            Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                                .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
-                        }
-                        .accessibilityLabel(L10n.Nav.filterByAircraft)
-                    }
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button(action: { showingNewPlanSheet = true }) {
-                            Label(L10n.Nav.newFlightPlan, systemImage: "plus")
-                        }
-
-                        Button(action: { showingImporter = true }) {
-                            Label(L10n.Nav.importFlightPlan, systemImage: "square.and.arrow.down")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingNewPlanSheet) {
-                NewFlightPlanSheet { plan in
-                    // A new plan is empty — jump straight into the builder to lay out the route.
-                    editingPlan = plan
-                }
-                .environmentObject(appState)
-                .environmentObject(flightPlanManager)
-            }
-            // Map-centric builder (Phase 3.4), opened from the detail pane's Edit or a new plan.
-            // Full-screen so iPad gets the two-column map+list layout. Presented by id → live plan.
-            .fullScreenCover(item: $editingPlan) { plan in
-                FlightPlanMapBuilderView(planId: plan.id)
-                    .environmentObject(appState)
-                    .environmentObject(flightPlanManager)
-                    .environmentObject(airportDataService)
-                    .environmentObject(openAIPDataService)
-            }
-            .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
-                Button(L10n.Button.cancel, role: .cancel) { }
-                Button(L10n.Button.delete, role: .destructive) {
-                    if let plan = planToDelete {
-                        flightPlanManager.deleteFlightPlan(plan)
-                    }
-                }
-            } message: {
-                Text(L10n.Nav.deleteFlightPlanMessage)
-            }
-            .alert(L10n.Nav.importError, isPresented: $showingImportError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(importError ?? L10n.Nav.importErrorMessage)
-            }
-            .fileImporter(
-                isPresented: $showingImporter,
-                allowedContentTypes: [.json, UTType(filenameExtension: "gpx") ?? .xml],
-                allowsMultipleSelection: false
-            ) { result in
-                handleImport(result)
-            }
-            .fileExporter(
-                isPresented: $showingExporter,
-                document: planToExport.map { FlightPlanDocument(plan: $0, format: exportFormat) },
-                contentType: exportFormat == .gpx ? (UTType(filenameExtension: "gpx") ?? .xml) : .json,
-                defaultFilename: planToExport?.exportFilename ?? "FlightPlan"
-            ) { result in
-                if case .failure(let error) = result {
-                    print("[AéroCheck] Export failed: \(error.localizedDescription)")
                 }
             }
         }
+        .sheet(isPresented: $showingNewPlanSheet) {
+            NewFlightPlanSheet { plan in
+                // A new plan is empty — jump straight into the builder to lay out the route.
+                editingPlan = plan
+            }
+            .environmentObject(appState)
+            .environmentObject(flightPlanManager)
+        }
+        // Map-centric builder (Phase 3.4), opened from the detail pane's Edit or a new plan.
+        // Full-screen so iPad gets the two-column map+list layout. Presented by id → live plan.
+        .fullScreenCover(item: $editingPlan) { plan in
+            FlightPlanMapBuilderView(planId: plan.id)
+                .environmentObject(appState)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(openAIPDataService)
+        }
+        .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.Button.delete, role: .destructive) {
+                if let plan = planToDelete {
+                    flightPlanManager.deleteFlightPlan(plan)
+                }
+            }
+        } message: {
+            Text(L10n.Nav.deleteFlightPlanMessage)
+        }
+        .alert(L10n.Nav.importError, isPresented: $showingImportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(importError ?? L10n.Nav.importErrorMessage)
+        }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json, UTType(filenameExtension: "gpx") ?? .xml],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result)
+        }
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: planToExport.map { FlightPlanDocument(plan: $0, format: exportFormat) },
+            contentType: exportFormat == .gpx ? (UTType(filenameExtension: "gpx") ?? .xml) : .json,
+            defaultFilename: planToExport?.exportFilename ?? "FlightPlan"
+        ) { result in
+            if case .failure(let error) = result {
+                print("[AéroCheck] Export failed: \(error.localizedDescription)")
+            }
+        }
         .preferredColorScheme(.dark)
+    }
+
+    /// Wraps the list (or empty state) in its own NavigationStack so its toolbar (Done + filter + add)
+    /// lives in the LEFT panel's nav bar, not spanning both columns. (Phase 3.5 — user feedback)
+    private func listNavStack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        NavigationStack {
+            ZStack {
+                Color.cockpitBackground.ignoresSafeArea()
+                content()
+            }
+            .navigationTitle(L10n.Nav.flightPlans)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { listToolbar }
+        }
+    }
+
+    /// The list actions — they scope the list, so they belong to its panel: Done (top-left),
+    /// the aircraft filter, and the add/import menu.
+    @ToolbarContentBuilder
+    private var listToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button(L10n.Button.done) { dismiss() }
+        }
+
+        if availableAircraft.count > 1 {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Picker(L10n.Nav.aircraft, selection: $selectedAircraft) {
+                        Text(L10n.Nav.allAircraft).tag(String?.none)
+                        ForEach(availableAircraft, id: \.self) { reg in
+                            Text(reg).tag(String?.some(reg))
+                        }
+                    }
+                } label: {
+                    Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                        .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
+                }
+                .accessibilityLabel(L10n.Nav.filterByAircraft)
+            }
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button(action: { showingNewPlanSheet = true }) {
+                    Label(L10n.Nav.newFlightPlan, systemImage: "plus")
+                }
+                Button(action: { showingImporter = true }) {
+                    Label(L10n.Nav.importFlightPlan, systemImage: "square.and.arrow.down")
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+        }
     }
 
     // MARK: - Empty State

@@ -420,6 +420,7 @@ struct NavigationMapView: View {
             recomputePhaseFrequencies()
             appState.evaluateCruiseCheck()
         }
+        .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
         .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
             appState.evaluateCruiseCheck()
         }
@@ -1792,24 +1793,29 @@ struct NavigationMapView: View {
                         }
                         .foregroundColor(.aviationGold)
 
-                        // Current phase, inline. Turns amber with a ⟳ FREDA badge when a cruise check
-                        // is due — tap to acknowledge and reset the interval. (3.5 — re-cruise)
+                        // Current phase, inline. When a cruise check is due it becomes a tappable amber
+                        // ⟳ FREDA badge (tap to acknowledge); otherwise a plain gold phase label —
+                        // a disabled Button was dimming the text. (3.5 — re-cruise)
                         if appState.isFlightActive {
                             Rectangle().fill(Color.dimText).frame(width: 1, height: 20)
-                            Button(action: { if appState.cruiseCheckDue { appState.acknowledgeCruiseCheck() } }) {
-                                HStack(spacing: 4) {
-                                    if appState.cruiseCheckDue {
+                            if appState.cruiseCheckDue {
+                                Button(action: { appState.acknowledgeCruiseCheck() }) {
+                                    HStack(spacing: 4) {
                                         Image(systemName: "arrow.triangle.2.circlepath")
                                             .font(.system(size: 11, weight: .bold))
+                                        Text(L10n.Nav.fredaCheck)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .lineLimit(1)
                                     }
-                                    Text(appState.cruiseCheckDue ? L10n.Nav.fredaCheck : appState.currentPhase.title)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .lineLimit(1)
+                                    .foregroundColor(.aviationAmber)
                                 }
-                                .foregroundColor(appState.cruiseCheckDue ? .aviationAmber : .aviationGold)
+                                .buttonStyle(.plain)
+                            } else {
+                                Text(appState.currentPhase.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.aviationGold)
+                                    .lineLimit(1)
                             }
-                            .buttonStyle(.plain)
-                            .disabled(!appState.cruiseCheckDue)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -2089,6 +2095,19 @@ struct NavigationMapView: View {
             types.firstIndex(where: { f.type.uppercased().contains($0) }) ?? types.count
         }
 
+        // Route frequencies first: the current target waypoint and the one after it, if assigned a
+        // frequency — the freqs to tune for the upcoming legs. (3.5 — VFR route freqs)
+        if let plan = flightPlanManager.activeFlightPlan {
+            let idx = plan.currentWaypointIndex
+            for i in [idx, idx + 1] where plan.waypoints.indices.contains(i) {
+                let wp = plan.waypoints[i]
+                if let f = wp.frequency, !f.isEmpty {
+                    let label = wp.name.isEmpty ? "WPT \(i + 1)" : wp.name
+                    items.append(PhaseFrequency(station: label, freq: f, highlighted: items.isEmpty, isEmergency: false))
+                }
+            }
+        }
+
         if let loc = locationManager.currentLocation {
             // Enroute: area FIS / Info for the current sector first.
             if group == .enroute, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
@@ -2173,7 +2192,6 @@ struct NavigationMapView: View {
                 }
             }
             .frame(height: CGFloat(min(max(phaseFreqItems.count, 1), 7)) * 23)
-            Spacer(minLength: 0)
         }
     }
 

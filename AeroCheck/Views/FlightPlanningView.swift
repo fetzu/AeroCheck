@@ -1,5 +1,12 @@
 import SwiftUI
+import MapKit
 import UniformTypeIdentifiers
+
+/// A plan is identified by its `id`; hashing by id lets it drive `navigationDestination(item:)` for
+/// the master-detail push. Consistent with the synthesized `Equatable` (equal plans share an id). (Phase 3.5)
+extension FlightPlan: Hashable {
+    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
 
 /// Main flight planning view - lists all flight plans with CRUD operations
 struct FlightPlanningView: View {
@@ -9,9 +16,13 @@ struct FlightPlanningView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var showingNewPlanSheet = false
+    /// The plan shown in the read-only detail pane (2-column right / compact push). (Phase 3.5)
     @State private var selectedPlan: FlightPlan?
+    /// The plan being edited in the map builder (opened from the detail pane's Edit / new plan). (Phase 3.5)
+    @State private var editingPlan: FlightPlan?
     @State private var showingDeleteAlert = false
     @State private var planToDelete: FlightPlan?
     @State private var showingImporter = false
@@ -52,7 +63,20 @@ struct FlightPlanningView: View {
                 if flightPlanManager.flightPlans.isEmpty {
                     emptyState
                 } else {
-                    plansList
+                    GeometryReader { geo in
+                        if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
+                            // iPad landscape: master (plan list) + read-only detail pane. (3.5)
+                            HStack(spacing: 0) {
+                                plansList(twoColumn: true)
+                                    .frame(width: geo.size.width * 0.40)
+                                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                                planDetailColumn
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
+                        } else {
+                            plansList(twoColumn: false)
+                        }
+                    }
                 }
             }
             .navigationTitle(L10n.Nav.flightPlans)
@@ -95,15 +119,15 @@ struct FlightPlanningView: View {
             }
             .sheet(isPresented: $showingNewPlanSheet) {
                 NewFlightPlanSheet { plan in
-                    selectedPlan = plan
+                    // A new plan is empty — jump straight into the builder to lay out the route.
+                    editingPlan = plan
                 }
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)
             }
-            // Map-centric builder is the default creation/edit path (Phase 3.4); full-screen so
-            // iPad gets the two-column map+list layout. The dense table editor is reachable from
-            // inside the builder ("Table"). Presented by id so it always reads the live plan.
-            .fullScreenCover(item: $selectedPlan) { plan in
+            // Map-centric builder (Phase 3.4), opened from the detail pane's Edit or a new plan.
+            // Full-screen so iPad gets the two-column map+list layout. Presented by id → live plan.
+            .fullScreenCover(item: $editingPlan) { plan in
                 FlightPlanMapBuilderView(planId: plan.id)
                     .environmentObject(appState)
                     .environmentObject(flightPlanManager)
@@ -184,8 +208,8 @@ struct FlightPlanningView: View {
 
     // MARK: - Plans List
 
-    private var plansList: some View {
-        List {
+    private func plansList(twoColumn: Bool) -> some View {
+        let list = List {
             // Active flight plan section
             if let activePlan = flightPlanManager.activeFlightPlan {
                 Section {
@@ -193,7 +217,7 @@ struct FlightPlanningView: View {
                         .onTapGesture {
                             selectedPlan = activePlan
                         }
-                        .listRowBackground(Color.clear)
+                        .listRowBackground(rowHighlight(activePlan, twoColumn: twoColumn))
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
                 } header: {
@@ -209,7 +233,7 @@ struct FlightPlanningView: View {
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(rowHighlight(plan, twoColumn: twoColumn))
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     .contentShape(Rectangle())
@@ -250,7 +274,7 @@ struct FlightPlanningView: View {
                     }
                     .contextMenu {
                         Button {
-                            selectedPlan = plan
+                            editingPlan = plan
                         } label: {
                             Label(L10n.Nav.edit, systemImage: "pencil")
                         }
@@ -319,6 +343,65 @@ struct FlightPlanningView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+
+        // Compact: tapping a plan pushes the read-only detail pane. Two-column shows it inline instead.
+        return Group {
+            if twoColumn {
+                list
+            } else {
+                list.navigationDestination(item: $selectedPlan) { plan in
+                    planDetailPane(plan)
+                }
+            }
+        }
+    }
+
+    /// Subtle gold tint behind the selected row in the two-column layout.
+    private func rowHighlight(_ plan: FlightPlan, twoColumn: Bool) -> Color {
+        (twoColumn && selectedPlan?.id == plan.id) ? Color.aviationGold.opacity(0.10) : Color.clear
+    }
+
+    /// The right-hand detail pane in the two-column layout (or a placeholder until a plan is picked).
+    @ViewBuilder
+    private var planDetailColumn: some View {
+        if let selected = selectedPlan, flightPlanManager.flightPlans.contains(where: { $0.id == selected.id }) {
+            planDetailPane(selected).id(selected.id)
+        } else {
+            VStack(spacing: 12) {
+                Image(systemName: "map")
+                    .font(.system(size: 48))
+                    .foregroundColor(.dimText)
+                Text("Select a flight plan")
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondaryText)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.cockpitBackground)
+        }
+    }
+
+    /// Read-only detail pane for a plan (always reads the live plan from the manager). (Phase 3.5)
+    private func planDetailPane(_ plan: FlightPlan) -> some View {
+        let live = flightPlanManager.flightPlans.first { $0.id == plan.id } ?? plan
+        let isActive = live.id == flightPlanManager.activeFlightPlan?.id
+        return FlightPlanDetailPane(
+            plan: live,
+            isActive: isActive,
+            onEdit: { editingPlan = live },
+            onToggleActive: {
+                if isActive { flightPlanManager.deactivateFlightPlan() }
+                else { flightPlanManager.activateFlightPlan(live) }
+            },
+            onExport: {
+                exportFormat = .gpx
+                planToExport = live
+                showingExporter = true
+            },
+            onDelete: {
+                planToDelete = live
+                showingDeleteAlert = true
+            }
+        )
     }
 
     /// Cockpit-style section header: tracked uppercase label with an optional status dot. (Phase 3.5 redesign)
@@ -529,6 +612,210 @@ struct ActiveFlightPlanRow: View {
             Text(value)
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundColor(color)
+        }
+    }
+}
+
+// MARK: - Flight Plan Detail Pane (read-only)
+
+/// Read-only summary of a plan for the master-detail (two-column right pane on iPad, pushed on iPhone):
+/// route hero + stat chips, a route map, the waypoint list with leg data + ETO/ATO, and actions
+/// (Edit → map builder, activate/deactivate, export, delete). Embeddable (no own NavigationStack). (Phase 3.5)
+struct FlightPlanDetailPane: View {
+    let plan: FlightPlan
+    let isActive: Bool
+    let onEdit: () -> Void
+    let onToggleActive: () -> Void
+    let onExport: () -> Void
+    let onDelete: () -> Void
+
+    @State private var region = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1),
+        span: MKCoordinateSpan(latitudeDelta: 1.2, longitudeDelta: 1.2)
+    )
+    @State private var fitToken = 0
+
+    private var routeTitle: String {
+        let names = plan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
+        if names.count >= 2, let first = names.first, let last = names.last { return "\(first) → \(last)" }
+        return plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                if plan.waypoints.count >= 2 { mapSection }
+                waypointsSection
+                actionsSection
+            }
+            .padding(16)
+        }
+        .background(Color.cockpitBackground)
+        .navigationTitle(plan.name.isEmpty ? L10n.Nav.unnamedPlan : plan.name)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text(routeTitle)
+                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                if isActive {
+                    Text(L10n.Nav.active)
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
+                }
+            }
+            Text("\(plan.aircraftRegistration) · \(plan.aircraftModelName)")
+                .font(.subheadline)
+                .foregroundColor(.secondaryText)
+            HStack(spacing: 10) {
+                statChip("DIST", String(format: "%.0f NM", plan.totalDistance), .altimeterBlue)
+                statChip("EET", plan.formattedTotalEET, .aviationGold)
+                statChip("WP", "\(plan.waypoints.count)", .primaryText)
+            }
+        }
+    }
+
+    private func statChip(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                .foregroundColor(.secondaryText)
+            Text(value)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+                .lineLimit(1).minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.cardBackground))
+    }
+
+    // MARK: Map
+
+    private var mapSection: some View {
+        RouteBuilderMapView(
+            waypoints: plan.waypoints,
+            mapLayer: .icao,
+            airports: [],
+            fitRouteToken: fitToken,
+            region: $region,
+            onMapTap: { _ in },
+            onAirportTap: { _ in }
+        )
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .onAppear { fitToken += 1 }
+    }
+
+    // MARK: Waypoints
+
+    private var waypointsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ROUTE")
+                .font(.caption.weight(.semibold)).tracking(0.6)
+                .foregroundColor(.secondaryText)
+            VStack(spacing: 0) {
+                ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wp in
+                    waypointRow(index, wp)
+                    if wp.id != plan.waypoints.last?.id {
+                        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 47)
+                    }
+                }
+                if plan.waypoints.isEmpty {
+                    Text("No waypoints yet")
+                        .font(.caption)
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1)))
+        }
+    }
+
+    private func waypointRow(_ index: Int, _ wp: FlightPlanWaypoint) -> some View {
+        HStack(spacing: 11) {
+            Text("\(index + 1)")
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(.black)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Color.aviationGold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(wp.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : wp.name)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                Text(legLine(wp))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.dimText)
+            }
+            Spacer(minLength: 6)
+            if let alt = wp.altitude {
+                Text("\(Int(alt)) ft")
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private func legLine(_ wp: FlightPlanWaypoint) -> String {
+        var parts: [String] = []
+        if let mc = wp.magneticCourse { parts.append(String(format: "%03.0f°", mc)) }
+        if let d = wp.distance { parts.append(String(format: "%.0f NM", d)) }
+        if let eto = wp.formattedETO { parts.append("ETO \(eto)") }
+        if let ato = wp.formattedATO { parts.append("ATO \(ato)") }
+        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+    }
+
+    // MARK: Actions
+
+    private var actionsSection: some View {
+        VStack(spacing: 10) {
+            Button(action: onEdit) {
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil")
+                    Text(L10n.Nav.edit).font(.body.weight(.semibold))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.aviationGold))
+            }
+            HStack(spacing: 10) {
+                actionButton(isActive ? L10n.Nav.deactivate : L10n.Nav.activate,
+                             icon: isActive ? "airplane.arrival" : "airplane.departure",
+                             tint: isActive ? .orange : .aviationGreen,
+                             action: onToggleActive)
+                actionButton(L10n.Nav.export, icon: "square.and.arrow.up", tint: .altimeterBlue, action: onExport)
+                actionButton(L10n.Button.delete, icon: "trash", tint: .aviationRed, action: onDelete)
+            }
+        }
+    }
+
+    private func actionButton(_ title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 16))
+                Text(title).font(.caption).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundColor(tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(tint.opacity(0.3), lineWidth: 1)))
         }
     }
 }

@@ -611,7 +611,7 @@ struct NavigationMapView: View {
         HStack(spacing: 8) {
             // Close button
             Button(action: { isPresented = false }) {
-                Image(systemName: "xmark")
+                Image(systemName: "chevron.down")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.primaryText)
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
@@ -1716,7 +1716,7 @@ struct NavigationMapView: View {
         HStack {
             // Close button
             Button(action: { isPresented = false }) {
-                Image(systemName: "xmark")
+                Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.primaryText)
                     .frame(width: 44, height: 44)
@@ -2047,13 +2047,7 @@ struct NavigationMapView: View {
                     Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: 13, design: .monospaced)).foregroundColor(.dimText)
                 }
-                if flightPlanManager.activeFlightPlan?.chronometerStartTime != nil {
-                    Text("·").foregroundColor(.dimText)
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        Text(flightPlanManager.formattedChronometer)
-                            .font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGreen)
-                    }
-                }
+                // Chronometer moved to bottom-bar row 2 (always visible). (3.5)
             }
             .lineLimit(1)
         } else {
@@ -2631,6 +2625,39 @@ struct NavigationMapView: View {
         }
     }
 
+    /// Compact chronometer — start/stop on tap, shown centered on row 2 so it's always visible without
+    /// opening the drawer (reset stays in the expanded drawer). Plan-scoped. (3.5)
+    @ViewBuilder
+    private var chronometerChip: some View {
+        if let plan = flightPlanManager.activeFlightPlan {
+            let running = plan.chronometerStartTime != nil
+            Button(action: { running ? flightPlanManager.stopChronometer() : flightPlanManager.startChronometer() }) {
+                HStack(spacing: 5) {
+                    Image(systemName: running ? "stopwatch.fill" : "stopwatch")
+                        .font(.system(size: 13, weight: .medium))
+                    if running {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            Text(flightPlanManager.formattedChronometer)
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        }
+                    } else {
+                        Text(L10n.Nav.start).font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                .foregroundColor(running ? .aviationGreen : .secondaryText)
+                .padding(.horizontal, 10).frame(height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(running ? Color.aviationGreen.opacity(0.12) : Color.white.opacity(0.05))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(running ? Color.aviationGreen.opacity(0.4) : Color.white.opacity(0.10), lineWidth: 1))
+                )
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel(L10n.Nav.chronometer)
+        }
+    }
+
     private var bottomControlRow: some View {
         HStack(spacing: 12) {
             if appState.settings.enableFlightPlanning {
@@ -2659,6 +2686,11 @@ struct NavigationMapView: View {
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
             // the mid-route outlook. (3.5 — device feedback)
             destinationSummaryView
+
+            Spacer()
+
+            // Chronometer — centered on row 2, always visible without opening the drawer. (3.5)
+            chronometerChip
 
             Spacer()
 

@@ -1197,6 +1197,8 @@ enum L10n {
         static let groundLevelNA = String(localized: "nav.groundLevelNA")
         static let navigation = String(localized: "nav.navigation")
         static let speeds = String(localized: "nav.speeds")
+        static let zoomIn = String(localized: "nav.zoomIn")
+        static let zoomOut = String(localized: "nav.zoomOut")
         static let groundSpeed = String(localized: "nav.groundSpeed")
         static let windDirection = String(localized: "nav.windDirection")
         static let windSpeed = String(localized: "nav.windSpeed")

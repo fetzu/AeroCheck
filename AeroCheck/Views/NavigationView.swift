@@ -476,17 +476,16 @@ struct NavigationMapView: View {
             mapContent
                 .ignoresSafeArea()
 
-            // Overlay controls
-            VStack {
-                // Top bar with close button and layer picker
+            // Overlay controls — top bar padded; the bottom bar runs full-width to the bottom edge.
+            VStack(spacing: 0) {
                 topBar
+                    .padding(.horizontal)
+                    .padding(.top)
 
                 Spacer()
 
-                // Bottom controls with scale bar
                 bottomControls
             }
-            .padding()
 
             // Flight Plan Overlay (when active)
             if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
@@ -498,7 +497,7 @@ struct NavigationMapView: View {
                     .environmentObject(locationManager)
             }
 
-            // Radio Frequency Floating Window
+            // Radio Frequency panel — docked above the bottom bar (no longer floating mid-map). (3.5)
             if showRadioFrequencyWindow {
                 RadioFrequencyOverlayView(
                     isPresented: $showRadioFrequencyWindow,
@@ -506,7 +505,10 @@ struct NavigationMapView: View {
                 )
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
-                .transition(.opacity.combined(with: .scale))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, 16)
+                .padding(.bottom, 124)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .onAppear {
@@ -1682,32 +1684,6 @@ struct NavigationMapView: View {
                     .floatingChromeCircle()
             }
 
-            // Flight Plan button (when enabled)
-            if appState.settings.enableFlightPlanning {
-                Button(action: { showFlightPlanning = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "map.fill")
-                        if flightPlanManager.activeFlightPlan != nil {
-                            Circle()
-                                .fill(Color.aviationGreen)
-                                .frame(width: 8, height: 8)
-                        }
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
-                    .frame(width: 44, height: 44)
-                    .floatingChromeCircle()
-                }
-                .fullScreenCover(isPresented: $showFlightPlanning) {
-                    FlightPlanningView()
-                        .environmentObject(appState)
-                        .environmentObject(flightPlanManager)
-                        .environmentObject(airportDataService)
-                        .environmentObject(aircraftDataService)
-                        .environmentObject(openAIPDataService)
-                }
-            }
-
             Spacer()
 
             // Time, Speed, Altitude, and Heading display
@@ -1763,7 +1739,7 @@ struct NavigationMapView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 10))
-                            Text("Next: \(appState.currentPhase.title)")
+                            Text(appState.currentPhase.title)
                                 .font(.system(size: 11, weight: .medium))
                         }
                         .foregroundColor(.aviationGold)
@@ -1825,7 +1801,7 @@ struct NavigationMapView: View {
                         HStack(spacing: 5) {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 11))
-                            Text("Next: \(appState.currentPhase.title)")
+                            Text(appState.currentPhase.title)
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundColor(.aviationGold)
@@ -1889,110 +1865,205 @@ struct NavigationMapView: View {
 
     // MARK: - Bottom Controls
 
+    /// The bottom assembly: a scale bar + offline/cache badge floating just above a full-width,
+    /// two-row glass bar. Row 1 = NAV (next waypoint) + FREQ; row 2 = flight plan + GPS / tracking /
+    /// zoom. (3.5 nav-chrome rebuild)
     private var bottomControls: some View {
-        HStack(alignment: .bottom) {
-            // Left side: Scale bar and cache/offline indicator
-            VStack(alignment: .leading, spacing: 8) {
-                // Offline/Cached mode indicator
-                if isOfflineMode || isCachedMode {
-                    Button(action: { showCacheInfoModal = true }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "internaldrive.fill")
-                            Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
+        VStack(spacing: 0) {
+            // Scale bar + offline/cache badge, left-aligned, above the bar.
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if isOfflineMode || isCachedMode {
+                        Button(action: { showCacheInfoModal = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "internaldrive.fill")
+                                Text(isOfflineMode ? L10n.Nav.offline : L10n.Nav.cached)
+                            }
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                            )
                         }
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
-                        )
+                        .sheet(isPresented: $showCacheInfoModal) {
+                            CacheInfoSheet(isOfflineMode: isOfflineMode)
+                                .environmentObject(appState)
+                                .environmentObject(offlineMapManager)
+                        }
                     }
-                    .sheet(isPresented: $showCacheInfoModal) {
-                        CacheInfoSheet(isOfflineMode: isOfflineMode)
-                            .environmentObject(appState)
-                            .environmentObject(offlineMapManager)
+                    SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            // The full-width two-row bar, pinned to the bottom edge.
+            VStack(spacing: 0) {
+                if appState.settings.enableFlightPlanning {
+                    bottomInfoRow
+                    Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+                }
+                bottomControlRow
+            }
+            .background(
+                Color.panelBackground.opacity(0.92)
+                    .ignoresSafeArea(edges: .bottom)
+            )
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.white.opacity(0.09)).frame(height: 0.5)
+            }
+        }
+    }
+
+    /// Row 1 — the next waypoint (left) and the contextual frequency / FREQ toggle (right). (3.5)
+    private var bottomInfoRow: some View {
+        HStack(spacing: 10) {
+            if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
+                HStack(spacing: 7) {
+                    Text("NEXT")
+                        .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                        .foregroundColor(.altimeterBlue)
+                    Text(next.name.isEmpty ? "—" : next.name)
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.primaryText)
+                    if let distText = nextWaypointDistanceText {
+                        Text("·").foregroundColor(.dimText)
+                        Text(distText)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                    }
+                    if let eto = next.estimatedTimeOver {
+                        Text("·").foregroundColor(.dimText)
+                        Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.dimText)
                     }
                 }
+                .lineLimit(1)
+            }
 
-                // Scale bar
-                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+            Spacer(minLength: 8)
+
+            // Nearest contextual frequency (the next waypoint's, when set) + expand the full list.
+            Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.system(size: 13))
+                    if let next = flightPlanManager.activeFlightPlan?.nextWaypoint,
+                       let freq = next.frequency, !freq.isEmpty {
+                        Text(next.name)
+                            .font(.system(size: 10, weight: .semibold)).tracking(0.4)
+                        Text(freq)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    } else {
+                        Text("FREQ")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    Image(systemName: showRadioFrequencyWindow ? "chevron.down" : "chevron.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.dimText)
+                }
+                .foregroundColor(.aviationGold)
+                .lineLimit(1)
+            }
+            .accessibilityLabel(L10n.Nav.radioFrequencies)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (3.5)
+    private var bottomControlRow: some View {
+        HStack(spacing: 12) {
+            if appState.settings.enableFlightPlanning {
+                Button(action: { showFlightPlanning = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.system(size: 17, weight: .medium))
+                        if flightPlanManager.activeFlightPlan != nil {
+                            Circle().fill(Color.aviationGreen).frame(width: 7, height: 7)
+                        }
+                    }
+                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
+                    .frame(width: 50, height: 40)
+                    .contentShape(Rectangle())
+                }
+                .fullScreenCover(isPresented: $showFlightPlanning) {
+                    FlightPlanningView()
+                        .environmentObject(appState)
+                        .environmentObject(flightPlanManager)
+                        .environmentObject(airportDataService)
+                        .environmentObject(aircraftDataService)
+                        .environmentObject(openAIPDataService)
+                }
             }
 
             Spacer()
 
-            // Right side: GPS status, compass and center button
-            VStack(alignment: .trailing, spacing: 12) {
-                // GPS Status (tappable for info modal)
-                Button(action: { showGPSStatusModal = true }) {
-                    HStack(spacing: 6) {
-                        Text("GPS")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(gpsStatusColor)
-                        StatusIndicator(gpsStatusIndicator, size: 8)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .floatingChromeBackground(cornerRadius: 8)
+            // GPS status (tap for the info sheet)
+            Button(action: { showGPSStatusModal = true }) {
+                HStack(spacing: 6) {
+                    Text("GPS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(gpsStatusColor)
+                    StatusIndicator(gpsStatusIndicator, size: 8)
                 }
-                .fullScreenCover(isPresented: $showGPSStatusModal) {
-                    GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
-                }
-
-                // Radio Frequency button (always shown when flight planning is enabled)
-                if appState.settings.enableFlightPlanning {
-                    Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text("FREQ")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(showRadioFrequencyWindow ? .aviationGold : .primaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .floatingChromeBackground(cornerRadius: 8)
-                    }
-                }
-
-                // Orientation toggle and center button row
-                HStack(spacing: 12) {
-                    // Orientation mode button (north-up / track-up toggle)
-                    Button(action: toggleOrientation) {
-                        if mapOrientationMode == .northUp {
-                            // Show compass when in north-up mode and map is rotated
-                            if abs(mapState.cameraHeading) > 0.5 {
-                                CompassView(heading: mapState.cameraHeading)
-                            } else {
-                                Image(systemName: "location.north.line.fill")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(.primaryText)
-                                    .frame(width: 50, height: 50)
-                                    .floatingChromeCircle()
-                            }
-                        } else {
-                            // Track-up mode indicator
-                            Image(systemName: "location.north.line")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.aviationGold)
-                                .frame(width: 50, height: 50)
-                                .floatingChromeCircle()
-                        }
-                    }
-
-                    // Center on aircraft button
-                    Button(action: centerOnAircraft) {
-                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                            .frame(width: 50, height: 50)
-                            .floatingChromeCircle()
-                    }
-                }
-                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+                .padding(.horizontal, 6)
+                .frame(height: 40)
+                .contentShape(Rectangle())
             }
+            .fullScreenCover(isPresented: $showGPSStatusModal) {
+                GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
+            }
+
+            // Single tracking button: free → center & follow → track-up → free.
+            Button(action: cycleTracking) {
+                Image(systemName: trackingIcon)
+                    .font(.system(size: 19, weight: .medium))
+                    .foregroundColor(trackingTint)
+                    .frame(width: 46, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(L10n.Nav.navigation)
+            .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+
+            // Zoom out / in (kept for gloved / turbulence use, docked far-right).
+            HStack(spacing: 0) {
+                Button(action: { zoom(by: 2.0) }) {
+                    Image(systemName: "minus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(L10n.Nav.zoomOut)
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 0.5, height: 22)
+                Button(action: { zoom(by: 0.5) }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(L10n.Nav.zoomIn)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+            )
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    /// Live distance to the next waypoint (NM), if a fix + plan are available. (3.5)
+    private var nextWaypointDistanceText: String? {
+        guard let loc = locationManager.currentLocation,
+              let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
+        return String(format: "%.1f NM", dist)
     }
 
     // MARK: - Actions
@@ -2029,6 +2100,52 @@ struct NavigationMapView: View {
         }
         // Save to session state
         appState.navigationMapState.orientationMode = mapOrientationMode
+    }
+
+    /// Single tracking button: each tap advances an Apple-Maps-style cycle —
+    /// free → center & follow (north-up) → track-up (rotate with heading) → free. (3.5 nav-chrome rebuild)
+    private func cycleTracking() {
+        if !isFollowingAircraft {
+            // free → center & follow, north-up
+            if mapOrientationMode == .trackUp {
+                mapOrientationMode = .northUp
+                mapState.requestHeadingReset()
+            }
+            isFollowingAircraft = true
+            centerOnAircraft()
+        } else if mapOrientationMode == .northUp {
+            // center & follow → track-up
+            mapOrientationMode = .trackUp
+            centerOnAircraft()
+        } else {
+            // track-up → free
+            isFollowingAircraft = false
+            mapOrientationMode = .northUp
+            mapState.requestHeadingReset()
+        }
+        appState.navigationMapState.orientationMode = mapOrientationMode
+    }
+
+    /// SF Symbol reflecting the current tracking state.
+    private var trackingIcon: String {
+        if !isFollowingAircraft { return "location" }
+        return mapOrientationMode == .trackUp ? "location.north.line.fill" : "location.fill"
+    }
+
+    /// Tint for the tracking button — gold once engaged.
+    private var trackingTint: Color {
+        isFollowingAircraft ? .aviationGold : .primaryText
+    }
+
+    /// Zoom the live map by scaling the current region span (factor < 1 zooms in). `mapState.region`
+    /// is kept current by the map's `regionDidChangeAnimated`, so this reads the true zoom. (3.5)
+    private func zoom(by factor: Double) {
+        let r = mapState.region
+        let lat = min(max(r.span.latitudeDelta * factor, 0.0015), 80)
+        let lon = min(max(r.span.longitudeDelta * factor, 0.0015), 80)
+        mapState.updateFromRegion(
+            MKCoordinateRegion(center: r.center, span: MKCoordinateSpan(latitudeDelta: lat, longitudeDelta: lon))
+        )
     }
 }
 
@@ -2212,7 +2329,6 @@ struct RadioFrequencyOverlayView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
         )
-        .position(fixedPosition)
         .onAppear {
             // Trigger streaming CTR fetch if enabled and no downloaded data
             if appState.settings.enableAirspaceStreaming && !openAIPDataService.isDataAvailable,

@@ -369,20 +369,22 @@ struct HomeView: View {
     /// The hero canvas: aircraft selector + Start/Circuits + GPS + last-flight, centred. Shared by the
     /// landscape rail layout and the portrait stack. (3.5 redesign — Direction 1)
     private func heroCanvas(landscape: Bool, isCompact: Bool) -> some View {
-        VStack(spacing: landscape ? 20 : (isCompact ? 16 : 28)) {
-            aircraftCard(isLandscape: landscape, isCompact: isCompact)
-                .frame(maxWidth: 480)
+        // The hero, Start/Circuits, and last-flight all share one width so the column reads as a unit.
+        // GPS lives in the rail foot (landscape) / brand header (portrait), not wedged in here. (3.5)
+        VStack(spacing: landscape ? 18 : (isCompact ? 16 : 24)) {
+            aircraftCard(isLandscape: false, isCompact: isCompact)   // the fuller, taller card
+                .frame(maxWidth: heroWidth)
             startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
-                .frame(maxWidth: 620)
-            if !isCompact {
-                gpsStatusIndicator(isCompact: isCompact)
-            }
+                .frame(maxWidth: heroWidth)
             lastFlightStrip
-                .frame(maxWidth: 620)
+                .frame(maxWidth: heroWidth)
         }
-        .padding(landscape ? 28 : (isCompact ? 16 : 32))
+        .padding(landscape ? 24 : (isCompact ? 16 : 32))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (3.5)
+    private var heroWidth: CGFloat { 620 }
 
     /// Brand mark for the portrait header (no gear — Settings lives in the tab bar now). (3.5)
     private func brandHeader(isCompact: Bool) -> some View {
@@ -402,6 +404,8 @@ struct HomeView: View {
                     .foregroundColor(.secondaryText)
             }
             Spacer()
+            // The single GPS status for portrait / iPhone (landscape shows it in the rail foot). (3.5)
+            gpsStatusIndicator(isCompact: isCompact)
         }
     }
 

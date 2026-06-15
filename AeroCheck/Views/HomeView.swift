@@ -149,28 +149,20 @@ struct HomeView: View {
                 Color.cockpitBackground
                     .ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // Header
-                    header(isLandscape: isLandscape, isCompact: isCompact)
-                        .padding(.horizontal, isCompact ? 16 : 24)
-                        .padding(.top, isLandscape ? 8 : (isCompact ? 12 : 20))
-
-                    if isLandscape && geometry.size.width >= 900 {
-                        // iPad landscape: two-column "flight console" that uses the width. (3.5 redesign)
-                        consoleContent(width: geometry.size.width)
-                    } else {
-                        Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
-
-                        // Main content
-                        mainContent(isLandscape: isLandscape, isCompact: isCompact)
-                            .frame(maxWidth: 700)
-
-                        Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
-
-                        // Quick access buttons
-                        bottomBar(isLandscape: isLandscape, isCompact: isCompact)
-                            .padding(.horizontal, isCompact ? 12 : 24)
-                            .padding(.bottom, isLandscape ? 12 : (isCompact ? 16 : 32))
+                if isLandscape && geometry.size.width >= 900 {
+                    // iPad landscape: command rail (nav) + hero canvas. (3.5 redesign — Direction 1)
+                    HStack(spacing: 0) {
+                        navRail
+                        heroCanvas(landscape: true, isCompact: false)
+                    }
+                } else {
+                    // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
+                    VStack(spacing: 0) {
+                        brandHeader(isCompact: isCompact)
+                            .padding(.horizontal, isCompact ? 16 : 24)
+                            .padding(.top, isCompact ? 12 : 20)
+                        heroCanvas(landscape: isLandscape, isCompact: isCompact)
+                        navTabBar
                     }
                 }
             }
@@ -374,29 +366,124 @@ struct HomeView: View {
         .padding(isLandscape ? 12 : (isCompact ? 16 : 32))
     }
 
-    /// iPad-landscape "flight console": aircraft selector on the left, flight actions on the right —
-    /// uses the width and removes the empty voids of the centered layout. (3.5 redesign)
-    private func consoleContent(width: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 22) {
-            // Left — aircraft selector card (the fuller, portrait-style card).
-            aircraftCard(isLandscape: false, isCompact: false)
-                .frame(width: min(width * 0.38, 460))
-
-            // Right — flight deck.
-            VStack(spacing: 14) {
-                startCircuitsButtons(isLandscape: true, isCompact: false)
-                gpsStatusIndicator(isCompact: false)
-
-                Spacer(minLength: 8)
-
-                lastFlightStrip
-                bottomBar(isLandscape: true, isCompact: false)
+    /// The hero canvas: aircraft selector + Start/Circuits + GPS + last-flight, centred. Shared by the
+    /// landscape rail layout and the portrait stack. (3.5 redesign — Direction 1)
+    private func heroCanvas(landscape: Bool, isCompact: Bool) -> some View {
+        VStack(spacing: landscape ? 20 : (isCompact ? 16 : 28)) {
+            aircraftCard(isLandscape: landscape, isCompact: isCompact)
+                .frame(maxWidth: 480)
+            startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
+                .frame(maxWidth: 620)
+            if !isCompact {
+                gpsStatusIndicator(isCompact: isCompact)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            lastFlightStrip
+                .frame(maxWidth: 620)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 16)
+        .padding(landscape ? 28 : (isCompact ? 16 : 32))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Brand mark for the portrait header (no gear — Settings lives in the tab bar now). (3.5)
+    private func brandHeader(isCompact: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: isCompact ? 6 : 10) {
+                    Image(systemName: "airplane")
+                        .font(.system(size: isCompact ? 22 : 28))
+                        .foregroundColor(.aviationGold)
+                    Text("AéroCheck")
+                        .font(.system(size: isCompact ? 20 : 26, weight: .bold))
+                        .foregroundColor(.primaryText)
+                        .tracking(isCompact ? 1 : 2)
+                }
+                Text(L10n.App.tagline)
+                    .font(.system(size: isCompact ? 10 : 12))
+                    .foregroundColor(.secondaryText)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: - Nav rail / tab bar (Direction 1)
+
+    private var railSurface: Color { Color(red: 0.10, green: 0.10, blue: 0.13) }
+
+    /// Vertical command rail (iPad landscape): brand mark, the four destinations, GPS at the foot.
+    private var navRail: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "airplane")
+                .font(.system(size: 26))
+                .foregroundColor(.aviationGold)
+                .padding(.top, 18)
+                .accessibilityHidden(true)
+            Spacer()
+            VStack(spacing: 6) {
+                navButtons
+            }
+            Spacer()
+            gpsStatusIndicator(isCompact: true)
+                .padding(.bottom, 18)
+        }
+        .frame(width: 92)
         .frame(maxHeight: .infinity)
+        .background(railSurface.ignoresSafeArea())
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(width: 1).ignoresSafeArea()
+        }
+    }
+
+    /// Horizontal bottom tab bar (portrait / iPhone): the same four destinations.
+    private var navTabBar: some View {
+        HStack(spacing: 0) {
+            navButtons
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .background(railSurface.ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+        }
+    }
+
+    /// The four destination buttons — laid out vertically (rail) or horizontally (tab bar). (3.5)
+    @ViewBuilder
+    private var navButtons: some View {
+        navButton("clock.arrow.circlepath", L10n.Button.flightLog, tint: .aviationGold, badge: appState.flights.count) { showFlightLog = true }
+        navButton("map.fill", L10n.Button.nav, tint: .altimeterBlue) { showNavigation = true }
+        navButton("speedometer", L10n.Button.speeds, tint: .aviationGreen) { showSpeedReference = true }
+        navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { showSettings = true }
+    }
+
+    private func navButton(_ icon: String, _ label: String, tint: Color, badge: Int? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: icon)
+                        .font(.system(size: 20))
+                        .foregroundColor(tint)
+                        .frame(width: 32, height: 26)
+                        .loadingRotationEffect(isActive: icon == "clock.arrow.circlepath" && appState.isLoadingFlights)
+                    if let badge, badge > 0 {
+                        Text("\(badge)")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.aviationGold))
+                            .offset(x: 10, y: -3)
+                    }
+                }
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.secondaryText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel((badge ?? 0) > 0 ? "\(label), \(badge!)" : label)
     }
 
     /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (3.5)

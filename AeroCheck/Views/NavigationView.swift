@@ -187,6 +187,8 @@ struct NavigationMapView: View {
     @State private var navSheetExpanded: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
     @State private var previewWaypointIndex: Int? = nil
+    /// Whether the frequency column shows the full list vs the capped essentials. (3.5 — feedback)
+    @State private var showAllFreqs = false
     /// Phase-aware frequencies for the sheet's right column + the collapsed chip. Cached (recomputed
     /// on phase / significant-move) rather than per-render, since it does a nearest-airport query. (3.5 C2)
     @State private var phaseFreqItems: [PhaseFrequency] = []
@@ -196,6 +198,11 @@ struct NavigationMapView: View {
     @State private var smoothedTrackSin: Double = 0
     @State private var smoothedTrackCos: Double = 1
     @State private var hasTrackVectorEMA = false
+    /// Last known aircraft coordinate — keeps the track vector anchored across brief GPS gaps. (3.5)
+    @State private var lastKnownCoordinate: CLLocationCoordinate2D?
+    /// Stable periodic timer (created once via @State) for the cruise-check evaluation — an inline
+    /// Timer.publish recreated each render can stall, so the cruise check never fired. (3.5 fix)
+    @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
@@ -395,6 +402,12 @@ struct NavigationMapView: View {
             // refresh the cached phase frequencies once it's available. (3.5 fix)
             Task {
                 await airportDataService.ensureLoaded()
+                // ensureLoaded() only loads an existing cache — it never downloads. The frequency
+                // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
+                // on demand if it was never downloaded. (3.5 fix)
+                if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
+                    await airportDataService.downloadData()
+                }
                 recomputePhaseFrequencies()
             }
             // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
@@ -427,7 +440,7 @@ struct NavigationMapView: View {
             appState.evaluateCruiseCheck()
         }
         .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
-        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
         }
         .cruiseCheckReminder(appState: appState)
@@ -1644,6 +1657,7 @@ struct NavigationMapView: View {
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
+                trackVectorEnabled: appState.settings.showTrackVector,
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
@@ -1671,6 +1685,7 @@ struct NavigationMapView: View {
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
+                trackVectorEnabled: appState.settings.showTrackVector,
                 onWaypointATOTap: { index in
                     flightPlanManager.recordATO(forWaypointAt: index)
                 }
@@ -1939,7 +1954,7 @@ struct NavigationMapView: View {
             VStack(spacing: 0) {
                 if appState.settings.enableFlightPlanning {
                     navSheetHandle
-                    if navSheetExpanded, flightPlanManager.activeFlightPlan != nil {
+                    if navSheetExpanded {
                         navSheetContent
                     } else {
                         navGlanceRow
@@ -2190,6 +2205,7 @@ struct NavigationMapView: View {
     /// Update the EMA of ground speed + ground track on each GPS fix. Track is averaged via sin/cos so
     /// it never wraps; α≈0.15 favours recent fixes (~10 s time constant). (3.5 C4)
     private func updateTrackVectorEMA() {
+        if let c = locationManager.currentLocation?.coordinate { lastKnownCoordinate = c }
         let gs = max(0, locationManager.currentSpeedKnots)
         let alpha = 0.15
         if !hasTrackVectorEMA {
@@ -2213,23 +2229,29 @@ struct NavigationMapView: View {
     /// Empty when disabled, stationary (<5 kt), or no fix. (3.5 C4)
     private var trackVectorOverlays: [TrackVectorPolyline] {
         guard appState.settings.showTrackVector, hasTrackVectorEMA,
-              let origin = locationManager.currentLocation?.coordinate else { return [] }
+              let origin = locationManager.currentLocation?.coordinate ?? lastKnownCoordinate else { return [] }
         // TEMP DEBUG (bench testing): simulate 100 kt when actually stationary (<5 kt) so the vector
         // is visible without flying. Remove this fallback before merge — production hides below 5 kt.
         let gsKnots = smoothedGroundSpeed >= 5 ? smoothedGroundSpeed : 100.0
         let track = atan2(smoothedTrackSin, smoothedTrackCos) * 180 / .pi
         let gsMS = gsKnots * 0.514444 // knots → m/s
         var overlays: [TrackVectorPolyline] = []
+        // Each segment is drawn twice: a dark casing first (below) + the bright core on top — so it
+        // stays legible on the busy/light Segelflugkarte AND on dark satellite imagery. (3.5 fix)
+        func addSegment(_ coords: [CLLocationCoordinate2D]) {
+            var casing = coords
+            overlays.append(TrackVectorCasingPolyline(coordinates: &casing, count: coords.count))
+            var core = coords
+            overlays.append(TrackVectorPolyline(coordinates: &core, count: coords.count))
+        }
         let end = projectedCoordinate(from: origin, bearingDeg: track, distanceMeters: gsMS * 300) // 5 min
-        var line = [origin, end]
-        overlays.append(TrackVectorPolyline(coordinates: &line, count: 2))
+        addSegment([origin, end])
         let tickHalf = max(120.0, gsMS * 5)
         for minutes in [1.0, 2.0, 5.0] {
             let pt = projectedCoordinate(from: origin, bearingDeg: track, distanceMeters: gsMS * 60 * minutes)
             let a = projectedCoordinate(from: pt, bearingDeg: track + 90, distanceMeters: tickHalf)
             let b = projectedCoordinate(from: pt, bearingDeg: track - 90, distanceMeters: tickHalf)
-            var tick = [a, b]
-            overlays.append(TrackVectorPolyline(coordinates: &tick, count: 2))
+            addSegment([a, b])
         }
         return overlays
     }
@@ -2277,38 +2299,59 @@ struct NavigationMapView: View {
                     .padding(.bottom, 10)
             }
             .fixedSize(horizontal: false, vertical: true)
+        } else {
+            // No flight plan — the frequency list (nearest + area + emergency) doesn't need a plan, so
+            // expanding still shows it. (3.5 fix — the chevron did nothing without a plan)
+            freqColumn
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 2)
+                .padding(.bottom, 10)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// The sheet's phase-aware frequency column — relevant stations for the current phase, emergency
-    /// pinned, with "all frequencies" opening the full docked panel. (3.5 C2)
+    /// The frequency column — the essentials (nearest + route, capped) with emergency always shown and
+    /// a "show all / show less" toggle for the rest. (3.5 — feedback: cap to essentials)
     private var freqColumn: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
+        let emergency = phaseFreqItems.filter { $0.isEmergency }
+        let cap = 4
+        let canCollapse = nonEmergency.count > cap
+        let visible = (showAllFreqs || !canCollapse) ? nonEmergency : Array(nonEmergency.prefix(cap))
+        return VStack(alignment: .leading, spacing: 0) {
             Text("\(L10n.Nav.radioFrequencies) · \(appState.currentPhase.title)")
                 .font(.system(size: 9, weight: .semibold)).tracking(0.4)
                 .foregroundColor(.altimeterBlue)
                 .lineLimit(1)
-                .padding(.bottom, 3)
-            // Deterministic height (content for ≤7 rows, scroll beyond) so the column never balloons.
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(phaseFreqItems) { item in
-                        HStack(spacing: 6) {
-                            Text(item.station)
-                                .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
-                                .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
-                                .lineLimit(1)
-                            Spacer(minLength: 6)
-                            Text(item.freq)
-                                .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                                .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
-                        }
-                        .padding(.vertical, 3)
+                .padding(.bottom, 4)
+            ForEach(visible) { freqRow($0) }
+            if canCollapse {
+                Button(action: { withAnimation { showAllFreqs.toggle() } }) {
+                    HStack(spacing: 3) {
+                        Text(showAllFreqs ? L10n.Nav.showLess : "\(L10n.Nav.allFrequencies) (\(nonEmergency.count))")
+                        Image(systemName: showAllFreqs ? "chevron.up" : "chevron.down").font(.system(size: 9))
                     }
+                    .font(.system(size: 10)).foregroundColor(.dimText)
                 }
+                .padding(.vertical, 3)
             }
-            .frame(height: CGFloat(min(max(phaseFreqItems.count, 1), 7)) * 23)
+            ForEach(emergency) { freqRow($0) }
         }
+    }
+
+    private func freqRow(_ item: PhaseFrequency) -> some View {
+        HStack(spacing: 6) {
+            Text(item.station)
+                .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
+                .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            Text(item.freq)
+                .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
+                .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
+        }
+        .padding(.vertical, 3)
     }
 
     private func chronometerHeader(plan: FlightPlan) -> some View {
@@ -3516,6 +3559,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
+    var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
 
     func makeUIView(context: Context) -> MKMapView {
@@ -3560,10 +3604,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Update airspace polygon overlays
         updateAirspaceOverlays(mapView, context: context)
 
-        // Track vector — rebuilt each update (it moves with every fix). (3.5 C4)
+        // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
+        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (3.5 fix)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
-        mapView.removeOverlays(existingTrackVector)
-        for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+        if !trackVectorEnabled {
+            mapView.removeOverlays(existingTrackVector)
+        } else if !trackVectorOverlays.isEmpty {
+            mapView.removeOverlays(existingTrackVector)
+            for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+        }
 
         // Handle heading reset request (user tapped compass)
         if mapState.pendingHeadingReset {
@@ -3872,10 +3921,17 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             }
 
             // GPS track (gold)
+            if let casing = overlay as? TrackVectorCasingPolyline {
+                let renderer = MKPolylineRenderer(polyline: casing)
+                renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
+                renderer.lineWidth = 6
+                return renderer
+            }
+
             if let trackVector = overlay as? TrackVectorPolyline {
                 let renderer = MKPolylineRenderer(polyline: trackVector)
-                renderer.strokeColor = UIColor(red: 0.20, green: 0.85, blue: 0.85, alpha: 0.95)
-                renderer.lineWidth = 2.5
+                renderer.strokeColor = UIColor(red: 0.20, green: 0.95, blue: 1.0, alpha: 1.0)
+                renderer.lineWidth = 3
                 return renderer
             }
 
@@ -4279,6 +4335,7 @@ struct SwissMapView: UIViewRepresentable {
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
+    var trackVectorEnabled: Bool = false  // Keep a valid vector across transient empties; remove only when off
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
@@ -4412,6 +4469,11 @@ struct SwissMapView: UIViewRepresentable {
                     mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
                 }
 
+                // The base tile was just re-added on TOP (same .aboveLabels level), which buries the
+                // flight-plan route line. Invalidate the route diff-guard so the next updateUIView
+                // redraws the route above the tile. (3.5 fix — route line was invisible on Swiss layers)
+                context.coordinator.lastFlightPlanSignature = nil
+
                 // Force camera update like updateUIView does after overlay change (preserves heading)
                 let adjustedCamera = MKMapCamera(
                     lookingAtCenter: self.mapState.region.center,
@@ -4489,10 +4551,15 @@ struct SwissMapView: UIViewRepresentable {
             }
         }
 
-        // Track vector — rebuilt each update (it moves with every fix). (3.5 C4)
+        // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
+        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (3.5 fix)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
-        mapView.removeOverlays(existingTrackVector)
-        for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+        if !trackVectorEnabled {
+            mapView.removeOverlays(existingTrackVector)
+        } else if !trackVectorOverlays.isEmpty {
+            mapView.removeOverlays(existingTrackVector)
+            for tv in trackVectorOverlays { mapView.addOverlay(tv, level: .aboveLabels) }
+        }
 
         // Update camera from shared state (preserves heading)
         let regionChanged = !context.coordinator.regionsAreEqual(mapView.region, mapState.region)
@@ -4876,10 +4943,17 @@ struct SwissMapView: UIViewRepresentable {
 
             // GPS track - use magenta on ICAO/Segelflugkarte layers for visibility,
             // gold on other layers
+            if let casing = overlay as? TrackVectorCasingPolyline {
+                let renderer = MKPolylineRenderer(polyline: casing)
+                renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
+                renderer.lineWidth = 6
+                return renderer
+            }
+
             if let trackVector = overlay as? TrackVectorPolyline {
                 let renderer = MKPolylineRenderer(polyline: trackVector)
-                renderer.strokeColor = UIColor(red: 0.20, green: 0.85, blue: 0.85, alpha: 0.95)
-                renderer.lineWidth = 2.5
+                renderer.strokeColor = UIColor(red: 0.20, green: 0.95, blue: 1.0, alpha: 1.0)
+                renderer.lineWidth = 3
                 return renderer
             }
 
@@ -5177,6 +5251,9 @@ class FlightPlanRoutePolyline: MKPolyline {
 
 /// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (3.5 C4)
 class TrackVectorPolyline: MKPolyline {}
+
+/// The dark casing drawn under each track-vector segment for legibility on any map. (3.5 fix)
+class TrackVectorCasingPolyline: TrackVectorPolyline {}
 
 // MARK: - Swisstopo tile overlays
 // `ICAOSegelflugkarteTileOverlay` and `SwisstopoTileOverlay` moved to the shared

@@ -1146,6 +1146,7 @@ enum L10n {
         static let noFrequenciesInFlightPlan = String(localized: "nav.noFrequenciesInFlightPlan")
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
         static let allFrequencies = String(localized: "nav.allFrequencies")
+        static let showLess = String(localized: "nav.showLess")
         static let fredaCheck = String(localized: "nav.fredaCheck")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")

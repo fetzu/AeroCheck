@@ -36,6 +36,8 @@ struct FlightView: View {
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
+    /// Stable periodic timer (created once) driving the cruise-check evaluation. (3.5 fix)
+    @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
@@ -372,7 +374,7 @@ struct FlightView: View {
                 windDataService.stopFetching()
             }
         }
-        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
         }
         .cruiseCheckReminder(appState: appState)

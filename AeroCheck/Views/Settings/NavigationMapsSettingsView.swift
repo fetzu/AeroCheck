@@ -80,6 +80,10 @@ struct NavigationMapsSettingsView: View {
         Section {
             Toggle(L10n.Settings.forceICAO, isOn: $forceICAOChartLayer)
                 .disabled(offlineMode)
+            Toggle(L10n.Nav.trackVector, isOn: $showTrackVector)
+            Text(L10n.Nav.trackVectorDesc)
+                .font(.caption)
+                .foregroundColor(.secondaryText)
         } header: {
             Label(L10n.Settings.navigation, systemImage: "map")
         } footer: {
@@ -299,11 +303,6 @@ struct NavigationMapsSettingsView: View {
                 }
 
                 Toggle(L10n.Settings.showAirportsOnMap, isOn: $showAirportsOnMap)
-
-                Toggle(L10n.Nav.trackVector, isOn: $showTrackVector)
-                Text(L10n.Nav.trackVectorDesc)
-                    .font(.caption)
-                    .foregroundColor(.secondaryText)
 
                 Button(action: {
                     Task { await airportDataService.downloadData() }

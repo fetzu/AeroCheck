@@ -20,10 +20,28 @@ struct FlightPlanningView: View {
     @State private var exportFormat: ExportFormat = .gpx
     @State private var importError: String?
     @State private var showingImportError = false
+    /// Optional aircraft filter (registration); nil = all. (Phase 3.5 — user feedback)
+    @State private var selectedAircraft: String? = nil
 
     enum ExportFormat: String, CaseIterable {
         case gpx = "GPX"
         case json = "JSON"
+    }
+
+    /// Distinct aircraft (registration) across all plans, most-recent first.
+    private var availableAircraft: [String] {
+        var seen: [String] = []
+        for plan in flightPlanManager.flightPlans {
+            let reg = plan.aircraftRegistration
+            if !reg.isEmpty && !seen.contains(reg) { seen.append(reg) }
+        }
+        return seen
+    }
+
+    /// The "all plans" list, scoped to the aircraft filter (the active plan stays pinned regardless).
+    private var filteredPlans: [FlightPlan] {
+        guard let selectedAircraft else { return flightPlanManager.flightPlans }
+        return flightPlanManager.flightPlans.filter { $0.aircraftRegistration == selectedAircraft }
     }
 
     var body: some View {
@@ -42,6 +60,23 @@ struct FlightPlanningView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.done) { dismiss() }
+                }
+
+                if availableAircraft.count > 1 {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Picker(L10n.Nav.aircraft, selection: $selectedAircraft) {
+                                Text(L10n.Nav.allAircraft).tag(String?.none)
+                                ForEach(availableAircraft, id: \.self) { reg in
+                                    Text(reg).tag(String?.some(reg))
+                                }
+                            }
+                        } label: {
+                            Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                                .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
+                        }
+                        .accessibilityLabel(L10n.Nav.filterByAircraft)
+                    }
                 }
 
                 ToolbarItem(placement: .primaryAction) {
@@ -166,9 +201,9 @@ struct FlightPlanningView: View {
                 }
             }
 
-            // All flight plans section
+            // All flight plans section (scoped to the aircraft filter)
             Section {
-                ForEach(flightPlanManager.flightPlans) { plan in
+                ForEach(filteredPlans) { plan in
                     FlightPlanRow(
                         plan: plan,
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id
@@ -273,7 +308,10 @@ struct FlightPlanningView: View {
                     }
                 }
                 .onDelete { offsets in
-                    flightPlanManager.deleteFlightPlans(at: offsets)
+                    // Map filtered indices back to plans (indices into filteredPlans, not the full list).
+                    for index in offsets where index < filteredPlans.count {
+                        flightPlanManager.deleteFlightPlan(filteredPlans[index])
+                    }
                 }
             } header: {
                 cockpitSectionHeader(L10n.Nav.allFlightPlans, tint: .secondaryText, showDot: false)
@@ -339,27 +377,38 @@ struct FlightPlanRow: View {
     let plan: FlightPlan
     let isActive: Bool
 
-    private var tint: Color { isActive ? .aviationGreen : .aviationGold }
-    private var icon: String { isActive ? "airplane.circle.fill" : "point.topleft.down.to.point.bottomright.curvepath" }
+    /// Inactive plans are colour-keyed by aircraft (deterministic, stable across launches) so they're
+    /// scannable by aircraft and pair with the aircraft filter — replacing the old identical icon.
+    /// Active plans are always green. (Phase 3.5 — user feedback)
+    static let aircraftPalette: [Color] = [.aviationGold, .altimeterBlue, .aviationAmber, .orange, .aviationRed]
+    static func color(forAircraft reg: String) -> Color {
+        let sum = reg.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        return aircraftPalette[sum % aircraftPalette.count]
+    }
+    private var tint: Color { isActive ? .aviationGreen : Self.color(forAircraft: plan.aircraftRegistration) }
 
-    /// Compact mono stats line: "F-HVXA · 5 WP · 86 NM" (WP/NM are ICAO-style, intentionally untranslated).
+    /// The route as a chain of waypoint idents (departure → … → destination). Long routes keep the
+    /// endpoints (the airports that matter most) rather than tail-truncating off the destination.
+    private var routeChain: String {
+        let names = plan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
+        guard let first = names.first, let last = names.last else { return "—" }
+        if names.count <= 4 { return names.joined(separator: " → ") }
+        return "\(first) → … → \(last)"
+    }
+
     private var statsLine: String {
-        var parts: [String] = [plan.aircraftRegistration, "\(plan.waypoints.count) WP"]
+        var parts: [String] = [plan.aircraftRegistration]
         if plan.totalDistance > 0 { parts.append(String(format: "%.0f NM", plan.totalDistance)) }
         return parts.joined(separator: " · ")
     }
 
     var body: some View {
-        HStack(spacing: 13) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.16))
-                    .frame(width: 38, height: 38)
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(tint)
-            }
-            .accessibilityHidden(true)
+        HStack(spacing: 12) {
+            // Per-aircraft colour tab (active = green).
+            Capsule()
+                .fill(tint)
+                .frame(width: 4, height: 42)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -376,9 +425,13 @@ struct FlightPlanRow: View {
                             .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
                     }
                 }
+                Text(routeChain)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primaryText.opacity(0.85))
+                    .lineLimit(1)
                 Text(statsLine)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.secondaryText)
+                    .font(.caption)
+                    .foregroundColor(.dimText)
                     .lineLimit(1)
             }
 

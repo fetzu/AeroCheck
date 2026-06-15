@@ -4,8 +4,12 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var selection: Section?
+    /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
+    @State private var selection: Section? = .aircraft
+    /// iPhone push-navigation path.
+    @State private var path: [Section] = []
 
     /// The settings sections. On iPad regular width `NavigationSplitView` shows them as a sidebar
     /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
@@ -69,45 +73,70 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                // Quick-access cockpit-theme picker, surfaced above the sections (non-selectable). (3.5)
-                themePickerCard
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+        Group {
+            if horizontalSizeClass == .regular {
+                // iPad: a FIXED two-column layout (sidebar + detail). Replaces NavigationSplitView so
+                // the sidebar can't be collapsed. (Phase 3.5 — user feedback)
+                HStack(spacing: 0) {
+                    NavigationStack { sidebar(twoColumn: true) }
+                        .frame(width: 340)
+                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).ignoresSafeArea()
+                    NavigationStack {
+                        detailView(for: selection)
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .background(Color.cockpitBackground.ignoresSafeArea())
+            } else {
+                // iPhone: single column with push navigation.
+                NavigationStack(path: $path) {
+                    sidebar(twoColumn: false)
+                        .navigationDestination(for: Section.self) { detailView(for: $0) }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
 
-                ForEach(Section.allCases) { section in
+    /// The section list. In two-column mode rows set `selection`; in compact mode they push via `path`.
+    /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (3.5)
+    private func sidebar(twoColumn: Bool) -> some View {
+        List {
+            themePickerCard
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+
+            ForEach(Section.allCases) { section in
+                Button {
+                    if twoColumn { selection = section } else { path.append(section) }
+                } label: {
                     SettingsRow(
                         icon: section.icon,
                         title: section.title,
                         subtitle: section.subtitle,
                         tint: section.tint,
                         badge: section.badge,
-                        isSelected: section == selection
+                        isSelected: twoColumn && section == selection
                     )
-                    .tag(section)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                 }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(Color.cockpitBackground.ignoresSafeArea())
-            .navigationTitle(L10n.Settings.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Settings.done) { dismiss() }
-                }
-            }
-        } detail: {
-            NavigationStack {
-                detailView(for: selection)
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
             }
         }
-        .preferredColorScheme(.dark)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.cockpitBackground.ignoresSafeArea())
+        .navigationTitle(L10n.Settings.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L10n.Settings.done) { dismiss() }
+            }
+        }
     }
 
     /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (3.5)

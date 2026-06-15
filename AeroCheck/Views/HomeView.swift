@@ -170,7 +170,7 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSettings) {
+        .fullScreenCover(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(appState)
                 .environmentObject(locationManager)

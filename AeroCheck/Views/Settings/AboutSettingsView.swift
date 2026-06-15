@@ -16,6 +16,7 @@ struct AboutSettingsView: View {
         Form {
             aboutSection
             availableChecklistsSection
+            replayOnboardingSection
             developerOptionsSection
         }
         .navigationTitle(L10n.Settings.about)
@@ -26,6 +27,24 @@ struct AboutSettingsView: View {
         .onChange(of: marketingMode) { _, newValue in
             appState.settings.marketingMode = newValue
             appState.saveSettings() // UX-14: persist the toggle (was a mutation with no save)
+        }
+    }
+
+    // MARK: - Replay Onboarding
+
+    /// Re-show the first-run walkthrough. Clearing the flag makes the app root (ContentView) swap to
+    /// OnboardingView, which tears down the settings presentation behind it. (Phase 3.5)
+    private var replayOnboardingSection: some View {
+        Section {
+            Button {
+                appState.settings.hasCompletedOnboarding = false
+                appState.saveSettings()
+            } label: {
+                Label(L10n.Settings.replayIntro, systemImage: "play.circle")
+                    .foregroundColor(.aviationGold)
+            }
+        } footer: {
+            Text(L10n.Settings.replayIntroFooter)
         }
     }
 

@@ -328,6 +328,9 @@ enum L10n {
         static let themeDay = String(localized: "settings.display.theme.day")
         static let themeSunlight = String(localized: "settings.display.theme.sunlight")
         static let themeNight = String(localized: "settings.display.theme.night")
+        // Replay onboarding (Phase 3.5)
+        static let replayIntro = String(localized: "settings.about.replayIntro")
+        static let replayIntroFooter = String(localized: "settings.about.replayIntroDesc")
 
         // Navigation
         static let navigation = String(localized: "settings.navigation")
@@ -1036,6 +1039,8 @@ enum L10n {
         // Flight Plan Editor
         static let flightPlanName = String(localized: "nav.flightPlanName")
         static let aircraft = String(localized: "nav.aircraft")
+        static let allAircraft = String(localized: "nav.allAircraft")
+        static let filterByAircraft = String(localized: "nav.filterByAircraft")
         static let details = String(localized: "nav.details")
         static let create = String(localized: "nav.create")
         static let save = String(localized: "nav.save")

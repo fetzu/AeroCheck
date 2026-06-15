@@ -183,7 +183,6 @@ struct NavigationMapView: View {
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
-    @State private var showRadioFrequencyWindow: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (3.5 — inc C)
     @State private var navSheetExpanded: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
@@ -385,9 +384,12 @@ struct NavigationMapView: View {
                 }
             }
             isFollowingAircraft = true
-            // Ensure airport data is loaded if setting is enabled
-            if appState.settings.showAirportsOnMap {
-                Task { await airportDataService.ensureLoaded() }
+            // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
+            // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
+            // refresh the cached phase frequencies once it's available. (3.5 fix)
+            Task {
+                await airportDataService.ensureLoaded()
+                recomputePhaseFrequencies()
             }
             // Ensure OpenAIP airspace data is loaded for FREQ panel CTR queries
             if openAIPDataService.isDataAvailable {
@@ -498,22 +500,9 @@ struct NavigationMapView: View {
                 bottomControls
             }
 
-            // The floating FLIGHT INFO overlay is retired (inc C) — its data + actions moved into the
-            // expandable flight-plan sheet (bottomControls / navSheetContent).
-
-            // Radio Frequency panel — docked above the bottom bar (no longer floating mid-map). (3.5)
-            if showRadioFrequencyWindow {
-                RadioFrequencyOverlayView(
-                    isPresented: $showRadioFrequencyWindow,
-                    containerSize: geometry.size
-                )
-                .environmentObject(flightPlanManager)
-                .environmentObject(airportDataService)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, 16)
-                .padding(.bottom, 124)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            // The floating FLIGHT INFO overlay and the separate radio-frequency panel are both retired
+            // (inc C / C2) — flight-plan data + the phase-aware frequencies live in the expandable
+            // bottom sheet (bottomControls / navSheetContent / freqColumn).
         }
         .onAppear {
             mapWidth = geometry.size.width
@@ -1795,26 +1784,18 @@ struct NavigationMapView: View {
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundColor(.aviationGold)
+
+                        // Current phase, inline with the instruments — no checkmark. (3.5 fix)
+                        if appState.isFlightActive {
+                            Rectangle().fill(Color.dimText).frame(width: 1, height: 20)
+                            Text(appState.currentPhase.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.aviationGold)
+                                .lineLimit(1)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-
-                    // "Next Check" integrated in info box
-                    if appState.isFlightActive {
-                        Rectangle()
-                            .fill(Color.dimText.opacity(0.3))
-                            .frame(height: 0.5)
-
-                        HStack(spacing: 5) {
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 11))
-                            Text(appState.currentPhase.title)
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundColor(.aviationGold)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 5)
-                    }
                 }
                 .fixedSize(horizontal: true, vertical: false)
                 .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
@@ -2086,6 +2067,10 @@ struct NavigationMapView: View {
         let group = freqPhaseGroup(phase)
         let types = relevantFreqTypes(for: phase)
 
+        func rank(_ f: AirportFrequency) -> Int {
+            types.firstIndex(where: { f.type.uppercased().contains($0) }) ?? types.count
+        }
+
         if let loc = locationManager.currentLocation {
             // Enroute: area FIS / Info for the current sector first.
             if group == .enroute, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
@@ -2094,15 +2079,16 @@ struct NavigationMapView: View {
                     items.append(PhaseFrequency(station: sf.name, freq: sf.frequency, highlighted: items.isEmpty, isEmergency: false))
                 }
             }
-            // Nearest airport's relevant frequencies (departure field on the ground, destination on arrival).
+            // Nearest airport — ALL of its frequencies, the phase-relevant types sorted first and the
+            // top one highlighted. (3.5 fix — no separate "all frequencies" panel needed.)
             if airportDataService.isDataAvailable {
-                let maxNm: Double = group == .enroute ? 15 : 30
+                let maxNm: Double = group == .enroute ? 25 : 40
                 if let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: maxNm).first {
-                    let freqs = airportDataService.getFrequencies(for: apt.ident)
-                    for type in types {
-                        if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
-                            items.append(PhaseFrequency(station: "\(apt.ident) \(f.type)", freq: f.formattedFrequency, highlighted: items.isEmpty, isEmergency: false))
-                        }
+                    let freqs = airportDataService.getFrequencies(for: apt.ident).sorted { rank($0) < rank($1) }
+                    for (i, f) in freqs.enumerated() {
+                        let isRelevant = rank(f) < types.count
+                        items.append(PhaseFrequency(station: "\(apt.ident) \(f.type)", freq: f.formattedFrequency,
+                                                    highlighted: i == 0 && isRelevant, isEmergency: false))
                     }
                 }
             }
@@ -2150,27 +2136,25 @@ struct NavigationMapView: View {
                 .foregroundColor(.altimeterBlue)
                 .lineLimit(1)
                 .padding(.bottom, 3)
-            ForEach(phaseFreqItems) { item in
-                HStack(spacing: 6) {
-                    Text(item.station)
-                        .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
-                        .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
-                        .lineLimit(1)
-                    Spacer(minLength: 6)
-                    Text(item.freq)
-                        .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                        .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
+            // Deterministic height (content for ≤7 rows, scroll beyond) so the column never balloons.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(phaseFreqItems) { item in
+                        HStack(spacing: 6) {
+                            Text(item.station)
+                                .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
+                                .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
+                                .lineLimit(1)
+                            Spacer(minLength: 6)
+                            Text(item.freq)
+                                .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
+                                .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
+                        }
+                        .padding(.vertical, 3)
+                    }
                 }
-                .padding(.vertical, 3)
             }
-            Button(action: { withAnimation { showRadioFrequencyWindow = true } }) {
-                HStack(spacing: 3) {
-                    Text(L10n.Nav.allFrequencies)
-                    Image(systemName: "chevron.right").font(.system(size: 9))
-                }
-                .font(.system(size: 10)).foregroundColor(.dimText)
-            }
-            .padding(.top, 4)
+            .frame(height: CGFloat(min(max(phaseFreqItems.count, 1), 7)) * 23)
             Spacer(minLength: 0)
         }
     }
@@ -2209,6 +2193,8 @@ struct NavigationMapView: View {
     }
 
     private func waypointList(plan: FlightPlan) -> some View {
+        // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
+        // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (3.5 fix)
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
@@ -2219,7 +2205,7 @@ struct NavigationMapView: View {
                 }
             }
         }
-        .frame(maxHeight: 148)
+        .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * 36)
     }
 
     private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint) -> some View {
@@ -2490,6 +2476,10 @@ struct NavigationMapView: View {
     /// Zoom the live map by scaling the current region span (factor < 1 zooms in). `mapState.region`
     /// is kept current by the map's `regionDidChangeAnimated`, so this reads the true zoom. (3.5)
     private func zoom(by factor: Double) {
+        // The map camera is distance-driven (setCamera fromDistance: mapState.cameraDistance), so a
+        // span-only change never zoomed the tile layers — it just got reverted by regionDidChange.
+        // Scale the camera distance AND nudge the region so updateUIView re-applies the camera. (3.5 fix)
+        mapState.cameraDistance = min(max(mapState.cameraDistance * factor, 800), 4_000_000)
         let r = mapState.region
         let lat = min(max(r.span.latitudeDelta * factor, 0.0015), 80)
         let lon = min(max(r.span.longitudeDelta * factor, 0.0015), 80)

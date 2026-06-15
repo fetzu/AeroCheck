@@ -13,11 +13,14 @@ struct FlightLogView: View {
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
     /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
     var onClose: (() -> Void)? = nil
-    /// Optional flight to preselect on open (e.g. the Home last-flight strip) — shows its details in
-    /// the iPad detail pane / pushes its detail on compact. (3.5 — feedback)
+    /// Optional flight to preselect in the iPad 2-column pane (e.g. the Home last-flight strip).
+    /// It feeds `effectiveSelectionID` for the pane only — it never drives the compact push path,
+    /// so it can't trigger the transient-geometry push race. Compact opens the detail directly from
+    /// Home instead. (3.5 — feedback)
     var initialFlightID: UUID? = nil
-    /// Guards the one-shot initial selection so backing out of the pushed detail doesn't re-open it.
-    @State private var didApplyInitialSelection = false
+
+    /// What the 2-column pane shows: a manual selection wins, otherwise the seeded initial flight.
+    private var effectiveSelectionID: UUID? { selectedFlightID ?? initialFlightID }
     @State private var showImportPicker = false
     @State private var importError: String?
     @State private var showImportError = false
@@ -102,10 +105,6 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { applyInitialFlightSelection() }
-        .onChange(of: appState.isLoadingFlights) { _, loading in
-            if !loading { applyInitialFlightSelection() }
-        }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
@@ -361,19 +360,10 @@ struct FlightLogView: View {
         return formatter.string(from: NSNumber(value: value)) ?? "\(Int(value.rounded()))"
     }
 
-    /// Applies the one-shot `initialFlightID` once its flight is actually loaded — opening the log
-    /// straight onto that flight (pane on iPad, push on compact). (3.5 — feedback)
-    private func applyInitialFlightSelection() {
-        guard !didApplyInitialSelection, let id = initialFlightID else { return }
-        guard appState.flights.contains(where: { $0.id == id }) else { return }
-        didApplyInitialSelection = true
-        selectedFlightID = id
-    }
-
     /// The right-hand detail pane in the 2-column layout (or a placeholder until a flight is picked).
     @ViewBuilder
     private var detailColumn: some View {
-        if let id = selectedFlightID, let selected = appState.flights.first(where: { $0.id == id }) {
+        if let id = effectiveSelectionID, let selected = appState.flights.first(where: { $0.id == id }) {
             FlightDetailView(flight: selected)
                 .id(selected.id)
         } else {
@@ -448,7 +438,7 @@ struct FlightLogView: View {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
             }
             .buttonStyle(.plain)
-            .listRowBackground(selectedFlightID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
+            .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
             .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
         } else {
             // Compact: same selection state drives a push via navigationDestination(item:), so the

@@ -112,6 +112,9 @@ struct HomeView: View {
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (3.5 — feedback)
     @State private var flightLogSelectionID: UUID? = nil
+    /// Non-rail (portrait / iPhone): the last-flight strip opens this flight's detail directly, so its
+    /// back button returns to Home rather than the Flight Log list. (3.5 — feedback round 2)
+    @State private var lastFlightForDetail: Flight? = nil
 
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -209,6 +212,28 @@ struct HomeView: View {
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
                 .environmentObject(openAIPDataService)
+        }
+        // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
+        // returns to Home, not the Flight Log list. (3.5 — feedback round 2)
+        .fullScreenCover(item: $lastFlightForDetail) { flight in
+            NavigationStack {
+                FlightDetailView(flight: flight)
+                    .navigationTitle(lastFlightRoute(flight))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button { lastFlightForDetail = nil } label: {
+                                Image(systemName: "chevron.left")
+                                    .fontWeight(.semibold)
+                            }
+                            .accessibilityLabel(L10n.Button.close)
+                        }
+                    }
+            }
+            .environmentObject(appState)
+            .environmentObject(flightPlanManager)
+            .environmentObject(airportDataService)
+            .environmentObject(openAIPDataService)
         }
         .fullScreenCover(isPresented: coverBinding($showNavigation)) {
             NavigationMapView(isPresented: $showNavigation)
@@ -561,7 +586,17 @@ struct HomeView: View {
     @ViewBuilder
     private var lastFlightStrip: some View {
         if let last = appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
-            Button { flightLogSelectionID = last.id; showFlightLog = true } label: {
+            // iPad rail (landscape): open the 2-column Flight Log with this flight in the right pane.
+            // Otherwise (portrait / iPhone): open its detail directly so back returns to Home, not the
+            // Flight Log list. (3.5 — feedback round 2)
+            Button {
+                if useRailLayout {
+                    flightLogSelectionID = last.id
+                    showFlightLog = true
+                } else {
+                    lastFlightForDetail = last
+                }
+            } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.Home.lastFlight)

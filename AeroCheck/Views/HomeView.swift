@@ -109,6 +109,9 @@ struct HomeView: View {
     /// Mirrors the body's rail-layout test (iPad landscape). When true, the rail destinations present
     /// as leading-edge slide-in overlays instead of the default bottom covers. (3.5 — device feedback)
     @State private var useRailLayout: Bool = false
+    /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
+    /// show immediately; the Flight Log nav button clears it to open the plain list. (3.5 — feedback)
+    @State private var flightLogSelectionID: UUID? = nil
 
     /// Check if we're on a compact width device (iPhone)
     private func isCompactWidth(_ geometry: GeometryProxy) -> Bool {
@@ -189,7 +192,7 @@ struct HomeView: View {
                 .environmentObject(locationManager)
         }
         .fullScreenCover(isPresented: coverBinding($showFlightLog)) {
-            FlightLogView()
+            FlightLogView(initialFlightID: flightLogSelectionID)
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
@@ -307,7 +310,7 @@ struct HomeView: View {
                         .transition(.move(edge: .leading))
                 }
                 if showFlightLog {
-                    FlightLogView(onClose: { showFlightLog = false })
+                    FlightLogView(onClose: { showFlightLog = false }, initialFlightID: flightLogSelectionID)
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
@@ -316,10 +319,27 @@ struct HomeView: View {
                         .transition(.move(edge: .leading))
                 }
                 if showSpeedReference {
-                    SpeedReferenceSheet(onClose: { showSpeedReference = false })
-                        .environmentObject(appState)
-                        .background(Color.cockpitBackground.ignoresSafeArea())
-                        .transition(.move(edge: .leading))
+                    // Speed Reference stays a *popup* (not a full takeover) — the landscape analog of
+                    // the portrait bottom sheet: a constrained card sliding in from the leading edge
+                    // over a dimmed backdrop, tap-outside to dismiss. (3.5 — device feedback)
+                    ZStack(alignment: .leading) {
+                        Color.black.opacity(0.35)
+                            .ignoresSafeArea()
+                            .onTapGesture { showSpeedReference = false }
+                            .transition(.opacity)
+                        SpeedReferenceSheet(onClose: { showSpeedReference = false })
+                            .environmentObject(appState)
+                            .frame(width: 460, height: 540)
+                            .background(Color.cockpitBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 12)
+                            .padding(.leading, 28)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
                 }
                 if showNavigation {
                     NavigationMapView(isPresented: $showNavigation)
@@ -394,66 +414,6 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Header
-
-    private func header(isLandscape: Bool, isCompact: Bool) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: isCompact ? 6 : 10) {
-                    Image(systemName: "airplane")
-                        .font(.system(size: isCompact ? 22 : (isLandscape ? 26 : 32)))
-                        .foregroundColor(.aviationGold)
-
-                    Text("AéroCheck")
-                        .font(.system(size: isCompact ? 20 : (isLandscape ? 24 : 28), weight: .bold, design: .default))
-                        .foregroundColor(.primaryText)
-                        .tracking(isCompact ? 1 : 2)
-                }
-
-                Text(L10n.App.tagline)
-                    .font(.system(size: isCompact ? 10 : 12))
-                    .foregroundColor(.secondaryText)
-            }
-
-            Spacer()
-
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: isCompact ? 18 : 22))
-                    .foregroundColor(.secondaryText)
-            }
-            .accessibilityLabel(L10n.Settings.title)
-        }
-    }
-    
-    // MARK: - Main Content
-
-    private func mainContent(isLandscape: Bool, isCompact: Bool) -> some View {
-        VStack(spacing: isLandscape ? 12 : (isCompact ? 20 : 40)) {
-            // Aircraft card
-            aircraftCard(isLandscape: isLandscape, isCompact: isCompact)
-
-            // Start flight button(s) - keep consistent size
-            startCircuitsButtons(isLandscape: isLandscape, isCompact: isCompact)
-                .padding(.horizontal, isCompact ? 20 : 40)
-
-            // Info text and GPS status - hide only on compact devices (iPhone)
-            if !isCompact {
-                VStack(spacing: isLandscape ? 8 : 12) {
-                    Text(L10n.Home.flightInfo)
-                        .font(.system(size: isLandscape ? 13 : 15))
-                        .foregroundColor(.dimText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, isLandscape ? 20 : 40)
-
-                    // GPS status indicator
-                    gpsStatusIndicator(isCompact: isCompact)
-                }
-            }
-        }
-        .padding(isLandscape ? 12 : (isCompact ? 16 : 32))
-    }
-
     /// The hero canvas: aircraft selector + Start/Circuits + GPS + last-flight, centred. Shared by the
     /// landscape rail layout and the portrait stack. (3.5 redesign — Direction 1)
     private func heroCanvas(landscape: Bool, isCompact: Bool) -> some View {
@@ -560,7 +520,7 @@ struct HomeView: View {
     private var navButtons: some View {
         // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
         // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (3.5 — device feedback)
-        navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { showFlightLog = true }
+        navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
         navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
         navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
         navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { showSettings = true }
@@ -601,7 +561,7 @@ struct HomeView: View {
     @ViewBuilder
     private var lastFlightStrip: some View {
         if let last = appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
-            Button { showFlightLog = true } label: {
+            Button { flightLogSelectionID = last.id; showFlightLog = true } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.Home.lastFlight)
@@ -795,9 +755,12 @@ struct HomeView: View {
                 HStack(spacing: 7) {
                     HStack(spacing: 5) {
                         ForEach(0..<aircraft.count, id: \.self) { index in
-                            Circle()
-                                .fill(index == selectedAircraftIndex ? Color.aviationGold : Color.dimText.opacity(0.5))
-                                .frame(width: 6, height: 6)
+                            // Active page reads as an elongated gold pill (App Store / onboarding
+                            // convention — also matches OnboardingView's pageDots). (3.5 — feedback)
+                            let isActive = index == selectedAircraftIndex
+                            Capsule()
+                                .fill(isActive ? Color.aviationGold : Color.dimText.opacity(0.5))
+                                .frame(width: isActive ? 18 : 6, height: 6)
                                 .animation(.easeInOut(duration: 0.2), value: selectedAircraftIndex)
                         }
                     }
@@ -926,67 +889,6 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Bottom Bar
-
-    private func bottomBar(isLandscape: Bool, isCompact: Bool) -> some View {
-        HStack(spacing: isCompact ? 8 : 16) {
-            // Flight log button
-            Button(action: { showFlightLog = true }) {
-                HStack(spacing: isCompact ? 4 : 8) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: isCompact ? 14 : 18))
-                        .loadingRotationEffect(isActive: appState.isLoadingFlights)
-                    if !isCompact {
-                        Text(L10n.Button.flightLog)
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    if appState.isLoadingFlights {
-                        // Show nothing while loading — the spinning icon is the cue
-                    } else if !appState.flights.isEmpty {
-                        Text(isCompact ? "\(appState.flights.count)" : "(\(appState.flights.count))")
-                            .font(.system(size: isCompact ? 12 : 14, weight: .semibold))
-                            .foregroundColor(.aviationGold)
-                    }
-                }
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            // The text label is hidden on iPhone (compact); always expose it to VoiceOver.
-            .accessibilityLabel(appState.flights.isEmpty ? L10n.Button.flightLog : "\(L10n.Button.flightLog), \(appState.flights.count)")
-
-            Spacer()
-
-            // Navigation button (centered)
-            Button(action: { showNavigation = true }) {
-                HStack(spacing: isCompact ? 4 : 8) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: isCompact ? 14 : 18))
-                    if !isCompact {
-                        Text(L10n.Button.nav)
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                }
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .accessibilityLabel(L10n.Button.nav)
-
-            Spacer()
-
-            // Speed reference button
-            Button(action: { showSpeedReference = true }) {
-                HStack(spacing: isCompact ? 4 : 8) {
-                    Image(systemName: "speedometer")
-                        .font(.system(size: isCompact ? 14 : 18))
-                    if !isCompact {
-                        Text(L10n.Button.speeds)
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                }
-            }
-            .buttonStyle(SecondaryButtonStyle())
-            .accessibilityLabel(L10n.Button.speeds)
-        }
-    }
-
     // MARK: - GPS Status Indicator
 
     private func gpsStatusIndicator(isCompact: Bool) -> some View {

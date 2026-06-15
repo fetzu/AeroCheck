@@ -38,6 +38,8 @@ struct FlightView: View {
     @State private var showHourMeterStart = false
     /// Stable periodic timer (created once) driving the cruise-check evaluation. (3.5 fix)
     @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    /// 0…1 fill of the CRUISE button while the pilot holds to reset (animates left→right over 1.5 s). (3.5)
+    @State private var cruiseHoldProgress: CGFloat = 0
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
@@ -584,10 +586,11 @@ struct FlightView: View {
 
     // MARK: - Cruise check (3.5)
 
-    /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT. It shows
-    /// the countdown to the next cruise check. The countdown is MANUAL: tap to start (idle) or to
-    /// acknowledge + restart (when due); hold 2 s to reset/re-arm at any time. When due it turns amber
-    /// and pulses (and the Cruise checklist re-arms). Hidden outside the Cruise phase. (3.5)
+    /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT, styled to
+    /// match it (large ⟳ icon + value). It shows the countdown to the next cruise check. MANUAL: tap to
+    /// start (idle) or to acknowledge + restart (when due). Hold 1.5 s to reset/re-arm — the button
+    /// fills left→right while held, so the hold is discoverable. When due it turns amber + pulses and
+    /// the Cruise checklist re-arms. Hidden outside the Cruise phase. (3.5)
     @ViewBuilder
     private var cruiseCheckButton: some View {
         if appState.currentPhase == .cruise {
@@ -596,25 +599,40 @@ struct FlightView: View {
             let colors = cruiseCheckColors(due: due, started: started)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let remaining = appState.cruiseCheckRemaining(now: context.date)
-                VStack(spacing: 1) {
-                    Text(due ? "\u{27F3} \(L10n.Nav.checkNow)" : L10n.Nav.cruise)
-                        .font(.system(size: due ? 13 : 11, weight: .bold)).tracking(0.5)
-                    Text(due ? L10n.Nav.holdToReset : cruiseTimeText(remaining))
-                        .font(.system(size: due ? 11 : 18, weight: .semibold, design: .monospaced))
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text(due ? L10n.Nav.checkNow : cruiseTimeText(remaining)).monospacedDigit()
                 }
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(colors.label)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
+                .padding(.vertical, 18)
                 .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(colors.fill)
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(colors.stroke, lineWidth: 1))
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14).fill(colors.fill)
+                        // Hold-to-reset progress fill — grows left→right while held. (3.5)
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.white.opacity(0.20))
+                            .scaleEffect(x: cruiseHoldProgress, anchor: .leading)
+                        RoundedRectangle(cornerRadius: 14).stroke(colors.stroke, lineWidth: 1)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 )
             }
             .contentShape(RoundedRectangle(cornerRadius: 14))
             .onTapGesture { if due || !started { appState.armCruiseCheck() } }
-            .onLongPressGesture(minimumDuration: 2) { appState.armCruiseCheck() }
+            .onLongPressGesture(minimumDuration: 1.5, maximumDistance: 60) {
+                appState.armCruiseCheck()
+                cruiseHoldProgress = 0
+            } onPressingChanged: { pressing in
+                if pressing {
+                    withAnimation(.linear(duration: 1.5)) { cruiseHoldProgress = 1 }
+                } else {
+                    withAnimation(.easeOut(duration: 0.2)) { cruiseHoldProgress = 0 }
+                }
+            }
             .modifier(PulseModifier(isActive: due))
+            .sensoryFeedback(.impact(weight: .medium), trigger: appState.cruiseCheckStartTime)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(L10n.Nav.cruise)
             .accessibilityHint(L10n.Nav.holdToReset)

@@ -2289,10 +2289,11 @@ struct NavigationMapView: View {
             // No flight plan — the frequency list (nearest + area + emergency) doesn't need a plan, so
             // expanding still shows it. (3.5 fix — the chevron did nothing without a plan)
             freqColumn
-                // Keep the same compact width as the with-plan column. Full-width pushed station
-                // labels and frequencies to opposite screen edges on iPad — illegible. (3.5 fix)
-                .frame(maxWidth: 320, alignment: .leading)
-                .padding(.horizontal, 16)
+                // Mirror the with-plan layout: same 244-pt column, pushed to the trailing edge (where
+                // it sits as the right column when a plan is active) rather than centered. (3.5 fix)
+                .frame(width: 244)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 14)
                 .padding(.top, 2)
                 .padding(.bottom, 10)
                 .fixedSize(horizontal: false, vertical: true)

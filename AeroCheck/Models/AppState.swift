@@ -384,7 +384,7 @@ class AppState: ObservableObject {
     // MARK: - Cruise check (FREDA) reminder
     /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
     /// is a check every 10–15 minutes in cruise. (3.5)
-    static let cruiseCheckInterval: TimeInterval = 60 // TEMP: 1 min for device testing — restore to 15 * 60
+    static let cruiseCheckInterval: TimeInterval = 15 * 60 // standard VFR re-cruise check every ~15 min
     /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (3.5)
     @Published var cruiseCheckDue: Bool = false
     /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is

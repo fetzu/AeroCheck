@@ -2619,17 +2619,18 @@ struct NavigationMapView: View {
         if let plan = flightPlanManager.activeFlightPlan {
             let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
             let canMark = plan.currentWaypointIndex < plan.waypoints.count
+            let legLabel = currentLegLabel(plan)
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let running = flightPlanManager.isChronometerRunning
                 let elapsed = flightPlanManager.chronometerElapsed
                 let started = running || elapsed > 0.5
                 HStack(spacing: 6) {
                     if !started {
-                        legPillButton(icon: "play.fill", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false) {
+                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false) {
                             flightPlanManager.startChronometer()
                         }
                     } else {
-                        legReadout(elapsed: elapsed, planned: plannedLeg, running: running)
+                        legReadout(legLabel: legLabel, elapsed: elapsed, planned: plannedLeg, running: running)
                         if canMark {
                             legPillButton(icon: "mappin.and.ellipse", label: L10n.Nav.mark, tint: .aviationGold, filled: true) {
                                 flightPlanManager.markWaypoint()
@@ -2645,9 +2646,24 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Leg elapsed vs the planned leg time, with an ahead/over delta. (3.5)
-    private func legReadout(elapsed: TimeInterval, planned: TimeInterval?, running: Bool) -> some View {
-        HStack(spacing: 5) {
+    /// "FROM → TO" idents for the leg currently being flown, or nil before the first leg / once done. (3.5)
+    private func currentLegLabel(_ plan: FlightPlan) -> String? {
+        let i = plan.currentWaypointIndex
+        guard i >= 1, i < plan.waypoints.count else { return nil }
+        let from = plan.waypoints[i - 1].name
+        let to = plan.waypoints[i].name
+        return "\(from.isEmpty ? "WPT \(i)" : from) → \(to.isEmpty ? "WPT \(i + 1)" : to)"
+    }
+
+    /// The current leg (FROM → TO) + leg elapsed vs the planned leg time, with an ahead/over delta. (3.5)
+    private func legReadout(legLabel: String?, elapsed: TimeInterval, planned: TimeInterval?, running: Bool) -> some View {
+        HStack(spacing: 6) {
+            if let legLabel {
+                Text(legLabel)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primaryText).lineLimit(1)
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 16)
+            }
             Image(systemName: "stopwatch").font(.system(size: 12)).foregroundColor(running ? .aviationGreen : .secondaryText)
             Text(formatClock(elapsed))
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))

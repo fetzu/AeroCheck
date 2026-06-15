@@ -40,7 +40,7 @@ struct SubscriptionView: View {
             .navigationTitle(L10n.Settings.aeroCheckPro)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.Button.done) {
                         dismiss()
                     }
@@ -78,15 +78,19 @@ struct SubscriptionView: View {
     // MARK: - Sections
 
     private var headerSection: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "airplane.circle.fill")
-                .font(.system(size: 60))
+        VStack(spacing: 14) {
+            Image(systemName: "airplane")
+                .font(.system(size: 30))
                 .foregroundColor(Color.aviationGold)
+                .frame(width: 64, height: 64)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.aviationGold.opacity(0.16)))
+                .accessibilityHidden(true)
 
             Text(L10n.Subscription.unlockPremiumAircraft)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(Color.primaryText)
+                .multilineTextAlignment(.center)
 
             Text(L10n.Subscription.accessDescription)
                 .font(.subheadline)
@@ -97,34 +101,40 @@ struct SubscriptionView: View {
     }
 
     private var benefitsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(L10n.Subscription.benefits)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(Color.secondaryText)
-
-            benefitRow(icon: "airplane", text: L10n.Subscription.benefitAllChecklists)
-            benefitRow(icon: "arrow.triangle.2.circlepath", text: L10n.Subscription.benefitAutoUpdates)
-            benefitRow(icon: "icloud.and.arrow.down", text: L10n.Subscription.benefitOfflineAccess)
-            benefitRow(icon: "star.fill", text: L10n.Subscription.benefitSupportDev)
+        VStack(alignment: .leading, spacing: 4) {
+            benefitRow(icon: "airplane", tint: .aviationGold, text: L10n.Subscription.benefitAllChecklists, isLast: false)
+            benefitRow(icon: "arrow.triangle.2.circlepath", tint: .altimeterBlue, text: L10n.Subscription.benefitAutoUpdates, isLast: false)
+            benefitRow(icon: "icloud.and.arrow.down", tint: .aviationGreen, text: L10n.Subscription.benefitOfflineAccess, isLast: false)
+            benefitRow(icon: "heart.fill", tint: .orange, text: L10n.Subscription.benefitSupportDev, isLast: true)
         }
-        .padding()
-        .background(Color.panelBackground)
-        .cornerRadius(12)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        )
     }
 
-    private func benefitRow(icon: String, text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundColor(Color.aviationGold)
-                .frame(width: 30)
+    private func benefitRow(icon: String, tint: Color, text: String, isLast: Bool) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 11) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(tint)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(tint.opacity(0.16)))
+                    .accessibilityHidden(true)
 
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(Color.primaryText)
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundColor(Color.primaryText)
 
-            Spacer()
+                Spacer()
+            }
+            .padding(.vertical, 9)
+            if !isLast {
+                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 41)
+            }
         }
     }
 
@@ -146,8 +156,7 @@ struct SubscriptionView: View {
                 Spacer()
             }
             .padding()
-            .background(Color.panelBackground)
-            .cornerRadius(8)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
         }
     }
 
@@ -256,12 +265,11 @@ struct ProductCard: View {
                         if product.isYearly {
                             Text(L10n.Subscription.bestValue)
                                 .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
+                                .fontWeight(.bold)
+                                .foregroundColor(.black)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
-                                .background(Color.aviationGreen)
-                                .cornerRadius(4)
+                                .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGold))
                         }
                     }
 
@@ -274,8 +282,7 @@ struct ProductCard: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product.displayPrice)
-                        .font(.title3)
-                        .fontWeight(.bold)
+                        .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(Color.aviationGold)
 
                     Text(product.subscriptionPeriodText)
@@ -284,11 +291,10 @@ struct ProductCard: View {
                 }
             }
             .padding()
-            .background(Color.panelBackground)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(product.isYearly ? Color.aviationGold : Color.clear, lineWidth: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(product.isYearly ? Color.aviationGold : Color.white.opacity(0.08), lineWidth: product.isYearly ? 2 : 1))
             )
         }
         .disabled(subscriptionManager.isPurchasing)

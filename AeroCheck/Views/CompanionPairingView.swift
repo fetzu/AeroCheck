@@ -31,6 +31,8 @@ struct CompanionPairingView: View {
                 unavailableOnPlatformContent
                 #endif
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.cockpitBackground.ignoresSafeArea())
             .navigationTitle(L10n.Companion.pairDevice)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -41,6 +43,24 @@ struct CompanionPairingView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
+    }
+
+    /// A tinted rounded-square companion icon (cockpit language).
+    private func companionIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 40))
+            .foregroundColor(.aviationGold)
+            .frame(width: 88, height: 88)
+            .background(RoundedRectangle(cornerRadius: 24).fill(Color.aviationGold.opacity(0.14)))
+            .accessibilityHidden(true)
+    }
+
+    /// "Wi-Fi Aware · iOS 26+" footnote shown under the pairing prompts.
+    private var wifiAwareFootnote: some View {
+        Label(L10n.Companion.wifiAwareRequirement, systemImage: "wifi")
+            .font(.caption)
+            .foregroundColor(.dimText)
     }
 
     #if canImport(DeviceDiscoveryUI)
@@ -52,20 +72,20 @@ struct CompanionPairingView: View {
         DevicePairingView(
             .wifiAware(.connecting(to: .aerocheck, from: .selected([])))
         ) {
-            VStack(spacing: 24) {
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 60))
-                    .foregroundColor(.aviationGold)
+            VStack(spacing: 18) {
+                companionIcon("antenna.radiowaves.left.and.right")
 
                 Text(L10n.Companion.waitingForPairing)
-                    .font(.headline)
+                    .font(.title3.weight(.semibold))
                     .foregroundColor(.primaryText)
 
                 Text(L10n.Companion.pairingMasterDescription)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
+
+                wifiAwareFootnote.padding(.top, 4)
             }
         } fallback: {
             wifiAwareUnavailableContent
@@ -77,20 +97,18 @@ struct CompanionPairingView: View {
     /// iPhone shows DevicePicker — discovers nearby iPads and lets user pick one to pair
     @available(iOS 26.0, *)
     private var viewerPairingContent: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 18) {
             Spacer()
 
-            Image(systemName: "ipad.and.iphone")
-                .font(.system(size: 60))
-                .foregroundColor(.aviationGold)
+            companionIcon("ipad.and.iphone")
 
             Text(L10n.Companion.pairWithiPad)
-                .font(.headline)
+                .font(.title3.weight(.semibold))
                 .foregroundColor(.primaryText)
 
             Text(L10n.Companion.pairingViewerDescription)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
@@ -101,19 +119,21 @@ struct CompanionPairingView: View {
                 // The paired device is now remembered by the system
                 dismiss()
             } label: {
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                     Text(L10n.Companion.scanForDevices)
                 }
-                .font(.headline)
-                .foregroundColor(.cockpitBackground)
+                .font(.body.weight(.semibold))
+                .foregroundColor(.black)
                 .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(Color.aviationGold)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.vertical, 14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationGold))
             } fallback: {
                 wifiAwareUnavailableContent
             }
+            .padding(.top, 6)
+
+            wifiAwareFootnote
 
             Spacer()
         }
@@ -128,7 +148,7 @@ struct CompanionPairingView: View {
 
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 50))
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
 
             Text(L10n.Companion.wifiAwareUnavailable)
                 .font(.headline)
@@ -136,7 +156,7 @@ struct CompanionPairingView: View {
 
             Text(L10n.Companion.wifiAwareRequirement)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 

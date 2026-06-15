@@ -97,7 +97,7 @@ struct CompanionFlightView: View {
                         .font(.system(size: 11))
                     Spacer()
                 }
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
             }
         }
         .padding(.horizontal, 12)
@@ -109,7 +109,7 @@ struct CompanionFlightView: View {
         HStack(spacing: 4) {
             Text("GPS")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
             Circle()
                 .fill(gpsColor)
                 .frame(width: 8, height: 8)
@@ -139,7 +139,7 @@ struct CompanionFlightView: View {
             HStack(spacing: 4) {
                 Text("FLT")
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.secondaryText)
                 Text(formattedFlightTime)
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundColor(.primaryText)
@@ -237,7 +237,7 @@ struct CompanionFlightView: View {
         let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
         let isCurrent = index == currentIdx
         let isPast = index < currentIdx
-        let textColor: Color = isPast ? .secondary : (isCurrent ? .primaryText : .primaryText.opacity(0.8))
+        let textColor: Color = isPast ? .secondaryText : (isCurrent ? .primaryText : .primaryText.opacity(0.8))
 
         return HStack(spacing: 0) {
             // Status indicator
@@ -253,7 +253,7 @@ struct CompanionFlightView: View {
                 } else {
                     Text("\(index + 1)")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.secondaryText)
                 }
             }
             .frame(width: 28)
@@ -324,10 +324,10 @@ struct CompanionFlightView: View {
             Spacer()
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.system(size: 40))
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
             Text(L10n.Companion.noFlightPlan)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
                 .padding(.top, 8)
             Spacer()
         }
@@ -446,13 +446,13 @@ struct CompanionFlightView: View {
         HStack(spacing: 4) {
             Text(label)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
             Text(value)
                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                 .foregroundColor(.primaryText)
             Text(unit)
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
         }
         .frame(maxWidth: .infinity)
     }

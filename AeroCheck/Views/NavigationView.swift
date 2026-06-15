@@ -2119,20 +2119,25 @@ struct NavigationMapView: View {
             items.append(PhaseFrequency(station: station, freq: freq, highlighted: highlighted, isEmergency: emergency))
         }
 
-        // Nearest airfield's VFR contact frequency — regardless of the flight plan; the active one.
+        // Nearest airfield — ATIS first (your first listen) then the contact frequency; regardless of
+        // the flight plan. The first entry is highlighted as the active one.
         if let loc = locationManager.currentLocation, airportDataService.isDataAvailable,
-           let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: 40).first,
-           let contact = vfrContactFreq(for: apt.ident) {
-            add("\(apt.ident) \(contact.type)", contact.freq, highlighted: true)
+           let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: 40).first {
+            for (i, f) in airfieldFreqs(for: apt.ident).enumerated() {
+                add("\(apt.ident) \(f.type)", f.freq, highlighted: i == 0)
+            }
         }
 
-        // Route: departure (first), the next target waypoint, and the destination (last) — auto-completed
-        // for airfields without a manual frequency.
+        // Route: departure (first), the next target waypoint, and the destination (last) — manual
+        // frequency if entered, else the airfield's ATIS + contact auto-completed from the DB.
         if let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty {
-            if let dep = waypointFreq(plan.waypoints.first!) { add(dep.label, dep.freq) }
+            var route: [FlightPlanWaypoint] = [plan.waypoints.first!]
             let idx = plan.currentWaypointIndex
-            if plan.waypoints.indices.contains(idx), let nx = waypointFreq(plan.waypoints[idx]) { add(nx.label, nx.freq) }
-            if let dest = waypointFreq(plan.waypoints.last!) { add(dest.label, dest.freq) }
+            if plan.waypoints.indices.contains(idx) { route.append(plan.waypoints[idx]) }
+            route.append(plan.waypoints.last!)
+            for wp in route {
+                for (label, freq) in waypointFreqs(wp) { add(label, freq) }
+            }
         }
 
         // Area Info / FIS for the current Swiss sector.
@@ -2147,31 +2152,37 @@ struct NavigationMapView: View {
         phaseFreqItems = items
     }
 
-    /// The best VFR contact frequency for an airfield ident — prefers TWR / AFIS / INFO / A-G over an
-    /// APP/GND frequency (rarely the VFR initial contact, and was being shown wrongly). (3.5)
-    private static let vfrContactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO", "ATIS"]
-    private func vfrContactFreq(for ident: String) -> (type: String, freq: String)? {
+    /// An airfield's VFR frequencies: ATIS first when present (the first listen — it does NOT give you
+    /// the next entity's frequency), then the contact frequency (TWR > AFIS > INFO > A/G > … — never
+    /// the APP/GND that was being shown wrongly). (3.5)
+    private static let contactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO"]
+    private func airfieldFreqs(for ident: String) -> [(type: String, freq: String)] {
         let freqs = airportDataService.getFrequencies(for: ident)
-        guard !freqs.isEmpty else { return nil }
-        for type in Self.vfrContactPriority {
+        guard !freqs.isEmpty else { return [] }
+        var out: [(String, String)] = []
+        if let atis = freqs.first(where: { $0.type.uppercased().contains("ATIS") }) {
+            out.append((atis.type, atis.formattedFrequency))
+        }
+        for type in Self.contactPriority {
             if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
-                return (f.type, f.formattedFrequency)
+                out.append((f.type, f.formattedFrequency)); break
             }
         }
-        return freqs.first.map { ($0.type, $0.formattedFrequency) }
+        if out.isEmpty, let f = freqs.first { out.append((f.type, f.formattedFrequency)) }
+        return out
     }
 
-    /// A waypoint's frequency: the manually-entered one, else auto-completed from the DB when the
-    /// waypoint name is an airfield ident. (3.5)
-    private func waypointFreq(_ wp: FlightPlanWaypoint) -> (label: String, freq: String)? {
+    /// A waypoint's frequencies: the manually-entered one if set, else the airfield's ATIS + contact
+    /// auto-completed from the DB when the waypoint name is an airfield ident. (3.5)
+    private func waypointFreqs(_ wp: FlightPlanWaypoint) -> [(label: String, freq: String)] {
         let name = wp.name.isEmpty ? nil : wp.name
         if let f = wp.frequency, !f.isEmpty {
-            return (name ?? "WPT", f)
+            return [(name ?? "WPT", f)]
         }
-        if let ident = name, airportDataService.isDataAvailable, let contact = vfrContactFreq(for: ident) {
-            return ("\(ident) \(contact.type)", contact.freq)
+        if let ident = name, airportDataService.isDataAvailable {
+            return airfieldFreqs(for: ident).map { ("\(ident) \($0.type)", $0.freq) }
         }
-        return nil
+        return []
     }
 
     // MARK: - Track vector (3.5 C4)

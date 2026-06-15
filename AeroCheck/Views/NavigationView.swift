@@ -190,6 +190,8 @@ struct NavigationMapView: View {
     @State private var hasInitiallyCentered: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
     @State private var previewWaypointIndex: Int? = nil
+    /// A crossed waypoint the user tapped to resume its leg (drives the confirm dialog). (3.5)
+    @State private var legResumeTarget: Int? = nil
     /// Whether the frequency column shows the full list vs the capped essentials. (3.5 — feedback)
     @State private var showAllFreqs = false
     /// Phase-aware frequencies for the sheet's right column + the collapsed chip. Cached (recomputed
@@ -1997,6 +1999,21 @@ struct NavigationMapView: View {
             .overlay(alignment: .top) {
                 Rectangle().fill(Color.white.opacity(0.09)).frame(height: 0.5)
             }
+            // Tap a crossed waypoint in the leg table → confirm resuming that leg. (3.5)
+            .confirmationDialog(
+                L10n.Nav.resumeLegTitle,
+                isPresented: Binding(get: { legResumeTarget != nil }, set: { if !$0 { legResumeTarget = nil } }),
+                titleVisibility: .visible,
+                presenting: legResumeTarget
+            ) { idx in
+                Button(L10n.Nav.resumeLeg, role: .destructive) {
+                    flightPlanManager.resumeLeg(at: idx)
+                    legResumeTarget = nil
+                }
+                Button(L10n.Button.cancel, role: .cancel) { legResumeTarget = nil }
+            } message: { _ in
+                Text(L10n.Nav.resumeLegMessage)
+            }
         }
     }
 
@@ -2456,7 +2473,8 @@ struct NavigationMapView: View {
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
         let leg = plan.legArriving(at: index)
-        return Button(action: { previewWaypoint(index: index, plan: plan) }) {
+        let actual = actualLegTime(plan: plan, index: index, isCurrent: isCurrent, isPast: isPast, wpt: wpt)
+        return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
             HStack(spacing: 8) {
                 // Sequence number — matches the numbered disc on the map. (3.5)
                 Text("\(index + 1)")
@@ -2469,25 +2487,22 @@ struct NavigationMapView: View {
                 Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
                     .foregroundColor(isCurrent ? .aviationGold : .primaryText)
-                Spacer()
-                HStack(spacing: 8) {
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                HStack(spacing: 7) {
+                    // Heading + distance (kept). (3.5)
                     if let mc = leg?.magneticCourse {
                         Text(String(format: "%03d°", Int(mc))).foregroundColor(.secondaryText)
                     }
                     if let d = leg?.distance {
                         Text(String(format: "%.1f", d)).foregroundColor(.secondaryText)
                     }
-                    // One time value per row, by context: passed → ATO (actual clock); ahead & airborne
-                    // → ETO (arrival clock); pre-flight / no ground speed → EET (planned duration). (3.5)
-                    if let ato = wpt.actualTimeOver {
-                        Text("ATO \(ato.formatted(date: .omitted, time: .shortened))").foregroundColor(.aviationGreen)
-                    } else if appState.isFlightActive, let eto = wpt.estimatedTimeOver {
-                        Text("ETO \(eto.formatted(date: .omitted, time: .shortened))").foregroundColor(.dimText)
-                    } else if let eet = wpt.cumulativeEET {
-                        Text("EET \(eetDurationText(eet))").foregroundColor(.dimText)
-                    }
+                    // Planned leg time (EET) → actual / live, with an ahead/over delta. (3.5)
+                    legTimingCell(planned: leg?.totalLegEET, actual: actual,
+                                  running: isCurrent && flightPlanManager.isChronometerRunning)
                 }
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 10, design: .monospaced))
+                .lineLimit(1)
             }
             .padding(.horizontal, 8).padding(.vertical, 7)
             .background(isPreview ? Color.altimeterBlue.opacity(0.14)
@@ -2496,6 +2511,51 @@ struct NavigationMapView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
+    /// for a crossed leg, nil for a future leg. (3.5)
+    private func actualLegTime(plan: FlightPlan, index: Int, isCurrent: Bool, isPast: Bool, wpt: FlightPlanWaypoint) -> TimeInterval? {
+        if isCurrent {
+            let e = flightPlanManager.chronometerElapsed
+            return e > 0.5 ? e : nil
+        }
+        if isPast, index >= 1, let ato = wpt.actualTimeOver,
+           let prev = plan.waypoints[index - 1].actualTimeOver {
+            return ato.timeIntervalSince(prev)
+        }
+        return nil
+    }
+
+    /// Planned leg time (EET) → actual / live with an ahead (▲) / over (▼) delta; planned only for a
+    /// future leg. (3.5 — leg-timing table)
+    @ViewBuilder
+    private func legTimingCell(planned: TimeInterval?, actual: TimeInterval?, running: Bool) -> some View {
+        if let actual {
+            HStack(spacing: 3) {
+                if let planned {
+                    Text(formatClock(planned)).foregroundColor(.dimText)
+                    Text("→").foregroundColor(.dimText)
+                }
+                Text(formatClock(actual)).foregroundColor(running ? .aviationGold : .aviationGreen)
+                if let planned {
+                    let d = planned - actual
+                    Text((d >= 0 ? "▲" : "▼") + formatClock(abs(d)))
+                        .foregroundColor(d >= 0 ? .aviationGreen : .aviationAmber)
+                }
+            }
+        } else if let planned {
+            Text(formatClock(planned)).foregroundColor(.dimText)
+        }
+    }
+
+    /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (3.5)
+    private func handleWaypointTap(index: Int, plan: FlightPlan, isPast: Bool) {
+        if isPast {
+            legResumeTarget = index
+        } else {
+            previewWaypoint(index: index, plan: plan)
+        }
     }
 
     /// Tap a waypoint to preview (centre the map on it); tap the active/previewed one to return.
@@ -2632,7 +2692,9 @@ struct NavigationMapView: View {
                     } else {
                         legReadout(legLabel: legLabel, elapsed: elapsed, planned: plannedLeg, running: running)
                         if canMark {
-                            legPillButton(icon: "mappin.and.ellipse", label: L10n.Nav.mark, tint: .aviationGold, filled: true) {
+                            let markName = plan.waypoints[plan.currentWaypointIndex].name
+                            let markLabel = markName.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(markName)"
+                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: .aviationGold, filled: true) {
                                 flightPlanManager.markWaypoint()
                             }
                         }

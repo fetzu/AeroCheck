@@ -485,6 +485,19 @@ class FlightPlanManager: ObservableObject {
         recordATO(forWaypointAt: plan.currentWaypointIndex)
     }
 
+    /// Go back to (resume) the leg arriving at `index`: make it the current target again, clear its and
+    /// every later crossing (ATO), and restart the leg timer. (3.5 — go back a leg)
+    func resumeLeg(at index: Int) {
+        guard var plan = activeFlightPlan, index >= 0, index < plan.waypoints.count else { return }
+        plan.currentWaypointIndex = index
+        for i in index..<plan.waypoints.count { plan.waypoints[i].actualTimeOver = nil }
+        activeFlightPlan = plan
+        if let idx = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[idx] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
+        resetChronometer()
+    }
+
     private func startChronometerTimer() {
         chronometerTimer?.invalidate()
         chronometerTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in

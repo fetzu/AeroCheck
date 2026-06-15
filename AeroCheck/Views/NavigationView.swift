@@ -2000,11 +2000,17 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Grab handle — tap to toggle the flight-plan sheet, or drag up/down (snaps). (3.5 inc C)
+    /// Grab handle — two grabber pills flanking a state-aware chevron ("— ⌃ —" collapsed / "— ⌄ —"
+    /// expanded): keeps the iOS drag-grabber convention but adds an explicit expand cue. Tap to toggle,
+    /// or drag up/down (snaps). (3.5 inc C)
     private var navSheetHandle: some View {
-        Capsule()
-            .fill(Color.white.opacity(0.22))
-            .frame(width: 38, height: 5)
+        HStack(spacing: 6) {
+            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
+            Image(systemName: navSheetExpanded ? "chevron.down" : "chevron.up")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.5))
+            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
+        }
             .frame(maxWidth: .infinity)
             .padding(.top, 7)
             .padding(.bottom, 3)
@@ -2333,8 +2339,6 @@ struct NavigationMapView: View {
         if let plan = flightPlanManager.activeFlightPlan {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
-                    chronometerHeader(plan: plan)
-                    Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
                     waypointList(plan: plan)
                     liveDataRow
                     progressRow(plan: plan)
@@ -2431,39 +2435,6 @@ struct NavigationMapView: View {
         .padding(.vertical, 3)
     }
 
-    private func chronometerHeader(plan: FlightPlan) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(L10n.Nav.chronometer)
-                    .font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundColor(.dimText)
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    Text(flightPlanManager.formattedChronometer)
-                        .font(.system(size: 24, weight: .bold, design: .monospaced)).foregroundColor(.aviationGreen)
-                }
-            }
-            Spacer()
-            if plan.chronometerStartTime == nil {
-                Button(action: { flightPlanManager.startChronometer() }) {
-                    Text(L10n.Nav.start).font(.system(size: 12, weight: .bold)).foregroundColor(.black)
-                        .padding(.horizontal, 16).padding(.vertical, 7)
-                        .background(Color.aviationGreen, in: RoundedRectangle(cornerRadius: 7))
-                }
-            } else {
-                Button(action: { flightPlanManager.stopChronometer() }) {
-                    Text(L10n.Nav.stop).font(.system(size: 12, weight: .bold)).foregroundColor(.black)
-                        .padding(.horizontal, 16).padding(.vertical, 7)
-                        .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 7))
-                }
-            }
-            Button(action: { flightPlanManager.resetChronometer() }) {
-                Image(systemName: "arrow.counterclockwise").font(.system(size: 14)).foregroundColor(.secondaryText)
-                    .frame(width: 38, height: 32)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
-            }
-            .accessibilityLabel(L10n.Nav.chronometer)
-        }
-    }
-
     private func waypointList(plan: FlightPlan) -> some View {
         // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
         // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (3.5 fix)
@@ -2552,6 +2523,7 @@ struct NavigationMapView: View {
                 }
                 let gs = max(locationManager.currentSpeedKnots, 1)
                 if let eta = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) {
+                    liveStat("ETE", formatClock(eta))  // live time to the next waypoint
                     liveStat("ETA", Date().addingTimeInterval(eta).formatted(date: .omitted, time: .shortened))
                 }
             }
@@ -2639,37 +2611,88 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Compact chronometer — start/stop on tap, shown centered on row 2 so it's always visible without
-    /// opening the drawer (reset stays in the expanded drawer). Plan-scoped. (3.5)
+    /// VFR leg timer on row 2 — times the current leg, compares it to the planned leg time (▲ ahead /
+    /// ▼ over), and MARK records the crossing + restarts the leg. Pause/resume + reset. Idle shows just
+    /// a START button. Plan-scoped, always visible without opening the drawer. (3.5 — leg timer)
     @ViewBuilder
-    private var chronometerChip: some View {
+    private var legTimerCluster: some View {
         if let plan = flightPlanManager.activeFlightPlan {
-            let running = plan.chronometerStartTime != nil
-            Button(action: { running ? flightPlanManager.stopChronometer() : flightPlanManager.startChronometer() }) {
-                HStack(spacing: 5) {
-                    Image(systemName: running ? "stopwatch.fill" : "stopwatch")
-                        .font(.system(size: 13, weight: .medium))
-                    if running {
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            Text(flightPlanManager.formattedChronometer)
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            let plannedLeg = plan.legArriving(at: plan.currentWaypointIndex)?.totalLegEET
+            let canMark = plan.currentWaypointIndex < plan.waypoints.count
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                let running = flightPlanManager.isChronometerRunning
+                let elapsed = flightPlanManager.chronometerElapsed
+                let started = running || elapsed > 0.5
+                HStack(spacing: 6) {
+                    if !started {
+                        legPillButton(icon: "play.fill", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false) {
+                            flightPlanManager.startChronometer()
                         }
                     } else {
-                        Text(L10n.Nav.start).font(.system(size: 12, weight: .semibold))
+                        legReadout(elapsed: elapsed, planned: plannedLeg, running: running)
+                        if canMark {
+                            legPillButton(icon: "mappin.and.ellipse", label: L10n.Nav.mark, tint: .aviationGold, filled: true) {
+                                flightPlanManager.markWaypoint()
+                            }
+                        }
+                        legIconButton(running ? "pause.fill" : "play.fill") {
+                            running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
+                        }
+                        legIconButton("arrow.counterclockwise") { flightPlanManager.resetChronometer() }
                     }
                 }
-                .foregroundColor(running ? .aviationGreen : .secondaryText)
-                .padding(.horizontal, 10).frame(height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(running ? Color.aviationGreen.opacity(0.12) : Color.white.opacity(0.05))
-                        .overlay(RoundedRectangle(cornerRadius: 8)
-                            .stroke(running ? Color.aviationGreen.opacity(0.4) : Color.white.opacity(0.10), lineWidth: 1))
-                )
-                .contentShape(Rectangle())
             }
-            .accessibilityLabel(L10n.Nav.chronometer)
         }
+    }
+
+    /// Leg elapsed vs the planned leg time, with an ahead/over delta. (3.5)
+    private func legReadout(elapsed: TimeInterval, planned: TimeInterval?, running: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "stopwatch").font(.system(size: 12)).foregroundColor(running ? .aviationGreen : .secondaryText)
+            Text(formatClock(elapsed))
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundColor(running ? .aviationGreen : .secondaryText)
+            if let planned {
+                Text("/ \(formatClock(planned))").font(.system(size: 11, design: .monospaced)).foregroundColor(.dimText)
+                let delta = planned - elapsed
+                Text((delta >= 0 ? "▲" : "▼") + formatClock(abs(delta)))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(delta >= 0 ? .aviationGreen : .aviationAmber)
+            }
+        }
+        .padding(.horizontal, 9).frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.10), lineWidth: 1)))
+    }
+
+    private func legPillButton(icon: String, label: String, tint: Color, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(filled ? .black : tint)
+            .padding(.horizontal, 10).frame(height: 32)
+            .background(RoundedRectangle(cornerRadius: 7).fill(filled ? tint : tint.opacity(0.16)))
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func legIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 13, weight: .medium))
+                .foregroundColor(.secondaryText)
+                .frame(width: 32, height: 32)
+                .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05)))
+                .contentShape(Rectangle())
+        }
+    }
+
+    /// A duration as "M:SS" (or "H:MM:SS" past an hour). (3.5)
+    private func formatClock(_ t: TimeInterval) -> String {
+        let total = Int(t.rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     private var bottomControlRow: some View {
@@ -2703,8 +2726,8 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Chronometer — centered on row 2, always visible without opening the drawer. (3.5)
-            chronometerChip
+            // Leg timer — centered on row 2, always visible without opening the drawer. (3.5)
+            legTimerCluster
 
             Spacer()
 

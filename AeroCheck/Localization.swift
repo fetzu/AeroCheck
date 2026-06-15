@@ -1157,6 +1157,8 @@ enum L10n {
         static let holdToReset = String(localized: "nav.holdToReset")
         static let freqCurrent = String(localized: "nav.freqCurrent")
         static let freqNext = String(localized: "nav.freqNext")
+        static let startLeg = String(localized: "nav.startLeg")
+        static let mark = String(localized: "nav.mark")
 
         // Airspace Conflicts
         static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")

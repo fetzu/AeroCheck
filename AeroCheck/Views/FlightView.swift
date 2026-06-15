@@ -176,7 +176,8 @@ struct FlightView: View {
             currentPhase: appState.currentPhase,
             status: { appState.getPhaseStatus($0) },
             onSelect: { appState.goToPhase($0) },
-            isCircuitMode: appState.isCircuitMode
+            isCircuitMode: appState.isCircuitMode,
+            cruiseCheckDue: appState.cruiseCheckDue
         )
     }
 
@@ -371,7 +372,12 @@ struct FlightView: View {
                 windDataService.stopFetching()
             }
         }
+        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+            appState.evaluateCruiseCheck()
+        }
+        .cruiseCheckReminder(appState: appState)
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
+            appState.evaluateCruiseCheck()
             // Show hour meter input when navigating TO Engine Start phase
             if newPhase == .engineStart && appState.settings.logEngineHours {
                 if appState.currentFlight?.engineHourStart == nil {
@@ -1614,6 +1620,8 @@ struct PhaseProgressBar: View {
     let status: (ChecklistPhase) -> PhaseCompletionStatus
     let onSelect: (ChecklistPhase) -> Void
     var isCircuitMode: Bool = false
+    /// When true, the Cruise segment turns amber to flag an (over)due FREDA cruise check. (3.5)
+    var cruiseCheckDue: Bool = false
 
     /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
     /// cruise/descent are filtered out, so the bracket draws as one continuous span. (round 6)
@@ -1686,6 +1694,7 @@ struct PhaseProgressBar: View {
     }
 
     private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {
+        if phase == .cruise && isCurrent && cruiseCheckDue { return .aviationAmber }
         if isCurrent { return .aviationGold }
         switch status(phase) {
         case .completed: return .aviationGreen

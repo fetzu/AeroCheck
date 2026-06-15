@@ -377,6 +377,35 @@ class AppState: ObservableObject {
     }
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
+
+    // MARK: - Cruise check (FREDA) reminder
+    /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
+    /// is a check every 10–15 minutes in cruise. (3.5)
+    static let cruiseCheckInterval: TimeInterval = 15 * 60
+    /// True when a cruise (FREDA) check is due/overdue — drives the amber phase indicator + reminder.
+    @Published var cruiseCheckDue: Bool = false
+    /// When cruise was entered or the check was last acknowledged; nil outside cruise.
+    private var lastCruiseCheckTime: Date?
+
+    /// Re-evaluate whether a cruise check is due. Call periodically (≈20–30 s) and on phase change
+    /// while a flight is active. (3.5)
+    func evaluateCruiseCheck(now: Date = Date()) {
+        guard isFlightActive, currentPhase == .cruise else {
+            if cruiseCheckDue { cruiseCheckDue = false }
+            lastCruiseCheckTime = nil
+            return
+        }
+        if lastCruiseCheckTime == nil { lastCruiseCheckTime = now }
+        if let last = lastCruiseCheckTime, now.timeIntervalSince(last) >= Self.cruiseCheckInterval, !cruiseCheckDue {
+            cruiseCheckDue = true
+        }
+    }
+
+    /// Acknowledge the cruise check: clear the reminder and restart the interval. (3.5)
+    func acknowledgeCruiseCheck() {
+        lastCruiseCheckTime = Date()
+        cruiseCheckDue = false
+    }
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     @Published var flightStartError: String?

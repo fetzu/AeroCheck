@@ -416,7 +416,14 @@ struct NavigationMapView: View {
             recomputeMapSpatialContent()
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: appState.currentPhase) { _, _ in recomputePhaseFrequencies() }
+        .onChange(of: appState.currentPhase) { _, _ in
+            recomputePhaseFrequencies()
+            appState.evaluateCruiseCheck()
+        }
+        .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+            appState.evaluateCruiseCheck()
+        }
+        .cruiseCheckReminder(appState: appState)
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: airportDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -1785,13 +1792,24 @@ struct NavigationMapView: View {
                         }
                         .foregroundColor(.aviationGold)
 
-                        // Current phase, inline with the instruments — no checkmark. (3.5 fix)
+                        // Current phase, inline. Turns amber with a ⟳ FREDA badge when a cruise check
+                        // is due — tap to acknowledge and reset the interval. (3.5 — re-cruise)
                         if appState.isFlightActive {
                             Rectangle().fill(Color.dimText).frame(width: 1, height: 20)
-                            Text(appState.currentPhase.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.aviationGold)
-                                .lineLimit(1)
+                            Button(action: { if appState.cruiseCheckDue { appState.acknowledgeCruiseCheck() } }) {
+                                HStack(spacing: 4) {
+                                    if appState.cruiseCheckDue {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    Text(appState.cruiseCheckDue ? L10n.Nav.fredaCheck : appState.currentPhase.title)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .lineLimit(1)
+                                }
+                                .foregroundColor(appState.cruiseCheckDue ? .aviationAmber : .aviationGold)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!appState.cruiseCheckDue)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -2313,6 +2331,51 @@ struct NavigationMapView: View {
     }
 
     /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (3.5)
+    /// Destination endpoint, total remaining distance (live to next + remaining planned legs), and the
+    /// planned ETA at the destination. (3.5 — row 2)
+    private var destinationSummary: (dest: String, remainingNM: Double, eta: Date?)? {
+        guard let plan = flightPlanManager.activeFlightPlan,
+              plan.waypoints.count >= 2,
+              let dest = plan.waypoints.last else { return nil }
+        var remaining = 0.0
+        if let loc = locationManager.currentLocation,
+           let d = flightPlanManager.distanceToNextWaypoint(from: loc) {
+            remaining += d
+        }
+        if plan.currentWaypointIndex + 1 < plan.waypoints.count {
+            for i in (plan.currentWaypointIndex + 1)..<plan.waypoints.count {
+                remaining += plan.legArriving(at: i)?.distance ?? 0
+            }
+        }
+        let name = dest.name.isEmpty ? "WPT \(plan.waypoints.count)" : dest.name
+        return (name, remaining, dest.estimatedTimeOver)
+    }
+
+    @ViewBuilder
+    private var destinationSummaryView: some View {
+        if let s = destinationSummary {
+            HStack(spacing: 6) {
+                Text("DEST")
+                    .font(.system(size: 9, weight: .semibold)).tracking(0.4)
+                    .foregroundColor(.dimText)
+                Text(s.dest)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                Text("·").foregroundColor(.dimText)
+                Text(String(format: "%.0f NM", s.remainingNM))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                if let eta = s.eta {
+                    Text("·").foregroundColor(.dimText)
+                    Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.dimText)
+                }
+            }
+            .lineLimit(1)
+        }
+    }
+
     private var bottomControlRow: some View {
         HStack(spacing: 12) {
             if appState.settings.enableFlightPlanning {
@@ -2337,6 +2400,10 @@ struct NavigationMapView: View {
                         .environmentObject(openAIPDataService)
                 }
             }
+
+            // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
+            // the mid-route outlook. (3.5 — device feedback)
+            destinationSummaryView
 
             Spacer()
 
@@ -2996,6 +3063,67 @@ struct RadioFrequencyOverlayView: View {
 }
 
 /// Common Swiss aviation frequencies
+/// A transient FREDA cruise-check reminder banner. Appears when `appState.cruiseCheckDue` flips true
+/// and auto-dismisses after 30 s (the amber phase indicator persists until acknowledged). Reusable
+/// across the nav map and the flight HUD. (3.5 — re-cruise)
+struct CruiseCheckReminderModifier: ViewModifier {
+    @ObservedObject var appState: AppState
+    @State private var show = false
+    @State private var dismissWork: DispatchWorkItem?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if show {
+                    banner
+                        .padding(.top, 64)
+                        .padding(.horizontal, 40)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .onChange(of: appState.cruiseCheckDue) { _, due in
+                dismissWork?.cancel()
+                if due {
+                    withAnimation(.spring(response: 0.4)) { show = true }
+                    let work = DispatchWorkItem { withAnimation { show = false } }
+                    dismissWork = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
+                } else {
+                    withAnimation { show = false }
+                }
+            }
+    }
+
+    private var banner: some View {
+        Button(action: {
+            appState.acknowledgeCruiseCheck()
+            withAnimation { show = false }
+        }) {
+            HStack(spacing: 11) {
+                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 17, weight: .bold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L10n.Nav.cruiseCheckDue).font(.system(size: 13, weight: .bold))
+                    Text(L10n.Nav.cruiseCheckHint).font(.system(size: 11)).opacity(0.85)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 20))
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 16).padding(.vertical, 11)
+            .frame(maxWidth: 460)
+            .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    func cruiseCheckReminder(appState: AppState) -> some View {
+        modifier(CruiseCheckReminderModifier(appState: appState))
+    }
+}
+
 /// One phase-aware frequency row for the flight-plan sheet (station label + frequency). (3.5 C2)
 struct PhaseFrequency: Identifiable {
     let id = UUID()

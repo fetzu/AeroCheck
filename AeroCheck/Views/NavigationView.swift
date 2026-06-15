@@ -753,24 +753,8 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // OpenAIP overlay toggle
-            Button(action: {
-                appState.settings.showOpenAIPOverlay.toggle()
-                appState.saveSettings()
-            }) {
-                Image(systemName: "shield")
-                    .font(.system(size: 14))
-                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
-                    .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
-                    .background(
-                        Circle()
-                            .fill(appState.settings.showOpenAIPOverlay
-                                  ? Color.panelBackground.opacity(0.95)
-                                  : Color.panelBackground.opacity(0.7))
-                    )
-            }
-
-            // Layer picker button
+            // Single map-display button → consolidated sheet (layers + airspace + track-vector toggles).
+            // The narrow top bar can't fit three separate buttons. (3.5 — iPhone)
             Button(action: {
                 if isOfflineMode {
                     showCacheInfoModal = true
@@ -786,6 +770,7 @@ struct NavigationMapView: View {
             }
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
+                    .environmentObject(appState)
             }
         }
     }
@@ -864,34 +849,32 @@ struct NavigationMapView: View {
                     }
                 }
 
-                // Compass and center button row
-                HStack(spacing: 8) {
-                    // Compass / orientation toggle button
-                    Button(action: toggleOrientation) {
-                        if mapOrientationMode == .northUp {
-                            CompassView(heading: mapState.cameraHeading)
-                                .scaleEffect(0.8)
-                                .frame(width: 40, height: 40)
-                        } else {
-                            Image(systemName: "location.north.line.fill")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.aviationGold)
-                                .rotationEffect(.degrees(-mapState.cameraHeading))
-                                .frame(width: 40, height: 40)
-                                .floatingChromeCircle()
-                        }
-                    }
-
-                    // Center on aircraft button
-                    Button(action: centerOnAircraft) {
-                        Image(systemName: isFollowingAircraft ? "location.fill" : "location")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(isFollowingAircraft ? .aviationGold : .primaryText)
-                            .frame(width: 40, height: 40)
-                            .floatingChromeCircle()
-                    }
+                // 3-state tracking button: free → center & follow → track-up → free. (3.5 — iPhone)
+                Button(action: cycleTracking) {
+                    Image(systemName: trackingIcon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(trackingTint)
+                        .frame(width: 40, height: 40)
+                        .floatingChromeCircle()
                 }
+                .accessibilityLabel(L10n.Nav.navigation)
                 .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+
+                // Zoom out / in (pinch also works). (3.5 — iPhone)
+                VStack(spacing: 0) {
+                    Button(action: { zoom(by: 0.5) }) {
+                        Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primaryText).frame(width: 40, height: 36).contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Nav.zoomIn)
+                    Rectangle().fill(Color.white.opacity(0.12)).frame(width: 22, height: 0.5)
+                    Button(action: { zoom(by: 2.0) }) {
+                        Image(systemName: "minus").font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primaryText).frame(width: 40, height: 36).contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(L10n.Nav.zoomOut)
+                }
+                .floatingChromeBackground(cornerRadius: 10)
             }
         }
     }
@@ -1937,6 +1920,7 @@ struct NavigationMapView: View {
             }
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
+                    .environmentObject(appState)
             }
         }
     }
@@ -3925,6 +3909,7 @@ struct AircraftMarker: View {
 
 struct LayerPickerSheet: View {
     @Binding var selectedLayer: MapLayerType
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
@@ -3975,6 +3960,27 @@ struct LayerPickerSheet: View {
                         .padding(.horizontal, 16)
                     }
 
+                    // Overlays — airspace + ground-track vector toggles, consolidated here so iPhone
+                    // needs only one map-display button in the top bar. (3.5 — iPhone)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.Nav.overlays)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 20)
+                        VStack(spacing: 0) {
+                            overlayToggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
+                                appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            overlayToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                                appState.settings.showTrackVector.toggle(); appState.saveSettings()
+                            }
+                        }
+                        .background(Color.panelBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                    }
+
                     // Data-source attribution required by the providers' terms (swisstopo/BAZL,
                     // MeteoSwiss, Open-Meteo, OpenAIP). (SEC-16)
                     VStack(alignment: .leading, spacing: 4) {
@@ -4000,8 +4006,22 @@ struct LayerPickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(480)])
+        .presentationDetents([.height(620)])
         .preferredColorScheme(.dark)
+    }
+
+    private func overlayToggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon).font(.system(size: 18))
+                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
+                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
+                Spacer()
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isOn ? .aviationGold : .dimText)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+        }
     }
 
     private func layerRow(_ layer: MapLayerType) -> some View {

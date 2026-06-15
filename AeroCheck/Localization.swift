@@ -1159,6 +1159,8 @@ enum L10n {
         static let freqNext = String(localized: "nav.freqNext")
         static let startLeg = String(localized: "nav.startLeg")
         static let mark = String(localized: "nav.mark")
+        static let overlays = String(localized: "nav.overlays")
+        static let airspace = String(localized: "nav.airspace")
         static let resumeLeg = String(localized: "nav.resumeLeg")
         static let resumeLegTitle = String(localized: "nav.resumeLegTitle")
         static let resumeLegMessage = String(localized: "nav.resumeLegMessage")

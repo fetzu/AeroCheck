@@ -2065,7 +2065,8 @@ struct NavigationMapView: View {
     /// Collapsed chip — the active (phase-relevant) frequency; tap expands the sheet to the full
     /// phase-aware list. (3.5 C2)
     private var freqChip: some View {
-        let active = phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
+        let active = phaseFreqItems.first(where: { $0.role == .current })
+            ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
         return Button(action: { withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded = true } }) {
             HStack(spacing: 6) {
                 Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 13))
@@ -2100,51 +2101,114 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Recompute the cached frequency list: the nearest field's VFR contact (regardless of plan, and
-    /// highlighted as the active freq) + the route's departure / next / destination (auto-completed
-    /// from the DB when a waypoint is an airfield) + area Info/FIS + emergency, deduped. Cached
-    /// (recomputed on phase change + significant move). (3.5 — comprehensive route freqs)
     /// A planned-elapsed-time duration as "H:MM" (e.g. 34 min → "0:34", 1h05 → "1:05"). (3.5)
     private func eetDurationText(_ t: TimeInterval) -> String {
         let total = Int(t.rounded())
         return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
     }
 
+    private struct FreqEntry { let station: String; let freq: String }
+
+    /// The nearest airfield that actually has usable VFR frequencies — walks up to 6 nearest and skips
+    /// frequency-less fields (grass strips / heliports), mirroring the HUD's nearest-strip logic. The
+    /// old `limit: 1` made a single freq-less closest field silently drop the whole nearest entry, so
+    /// the area FIS ("Zurich Info") wrongly became the current frequency. (3.5 fix)
+    private func nearestAirfieldWithFreqs(to coord: CLLocationCoordinate2D) -> Airport? {
+        guard airportDataService.isDataAvailable else { return nil }
+        return airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
+            .first { !airfieldFreqs(for: $0.ident).isEmpty }
+    }
+
+    private func airportDistanceNm(from coord: CLLocationCoordinate2D, to apt: Airport) -> Double {
+        CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            .distance(from: CLLocation(latitude: apt.latitude, longitude: apt.longitude)) / 1852.0
+    }
+
+    /// Select the CURRENT and NEXT frequencies a VFR pilot needs, proximity-aware: within ~10 NM of a
+    /// field CURRENT is that field's contact, else the area FIS/Info; NEXT is the next route airfield,
+    /// else the nearest CTR ahead, else the FIS↔field hand-off. Prefers the CONTACT freq (ATIS is
+    /// listen-only and stays under "All Frequencies"). Degrades to plan order with no GPS. (3.5)
+    private func computeCurrentNextFreqs() -> (current: FreqEntry?, next: FreqEntry?) {
+        func contact(_ list: [(label: String, freq: String)]) -> FreqEntry? {
+            (list.first { !$0.label.uppercased().contains("ATIS") } ?? list.first)
+                .map { FreqEntry(station: $0.label, freq: $0.freq) }
+        }
+        // No usable position: fall back to plan order (departure = current, next waypoint = next).
+        guard let loc = locationManager.currentLocation, airportDataService.isDataAvailable else {
+            guard let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty else { return (nil, nil) }
+            let cur = contact(waypointFreqs(plan.waypoints[0]))
+            let nxt = plan.waypoints.dropFirst().lazy.compactMap { contact(self.waypointFreqs($0)) }.first
+            return (cur, nxt)
+        }
+        let coord = loc.coordinate
+        let nearField = nearestAirfieldWithFreqs(to: coord)
+        let nearDist = nearField.map { airportDistanceNm(from: coord, to: $0) }
+        let nearEntry = nearField.flatMap { apt in
+            contact(airfieldFreqs(for: apt.ident).map { (label: "\(apt.ident) \($0.type)", freq: $0.freq) })
+        }
+        let fisCommon = SwissAirspaceSectors.isInSwitzerland(coord)
+            ? areaFreqs(for: SwissAirspaceSectors.getSector(for: coord)).first : nil
+        let fisEntry = fisCommon.map { FreqEntry(station: $0.name, freq: $0.frequency) }
+
+        let nearActive = (nearDist ?? .infinity) <= 10.0  // ~10 NM ≈ inside a typical CTR/RMZ
+
+        // CURRENT: near a field → that field; else the area FIS you're working enroute.
+        let current = nearActive ? (nearEntry ?? fisEntry) : (fisEntry ?? nearEntry)
+
+        // NEXT: the next station you'll need — next route airfield, else nearest CTR ahead, else the
+        // FIS↔field hand-off (at a field you'll call Info next; enroute the next field).
+        var next: FreqEntry?
+        if let plan = flightPlanManager.activeFlightPlan {
+            let idx = plan.currentWaypointIndex
+            if let aheadIdx = plan.waypoints.indices.first(where: { $0 > idx && !waypointFreqs(plan.waypoints[$0]).isEmpty }) {
+                next = contact(waypointFreqs(plan.waypoints[aheadIdx]))
+            }
+        }
+        if next == nil,
+           let ctr = openAIPDataService.nearbyCTRs(from: coord, withinNM: 25, requireFrequencies: true).first,
+           let f = ctr.airspace.primaryFrequency {
+            next = FreqEntry(station: ctr.airspace.shortName, freq: f.value)
+        }
+        if next == nil { next = nearActive ? fisEntry : nearEntry }
+        if let c = current, let n = next, c.station == n.station, c.freq == n.freq { next = nil }
+        return (current, next)
+    }
+
+    /// Recompute the cached frequency list. CURRENT + NEXT (proximity/time-aware) show by default along
+    /// with EMERGENCY; everything else along the journey (nearest field's full set, route waypoints,
+    /// area FIS, nearby CTRs) is `.other`, revealed by "All Frequencies". Deduped; cached (recomputed
+    /// on phase change + significant move). (3.5 — current/next)
     private func recomputePhaseFrequencies() {
         guard appState.settings.enableFlightPlanning else { phaseFreqItems = []; return }
         var items: [PhaseFrequency] = []
         var seen = Set<String>()
-        func add(_ station: String, _ freq: String, highlighted: Bool = false, emergency: Bool = false) {
+        func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false) {
             let key = freq + "|" + station
             guard !seen.contains(key) else { return }
             seen.insert(key)
-            items.append(PhaseFrequency(station: station, freq: freq, highlighted: highlighted, isEmergency: emergency))
+            items.append(PhaseFrequency(station: station, freq: freq,
+                                        highlighted: role == .current, isEmergency: emergency,
+                                        role: emergency ? .emergency : role))
         }
 
-        // Nearest airfield — ATIS first (your first listen) then the contact frequency; regardless of
-        // the flight plan. The first entry is highlighted as the active one.
-        if let loc = locationManager.currentLocation, airportDataService.isDataAvailable,
-           let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: 40).first {
-            for (i, f) in airfieldFreqs(for: apt.ident).enumerated() {
-                add("\(apt.ident) \(f.type)", f.freq, highlighted: i == 0)
-            }
-        }
+        // CURRENT + NEXT — the two a VFR pilot needs at a glance.
+        let (current, next) = computeCurrentNextFreqs()
+        if let c = current { add(c.station, c.freq, role: .current) }
+        if let n = next { add(n.station, n.freq, role: .next) }
 
-        // Route: EVERY airport waypoint (departure → destination), manual frequency if entered, else
-        // the airfield's ATIS + contact auto-completed from the DB. (Earlier only first/current/last
-        // were surfaced, so a 4-waypoint plan silently dropped the middle two.) The current leg is
-        // highlighted; the cap + "show all" toggle keeps the list glanceable. (3.5 fix)
+        // Everything else, in journey order, for "All Frequencies" (deduped vs current/next).
+        if let loc = locationManager.currentLocation, let near = nearestAirfieldWithFreqs(to: loc.coordinate) {
+            for f in airfieldFreqs(for: near.ident) { add("\(near.ident) \(f.type)", f.freq) }
+        }
         if let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty {
-            let currentIdx = plan.currentWaypointIndex
-            for (i, wp) in plan.waypoints.enumerated() {
-                for (label, freq) in waypointFreqs(wp) { add(label, freq, highlighted: i == currentIdx) }
-            }
+            for wp in plan.waypoints { for (label, freq) in waypointFreqs(wp) { add(label, freq) } }
         }
-
-        // Area Info / FIS for the current Swiss sector.
         if let loc = locationManager.currentLocation, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
-            for sf in areaFreqs(for: SwissAirspaceSectors.getSector(for: loc.coordinate)) {
-                add(sf.name, sf.frequency)
+            for sf in areaFreqs(for: SwissAirspaceSectors.getSector(for: loc.coordinate)) { add(sf.name, sf.frequency) }
+        }
+        if let loc = locationManager.currentLocation {
+            for ctr in openAIPDataService.nearbyCTRs(from: loc.coordinate, withinNM: 25, requireFrequencies: true) {
+                if let f = ctr.airspace.primaryFrequency { add(ctr.airspace.shortName, f.value) }
             }
         }
 
@@ -2300,22 +2364,22 @@ struct NavigationMapView: View {
         }
     }
 
-    /// The frequency column — the essentials (nearest + route, capped) with emergency always shown and
-    /// a "show all / show less" toggle for the rest. (3.5 — feedback: cap to essentials)
+    /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand) plus
+    /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (3.5 — current/next)
     private var freqColumn: some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
         let emergency = phaseFreqItems.filter { $0.isEmergency }
-        let cap = 4
-        let canCollapse = nonEmergency.count > cap
-        let visible = (showAllFreqs || !canCollapse) ? nonEmergency : Array(nonEmergency.prefix(cap))
+        let essentials = nonEmergency.filter { $0.role == .current || $0.role == .next }
+        let hasMore = nonEmergency.count > essentials.count
+        let visible = showAllFreqs ? nonEmergency : essentials
         return VStack(alignment: .leading, spacing: 0) {
-            Text("\(L10n.Nav.radioFrequencies) · \(appState.currentPhase.title)")
+            Text(L10n.Nav.radioFrequencies)
                 .font(.system(size: 9, weight: .semibold)).tracking(0.4)
                 .foregroundColor(.altimeterBlue)
                 .lineLimit(1)
                 .padding(.bottom, 4)
             ForEach(visible) { freqRow($0) }
-            if canCollapse {
+            if hasMore {
                 Button(action: { withAnimation { showAllFreqs.toggle() } }) {
                     HStack(spacing: 3) {
                         Text(showAllFreqs ? L10n.Nav.showLess : "\(L10n.Nav.allFrequencies) (\(nonEmergency.count))")
@@ -2329,8 +2393,24 @@ struct NavigationMapView: View {
         }
     }
 
+    /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (3.5)
+    private func roleTag(_ role: FreqRole) -> (String, Color)? {
+        switch role {
+        case .current: return (L10n.Nav.freqCurrent, .aviationGold)
+        case .next: return (L10n.Nav.freqNext, .altimeterBlue)
+        default: return nil
+        }
+    }
+
     private func freqRow(_ item: PhaseFrequency) -> some View {
         HStack(spacing: 6) {
+            if let tag = roleTag(item.role) {
+                Text(tag.0)
+                    .font(.system(size: 8, weight: .bold)).tracking(0.3)
+                    .foregroundColor(tag.1)
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(tag.1.opacity(0.16), in: RoundedRectangle(cornerRadius: 3))
+            }
             Text(item.station)
                 .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
                 .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
@@ -2769,12 +2849,17 @@ struct CompassView: View {
 
 
 /// One phase-aware frequency row for the flight-plan sheet (station label + frequency). (3.5 C2)
+/// Role of a frequency in the current/next/emergency model: only CURRENT + NEXT (+ EMERGENCY) show by
+/// default; everything else is `.other`, revealed by "All Frequencies". (3.5)
+enum FreqRole { case current, next, other, emergency }
+
 struct PhaseFrequency: Identifiable {
     let id = UUID()
     let station: String
     let freq: String
     let highlighted: Bool
     let isEmergency: Bool
+    var role: FreqRole = .other
 }
 
 enum SwissCommonFrequency: CaseIterable {

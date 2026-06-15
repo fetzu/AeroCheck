@@ -1155,6 +1155,8 @@ enum L10n {
         static let cruise = String(localized: "nav.cruise")
         static let checkNow = String(localized: "nav.checkNow")
         static let holdToReset = String(localized: "nav.holdToReset")
+        static let freqCurrent = String(localized: "nav.freqCurrent")
+        static let freqNext = String(localized: "nav.freqNext")
 
         // Airspace Conflicts
         static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")

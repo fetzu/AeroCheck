@@ -235,14 +235,14 @@ struct HourMeterInputView: View {
                         .cornerRadius(10)
                 }
 
-                // Save
+                // Save (gold = primary action, matching the cockpit language)
                 Button(action: saveValue) {
                     Text(L10n.HourMeter.save)
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(inputValue.isEmpty ? .secondaryText : .black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(inputValue.isEmpty ? Color.gray : Color.aviationGreen)
+                        .background(inputValue.isEmpty ? Color.cardBackground : Color.aviationGold)
                         .cornerRadius(10)
                 }
                 .disabled(inputValue.isEmpty)

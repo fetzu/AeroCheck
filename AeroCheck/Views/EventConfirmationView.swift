@@ -15,31 +15,34 @@ struct EventConfirmationView: View {
             // Event icon and type
             VStack(spacing: 12) {
                 Image(systemName: iconName)
-                    .font(.system(size: 48))
+                    .font(.system(size: 30))
                     .foregroundColor(iconColor)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(iconColor.opacity(0.16)))
+                    .accessibilityHidden(true)
 
                 Text(event.type.rawValue)
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primaryText)
             }
 
             // Event details
             VStack(spacing: 8) {
                 Text(event.message)
                     .font(.body)
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.primaryText)
                     .multilineTextAlignment(.center)
 
                 if let airport = event.airport {
                     Text(airport.ident)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.secondaryText)
                 }
 
                 Text(formattedTime)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.dimText)
             }
 
             // Action buttons
@@ -50,11 +53,14 @@ struct EventConfirmationView: View {
                 }) {
                     Text(L10n.EventConfirmation.dismiss)
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.gray.opacity(0.4))
-                        .cornerRadius(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white.opacity(0.06))
+                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                        )
                 }
 
                 Button(action: {
@@ -63,24 +69,34 @@ struct EventConfirmationView: View {
                 }) {
                     Text(L10n.EventConfirmation.confirm)
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(confirmButtonColor)
-                        .cornerRadius(12)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(confirmButtonColor))
                 }
             }
             .padding(.horizontal)
 
-            // Auto-dismiss countdown (PR-06: unattended events are dismissed, not confirmed)
-            Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.4))
+            // Auto-dismiss countdown + progress (PR-06: unattended events are dismissed, not confirmed)
+            VStack(spacing: 6) {
+                Text(L10n.EventConfirmation.autoDismiss(secondsRemaining))
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(iconColor)
+                            .frame(width: geo.size.width * CGFloat(max(0, secondsRemaining)) / 20.0)
+                    }
+                }
+                .frame(height: 3)
+                .padding(.horizontal, 4)
+            }
         }
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.black.opacity(0.85))
+                .fill(Color.cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20)

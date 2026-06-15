@@ -421,6 +421,9 @@ struct NavigationMapView: View {
             }
             // Seed the cached spatial map content for the initial region. (PR-11)
             recomputeMapSpatialContent(force: true)
+            // Prime the track-vector EMA from the last known fix so the vector appears immediately on
+            // (re)open — even on a stationary device with no fresh location *change* to trigger it. (3.5 fix)
+            updateTrackVectorEMA()
         }
         .onDisappear {
             // Stop GPS updates when navigation view closes (if not in a flight)
@@ -442,10 +445,19 @@ struct NavigationMapView: View {
         .onChange(of: flightPlanManager.activeFlightPlan?.currentWaypointIndex) { _, _ in recomputePhaseFrequencies() }
         .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
+            // Re-prime the track-vector EMA each tick so a stationary device (no GPS *change*) keeps a
+            // valid vector after a Nav→Checklist→Nav round trip. (3.5 fix)
+            updateTrackVectorEMA()
         }
         .cruiseCheckReminder(appState: appState)
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
-        .onChange(of: airportDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: airportDataService.isDataAvailable) { _, available in
+            recomputeMapSpatialContent(force: true)
+            // Nearest-airfield + waypoint auto-complete frequencies are gated on the airport DB, which
+            // loads asynchronously AFTER the first recompute. Re-run the freq build the moment it lands
+            // so those entries actually appear. (3.5 fix — the recurring "only destination shows" bug.)
+            if available { recomputePhaseFrequencies() }
+        }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
@@ -2143,15 +2155,14 @@ struct NavigationMapView: View {
             }
         }
 
-        // Route: departure (first), the next target waypoint, and the destination (last) — manual
-        // frequency if entered, else the airfield's ATIS + contact auto-completed from the DB.
+        // Route: EVERY airport waypoint (departure → destination), manual frequency if entered, else
+        // the airfield's ATIS + contact auto-completed from the DB. (Earlier only first/current/last
+        // were surfaced, so a 4-waypoint plan silently dropped the middle two.) The current leg is
+        // highlighted; the cap + "show all" toggle keeps the list glanceable. (3.5 fix)
         if let plan = flightPlanManager.activeFlightPlan, !plan.waypoints.isEmpty {
-            var route: [FlightPlanWaypoint] = [plan.waypoints.first!]
-            let idx = plan.currentWaypointIndex
-            if plan.waypoints.indices.contains(idx) { route.append(plan.waypoints[idx]) }
-            route.append(plan.waypoints.last!)
-            for wp in route {
-                for (label, freq) in waypointFreqs(wp) { add(label, freq) }
+            let currentIdx = plan.currentWaypointIndex
+            for (i, wp) in plan.waypoints.enumerated() {
+                for (label, freq) in waypointFreqs(wp) { add(label, freq, highlighted: i == currentIdx) }
             }
         }
 
@@ -2303,7 +2314,9 @@ struct NavigationMapView: View {
             // No flight plan — the frequency list (nearest + area + emergency) doesn't need a plan, so
             // expanding still shows it. (3.5 fix — the chevron did nothing without a plan)
             freqColumn
-                .frame(maxWidth: .infinity, alignment: .leading)
+                // Keep the same compact width as the with-plan column. Full-width pushed station
+                // labels and frequencies to opposite screen edges on iPad — illegible. (3.5 fix)
+                .frame(maxWidth: 320, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 2)
                 .padding(.bottom, 10)
@@ -2410,6 +2423,11 @@ struct NavigationMapView: View {
         let leg = plan.legArriving(at: index)
         return Button(action: { previewWaypoint(index: index, plan: plan) }) {
             HStack(spacing: 8) {
+                // Sequence number — matches the numbered disc on the map. (3.5)
+                Text("\(index + 1)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(isCurrent ? .aviationGold : .secondaryText)
+                    .frame(width: 16, alignment: .center)
                 Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
                     .font(.system(size: 9))
                     .foregroundColor(isPast ? .aviationGreen : (isCurrent ? .aviationGold : .dimText))
@@ -3513,31 +3531,41 @@ struct SwissScaleBar: View {
 /// only from main-thread MapKit delegate callbacks. Shared by both map representables. (PR-10)
 private var waypointMarkerImageCache: [String: UIImage] = [:]
 
-private func cachedWaypointMarker(state: String, iconName: String, color: UIColor, size: CGFloat = 24) -> UIImage? {
-    if let cached = waypointMarkerImageCache[state] { return cached }
+/// A numbered waypoint marker — a state-coloured disc with the waypoint's 1-based sequence number,
+/// matching the numbered rows in the flight-plan drawer. White number on a black-outlined disc reads
+/// on any map layer. Cached per state+number. (`iconName` kept for call-site compatibility — the
+/// number is drawn instead of an SF Symbol.) (3.5)
+private func cachedWaypointMarker(number: Int, state: String, iconName: String, color: UIColor, size: CGFloat = 26) -> UIImage? {
+    let key = "\(state)-\(number)"
+    if let cached = waypointMarkerImageCache[key] { return cached }
 
-    let config = UIImage.SymbolConfiguration(pointSize: size, weight: .bold)
-    guard let image = UIImage(systemName: iconName, withConfiguration: config) else { return nil }
-
+    let diameter = size
     let strokeWidth: CGFloat = 2.0
-    let imageSize = CGSize(width: image.size.width + strokeWidth * 2,
-                           height: image.size.height + strokeWidth * 2)
+    let imageSize = CGSize(width: diameter + strokeWidth * 2, height: diameter + strokeWidth * 2)
     UIGraphicsBeginImageContextWithOptions(imageSize, false, 0)
     defer { UIGraphicsEndImageContext() }
+    guard let ctx = UIGraphicsGetCurrentContext() else { return nil }
 
-    let offsets: [CGPoint] = [
-        CGPoint(x: -strokeWidth, y: 0), CGPoint(x: strokeWidth, y: 0),
-        CGPoint(x: 0, y: -strokeWidth), CGPoint(x: 0, y: strokeWidth),
+    let circleRect = CGRect(x: strokeWidth, y: strokeWidth, width: diameter, height: diameter)
+    ctx.setFillColor(color.cgColor)
+    ctx.fillEllipse(in: circleRect)
+    ctx.setStrokeColor(UIColor.black.withAlphaComponent(0.85).cgColor)
+    ctx.setLineWidth(strokeWidth)
+    ctx.strokeEllipse(in: circleRect)
+
+    let text = "\(number)" as NSString
+    let para = NSMutableParagraphStyle()
+    para.alignment = .center
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: UIFont.systemFont(ofSize: diameter * 0.56, weight: .heavy),
+        .foregroundColor: UIColor.white,
+        .paragraphStyle: para,
     ]
-    let strokeImage = image.withTintColor(.black, renderingMode: .alwaysOriginal)
-    for offset in offsets {
-        strokeImage.draw(at: CGPoint(x: strokeWidth + offset.x, y: strokeWidth + offset.y))
-    }
-    let tintedImage = image.withTintColor(color, renderingMode: .alwaysOriginal)
-    tintedImage.draw(at: CGPoint(x: strokeWidth, y: strokeWidth))
+    let textSize = text.size(withAttributes: attrs)
+    text.draw(at: CGPoint(x: circleRect.midX - textSize.width / 2, y: circleRect.midY - textSize.height / 2), withAttributes: attrs)
 
     let finalImage = UIGraphicsGetImageFromCurrentImageContext()
-    if let finalImage { waypointMarkerImageCache[state] = finalImage }
+    if let finalImage { waypointMarkerImageCache[key] = finalImage }
     return finalImage
 }
 
@@ -3798,18 +3826,17 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
-        // Only update if track has changed
-        let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
-
-        // Check if we need to update (different point count)
+        // Scope strictly to the GPS-track polyline. This used to cast to `MKPolyline`, which ALSO
+        // matched the flight-plan route and the track-vector subclasses — so a point-count mismatch
+        // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
+        // `GPSTrackPolyline` isolates the breadcrumb trail. (3.5 fix)
+        let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
         let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
-
         if needsUpdate {
             mapView.removeOverlays(existingPolylines)
-
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
-                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                let polyline = GPSTrackPolyline(coordinates: coordinates, count: coordinates.count)
                 // Use .aboveLabels for GPS track to ensure visibility over tile overlays
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
@@ -4058,7 +4085,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 iconName = "circle.fill"
             }
 
-            annotationView.image = cachedWaypointMarker(state: stateKey, iconName: iconName, color: markerColor)
+            annotationView.image = cachedWaypointMarker(number: annotation.waypointIndex + 1, state: stateKey, iconName: iconName, color: markerColor)
 
             // Add shadow
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -4620,7 +4647,8 @@ struct SwissMapView: UIViewRepresentable {
         // When layer changes, force-refresh track overlay so the renderer uses the correct color
         if overlayChanged {
             let existingTrackPolylines = mapView.overlays.compactMap { overlay -> MKPolyline? in
-                if overlay is FlightPlanRoutePolyline || overlay is MKTileOverlay { return nil }
+                // Exclude the track vector too — a Swiss layer switch must not strip it. (3.5 fix)
+                if overlay is FlightPlanRoutePolyline || overlay is MKTileOverlay || overlay is TrackVectorPolyline { return nil }
                 return overlay as? MKPolyline
             }
             mapView.removeOverlays(existingTrackPolylines)
@@ -4796,18 +4824,17 @@ struct SwissMapView: UIViewRepresentable {
     }
 
     private func updateTrackOverlay(_ mapView: MKMapView, context: Context) {
-        // Only update if track has changed
-        let existingPolylines = mapView.overlays.compactMap { $0 as? MKPolyline }
-
-        // Check if we need to update (different point count)
+        // Scope strictly to the GPS-track polyline. This used to cast to `MKPolyline`, which ALSO
+        // matched the flight-plan route and the track-vector subclasses — so a point-count mismatch
+        // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
+        // `GPSTrackPolyline` isolates the breadcrumb trail. (3.5 fix)
+        let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
         let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
-
         if needsUpdate {
             mapView.removeOverlays(existingPolylines)
-
             if gpsTrack.count > 1 {
                 let coordinates = gpsTrack.map { $0.coordinate }
-                let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                let polyline = GPSTrackPolyline(coordinates: coordinates, count: coordinates.count)
                 // Use .aboveLabels for GPS track to ensure visibility over tile overlays
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
@@ -5089,7 +5116,7 @@ struct SwissMapView: UIViewRepresentable {
                 iconName = "circle.fill"
             }
 
-            annotationView.image = cachedWaypointMarker(state: stateKey, iconName: iconName, color: markerColor)
+            annotationView.image = cachedWaypointMarker(number: annotation.waypointIndex + 1, state: stateKey, iconName: iconName, color: markerColor)
 
             // Add shadow
             annotationView.layer.shadowColor = UIColor.black.cgColor
@@ -5248,6 +5275,10 @@ class FlightPlanWaypointAnnotation: NSObject, MKAnnotation {
 class FlightPlanRoutePolyline: MKPolyline {
     var isCompletedSegment: Bool = false
 }
+
+/// The recorded GPS breadcrumb trail. A distinct subclass so overlay bookkeeping targets ONLY the
+/// trail and never the route or track vector (all three are MKPolylines). (3.5 fix)
+class GPSTrackPolyline: MKPolyline {}
 
 /// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (3.5 C4)
 class TrackVectorPolyline: MKPolyline {}

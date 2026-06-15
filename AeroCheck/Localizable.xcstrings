@@ -8044,13 +8044,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Run your FREDA check — tap to acknowledge"
+            "value" : "Run your cruise check — tap to acknowledge"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Effectuez votre contrôle FREDA — touchez pour confirmer"
+            "value" : "Effectuez votre contrôle de croisière — touchez pour confirmer"
           }
         }
       }
@@ -8673,13 +8673,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "FREDA check"
+            "value" : "Cruise Check"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contrôle FREDA"
+            "value" : "Contrôle croisière"
           }
         }
       }

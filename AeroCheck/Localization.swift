@@ -44,6 +44,7 @@ enum L10n {
     enum Home {
         static let flightInfo = String(localized: "home.flightInfo")
         static let lastFlight = String(localized: "home.lastFlight")
+        static let flightPlan = String(localized: "home.flightPlan")
         static func version(_ v: String) -> String {
             String(format: String(localized: "home.version"), v)
         }

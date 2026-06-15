@@ -103,6 +103,7 @@ struct HomeView: View {
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
     @State private var showNavigation = false
+    @State private var showFlightPlanning = false
     @State private var selectedAircraftIndex: Int = 0
     @State private var cachedItemCountText: String = "—"
 
@@ -182,6 +183,14 @@ struct HomeView: View {
         .sheet(isPresented: $showSpeedReference) {
             SpeedReferenceSheet()
                 .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $showFlightPlanning) {
+            FlightPlanningView()
+                .environmentObject(appState)
+                .environmentObject(flightPlanManager)
+                .environmentObject(airportDataService)
+                .environmentObject(aircraftDataService)
+                .environmentObject(openAIPDataService)
         }
         .fullScreenCover(isPresented: $showNavigation) {
             NavigationMapView(isPresented: $showNavigation)
@@ -376,11 +385,27 @@ struct HomeView: View {
                 .frame(maxWidth: heroWidth)
             startCircuitsButtons(isLandscape: landscape, isCompact: isCompact)
                 .frame(maxWidth: heroWidth)
-            lastFlightStrip
+            activityStrips(sideBySide: landscape && !isCompact)
                 .frame(maxWidth: heroWidth)
         }
         .padding(landscape ? 24 : (isCompact ? 16 : 32))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Flight-plan + last-flight strips: side by side on a wide canvas, stacked otherwise. (3.5)
+    @ViewBuilder
+    private func activityStrips(sideBySide: Bool) -> some View {
+        if sideBySide {
+            HStack(spacing: 12) {
+                flightPlanStrip
+                lastFlightStrip
+            }
+        } else {
+            VStack(spacing: 12) {
+                flightPlanStrip
+                lastFlightStrip
+            }
+        }
     }
 
     /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (3.5)
@@ -520,6 +545,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.cardBackground)
@@ -529,6 +555,65 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(L10n.Home.lastFlight), \(lastFlightRoute(last)), \(last.formattedDuration)")
         }
+    }
+
+    /// Smart flight-plan strip: the active plan (route + waypoints) if one is set, else "N saved",
+    /// else nothing. Taps into the flight-plan list. (3.5 — device feedback)
+    @ViewBuilder
+    private var flightPlanStrip: some View {
+        if let active = flightPlanManager.activeFlightPlan {
+            flightPlanStripCard(title: planRoute(active), detail: "\(active.waypoints.count) WP", accent: .altimeterBlue)
+        } else if !flightPlanManager.flightPlans.isEmpty {
+            flightPlanStripCard(title: L10n.Nav.flightPlans, detail: "\(flightPlanManager.flightPlans.count)", accent: .secondaryText)
+        }
+    }
+
+    private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
+        Button { showFlightPlanning = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                    .font(.system(size: 17))
+                    .foregroundColor(accent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.Home.flightPlan)
+                        .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                        .foregroundColor(.dimText)
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                        if let detail {
+                            Text("· \(detail)").font(.system(size: 12)).foregroundColor(.dimText).lineLimit(1)
+                        }
+                    }
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(accent.opacity(0.22), lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(L10n.Home.flightPlan), \(title)")
+    }
+
+    /// Departure → destination from a plan's first/last waypoint, else the plan name.
+    private func planRoute(_ plan: FlightPlan) -> String {
+        let names = plan.waypoints.map(\.name).filter { !$0.isEmpty }
+        if names.count >= 2, let first = names.first, let last = names.last {
+            return "\(first) → \(last)"
+        }
+        return plan.name.isEmpty ? (names.first ?? L10n.Nav.flightPlan) : plan.name
     }
 
     private func lastFlightRoute(_ flight: Flight) -> String {
@@ -604,17 +689,28 @@ struct HomeView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: isLandscape ? 100 : (isCompact ? 120 : 180))
+            // Discoverability: tappable edge chevrons hint the carousel without shouting. (3.5)
+            .overlay(alignment: .leading) { carouselChevron(.left, count: aircraft.count) }
+            .overlay(alignment: .trailing) { carouselChevron(.right, count: aircraft.count) }
 
-            // Page indicator dots (only show if more than 1 aircraft)
+            // Aircraft indicator chip: dots + "N / M aircraft" (only when more than one). (3.5)
             if aircraft.count > 1 {
-                HStack(spacing: 6) {
-                    ForEach(0..<aircraft.count, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedAircraftIndex ? Color.aviationGold : Color.dimText.opacity(0.5))
-                            .frame(width: 6, height: 6)
-                            .animation(.easeInOut(duration: 0.2), value: selectedAircraftIndex)
+                HStack(spacing: 7) {
+                    HStack(spacing: 5) {
+                        ForEach(0..<aircraft.count, id: \.self) { index in
+                            Circle()
+                                .fill(index == selectedAircraftIndex ? Color.aviationGold : Color.dimText.opacity(0.5))
+                                .frame(width: 6, height: 6)
+                                .animation(.easeInOut(duration: 0.2), value: selectedAircraftIndex)
+                        }
                     }
+                    Text("\(selectedAircraftIndex + 1) / \(aircraft.count) " + L10n.Nav.aircraft.uppercased())
+                        .font(.system(size: 9, weight: .semibold)).tracking(0.4)
+                        .foregroundColor(.dimText)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Color.cockpitBackground))
                 .padding(.top, isCompact ? 2 : 4)
                 .accessibilityElement()
                 .accessibilityLabel("Aircraft \(selectedAircraftIndex + 1) of \(aircraft.count)")
@@ -636,6 +732,33 @@ struct HomeView: View {
                 .fill(Color.cardBackground)
                 .shadow(color: .black.opacity(0.4), radius: isCompact ? 8 : (isLandscape ? 12 : 20), x: 0, y: isCompact ? 4 : (isLandscape ? 6 : 10))
         )
+    }
+
+    private enum CarouselDirection { case left, right }
+
+    /// A tappable carousel chevron (prev/next aircraft), dimmed/disabled at the ends. Only shown when
+    /// there's more than one aircraft, so it hints the swipe without adding weight otherwise. (3.5)
+    @ViewBuilder
+    private func carouselChevron(_ direction: CarouselDirection, count: Int) -> some View {
+        if count > 1 {
+            let isLeft = direction == .left
+            let atEnd = isLeft ? selectedAircraftIndex == 0 : selectedAircraftIndex == count - 1
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedAircraftIndex = isLeft ? max(0, selectedAircraftIndex - 1) : min(count - 1, selectedAircraftIndex + 1)
+                }
+            } label: {
+                Image(systemName: isLeft ? "chevron.left" : "chevron.right")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.dimText)
+                    .padding(10)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(atEnd)
+            .opacity(atEnd ? 0.25 : 0.8)
+            .accessibilityLabel(isLeft ? "Previous aircraft" : "Next aircraft")
+        }
     }
 
     /// Content for a single aircraft card in the carousel

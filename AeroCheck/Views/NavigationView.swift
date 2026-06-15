@@ -2184,10 +2184,13 @@ struct NavigationMapView: View {
     /// The trend-vector overlays (main line + 1/2/5-min perpendicular ticks) along the smoothed track.
     /// Empty when disabled, stationary (<5 kt), or no fix. (3.5 C4)
     private var trackVectorOverlays: [TrackVectorPolyline] {
-        guard appState.settings.showTrackVector, hasTrackVectorEMA, smoothedGroundSpeed >= 5,
+        guard appState.settings.showTrackVector, hasTrackVectorEMA,
               let origin = locationManager.currentLocation?.coordinate else { return [] }
+        // TEMP DEBUG (bench testing): simulate 100 kt when actually stationary (<5 kt) so the vector
+        // is visible without flying. Remove this fallback before merge — production hides below 5 kt.
+        let gsKnots = smoothedGroundSpeed >= 5 ? smoothedGroundSpeed : 100.0
         let track = atan2(smoothedTrackSin, smoothedTrackCos) * 180 / .pi
-        let gsMS = smoothedGroundSpeed * 0.514444 // knots → m/s
+        let gsMS = gsKnots * 0.514444 // knots → m/s
         var overlays: [TrackVectorPolyline] = []
         let end = projectedCoordinate(from: origin, bearingDeg: track, distanceMeters: gsMS * 300) // 5 min
         var line = [origin, end]
@@ -2232,8 +2235,12 @@ struct NavigationMapView: View {
                 .padding(.top, 2)
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 0.5)
+                // The column divider is drawn as a trailing overlay (bounded by this column's content
+                // height) — a standalone `Rectangle().frame(width:)` has NO height and is greedy in Y,
+                // which ballooned the whole sheet. (3.5 fix — 3rd attempt)
+                .overlay(alignment: .trailing) {
+                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 0.5)
+                }
 
                 freqColumn
                     .frame(width: 244)
@@ -2241,6 +2248,7 @@ struct NavigationMapView: View {
                     .padding(.top, 2)
                     .padding(.bottom, 10)
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 

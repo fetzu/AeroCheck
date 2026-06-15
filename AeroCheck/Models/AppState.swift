@@ -393,7 +393,9 @@ class AppState: ObservableObject {
     /// Re-evaluate whether a cruise check is due. Call periodically (≈20–30 s) and on phase change
     /// while a flight is active. (3.5)
     func evaluateCruiseCheck(now: Date = Date()) {
-        guard isFlightActive, currentPhase == .cruise else {
+        // Fires whenever the checklist is in the Cruise phase (not gated on isFlightActive, so it works
+        // while navigating). Leaving cruise clears it and restarts the interval for next time. (3.5)
+        guard currentPhase == .cruise else {
             if cruiseCheckDue { cruiseCheckDue = false }
             lastCruiseCheckTime = nil
             return
@@ -401,6 +403,10 @@ class AppState: ObservableObject {
         if lastCruiseCheckTime == nil { lastCruiseCheckTime = now }
         if let last = lastCruiseCheckTime, now.timeIntervalSince(last) >= Self.cruiseCheckInterval, !cruiseCheckDue {
             cruiseCheckDue = true
+            // Re-arm the Cruise checklist so the pilot re-runs FREDA: reset its highlight to the first
+            // item and clear its completion status (items show undone again). (3.5)
+            currentHighlightedItem[.cruise] = 0
+            phaseCompletionStatus[.cruise] = nil
         }
     }
 

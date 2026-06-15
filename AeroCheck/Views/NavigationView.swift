@@ -188,6 +188,9 @@ struct NavigationMapView: View {
     @State private var navSheetExpanded: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
     @State private var previewWaypointIndex: Int? = nil
+    /// Phase-aware frequencies for the sheet's right column + the collapsed chip. Cached (recomputed
+    /// on phase / significant-move) rather than per-render, since it does a nearest-airport query. (3.5 C2)
+    @State private var phaseFreqItems: [PhaseFrequency] = []
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
@@ -411,6 +414,7 @@ struct NavigationMapView: View {
             recomputeMapSpatialContent()
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.currentPhase) { _, _ in recomputePhaseFrequencies() }
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: airportDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -1548,6 +1552,9 @@ struct NavigationMapView: View {
         }
         lastSpatialRegion = region
 
+        // Phase-aware frequencies depend on the nearest airport, so refresh them on a real move. (3.5 C2)
+        recomputePhaseFrequencies()
+
         // Airports — queried once and reused below for the frequency lines.
         let airports: [Airport]
         if appState.settings.showAirportsOnMap, !appState.settings.showOpenAIPOverlay,
@@ -2002,18 +2009,20 @@ struct NavigationMapView: View {
         }
     }
 
+    /// Collapsed chip — the active (phase-relevant) frequency; tap expands the sheet to the full
+    /// phase-aware list. (3.5 C2)
     private var freqChip: some View {
-        Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
+        let active = phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
+        return Button(action: { withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded = true } }) {
             HStack(spacing: 6) {
                 Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 13))
-                if let next = flightPlanManager.activeFlightPlan?.nextWaypoint,
-                   let freq = next.frequency, !freq.isEmpty {
-                    Text(next.name).font(.system(size: 10, weight: .semibold)).tracking(0.4)
-                    Text(freq).font(.system(size: 14, weight: .semibold, design: .monospaced))
+                if let active {
+                    Text(active.station).font(.system(size: 10, weight: .semibold)).tracking(0.3).lineLimit(1)
+                    Text(active.freq).font(.system(size: 14, weight: .semibold, design: .monospaced))
                 } else {
                     Text("FREQ").font(.system(size: 12, weight: .bold))
                 }
-                Image(systemName: showRadioFrequencyWindow ? "chevron.down" : "chevron.up")
+                Image(systemName: "chevron.up")
                     .font(.system(size: 12, weight: .semibold)).foregroundColor(.dimText)
             }
             .foregroundColor(.aviationGold).lineLimit(1)
@@ -2027,20 +2036,142 @@ struct NavigationMapView: View {
         return String(format: "%03d°", Int(brg))
     }
 
-    /// Expanded sheet — chronometer, tappable waypoint list, live data, progress. (3.5 inc C)
+    // MARK: - Phase-aware frequencies (3.5 C2)
+
+    private enum FreqPhaseGroup { case ground, enroute, arrival }
+
+    /// Group the 16 phases into the freq-relevant contexts: departure field (ground/climb),
+    /// enroute (area FIS/Info), or destination field (descent → shutdown).
+    private func freqPhaseGroup(_ phase: ChecklistPhase) -> FreqPhaseGroup {
+        switch phase {
+        case .preflight, .beforeEngineStart, .engineStart, .afterEngineStart,
+             .taxi, .runup, .beforeDeparture, .lineUp, .climb:
+            return .ground
+        case .cruise:
+            return .enroute
+        case .descent, .approach, .landing, .afterLanding, .shutdown, .hangar:
+            return .arrival
+        }
+    }
+
+    /// Priority order of airport frequency types to surface for the current phase.
+    private func relevantFreqTypes(for phase: ChecklistPhase) -> [String] {
+        switch phase {
+        case .preflight, .beforeEngineStart: return ["ATIS", "GND", "TWR"]
+        case .engineStart, .afterEngineStart: return ["GND", "ATIS", "TWR"]
+        case .taxi: return ["GND", "TWR"]
+        case .runup, .beforeDeparture, .lineUp, .climb: return ["TWR", "GND"]
+        case .cruise: return ["ATIS"]
+        case .descent, .approach: return ["ATIS", "APP", "TWR"]
+        case .landing: return ["TWR", "APP"]
+        case .afterLanding, .shutdown, .hangar: return ["GND", "ATIS"]
+        }
+    }
+
+    private func areaFreqs(for sector: SwissAirspaceSector) -> [SwissCommonFrequency] {
+        switch sector {
+        case .zurich: return [.zurichInfo, .fisEast]
+        case .geneva: return [.genevaInfo, .fisWest]
+        case .east: return [.fisEast]
+        case .west: return [.fisWest]
+        }
+    }
+
+    /// Recompute the cached phase-aware frequency list. Called on phase change + significant map move
+    /// (not per-render — it does a nearest-airport spatial query).
+    private func recomputePhaseFrequencies() {
+        guard appState.settings.enableFlightPlanning else { phaseFreqItems = []; return }
+        var items: [PhaseFrequency] = []
+        let phase = appState.currentPhase
+        let group = freqPhaseGroup(phase)
+        let types = relevantFreqTypes(for: phase)
+
+        if let loc = locationManager.currentLocation {
+            // Enroute: area FIS / Info for the current sector first.
+            if group == .enroute, SwissAirspaceSectors.isInSwitzerland(loc.coordinate) {
+                let sector = SwissAirspaceSectors.getSector(for: loc.coordinate)
+                for sf in areaFreqs(for: sector) {
+                    items.append(PhaseFrequency(station: sf.name, freq: sf.frequency, highlighted: items.isEmpty, isEmergency: false))
+                }
+            }
+            // Nearest airport's relevant frequencies (departure field on the ground, destination on arrival).
+            if airportDataService.isDataAvailable {
+                let maxNm: Double = group == .enroute ? 15 : 30
+                if let apt = airportDataService.findNearestAirports(to: loc.coordinate, limit: 1, maxDistanceNm: maxNm).first {
+                    let freqs = airportDataService.getFrequencies(for: apt.ident)
+                    for type in types {
+                        if let f = freqs.first(where: { $0.type.uppercased().contains(type) }) {
+                            items.append(PhaseFrequency(station: "\(apt.ident) \(f.type)", freq: f.formattedFrequency, highlighted: items.isEmpty, isEmergency: false))
+                        }
+                    }
+                }
+            }
+        }
+        // Emergency, always pinned at the end.
+        items.append(PhaseFrequency(station: SwissCommonFrequency.emergency.name, freq: SwissCommonFrequency.emergency.frequency, highlighted: false, isEmergency: true))
+        phaseFreqItems = items
+    }
+
+    /// Expanded sheet — LEFT column = flight-plan/nav (chrono, waypoint list, live data, progress);
+    /// RIGHT column = phase-aware frequencies. (3.5 inc C / C2 — paradigm: left = nav, right = freq)
     @ViewBuilder
     private var navSheetContent: some View {
         if let plan = flightPlanManager.activeFlightPlan {
-            VStack(alignment: .leading, spacing: 10) {
-                chronometerHeader(plan: plan)
-                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
-                waypointList(plan: plan)
-                liveDataRow
-                progressRow(plan: plan)
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 10) {
+                    chronometerHeader(plan: plan)
+                    Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
+                    waypointList(plan: plan)
+                    liveDataRow
+                    progressRow(plan: plan)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 2)
+                .padding(.bottom, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Rectangle().fill(Color.white.opacity(0.08)).frame(width: 0.5)
+
+                freqColumn
+                    .frame(width: 244)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 2)
+                    .padding(.bottom, 10)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 2)
-            .padding(.bottom, 10)
+        }
+    }
+
+    /// The sheet's phase-aware frequency column — relevant stations for the current phase, emergency
+    /// pinned, with "all frequencies" opening the full docked panel. (3.5 C2)
+    private var freqColumn: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("\(L10n.Nav.radioFrequencies) · \(appState.currentPhase.title)")
+                .font(.system(size: 9, weight: .semibold)).tracking(0.4)
+                .foregroundColor(.altimeterBlue)
+                .lineLimit(1)
+                .padding(.bottom, 3)
+            ForEach(phaseFreqItems) { item in
+                HStack(spacing: 6) {
+                    Text(item.station)
+                        .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
+                        .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
+                        .lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text(item.freq)
+                        .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
+                        .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
+                }
+                .padding(.vertical, 3)
+            }
+            Button(action: { withAnimation { showRadioFrequencyWindow = true } }) {
+                HStack(spacing: 3) {
+                    Text(L10n.Nav.allFrequencies)
+                    Image(systemName: "chevron.right").font(.system(size: 9))
+                }
+                .font(.system(size: 10)).foregroundColor(.dimText)
+            }
+            .padding(.top, 4)
+            Spacer(minLength: 0)
         }
     }
 
@@ -2875,6 +3006,15 @@ struct RadioFrequencyOverlayView: View {
 }
 
 /// Common Swiss aviation frequencies
+/// One phase-aware frequency row for the flight-plan sheet (station label + frequency). (3.5 C2)
+struct PhaseFrequency: Identifiable {
+    let id = UUID()
+    let station: String
+    let freq: String
+    let highlighted: Bool
+    let isEmergency: Bool
+}
+
 enum SwissCommonFrequency: CaseIterable {
     case genevaInfo
     case fisWest

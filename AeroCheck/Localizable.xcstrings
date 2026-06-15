@@ -9991,6 +9991,23 @@
         }
       }
     },
+    "nav.allFrequencies" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All frequencies"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toutes les fréquences"
+          }
+        }
+      }
+    },
     "nav.stayOffline" : {
       "extractionState" : "manual",
       "localizations" : {

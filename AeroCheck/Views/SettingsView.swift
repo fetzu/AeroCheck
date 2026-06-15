@@ -63,10 +63,10 @@ struct SettingsView: View {
             case .about: return .secondaryText
             }
         }
-        /// Optional row badge (the Beta tag on flight planning).
+        /// Optional row badge (Beta on flight planning + companion mode).
         var badge: String? {
             switch self {
-            case .flightPlanning: return L10n.Tag.beta
+            case .flightPlanning, .companion: return L10n.Tag.beta
             default: return nil
             }
         }

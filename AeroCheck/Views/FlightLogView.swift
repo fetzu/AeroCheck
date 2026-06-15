@@ -1291,7 +1291,8 @@ struct FlightRowView: View {
             Spacer(minLength: 6)
 
             // Featured total time ON TOP of the altitude sparkline; one line, never wraps. (round 8)
-            VStack(alignment: .trailing, spacing: 3) {
+            // More vertical separation between the two — they were cramped while the row had slack. (3.5)
+            VStack(alignment: .trailing, spacing: 7) {
                 HStack(spacing: 4) {
                     if flight.isFavorite {
                         Image(systemName: "star.fill")

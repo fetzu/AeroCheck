@@ -1339,17 +1339,16 @@ struct FlightView: View {
     /// Both the airplane icon and the call sign are tappable
     private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 4 : 8) {
-            // Progress ring behind the icon
+            // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
+            // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (3.5 fix)
             ZStack {
                 if abandonFlightProgress > 0 {
                     Circle()
                         .stroke(Color.aviationRed.opacity(0.3), lineWidth: isCompact ? 2 : 3)
-                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
                     Circle()
                         .trim(from: 0, to: abandonFlightProgress)
                         .stroke(Color.aviationRed, style: StrokeStyle(lineWidth: isCompact ? 2 : 3, lineCap: .round))
-                        .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
                         .rotationEffect(.degrees(-90))
                 }
 
@@ -1357,6 +1356,7 @@ struct FlightView: View {
                     .font(.system(size: iconSize))
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .aviationGold)
             }
+            .frame(width: iconSize + (isCompact ? 8 : 12), height: iconSize + (isCompact ? 8 : 12))
 
             HStack(spacing: 4) {
                 Text(appState.activeChecklist.registration)

@@ -6692,6 +6692,23 @@
         }
       }
     },
+    "home.lastFlight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LAST FLIGHT"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DERNIER VOL"
+          }
+        }
+      }
+    },
     "home.flightInfo" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -155,18 +155,23 @@ struct HomeView: View {
                         .padding(.horizontal, isCompact ? 16 : 24)
                         .padding(.top, isLandscape ? 8 : (isCompact ? 12 : 20))
 
-                    Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
+                    if isLandscape && geometry.size.width >= 900 {
+                        // iPad landscape: two-column "flight console" that uses the width. (3.5 redesign)
+                        consoleContent(width: geometry.size.width)
+                    } else {
+                        Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
 
-                    // Main content
-                    mainContent(isLandscape: isLandscape, isCompact: isCompact)
-                        .frame(maxWidth: 700)
+                        // Main content
+                        mainContent(isLandscape: isLandscape, isCompact: isCompact)
+                            .frame(maxWidth: 700)
 
-                    Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
+                        Spacer(minLength: isLandscape ? 8 : (isCompact ? 12 : 24))
 
-                    // Quick access buttons
-                    bottomBar(isLandscape: isLandscape, isCompact: isCompact)
-                        .padding(.horizontal, isCompact ? 12 : 24)
-                        .padding(.bottom, isLandscape ? 12 : (isCompact ? 16 : 32))
+                        // Quick access buttons
+                        bottomBar(isLandscape: isLandscape, isCompact: isCompact)
+                            .padding(.horizontal, isCompact ? 12 : 24)
+                            .padding(.bottom, isLandscape ? 12 : (isCompact ? 16 : 32))
+                    }
                 }
             }
         }
@@ -349,42 +354,8 @@ struct HomeView: View {
             aircraftCard(isLandscape: isLandscape, isCompact: isCompact)
 
             // Start flight button(s) - keep consistent size
-            HStack(spacing: isCompact ? 8 : 12) {
-                Button(action: startFlight) {
-                    HStack(spacing: isCompact ? 10 : 14) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: isCompact ? 18 : 22))
-                        Text(L10n.Button.startFlight)
-                            .font(.system(size: isCompact ? 18 : 22, weight: .bold))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
-                }
-                .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
-
-                // START CIRCUITS button - only shown when circuit mode is enabled
-                // Ratio: 60%/40% on iPhone, 70%/30% on iPad
-                if appState.settings.enableCircuitMode {
-                    Button(action: startCircuits) {
-                        VStack(spacing: isCompact ? 2 : 4) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: isCompact ? 18 : 20))
-                            Text(L10n.Button.circuits)
-                                .font(.system(size: isCompact ? 13 : 14, weight: .bold))
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.6)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
-                    }
-                    .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
-                    .frame(minWidth: isLandscape ? 100 : (isCompact ? 120 : 140), maxWidth: isLandscape ? 120 : (isCompact ? 150 : 160))
-                }
-            }
-            .padding(.horizontal, isCompact ? 20 : 40)
+            startCircuitsButtons(isLandscape: isLandscape, isCompact: isCompact)
+                .padding(.horizontal, isCompact ? 20 : 40)
 
             // Info text and GPS status - hide only on compact devices (iPhone)
             if !isCompact {
@@ -401,6 +372,125 @@ struct HomeView: View {
             }
         }
         .padding(isLandscape ? 12 : (isCompact ? 16 : 32))
+    }
+
+    /// iPad-landscape "flight console": aircraft selector on the left, flight actions on the right —
+    /// uses the width and removes the empty voids of the centered layout. (3.5 redesign)
+    private func consoleContent(width: CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 22) {
+            // Left — aircraft selector card (the fuller, portrait-style card).
+            aircraftCard(isLandscape: false, isCompact: false)
+                .frame(width: min(width * 0.38, 460))
+
+            // Right — flight deck.
+            VStack(spacing: 14) {
+                startCircuitsButtons(isLandscape: true, isCompact: false)
+                gpsStatusIndicator(isCompact: false)
+
+                Spacer(minLength: 8)
+
+                lastFlightStrip
+                bottomBar(isLandscape: true, isCompact: false)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
+        .frame(maxHeight: .infinity)
+    }
+
+    /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (3.5)
+    @ViewBuilder
+    private var lastFlightStrip: some View {
+        if let last = appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
+            Button { showFlightLog = true } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.Home.lastFlight)
+                            .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                            .foregroundColor(.dimText)
+                        Text(lastFlightRoute(last))
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 6)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(last.formattedDuration)
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGreen)
+                        if let when = lastFlightWhen(last) {
+                            Text(when).font(.system(size: 11)).foregroundColor(.dimText)
+                        }
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.dimText.opacity(0.7))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.cardBackground)
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(L10n.Home.lastFlight), \(lastFlightRoute(last)), \(last.formattedDuration)")
+        }
+    }
+
+    private func lastFlightRoute(_ flight: Flight) -> String {
+        if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
+            return "\(dep) → \(arr)"
+        }
+        if !flight.name.isEmpty { return flight.name }
+        return flight.aircraftRegistration ?? flight.airplane
+    }
+
+    private func lastFlightWhen(_ flight: Flight) -> String? {
+        guard let date = flight.startTime else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    /// START FLIGHT (green) + CIRCUITS (amber) — shared by the stacked layout and the iPad console. (3.5)
+    private func startCircuitsButtons(isLandscape: Bool, isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 8 : 12) {
+            Button(action: startFlight) {
+                HStack(spacing: isCompact ? 10 : 14) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: isCompact ? 18 : 22))
+                    Text(L10n.Button.startFlight)
+                        .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
+            }
+            .buttonStyle(PrimaryButtonStyle(color: .aviationGreen))
+
+            // START CIRCUITS button - only shown when circuit mode is enabled
+            if appState.settings.enableCircuitMode {
+                Button(action: startCircuits) {
+                    VStack(spacing: isCompact ? 2 : 4) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: isCompact ? 18 : 20))
+                        Text(L10n.Button.circuits)
+                            .font(.system(size: isCompact ? 13 : 14, weight: .bold))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.6)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isLandscape ? 50 : (isCompact ? 50 : 70))
+                }
+                .buttonStyle(PrimaryButtonStyle(color: .aviationAmber))
+                .frame(minWidth: isLandscape ? 100 : (isCompact ? 120 : 140), maxWidth: isLandscape ? 120 : (isCompact ? 150 : 160))
+            }
+        }
     }
     
     // MARK: - Aircraft Card Carousel

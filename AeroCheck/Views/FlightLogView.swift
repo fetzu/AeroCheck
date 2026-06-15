@@ -1265,12 +1265,18 @@ struct FlightRowView: View {
     var nauticalMiles: Bool = true
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Day of month — the month/year lives in the section header (option B). (round 7)
-            Text(dayNumber)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.primaryText)
-                .frame(width: 26)
+        HStack(spacing: 12) {
+            // Calendar date block: day over weekday (the month/year lives in the section header). (3.5)
+            VStack(spacing: 1) {
+                Text(dayNumber)
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundColor(.aviationGold)
+                Text(weekday)
+                    .font(.system(size: 9, weight: .semibold)).tracking(0.5)
+                    .foregroundColor(.dimText)
+            }
+            .frame(width: 32)
+            .accessibilityElement(children: .combine)
 
             VStack(alignment: .leading, spacing: 3) {
                 // Custom name (if set) above the route, small/grey like the stats line. (round 7)
@@ -1322,6 +1328,14 @@ struct FlightRowView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "d"
         return formatter.string(from: date)
+    }
+
+    /// Weekday abbreviation (e.g. "SAT") under the day number, like a logbook entry. (3.5)
+    private var weekday: String {
+        guard let date = flight.startTime else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date).uppercased()
     }
 
     /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (3.3)

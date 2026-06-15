@@ -573,44 +573,40 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        // Calculate panel height - exactly half the screen plus bottom safe area
         let bottomSafeArea = geometry.safeAreaInsets.bottom
         let topSafeArea = geometry.safeAreaInsets.top
-        let panelHeight = (geometry.size.height / 2) + bottomSafeArea
+        // The bottom nav sheet is ALWAYS visible as a peek and expands on tap/drag (3.5 — iPhone).
+        let peekHeight = (hasActiveFlightPlan ? 122.0 : 74.0) + bottomSafeArea
+        let expandedHeight = geometry.size.height * 0.62 + bottomSafeArea
+        let sheetHeight = showCompactPanel ? expandedHeight : peekHeight
 
-        ZStack(alignment: .top) {
+        return ZStack(alignment: .top) {
             // Map content - full screen behind everything
             mapContent
                 .ignoresSafeArea()
 
-            // Fixed top bar overlay - stays in place regardless of panel state
+            // Fixed top bar overlay - stays in place regardless of sheet state
             VStack {
                 compactTopBar
                     .padding(.horizontal, 12)
                     .padding(.top, topSafeArea + (topSafeArea > 50 ? 8 : 4)) // Account for Dynamic Island/notch
-
                 Spacer()
             }
 
-            // Map controls positioned above the panel (or at bottom when panel hidden)
+            // Floating map controls, pinned just above the sheet.
             VStack {
                 Spacer()
-
                 compactMapControls
                     .padding(.horizontal, 12)
-                    .padding(.bottom, showCompactPanel ? (panelHeight + 8) : (bottomSafeArea + 8))
-                    .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+                    .padding(.bottom, sheetHeight + 8)
+                    .animation(.easeInOut(duration: 0.3), value: sheetHeight)
             }
 
-            // Bottom panel - slides up from bottom edge of screen
+            // Bottom nav sheet — always-visible peek that expands.
             VStack {
                 Spacer()
-
-                if showCompactPanel {
-                    compactBottomPanel(geometry: geometry, bottomSafeArea: bottomSafeArea)
-                        .frame(height: panelHeight)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                compactNavSheet(bottomSafeArea: bottomSafeArea)
+                    .frame(height: sheetHeight)
             }
             .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
         }
@@ -621,6 +617,94 @@ struct NavigationMapView: View {
         .onChange(of: geometry.size) { _, newSize in
             mapWidth = newSize.width
         }
+    }
+
+    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands. (3.5)
+
+    private func compactNavSheet(bottomSafeArea: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            compactSheetHandle
+            if showCompactPanel {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let plan = flightPlanManager.activeFlightPlan {
+                            legTimerCluster(.minimal)
+                            waypointList(plan: plan, compact: true)
+                            liveDataRow
+                            progressRow(plan: plan)
+                        }
+                        freqColumn
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, bottomSafeArea + 12)
+                }
+            } else {
+                // Peek: leg timer (if a plan is active) + a one-line glance.
+                if hasActiveFlightPlan {
+                    legTimerCluster(.minimal)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 6)
+                }
+                compactGlanceRow
+                    .padding(.horizontal, 12)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .background(Color.panelBackground.opacity(0.97))
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
+        .overlay(alignment: .top) {
+            UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+        }
+    }
+
+    /// "— ⌃ —" handle (pills + state chevron); tap or drag to expand/collapse the sheet. (3.5 — iPhone)
+    private var compactSheetHandle: some View {
+        HStack(spacing: 6) {
+            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
+            Image(systemName: showCompactPanel ? "chevron.down" : "chevron.up")
+                .font(.system(size: 11, weight: .semibold)).foregroundColor(.white.opacity(0.5))
+            Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8).padding(.bottom, 7)
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeInOut(duration: 0.3)) { showCompactPanel.toggle() } }
+        .gesture(
+            DragGesture(minimumDistance: 10).onEnded { value in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    if value.translation.height < -24 { showCompactPanel = true }
+                    else if value.translation.height > 24 { showCompactPanel = false }
+                }
+            }
+        )
+    }
+
+    /// Peek glance — next-waypoint summary + the current frequency chip; tap to expand. (3.5 — iPhone)
+    private var compactGlanceRow: some View {
+        HStack(spacing: 8) {
+            navGlanceData
+            Spacer(minLength: 6)
+            compactFreqChip
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeInOut(duration: 0.3)) { showCompactPanel = true } }
+    }
+
+    private var compactFreqChip: some View {
+        let active = phaseFreqItems.first(where: { $0.role == .current })
+            ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
+        return HStack(spacing: 5) {
+            Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 12))
+            if let active {
+                Text(active.station).font(.system(size: 9, weight: .semibold)).lineLimit(1)
+                Text(active.freq).font(.system(size: 13, weight: .semibold, design: .monospaced))
+            } else {
+                Text("FREQ").font(.system(size: 11, weight: .bold))
+            }
+        }
+        .foregroundColor(.aviationGold).lineLimit(1)
     }
 
     // MARK: - Compact Top Bar
@@ -829,25 +913,7 @@ struct NavigationMapView: View {
                     GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)
                 }
 
-                // FREQ button - only shown when no flight plan is active (to toggle frequency drawer)
-                if !hasActiveFlightPlan {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showCompactPanel.toggle()
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text("FREQ")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(showCompactPanel ? .aviationGold : .primaryText)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .floatingChromeBackground(cornerRadius: 8)
-                    }
-                }
+                // (FREQ button removed — frequencies now live in the always-visible bottom sheet peek.)
 
                 // 3-state tracking button: free → center & follow → track-up → free. (3.5 — iPhone)
                 Button(action: cycleTracking) {
@@ -2455,13 +2521,13 @@ struct NavigationMapView: View {
         .padding(.vertical, 3)
     }
 
-    private func waypointList(plan: FlightPlan) -> some View {
+    private func waypointList(plan: FlightPlan, compact: Bool = false) -> some View {
         // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
         // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (3.5 fix)
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
-                    waypointRow(plan: plan, index: index, wpt: wpt)
+                    waypointRow(plan: plan, index: index, wpt: wpt, compact: compact)
                     if index < plan.waypoints.count - 1 {
                         Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
                     }
@@ -2471,7 +2537,7 @@ struct NavigationMapView: View {
         .frame(height: CGFloat(min(max(plan.waypoints.count, 1), 5)) * 36)
     }
 
-    private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint) -> some View {
+    private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint, compact: Bool = false) -> some View {
         let isCurrent = index == plan.currentWaypointIndex
         let isPast = index < plan.currentWaypointIndex
         let isPreview = previewWaypointIndex == index
@@ -2495,10 +2561,13 @@ struct NavigationMapView: View {
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
                 // whether or not a leg has been flown yet. (3.5 — column alignment)
                 HStack(spacing: 6) {
-                    Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
-                        .foregroundColor(.secondaryText).frame(width: 38, alignment: .trailing)
-                    Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
-                        .foregroundColor(.secondaryText).frame(width: 40, alignment: .trailing)
+                    // Heading + distance kept on iPad; dropped on the narrow iPhone table. (3.5)
+                    if !compact {
+                        Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
+                            .foregroundColor(.secondaryText).frame(width: 38, alignment: .trailing)
+                        Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
+                            .foregroundColor(.secondaryText).frame(width: 40, alignment: .trailing)
+                    }
                     Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
                         .foregroundColor(.dimText).frame(width: 44, alignment: .trailing)
                     Text(actual.map { formatClock($0) } ?? "")            // ACT / live
@@ -2692,7 +2761,7 @@ struct NavigationMapView: View {
                             flightPlanManager.startChronometer()
                         }
                     } else {
-                        legReadout(legLabel: legLabel, elapsed: elapsed, planned: plannedLeg, running: running)
+                        legReadout(legLabel: density == .minimal ? nil : legLabel, elapsed: elapsed, planned: plannedLeg, running: running)
                         if canMark {
                             let markName = plan.waypoints[plan.currentWaypointIndex].name
                             let markLabel = markName.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(markName)"

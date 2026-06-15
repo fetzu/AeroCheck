@@ -1162,6 +1162,7 @@ enum L10n {
         static let distTo = String(localized: "nav.distTo")
         static let chronometer = String(localized: "nav.chronometer")
         static let start = String(localized: "nav.start")
+        static let stop = String(localized: "nav.stop")
         static let wpt = String(localized: "nav.wpt")
         static let min = String(localized: "nav.min")
 

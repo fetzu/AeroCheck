@@ -184,6 +184,10 @@ struct NavigationMapView: View {
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
     @State private var showRadioFrequencyWindow: Bool = false
+    /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (3.5 — inc C)
+    @State private var navSheetExpanded: Bool = false
+    /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
+    @State private var previewWaypointIndex: Int? = nil
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
 
@@ -490,15 +494,8 @@ struct NavigationMapView: View {
                 bottomControls
             }
 
-            // Flight Plan Overlay (when active)
-            if appState.settings.enableFlightPlanning && flightPlanManager.activeFlightPlan != nil {
-                FlightPlanOverlayView(
-                    containerSize: geometry.size,
-                    radioFrequencyWindowOpen: showRadioFrequencyWindow
-                )
-                    .environmentObject(flightPlanManager)
-                    .environmentObject(locationManager)
-            }
+            // The floating FLIGHT INFO overlay is retired (inc C) — its data + actions moved into the
+            // expandable flight-plan sheet (bottomControls / navSheetContent).
 
             // Radio Frequency panel — docked above the bottom bar (no longer floating mid-map). (3.5)
             if showRadioFrequencyWindow {
@@ -1904,10 +1901,15 @@ struct NavigationMapView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
 
-            // The full-width two-row bar, pinned to the bottom edge.
+            // Full-width bottom bar = the expandable flight-plan sheet, pinned to the bottom edge.
             VStack(spacing: 0) {
                 if appState.settings.enableFlightPlanning {
-                    bottomInfoRow
+                    navSheetHandle
+                    if navSheetExpanded, flightPlanManager.activeFlightPlan != nil {
+                        navSheetContent
+                    } else {
+                        navGlanceRow
+                    }
                     Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
                 }
                 bottomControlRow
@@ -1922,61 +1924,275 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Row 1 — the next waypoint (left) and the contextual frequency / FREQ toggle (right). (3.5)
-    private var bottomInfoRow: some View {
+    /// Grab handle — tap to toggle the flight-plan sheet, or drag up/down (snaps). (3.5 inc C)
+    private var navSheetHandle: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.22))
+            .frame(width: 38, height: 5)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 7)
+            .padding(.bottom, 3)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 10)
+                    .onEnded { value in
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            if value.translation.height < -24 { navSheetExpanded = true }
+                            else if value.translation.height > 24 { navSheetExpanded = false }
+                        }
+                    }
+            )
+            .accessibilityLabel(L10n.Nav.flightPlan)
+            .accessibilityAddTraits(.isButton)
+    }
+
+    /// Collapsed glance: nav data (LEFT) + frequency chip (RIGHT). Paradigm: left = nav, right = freq.
+    private var navGlanceRow: some View {
         HStack(spacing: 10) {
-            if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
-                HStack(spacing: 7) {
-                    Text("NEXT")
-                        .font(.system(size: 10, weight: .semibold)).tracking(0.6)
-                        .foregroundColor(.altimeterBlue)
-                    Text(next.name.isEmpty ? "—" : next.name)
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.primaryText)
-                    if let distText = nextWaypointDistanceText {
-                        Text("·").foregroundColor(.dimText)
-                        Text(distText)
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(.secondaryText)
-                    }
-                    if let eto = next.estimatedTimeOver {
-                        Text("·").foregroundColor(.dimText)
-                        Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(.dimText)
-                    }
-                }
-                .lineLimit(1)
-            }
-
+            navGlanceData
             Spacer(minLength: 8)
-
-            // Nearest contextual frequency (the next waypoint's, when set) + expand the full list.
-            Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 13))
-                    if let next = flightPlanManager.activeFlightPlan?.nextWaypoint,
-                       let freq = next.frequency, !freq.isEmpty {
-                        Text(next.name)
-                            .font(.system(size: 10, weight: .semibold)).tracking(0.4)
-                        Text(freq)
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    } else {
-                        Text("FREQ")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    Image(systemName: showRadioFrequencyWindow ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.dimText)
-                }
-                .foregroundColor(.aviationGold)
-                .lineLimit(1)
-            }
-            .accessibilityLabel(L10n.Nav.radioFrequencies)
+            freqChip
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded = true } }
+    }
+
+    @ViewBuilder
+    private var navGlanceData: some View {
+        if let plan = flightPlanManager.activeFlightPlan, let next = plan.nextWaypoint {
+            HStack(spacing: 6) {
+                Text("WPT \(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
+                    .font(.system(size: 9, weight: .semibold)).tracking(0.3)
+                    .foregroundColor(.dimText)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                Text(next.name.isEmpty ? "—" : next.name)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                if let distText = nextWaypointDistanceText {
+                    Text("·").foregroundColor(.dimText)
+                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGold)
+                }
+                if let brg = liveBearingText {
+                    Text("·").foregroundColor(.dimText)
+                    Text(brg).font(.system(size: 13, design: .monospaced)).foregroundColor(.secondaryText)
+                }
+                if let eto = next.estimatedTimeOver {
+                    Text("·").foregroundColor(.dimText)
+                    Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 13, design: .monospaced)).foregroundColor(.dimText)
+                }
+                if flightPlanManager.activeFlightPlan?.chronometerStartTime != nil {
+                    Text("·").foregroundColor(.dimText)
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        Text(flightPlanManager.formattedChronometer)
+                            .font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGreen)
+                    }
+                }
+            }
+            .lineLimit(1)
+        } else {
+            Text(L10n.Nav.flightPlan)
+                .font(.system(size: 12)).foregroundColor(.dimText)
+        }
+    }
+
+    private var freqChip: some View {
+        Button(action: { withAnimation { showRadioFrequencyWindow.toggle() } }) {
+            HStack(spacing: 6) {
+                Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 13))
+                if let next = flightPlanManager.activeFlightPlan?.nextWaypoint,
+                   let freq = next.frequency, !freq.isEmpty {
+                    Text(next.name).font(.system(size: 10, weight: .semibold)).tracking(0.4)
+                    Text(freq).font(.system(size: 14, weight: .semibold, design: .monospaced))
+                } else {
+                    Text("FREQ").font(.system(size: 12, weight: .bold))
+                }
+                Image(systemName: showRadioFrequencyWindow ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.dimText)
+            }
+            .foregroundColor(.aviationGold).lineLimit(1)
+        }
+        .accessibilityLabel(L10n.Nav.radioFrequencies)
+    }
+
+    private var liveBearingText: String? {
+        guard let loc = locationManager.currentLocation,
+              let brg = flightPlanManager.bearingToNextWaypoint(from: loc) else { return nil }
+        return String(format: "%03d°", Int(brg))
+    }
+
+    /// Expanded sheet — chronometer, tappable waypoint list, live data, progress. (3.5 inc C)
+    @ViewBuilder
+    private var navSheetContent: some View {
+        if let plan = flightPlanManager.activeFlightPlan {
+            VStack(alignment: .leading, spacing: 10) {
+                chronometerHeader(plan: plan)
+                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
+                waypointList(plan: plan)
+                liveDataRow
+                progressRow(plan: plan)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 2)
+            .padding(.bottom, 10)
+        }
+    }
+
+    private func chronometerHeader(plan: FlightPlan) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L10n.Nav.chronometer)
+                    .font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundColor(.dimText)
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text(flightPlanManager.formattedChronometer)
+                        .font(.system(size: 24, weight: .bold, design: .monospaced)).foregroundColor(.aviationGreen)
+                }
+            }
+            Spacer()
+            if plan.chronometerStartTime == nil {
+                Button(action: { flightPlanManager.startChronometer() }) {
+                    Text(L10n.Nav.start).font(.system(size: 12, weight: .bold)).foregroundColor(.black)
+                        .padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Color.aviationGreen, in: RoundedRectangle(cornerRadius: 7))
+                }
+            } else {
+                Button(action: { flightPlanManager.stopChronometer() }) {
+                    Text(L10n.Nav.stop).font(.system(size: 12, weight: .bold)).foregroundColor(.black)
+                        .padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 7))
+                }
+            }
+            Button(action: { flightPlanManager.resetChronometer() }) {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 14)).foregroundColor(.secondaryText)
+                    .frame(width: 38, height: 32)
+                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+            }
+            .accessibilityLabel(L10n.Nav.chronometer)
+        }
+    }
+
+    private func waypointList(plan: FlightPlan) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
+                    waypointRow(plan: plan, index: index, wpt: wpt)
+                    if index < plan.waypoints.count - 1 {
+                        Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 148)
+    }
+
+    private func waypointRow(plan: FlightPlan, index: Int, wpt: FlightPlanWaypoint) -> some View {
+        let isCurrent = index == plan.currentWaypointIndex
+        let isPast = index < plan.currentWaypointIndex
+        let isPreview = previewWaypointIndex == index
+        let leg = plan.legArriving(at: index)
+        return Button(action: { previewWaypoint(index: index, plan: plan) }) {
+            HStack(spacing: 8) {
+                Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
+                    .font(.system(size: 9))
+                    .foregroundColor(isPast ? .aviationGreen : (isCurrent ? .aviationGold : .dimText))
+                Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
+                    .font(.system(size: 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
+                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                Spacer()
+                HStack(spacing: 8) {
+                    if let mc = leg?.magneticCourse {
+                        Text(String(format: "%03d°", Int(mc))).foregroundColor(.secondaryText)
+                    }
+                    if let d = leg?.distance {
+                        Text(String(format: "%.1f", d)).foregroundColor(.secondaryText)
+                    }
+                    if let ato = wpt.actualTimeOver {
+                        Text("ATO \(ato.formatted(date: .omitted, time: .shortened))").foregroundColor(.aviationGreen)
+                    } else if let eto = wpt.estimatedTimeOver {
+                        Text("ETO \(eto.formatted(date: .omitted, time: .shortened))").foregroundColor(.dimText)
+                    }
+                }
+                .font(.system(size: 11, design: .monospaced))
+            }
+            .padding(.horizontal, 8).padding(.vertical, 7)
+            .background(isPreview ? Color.altimeterBlue.opacity(0.14)
+                        : (isCurrent ? Color.aviationGold.opacity(0.10) : Color.clear))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Tap a waypoint to preview (centre the map on it); tap the active/previewed one to return.
+    private func previewWaypoint(index: Int, plan: FlightPlan) {
+        guard plan.waypoints.indices.contains(index) else { return }
+        if previewWaypointIndex == index || index == plan.currentWaypointIndex {
+            previewWaypointIndex = nil
+            centerOnAircraft()
+        } else {
+            previewWaypointIndex = index
+            isFollowingAircraft = false
+            let wpt = plan.waypoints[index]
+            mapState.updateFromRegion(MKCoordinateRegion(center: wpt.coordinate, span: mapState.region.span))
+        }
+    }
+
+    private var liveDataRow: some View {
+        HStack(spacing: 16) {
+            if let loc = locationManager.currentLocation {
+                if let brg = flightPlanManager.bearingToNextWaypoint(from: loc) {
+                    liveStat(L10n.Nav.hdgTo, String(format: "%03d°", Int(brg)))
+                }
+                if let d = flightPlanManager.distanceToNextWaypoint(from: loc) {
+                    liveStat(L10n.Nav.dist, String(format: "%.1f", d))
+                }
+                let gs = max(locationManager.currentSpeedKnots, 1)
+                if let eta = flightPlanManager.etaToNextWaypoint(from: loc, groundSpeedKnots: gs) {
+                    liveStat("ETA", Date().addingTimeInterval(eta).formatted(date: .omitted, time: .shortened))
+                }
+            }
+            if appState.lineUpTime != nil {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    liveStat(L10n.FlightPlan.fltTime, flightTimeText)
+                }
+            }
+            Spacer()
+        }
+    }
+
+    private func liveStat(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(.dimText)
+            Text(value).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondaryText)
+        }
+    }
+
+    private var flightTimeText: String {
+        guard let t = appState.lineUpTime else { return "--:--:--" }
+        let e = max(0, Int(Date().timeIntervalSince(t)))
+        return String(format: "%02d:%02d:%02d", e / 3600, (e % 3600) / 60, e % 60)
+    }
+
+    private func progressRow(plan: FlightPlan) -> some View {
+        HStack(spacing: 10) {
+            ProgressView(value: plan.progress)
+                .progressViewStyle(.linear)
+                .tint(.aviationGreen)
+            HStack(spacing: 3) {
+                ForEach(0..<plan.waypoints.count, id: \.self) { i in
+                    Circle()
+                        .fill(i < plan.currentWaypointIndex ? Color.aviationGreen
+                              : (i == plan.currentWaypointIndex ? Color.aviationGold : Color.dimText.opacity(0.5)))
+                        .frame(width: 5, height: 5)
+                }
+            }
+        }
     }
 
     /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (3.5)

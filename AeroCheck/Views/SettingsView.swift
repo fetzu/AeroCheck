@@ -133,7 +133,8 @@ struct SettingsView: View {
         .navigationTitle(L10n.Settings.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
+            // Top-left, matching the app convention (Flight Log, flight-plan list). (Phase 3.5)
+            ToolbarItem(placement: .cancellationAction) {
                 Button(L10n.Settings.done) { dismiss() }
             }
         }

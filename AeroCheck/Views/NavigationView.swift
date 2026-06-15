@@ -616,7 +616,7 @@ struct NavigationMapView: View {
                         .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                         .floatingChromeBackground(cornerRadius: 8)
                 }
-                .sheet(isPresented: $showFlightPlanning) {
+                .fullScreenCover(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)
@@ -1698,7 +1698,7 @@ struct NavigationMapView: View {
                     .frame(width: 44, height: 44)
                     .floatingChromeCircle()
                 }
-                .sheet(isPresented: $showFlightPlanning) {
+                .fullScreenCover(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
                         .environmentObject(appState)
                         .environmentObject(flightPlanManager)

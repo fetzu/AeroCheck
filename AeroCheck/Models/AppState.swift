@@ -886,6 +886,9 @@ class AppState: ObservableObject {
     func markLastItemComplete(learningMode: Bool) {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
+        // Completing the Cruise checklist auto-starts the cruise-check countdown — running the check IS
+        // the trigger, so the pilot never has to remember to start the timer. (3.5)
+        if currentPhase == .cruise { armCruiseCheck() }
     }
 
     /// Check if all items in current phase are completed. `learningMode` = effective mode.

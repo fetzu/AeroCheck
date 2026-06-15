@@ -587,10 +587,10 @@ struct FlightView: View {
     // MARK: - Cruise check (3.5)
 
     /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT, styled to
-    /// match it (large ⟳ icon + value). It shows the countdown to the next cruise check. MANUAL: tap to
-    /// start (idle) or to acknowledge + restart (when due). Hold 1.5 s to reset/re-arm — the button
-    /// fills left→right while held, so the hold is discoverable. When due it turns amber + pulses and
-    /// the Cruise checklist re-arms. Hidden outside the Cruise phase. (3.5)
+    /// match it (large ⟳ icon + value). It shows the countdown to the next cruise check. Tap to start
+    /// (idle) or acknowledge + restart (when due); completing the Cruise checklist also auto-starts it.
+    /// Hold 1 s to reset/re-arm — the button fills left→right while held, so the hold is discoverable.
+    /// When due it turns amber + pulses and the Cruise checklist re-arms. Hidden outside cruise. (3.5)
     @ViewBuilder
     private var cruiseCheckButton: some View {
         if appState.currentPhase == .cruise {
@@ -621,12 +621,12 @@ struct FlightView: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: 14))
             .onTapGesture { if due || !started { appState.armCruiseCheck() } }
-            .onLongPressGesture(minimumDuration: 1.5, maximumDistance: 60) {
+            .onLongPressGesture(minimumDuration: 1.0, maximumDistance: 60) {
                 appState.armCruiseCheck()
                 cruiseHoldProgress = 0
             } onPressingChanged: { pressing in
                 if pressing {
-                    withAnimation(.linear(duration: 1.5)) { cruiseHoldProgress = 1 }
+                    withAnimation(.linear(duration: 1.0)) { cruiseHoldProgress = 1 }
                 } else {
                     withAnimation(.easeOut(duration: 0.2)) { cruiseHoldProgress = 0 }
                 }

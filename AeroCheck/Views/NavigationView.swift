@@ -185,6 +185,9 @@ struct NavigationMapView: View {
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (3.5 — inc C)
     @State private var navSheetExpanded: Bool = false
+    /// True once the map has snapped to the aircraft after opening, so the first GPS fix centers
+    /// tightly even when no position was available at open. (3.5 — center on position by default)
+    @State private var hasInitiallyCentered: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
     @State private var previewWaypointIndex: Int? = nil
     /// Whether the frequency column shows the full list vs the capped essentials. (3.5 — feedback)
@@ -395,7 +398,9 @@ struct NavigationMapView: View {
                 if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
                     mapState.cameraHeading = course
                 }
+                hasInitiallyCentered = true
             }
+            // Default to centered & following the aircraft. (3.5 — center on position by default)
             isFollowingAircraft = true
             // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
             // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
@@ -464,7 +469,18 @@ struct NavigationMapView: View {
             updateTrackVectorEMA()
 
             if isFollowingAircraft, let location = newLocation {
-                updateMapStateForLocation(location)
+                if !hasInitiallyCentered {
+                    // First fix after opening (no position was available at open) — snap to a tight,
+                    // centered view rather than re-centering at whatever stale zoom was left. (3.5)
+                    mapState.region = MKCoordinateRegion(
+                        center: location.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+                    )
+                    mapState.cameraDistance = 10000
+                    hasInitiallyCentered = true
+                } else {
+                    updateMapStateForLocation(location)
+                }
             }
 
             // In track-up mode, update heading to match course (using cached heading)
@@ -2070,8 +2086,6 @@ struct NavigationMapView: View {
                 } else {
                     Text("FREQ").font(.system(size: 12, weight: .bold))
                 }
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.dimText)
             }
             .foregroundColor(.aviationGold).lineLimit(1)
         }

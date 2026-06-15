@@ -353,6 +353,9 @@ struct NavigationMapView: View {
             }
         }
         .preferredColorScheme(.dark)
+        // Immersive full-screen map: hide the system status bar so the top chrome (airspace / layer)
+        // never collides with the time / battery / network indicators. (3.5 fix)
+        .statusBarHidden(true)
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
         .flightEventConfirmationOverlay(detector: flightEventDetector, appState: appState)
@@ -771,7 +774,7 @@ struct NavigationMapView: View {
                 }
 
                 // Scale bar
-                SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+                SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
             }
 
             Spacer()
@@ -1681,7 +1684,7 @@ struct NavigationMapView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.primaryText)
                     .frame(width: 44, height: 44)
-                    .floatingChromeCircle()
+                    .background(Color.panelBackground.opacity(0.92), in: Circle())
             }
 
             Spacer()
@@ -1747,7 +1750,7 @@ struct NavigationMapView: View {
                         .padding(.vertical, 4)
                     }
                 }
-                .floatingChromeBackground(cornerRadius: 10)
+                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             } else {
                 // Horizontal layout for iPad
                 VStack(spacing: 0) {
@@ -1810,7 +1813,7 @@ struct NavigationMapView: View {
                     }
                 }
                 .fixedSize(horizontal: true, vertical: false)
-                .floatingChromeBackground(cornerRadius: 10)
+                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             }
 
             Spacer()
@@ -1855,7 +1858,7 @@ struct NavigationMapView: View {
                 .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .floatingChromeBackground(cornerRadius: 10)
+                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             }
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
@@ -1894,7 +1897,7 @@ struct NavigationMapView: View {
                                 .environmentObject(offlineMapManager)
                         }
                     }
-                    SwissScaleBar(region: mapState.region, mapWidth: mapWidth)
+                    SwissScaleBar(region: mapState.region, mapWidth: mapWidth, nauticalMiles: appState.settings.distanceInNauticalMiles)
                 }
                 Spacer()
             }
@@ -2007,10 +2010,10 @@ struct NavigationMapView: View {
             // GPS status (tap for the info sheet)
             Button(action: { showGPSStatusModal = true }) {
                 HStack(spacing: 6) {
+                    StatusIndicator(gpsStatusIndicator, size: 8)
                     Text("GPS")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(gpsStatusColor)
-                    StatusIndicator(gpsStatusIndicator, size: 8)
+                        .foregroundColor(.primaryText)
                 }
                 .padding(.horizontal, 6)
                 .frame(height: 40)
@@ -2073,17 +2076,17 @@ struct NavigationMapView: View {
 
         isFollowingAircraft = true
 
-        // Update shared map state with current location
+        // Re-center WITHOUT changing the zoom. Forcing a fixed span here previously cropped the
+        // visible airports out of the freshly re-queried region whenever follow was engaged. (3.5 fix)
         let newRegion = MKCoordinateRegion(
             center: location.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+            span: mapState.region.span
         )
         mapState.updateFromRegion(newRegion)
         // Respect orientation mode: only set heading for track-up (use cached heading)
         if mapOrientationMode == .trackUp, let course = locationManager.currentCourseDegrees {
             mapState.cameraHeading = course
         }
-        mapState.cameraDistance = 10000
     }
 
     private func toggleOrientation() {
@@ -2743,6 +2746,8 @@ struct SwissAirspaceSectors {
 struct SwissScaleBar: View {
     let region: MKCoordinateRegion
     var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
+    /// Aviation distance unit: NM (default for the nav map) vs metric. (3.5 — configurable in settings)
+    var nauticalMiles: Bool = false
 
     /// Calculate the appropriate scale distance based on current zoom
     /// Uses proper geodetic distance calculation for accuracy
@@ -2777,23 +2782,20 @@ struct SwissScaleBar: View {
         // Calculate how many meters that would represent
         let targetMeters = metersPerPoint * Double(targetBarWidth)
 
-        // Choose appropriate scale - pick the largest round number that fits
-        let scales: [(meters: Double, text: String)] = [
-            (10, "10 m"),
-            (20, "20 m"),
-            (50, "50 m"),
-            (100, "100 m"),
-            (200, "200 m"),
-            (500, "500 m"),
-            (1000, "1 km"),
-            (2000, "2 km"),
-            (5000, "5 km"),
-            (10000, "10 km"),
-            (20000, "20 km"),
-            (50000, "50 km"),
-            (100000, "100 km"),
-            (200000, "200 km")
+        // Choose appropriate scale - pick the largest round number that fits. Aviation uses NM. (3.5)
+        let nmScales: [(meters: Double, text: String)] = [
+            (185.2, "0.1 NM"), (370.4, "0.2 NM"), (926, "0.5 NM"),
+            (1852, "1 NM"), (3704, "2 NM"), (9260, "5 NM"),
+            (18520, "10 NM"), (37040, "20 NM"), (92600, "50 NM"),
+            (185200, "100 NM"), (370400, "200 NM")
         ]
+        let metricScales: [(meters: Double, text: String)] = [
+            (10, "10 m"), (20, "20 m"), (50, "50 m"), (100, "100 m"),
+            (200, "200 m"), (500, "500 m"), (1000, "1 km"), (2000, "2 km"),
+            (5000, "5 km"), (10000, "10 km"), (20000, "20 km"), (50000, "50 km"),
+            (100000, "100 km"), (200000, "200 km")
+        ]
+        let scales: [(meters: Double, text: String)] = nauticalMiles ? nmScales : metricScales
 
         // Find the best scale that fits within our target width
         var selectedScale = scales[0]

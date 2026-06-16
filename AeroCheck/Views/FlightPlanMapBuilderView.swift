@@ -67,13 +67,6 @@ struct FlightPlanMapBuilderView: View {
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
 
-    /// A custom plan name wins; otherwise a neutral title — the FROM→TO route already shows in the
-    /// on-map endpoint bar, so the title no longer duplicates it. (flight-plan revamp #4 — dedup)
-    private var builderTitle: String {
-        if let p = plan, !p.name.isEmpty { return p.name }
-        return L10n.Nav.flightPlanTitle
-    }
-
     var body: some View {
         NavigationStack {
             GeometryReader { geo in
@@ -99,23 +92,9 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
             .background(Color.cockpitBackground)
-            .navigationTitle(builderTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
-                        Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .disabled(waypoints.isEmpty)
-                    .accessibilityLabel(L10n.Nav.moreActions)
-                }
-            }
+            // No system bar — Done + ••• float over the map (top corners) to reclaim the dead title
+            // bar for the map + panel. (#4 dead-space, Direction A)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showTableEditor) {
                 if let plan {
                     FlightPlanEditorView(flightPlan: plan)
@@ -200,10 +179,17 @@ struct FlightPlanMapBuilderView: View {
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
-        // From/To bar full-width at the top.
+        // Floating Done + ••• (no system bar) above the From/To bar. (#4 dead-space, Direction A)
         .overlay(alignment: .top) {
-            fromToBar
-                .padding(12)
+            VStack(spacing: 8) {
+                HStack {
+                    doneButton
+                    Spacer()
+                    moreMenu
+                }
+                fromToBar
+            }
+            .padding(12)
         }
         // Layer switcher bottom-left, center/fit bottom-right. (feedback)
         .overlay(alignment: .bottomLeading) {
@@ -402,6 +388,36 @@ struct FlightPlanMapBuilderView: View {
         fitRouteToken += 1
     }
 
+    /// Floating Done — exits the builder (it auto-saves). (#4 dead-space, Direction A)
+    private var doneButton: some View {
+        Button { dismiss() } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold))
+                Text(L10n.Button.done).font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(.primaryText)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(Color.panelBackground.opacity(0.92), in: Capsule())
+        }
+    }
+
+    /// Floating ••• menu — Export GPX + the advanced Table editor. (#4 dead-space, Direction A)
+    private var moreMenu: some View {
+        Menu {
+            Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
+            Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .frame(width: 40, height: 40)
+                .background(Color.panelBackground.opacity(0.92), in: Circle())
+        }
+        .disabled(waypoints.isEmpty)
+        .opacity(waypoints.isEmpty ? 0.5 : 1)
+        .accessibilityLabel(L10n.Nav.moreActions)
+    }
+
     private var layerPicker: some View {
         Menu {
             Picker("Map layer", selection: $selectedLayer) {
@@ -495,7 +511,8 @@ struct FlightPlanMapBuilderView: View {
             .padding(.horizontal, 14).padding(.vertical, 7)
             if !profileCollapsed {
                 RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
-                                 selectedId: selectedConflictId, terrainId: Self.terrainConflictId)
+                                 selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
+                                 visibleRegion: region)
                     .frame(height: 136)
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
@@ -1618,6 +1635,7 @@ private struct RouteProfileView: View {
     let blocks: [AirspaceProfileBlock]
     var selectedId: String? = nil          // tapped conflict — emphasised here too (#4)
     var terrainId: String = "terrain"
+    var visibleRegion: MKCoordinateRegion? = nil   // shade the route window the map currently shows (#9)
 
     private let leftPad: CGFloat = 38
     private let bottomPad: CGFloat = 16
@@ -1657,6 +1675,18 @@ private struct RouteProfileView: View {
                 ctx.stroke(g, with: .color(.white.opacity(0.06)), lineWidth: 0.5)
                 ctx.draw(Text(altLabel(yMax * frac)).font(.system(size: 8, design: .monospaced)).foregroundColor(.dimText),
                          at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
+            }
+
+            // "Looking here" — shade the along-track window currently visible on the map, so the profile
+            // correlates with the top-down view without rescaling to it. (#9)
+            if let region = visibleRegion, waypoints.count >= 2,
+               let (lo, hi) = visibleWindowNM(region, cumNM: prof.cumNM), hi > lo {
+                let band = CGRect(x: px(lo), y: plot.minY, width: max(2, px(hi) - px(lo)), height: plot.height)
+                ctx.fill(Path(band), with: .color(.white.opacity(0.05)))
+                for edge in [px(lo), px(hi)] {
+                    var e = Path(); e.move(to: CGPoint(x: edge, y: plot.minY)); e.addLine(to: CGPoint(x: edge, y: plot.maxY))
+                    ctx.stroke(e, with: .color(.white.opacity(0.28)), lineWidth: 1)
+                }
             }
 
             // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
@@ -1734,5 +1764,31 @@ private struct RouteProfileView: View {
         if ft <= 0 { return "GND" }
         if ft >= 10000 { return "FL\(Int((ft / 100).rounded()))" }
         return "\(Int((ft / 100).rounded()) * 100)"
+    }
+
+    /// The min/max along-track distance (NM) of the route currently inside the map's visible bounds,
+    /// by sampling each leg ~every 2 NM. Nil when no part of the route is visible. (#9)
+    private func visibleWindowNM(_ region: MKCoordinateRegion, cumNM: [Double]) -> (Double, Double)? {
+        guard cumNM.count == waypoints.count, waypoints.count >= 2 else { return nil }
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLon = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLon = region.center.longitude + region.span.longitudeDelta / 2
+        var lo = Double.infinity, hi = -Double.infinity
+        for i in 0..<(waypoints.count - 1) {
+            let a = waypoints[i].coordinate, b = waypoints[i + 1].coordinate
+            let segNM = cumNM[i + 1] - cumNM[i]
+            let steps = max(1, Int((segNM / 2).rounded(.up)))
+            for s in 0...steps {
+                let t = Double(s) / Double(steps)
+                let lat = a.latitude + (b.latitude - a.latitude) * t
+                let lon = a.longitude + (b.longitude - a.longitude) * t
+                if lat >= minLat, lat <= maxLat, lon >= minLon, lon <= maxLon {
+                    let d = cumNM[i] + segNM * t
+                    lo = min(lo, d); hi = max(hi, d)
+                }
+            }
+        }
+        return lo.isFinite ? (lo, hi) : nil
     }
 }

@@ -141,29 +141,34 @@ struct FlightPlanMapBuilderView: View {
     // MARK: - Map area
 
     private var mapArea: some View {
-        ZStack(alignment: .top) {
-            RouteBuilderMapView(
-                waypoints: waypoints,
-                mapLayer: selectedLayer,
-                airports: visibleAirports,
-                fitRouteToken: fitRouteToken,
-                region: $region,
-                onMapTap: { coordinate in
-                    flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
-                },
-                onAirportTap: { airport in addAirport(airport) }
-            )
-            .ignoresSafeArea(edges: .bottom)
-
+        RouteBuilderMapView(
+            waypoints: waypoints,
+            mapLayer: selectedLayer,
+            airports: visibleAirports,
+            fitRouteToken: fitRouteToken,
+            region: $region,
+            onMapTap: { coordinate in
+                flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
+            },
+            onAirportTap: { airport in addAirport(airport) }
+        )
+        .ignoresSafeArea(edges: .bottom)
+        // From/To bar full-width at the top; the layer switcher tucks top-right just beneath it,
+        // matching the NavigationView convention (layers top-right). (feedback)
+        .overlay(alignment: .top) {
             VStack(spacing: 8) {
                 fromToBar
                 HStack {
-                    layerPicker
                     Spacer()
-                    fitRouteButton
+                    layerPicker
                 }
             }
             .padding(12)
+        }
+        // Center/fit-route control bottom-left, matching the app's map-control convention. (feedback)
+        .overlay(alignment: .bottomLeading) {
+            fitRouteButton
+                .padding(12)
         }
     }
 
@@ -185,13 +190,15 @@ struct FlightPlanMapBuilderView: View {
                 endpointField(.to)
             }
             .padding(8)
-            .floatingChromeBackground(cornerRadius: 12)
+            // Near-opaque panel (app convention) instead of translucent glass — the From/To bar must
+            // stay legible over busy chart layers (ICAO/Segelflug). (feedback)
+            .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 12))
 
             if focusedEndpoint != nil && !searchResults.isEmpty {
                 airportResults { airport in
                     if let slot = focusedEndpoint { setEndpoint(slot, airport) }
                 }
-                .floatingChromeBackground(cornerRadius: 12)
+                .background(Color.panelBackground.opacity(0.96), in: RoundedRectangle(cornerRadius: 12))
                 .padding(.top, 4)
             }
         }
@@ -364,9 +371,9 @@ struct FlightPlanMapBuilderView: View {
                 Text(selectedLayer.rawValue).font(.system(size: 13, weight: .semibold))
             }
             .foregroundColor(.primaryText)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .floatingChromeBackground(cornerRadius: 12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 
@@ -375,8 +382,8 @@ struct FlightPlanMapBuilderView: View {
             Image(systemName: "scope")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.primaryText)
-                .frame(width: 40, height: 40)
-                .floatingChromeCircle()
+                .frame(width: 44, height: 44)
+                .background(Color.panelBackground.opacity(0.92), in: Circle())
         }
         .disabled(waypoints.isEmpty)
         .opacity(waypoints.isEmpty ? 0.4 : 1)

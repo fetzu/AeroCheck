@@ -150,7 +150,9 @@ struct FlightPlanMapBuilderView: View {
             onMapTap: { coordinate in
                 flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
             },
-            onAirportTap: { airport in addAirport(airport) }
+            onAirportTap: { airport in addAirport(airport) },
+            onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
+            onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
         // From/To bar full-width at the top; the layer switcher tucks top-right just beneath it,
@@ -562,6 +564,37 @@ struct FlightPlanMapBuilderView: View {
         flightPlanManager.updateWaypoint(wp, in: planId)
     }
 
+    /// Snap radius for releasing a dragged waypoint onto a nearby airfield. (flight-plan revamp #3)
+    private let snapRadiusNm: Double = 2.5
+
+    /// Commit a live waypoint move: snap to a nearby airfield if released within `snapRadiusNm`
+    /// (carrying its ident + frequency + elevation), otherwise just reposition the point. (#3)
+    private func moveWaypoint(at index: Int, to coordinate: CLLocationCoordinate2D) {
+        guard index < waypoints.count else { return }
+        var wp = waypoints[index]
+        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
+            applyAirport(airport, to: &wp)
+        } else {
+            wp.coordinate = coordinate
+        }
+        flightPlanManager.updateWaypoint(wp, in: planId)
+    }
+
+    /// Commit a live mid-route insert after `afterIndex`, snapping to a nearby airfield if close. (#3)
+    private func insertRouteWaypoint(afterIndex: Int, at coordinate: CLLocationCoordinate2D) {
+        let insertAt = afterIndex + 1
+        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
+            flightPlanManager.insertWaypoint(to: planId, at: insertAt, coordinate: airport.coordinate, name: airport.ident)
+            if let p = plan, insertAt < p.waypoints.count {
+                var wp = p.waypoints[insertAt]
+                applyAirport(airport, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            }
+        } else {
+            flightPlanManager.insertWaypoint(to: planId, at: insertAt, coordinate: coordinate)
+        }
+    }
+
     /// Export the route as an avionics-compatible GPX (Dynon / Garmin) via the shared service.
     private func exportGPX() {
         guard let plan, let data = FlightPlanExportService.exportToAvionicsGPX(plan) else { return }
@@ -705,6 +738,10 @@ struct RouteBuilderMapView: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
     var onMapTap: (CLLocationCoordinate2D) -> Void
     var onAirportTap: (Airport) -> Void
+    /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
+    var onMoveWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
+    /// Live drag committed a mid-route insert (afterIndex, coordinate). nil ⇒ read-only map. (#3)
+    var onInsertWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -720,10 +757,24 @@ struct RouteBuilderMapView: UIViewRepresentable {
         tap.delegate = context.coordinator
         mapView.addGestureRecognizer(tap)
 
+        // Press-and-hold to grab a waypoint (move) or the route line (insert mid-route) and drag it
+        // live; release snaps to a nearby airfield. Only wired when the host provides drag callbacks
+        // (the builder) — read-only map previews get no drag. (flight-plan revamp #3)
+        if onMoveWaypoint != nil || onInsertWaypoint != nil {
+            let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
+            longPress.minimumPressDuration = 0.2
+            longPress.delegate = context.coordinator
+            mapView.addGestureRecognizer(longPress)
+        }
+
         return mapView
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        // Keep the coordinator's snapshot current so drag hit-testing reads live waypoints/closures.
+        context.coordinator.parent = self
+        // Never fight an in-progress live drag — the coordinator owns the geometry until release.
+        if context.coordinator.isDragging { return }
         if context.coordinator.currentLayer != mapLayer {
             context.coordinator.currentLayer = mapLayer
             configureLayer(mapView)
@@ -832,6 +883,14 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var lastRouteSignature = ""
         var lastFitToken = 0
 
+        // MARK: Live drag (flight-plan revamp #3)
+        enum DragMode { case move(Int); case insert(Int) } // insert(afterIndex)
+        var dragMode: DragMode?
+        var dragCoords: [CLLocationCoordinate2D] = []       // working geometry during a drag
+        var dragIndex = 0                                   // index into dragCoords being moved
+        var dragAnnotation: RouteWaypointAnnotation?        // the marker following the finger
+        var isDragging: Bool { dragMode != nil }
+
         init(_ parent: RouteBuilderMapView) {
             self.parent = parent
             self.currentLayer = parent.mapLayer
@@ -923,6 +982,161 @@ struct RouteBuilderMapView: UIViewRepresentable {
             }
             let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
             parent.onMapTap(coordinate)
+        }
+
+        // MARK: Live drag handling (flight-plan revamp #3)
+
+        @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+            guard let mapView = gesture.view as? MKMapView else { return }
+            let point = gesture.location(in: mapView)
+            switch gesture.state {
+            case .began:
+                beginDrag(mapView, at: point)
+            case .changed:
+                guard isDragging, dragIndex < dragCoords.count else { return }
+                let coord = mapView.convert(point, toCoordinateFrom: mapView)
+                dragCoords[dragIndex] = coord
+                dragAnnotation?.coordinate = coord
+                redrawDragRoute(mapView)
+            case .ended:
+                endDrag(mapView, at: point)
+            case .cancelled, .failed:
+                cancelDrag(mapView)
+            default:
+                break
+            }
+        }
+
+        /// Grab a waypoint (move) if the press is on one, else the nearest route segment (insert).
+        private func beginDrag(_ mapView: MKMapView, at point: CGPoint) {
+            let wpts = parent.waypoints
+            guard !wpts.isEmpty else { return }
+            if parent.onMoveWaypoint != nil,
+               let idx = waypointIndex(near: point, mapView: mapView, maxPointDistance: 34),
+               let anno = routeAnnotation(at: idx, in: mapView) {
+                dragMode = .move(idx)
+                dragCoords = wpts.map { $0.coordinate }
+                dragIndex = idx
+                dragAnnotation = anno
+                grabbed(mapView, deselect: anno)
+                return
+            }
+            if parent.onInsertWaypoint != nil, wpts.count >= 2,
+               let seg = closestSegment(to: point, mapView: mapView, maxPointDistance: 22) {
+                let coord = mapView.convert(point, toCoordinateFrom: mapView)
+                let insertAt = seg + 1
+                dragMode = .insert(seg)
+                dragCoords = wpts.map { $0.coordinate }
+                dragCoords.insert(coord, at: insertAt)
+                dragIndex = insertAt
+                let temp = RouteWaypointAnnotation(coordinate: coord, index: insertAt, name: "")
+                mapView.addAnnotation(temp)
+                dragAnnotation = temp
+                grabbed(mapView, deselect: nil)
+                redrawDragRoute(mapView)
+            }
+        }
+
+        private func grabbed(_ mapView: MKMapView, deselect: MKAnnotation?) {
+            mapView.isScrollEnabled = false
+            if let deselect = deselect { mapView.deselectAnnotation(deselect, animated: false) }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+
+        private func endDrag(_ mapView: MKMapView, at point: CGPoint) {
+            guard let mode = dragMode else { return }
+            let finalCoord = mapView.convert(point, toCoordinateFrom: mapView)
+            if case .insert = mode, let temp = dragAnnotation { mapView.removeAnnotation(temp) }
+            finishDrag(mapView)
+            switch mode {
+            case .move(let index): parent.onMoveWaypoint?(index, finalCoord)
+            case .insert(let afterIndex): parent.onInsertWaypoint?(afterIndex, finalCoord)
+            }
+        }
+
+        private func cancelDrag(_ mapView: MKMapView) {
+            finishDrag(mapView)
+            // Rebuilds markers + line from the model, dropping any temp insert marker and resetting a
+            // moved marker to its committed position.
+            redrawCommittedRoute(mapView)
+        }
+
+        private func finishDrag(_ mapView: MKMapView) {
+            dragMode = nil
+            dragAnnotation = nil
+            dragCoords = []
+            mapView.isScrollEnabled = true
+        }
+
+        /// Redraw the magenta route from the live working geometry (move/insert preview).
+        private func redrawDragRoute(_ mapView: MKMapView) {
+            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            guard dragCoords.count >= 2 else { return }
+            let casing = RouteCasingPolyline(coordinates: dragCoords, count: dragCoords.count)
+            mapView.addOverlay(casing, level: .aboveLabels)
+            let line = MKPolyline(coordinates: dragCoords, count: dragCoords.count)
+            mapView.addOverlay(line, level: .aboveLabels)
+        }
+
+        /// Rebuild markers + route from the committed model (used after a cancelled drag).
+        private func redrawCommittedRoute(_ mapView: MKMapView) {
+            let old = mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }
+            mapView.removeAnnotations(old)
+            mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
+            let wpts = parent.waypoints
+            for (i, w) in wpts.enumerated() {
+                mapView.addAnnotation(RouteWaypointAnnotation(coordinate: w.coordinate, index: i, name: w.name))
+            }
+            if wpts.count >= 2 {
+                let coords = wpts.map { $0.coordinate }
+                mapView.addOverlay(RouteCasingPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
+                mapView.addOverlay(MKPolyline(coordinates: coords, count: coords.count), level: .aboveLabels)
+            }
+            lastRouteSignature = wpts.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
+        }
+
+        // MARK: Drag hit-testing
+
+        /// Index of the waypoint whose marker is closest to `point` (within `maxPointDistance` px), or nil.
+        private func waypointIndex(near point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
+            var best: (index: Int, dist: CGFloat)?
+            for (i, w) in parent.waypoints.enumerated() {
+                let p = mapView.convert(w.coordinate, toPointTo: mapView)
+                // The marker balloon sits above its coordinate tip — bias the hit centre up.
+                let centre = CGPoint(x: p.x, y: p.y - 14)
+                let d = hypot(point.x - centre.x, point.y - centre.y)
+                if best == nil || d < best!.dist { best = (i, d) }
+            }
+            if let best = best, best.dist <= maxPointDistance { return best.index }
+            return nil
+        }
+
+        private func routeAnnotation(at index: Int, in mapView: MKMapView) -> RouteWaypointAnnotation? {
+            mapView.annotations.compactMap { $0 as? RouteWaypointAnnotation }.first { $0.index == index }
+        }
+
+        /// Start index of the route segment closest to `point` (within `maxPointDistance` px), or nil.
+        private func closestSegment(to point: CGPoint, mapView: MKMapView, maxPointDistance: CGFloat) -> Int? {
+            let wpts = parent.waypoints
+            guard wpts.count >= 2 else { return nil }
+            var best: (index: Int, dist: CGFloat)?
+            for i in 0..<(wpts.count - 1) {
+                let a = mapView.convert(wpts[i].coordinate, toPointTo: mapView)
+                let b = mapView.convert(wpts[i + 1].coordinate, toPointTo: mapView)
+                let d = distance(from: point, toSegment: a, b)
+                if best == nil || d < best!.dist { best = (i, d) }
+            }
+            if let best = best, best.dist <= maxPointDistance { return best.index }
+            return nil
+        }
+
+        private func distance(from p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
+            let ab = CGPoint(x: b.x - a.x, y: b.y - a.y)
+            let ap = CGPoint(x: p.x - a.x, y: p.y - a.y)
+            let len2 = ab.x * ab.x + ab.y * ab.y
+            let t = len2 == 0 ? 0 : max(0, min(1, (ap.x * ab.x + ap.y * ab.y) / len2))
+            let proj = CGPoint(x: a.x + t * ab.x, y: a.y + t * ab.y)
+            return hypot(p.x - proj.x, p.y - proj.y)
         }
 
         // Let the tap coexist with the map's own pan/zoom recognizers.

@@ -392,6 +392,16 @@ class AirportDataService: ObservableObject {
         return Array(scored.prefix(limit).map { $0.airport })
     }
 
+    /// Nearest single airport within a distance cap — used by the flight-plan builder to snap a dragged
+    /// waypoint to an airfield on release (flight-plan revamp #3). Returns nil if nothing qualifies.
+    func nearestAirport(
+        to coordinate: CLLocationCoordinate2D,
+        maxDistanceNm: Double,
+        types: Set<AirportType>? = nil
+    ) -> Airport? {
+        findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: maxDistanceNm, types: types).first
+    }
+
     /// Get frequencies for an airport
     func getFrequencies(for airportIdent: String) -> [AirportFrequency] {
         frequenciesByAirport[airportIdent.uppercased()] ?? []

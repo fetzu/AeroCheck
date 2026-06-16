@@ -213,6 +213,9 @@ struct NavigationMapView: View {
 
     // Compact layout state (for small devices)
     @State private var showCompactPanel: Bool = false
+    /// Measured height of the compact bottom sheet — the floating controls sit just above it and the
+    /// sheet grows only to its content (not a fixed half-screen). (3.5 — iPhone)
+    @State private var compactSheetHeight: CGFloat = 96
     @State private var selectedCompactTab: CompactNavigationTab = .plan
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
@@ -358,7 +361,7 @@ struct NavigationMapView: View {
     /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
     /// Now also supports showing just frequency drawer when no flight plan is active
     private var shouldUseCompactLayout: Bool {
-        isCompactWidth && appState.settings.enableFlightPlanning
+        isCompactWidth  // iPhone always uses the compact layout; plan/freq UI is gated inside. (3.5)
     }
 
     /// Whether there is an active flight plan
@@ -573,89 +576,102 @@ struct NavigationMapView: View {
 
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
-        let bottomSafeArea = geometry.safeAreaInsets.bottom
-        let topSafeArea = geometry.safeAreaInsets.top
-        // The bottom nav sheet is ALWAYS visible as a peek and expands on tap/drag (3.5 — iPhone).
-        let peekHeight = (hasActiveFlightPlan ? 122.0 : 74.0) + bottomSafeArea
-        let expandedHeight = geometry.size.height * 0.62 + bottomSafeArea
-        let sheetHeight = showCompactPanel ? expandedHeight : peekHeight
-
-        return ZStack(alignment: .top) {
+        // Single expression (no top-level `let` + `return`) so the body is unambiguously a view, not a
+        // result-builder with a disabling `return`. Heights are inlined / measured. (3.5 fix)
+        ZStack(alignment: .top) {
             // Map content - full screen behind everything
             mapContent
                 .ignoresSafeArea()
 
-            // Fixed top bar overlay - stays in place regardless of sheet state
+            // Fixed top bar overlay.
             VStack {
                 compactTopBar
                     .padding(.horizontal, 12)
-                    .padding(.top, topSafeArea + (topSafeArea > 50 ? 8 : 4)) // Account for Dynamic Island/notch
+                    .padding(.top, geometry.safeAreaInsets.top + (geometry.safeAreaInsets.top > 50 ? 8 : 4))
                 Spacer()
             }
 
-            // Floating map controls, pinned just above the sheet.
+            // Floating map controls, pinned just above the sheet (or the bottom edge when no sheet).
             VStack {
                 Spacer()
                 compactMapControls
                     .padding(.horizontal, 12)
-                    .padding(.bottom, sheetHeight + 8)
-                    .animation(.easeInOut(duration: 0.3), value: sheetHeight)
+                    .padding(.bottom, (appState.settings.enableFlightPlanning ? compactSheetHeight : geometry.safeAreaInsets.bottom) + 8)
+                    .animation(.easeInOut(duration: 0.3), value: compactSheetHeight)
             }
 
-            // Bottom nav sheet — always-visible peek that expands.
-            VStack {
-                Spacer()
-                compactNavSheet(bottomSafeArea: bottomSafeArea)
-                    .frame(height: sheetHeight)
+            // Bottom nav sheet — only with flight planning on (it carries the plan + frequencies). The
+            // sheet sizes to its content; the map view stays clean when planning is off. (3.5)
+            if appState.settings.enableFlightPlanning {
+                VStack {
+                    Spacer()
+                    compactNavSheet(geometry: geometry)
+                }
             }
-            .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
         }
         .ignoresSafeArea()
-        .onAppear {
-            mapWidth = geometry.size.width
-        }
-        .onChange(of: geometry.size) { _, newSize in
-            mapWidth = newSize.width
-        }
+        .onAppear { mapWidth = geometry.size.width }
+        .onChange(of: geometry.size) { _, newSize in mapWidth = newSize.width }
+        .onPreferenceChange(CompactSheetHeightPreferenceKey.self) { compactSheetHeight = $0 }
     }
 
-    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands. (3.5)
+    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands to fit its content. (3.5)
 
-    private func compactNavSheet(bottomSafeArea: CGFloat) -> some View {
+    private func compactNavSheet(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             compactSheetHandle
             if showCompactPanel {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let plan = flightPlanManager.activeFlightPlan {
-                            legTimerCluster(.minimal)
-                            waypointList(plan: plan, compact: true)
-                            liveDataRow
-                            progressRow(plan: plan)
-                        }
-                        freqColumn
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, bottomSafeArea + 12)
-                }
+                compactExpandedContent(bottomSafeArea: geometry.safeAreaInsets.bottom)
             } else {
-                // Peek: leg timer (if a plan is active) + a one-line glance.
-                if hasActiveFlightPlan {
-                    legTimerCluster(.minimal)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 6)
-                }
-                compactGlanceRow
-                    .padding(.horizontal, 12)
-                Spacer(minLength: 0)
+                compactPeekContent(bottomSafeArea: geometry.safeAreaInsets.bottom)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .background(Color.panelBackground.opacity(0.97))
+        .background(
+            Color.panelBackground.opacity(0.97)
+                .overlay(GeometryReader { p in
+                    Color.clear.preference(key: CompactSheetHeightPreferenceKey.self, value: p.size.height)
+                })
+        )
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
         .overlay(alignment: .top) {
             UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
                 .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+        }
+        .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+    }
+
+    /// Expanded sheet body — sizes to its content (waypointList caps + scrolls internally, freqColumn
+    /// is short) so the sheet only grows as much as needed. (3.5 — iPhone)
+    @ViewBuilder
+    private func compactExpandedContent(bottomSafeArea: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let plan = flightPlanManager.activeFlightPlan {
+                legTimerCluster(.minimal)
+                waypointList(plan: plan, compact: true)
+                liveDataRow
+                progressRow(plan: plan)
+            }
+            freqColumn
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 2)
+        .padding(.bottom, bottomSafeArea + 12)
+    }
+
+    /// Peek sheet body — leg timer (when a plan is active) + a one-line glance. No trailing Spacer, so
+    /// it sizes to content. (3.5 — iPhone)
+    @ViewBuilder
+    private func compactPeekContent(bottomSafeArea: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            if hasActiveFlightPlan {
+                legTimerCluster(.minimal)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+            }
+            compactGlanceRow
+                .padding(.horizontal, 12)
+                .padding(.bottom, bottomSafeArea + 10)
         }
     }
 
@@ -720,8 +736,9 @@ struct NavigationMapView: View {
                     .floatingChromeCircle()
             }
 
-            // Flight Plan button (toggles bottom panel) - shown when flight plan is active and not completed
-            // Opens the flight planning view when tapped, toggles panel with long press or when panel visible
+            // Flight Plan button — only when flight planning (Beta) is on; the map view stays clean
+            // (no plan button or sheet) when it's off. (3.5 — iPhone)
+            if appState.settings.enableFlightPlanning {
             if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -760,6 +777,7 @@ struct NavigationMapView: View {
                         .environmentObject(aircraftDataService)
                         .environmentObject(openAIPDataService)
                 }
+            }
             }
 
             Spacer()
@@ -3064,6 +3082,13 @@ struct CompassView: View {
 /// Role of a frequency in the current/next/emergency model: only CURRENT + NEXT (+ EMERGENCY) show by
 /// default; everything else is `.other`, revealed by "All Frequencies". (3.5)
 enum FreqRole { case current, next, other, emergency }
+
+/// Preference key reporting the compact bottom sheet's measured height, so the floating map controls
+/// sit just above it. (3.5 — iPhone)
+struct CompactSheetHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
 
 struct PhaseFrequency: Identifiable {
     let id = UUID()

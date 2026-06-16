@@ -316,7 +316,14 @@ struct HomeView: View {
     private func coverBinding(_ flag: Binding<Bool>) -> Binding<Bool> {
         Binding(
             get: { flag.wrappedValue && !useRailLayout },
-            set: { if !$0 { flag.wrappedValue = false } }
+            // Only honor a `false` write as a real dismissal in the portrait/compact layout. When the
+            // device rotates INTO the rail layout, `get` drops to false and SwiftUI writes `false` back
+            // here to "dismiss" the cover — if we cleared the flag then, the destination would vanish
+            // instead of being handed to `railDestinationOverlays`, bouncing the user back to Home. So
+            // ignore the write while in the rail layout; the underlying flag survives the rotation.
+            set: { newValue in
+                if !newValue && !useRailLayout { flag.wrappedValue = false }
+            }
         )
     }
 

@@ -54,7 +54,7 @@ struct FlightPlanMapBuilderView: View {
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
-    @State private var showProfileFull = false
+    @State private var profileExpanded = false
     @State private var exportItem: FlightPlanExportItem?
 
     // Hybrid layout (#4 redesign): wide profile strip under the map + a Waypoints/Conflicts toggle.
@@ -134,23 +134,6 @@ struct FlightPlanMapBuilderView: View {
                 )
                 .environmentObject(appState)
                 .environmentObject(airportDataService)
-            }
-            .sheet(isPresented: $showProfileFull) {
-                NavigationStack {
-                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
-                                     selectedId: selectedConflictId, terrainId: Self.terrainConflictId)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.cockpitBackground)
-                        .navigationTitle(L10n.Nav.routeProfileTitle)
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button(L10n.Button.done) { showProfileFull = false }
-                            }
-                        }
-                }
-                .preferredColorScheme(.dark)
             }
             .sheet(item: $exportItem) { item in
                 FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
@@ -483,11 +466,15 @@ struct FlightPlanMapBuilderView: View {
                     .font(.system(size: 10, weight: .semibold)).tracking(0.6)
                     .foregroundColor(.secondaryText)
                 Spacer()
-                Button { showProfileFull = true } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.secondaryText)
+                if !profileCollapsed {
+                    // Resize the profile IN PLACE (no popup) — taller = easier to read / edit precisely.
+                    Button { withAnimation(.easeInOut(duration: 0.22)) { profileExpanded.toggle() } } label: {
+                        Image(systemName: profileExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                    }
+                    .accessibilityLabel(L10n.Nav.expandProfile)
                 }
-                .accessibilityLabel(L10n.Nav.expandProfile)
                 Button { withAnimation(.easeInOut(duration: 0.18)) { profileCollapsed.toggle() } } label: {
                     Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
@@ -498,7 +485,7 @@ struct FlightPlanMapBuilderView: View {
                 RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
                                  selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
                                  visibleRegion: region)
-                    .frame(height: 136)
+                    .frame(height: profileExpanded ? 300 : 136)
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
         }

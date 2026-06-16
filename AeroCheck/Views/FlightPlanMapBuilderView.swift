@@ -46,6 +46,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var terrainTask: Task<Void, Never>?
     @State private var minTerrainClearanceFt: Double?
     @State private var selectedConflictId: String?   // tapped conflict — highlighted on map + profile (#4)
+    @State private var focusRegion: MKCoordinateRegion?   // hold a conflict → recenter the map (#4)
+    @State private var focusToken = 0
     private let elevationService = ElevationService()
     private static let terrainConflictId = "terrain"
 
@@ -92,9 +94,28 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
             .background(Color.cockpitBackground)
-            // No system bar — Done + ••• float over the map (top corners) to reclaim the dead title
-            // bar for the map + panel. (#4 dead-space, Direction A)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
+            // Direction B: the bar stays, but the dead "Flight plan" title is replaced by the live
+            // route summary, so the right column drops its summary row and starts at the toggle. (#4)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+                ToolbarItem(placement: .principal) {
+                    if waypoints.count >= 1 { toolbarSummary }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
+                        Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .disabled(waypoints.isEmpty)
+                    .accessibilityLabel(L10n.Nav.moreActions)
+                }
+            }
+            .sensoryFeedback(.impact(weight: .light), trigger: focusToken)
             .sheet(isPresented: $showTableEditor) {
                 if let plan {
                     FlightPlanEditorView(flightPlan: plan)
@@ -171,6 +192,8 @@ struct FlightPlanMapBuilderView: View {
             airports: visibleAirports,
             airspacePolygons: airspacePolygons,
             selectedAirspaceId: selectedConflictId,
+            focusRegion: focusRegion,
+            focusToken: focusToken,
             fitRouteToken: fitRouteToken,
             region: $region,
             onAirportTap: { airport in addAirport(airport) },
@@ -179,17 +202,10 @@ struct FlightPlanMapBuilderView: View {
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
-        // Floating Done + ••• (no system bar) above the From/To bar. (#4 dead-space, Direction A)
+        // From/To bar full-width at the top (Done/••• live in the system bar — Direction B).
         .overlay(alignment: .top) {
-            VStack(spacing: 8) {
-                HStack {
-                    doneButton
-                    Spacer()
-                    moreMenu
-                }
-                fromToBar
-            }
-            .padding(12)
+            fromToBar
+                .padding(12)
         }
         // Layer switcher bottom-left, center/fit bottom-right. (feedback)
         .overlay(alignment: .bottomLeading) {
@@ -388,36 +404,6 @@ struct FlightPlanMapBuilderView: View {
         fitRouteToken += 1
     }
 
-    /// Floating Done — exits the builder (it auto-saves). (#4 dead-space, Direction A)
-    private var doneButton: some View {
-        Button { dismiss() } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold))
-                Text(L10n.Button.done).font(.system(size: 14, weight: .semibold))
-            }
-            .foregroundColor(.primaryText)
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Color.panelBackground.opacity(0.92), in: Capsule())
-        }
-    }
-
-    /// Floating ••• menu — Export GPX + the advanced Table editor. (#4 dead-space, Direction A)
-    private var moreMenu: some View {
-        Menu {
-            Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
-            Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.primaryText)
-                .frame(width: 40, height: 40)
-                .background(Color.panelBackground.opacity(0.92), in: Circle())
-        }
-        .disabled(waypoints.isEmpty)
-        .opacity(waypoints.isEmpty ? 0.5 : 1)
-        .accessibilityLabel(L10n.Nav.moreActions)
-    }
-
     private var layerPicker: some View {
         Menu {
             Picker("Map layer", selection: $selectedLayer) {
@@ -470,7 +456,6 @@ struct FlightPlanMapBuilderView: View {
     /// a time instead of stacking everything.
     private var rightColumn: some View {
         VStack(spacing: 0) {
-            routeSummary
             if waypoints.count >= 2 { rightTabBar }
             Group {
                 if rightTab == .conflicts && waypoints.count >= 2 {
@@ -610,6 +595,63 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
+    /// Hold a conflict → select it AND recenter the map on it, so a small zone you can't see when
+    /// zoomed out is brought into view. (#4 feedback)
+    private func centerOnConflict(_ id: String) {
+        selectedConflictId = id
+        if id == Self.terrainConflictId {
+            if let c = lowestClearanceCoordinate() {
+                focusRegion = MKCoordinateRegion(center: c, span: MKCoordinateSpan(latitudeDelta: 0.15, longitudeDelta: 0.15))
+                focusToken += 1
+            }
+            return
+        }
+        guard let a = crossedAirspaces.first(where: { $0.id == id }) else { return }
+        if let box = a.boundingBox {
+            let center = CLLocationCoordinate2D(latitude: (box.minLat + box.maxLat) / 2, longitude: (box.minLon + box.maxLon) / 2)
+            let span = MKCoordinateSpan(latitudeDelta: max(0.04, (box.maxLat - box.minLat) * 1.8),
+                                        longitudeDelta: max(0.04, (box.maxLon - box.minLon) * 1.8))
+            focusRegion = MKCoordinateRegion(center: center, span: span)
+        } else if let c = a.centroid {
+            focusRegion = MKCoordinateRegion(center: c, span: MKCoordinateSpan(latitudeDelta: 0.12, longitudeDelta: 0.12))
+        }
+        focusToken += 1
+    }
+
+    /// Coordinate of the lowest terrain clearance along the route (for hold-to-center on the terrain row).
+    private func lowestClearanceCoordinate() -> CLLocationCoordinate2D? {
+        guard !terrainData.isEmpty, let terrMax = terrainData.last?.distance, terrMax > 0 else { return nil }
+        let prof = RouteAltitudeProfile(waypoints)
+        guard prof.hasData, prof.totalNM > 0 else { return nil }
+        var worst: (clearance: Double, nm: Double)?
+        for p in terrainData {
+            let nm = (p.distance / terrMax) * prof.totalNM
+            guard let alt = prof.altitude(atNM: nm) else { continue }
+            let clr = alt - p.elevation * 3.28084
+            if worst == nil || clr < worst!.clearance { worst = (clr, nm) }
+        }
+        guard let w = worst else { return nil }
+        return coordinate(atNM: w.nm)
+    }
+
+    /// Interpolate the route coordinate at a given along-track distance (NM).
+    private func coordinate(atNM target: Double) -> CLLocationCoordinate2D? {
+        guard waypoints.count >= 2 else { return waypoints.first?.coordinate }
+        var cum = 0.0
+        for i in 0..<(waypoints.count - 1) {
+            let a = waypoints[i].coordinate, b = waypoints[i + 1].coordinate
+            let seg = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852.0
+            if target <= cum + seg || i == waypoints.count - 2 {
+                let t = seg > 0 ? min(1, max(0, (target - cum) / seg)) : 0
+                return CLLocationCoordinate2D(latitude: a.latitude + (b.latitude - a.latitude) * t,
+                                              longitude: a.longitude + (b.longitude - a.longitude) * t)
+            }
+            cum += seg
+        }
+        return waypoints.last?.coordinate
+    }
+
     private var terrainWarnRow: some View {
         let selected = selectedConflictId == Self.terrainConflictId
         return HStack(spacing: 10) {
@@ -631,6 +673,7 @@ struct FlightPlanMapBuilderView: View {
         .background(selected ? Color.white.opacity(0.07) : .clear)
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(Self.terrainConflictId) }
+        .onLongPressGesture(minimumDuration: 1.0) { centerOnConflict(Self.terrainConflictId) }
     }
 
     private func airspaceRow(_ a: Airspace) -> some View {
@@ -671,6 +714,7 @@ struct FlightPlanMapBuilderView: View {
         .background(selected ? Color.white.opacity(0.07) : .clear)
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(a.id) }
+        .onLongPressGesture(minimumDuration: 1.0) { centerOnConflict(a.id) }
     }
 
     /// Debounced recompute of the on-route airspace blocks (profile) + conflict subset (list + map). (#4)
@@ -761,34 +805,25 @@ struct FlightPlanMapBuilderView: View {
         .padding(.bottom, 2)
     }
 
-    private var routeSummary: some View {
-        HStack(spacing: 0) {
-            summaryMetric("WAYPOINTS", "\(waypoints.count)", .primaryText)
-            summaryDivider
-            summaryMetric("DISTANCE", String(format: "%.0f NM", plan?.totalDistance ?? 0), .altimeterBlue)
-            summaryDivider
-            summaryMetric("EET", plan?.formattedTotalEET ?? "0:00", .aviationGold)
+    /// Compact route summary for the system nav bar (replaces the dead title). (#4 Direction B)
+    private var toolbarSummary: some View {
+        HStack(spacing: 8) {
+            metricInline("\(waypoints.count)", "WPT", .primaryText)
+            Text("·").font(.system(size: 12)).foregroundColor(.dimText)
+            metricInline(String(format: "%.0f", plan?.totalDistance ?? 0), "NM", .altimeterBlue)
+            Text("·").font(.system(size: 12)).foregroundColor(.dimText)
+            metricInline(plan?.formattedTotalEET ?? "0:00", "", .aviationGold)
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 16)
-        .background(Color.cardBackground)
+        .lineLimit(1)
     }
 
-    private func summaryMetric(_ label: String, _ value: String, _ color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 10, weight: .semibold)).tracking(0.6)
-                .foregroundColor(.secondaryText)
-            Text(value)
-                .font(.system(size: 19, weight: .bold, design: .monospaced))
-                .foregroundColor(color)
-                .lineLimit(1).minimumScaleFactor(0.6)
+    private func metricInline(_ value: String, _ unit: String, _ color: Color) -> some View {
+        HStack(spacing: 3) {
+            Text(value).font(.system(size: 15, weight: .bold, design: .monospaced)).foregroundColor(color)
+            if !unit.isEmpty {
+                Text(unit).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondaryText)
+            }
         }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var summaryDivider: some View {
-        Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1, height: 30)
     }
 
     private var emptyRouteHint: some View {
@@ -1047,6 +1082,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var airports: [Airport]
     var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
     var selectedAirspaceId: String? = nil          // tapped conflict — emphasised on the map (#4)
+    var focusRegion: MKCoordinateRegion? = nil     // hold a conflict → recenter the map on it (#4)
+    var focusToken: Int = 0
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
     var onAirportTap: (Airport) -> Void
@@ -1101,6 +1138,10 @@ struct RouteBuilderMapView: UIViewRepresentable {
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
             fitRoute(mapView)
+        }
+        if context.coordinator.lastFocusToken != focusToken {
+            context.coordinator.lastFocusToken = focusToken
+            if let r = focusRegion { mapView.setRegion(r, animated: true) }
         }
     }
 
@@ -1225,6 +1266,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var currentLayer: WaypointPickerMapLayer
         var lastRouteSignature = ""
         var lastFitToken = 0
+        var lastFocusToken = 0
 
         // MARK: Live drag (flight-plan revamp #3)
         enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)

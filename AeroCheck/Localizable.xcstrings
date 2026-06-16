@@ -1,146 +1,162 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "nav.routeClear" : {
+    "nav.flightPlanTitle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Route clear"
+            "value" : "Flight plan"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Route dégagée"
+            "value" : "Plan de vol"
           }
         }
       }
     },
-    "nav.terrainClose" : {
+    "nav.exportGPX" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "terrain < 150 m"
+            "value" : "Export GPX"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "terrain < 150 m"
+            "value" : "Exporter GPX"
           }
         }
       }
     },
-    "nav.terrainProximity" : {
+    "nav.tableEditor" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Terrain proximity"
+            "value" : "Table editor"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Proximité du terrain"
+            "value" : "Éditeur tableau"
           }
         }
       }
     },
-    "nav.terrainProximityDetail" : {
+    "nav.fitRoute" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Planned altitude within 150 m of terrain"
+            "value" : "Fit route"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Altitude prévue à moins de 150 m du terrain"
+            "value" : "Cadrer la route"
           }
         }
       }
     },
-    "nav.airspaceSingular" : {
+    "nav.moreActions" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "airspace on route"
+            "value" : "More actions"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "espace aérien sur la route"
+            "value" : "Plus d'actions"
           }
         }
       }
     },
-    "nav.airspacePlural" : {
+    "nav.routeProfileTitle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "airspaces on route"
+            "value" : "Route profile"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "espaces aériens sur la route"
+            "value" : "Profil de la route"
           }
         }
       }
     },
-    "nav.restricted" : {
+    "nav.expandProfile" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "restricted"
+            "value" : "Expand profile"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "réglementé"
+            "value" : "Agrandir le profil"
           }
         }
       }
     },
-    "nav.reorderWaypoints" : {
+    "nav.waypointsTab" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reorder waypoints"
+            "value" : "Waypoints"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Réordonner les points"
+            "value" : "Waypoints"
           }
         }
       }
     },
-    "nav.dragToReorder" : {
+    "nav.conflictsTab" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drag to reorder"
+            "value" : "Conflicts"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Glisser pour réordonner"
+            "value" : "Conflits"
+          }
+        }
+      }
+    },
+    "nav.noConflicts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No airspace or terrain conflicts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun conflit d'espace ou de terrain"
           }
         }
       }
@@ -7807,6 +7823,38 @@
         }
       }
     },
+    "nav.airspacePlural" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "airspaces on route"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "espaces aériens sur la route"
+          }
+        }
+      }
+    },
+    "nav.airspaceSingular" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "airspace on route"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "espace aérien sur la route"
+          }
+        }
+      }
+    },
     "nav.allAircraft" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8515,6 +8563,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Téléchargez la Segelflugkarte pour des transitions de zoom fluides en mode hors ligne."
+          }
+        }
+      }
+    },
+    "nav.dragToReorder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag to reorder"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Glisser pour réordonner"
           }
         }
       }
@@ -10076,6 +10140,22 @@
         }
       }
     },
+    "nav.reorderWaypoints" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reorder waypoints"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réordonner les points"
+          }
+        }
+      }
+    },
     "nav.requiredFuel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10106,6 +10186,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Réserve (L)"
+          }
+        }
+      }
+    },
+    "nav.restricted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "restricted"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "réglementé"
           }
         }
       }
@@ -10188,6 +10284,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Route"
+          }
+        }
+      }
+    },
+    "nav.routeClear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Route clear"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Route dégagée"
           }
         }
       }
@@ -10576,6 +10688,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terrain"
+          }
+        }
+      }
+    },
+    "nav.terrainClose" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "terrain < 150 m"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "terrain < 150 m"
+          }
+        }
+      }
+    },
+    "nav.terrainProximity" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terrain proximity"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proximité du terrain"
+          }
+        }
+      }
+    },
+    "nav.terrainProximityDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planned altitude within 150 m of terrain"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude prévue à moins de 150 m du terrain"
           }
         }
       }
@@ -12186,6 +12346,10 @@
           }
         }
       }
+    },
+    "Search an ICAO above, or press and\nhold the map to drop a waypoint" : {
+      "comment" : "A hint to the user to search for an ICAO or tap the map to add a waypoint.",
+      "isCommentAutoGenerated" : true
     },
     "Select a flight" : {
       "comment" : "A label displayed in the Flight Log view when a flight is not selected.",
@@ -16104,10 +16268,6 @@
     },
     "Table" : {
       "comment" : "A label for the advanced table editor.",
-      "isCommentAutoGenerated" : true
-    },
-    "Tap the map or search an ICAO\nto add your first waypoint" : {
-      "comment" : "A hint to add the first waypoint on the map.",
       "isCommentAutoGenerated" : true
     },
     "Terrain" : {

@@ -50,8 +50,13 @@ struct FlightPlanMapBuilderView: View {
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
-    @State private var showTerrain = false
+    @State private var showProfileFull = false
     @State private var exportItem: FlightPlanExportItem?
+
+    // Hybrid layout (#4 redesign): wide profile strip under the map + a Waypoints/Conflicts toggle.
+    enum RightTab { case waypoints, conflicts }
+    @State private var rightTab: RightTab = .waypoints
+    @State private var profileCollapsed = false
 
     /// Live plan from the manager (single source of truth).
     private var plan: FlightPlan? {
@@ -60,13 +65,11 @@ struct FlightPlanMapBuilderView: View {
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
 
-    /// Title derives the route (FROM → TO) when the plan is unnamed, so a new plan is auto-named by its
-    /// endpoints; a custom name (set in the Table) wins. (flight-plan revamp #2)
+    /// A custom plan name wins; otherwise a neutral title — the FROM→TO route already shows in the
+    /// on-map endpoint bar, so the title no longer duplicates it. (flight-plan revamp #4 — dedup)
     private var builderTitle: String {
         if let p = plan, !p.name.isEmpty { return p.name }
-        let names = waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
-        if names.count >= 2, let f = names.first, let l = names.last { return "\(f) → \(l)" }
-        return L10n.Nav.newFlightPlan
+        return L10n.Nav.flightPlanTitle
     }
 
     var body: some View {
@@ -76,18 +79,18 @@ struct FlightPlanMapBuilderView: View {
                 Group {
                     if twoColumn {
                         HStack(spacing: 0) {
-                            mapArea
-                                .frame(width: geo.size.width * 0.6)
+                            leftSide
+                                .frame(width: geo.size.width * 0.62)
                             Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
-                            sidePanel
+                            rightColumn
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     } else {
                         VStack(spacing: 0) {
-                            mapArea
-                                .frame(height: geo.size.height * 0.46)
+                            leftSide
+                                .frame(height: geo.size.height * 0.5)
                             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-                            sidePanel
+                            rightColumn
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
@@ -101,12 +104,15 @@ struct FlightPlanMapBuilderView: View {
                     Button(L10n.Button.done) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showTableEditor = true
+                    Menu {
+                        Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
+                        Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
+                        Button { fitRouteToken += 1 } label: { Label(L10n.Nav.fitRoute, systemImage: "scope") }
                     } label: {
-                        Label("Table", systemImage: "tablecells")
+                        Image(systemName: "ellipsis.circle")
                     }
-                    .accessibilityLabel("Advanced table editor")
+                    .disabled(waypoints.isEmpty)
+                    .accessibilityLabel(L10n.Nav.moreActions)
                 }
             }
             .sheet(isPresented: $showTableEditor) {
@@ -128,9 +134,21 @@ struct FlightPlanMapBuilderView: View {
                 .environmentObject(appState)
                 .environmentObject(airportDataService)
             }
-            .sheet(isPresented: $showTerrain) {
-                TerrainProfileView(waypoints: waypoints)
-                    .environmentObject(appState)
+            .sheet(isPresented: $showProfileFull) {
+                NavigationStack {
+                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.cockpitBackground)
+                        .navigationTitle(L10n.Nav.routeProfileTitle)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(L10n.Button.done) { showProfileFull = false }
+                            }
+                        }
+                }
+                .preferredColorScheme(.dark)
             }
             .sheet(item: $exportItem) { item in
                 FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
@@ -418,28 +436,124 @@ struct FlightPlanMapBuilderView: View {
 
     // MARK: - Side / bottom panel
 
-    private var sidePanel: some View {
+    // MARK: - Hybrid layout: map + bottom profile strip (left) · summary + toggle (right) (#4 redesign)
+
+    /// Map filling the area with the wide route-profile strip pinned beneath it (the EFB convention).
+    private var leftSide: some View {
+        VStack(spacing: 0) {
+            mapArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if waypoints.count >= 2 {
+                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                routeProfileStrip
+            }
+        }
+    }
+
+    /// Right column: compact route summary + a Waypoints/Conflicts toggle, showing one focused view at
+    /// a time instead of stacking everything.
+    private var rightColumn: some View {
         VStack(spacing: 0) {
             routeSummary
-            if waypoints.count >= 2 {
-                routeCheckBar
-                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
-                    .frame(height: 150)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                if hasHazards { conflictsList }
+            if waypoints.count >= 2 { rightTabBar }
+            Group {
+                if rightTab == .conflicts && waypoints.count >= 2 {
+                    conflictsTabContent
+                } else if waypoints.isEmpty {
+                    emptyRouteHint
+                } else {
+                    if waypoints.count >= 2 { waypointListHeader }
+                    waypointList
+                }
             }
-            if waypoints.isEmpty {
-                emptyRouteHint
-            } else {
-                if waypoints.count >= 2 { waypointListHeader }
-                waypointList
-            }
-            panelActions
         }
         .background(Color.cockpitBackground)
         .onChange(of: waypoints.count) { _, count in
-            if count < 2 { listEditMode = .inactive }
+            if count < 2 { listEditMode = .inactive; rightTab = .waypoints }
+        }
+    }
+
+    /// Collapsible wide route-profile strip under the map; expand to a full-screen profile (replaces the
+    /// old Terrain sheet).
+    private var routeProfileStrip: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Text(L10n.Nav.routeProfileTitle.uppercased())
+                    .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                    .foregroundColor(.secondaryText)
+                Spacer()
+                Button { showProfileFull = true } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondaryText)
+                }
+                .accessibilityLabel(L10n.Nav.expandProfile)
+                Button { withAnimation(.easeInOut(duration: 0.18)) { profileCollapsed.toggle() } } label: {
+                    Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            if !profileCollapsed {
+                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
+                    .frame(height: 118)
+                    .padding(.horizontal, 8).padding(.bottom, 8)
+            }
+        }
+        .background(Color.cockpitBackground)
+    }
+
+    private var rightTabBar: some View {
+        HStack(spacing: 8) {
+            tabButton(.waypoints, L10n.Nav.waypointsTab, count: nil, tint: .aviationGold)
+            tabButton(.conflicts, L10n.Nav.conflictsTab, count: hazardCount, tint: hazardTint)
+        }
+        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
+    }
+
+    private var hazardCount: Int { crossedAirspaces.count + (terrainWarning ? 1 : 0) }
+    private var hazardTint: Color {
+        if hazardCount == 0 { return .aviationGreen }
+        if terrainWarning || crossedAirspaces.contains(where: { $0.isRestrictive }) { return .aviationRed }
+        return .aviationAmber
+    }
+
+    private func tabButton(_ tab: RightTab, _ title: String, count: Int?, tint: Color) -> some View {
+        let selected = rightTab == tab
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) { rightTab = tab }
+        } label: {
+            HStack(spacing: 6) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                if let count = count {
+                    Text(count == 0 ? "✓" : "\(count)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(selected ? .black : tint)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Capsule().fill(selected ? Color.black.opacity(0.18) : tint.opacity(0.18)))
+                }
+            }
+            .foregroundColor(selected ? .black : .primaryText)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 9).fill(selected ? tint : Color.white.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Conflicts tab body — the hazard list, or a reassuring "clear" state.
+    @ViewBuilder private var conflictsTabContent: some View {
+        if hasHazards {
+            conflictsList
+            Spacer(minLength: 0)
+        } else {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: "checkmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationGreen)
+                Text(L10n.Nav.noConflicts).font(.system(size: 13)).foregroundColor(.secondaryText)
+                    .multilineTextAlignment(.center)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
         }
     }
 
@@ -451,36 +565,8 @@ struct FlightPlanMapBuilderView: View {
 
     /// One-line route status above the profile: green when clear, amber for plain airspace, red for a
     /// restricted zone or a terrain-clearance bust.
-    private var routeCheckBar: some View {
-        let conflicts = crossedAirspaces.count
-        let restrictive = crossedAirspaces.contains { $0.isRestrictive }
-        let clear = !hasHazards
-        let tint: Color = clear ? .aviationGreen : ((restrictive || terrainWarning) ? .aviationRed : .aviationAmber)
-        return HStack(spacing: 8) {
-            Image(systemName: clear ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(tint)
-            Text(routeCheckText(conflicts: conflicts, clear: clear))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.vertical, 9)
-        .background(tint.opacity(0.10))
-    }
-
-    private func routeCheckText(conflicts: Int, clear: Bool) -> String {
-        if clear { return L10n.Nav.routeClear }
-        var parts: [String] = []
-        if conflicts > 0 {
-            parts.append("\(conflicts) \(conflicts == 1 ? L10n.Nav.airspaceSingular : L10n.Nav.airspacePlural)")
-        }
-        if terrainWarning { parts.append(L10n.Nav.terrainClose) }
-        return parts.joined(separator: " · ")
-    }
-
-    /// The genuine conflicts under the profile: a terrain row (if too close) + each conflicting airspace.
+    /// The genuine conflicts in the Conflicts tab: a terrain row (if too close) + each conflicting
+    /// airspace.
     private var conflictsList: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -496,7 +582,7 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
         }
-        .frame(maxHeight: 132)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var terrainWarnRow: some View {
@@ -640,31 +726,6 @@ struct FlightPlanMapBuilderView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 2)
-    }
-
-    private var panelActions: some View {
-        HStack(spacing: 10) {
-            Button { showTerrain = true } label: {
-                Label("Terrain", systemImage: "mountain.2.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.cardBackground))
-                    .foregroundColor(.primaryText)
-            }
-            Button { exportGPX() } label: {
-                Label("Export GPX", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.aviationGold))
-                    .foregroundColor(.black)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .disabled(waypoints.count < 2)
-        .opacity(waypoints.count < 2 ? 0.4 : 1)
     }
 
     private var routeSummary: some View {

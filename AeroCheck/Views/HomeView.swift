@@ -212,6 +212,7 @@ struct HomeView: View {
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
                 .environmentObject(openAIPDataService)
+                .environmentObject(locationManager)
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
         // returns to Home, not the Flight Log list. (3.5 — feedback round 2)

@@ -14,6 +14,7 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var locationManager: LocationManager
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -33,6 +34,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var toText = ""
     @FocusState private var focusedEndpoint: RouteEndpoint?
     @State private var searchResults: [Airport] = []
+    @State private var searchTask: Task<Void, Never>?
+    @State private var listEditMode: EditMode = .inactive
 
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
@@ -192,9 +195,9 @@ struct FlightPlanMapBuilderView: View {
                 .padding(.top, 4)
             }
         }
-        .onChange(of: fromText) { _, q in if focusedEndpoint == .from { runSearch(q) } }
-        .onChange(of: toText) { _, q in if focusedEndpoint == .to { runSearch(q) } }
-        .onChange(of: focusedEndpoint) { _, _ in searchResults = [] }
+        .onChange(of: fromText) { _, q in if focusedEndpoint == .from { scheduleSearch(q) } }
+        .onChange(of: toText) { _, q in if focusedEndpoint == .to { scheduleSearch(q) } }
+        .onChange(of: focusedEndpoint) { _, _ in searchTask?.cancel(); searchResults = [] }
         .onChange(of: routeSignature) { _, _ in if focusedEndpoint == nil { syncEndpointText() } }
         .onAppear { syncEndpointText() }
     }
@@ -216,23 +219,38 @@ struct FlightPlanMapBuilderView: View {
     }
 
     private func airportResults(onSelect: @escaping (Airport) -> Void) -> some View {
-        VStack(spacing: 0) {
+        let reference = searchReference
+        return VStack(spacing: 0) {
             ForEach(searchResults.prefix(6)) { airport in
                 Button { onSelect(airport) } label: {
                     HStack(spacing: 10) {
                         Text(airport.ident)
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
                             .foregroundColor(.aviationGold)
-                            .frame(width: 64, alignment: .leading)
-                        Text(airport.name)
-                            .font(.system(size: 13))
-                            .foregroundColor(.primaryText)
-                            .lineLimit(1)
-                        Spacer()
-                        Image(systemName: "arrow.up.left.circle.fill").foregroundColor(.aviationGreen)
+                            .frame(width: 58, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(airport.name)
+                                .font(.system(size: 13))
+                                .foregroundColor(.primaryText)
+                                .lineLimit(1)
+                            if let muni = airport.municipality, !muni.isEmpty, muni != airport.name {
+                                Text(muni)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.dimText)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 6)
+                        if let dist = distanceLabel(to: airport, from: reference) {
+                            Text(dist)
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondaryText)
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 if airport.id != searchResults.prefix(6).last?.id {
@@ -245,8 +263,45 @@ struct FlightPlanMapBuilderView: View {
     /// Endpoint-change signature, to re-sync the field text when the route changes elsewhere (map tap).
     private var routeSignature: String { "\(waypoints.first?.name ?? "")|\(waypoints.last?.name ?? "")|\(waypoints.count)" }
 
-    private func runSearch(_ query: String) {
-        searchResults = query.count >= 2 ? airportDataService.searchAirports(query: query, limit: 12) : []
+    /// Reference point for ordering search results by distance (feedback #2): a destination sorts
+    /// relative to the departure (or, failing that, where you are / the map you're looking at); a
+    /// departure sorts relative to your position (or a set destination / the map).
+    private var searchReference: CLLocationCoordinate2D? {
+        let here = locationManager.getCurrentCoordinate()
+        switch focusedEndpoint {
+        case .to:
+            return waypoints.first?.coordinate ?? here ?? region.center
+        case .from, .none:
+            return here ?? (waypoints.count >= 2 ? waypoints.last?.coordinate : nil) ?? region.center
+        }
+    }
+
+    /// Debounced, distance-aware, fixed-wing-only airport search. Debouncing keeps each keystroke off
+    /// the ~40K-airport scan (feedback #1 perf); `near:`/`types:` apply the distance sort + heliport
+    /// filter (feedback #2/#3). Runs on the main actor (the service is `@MainActor`); the sleep simply
+    /// coalesces bursts of typing into one scan.
+    private func scheduleSearch(_ query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else { searchResults = []; return }
+        let reference = searchReference
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            let results = airportDataService.searchAirports(
+                query: trimmed, limit: 12, near: reference, types: AirportType.fixedWing)
+            guard !Task.isCancelled else { return }
+            searchResults = results
+        }
+    }
+
+    /// Great-circle distance from a reference point to an airport, shown on each result row so the
+    /// distance ordering is legible.
+    private func distanceLabel(to airport: Airport, from reference: CLLocationCoordinate2D?) -> String? {
+        guard let reference = reference else { return nil }
+        let from = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
+        let to = CLLocation(latitude: airport.latitude, longitude: airport.longitude)
+        return String(format: "%.0f NM", from.distance(from: to) / 1852.0)
     }
 
     private func syncEndpointText() {
@@ -336,11 +391,46 @@ struct FlightPlanMapBuilderView: View {
             if waypoints.isEmpty {
                 emptyRouteHint
             } else {
+                if waypoints.count >= 2 { waypointListHeader }
                 waypointList
             }
             panelActions
         }
         .background(Color.cockpitBackground)
+        .onChange(of: waypoints.count) { _, count in
+            if count < 2 { listEditMode = .inactive }
+        }
+    }
+
+    /// Thin header above the waypoint list with the single reorder toggle. Replaces the navigation-bar
+    /// `EditButton` that previously collided with the screen's "Done" (feedback #7): the toggle lives
+    /// next to the list it edits, leaving exactly one unambiguous "Done" in the top bar to exit.
+    private var waypointListHeader: some View {
+        HStack(spacing: 8) {
+            if listEditMode == .active {
+                Text(L10n.Nav.dragToReorder)
+                    .font(.system(size: 10))
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    listEditMode = (listEditMode == .active ? .inactive : .active)
+                }
+            } label: {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(listEditMode == .active ? .black : .aviationGold)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(listEditMode == .active ? Color.aviationGold : Color.white.opacity(0.06)))
+            }
+            .accessibilityLabel(L10n.Nav.reorderWaypoints)
+            .accessibilityAddTraits(listEditMode == .active ? [.isSelected] : [])
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
     private var panelActions: some View {
@@ -442,9 +532,7 @@ struct FlightPlanMapBuilderView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) { EditButton() }
-        }
+        .environment(\.editMode, $listEditMode)
     }
 
     // MARK: - Actions
@@ -500,7 +588,7 @@ struct FlightPlanMapBuilderView: View {
                 maxLat: r.center.latitude + halfLat,
                 minLon: r.center.longitude - halfLon,
                 maxLon: r.center.longitude + halfLon,
-                types: [.largeAirport, .mediumAirport, .smallAirport],
+                types: AirportType.fixedWing, // fixed-wing only (see CLAUDE.md "Re-enabling heliports")
                 limit: 80
             )
             await MainActor.run { visibleAirports = airports }
@@ -707,10 +795,14 @@ struct RouteBuilderMapView: UIViewRepresentable {
             mapView.addAnnotation(annotation)
         }
 
-        // Replace the route polyline.
+        // Replace the route polyline. Draw a black casing under a magenta core, matching the in-flight
+        // navigation map so the plan previews exactly how the route reads in flight, and so it stays
+        // visible on every tile layer (feedback #6 — gold washed out on some charts).
         mapView.removeOverlays(mapView.overlays.filter { $0 is MKPolyline })
         if waypoints.count >= 2 {
             let coords = waypoints.map { $0.coordinate }
+            let casing = RouteCasingPolyline(coordinates: coords, count: coords.count)
+            mapView.addOverlay(casing, level: .aboveLabels)
             let polyline = MKPolyline(coordinates: coords, count: coords.count)
             mapView.addOverlay(polyline, level: .aboveLabels)
         }
@@ -746,9 +838,18 @@ struct RouteBuilderMapView: UIViewRepresentable {
             if let tile = overlay as? MKTileOverlay {
                 return MKTileOverlayRenderer(tileOverlay: tile)
             }
+            // Casing first — it is also an MKPolyline, so this branch must precede the generic one.
+            if let casing = overlay as? RouteCasingPolyline {
+                let renderer = MKPolylineRenderer(polyline: casing)
+                renderer.strokeColor = UIColor.black.withAlphaComponent(0.5)
+                renderer.lineWidth = 7
+                renderer.lineJoin = .round
+                renderer.lineCap = .round
+                return renderer
+            }
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 0.95) // aviationGold
+                renderer.strokeColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1.0) // navigation magenta
                 renderer.lineWidth = 4
                 renderer.lineJoin = .round
                 renderer.lineCap = .round
@@ -767,7 +868,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 } else {
                     view = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
-                view.markerTintColor = UIColor(red: 0.85, green: 0.65, blue: 0.2, alpha: 1) // aviationGold
+                view.markerTintColor = UIColor(red: 1.0, green: 0.0, blue: 0.8, alpha: 1) // navigation magenta
                 view.glyphText = "\(waypoint.index + 1)"
                 view.titleVisibility = .adaptive
                 view.displayPriority = .required
@@ -824,6 +925,12 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
     }
 }
+
+// MARK: - Route overlays
+
+/// Black casing drawn underneath the magenta route core (a distinct subclass so the renderer can tell
+/// the two `MKPolyline`s apart). Mirrors the in-flight navigation map's route styling.
+final class RouteCasingPolyline: MKPolyline {}
 
 // MARK: - Route waypoint annotation
 

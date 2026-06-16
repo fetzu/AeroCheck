@@ -1035,6 +1035,8 @@ enum L10n {
         static let from = String(localized: "nav.from")
         static let to = String(localized: "nav.to")
         static let swapEndpoints = String(localized: "nav.swapEndpoints")
+        static let reorderWaypoints = String(localized: "nav.reorderWaypoints")
+        static let dragToReorder = String(localized: "nav.dragToReorder")
         static let addWaypoints = String(localized: "nav.addWaypoints")
         static let activateEmptyTitle = String(localized: "nav.activateEmptyTitle")
         static let activateEmptyMessage = String(localized: "nav.activateEmptyMessage")

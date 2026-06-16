@@ -276,23 +276,59 @@ class AirportDataService: ObservableObject {
     }
 
     /// Search airports by name or identifier
-    func searchAirports(query: String, limit: Int = 20) -> [Airport] {
+    /// Search airports by ICAO/IATA/name/municipality.
+    /// - Parameters:
+    ///   - near: when provided, results are ordered by distance to this coordinate *within* each
+    ///     relevance tier (exact ICAO → ICAO prefix → other), so a typed identifier still wins but
+    ///     otherwise the closest fields float to the top (flight-plan builder feedback #2).
+    ///   - types: when provided, only these airport types are returned. The builder passes
+    ///     `AirportType.fixedWing` to drop heliports/seaplane/closed/balloon results (feedback #3 —
+    ///     see CLAUDE.md "Re-enabling heliports" to surface rotorcraft sites again).
+    func searchAirports(
+        query: String,
+        limit: Int = 20,
+        near reference: CLLocationCoordinate2D? = nil,
+        types: Set<AirportType>? = nil
+    ) -> [Airport] {
         let searchTerm = query.lowercased()
 
-        let results = airports.filter { airport in
+        var results = airports.filter { airport in
             airport.ident.lowercased().contains(searchTerm) ||
             airport.name.lowercased().contains(searchTerm) ||
             (airport.iataCode?.lowercased().contains(searchTerm) ?? false) ||
             (airport.municipality?.lowercased().contains(searchTerm) ?? false)
         }
+        if let types = types {
+            results = results.filter { types.contains($0.type) }
+        }
 
-        // Sort by relevance: exact ICAO match first, then by name
-        let sorted = results.sorted { a, b in
-            if a.ident.lowercased() == searchTerm { return true }
-            if b.ident.lowercased() == searchTerm { return false }
-            if a.ident.lowercased().hasPrefix(searchTerm) && !b.ident.lowercased().hasPrefix(searchTerm) { return true }
-            if !a.ident.lowercased().hasPrefix(searchTerm) && b.ident.lowercased().hasPrefix(searchTerm) { return false }
-            return a.name < b.name
+        // Relevance tier: exact ICAO match, then ICAO prefix, then everything else.
+        func tier(_ a: Airport) -> Int {
+            let id = a.ident.lowercased()
+            if id == searchTerm { return 0 }
+            if id.hasPrefix(searchTerm) { return 1 }
+            return 2
+        }
+
+        let sorted: [Airport]
+        if let reference = reference {
+            // Precompute (tier, distance) once per candidate, then order by tier → distance → name.
+            let scored = results.map { airport -> (airport: Airport, tier: Int, distance: Double) in
+                (airport, tier(airport),
+                 Self.haversineNm(lat1: reference.latitude, lon1: reference.longitude,
+                                  lat2: airport.latitude, lon2: airport.longitude))
+            }
+            sorted = scored.sorted { a, b in
+                if a.tier != b.tier { return a.tier < b.tier }
+                if a.distance != b.distance { return a.distance < b.distance }
+                return a.airport.name < b.airport.name
+            }.map { $0.airport }
+        } else {
+            sorted = results.sorted { a, b in
+                let ta = tier(a), tb = tier(b)
+                if ta != tb { return ta < tb }
+                return a.name < b.name
+            }
         }
 
         return Array(sorted.prefix(limit))

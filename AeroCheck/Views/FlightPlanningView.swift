@@ -16,6 +16,7 @@ struct FlightPlanningView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var locationManager: LocationManager
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -81,6 +82,7 @@ struct FlightPlanningView: View {
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
+                .environmentObject(locationManager)
         }
         .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -1057,4 +1059,5 @@ struct FlightPlanDocument: FileDocument {
     FlightPlanningView()
         .environmentObject(AppState())
         .environmentObject(FlightPlanManager())
+        .environmentObject(LocationManager())
 }

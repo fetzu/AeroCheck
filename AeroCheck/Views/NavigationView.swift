@@ -776,6 +776,7 @@ struct NavigationMapView: View {
                         .environmentObject(airportDataService)
                         .environmentObject(aircraftDataService)
                         .environmentObject(openAIPDataService)
+                        .environmentObject(locationManager)
                 }
             }
             }
@@ -2097,6 +2098,7 @@ struct NavigationMapView: View {
                     .environmentObject(airportDataService)
                     .environmentObject(aircraftDataService)
                     .environmentObject(openAIPDataService)
+                    .environmentObject(locationManager)
             }
             .fullScreenCover(isPresented: $showGPSStatusModal) {
                 GPSStatusInfoSheet(currentStatus: locationManager.gpsSignalStatus, isPresented: $showGPSStatusModal)

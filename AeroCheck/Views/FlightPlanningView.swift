@@ -834,7 +834,6 @@ struct FlightPlanDetailPane: View {
             airports: [],
             fitRouteToken: fitToken,
             region: $region,
-            onMapTap: { _ in },
             onAirportTap: { _ in }
         )
         .frame(height: 220)

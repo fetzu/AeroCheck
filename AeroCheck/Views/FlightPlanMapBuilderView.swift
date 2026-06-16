@@ -168,12 +168,10 @@ struct FlightPlanMapBuilderView: View {
             airspacePolygons: airspacePolygons,
             fitRouteToken: fitRouteToken,
             region: $region,
-            onMapTap: { coordinate in
-                flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
-            },
             onAirportTap: { airport in addAirport(airport) },
             onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
-            onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) }
+            onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
+            onAddWaypoint: { coord in appendWaypoint(at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
         // From/To bar full-width at the top; the layer switcher tucks top-right just beneath it,
@@ -635,10 +633,10 @@ struct FlightPlanMapBuilderView: View {
     private var emptyRouteHint: some View {
         VStack(spacing: 14) {
             Spacer()
-            Image(systemName: "hand.tap")
+            Image(systemName: "hand.point.up.left")
                 .font(.system(size: 40))
                 .foregroundColor(.dimText)
-            Text("Tap the map or search an ICAO\nto add your first waypoint")
+            Text("Search an ICAO above, or press and\nhold the map to drop a waypoint")
                 .font(.system(size: 14))
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
@@ -713,6 +711,16 @@ struct FlightPlanMapBuilderView: View {
             wp.coordinate = coordinate
         }
         flightPlanManager.updateWaypoint(wp, in: planId)
+    }
+
+    /// Commit a deliberate press-and-hold add: append a waypoint, snapping to a nearby airfield if the
+    /// release was within `snapRadiusNm`. (tap-add feedback)
+    private func appendWaypoint(at coordinate: CLLocationCoordinate2D) {
+        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
+            addAirport(airport)
+        } else {
+            flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
+        }
     }
 
     /// Commit a live mid-route insert after `afterIndex`, snapping to a nearby airfield if close. (#3)
@@ -872,12 +880,13 @@ struct RouteBuilderMapView: UIViewRepresentable {
     var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
-    var onMapTap: (CLLocationCoordinate2D) -> Void
     var onAirportTap: (Airport) -> Void
     /// Live drag committed a waypoint move (index, new coordinate). nil ⇒ read-only map (no drag). (#3)
     var onMoveWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
     /// Live drag committed a mid-route insert (afterIndex, coordinate). nil ⇒ read-only map. (#3)
     var onInsertWaypoint: ((Int, CLLocationCoordinate2D) -> Void)? = nil
+    /// Deliberate press-and-hold on empty map appended a new waypoint (coordinate). (tap-add feedback)
+    var onAddWaypoint: ((CLLocationCoordinate2D) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -889,14 +898,12 @@ struct RouteBuilderMapView: UIViewRepresentable {
         configureLayer(mapView)
         mapView.cameraZoomRange = cameraZoomRange(for: mapLayer)
 
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        tap.delegate = context.coordinator
-        mapView.addGestureRecognizer(tap)
-
-        // Press-and-hold to grab a waypoint (move) or the route line (insert mid-route) and drag it
-        // live; release snaps to a nearby airfield. Only wired when the host provides drag callbacks
-        // (the builder) — read-only map previews get no drag. (flight-plan revamp #3)
-        if onMoveWaypoint != nil || onInsertWaypoint != nil {
+        // One press-and-hold gesture drives ALL route editing: grab a waypoint to move it, grab the
+        // route line to insert mid-route (both at the short grab threshold for a responsive feel), or
+        // hold longer on empty map to drop a new waypoint. A plain tap no longer adds anything, so you
+        // can pan/zoom/inspect without accidentally creating waypoints. Builder only — read-only map
+        // previews get no editing. (flight-plan revamp #3 + tap-add feedback)
+        if onMoveWaypoint != nil || onInsertWaypoint != nil || onAddWaypoint != nil {
             let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
             longPress.minimumPressDuration = 0.2
             longPress.delegate = context.coordinator
@@ -1035,12 +1042,18 @@ struct RouteBuilderMapView: UIViewRepresentable {
         var lastFitToken = 0
 
         // MARK: Live drag (flight-plan revamp #3)
-        enum DragMode { case move(Int); case insert(Int) } // insert(afterIndex)
+        enum DragMode { case move(Int); case insert(Int); case append } // insert(afterIndex)
         var dragMode: DragMode?
         var dragCoords: [CLLocationCoordinate2D] = []       // working geometry during a drag
         var dragIndex = 0                                   // index into dragCoords being moved
         var dragAnnotation: RouteWaypointAnnotation?        // the marker following the finger
+        var dragCreatedTempAnnotation = false               // true for insert/append (remove on end)
         var isDragging: Bool { dragMode != nil }
+
+        // Deferred add: a press on empty map only becomes a new waypoint after a longer, deliberate
+        // hold (so a normal press/pan never adds one). (tap-add feedback)
+        var pendingAddWork: DispatchWorkItem?
+        var pendingAddAnchor: CGPoint?
 
         init(_ parent: RouteBuilderMapView) {
             self.parent = parent
@@ -1134,38 +1147,75 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         // Tap empty map → add a free waypoint. Taps on an annotation are handled by the callout.
-        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let mapView = gesture.view as? MKMapView else { return }
-            let point = gesture.location(in: mapView)
-            if let hit = mapView.hitTest(point, with: nil),
-               hit is MKAnnotationView || hit.superview is MKAnnotationView {
-                return // tapping a marker — let the callout/accessory handle it
-            }
-            let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
-            parent.onMapTap(coordinate)
-        }
-
-        // MARK: Live drag handling (flight-plan revamp #3)
+        // MARK: Live drag handling (flight-plan revamp #3 + deliberate add)
 
         @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
             guard let mapView = gesture.view as? MKMapView else { return }
             let point = gesture.location(in: mapView)
             switch gesture.state {
             case .began:
-                beginDrag(mapView, at: point)
+                beginDrag(mapView, at: point)                 // move / insert on a waypoint or the line
+                if dragMode == nil { schedulePendingAdd(mapView, at: point) } // empty → deferred add
             case .changed:
-                guard isDragging, dragIndex < dragCoords.count else { return }
+                if dragMode == nil {
+                    // Still before the deliberate-add threshold; movement here means the user is panning.
+                    if let anchor = pendingAddAnchor, hypot(point.x - anchor.x, point.y - anchor.y) > 16 {
+                        cancelPendingAdd()
+                    }
+                    return
+                }
+                guard dragIndex < dragCoords.count else { return }
                 let coord = mapView.convert(point, toCoordinateFrom: mapView)
                 dragCoords[dragIndex] = coord
                 dragAnnotation?.coordinate = coord
                 redrawDragRoute(mapView)
             case .ended:
+                if dragMode == nil { cancelPendingAdd(); return } // released before the add threshold
                 endDrag(mapView, at: point)
             case .cancelled, .failed:
+                cancelPendingAdd()
                 cancelDrag(mapView)
             default:
                 break
             }
+        }
+
+        /// Arm a deferred add: after a longer hold on empty map (without panning), drop a new waypoint
+        /// under the finger and let the user drag it before release. (tap-add feedback)
+        private func schedulePendingAdd(_ mapView: MKMapView, at point: CGPoint) {
+            guard parent.onAddWaypoint != nil else { return }
+            cancelPendingAdd()
+            pendingAddAnchor = point
+            let work = DispatchWorkItem { [weak self, weak mapView] in
+                guard let self, let mapView, self.pendingAddAnchor != nil, self.dragMode == nil else { return }
+                self.startAppendDrag(mapView, at: point)
+            }
+            pendingAddWork = work
+            // ~0.2 s recognizer threshold + 0.45 s ≈ a deliberate two-thirds-second hold before it adds.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
+        }
+
+        private func cancelPendingAdd() {
+            pendingAddWork?.cancel()
+            pendingAddWork = nil
+            pendingAddAnchor = nil
+        }
+
+        private func startAppendDrag(_ mapView: MKMapView, at point: CGPoint) {
+            pendingAddWork = nil
+            pendingAddAnchor = nil
+            let coord = mapView.convert(point, toCoordinateFrom: mapView)
+            var coords = parent.waypoints.map { $0.coordinate }
+            coords.append(coord)
+            dragMode = .append
+            dragCoords = coords
+            dragIndex = coords.count - 1
+            let temp = RouteWaypointAnnotation(coordinate: coord, index: dragIndex, name: "")
+            mapView.addAnnotation(temp)
+            dragAnnotation = temp
+            dragCreatedTempAnnotation = true
+            grabbed(mapView, deselect: nil)
+            redrawDragRoute(mapView)
         }
 
         /// Grab a waypoint (move) if the press is on one, else the nearest route segment (insert).
@@ -1179,6 +1229,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 dragCoords = wpts.map { $0.coordinate }
                 dragIndex = idx
                 dragAnnotation = anno
+                dragCreatedTempAnnotation = false
                 grabbed(mapView, deselect: anno)
                 return
             }
@@ -1193,6 +1244,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 let temp = RouteWaypointAnnotation(coordinate: coord, index: insertAt, name: "")
                 mapView.addAnnotation(temp)
                 dragAnnotation = temp
+                dragCreatedTempAnnotation = true
                 grabbed(mapView, deselect: nil)
                 redrawDragRoute(mapView)
             }
@@ -1207,18 +1259,19 @@ struct RouteBuilderMapView: UIViewRepresentable {
         private func endDrag(_ mapView: MKMapView, at point: CGPoint) {
             guard let mode = dragMode else { return }
             let finalCoord = mapView.convert(point, toCoordinateFrom: mapView)
-            if case .insert = mode, let temp = dragAnnotation { mapView.removeAnnotation(temp) }
+            if dragCreatedTempAnnotation, let temp = dragAnnotation { mapView.removeAnnotation(temp) }
             finishDrag(mapView)
             switch mode {
             case .move(let index): parent.onMoveWaypoint?(index, finalCoord)
             case .insert(let afterIndex): parent.onInsertWaypoint?(afterIndex, finalCoord)
+            case .append: parent.onAddWaypoint?(finalCoord)
             }
         }
 
         private func cancelDrag(_ mapView: MKMapView) {
             finishDrag(mapView)
-            // Rebuilds markers + line from the model, dropping any temp insert marker and resetting a
-            // moved marker to its committed position.
+            // Rebuilds markers + line from the model, dropping any temp insert/append marker and
+            // resetting a moved marker to its committed position.
             redrawCommittedRoute(mapView)
         }
 
@@ -1226,6 +1279,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             dragMode = nil
             dragAnnotation = nil
             dragCoords = []
+            dragCreatedTempAnnotation = false
             mapView.isScrollEnabled = true
         }
 

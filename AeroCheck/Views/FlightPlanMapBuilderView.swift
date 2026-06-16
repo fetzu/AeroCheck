@@ -167,8 +167,8 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(12)
         }
-        // Center/fit-route control bottom-left, matching the app's map-control convention. (feedback)
-        .overlay(alignment: .bottomLeading) {
+        // Center/fit-route control bottom-right, matching NavigationView's tracking/center placement.
+        .overlay(alignment: .bottomTrailing) {
             fitRouteButton
                 .padding(12)
         }

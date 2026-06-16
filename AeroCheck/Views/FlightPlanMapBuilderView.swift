@@ -37,6 +37,12 @@ struct FlightPlanMapBuilderView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var listEditMode: EditMode = .inactive
 
+    // On-route airspace conflicts (#4)
+    @State private var crossedAirspaces: [Airspace] = []
+    @State private var airspacePolygons: [AirspacePolygon] = []
+    @State private var airspaceTask: Task<Void, Never>?
+    @State private var airspaceExpanded = false
+
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
@@ -133,9 +139,19 @@ struct FlightPlanMapBuilderView: View {
                 scheduleAirportUpdate()
             }
             initialFitIfNeeded()
+            scheduleAirspaceUpdate()
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
+        // Recompute on-route airspace conflicts whenever the route geometry changes (#4).
+        .onChange(of: routeGeometryKey) { _, _ in scheduleAirspaceUpdate() }
+        .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
+    }
+
+    /// Full-geometry signature (every waypoint's coordinate) so the airspace scan re-runs even when an
+    /// intermediate point moves — unlike `routeSignature`, which only watches the endpoints + count.
+    private var routeGeometryKey: String {
+        waypoints.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: "|")
     }
 
     // MARK: - Map area
@@ -145,6 +161,7 @@ struct FlightPlanMapBuilderView: View {
             waypoints: waypoints,
             mapLayer: selectedLayer,
             airports: visibleAirports,
+            airspacePolygons: airspacePolygons,
             fitRouteToken: fitRouteToken,
             region: $region,
             onMapTap: { coordinate in
@@ -397,6 +414,7 @@ struct FlightPlanMapBuilderView: View {
     private var sidePanel: some View {
         VStack(spacing: 0) {
             routeSummary
+            if !crossedAirspaces.isEmpty { airspaceSection }
             if waypoints.isEmpty {
                 emptyRouteHint
             } else {
@@ -408,6 +426,118 @@ struct FlightPlanMapBuilderView: View {
         .background(Color.cockpitBackground)
         .onChange(of: waypoints.count) { _, count in
             if count < 2 { listEditMode = .inactive }
+        }
+    }
+
+    // MARK: - On-route airspace conflicts (#4)
+
+    /// Collapsible banner + list of the airspaces the route crosses. The banner is red when any crossing
+    /// is restrictive (prohibited/restricted/danger), amber otherwise; tap to expand the detail list.
+    private var airspaceSection: some View {
+        let restrictiveCount = crossedAirspaces.filter { $0.isRestrictive }.count
+        let tint: Color = restrictiveCount > 0 ? .aviationRed : .aviationAmber
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { airspaceExpanded.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: restrictiveCount > 0 ? "exclamationmark.triangle.fill" : "shield.lefthalf.filled")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(tint)
+                    Text(airspaceBannerText(restrictiveCount: restrictiveCount))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: airspaceExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondaryText)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if airspaceExpanded {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(crossedAirspaces) { airspace in
+                            airspaceRow(airspace)
+                            if airspace.id != crossedAirspaces.last?.id {
+                                Divider().background(Color.white.opacity(0.06))
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 200)
+            }
+        }
+        .background(tint.opacity(0.08))
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5) }
+    }
+
+    private func airspaceRow(_ a: Airspace) -> some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(red: a.mapColor.red, green: a.mapColor.green, blue: a.mapColor.blue))
+                .frame(width: 4, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(a.shortName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primaryText).lineLimit(1)
+                    if a.isRestrictive {
+                        Text(a.airspaceType.displayName.uppercased())
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.aviationRed)
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Color.aviationRed.opacity(0.18)))
+                    }
+                }
+                Text(a.typeDisplayString)
+                    .font(.system(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(a.altitudeRangeString)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.dimText).lineLimit(1)
+                if let freq = a.primaryFrequency {
+                    Text(freq.value)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.aviationGold)
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+
+    private func airspaceBannerText(restrictiveCount: Int) -> String {
+        let total = crossedAirspaces.count
+        var text = "\(total) \(total == 1 ? L10n.Nav.airspaceSingular : L10n.Nav.airspacePlural)"
+        if restrictiveCount > 0 { text += " · \(restrictiveCount) \(L10n.Nav.restricted)" }
+        return text
+    }
+
+    /// Debounced recompute of the airspaces the route crosses + their map highlights. (#4)
+    private func scheduleAirspaceUpdate() {
+        airspaceTask?.cancel()
+        let coords = waypoints.map { $0.coordinate }
+        guard coords.count >= 2 else { crossedAirspaces = []; airspacePolygons = []; return }
+        airspaceTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            await openAIPDataService.ensureLoaded()
+            guard !Task.isCancelled else { return }
+            let crossed = openAIPDataService.airspacesCrossedByRoute(coords)
+            let polys: [AirspacePolygon] = crossed.compactMap { airspace in
+                var mc = airspace.polygonCoordinates
+                guard mc.count >= 3 else { return nil }
+                return AirspacePolygon(airspace: airspace, coordinates: &mc, count: mc.count)
+            }
+            guard !Task.isCancelled else { return }
+            crossedAirspaces = crossed
+            airspacePolygons = polys
         }
     }
 
@@ -734,6 +864,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
     let waypoints: [FlightPlanWaypoint]
     let mapLayer: WaypointPickerMapLayer
     var airports: [Airport]
+    var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
     var onMapTap: (CLLocationCoordinate2D) -> Void
@@ -782,6 +913,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         updateAirportAnnotations(mapView, context: context)
+        updateAirspaceOverlays(mapView, context: context)
         updateRoute(mapView, context: context)
 
         if context.coordinator.lastFitToken != fitRouteToken {
@@ -839,6 +971,20 @@ struct RouteBuilderMapView: UIViewRepresentable {
     }
 
     // MARK: Route
+
+    /// Add/remove highlighted airspace polygons incrementally (by id), so a small change to the crossed
+    /// set doesn't rebuild the rest. Drawn under the route (translucent fill). (#4)
+    private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+        let existingIds = Set(existing.map { $0.airspaceId })
+        let newIds = Set(airspacePolygons.map { $0.airspaceId })
+        guard existingIds != newIds else { return }
+        let toRemove = existing.filter { !newIds.contains($0.airspaceId) }
+        if !toRemove.isEmpty { mapView.removeOverlays(toRemove) }
+        for polygon in airspacePolygons where !existingIds.contains(polygon.airspaceId) {
+            mapView.addOverlay(polygon, level: .aboveLabels)
+        }
+    }
 
     private func updateRoute(_ mapView: MKMapView, context: Context) {
         let signature = waypoints.map { "\($0.id.uuidString)\($0.latitude),\($0.longitude)" }.joined(separator: "|")
@@ -903,6 +1049,16 @@ struct RouteBuilderMapView: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
                 return MKTileOverlayRenderer(tileOverlay: tile)
+            }
+            // Crossed-airspace highlight (translucent fill + colored stroke). (#4)
+            if let airspace = overlay as? AirspacePolygon {
+                let renderer = MKPolygonRenderer(polygon: airspace)
+                let c = airspace.overlayColor
+                renderer.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 0.18)
+                renderer.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: 0.85)
+                renderer.lineWidth = 1.5
+                if airspace.isDashed { renderer.lineDashPattern = [8, 4] }
+                return renderer
             }
             // Casing first — it is also an MKPolyline, so this branch must precede the generic one.
             if let casing = overlay as? RouteCasingPolyline {

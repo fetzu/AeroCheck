@@ -325,6 +325,48 @@ class OpenAIPDataService: ObservableObject {
         return airspacesInBounds(region)
     }
 
+    /// Airspaces the route actually crosses — a waypoint inside, or a point sampled along a leg inside
+    /// the polygon — rather than merely sharing the route's bounding box. Restrictive airspaces
+    /// (prohibited/restricted/danger) sort first. Used for the builder's on-route conflicts panel +
+    /// highlight. (flight-plan revamp #4)
+    func airspacesCrossedByRoute(_ waypoints: [CLLocationCoordinate2D], sampleStepNM: Double = 1.0) -> [Airspace] {
+        guard isLoaded, waypoints.count >= 2 else { return [] }
+        let candidates = airspacesAlongRoute(waypoints)
+        guard !candidates.isEmpty else { return [] }
+
+        // Densify the route into sample points (endpoints + ~1 NM interpolation) so a leg that transits
+        // an airspace without a waypoint inside it is still caught.
+        var samples: [CLLocationCoordinate2D] = []
+        for i in 0..<(waypoints.count - 1) {
+            let a = waypoints[i], b = waypoints[i + 1]
+            samples.append(a)
+            let segNM = Self.distanceNM(a, b)
+            let steps = max(1, Int((segNM / max(0.1, sampleStepNM)).rounded(.up)))
+            if steps > 1 {
+                for s in 1..<steps {
+                    let t = Double(s) / Double(steps)
+                    samples.append(CLLocationCoordinate2D(
+                        latitude: a.latitude + (b.latitude - a.latitude) * t,
+                        longitude: a.longitude + (b.longitude - a.longitude) * t))
+                }
+            }
+        }
+        if let last = waypoints.last { samples.append(last) }
+
+        let crossed = candidates.filter { airspace in
+            samples.contains { airspace.containsPoint($0) }
+        }
+        return crossed.sorted { a, b in
+            if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
+            return a.name < b.name
+        }
+    }
+
+    private static func distanceNM(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852.0
+    }
+
     /// Fetch airspaces along a route on-demand from the OpenAIP API
     /// Used when no downloaded data is available — makes API calls along the route
     /// Returns airspaces near the route for conflict analysis

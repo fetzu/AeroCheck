@@ -1031,6 +1031,7 @@ enum L10n {
         static let activate = String(localized: "nav.activate")
         static let deactivate = String(localized: "nav.deactivate")
         static let inUse = String(localized: "nav.inUse")
+        static let tapToBuild = String(localized: "nav.tapToBuild")
         static let addWaypoints = String(localized: "nav.addWaypoints")
         static let activateEmptyTitle = String(localized: "nav.activateEmptyTitle")
         static let activateEmptyMessage = String(localized: "nav.activateEmptyMessage")

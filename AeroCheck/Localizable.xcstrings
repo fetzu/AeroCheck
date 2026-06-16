@@ -1,98 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "nav.inUse" : {
+    "nav.tapToBuild" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In use"
+            "value" : "Tap to build the route"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Actif"
-          }
-        }
-      }
-    },
-    "nav.addWaypoints" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add waypoints"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter des points"
-          }
-        }
-      }
-    },
-    "nav.activateEmptyTitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empty flight plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan de vol vide"
-          }
-        }
-      }
-    },
-    "nav.activateEmptyMessage" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add at least one waypoint before activating this plan."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajoutez au moins un point de cheminement avant d'activer ce plan."
-          }
-        }
-      }
-    },
-    "nav.overlays" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Overlays"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Superpositions"
-          }
-        }
-      }
-    },
-    "nav.airspace" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Airspace"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Espace aérien"
+            "value" : "Touchez pour tracer la route"
           }
         }
       }
@@ -7376,6 +7296,38 @@
         }
       }
     },
+    "nav.activateEmptyMessage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add at least one waypoint before activating this plan."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez au moins un point de cheminement avant d'activer ce plan."
+          }
+        }
+      }
+    },
+    "nav.activateEmptyTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty flight plan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan de vol vide"
+          }
+        }
+      }
+    },
     "nav.activateFlightPlan" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7563,6 +7515,22 @@
         }
       }
     },
+    "nav.addWaypoints" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add waypoints"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter des points"
+          }
+        }
+      }
+    },
     "nav.addWithICAO" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7610,6 +7578,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couleur avion"
+          }
+        }
+      }
+    },
+    "nav.airspace" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airspace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espace aérien"
           }
         }
       }
@@ -9207,6 +9191,22 @@
         }
       }
     },
+    "nav.inUse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In use"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actif"
+          }
+        }
+      }
+    },
     "nav.latitude" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9780,6 +9780,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mode hors ligne actif"
+          }
+        }
+      }
+    },
+    "nav.overlays" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overlays"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Superpositions"
           }
         }
       }
@@ -11989,10 +12005,6 @@
     },
     "Select a flight" : {
       "comment" : "A label displayed in the Flight Log view when a flight is not selected.",
-      "isCommentAutoGenerated" : true
-    },
-    "Select a flight plan" : {
-      "comment" : "A label displayed in the \"Flight Planning\" view when a plan is not selected.",
       "isCommentAutoGenerated" : true
     },
     "Selected" : {

@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 import UniformTypeIdentifiers
 
 /// A plan is identified by its `id`; hashing by id lets it drive `navigationDestination(item:)` for
@@ -435,85 +436,99 @@ struct FlightPlanRow: View {
         let sum = reg.unicodeScalars.reduce(0) { $0 + Int($1.value) }
         return aircraftPalette[sum % aircraftPalette.count]
     }
-    private var tint: Color { isActive ? .aviationGreen : Self.color(forAircraft: plan.aircraftRegistration) }
-
-    /// The route as a chain of waypoint idents (departure → … → destination). Long routes keep the
-    /// endpoints (the airports that matter most) rather than tail-truncating off the destination.
-    private var routeChain: String {
+    /// The route endpoints (departure → destination) — the plan's identity. (revamp #1b)
+    private var routeEndpoints: String {
         let names = plan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
-        guard let first = names.first, let last = names.last else { return "—" }
-        if names.count <= 4 { return names.joined(separator: " → ") }
-        return "\(first) → … → \(last)"
+        if names.count >= 2, let first = names.first, let last = names.last { return "\(first) → \(last)" }
+        if let only = names.first { return only }
+        return plan.name.isEmpty ? L10n.Nav.newFlightPlan : plan.name
     }
 
-    private var statsLine: String {
-        var parts: [String] = ["\(plan.waypoints.count) \(L10n.Nav.wpt)"]
-        if plan.totalDistance > 0 { parts.append(String(format: "%.0f NM", plan.totalDistance)) }
-        let eet = plan.formattedTotalEET
-        if !eet.isEmpty && eet != "0:00" { parts.append(eet) }
-        parts.append(plan.aircraftRegistration)
-        return parts.joined(separator: " · ")
+    /// Relative recency ("2d ago"), localised. (revamp #1b)
+    private var relativeDate: String {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f.localizedString(for: plan.updatedAt, relativeTo: Date())
+    }
+
+    private func metric(_ icon: String, _ value: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 10)).foregroundColor(.dimText)
+            Text(value).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(.secondaryText)
+        }
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            // Per-aircraft colour tab (active = green).
-            Capsule()
-                .fill(tint)
-                .frame(width: 4, height: 42)
-                .accessibilityHidden(true)
+            // Route map preview — anchors the card visually. (revamp #1b)
+            RouteThumbnail(waypoints: plan.waypoints)
+                .frame(width: 96, height: 66)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
+                // Custom name as a small caption — only when it differs from the route.
+                if !plan.name.isEmpty && plan.name != routeEndpoints {
+                    Text(plan.name).font(.caption2).foregroundColor(.dimText).lineLimit(1)
+                }
+                // Hero: the route endpoints.
                 HStack(spacing: 6) {
-                    Text(plan.name.isEmpty ? routeChain : plan.name)
-                        .font(.subheadline.weight(.semibold))
+                    Text(routeEndpoints)
+                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
                         .foregroundColor(.primaryText)
-                        .lineLimit(1)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                     if isActive {
                         Text(L10n.Nav.active)
-                            .font(.caption2.weight(.bold))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1)
+                            .font(.caption2.weight(.bold)).foregroundColor(.black)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGreen))
                     }
                 }
-                // Route chain under the name (or it IS the title when the plan is unnamed). (revamp)
-                if !plan.name.isEmpty {
-                    Text(routeChain)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.primaryText.opacity(0.85))
-                        .lineLimit(1)
+                // Metric strip — structured, not a flat dot-list.
+                if plan.waypoints.count >= 2 {
+                    HStack(spacing: 13) {
+                        if plan.totalDistance > 0 { metric("ruler", String(format: "%.0f NM", plan.totalDistance)) }
+                        let eet = plan.formattedTotalEET
+                        if !eet.isEmpty && eet != "0:00" { metric("clock", eet) }
+                        metric("mappin.and.ellipse", "\(plan.waypoints.count)")
+                    }
+                } else {
+                    Text(L10n.Nav.tapToBuild).font(.caption).foregroundColor(.aviationGold.opacity(0.85))
                 }
-                Text(statsLine)
-                    .font(.caption)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+                // Metadata: aircraft · recency (muted).
+                HStack(spacing: 5) {
+                    Image(systemName: "airplane").font(.system(size: 9))
+                    Text(plan.aircraftRegistration)
+                    Text("·")
+                    Text(relativeDate)
+                }
+                .font(.system(size: 11)).foregroundColor(.dimText).lineLimit(1)
             }
 
             Spacer(minLength: 6)
 
-            // One-tap activate (or "in use" when active) — was buried in a swipe / context menu. (revamp)
+            // One-tap activate (or "in use") — was buried in a swipe / context menu. (revamp)
             if isActive {
-                HStack(spacing: 5) {
-                    Image(systemName: "airplane.departure").font(.system(size: 12))
-                    Text(L10n.Nav.inUse).font(.system(size: 12, weight: .semibold))
+                VStack(spacing: 3) {
+                    Image(systemName: "airplane.departure").font(.system(size: 14))
+                    Text(L10n.Nav.inUse).font(.system(size: 10, weight: .semibold))
                 }
                 .foregroundColor(.aviationGreen)
+                .frame(width: 62)
             } else {
                 Button(action: onActivate) {
-                    Text(L10n.Nav.activate)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.aviationGreen)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.14))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationGreen.opacity(0.4), lineWidth: 1)))
+                    VStack(spacing: 3) {
+                        Image(systemName: "airplane.departure").font(.system(size: 15))
+                        Text(L10n.Nav.activate).font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundColor(.aviationGreen)
+                    .frame(width: 62)
+                    .padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGreen.opacity(0.14))
+                        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.aviationGreen.opacity(0.4), lineWidth: 1)))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.cardBackground)
@@ -523,6 +538,127 @@ struct FlightPlanRow: View {
                 )
         )
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Route Thumbnail
+
+/// A small map preview of a plan's route — a cached `MKMapSnapshotter` image (muted dark Apple map)
+/// with the route + endpoints drawn on top, and a vector outline fallback shown instantly / when the
+/// snapshot can't render (e.g. offline). (flight-plan revamp #1b)
+struct RouteThumbnail: View {
+    let waypoints: [FlightPlanWaypoint]
+    @State private var image: UIImage?
+    @Environment(\.displayScale) private var displayScale
+
+    private var coords: [CLLocationCoordinate2D] { waypoints.map { $0.coordinate } }
+    private var signature: String { coords.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: ";") }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.cockpitBackground
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else if coords.count >= 2 {
+                    RouteOutline(coords: coords)
+                        .stroke(Color(red: 0.85, green: 0.31, blue: 0.69).opacity(0.85),
+                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .padding(10)
+                } else {
+                    Image(systemName: coords.isEmpty ? "plus" : "mappin")
+                        .font(.system(size: 16)).foregroundColor(.dimText)
+                }
+            }
+            .task(id: "\(signature)|\(Int(geo.size.width))x\(Int(geo.size.height))") {
+                guard coords.count >= 1, geo.size.width > 1 else { image = nil; return }
+                image = await RouteSnapshotCache.shared.snapshot(coords: coords, size: geo.size, scale: displayScale)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
+    }
+}
+
+/// Vector route outline (lat/lon normalised into the rect) — the instant fallback. (revamp #1b)
+struct RouteOutline: Shape {
+    let coords: [CLLocationCoordinate2D]
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        guard coords.count >= 2 else { return p }
+        let lats = coords.map { $0.latitude }, lons = coords.map { $0.longitude }
+        let minLat = lats.min()!, maxLat = lats.max()!, minLon = lons.min()!, maxLon = lons.max()!
+        let latRange = max(maxLat - minLat, 0.0005), lonRange = max(maxLon - minLon, 0.0005)
+        func pt(_ c: CLLocationCoordinate2D) -> CGPoint {
+            CGPoint(x: (c.longitude - minLon) / lonRange * rect.width,
+                    y: (1 - (c.latitude - minLat) / latRange) * rect.height)
+        }
+        p.move(to: pt(coords[0]))
+        for c in coords.dropFirst() { p.addLine(to: pt(c)) }
+        return p
+    }
+}
+
+/// Renders + caches small route map snapshots. NSCache is thread-safe → `@unchecked Sendable`. (revamp #1b)
+final class RouteSnapshotCache: @unchecked Sendable {
+    static let shared = RouteSnapshotCache()
+    private let cache = NSCache<NSString, UIImage>()
+
+    func snapshot(coords: [CLLocationCoordinate2D], size: CGSize, scale: CGFloat) async -> UIImage? {
+        guard !coords.isEmpty, size.width > 1, size.height > 1 else { return nil }
+        let key = "\(coords.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: ";"))|\(Int(size.width))x\(Int(size.height))@\(Int(scale))" as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        guard let img = await render(coords: coords, size: size, scale: scale) else { return nil }
+        cache.setObject(img, forKey: key)
+        return img
+    }
+
+    private func render(coords: [CLLocationCoordinate2D], size: CGSize, scale: CGFloat) async -> UIImage? {
+        let options = MKMapSnapshotter.Options()
+        options.region = Self.region(for: coords)
+        options.size = size
+        options.scale = scale
+        options.mapType = .mutedStandard
+        options.pointOfInterestFilter = .excludingAll
+        options.traitCollection = UITraitCollection(userInterfaceStyle: .dark)
+        let snapshotter = MKMapSnapshotter(options: options)
+        let snapshot: MKMapSnapshotter.Snapshot? = await withCheckedContinuation { cont in
+            snapshotter.start(with: DispatchQueue.global(qos: .userInitiated)) { snap, _ in cont.resume(returning: snap) }
+        }
+        guard let snapshot else { return nil }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            snapshot.image.draw(at: .zero)
+            let pts = coords.map { snapshot.point(for: $0) }
+            if pts.count >= 2 {
+                let route = UIBezierPath()
+                route.move(to: pts[0])
+                for pt in pts.dropFirst() { route.addLine(to: pt) }
+                route.lineJoinStyle = .round; route.lineCapStyle = .round
+                UIColor.black.withAlphaComponent(0.45).setStroke(); route.lineWidth = 4.5; route.stroke()  // casing
+                UIColor(red: 0.85, green: 0.31, blue: 0.69, alpha: 1).setStroke(); route.lineWidth = 2.5; route.stroke()
+            }
+            for (i, pt) in pts.enumerated() {
+                let isFirst = i == 0, isLast = i == pts.count - 1
+                let r: CGFloat = (isFirst || isLast) ? 3.5 : 2.5
+                let fill: UIColor = isFirst ? UIColor(red: 0.23, green: 0.49, blue: 0.27, alpha: 1)
+                    : isLast ? UIColor(red: 0.85, green: 0.65, blue: 0.20, alpha: 1)
+                    : UIColor(red: 0.62, green: 0.40, blue: 0.52, alpha: 1)
+                let dot = UIBezierPath(ovalIn: CGRect(x: pt.x - r, y: pt.y - r, width: r * 2, height: r * 2))
+                fill.setFill(); dot.fill()
+                UIColor.black.setStroke(); dot.lineWidth = 1; dot.stroke()
+            }
+        }
+    }
+
+    private static func region(for coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+        let lats = coords.map { $0.latitude }, lons = coords.map { $0.longitude }
+        let minLat = lats.min()!, maxLat = lats.max()!, minLon = lons.min()!, maxLon = lons.max()!
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max((maxLat - minLat) * 1.6, 0.06),
+                                    longitudeDelta: max((maxLon - minLon) * 1.6, 0.06))
+        return MKCoordinateRegion(center: center, span: span)
     }
 }
 

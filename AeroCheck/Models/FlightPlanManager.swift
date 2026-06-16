@@ -143,6 +143,30 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Best index to INSERT a dropped point so it least lengthens the route ("cheapest insertion"):
+    /// the interior leg it adds the smallest detour to, or prepend/append when the point sits beyond an
+    /// endpoint. Returns an index in `0...count` suitable for `insertWaypoint(at:)`. (flight-plan
+    /// revamp #4 — smart add; same convention as ForeFlight rubber-band / SkyDemon tap-insert.)
+    nonisolated static func bestInsertionIndex(for coordinate: CLLocationCoordinate2D, in waypoints: [FlightPlanWaypoint]) -> Int {
+        guard waypoints.count >= 2 else { return waypoints.count } // 0/1 points → just append
+        func dist(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+            CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+        }
+        let coords = waypoints.map { $0.coordinate }
+        // Added route length for the two endpoint options…
+        var bestIndex = coords.count
+        var bestAdded = dist(coords[coords.count - 1], coordinate)   // append after the last
+        let prepend = dist(coordinate, coords[0])                    // prepend before the first
+        if prepend < bestAdded { bestAdded = prepend; bestIndex = 0 }
+        // …versus the detour added by routing through the point on each interior leg.
+        for i in 0..<(coords.count - 1) {
+            let detour = dist(coords[i], coordinate) + dist(coordinate, coords[i + 1]) - dist(coords[i], coords[i + 1])
+            if detour < bestAdded { bestAdded = detour; bestIndex = i + 1 }
+        }
+        return bestIndex
+    }
+
     /// Insert a waypoint at a specific index
     func insertWaypoint(to planId: UUID, at index: Int, coordinate: CLLocationCoordinate2D, name: String = "") {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }

@@ -176,7 +176,7 @@ struct FlightPlanMapBuilderView: View {
             onAirportTap: { airport in addAirport(airport) },
             onMoveWaypoint: { index, coord in moveWaypoint(at: index, to: coord) },
             onInsertWaypoint: { afterIndex, coord in insertRouteWaypoint(afterIndex: afterIndex, at: coord) },
-            onAddWaypoint: { coord in appendWaypoint(at: coord) }
+            onAddWaypoint: { coord in smartAddWaypoint(at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
         // From/To bar full-width at the top; the layer switcher tucks top-right just beneath it,
@@ -780,13 +780,20 @@ struct FlightPlanMapBuilderView: View {
         flightPlanManager.updateWaypoint(wp, in: planId)
     }
 
-    /// Commit a deliberate press-and-hold add: append a waypoint, snapping to a nearby airfield if the
-    /// release was within `snapRadiusNm`. (tap-add feedback)
-    private func appendWaypoint(at coordinate: CLLocationCoordinate2D) {
+    /// Commit a deliberate press-and-hold add: drop the waypoint at the cheapest-insertion position
+    /// (the leg it least lengthens, or an endpoint), snapping to a nearby airfield within
+    /// `snapRadiusNm`. (tap-add feedback + smart insertion)
+    private func smartAddWaypoint(at coordinate: CLLocationCoordinate2D) {
+        let index = FlightPlanManager.bestInsertionIndex(for: coordinate, in: waypoints)
         if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
-            addAirport(airport)
+            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: airport.coordinate, name: airport.ident)
+            if let p = plan, index < p.waypoints.count {
+                var wp = p.waypoints[index]
+                applyAirport(airport, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            }
         } else {
-            flightPlanManager.addWaypoint(to: planId, coordinate: coordinate)
+            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coordinate)
         }
     }
 

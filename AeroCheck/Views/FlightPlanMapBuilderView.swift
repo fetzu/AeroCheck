@@ -484,7 +484,9 @@ struct FlightPlanMapBuilderView: View {
             if !profileCollapsed {
                 RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
                                  selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
-                                 visibleRegion: region)
+                                 visibleRegion: region,
+                                 onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
+                                 onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
                     .frame(height: profileExpanded ? 300 : 136)
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
@@ -911,6 +913,41 @@ struct FlightPlanMapBuilderView: View {
         } else {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coordinate)
         }
+    }
+
+    /// Profile drag committed: set a waypoint's planned altitude. (R3)
+    private func setWaypointAltitude(_ index: Int, _ altitude: Double) {
+        guard index < waypoints.count else { return }
+        var wp = waypoints[index]
+        wp.altitude = altitude
+        flightPlanManager.updateWaypoint(wp, in: planId)
+    }
+
+    /// Profile tap committed: drop a new waypoint on the route line at the tapped along-track distance,
+    /// carrying the tapped altitude. (R3)
+    private func addProfilePoint(atNM nm: Double, altitude: Double) {
+        guard let coord = coordinate(atNM: nm) else { return }
+        let index = insertionIndex(forNM: nm)
+        flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coord)
+        if let p = plan, index < p.waypoints.count {
+            var wp = p.waypoints[index]
+            wp.altitude = altitude
+            flightPlanManager.updateWaypoint(wp, in: planId)
+        }
+    }
+
+    /// Array index at which to insert a point that sits at along-track distance `nm` (its leg + 1).
+    private func insertionIndex(forNM nm: Double) -> Int {
+        guard waypoints.count >= 2 else { return waypoints.count }
+        var cum = 0.0
+        for i in 0..<(waypoints.count - 1) {
+            let a = waypoints[i].coordinate, b = waypoints[i + 1].coordinate
+            let seg = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852.0
+            if nm <= cum + seg { return i + 1 }
+            cum += seg
+        }
+        return waypoints.count
     }
 
     /// Commit a live mid-route insert after `afterIndex`, snapping to a nearby airfield if close. (#3)
@@ -1665,6 +1702,15 @@ private struct RouteProfileView: View {
     var selectedId: String? = nil          // tapped conflict — emphasised here too (#4)
     var terrainId: String = "terrain"
     var visibleRegion: MKCoordinateRegion? = nil   // shade the route window the map currently shows (#9)
+    /// Drag a waypoint dot to set its altitude (waypoint index, snapped ft MSL). (R3)
+    var onSetAltitude: ((Int, Double) -> Void)? = nil
+    /// Tap an empty spot to drop a point on the route line (along-track NM, snapped ft). (R3)
+    var onAddAtDistance: ((Double, Double) -> Void)? = nil
+
+    @State private var dragKind: DragKind?
+    @State private var draggingIndex: Int?
+    @State private var draggingAltitude: Double?
+    private enum DragKind { case altitude(Int); case tap }
 
     private let leftPad: CGFloat = 38
     private let bottomPad: CGFloat = 16
@@ -1672,113 +1718,199 @@ private struct RouteProfileView: View {
     private let rightPad: CGFloat = 8
     private static let warnFt: Double = 150 * 3.28084
     private static let magenta = Color(red: 1.0, green: 0.08, blue: 0.8)
+    private static let altSnap: Double = 100
+
+    /// Everything the drawing and the gestures need, in one coordinate system so they can't drift. The
+    /// y-axis (`yMax`) comes from the COMMITTED altitudes so it stays put while you drag a dot.
+    private struct Geometry {
+        let size: CGSize
+        let plot: CGRect
+        let totalNM: Double
+        let yMax: Double
+        let prof: RouteAltitudeProfile                 // effective (includes any live drag override)
+        let terrainFt: [(nm: Double, ft: Double)]
+        let lineFt: [(nm: Double, ft: Double)]
+        func px(_ nm: Double) -> CGFloat { plot.minX + CGFloat(min(max(nm / totalNM, 0), 1)) * plot.width }
+        func py(_ ft: Double) -> CGFloat { plot.minY + plot.height - CGFloat(min(max(ft / yMax, 0), 1)) * plot.height }
+        func nm(forX x: CGFloat) -> Double { Double(min(max((x - plot.minX) / plot.width, 0), 1)) * totalNM }
+        func ftRaw(forY y: CGFloat) -> Double { yMax * Double(1 - min(max((y - plot.minY) / plot.height, 0), 1)) }
+    }
 
     var body: some View {
-        Canvas { ctx, size in
-            let prof = RouteAltitudeProfile(waypoints)
-            let totalNM = max(prof.totalNM, 0.0001)
-
-            // Terrain (m → ft), mapped onto the route's total NM (it has its own distance scale).
-            let terrMax = terrain.last?.distance ?? 0
-            let terrainFt: [(nm: Double, ft: Double)] = terrMax > 0
-                ? terrain.map { (($0.distance / terrMax) * totalNM, $0.elevation * 3.28084) }
-                : []
-            let lineFt: [(nm: Double, ft: Double)] = prof.hasData
-                ? prof.cumNM.map { ($0, prof.altitude(atNM: $0) ?? 0) }
-                : []
-            let yMax = computeYMax(terrainFt: terrainFt, lineFt: lineFt)
-
-            let plot = CGRect(x: leftPad, y: topPad,
-                              width: size.width - leftPad - rightPad,
-                              height: size.height - topPad - bottomPad)
-            func px(_ nm: Double) -> CGFloat { plot.minX + CGFloat(min(max(nm / totalNM, 0), 1)) * plot.width }
-            func py(_ ft: Double) -> CGFloat { plot.minY + plot.height - CGFloat(min(max(ft / yMax, 0), 1)) * plot.height }
-
-            ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 8),
-                     with: .color(Color(red: 0.10, green: 0.10, blue: 0.13)))
-
-            // gridlines + altitude labels
-            for frac in [0.0, 0.34, 0.67, 1.0] {
-                let gy = plot.minY + plot.height * CGFloat(1 - frac)
-                var g = Path(); g.move(to: CGPoint(x: plot.minX, y: gy)); g.addLine(to: CGPoint(x: plot.maxX, y: gy))
-                ctx.stroke(g, with: .color(.white.opacity(0.06)), lineWidth: 0.5)
-                ctx.draw(Text(altLabel(yMax * frac)).font(.system(size: 8, design: .monospaced)).foregroundColor(.dimText),
-                         at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
-            }
-
-            // "Looking here" — shade the along-track window currently visible on the map, so the profile
-            // correlates with the top-down view without rescaling to it. (#9)
-            if let region = visibleRegion, waypoints.count >= 2,
-               let (lo, hi) = visibleWindowNM(region, cumNM: prof.cumNM), hi > lo {
-                let band = CGRect(x: px(lo), y: plot.minY, width: max(2, px(hi) - px(lo)), height: plot.height)
-                ctx.fill(Path(band), with: .color(.white.opacity(0.05)))
-                for edge in [px(lo), px(hi)] {
-                    var e = Path(); e.move(to: CGPoint(x: edge, y: plot.minY)); e.addLine(to: CGPoint(x: edge, y: plot.maxY))
-                    ctx.stroke(e, with: .color(.white.opacity(0.28)), lineWidth: 1)
-                }
-            }
-
-            // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
-            for b in blocks where b.floorFt <= yMax {
-                let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
-                let topY = py(min(b.ceilingFt, yMax))
-                let rect = CGRect(x: px(b.startNM), y: topY,
-                                  width: max(2, px(b.endNM) - px(b.startNM)), height: py(b.floorFt) - topY)
-                let path = Path(rect)
-                let sel = b.id == selectedId
-                if b.isConflict {
-                    ctx.fill(path, with: .color(color.opacity(sel ? 0.42 : 0.22)))
-                    ctx.stroke(path, with: .color(color.opacity(sel ? 1.0 : 0.85)), lineWidth: sel ? 2.5 : 1)
-                } else {
-                    ctx.fill(path, with: .color(color.opacity(sel ? 0.20 : 0.07)))
-                    ctx.stroke(path, with: .color(color.opacity(sel ? 0.9 : 0.35)),
-                               style: StrokeStyle(lineWidth: sel ? 2 : 0.75, dash: sel ? [] : [4, 3]))
-                }
-            }
-
-            // terrain silhouette
-            if terrainFt.count >= 2 {
-                var t = Path()
-                t.move(to: CGPoint(x: px(terrainFt[0].nm), y: plot.maxY))
-                for p in terrainFt { t.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
-                t.addLine(to: CGPoint(x: px(terrainFt.last!.nm), y: plot.maxY)); t.closeSubpath()
-                ctx.fill(t, with: .color(Color(red: 0.42, green: 0.35, blue: 0.24).opacity(0.85)))
-                var top = Path()
-                top.move(to: CGPoint(x: px(terrainFt[0].nm), y: py(terrainFt[0].ft)))
-                for p in terrainFt.dropFirst() { top.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
-                ctx.stroke(top, with: .color(Color(red: 0.54, green: 0.45, blue: 0.31)), lineWidth: 1)
-            }
-
-            // extrapolated altitude line + waypoint dots
-            if lineFt.count >= 2 {
-                var l = Path()
-                l.move(to: CGPoint(x: px(lineFt[0].nm), y: py(lineFt[0].ft)))
-                for p in lineFt.dropFirst() { l.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
-                ctx.stroke(l, with: .color(Self.magenta), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-                for p in lineFt {
-                    ctx.fill(Path(ellipseIn: CGRect(x: px(p.nm) - 3, y: py(p.ft) - 3, width: 6, height: 6)), with: .color(Self.magenta))
-                }
-            }
-
-            // terrain-clearance warning ticks (< 150 m); emphasised when the terrain row is selected
-            if !terrainFt.isEmpty, prof.hasData {
-                let terrSel = selectedId == terrainId
-                for p in terrainFt {
-                    guard let alt = prof.altitude(atNM: p.nm), alt - p.ft < Self.warnFt else { continue }
-                    var m = Path(); m.move(to: CGPoint(x: px(p.nm), y: py(alt))); m.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft)))
-                    ctx.stroke(m, with: .color(Color.aviationRed.opacity(terrSel ? 1.0 : 0.85)), lineWidth: terrSel ? 3.5 : 2)
-                }
-            }
-
-            // x-axis waypoint labels
-            for (i, nm) in prof.cumNM.enumerated() where i < waypoints.count {
-                let name = waypoints[i].name.isEmpty ? "WPT\(i + 1)" : waypoints[i].name
-                let color: Color = i == 0 ? .aviationGreen : (i == prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
-                ctx.draw(Text(name).font(.system(size: 8, design: .monospaced)).foregroundColor(color),
-                         at: CGPoint(x: px(nm), y: size.height - 5), anchor: .center)
-            }
+        GeometryReader { geo in
+            let g = makeGeometry(size: geo.size)
+            Canvas { ctx, _ in draw(ctx, g) }
+                .contentShape(Rectangle())
+                .gesture(editGesture(g))
         }
     }
+
+    private func effectiveWaypoints() -> [FlightPlanWaypoint] {
+        guard let i = draggingIndex, let a = draggingAltitude, i < waypoints.count else { return waypoints }
+        var w = waypoints; w[i].altitude = a; return w
+    }
+
+    private func makeGeometry(size: CGSize) -> Geometry {
+        let prof = RouteAltitudeProfile(effectiveWaypoints())
+        let totalNM = max(prof.totalNM, 0.0001)
+        let terrMax = terrain.last?.distance ?? 0
+        let terrainFt: [(nm: Double, ft: Double)] = terrMax > 0
+            ? terrain.map { (nm: ($0.distance / terrMax) * totalNM, ft: $0.elevation * 3.28084) } : []
+        let lineFt: [(nm: Double, ft: Double)] = prof.hasData
+            ? prof.cumNM.map { (nm: $0, ft: prof.altitude(atNM: $0) ?? 0) } : []
+        // Stable axis: y-scale from the committed altitudes, so dragging a dot doesn't rescale mid-drag.
+        let committed = RouteAltitudeProfile(waypoints)
+        let committedLine: [(nm: Double, ft: Double)] = committed.hasData
+            ? committed.cumNM.map { (nm: $0, ft: committed.altitude(atNM: $0) ?? 0) } : []
+        let yMax = computeYMax(terrainFt: terrainFt, lineFt: committedLine)
+        let plot = CGRect(x: leftPad, y: topPad, width: size.width - leftPad - rightPad, height: size.height - topPad - bottomPad)
+        return Geometry(size: size, plot: plot, totalNM: totalNM, yMax: yMax, prof: prof, terrainFt: terrainFt, lineFt: lineFt)
+    }
+
+    private func draw(_ ctx: GraphicsContext, _ g: Geometry) {
+        ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: g.size), cornerRadius: 8),
+                 with: .color(Color(red: 0.10, green: 0.10, blue: 0.13)))
+
+        // gridlines + altitude labels
+        for frac in [0.0, 0.34, 0.67, 1.0] {
+            let gy = g.plot.minY + g.plot.height * CGFloat(1 - frac)
+            var line = Path(); line.move(to: CGPoint(x: g.plot.minX, y: gy)); line.addLine(to: CGPoint(x: g.plot.maxX, y: gy))
+            ctx.stroke(line, with: .color(.white.opacity(0.06)), lineWidth: 0.5)
+            ctx.draw(Text(altLabel(g.yMax * frac)).font(.system(size: 8, design: .monospaced)).foregroundColor(.dimText),
+                     at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
+        }
+
+        // "Looking here" band — the along-track window currently visible on the map. (#9)
+        if let region = visibleRegion, waypoints.count >= 2,
+           let (lo, hi) = visibleWindowNM(region, cumNM: g.prof.cumNM), hi > lo {
+            let band = CGRect(x: g.px(lo), y: g.plot.minY, width: max(2, g.px(hi) - g.px(lo)), height: g.plot.height)
+            ctx.fill(Path(band), with: .color(.white.opacity(0.05)))
+            for edge in [g.px(lo), g.px(hi)] {
+                var e = Path(); e.move(to: CGPoint(x: edge, y: g.plot.minY)); e.addLine(to: CGPoint(x: edge, y: g.plot.maxY))
+                ctx.stroke(e, with: .color(.white.opacity(0.28)), lineWidth: 1)
+            }
+        }
+
+        // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
+        for b in blocks where b.floorFt <= g.yMax {
+            let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
+            let topY = g.py(min(b.ceilingFt, g.yMax))
+            let rect = CGRect(x: g.px(b.startNM), y: topY,
+                              width: max(2, g.px(b.endNM) - g.px(b.startNM)), height: g.py(b.floorFt) - topY)
+            let path = Path(rect)
+            let sel = b.id == selectedId
+            if b.isConflict {
+                ctx.fill(path, with: .color(color.opacity(sel ? 0.42 : 0.22)))
+                ctx.stroke(path, with: .color(color.opacity(sel ? 1.0 : 0.85)), lineWidth: sel ? 2.5 : 1)
+            } else {
+                ctx.fill(path, with: .color(color.opacity(sel ? 0.20 : 0.07)))
+                ctx.stroke(path, with: .color(color.opacity(sel ? 0.9 : 0.35)),
+                           style: StrokeStyle(lineWidth: sel ? 2 : 0.75, dash: sel ? [] : [4, 3]))
+            }
+        }
+
+        // terrain silhouette
+        let terrainFt = g.terrainFt
+        if terrainFt.count >= 2 {
+            var t = Path()
+            t.move(to: CGPoint(x: g.px(terrainFt[0].nm), y: g.plot.maxY))
+            for p in terrainFt { t.addLine(to: CGPoint(x: g.px(p.nm), y: g.py(p.ft))) }
+            t.addLine(to: CGPoint(x: g.px(terrainFt.last!.nm), y: g.plot.maxY)); t.closeSubpath()
+            ctx.fill(t, with: .color(Color(red: 0.42, green: 0.35, blue: 0.24).opacity(0.85)))
+            var top = Path()
+            top.move(to: CGPoint(x: g.px(terrainFt[0].nm), y: g.py(terrainFt[0].ft)))
+            for p in terrainFt.dropFirst() { top.addLine(to: CGPoint(x: g.px(p.nm), y: g.py(p.ft))) }
+            ctx.stroke(top, with: .color(Color(red: 0.54, green: 0.45, blue: 0.31)), lineWidth: 1)
+        }
+
+        // extrapolated altitude line + waypoint dots (the dragged one enlarged)
+        let lineFt = g.lineFt
+        if lineFt.count >= 2 {
+            var l = Path()
+            l.move(to: CGPoint(x: g.px(lineFt[0].nm), y: g.py(lineFt[0].ft)))
+            for p in lineFt.dropFirst() { l.addLine(to: CGPoint(x: g.px(p.nm), y: g.py(p.ft))) }
+            ctx.stroke(l, with: .color(Self.magenta), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            for (i, p) in lineFt.enumerated() {
+                let r: CGFloat = (i == draggingIndex) ? 5 : 3
+                ctx.fill(Path(ellipseIn: CGRect(x: g.px(p.nm) - r, y: g.py(p.ft) - r, width: r * 2, height: r * 2)), with: .color(Self.magenta))
+            }
+        }
+
+        // terrain-clearance warning ticks (< 150 m); emphasised when the terrain row is selected
+        if !terrainFt.isEmpty, g.prof.hasData {
+            let terrSel = selectedId == terrainId
+            for p in terrainFt {
+                guard let alt = g.prof.altitude(atNM: p.nm), alt - p.ft < Self.warnFt else { continue }
+                var m = Path(); m.move(to: CGPoint(x: g.px(p.nm), y: g.py(alt))); m.addLine(to: CGPoint(x: g.px(p.nm), y: g.py(p.ft)))
+                ctx.stroke(m, with: .color(Color.aviationRed.opacity(terrSel ? 1.0 : 0.85)), lineWidth: terrSel ? 3.5 : 2)
+            }
+        }
+
+        // x-axis waypoint labels
+        for (i, nm) in g.prof.cumNM.enumerated() where i < waypoints.count {
+            let name = waypoints[i].name.isEmpty ? "WPT\(i + 1)" : waypoints[i].name
+            let color: Color = i == 0 ? .aviationGreen : (i == g.prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
+            ctx.draw(Text(name).font(.system(size: 8, design: .monospaced)).foregroundColor(color),
+                     at: CGPoint(x: g.px(nm), y: g.size.height - 5), anchor: .center)
+        }
+
+        // live altitude readout while dragging a dot — a magenta pill so it reads on any background
+        if let i = draggingIndex, let a = draggingAltitude, i < lineFt.count {
+            let p = CGPoint(x: g.px(lineFt[i].nm), y: g.py(lineFt[i].ft))
+            let resolved = ctx.resolve(Text(altLabel(a) + (a >= 10000 ? "" : " ft"))
+                .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.black))
+            let sz = resolved.measure(in: CGSize(width: 140, height: 30))
+            let cx = min(max(p.x, g.plot.minX + sz.width / 2 + 8), g.plot.maxX - sz.width / 2 - 8)
+            let cy = (p.y - 16 < g.plot.minY + 10) ? p.y + 18 : p.y - 16
+            let pill = CGRect(x: cx - sz.width / 2 - 5, y: cy - sz.height / 2 - 2, width: sz.width + 10, height: sz.height + 4)
+            ctx.fill(Path(roundedRect: pill, cornerRadius: 5), with: .color(Self.magenta))
+            ctx.draw(resolved, at: CGPoint(x: cx, y: cy), anchor: .center)
+        }
+    }
+
+    // MARK: Editing gestures (R3)
+
+    private func editGesture(_ g: Geometry) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                if dragKind == nil {
+                    if onSetAltitude != nil, let i = nearestDot(to: v.startLocation, g: g) {
+                        dragKind = .altitude(i); draggingIndex = i
+                    } else {
+                        dragKind = .tap
+                    }
+                }
+                if case .altitude = dragKind {
+                    draggingAltitude = snapAlt(g.ftRaw(forY: v.location.y))
+                }
+            }
+            .onEnded { v in
+                switch dragKind {
+                case .altitude(let i):
+                    if let a = draggingAltitude { onSetAltitude?(i, a) }
+                case .tap:
+                    if onAddAtDistance != nil, abs(v.translation.width) < 10, abs(v.translation.height) < 10 {
+                        onAddAtDistance?(g.nm(forX: v.location.x), snapAlt(g.ftRaw(forY: v.location.y)))
+                    }
+                case .none: break
+                }
+                dragKind = nil; draggingIndex = nil; draggingAltitude = nil
+            }
+    }
+
+    /// Waypoint index whose dot is within ~28 pt of `p`, or nil.
+    private func nearestDot(to p: CGPoint, g: Geometry) -> Int? {
+        guard !g.lineFt.isEmpty else { return nil }
+        var best: (i: Int, d: CGFloat)?
+        for (i, pt) in g.lineFt.enumerated() {
+            let d = hypot(p.x - g.px(pt.nm), p.y - g.py(pt.ft))
+            if best == nil || d < best!.d { best = (i, d) }
+        }
+        if let b = best, b.d <= 28 { return b.i }
+        return nil
+    }
+
+    private func snapAlt(_ ft: Double) -> Double { max(0, (ft / Self.altSnap).rounded() * Self.altSnap) }
 
     private func computeYMax(terrainFt: [(nm: Double, ft: Double)], lineFt: [(nm: Double, ft: Double)]) -> Double {
         var top = terrainFt.map { $0.ft }.max() ?? 0

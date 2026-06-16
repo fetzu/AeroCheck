@@ -229,10 +229,11 @@ struct FlightPlanningView: View {
 
             // All flight plans section (scoped to the aircraft filter)
             Section {
-                ForEach(filteredPlans) { plan in
+                ForEach(Array(filteredPlans.enumerated()), id: \.element.id) { index, plan in
                     FlightPlanRow(
                         plan: plan,
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id,
+                        loadPriority: index,
                         onActivate: { activate(plan) }
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
@@ -428,6 +429,7 @@ struct FlightPlanningView: View {
 struct FlightPlanRow: View {
     let plan: FlightPlan
     let isActive: Bool
+    var loadPriority: Int = 0   // row index — top rows render their map preview first
     var onActivate: () -> Void
 
     /// Inactive plans are colour-keyed by aircraft (deterministic, stable across launches) so they're
@@ -463,7 +465,7 @@ struct FlightPlanRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Route map preview — anchors the card visually. (revamp #1b)
-            RouteThumbnail(waypoints: plan.waypoints)
+            RouteThumbnail(waypoints: plan.waypoints, loadPriority: loadPriority)
                 .frame(width: 96, height: 66)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -550,6 +552,7 @@ struct FlightPlanRow: View {
 /// snapshot can't render (e.g. offline). (flight-plan revamp #1b)
 struct RouteThumbnail: View {
     let waypoints: [FlightPlanWaypoint]
+    var loadPriority: Int = 0   // row index — stagger snapshot generation so top rows finish first
     @State private var image: UIImage?
     @Environment(\.displayScale) private var displayScale
 
@@ -574,6 +577,13 @@ struct RouteThumbnail: View {
             }
             .task(id: "\(signature)|\(Int(geo.size.width))x\(Int(geo.size.height))") {
                 guard coords.count >= 1, geo.size.width > 1 else { image = nil; return }
+                // Stagger by row index (≈40 ms each, capped) so the snapshots generate top-to-bottom —
+                // the rows the user looks at first get their preview first. The vector outline shows
+                // meanwhile, so nothing is blank. (list feedback)
+                if loadPriority > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(min(loadPriority, 12)) * 40_000_000)
+                    guard !Task.isCancelled else { return }
+                }
                 image = await RouteSnapshotCache.shared.snapshot(coords: coords, size: geo.size, scale: displayScale)
             }
         }

@@ -37,11 +37,15 @@ struct FlightPlanMapBuilderView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var listEditMode: EditMode = .inactive
 
-    // On-route airspace conflicts (#4)
-    @State private var crossedAirspaces: [Airspace] = []
+    // On-route hazards — airspace profile + terrain (#4 redesign: route-profile cross-section)
+    @State private var airspaceBlocks: [AirspaceProfileBlock] = []
+    @State private var crossedAirspaces: [Airspace] = []   // conflict subset, for the list + map highlight
     @State private var airspacePolygons: [AirspacePolygon] = []
     @State private var airspaceTask: Task<Void, Never>?
-    @State private var airspaceExpanded = false
+    @State private var terrainData: [(distance: Double, elevation: Double)] = []
+    @State private var terrainTask: Task<Void, Never>?
+    @State private var minTerrainClearanceFt: Double?
+    private let elevationService = ElevationService()
 
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
@@ -140,11 +144,12 @@ struct FlightPlanMapBuilderView: View {
             }
             initialFitIfNeeded()
             scheduleAirspaceUpdate()
+            scheduleTerrainUpdate()
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
-        // Recompute on-route airspace conflicts whenever the route geometry changes (#4).
-        .onChange(of: routeGeometryKey) { _, _ in scheduleAirspaceUpdate() }
+        // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
+        .onChange(of: routeGeometryKey) { _, _ in scheduleAirspaceUpdate(); scheduleTerrainUpdate() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
     }
 
@@ -416,7 +421,14 @@ struct FlightPlanMapBuilderView: View {
     private var sidePanel: some View {
         VStack(spacing: 0) {
             routeSummary
-            if !crossedAirspaces.isEmpty { airspaceSection }
+            if waypoints.count >= 2 {
+                routeCheckBar
+                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
+                    .frame(height: 150)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                if hasHazards { conflictsList }
+            }
             if waypoints.isEmpty {
                 emptyRouteHint
             } else {
@@ -431,51 +443,79 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
-    // MARK: - On-route airspace conflicts (#4)
+    // MARK: - On-route hazards: route check + profile + conflict list (#4 redesign)
 
-    /// Collapsible banner + list of the airspaces the route crosses. The banner is red when any crossing
-    /// is restrictive (prohibited/restricted/danger), amber otherwise; tap to expand the detail list.
-    private var airspaceSection: some View {
-        let restrictiveCount = crossedAirspaces.filter { $0.isRestrictive }.count
-        let tint: Color = restrictiveCount > 0 ? .aviationRed : .aviationAmber
-        return VStack(spacing: 0) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { airspaceExpanded.toggle() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: restrictiveCount > 0 ? "exclamationmark.triangle.fill" : "shield.lefthalf.filled")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(tint)
-                    Text(airspaceBannerText(restrictiveCount: restrictiveCount))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
-                    Spacer()
-                    Image(systemName: airspaceExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.secondaryText)
+    private var terrainWarning: Bool { (minTerrainClearanceFt.map { $0 < Self.terrainWarnFt }) ?? false }
+    private var hasHazards: Bool { !crossedAirspaces.isEmpty || terrainWarning }
+    private static let terrainWarnFt: Double = 150 * 3.28084 // 150 m ≈ 492 ft
+
+    /// One-line route status above the profile: green when clear, amber for plain airspace, red for a
+    /// restricted zone or a terrain-clearance bust.
+    private var routeCheckBar: some View {
+        let conflicts = crossedAirspaces.count
+        let restrictive = crossedAirspaces.contains { $0.isRestrictive }
+        let clear = !hasHazards
+        let tint: Color = clear ? .aviationGreen : ((restrictive || terrainWarning) ? .aviationRed : .aviationAmber)
+        return HStack(spacing: 8) {
+            Image(systemName: clear ? "checkmark.shield.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(tint)
+            Text(routeCheckText(conflicts: conflicts, clear: clear))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 9)
+        .background(tint.opacity(0.10))
+    }
+
+    private func routeCheckText(conflicts: Int, clear: Bool) -> String {
+        if clear { return L10n.Nav.routeClear }
+        var parts: [String] = []
+        if conflicts > 0 {
+            parts.append("\(conflicts) \(conflicts == 1 ? L10n.Nav.airspaceSingular : L10n.Nav.airspacePlural)")
+        }
+        if terrainWarning { parts.append(L10n.Nav.terrainClose) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// The genuine conflicts under the profile: a terrain row (if too close) + each conflicting airspace.
+    private var conflictsList: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                if terrainWarning {
+                    terrainWarnRow
+                    if !crossedAirspaces.isEmpty { Divider().background(Color.white.opacity(0.06)) }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if airspaceExpanded {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(crossedAirspaces) { airspace in
-                            airspaceRow(airspace)
-                            if airspace.id != crossedAirspaces.last?.id {
-                                Divider().background(Color.white.opacity(0.06))
-                            }
-                        }
+                ForEach(crossedAirspaces) { airspace in
+                    airspaceRow(airspace)
+                    if airspace.id != crossedAirspaces.last?.id {
+                        Divider().background(Color.white.opacity(0.06))
                     }
                 }
-                .frame(maxHeight: 200)
             }
         }
-        .background(tint.opacity(0.08))
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5) }
+        .frame(maxHeight: 132)
+    }
+
+    private var terrainWarnRow: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 2).fill(Color.aviationRed).frame(width: 4, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Nav.terrainProximity)
+                    .font(.system(size: 13, weight: .semibold)).foregroundColor(.primaryText)
+                Text(L10n.Nav.terrainProximityDetail)
+                    .font(.system(size: 10)).foregroundColor(.secondaryText).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            if let c = minTerrainClearanceFt {
+                Text("\(Int(c.rounded())) ft")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.aviationRed)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
     }
 
     private func airspaceRow(_ a: Airspace) -> some View {
@@ -514,34 +554,61 @@ struct FlightPlanMapBuilderView: View {
         .padding(.horizontal, 16).padding(.vertical, 8)
     }
 
-    private func airspaceBannerText(restrictiveCount: Int) -> String {
-        let total = crossedAirspaces.count
-        var text = "\(total) \(total == 1 ? L10n.Nav.airspaceSingular : L10n.Nav.airspacePlural)"
-        if restrictiveCount > 0 { text += " · \(restrictiveCount) \(L10n.Nav.restricted)" }
-        return text
-    }
-
-    /// Debounced recompute of the airspaces the route crosses + their map highlights. (#4)
+    /// Debounced recompute of the on-route airspace blocks (profile) + conflict subset (list + map). (#4)
     private func scheduleAirspaceUpdate() {
         airspaceTask?.cancel()
         let coords = waypoints.map { $0.coordinate }
         let alts = waypoints.map { $0.altitude }
-        guard coords.count >= 2 else { crossedAirspaces = []; airspacePolygons = []; return }
+        guard coords.count >= 2 else { airspaceBlocks = []; crossedAirspaces = []; airspacePolygons = []; return }
         airspaceTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             await openAIPDataService.ensureLoaded()
             guard !Task.isCancelled else { return }
-            let crossed = openAIPDataService.airspacesCrossedByRoute(coords, altitudesFt: alts)
-            let polys: [AirspacePolygon] = crossed.compactMap { airspace in
+            let blocks = openAIPDataService.airspaceProfileBlocks(coords, altitudesFt: alts)
+            let conflicts = blocks.filter { $0.isConflict }.map { $0.airspace }
+            let polys: [AirspacePolygon] = conflicts.compactMap { airspace in
                 var mc = airspace.polygonCoordinates
                 guard mc.count >= 3 else { return nil }
                 return AirspacePolygon(airspace: airspace, coordinates: &mc, count: mc.count)
             }
             guard !Task.isCancelled else { return }
-            crossedAirspaces = crossed
+            airspaceBlocks = blocks
+            crossedAirspaces = conflicts
             airspacePolygons = polys
         }
+    }
+
+    /// Debounced terrain fetch (swisstopo via `ElevationService`; empty outside Switzerland) + the
+    /// minimum clearance of the extrapolated altitude profile over terrain, for the 150 m warning. (#4)
+    private func scheduleTerrainUpdate() {
+        terrainTask?.cancel()
+        let wpts = waypoints
+        let coords = wpts.map { $0.coordinate }
+        guard coords.count >= 2 else { terrainData = []; minTerrainClearanceFt = nil; return }
+        terrainTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            let terrain = await elevationService.fetchRouteElevationsOptimized(waypoints: coords, totalSamples: 60)
+            guard !Task.isCancelled else { return }
+            terrainData = terrain
+            minTerrainClearanceFt = Self.minClearanceFt(terrain: terrain, waypoints: wpts)
+        }
+    }
+
+    /// Lowest vertical gap (ft) between the extrapolated altitude profile and the terrain along the
+    /// route, or nil when terrain or planned altitudes are unavailable.
+    private static func minClearanceFt(terrain: [(distance: Double, elevation: Double)], waypoints: [FlightPlanWaypoint]) -> Double? {
+        guard terrain.count >= 2, let terrMax = terrain.last?.distance, terrMax > 0 else { return nil }
+        let prof = RouteAltitudeProfile(waypoints)
+        guard prof.hasData, prof.totalNM > 0 else { return nil }
+        var minC = Double.infinity
+        for p in terrain {
+            let nm = (p.distance / terrMax) * prof.totalNM
+            guard let alt = prof.altitude(atNM: nm) else { continue }
+            minC = min(minC, alt - p.elevation * 3.28084)
+        }
+        return minC.isFinite ? minC : nil
     }
 
     /// Thin header above the waypoint list with the single reorder toggle. Replaces the navigation-bar
@@ -1380,5 +1447,171 @@ final class RouteWaypointAnnotation: NSObject, MKAnnotation {
         self.coordinate = coordinate
         self.index = index
         self.title = name.isEmpty ? "WPT\(index + 1)" : name
+    }
+}
+
+// MARK: - Route altitude profile + cross-section (flight-plan revamp #4 redesign)
+
+/// Piecewise-linear planned-altitude profile along the route, extrapolated from the waypoints that
+/// carry a planned altitude (clamped at the ends). Shared by the builder (terrain clearance) and the
+/// route-profile view (the altitude line). Distances use the same haversine NM as the airspace scan.
+struct RouteAltitudeProfile {
+    let cumNM: [Double]      // cumulative along-track distance per waypoint
+    let totalNM: Double
+    private let known: [(d: Double, alt: Double)]
+    var hasData: Bool { !known.isEmpty }
+
+    init(_ waypoints: [FlightPlanWaypoint]) {
+        var c: [Double] = []
+        for (i, w) in waypoints.enumerated() {
+            if i == 0 { c.append(0); continue }
+            let a = waypoints[i - 1].coordinate, b = w.coordinate
+            let leg = CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852.0
+            c.append(c[i - 1] + leg)
+        }
+        cumNM = c
+        totalNM = c.last ?? 0
+        var k: [(Double, Double)] = []
+        for (i, w) in waypoints.enumerated() where i < c.count {
+            if let alt = w.altitude { k.append((c[i], alt)) }
+        }
+        known = k.sorted { $0.0 < $1.0 }
+    }
+
+    func altitude(atNM d: Double) -> Double? {
+        guard let first = known.first, let last = known.last else { return nil }
+        if d <= first.d { return first.alt }
+        if d >= last.d { return last.alt }
+        for k in 1..<known.count where d <= known[k].d {
+            let p0 = known[k - 1], p1 = known[k]
+            let t = (d - p0.d) / max(0.0001, p1.d - p0.d)
+            return p0.alt + (p1.alt - p0.alt) * t
+        }
+        return last.alt
+    }
+}
+
+/// Vertical route cross-section: terrain silhouette + the extrapolated altitude line + the airspaces
+/// the route enters (conflicts solid, "context" zones the route clears vertically drawn faded) + red
+/// ticks where terrain clearance busts 150 m. The VFR-standard way to read vertical separation at a
+/// glance. (flight-plan revamp #4 redesign)
+private struct RouteProfileView: View {
+    let waypoints: [FlightPlanWaypoint]
+    let terrain: [(distance: Double, elevation: Double)]
+    let blocks: [AirspaceProfileBlock]
+
+    private let leftPad: CGFloat = 38
+    private let bottomPad: CGFloat = 16
+    private let topPad: CGFloat = 6
+    private let rightPad: CGFloat = 8
+    private static let warnFt: Double = 150 * 3.28084
+    private static let magenta = Color(red: 1.0, green: 0.08, blue: 0.8)
+
+    var body: some View {
+        Canvas { ctx, size in
+            let prof = RouteAltitudeProfile(waypoints)
+            let totalNM = max(prof.totalNM, 0.0001)
+
+            // Terrain (m → ft), mapped onto the route's total NM (it has its own distance scale).
+            let terrMax = terrain.last?.distance ?? 0
+            let terrainFt: [(nm: Double, ft: Double)] = terrMax > 0
+                ? terrain.map { (($0.distance / terrMax) * totalNM, $0.elevation * 3.28084) }
+                : []
+            let lineFt: [(nm: Double, ft: Double)] = prof.hasData
+                ? prof.cumNM.map { ($0, prof.altitude(atNM: $0) ?? 0) }
+                : []
+            let yMax = computeYMax(terrainFt: terrainFt, lineFt: lineFt)
+
+            let plot = CGRect(x: leftPad, y: topPad,
+                              width: size.width - leftPad - rightPad,
+                              height: size.height - topPad - bottomPad)
+            func px(_ nm: Double) -> CGFloat { plot.minX + CGFloat(min(max(nm / totalNM, 0), 1)) * plot.width }
+            func py(_ ft: Double) -> CGFloat { plot.minY + plot.height - CGFloat(min(max(ft / yMax, 0), 1)) * plot.height }
+
+            ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 8),
+                     with: .color(Color(red: 0.10, green: 0.10, blue: 0.13)))
+
+            // gridlines + altitude labels
+            for frac in [0.0, 0.34, 0.67, 1.0] {
+                let gy = plot.minY + plot.height * CGFloat(1 - frac)
+                var g = Path(); g.move(to: CGPoint(x: plot.minX, y: gy)); g.addLine(to: CGPoint(x: plot.maxX, y: gy))
+                ctx.stroke(g, with: .color(.white.opacity(0.06)), lineWidth: 0.5)
+                ctx.draw(Text(altLabel(yMax * frac)).font(.system(size: 8, design: .monospaced)).foregroundColor(.dimText),
+                         at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
+            }
+
+            // airspace blocks (conflicts solid, context faded/dashed)
+            for b in blocks where b.floorFt <= yMax {
+                let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
+                let topY = py(min(b.ceilingFt, yMax))
+                let rect = CGRect(x: px(b.startNM), y: topY,
+                                  width: max(2, px(b.endNM) - px(b.startNM)), height: py(b.floorFt) - topY)
+                let path = Path(rect)
+                if b.isConflict {
+                    ctx.fill(path, with: .color(color.opacity(0.22)))
+                    ctx.stroke(path, with: .color(color.opacity(0.85)), lineWidth: 1)
+                } else {
+                    ctx.fill(path, with: .color(color.opacity(0.07)))
+                    ctx.stroke(path, with: .color(color.opacity(0.35)), style: StrokeStyle(lineWidth: 0.75, dash: [4, 3]))
+                }
+            }
+
+            // terrain silhouette
+            if terrainFt.count >= 2 {
+                var t = Path()
+                t.move(to: CGPoint(x: px(terrainFt[0].nm), y: plot.maxY))
+                for p in terrainFt { t.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
+                t.addLine(to: CGPoint(x: px(terrainFt.last!.nm), y: plot.maxY)); t.closeSubpath()
+                ctx.fill(t, with: .color(Color(red: 0.42, green: 0.35, blue: 0.24).opacity(0.85)))
+                var top = Path()
+                top.move(to: CGPoint(x: px(terrainFt[0].nm), y: py(terrainFt[0].ft)))
+                for p in terrainFt.dropFirst() { top.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
+                ctx.stroke(top, with: .color(Color(red: 0.54, green: 0.45, blue: 0.31)), lineWidth: 1)
+            }
+
+            // extrapolated altitude line + waypoint dots
+            if lineFt.count >= 2 {
+                var l = Path()
+                l.move(to: CGPoint(x: px(lineFt[0].nm), y: py(lineFt[0].ft)))
+                for p in lineFt.dropFirst() { l.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft))) }
+                ctx.stroke(l, with: .color(Self.magenta), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                for p in lineFt {
+                    ctx.fill(Path(ellipseIn: CGRect(x: px(p.nm) - 3, y: py(p.ft) - 3, width: 6, height: 6)), with: .color(Self.magenta))
+                }
+            }
+
+            // terrain-clearance warning ticks (< 150 m)
+            if !terrainFt.isEmpty, prof.hasData {
+                for p in terrainFt {
+                    guard let alt = prof.altitude(atNM: p.nm), alt - p.ft < Self.warnFt else { continue }
+                    var m = Path(); m.move(to: CGPoint(x: px(p.nm), y: py(alt))); m.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft)))
+                    ctx.stroke(m, with: .color(Color.aviationRed.opacity(0.85)), lineWidth: 2)
+                }
+            }
+
+            // x-axis waypoint labels
+            for (i, nm) in prof.cumNM.enumerated() where i < waypoints.count {
+                let name = waypoints[i].name.isEmpty ? "WPT\(i + 1)" : waypoints[i].name
+                let color: Color = i == 0 ? .aviationGreen : (i == prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
+                ctx.draw(Text(name).font(.system(size: 8, design: .monospaced)).foregroundColor(color),
+                         at: CGPoint(x: px(nm), y: size.height - 5), anchor: .center)
+            }
+        }
+    }
+
+    private func computeYMax(terrainFt: [(nm: Double, ft: Double)], lineFt: [(nm: Double, ft: Double)]) -> Double {
+        var top = terrainFt.map { $0.ft }.max() ?? 0
+        let routeTop = lineFt.map { $0.ft }.max() ?? 0
+        top = max(top, routeTop)
+        for b in blocks where b.isConflict { top = max(top, b.ceilingFt) }
+        top = max(top, routeTop + 4000) // headroom to show nearby context-zone floors above the route
+        return max(2000, top * 1.1)
+    }
+
+    private func altLabel(_ ft: Double) -> String {
+        if ft <= 0 { return "GND" }
+        if ft >= 10000 { return "FL\(Int((ft / 100).rounded()))" }
+        return "\(Int((ft / 100).rounded()) * 100)"
     }
 }

@@ -237,6 +237,23 @@ struct Airspace: Codable, Identifiable {
     }
 }
 
+// MARK: - Airspace Profile Block
+
+/// One airspace as it appears on the route-profile cross-section: the along-track distance band it
+/// spans (NM) and its vertical band (ft MSL), plus whether the route actually conflicts with it
+/// (within ± a separation buffer) or merely passes it horizontally while clearing it vertically
+/// ("context", drawn faded). (flight-plan revamp #4 redesign)
+struct AirspaceProfileBlock: Identifiable {
+    let airspace: Airspace
+    let startNM: Double
+    let endNM: Double
+    let floorFt: Double
+    let ceilingFt: Double
+    let isConflict: Bool
+
+    var id: String { airspace.id }
+}
+
 // MARK: - Airspace Bounding Box
 
 /// Axis-aligned lat/lon bounding box of an airspace ring, precomputed once so bounds/contains

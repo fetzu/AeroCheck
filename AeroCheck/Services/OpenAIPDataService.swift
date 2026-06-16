@@ -341,6 +341,23 @@ class OpenAIPDataService: ObservableObject {
         verticalBufferFt: Double = 500,
         sampleStepNM: Double = 1.0
     ) -> [Airspace] {
+        airspaceProfileBlocks(waypoints, altitudesFt: altitudesFt, verticalBufferFt: verticalBufferFt,
+                              sampleStepNM: sampleStepNM)
+            .filter { $0.isConflict }
+            .map { $0.airspace }
+    }
+
+    /// Every airspace whose footprint the route enters, with the along-track distance band it spans and
+    /// its vertical band — for the builder's route-profile cross-section (#4 redesign). `isConflict` is
+    /// true when the extrapolated flight altitude there is within the airspace ± the buffer; the others
+    /// are "context" (crossed horizontally but cleared vertically) and drawn faded. Conflicts sort
+    /// first, then by start distance.
+    func airspaceProfileBlocks(
+        _ waypoints: [CLLocationCoordinate2D],
+        altitudesFt: [Double?] = [],
+        verticalBufferFt: Double = 500,
+        sampleStepNM: Double = 1.0
+    ) -> [AirspaceProfileBlock] {
         guard isLoaded, waypoints.count >= 2 else { return [] }
         let candidates = airspacesAlongRoute(waypoints)
         guard !candidates.isEmpty else { return [] }
@@ -355,7 +372,6 @@ class OpenAIPDataService: ObservableObject {
         profile.sort { $0.d < $1.d }
         let hasProfile = !profile.isEmpty
 
-        // Estimated MSL altitude at along-track distance `d` (clamped outside the known range).
         func altAt(_ d: Double) -> Double? {
             guard hasProfile else { return nil }
             if d <= profile.first!.d { return profile.first!.alt }
@@ -383,18 +399,28 @@ class OpenAIPDataService: ObservableObject {
         }
         if let last = waypoints.last { samples.append((last, cum.last ?? 0)) }
 
-        let crossed = candidates.filter { airspace in
-            samples.contains { sample in
-                guard airspace.containsPoint(sample.c) else { return false }
-                guard let alt = altAt(sample.d) else { return true } // no profile → horizontal only
-                let floor = airspace.lowerCeiling.asFeetMSL
-                let ceiling = airspace.upperCeiling.asFeetMSL
-                return alt + verticalBufferFt >= floor && alt - verticalBufferFt <= ceiling
+        var blocks: [AirspaceProfileBlock] = []
+        for airspace in candidates {
+            var minD = Double.infinity, maxD = -Double.infinity, anyInside = false, anyVertical = false
+            let floor = airspace.lowerCeiling.asFeetMSL
+            let ceiling = airspace.upperCeiling.asFeetMSL
+            for sample in samples where airspace.containsPoint(sample.c) {
+                anyInside = true
+                minD = min(minD, sample.d); maxD = max(maxD, sample.d)
+                if let alt = altAt(sample.d) {
+                    if alt + verticalBufferFt >= floor && alt - verticalBufferFt <= ceiling { anyVertical = true }
+                } else {
+                    anyVertical = true // no altitude profile → treat horizontal crossing as a conflict
+                }
             }
+            guard anyInside else { continue }
+            blocks.append(AirspaceProfileBlock(airspace: airspace, startNM: minD, endNM: maxD,
+                                               floorFt: floor, ceilingFt: ceiling, isConflict: anyVertical))
         }
-        return crossed.sorted { a, b in
-            if a.isRestrictive != b.isRestrictive { return a.isRestrictive }
-            return a.name < b.name
+        return blocks.sorted { a, b in
+            if a.isConflict != b.isConflict { return a.isConflict }
+            if a.airspace.isRestrictive != b.airspace.isRestrictive { return a.airspace.isRestrictive }
+            return a.startNM < b.startNM
         }
     }
 

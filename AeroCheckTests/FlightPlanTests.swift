@@ -71,4 +71,40 @@ final class FlightPlanTests: XCTestCase {
         plan.currentWaypointIndex = 5
         XCTAssertNil(plan.currentWaypointId)
     }
+
+    // MARK: - RouteAltitudeProfile — extrapolated altitude (flight-plan revamp #4)
+
+    /// ~1° of longitude at 46°N ≈ 41.7 NM, so a two-point W→E leg gives a known total to interpolate.
+    private func eastWestPlan(altA: Double?, altB: Double?) -> [FlightPlanWaypoint] {
+        [FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46.0, longitude: 6.0), altitude: altA),
+         FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 46.0, longitude: 8.0), altitude: altB)]
+    }
+
+    func testAltitudeProfileInterpolatesBetweenKnownWaypoints() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 2000, altB: 6000))
+        // Midpoint of the leg should be the mean of the two altitudes.
+        let mid = prof.altitude(atNM: prof.totalNM / 2)
+        XCTAssertNotNil(mid)
+        XCTAssertEqual(mid!, 4000, accuracy: 60) // small tolerance for great-circle vs linear NM
+    }
+
+    func testAltitudeProfileClampsBeyondEnds() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 2000, altB: 6000))
+        XCTAssertEqual(prof.altitude(atNM: -10), 2000)              // before the first known point
+        XCTAssertEqual(prof.altitude(atNM: prof.totalNM + 50), 6000) // after the last known point
+    }
+
+    func testAltitudeProfileWithNoAltitudesHasNoData() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: nil, altB: nil))
+        XCTAssertFalse(prof.hasData)
+        XCTAssertNil(prof.altitude(atNM: prof.totalNM / 2))
+    }
+
+    func testAltitudeProfileSingleKnownAltitudeClampsFlat() {
+        // Only the departure altitude set → the whole profile sits at that altitude.
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 3500, altB: nil))
+        XCTAssertTrue(prof.hasData)
+        XCTAssertEqual(prof.altitude(atNM: 0), 3500)
+        XCTAssertEqual(prof.altitude(atNM: prof.totalNM), 3500)
+    }
 }

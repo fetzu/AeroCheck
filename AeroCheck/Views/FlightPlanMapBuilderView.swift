@@ -29,8 +29,12 @@ struct FlightPlanMapBuilderView: View {
     @State private var fitRouteToken = 0
     @State private var didInitialFit = false
 
-    @State private var searchText = ""
+    @State private var fromText = ""
+    @State private var toText = ""
+    @FocusState private var focusedEndpoint: RouteEndpoint?
     @State private var searchResults: [Airport] = []
+
+    enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
     @State private var showTableEditor = false
     @State private var showTerrain = false
@@ -42,6 +46,15 @@ struct FlightPlanMapBuilderView: View {
     }
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
+
+    /// Title derives the route (FROM → TO) when the plan is unnamed, so a new plan is auto-named by its
+    /// endpoints; a custom name (set in the Table) wins. (flight-plan revamp #2)
+    private var builderTitle: String {
+        if let p = plan, !p.name.isEmpty { return p.name }
+        let names = waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
+        if names.count >= 2, let f = names.first, let l = names.last { return "\(f) → \(l)" }
+        return L10n.Nav.newFlightPlan
+    }
 
     var body: some View {
         NavigationStack {
@@ -68,7 +81,7 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
             .background(Color.cockpitBackground)
-            .navigationTitle((plan?.name.isEmpty == false) ? plan!.name : "Route Builder")
+            .navigationTitle(builderTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -140,7 +153,7 @@ struct FlightPlanMapBuilderView: View {
             .ignoresSafeArea(edges: .bottom)
 
             VStack(spacing: 8) {
-                searchBar
+                fromToBar
                 HStack {
                     layerPicker
                     Spacer()
@@ -151,56 +164,136 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
-    private var searchBar: some View {
+    /// From → To endpoint bar — the destination-first entry. Type/select airfields to seed a direct
+    /// route (or change the endpoints of an existing one); intermediate waypoints come from tapping the
+    /// map / airport markers, or the Table. (flight-plan revamp #2)
+    private var fromToBar: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundColor(.secondaryText)
-                TextField("Search ICAO / airport name", text: $searchText)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .foregroundColor(.primaryText)
-                if !searchText.isEmpty {
-                    Button { searchText = ""; searchResults = [] } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.dimText)
-                    }
-                    .accessibilityLabel("Clear search")
+            HStack(spacing: 6) {
+                endpointField(.from)
+                Button { swapEndpoints() } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(waypoints.count >= 2 ? .secondaryText : .dimText.opacity(0.4))
+                        .frame(width: 30, height: 30)
                 }
+                .disabled(waypoints.count < 2)
+                .accessibilityLabel(L10n.Nav.swapEndpoints)
+                endpointField(.to)
             }
-            .padding(10)
+            .padding(8)
             .floatingChromeBackground(cornerRadius: 12)
 
-            if !searchResults.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(searchResults.prefix(6)) { airport in
-                        Button { addAirport(airport); searchText = ""; searchResults = [] } label: {
-                            HStack(spacing: 10) {
-                                Text(airport.ident)
-                                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.aviationGold)
-                                    .frame(width: 64, alignment: .leading)
-                                Text(airport.name)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.primaryText)
-                                    .lineLimit(1)
-                                Spacer()
-                                Image(systemName: "plus.circle.fill").foregroundColor(.aviationGreen)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                        }
-                        .buttonStyle(.plain)
-                        if airport.id != searchResults.prefix(6).last?.id {
-                            Divider().background(Color.white.opacity(0.06))
-                        }
-                    }
+            if focusedEndpoint != nil && !searchResults.isEmpty {
+                airportResults { airport in
+                    if let slot = focusedEndpoint { setEndpoint(slot, airport) }
                 }
                 .floatingChromeBackground(cornerRadius: 12)
                 .padding(.top, 4)
             }
         }
-        .onChange(of: searchText) { _, query in
-            searchResults = query.count >= 2 ? airportDataService.searchAirports(query: query, limit: 12) : []
+        .onChange(of: fromText) { _, q in if focusedEndpoint == .from { runSearch(q) } }
+        .onChange(of: toText) { _, q in if focusedEndpoint == .to { runSearch(q) } }
+        .onChange(of: focusedEndpoint) { _, _ in searchResults = [] }
+        .onChange(of: routeSignature) { _, _ in if focusedEndpoint == nil { syncEndpointText() } }
+        .onAppear { syncEndpointText() }
+    }
+
+    private func endpointField(_ slot: RouteEndpoint) -> some View {
+        HStack(spacing: 6) {
+            Text(slot == .from ? L10n.Nav.from : L10n.Nav.to)
+                .font(.system(size: 9, weight: .semibold)).tracking(0.4).foregroundColor(.dimText)
+            TextField(slot == .from ? L10n.Nav.from : L10n.Nav.to,
+                      text: slot == .from ? $fromText : $toText)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundColor(slot == .from ? .aviationGreen : .aviationGold)
+                .focused($focusedEndpoint, equals: slot)
         }
+        .padding(.horizontal, 9).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+    }
+
+    private func airportResults(onSelect: @escaping (Airport) -> Void) -> some View {
+        VStack(spacing: 0) {
+            ForEach(searchResults.prefix(6)) { airport in
+                Button { onSelect(airport) } label: {
+                    HStack(spacing: 10) {
+                        Text(airport.ident)
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.aviationGold)
+                            .frame(width: 64, alignment: .leading)
+                        Text(airport.name)
+                            .font(.system(size: 13))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "arrow.up.left.circle.fill").foregroundColor(.aviationGreen)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
+                if airport.id != searchResults.prefix(6).last?.id {
+                    Divider().background(Color.white.opacity(0.06))
+                }
+            }
+        }
+    }
+
+    /// Endpoint-change signature, to re-sync the field text when the route changes elsewhere (map tap).
+    private var routeSignature: String { "\(waypoints.first?.name ?? "")|\(waypoints.last?.name ?? "")|\(waypoints.count)" }
+
+    private func runSearch(_ query: String) {
+        searchResults = query.count >= 2 ? airportDataService.searchAirports(query: query, limit: 12) : []
+    }
+
+    private func syncEndpointText() {
+        fromText = waypoints.first?.name ?? ""
+        toText = waypoints.count >= 2 ? (waypoints.last?.name ?? "") : ""
+    }
+
+    /// Set the FROM or TO endpoint to an airfield — seeds a direct route, or updates the endpoint of an
+    /// existing one (reusing the ident name + auto frequency + elevation). (flight-plan revamp #2)
+    private func setEndpoint(_ slot: RouteEndpoint, _ airport: Airport) {
+        switch slot {
+        case .from:
+            if var wp = waypoints.first {
+                applyAirport(airport, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            } else {
+                addAirport(airport)
+            }
+            fromText = airport.ident
+        case .to:
+            if waypoints.count >= 2, var wp = waypoints.last {
+                applyAirport(airport, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            } else {
+                addAirport(airport) // appends → makes [from, to] (or the only point)
+            }
+            toText = airport.ident
+        }
+        focusedEndpoint = nil
+        searchResults = []
+        fitRouteToken += 1
+    }
+
+    private func applyAirport(_ airport: Airport, to wp: inout FlightPlanWaypoint) {
+        wp.name = airport.ident
+        wp.coordinate = airport.coordinate
+        wp.callSign = airport.ident
+        let freqs = airportDataService.getFrequencies(for: airport.ident)
+        wp.frequency = (freqs.first { $0.type.uppercased().contains("TWR") }
+            ?? freqs.first { $0.type.uppercased().contains("ATIS") } ?? freqs.first)?.formattedFrequency
+        if let elevation = airport.elevation { wp.altitude = Double(elevation) }
+    }
+
+    private func swapEndpoints() {
+        flightPlanManager.reverseRoute(planId: planId)
+        syncEndpointText()
+        fitRouteToken += 1
     }
 
     private var layerPicker: some View {

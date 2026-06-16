@@ -180,6 +180,14 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Reverse the route (swap From ↔ To and everything between). (flight-plan revamp #2)
+    func reverseRoute(planId: UUID) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }), plan.waypoints.count >= 2 else { return }
+        plan.waypoints.reverse()
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Move waypoints within a flight plan
     func moveWaypoints(in planId: UUID, from source: IndexSet, to destination: Int) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }

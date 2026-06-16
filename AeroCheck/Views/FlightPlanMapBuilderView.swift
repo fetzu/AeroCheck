@@ -148,10 +148,14 @@ struct FlightPlanMapBuilderView: View {
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
     }
 
-    /// Full-geometry signature (every waypoint's coordinate) so the airspace scan re-runs even when an
-    /// intermediate point moves — unlike `routeSignature`, which only watches the endpoints + count.
+    /// Full-geometry signature (every waypoint's coordinate AND planned altitude) so the airspace scan
+    /// re-runs when an intermediate point moves OR an altitude is edited — unlike `routeSignature`,
+    /// which only watches the endpoints + count.
     private var routeGeometryKey: String {
-        waypoints.map { String(format: "%.4f,%.4f", $0.latitude, $0.longitude) }.joined(separator: "|")
+        waypoints.map { wp in
+            let alt = wp.altitude.map { String(Int($0)) } ?? "-"
+            return String(format: "%.4f,%.4f", wp.latitude, wp.longitude) + ",\(alt)"
+        }.joined(separator: "|")
     }
 
     // MARK: - Map area
@@ -523,13 +527,14 @@ struct FlightPlanMapBuilderView: View {
     private func scheduleAirspaceUpdate() {
         airspaceTask?.cancel()
         let coords = waypoints.map { $0.coordinate }
+        let alts = waypoints.map { $0.altitude }
         guard coords.count >= 2 else { crossedAirspaces = []; airspacePolygons = []; return }
         airspaceTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             await openAIPDataService.ensureLoaded()
             guard !Task.isCancelled else { return }
-            let crossed = openAIPDataService.airspacesCrossedByRoute(coords)
+            let crossed = openAIPDataService.airspacesCrossedByRoute(coords, altitudesFt: alts)
             let polys: [AirspacePolygon] = crossed.compactMap { airspace in
                 var mc = airspace.polygonCoordinates
                 guard mc.count >= 3 else { return nil }

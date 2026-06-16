@@ -45,7 +45,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var terrainData: [(distance: Double, elevation: Double)] = []
     @State private var terrainTask: Task<Void, Never>?
     @State private var minTerrainClearanceFt: Double?
+    @State private var selectedConflictId: String?   // tapped conflict — highlighted on map + profile (#4)
     private let elevationService = ElevationService()
+    private static let terrainConflictId = "terrain"
 
     enum RouteEndpoint: Hashable { case from, to }
     @State private var editingWaypoint: FlightPlanWaypoint?
@@ -107,7 +109,6 @@ struct FlightPlanMapBuilderView: View {
                     Menu {
                         Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
                         Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
-                        Button { fitRouteToken += 1 } label: { Label(L10n.Nav.fitRoute, systemImage: "scope") }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -136,7 +137,8 @@ struct FlightPlanMapBuilderView: View {
             }
             .sheet(isPresented: $showProfileFull) {
                 NavigationStack {
-                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
+                    RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
+                                     selectedId: selectedConflictId, terrainId: Self.terrainConflictId)
                         .padding(16)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.cockpitBackground)
@@ -167,7 +169,7 @@ struct FlightPlanMapBuilderView: View {
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
-        .onChange(of: routeGeometryKey) { _, _ in scheduleAirspaceUpdate(); scheduleTerrainUpdate() }
+        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
     }
 
@@ -189,6 +191,7 @@ struct FlightPlanMapBuilderView: View {
             mapLayer: selectedLayer,
             airports: visibleAirports,
             airspacePolygons: airspacePolygons,
+            selectedAirspaceId: selectedConflictId,
             fitRouteToken: fitRouteToken,
             region: $region,
             onAirportTap: { airport in addAirport(airport) },
@@ -197,19 +200,16 @@ struct FlightPlanMapBuilderView: View {
             onAddWaypoint: { coord in smartAddWaypoint(at: coord) }
         )
         .ignoresSafeArea(edges: .bottom)
-        // From/To bar full-width at the top; the layer switcher tucks top-right just beneath it,
-        // matching the NavigationView convention (layers top-right). (feedback)
+        // From/To bar full-width at the top.
         .overlay(alignment: .top) {
-            VStack(spacing: 8) {
-                fromToBar
-                HStack {
-                    Spacer()
-                    layerPicker
-                }
-            }
-            .padding(12)
+            fromToBar
+                .padding(12)
         }
-        // Center/fit-route control bottom-right, matching NavigationView's tracking/center placement.
+        // Layer switcher bottom-left, center/fit bottom-right. (feedback)
+        .overlay(alignment: .bottomLeading) {
+            layerPicker
+                .padding(12)
+        }
         .overlay(alignment: .bottomTrailing) {
             fitRouteButton
                 .padding(12)
@@ -494,8 +494,9 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 7)
             if !profileCollapsed {
-                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks)
-                    .frame(height: 118)
+                RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
+                                 selectedId: selectedConflictId, terrainId: Self.terrainConflictId)
+                    .frame(height: 136)
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
         }
@@ -585,8 +586,16 @@ struct FlightPlanMapBuilderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Toggle selection of a conflict — highlights it on the map and in the route profile. (#4 feedback)
+    private func selectConflict(_ id: String) {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            selectedConflictId = (selectedConflictId == id) ? nil : id
+        }
+    }
+
     private var terrainWarnRow: some View {
-        HStack(spacing: 10) {
+        let selected = selectedConflictId == Self.terrainConflictId
+        return HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 2).fill(Color.aviationRed).frame(width: 4, height: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.Nav.terrainProximity)
@@ -602,10 +611,14 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(selected ? Color.white.opacity(0.07) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selectConflict(Self.terrainConflictId) }
     }
 
     private func airspaceRow(_ a: Airspace) -> some View {
-        HStack(spacing: 10) {
+        let selected = selectedConflictId == a.id
+        return HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color(red: a.mapColor.red, green: a.mapColor.green, blue: a.mapColor.blue))
                 .frame(width: 4, height: 32)
@@ -638,6 +651,9 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
+        .background(selected ? Color.white.opacity(0.07) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selectConflict(a.id) }
     }
 
     /// Debounced recompute of the on-route airspace blocks (profile) + conflict subset (list + map). (#4)
@@ -1013,6 +1029,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
     let mapLayer: WaypointPickerMapLayer
     var airports: [Airport]
     var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
+    var selectedAirspaceId: String? = nil          // tapped conflict — emphasised on the map (#4)
     var fitRouteToken: Int
     @Binding var region: MKCoordinateRegion
     var onAirportTap: (Airport) -> Void
@@ -1061,11 +1078,27 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         updateAirportAnnotations(mapView, context: context)
         updateAirspaceOverlays(mapView, context: context)
+        applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
 
         if context.coordinator.lastFitToken != fitRouteToken {
             context.coordinator.lastFitToken = fitRouteToken
             fitRoute(mapView)
+        }
+    }
+
+    /// Emphasise the selected conflict's polygon (brighter + thicker) by restyling its live renderer,
+    /// so tapping a row in the list makes it pop on the map. (#4 feedback)
+    private func applyAirspaceSelection(_ mapView: MKMapView) {
+        for poly in mapView.overlays.compactMap({ $0 as? AirspacePolygon }) {
+            guard let r = mapView.renderer(for: poly) as? MKPolygonRenderer else { continue }
+            let c = poly.overlayColor
+            let sel = poly.airspaceId == selectedAirspaceId
+            r.fillColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: sel ? 0.36 : 0.18)
+            r.strokeColor = UIColor(red: c.red, green: c.green, blue: c.blue, alpha: sel ? 1.0 : 0.85)
+            r.lineWidth = sel ? 3 : 1.5
+            r.lineDashPattern = poly.isDashed ? [8, 4] : nil
+            r.setNeedsDisplay()
         }
     }
 
@@ -1299,8 +1332,14 @@ struct RouteBuilderMapView: UIViewRepresentable {
                     }
                     return
                 }
-                guard dragIndex < dragCoords.count else { return }
                 let coord = mapView.convert(point, toCoordinateFrom: mapView)
+                if case .append = dragMode {
+                    // A dropped point previews where it will actually land (cheapest insertion),
+                    // recomputed as the finger moves — not stuck appended to the end. (smart-insert feedback)
+                    rebuildAppendPreview(mapView, coord: coord)
+                    return
+                }
+                guard dragIndex < dragCoords.count else { return }
                 dragCoords[dragIndex] = coord
                 dragAnnotation?.coordinate = coord
                 redrawDragRoute(mapView)
@@ -1340,16 +1379,25 @@ struct RouteBuilderMapView: UIViewRepresentable {
             pendingAddWork = nil
             pendingAddAnchor = nil
             let coord = mapView.convert(point, toCoordinateFrom: mapView)
-            var coords = parent.waypoints.map { $0.coordinate }
-            coords.append(coord)
             dragMode = .append
-            dragCoords = coords
-            dragIndex = coords.count - 1
-            let temp = RouteWaypointAnnotation(coordinate: coord, index: dragIndex, name: "")
+            let temp = RouteWaypointAnnotation(coordinate: coord, index: 0, name: "")
             mapView.addAnnotation(temp)
             dragAnnotation = temp
             dragCreatedTempAnnotation = true
             grabbed(mapView, deselect: nil)
+            rebuildAppendPreview(mapView, coord: coord) // place it at the cheapest-insertion position
+        }
+
+        /// Rebuild the live preview for a dropped point: splice it into the route at the cheapest
+        /// insertion index for its current position, so the line shows how it will actually link in.
+        private func rebuildAppendPreview(_ mapView: MKMapView, coord: CLLocationCoordinate2D) {
+            let idx = FlightPlanManager.bestInsertionIndex(for: coord, in: parent.waypoints)
+            var coords = parent.waypoints.map { $0.coordinate }
+            let at = min(idx, coords.count)
+            coords.insert(coord, at: at)
+            dragCoords = coords
+            dragIndex = at
+            dragAnnotation?.coordinate = coord
             redrawDragRoute(mapView)
         }
 
@@ -1568,6 +1616,8 @@ private struct RouteProfileView: View {
     let waypoints: [FlightPlanWaypoint]
     let terrain: [(distance: Double, elevation: Double)]
     let blocks: [AirspaceProfileBlock]
+    var selectedId: String? = nil          // tapped conflict — emphasised here too (#4)
+    var terrainId: String = "terrain"
 
     private let leftPad: CGFloat = 38
     private let bottomPad: CGFloat = 16
@@ -1609,19 +1659,21 @@ private struct RouteProfileView: View {
                          at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
             }
 
-            // airspace blocks (conflicts solid, context faded/dashed)
+            // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
             for b in blocks where b.floorFt <= yMax {
                 let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
                 let topY = py(min(b.ceilingFt, yMax))
                 let rect = CGRect(x: px(b.startNM), y: topY,
                                   width: max(2, px(b.endNM) - px(b.startNM)), height: py(b.floorFt) - topY)
                 let path = Path(rect)
+                let sel = b.id == selectedId
                 if b.isConflict {
-                    ctx.fill(path, with: .color(color.opacity(0.22)))
-                    ctx.stroke(path, with: .color(color.opacity(0.85)), lineWidth: 1)
+                    ctx.fill(path, with: .color(color.opacity(sel ? 0.42 : 0.22)))
+                    ctx.stroke(path, with: .color(color.opacity(sel ? 1.0 : 0.85)), lineWidth: sel ? 2.5 : 1)
                 } else {
-                    ctx.fill(path, with: .color(color.opacity(0.07)))
-                    ctx.stroke(path, with: .color(color.opacity(0.35)), style: StrokeStyle(lineWidth: 0.75, dash: [4, 3]))
+                    ctx.fill(path, with: .color(color.opacity(sel ? 0.20 : 0.07)))
+                    ctx.stroke(path, with: .color(color.opacity(sel ? 0.9 : 0.35)),
+                               style: StrokeStyle(lineWidth: sel ? 2 : 0.75, dash: sel ? [] : [4, 3]))
                 }
             }
 
@@ -1649,12 +1701,13 @@ private struct RouteProfileView: View {
                 }
             }
 
-            // terrain-clearance warning ticks (< 150 m)
+            // terrain-clearance warning ticks (< 150 m); emphasised when the terrain row is selected
             if !terrainFt.isEmpty, prof.hasData {
+                let terrSel = selectedId == terrainId
                 for p in terrainFt {
                     guard let alt = prof.altitude(atNM: p.nm), alt - p.ft < Self.warnFt else { continue }
                     var m = Path(); m.move(to: CGPoint(x: px(p.nm), y: py(alt))); m.addLine(to: CGPoint(x: px(p.nm), y: py(p.ft)))
-                    ctx.stroke(m, with: .color(Color.aviationRed.opacity(0.85)), lineWidth: 2)
+                    ctx.stroke(m, with: .color(Color.aviationRed.opacity(terrSel ? 1.0 : 0.85)), lineWidth: terrSel ? 3.5 : 2)
                 }
             }
 

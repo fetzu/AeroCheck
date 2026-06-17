@@ -101,6 +101,16 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        // A Plus/Max iPhone flips compact↔regular when rotated, which swaps push-nav (`path`) for the
+        // two-column `selection`. Bridge the two so you stay on the same section instead of snapping
+        // back to the top. (iPad is always regular, so this is a no-op there.) (orientation audit)
+        .onChange(of: horizontalSizeClass) { _, newClass in
+            if newClass == .regular {
+                if let last = path.last { selection = last }
+            } else if let sel = selection {
+                path = [sel]
+            }
+        }
     }
 
     /// The section list. In two-column mode rows set `selection`; in compact mode they push via `path`.

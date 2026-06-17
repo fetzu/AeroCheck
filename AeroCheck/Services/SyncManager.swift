@@ -494,16 +494,21 @@ class SyncManager: ObservableObject {
         }
     }
 
-    func flightFromRecord(_ record: CKRecord) -> Flight? {
+    func flightFromRecord(_ record: CKRecord) async -> Flight? {
         // Prefer the file-backed asset (full flight, with track) over the inline blob (which is
         // track-stripped for oversized flights). CKSyncEngine downloads the asset before delivering
         // the record, so its fileURL is readable here. (PERF-13 / SEC-17)
+        // The asset disk read + JSON decode of a long flight's GPS track is heavy; run it off the
+        // main actor so a large incoming flight doesn't hitch the UI during sync. Inputs are Sendable
+        // value types and Flight is Sendable, mirroring the off-main encode on the send side. (v4.0.0
+        // review P1)
         let inline = record["data"] as? Data
-        var assetData: Data?
-        if let asset = record["dataAsset"] as? CKAsset, let url = asset.fileURL {
-            assetData = try? Data(contentsOf: url)
-        }
-        return Self.flightFromPayload(inline: inline, asset: assetData)
+        let assetURL = (record["dataAsset"] as? CKAsset)?.fileURL
+        return await Task.detached(priority: .utility) {
+            var assetData: Data?
+            if let url = assetURL { assetData = try? Data(contentsOf: url) }
+            return Self.flightFromPayload(inline: inline, asset: assetData)
+        }.value
     }
 
     // MARK: - Pending Changes Access
@@ -579,13 +584,13 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             handleDatabaseChanges(fetchedChanges)
 
         case .fetchedRecordZoneChanges(let fetchedChanges):
-            handleRecordZoneChanges(fetchedChanges)
+            await handleRecordZoneChanges(fetchedChanges)
 
         case .sentDatabaseChanges(let sentChanges):
             handleSentDatabaseChanges(sentChanges)
 
         case .sentRecordZoneChanges(let sentChanges):
-            handleSentRecordZoneChanges(sentChanges)
+            await handleSentRecordZoneChanges(sentChanges)
 
         case .willFetchChanges, .willFetchRecordZoneChanges, .didFetchRecordZoneChanges,
              .willSendChanges, .didSendChanges, .didFetchChanges:
@@ -709,7 +714,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     }
 
     @MainActor
-    private func handleRecordZoneChanges(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) {
+    private func handleRecordZoneChanges(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) async {
         var updatedFlights: [Flight] = []
         var deletedFlightIds: [UUID] = []
 
@@ -727,7 +732,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 }
 
             case SyncRecordType.flight.rawValue:
-                if let flight = manager?.flightFromRecord(record) {
+                if let flight = await manager?.flightFromRecord(record) {
                     print("[AéroCheck Sync] Received flight update from cloud: \(flight.id)")
                     updatedFlights.append(flight)
                 }
@@ -794,7 +799,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     }
 
     @MainActor
-    private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) {
+    private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) async {
         print("[AéroCheck Sync] Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
 
         // Clear pending data for successfully saved records
@@ -854,7 +859,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 // Now we merge the server record with our pending local flight and re-queue. (ARCH-02)
                 if let flightId = UUID(uuidString: recordName) {
                     if let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord,
-                       let serverFlight = manager?.flightFromRecord(serverRecord),
+                       let serverFlight = await manager?.flightFromRecord(serverRecord),
                        let localFlight = manager?.getPendingFlight(for: flightId) {
                         let merged = Flight.merge(localFlight, serverFlight)
                         manager?.resolveFlightConflict(merged)

@@ -215,6 +215,8 @@ struct FlightView: View {
                     .padding(.vertical, 4)
                     .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             // Just the counter — the phase NAME is already in the badge, so "Phase" is redundant.
             Text("\(appState.currentPhase.rawValue + 1) / \(ChecklistPhase.allCases.count)")
                 .font(.captionText)
@@ -249,6 +251,8 @@ struct FlightView: View {
                 }
                 .foregroundColor(gpsStatusColor)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.GPS.status)
             .accessibilityHint(L10n.Flight.info)
 
@@ -258,6 +262,8 @@ struct FlightView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.secondaryText)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.Flight.info)
         }
     }
@@ -1228,11 +1234,16 @@ struct FlightView: View {
             Button(action: { showPhaseSelector = true }) {
                 Text(appState.currentPhase.shortTitle)
                     .font(.system(size: 12, weight: .bold))
+                    .lineLimit(2)                 // hard cap: never more than 2 lines (iPhone requirement)
+                    .minimumScaleFactor(0.5)      // shrink the text to fit 2 lines rather than wrap further
+                    .multilineTextAlignment(.center)
                     .foregroundColor(phaseBadgeColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
             }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
             Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
                 .font(.system(size: 12))
                 .foregroundColor(.secondaryText)
@@ -1244,15 +1255,19 @@ struct FlightView: View {
             Text(appState.flightDuration)
                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                 .foregroundColor(.primaryText)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)   // claim full width — never wrap the clock
                 .id(timerTrigger)
 
+            // GPS status — icon only on iPhone to reclaim the horizontal room the bar needs to stay one
+            // row; still a button that opens the GPS reference. (v4.0.0 review iPhone HUD fix)
             Button(action: { openReference(.gps) }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "location.fill").font(.system(size: 11))
-                    Text("GPS").font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(gpsStatusColor)
+                Image(systemName: "location.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(gpsStatusColor)
             }
+            .frame(minWidth: 36, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.GPS.status)
 
             Button(action: { showFlightInfo = true }) {
@@ -1260,6 +1275,8 @@ struct FlightView: View {
                     .font(.system(size: 17))
                     .foregroundColor(.secondaryText)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.Flight.info)
         }
     }

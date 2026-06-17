@@ -21,6 +21,15 @@ class OpenAIPTileOverlay: MKTileOverlay {
     private var subdomainIndex = 0
     private let subdomains = OpenAIPConfig.tileSubdomains
 
+    /// Processed tiles memoized by z/x/y. The per-pixel alpha-strip (processedTile) is expensive and
+    /// MapKit re-requests already-cached tiles on every pan/zoom; without this the strip re-ran each
+    /// render. Bounded, and thread-safe since loadTile runs off the main thread. (v4.0.0 review P2)
+    private let processedTileCache: NSCache<NSString, NSData> = {
+        let cache = NSCache<NSString, NSData>()
+        cache.countLimit = 512
+        return cache
+    }()
+
     /// A 256x256 fully transparent PNG used for empty/missing tiles.
     /// Returning this instead of nil ensures MapKit renders all tiles uniformly,
     /// preventing visible seams where some tiles load and others don't.
@@ -79,11 +88,20 @@ class OpenAIPTileOverlay: MKTileOverlay {
             return
         }
 
+        // Serve an already-processed tile without re-running the pixel strip.
+        let memoKey = "\(z)/\(path.x)/\(path.y)" as NSString
+        if let memo = processedTileCache.object(forKey: memoKey) {
+            result(memo as Data, nil)
+            return
+        }
+
         // Try cache first
         if let manager = cacheManager {
             if let cachedURL = manager.cachedTileURL(z: z, x: path.x, y: path.y),
                let data = try? Data(contentsOf: cachedURL) {
-                result(Self.processedTile(from: data), nil)
+                let processed = Self.processedTile(from: data)
+                processedTileCache.setObject(processed as NSData, forKey: memoKey)
+                result(processed, nil)
                 return
             }
         }
@@ -102,7 +120,7 @@ class OpenAIPTileOverlay: MKTileOverlay {
         }
 
         let transparentPNG = Self.transparentTilePNG
-        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             if error != nil {
                 result(transparentPNG, nil)
                 return
@@ -115,7 +133,9 @@ class OpenAIPTileOverlay: MKTileOverlay {
                 return
             }
 
-            result(Self.processedTile(from: data), nil)
+            let processed = Self.processedTile(from: data)
+            self?.processedTileCache.setObject(processed as NSData, forKey: memoKey)
+            result(processed, nil)
         }
         task.resume()
     }

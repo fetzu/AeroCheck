@@ -209,9 +209,11 @@ struct AeroCheckApp: App {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()
 
-            // Stop companion mode
-            companionConnectivityManager.stopUpdates()
-            companionConnectivityManager.stopListening()
+            // End companion mode gracefully: disconnect() sends a .disconnect message to a connected
+            // viewer (which drops it to .disconnected) BEFORE teardown, so the viewer doesn't sit in
+            // an unbounded reconnect loop against a master that has stopped listening. Also stops the
+            // update timer + listener. Inert no-op when no companion session is active.
+            companionConnectivityManager.disconnect()
         }
     }
 }

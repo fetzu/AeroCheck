@@ -86,7 +86,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // Task management
     private var listenerTask: Task<Void, any Error>?
     private var browserTask: Task<Void, any Error>?
-    private var receiveTask: Task<Void, any Error>?
     private var pairedDevicesTask: Task<Void, any Error>?
 
     // References for data creation (set during startUpdates)
@@ -171,7 +170,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     // connection's generation so a later teardown only acts if it's still current.
                     let myGeneration = await MainActor.run { () -> Int in
                         self.connectionGeneration += 1
-                        self.receiveTask?.cancel()
                         self.sendHandler = send
                         self.connectionState = .connected
                         self.connectedDeviceName = L10n.Companion.companionDevice
@@ -382,6 +380,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         cleanupConnection()
         stopListening()
+        stopUpdates()
         browserTask?.cancel()
         browserTask = nil
         connectionState = .disconnected
@@ -427,8 +426,6 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     private func cleanupConnection() {
-        receiveTask?.cancel()
-        receiveTask = nil
         sendHandler = nil
     }
 
@@ -487,7 +484,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         case .updateGroundSpeed(let waypointIndex, let newGS):
             guard var plan = flightPlanManager.activeFlightPlan,
-                  waypointIndex < plan.waypoints.count else { return }
+                  plan.waypoints.indices.contains(waypointIndex) else { return }
             plan.waypoints[waypointIndex].plannedGroundSpeed = newGS
             plan.calculateRouteData()
             flightPlanManager.updateFlightPlan(plan)

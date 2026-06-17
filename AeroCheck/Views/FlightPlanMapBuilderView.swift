@@ -385,7 +385,9 @@ struct FlightPlanMapBuilderView: View {
         let freqs = airportDataService.getFrequencies(for: airport.ident)
         wp.frequency = (freqs.first { $0.type.uppercased().contains("TWR") }
             ?? freqs.first { $0.type.uppercased().contains("ATIS") } ?? freqs.first)?.formattedFrequency
-        if let elevation = airport.elevation { wp.altitude = Double(elevation) }
+        // Only fill field elevation when no altitude is set, so snapping/endpoint changes don't
+        // clobber a pilot's planned altitude (mirrors addAirport). (v4.0.0 review P2)
+        if wp.altitude == nil, let elevation = airport.elevation { wp.altitude = Double(elevation) }
     }
 
     private func swapEndpoints() {
@@ -503,28 +505,38 @@ struct FlightPlanMapBuilderView: View {
 
     private var rightTabBar: some View {
         HStack(spacing: 8) {
-            tabButton(.waypoints, L10n.Nav.waypointsTab, count: nil, tint: .aviationGold)
-            tabButton(.conflicts, L10n.Nav.conflictsTab, count: hazardCount, tint: hazardTint)
+            tabButton(.waypoints, L10n.Nav.waypointsTab, badge: nil, tint: .aviationGold)
+            tabButton(.conflicts, L10n.Nav.conflictsTab, badge: hazardBadge, tint: hazardTint)
         }
         .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 4)
     }
 
     private var hazardCount: Int { crossedAirspaces.count + (terrainWarning ? 1 : 0) }
+    /// Whether any OpenAIP airspace data is actually loaded to check the route against. Airspace
+    /// download is opt-in and off by default, so an empty conflict set means "not checked", NOT
+    /// "clear" — never show a green all-clear when this is false.
+    private var airspaceChecked: Bool { openAIPDataService.isDataAvailable }
     private var hazardTint: Color {
-        if hazardCount == 0 { return .aviationGreen }
+        if hazardCount == 0 { return airspaceChecked ? .aviationGreen : .aviationAmber }
         if terrainWarning || crossedAirspaces.contains(where: { $0.isRestrictive }) { return .aviationRed }
         return .aviationAmber
     }
+    /// Tab badge glyph: the hazard count, a green ✓ for a verified-clear route, or an amber "?" when
+    /// no airspace data is downloaded (route was never checked against airspace).
+    private var hazardBadge: String {
+        if hazardCount > 0 { return "\(hazardCount)" }
+        return airspaceChecked ? "✓" : "?"
+    }
 
-    private func tabButton(_ tab: RightTab, _ title: String, count: Int?, tint: Color) -> some View {
+    private func tabButton(_ tab: RightTab, _ title: String, badge: String?, tint: Color) -> some View {
         let selected = rightTab == tab
         return Button {
             withAnimation(.easeInOut(duration: 0.15)) { rightTab = tab }
         } label: {
             HStack(spacing: 6) {
                 Text(title).font(.system(size: 13, weight: .semibold))
-                if let count = count {
-                    Text(count == 0 ? "✓" : "\(count)")
+                if let badge = badge {
+                    Text(badge)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(selected ? .black : tint)
                         .padding(.horizontal, 6).padding(.vertical, 1)
@@ -539,21 +551,60 @@ struct FlightPlanMapBuilderView: View {
         .buttonStyle(.plain)
     }
 
-    /// Conflicts tab body — the hazard list, or a reassuring "clear" state.
+    /// Conflicts tab body — the hazard list, a genuine "clear" state, or an "airspace not checked"
+    /// state. The green all-clear is shown ONLY when airspace data is actually loaded; with no data
+    /// downloaded an empty conflict set means "not checked", so we must not imply the route is clear.
     @ViewBuilder private var conflictsTabContent: some View {
         if hasHazards {
+            // A terrain warning can fire without airspace data; flag that airspace went unchecked so
+            // the hazard list isn't read as a complete clearance.
+            if !airspaceChecked { airspaceNotCheckedBanner }
             conflictsList
             Spacer(minLength: 0)
+        } else if airspaceChecked {
+            clearStateView
         } else {
-            VStack(spacing: 12) {
-                Spacer()
-                Image(systemName: "checkmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationGreen)
-                Text(L10n.Nav.noConflicts).font(.system(size: 13)).foregroundColor(.secondaryText)
-                    .multilineTextAlignment(.center)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
+            airspaceNotCheckedView
         }
+    }
+
+    /// Genuine all-clear: airspace data is loaded and nothing on the route conflicts.
+    private var clearStateView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "checkmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationGreen)
+            Text(L10n.Nav.noConflicts).font(.system(size: 13)).foregroundColor(.secondaryText)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
+    }
+
+    /// No airspace data downloaded for the area — never a green all-clear for a check that never ran.
+    /// Mirrors the airport no-data handling (scheduleAirportUpdate guards on isDataAvailable).
+    private var airspaceNotCheckedView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "exclamationmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationAmber)
+            Text(L10n.Nav.airspaceNotChecked).font(.system(size: 14, weight: .semibold)).foregroundColor(.primaryText)
+                .multilineTextAlignment(.center)
+            Text(L10n.Nav.airspaceNotCheckedDetail).font(.system(size: 12)).foregroundColor(.secondaryText)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
+    }
+
+    /// Compact note above the hazard list when terrain triggered but airspace was not checked.
+    private var airspaceNotCheckedBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.shield.fill").foregroundColor(.aviationAmber)
+            Text(L10n.Nav.airspaceNotChecked).font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondaryText)
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.aviationAmber.opacity(0.12))
     }
 
     // MARK: - On-route hazards: route check + profile + conflict list (#4 redesign)
@@ -638,7 +689,7 @@ struct FlightPlanMapBuilderView: View {
     private func lowestClearanceCoordinate() -> CLLocationCoordinate2D? {
         guard !terrainData.isEmpty, let terrMax = terrainData.last?.distance, terrMax > 0 else { return nil }
         let prof = RouteAltitudeProfile(waypoints)
-        guard prof.hasData, prof.totalNM > 0 else { return nil }
+        guard prof.hasUsableProfile, prof.totalNM > 0 else { return nil }
         var worst: (clearance: Double, nm: Double)?
         for p in terrainData {
             let nm = (p.distance / terrMax) * prof.totalNM
@@ -786,7 +837,7 @@ struct FlightPlanMapBuilderView: View {
     private static func minClearanceFt(terrain: [(distance: Double, elevation: Double)], waypoints: [FlightPlanWaypoint]) -> Double? {
         guard terrain.count >= 2, let terrMax = terrain.last?.distance, terrMax > 0 else { return nil }
         let prof = RouteAltitudeProfile(waypoints)
-        guard prof.hasData, prof.totalNM > 0 else { return nil }
+        guard prof.hasUsableProfile, prof.totalNM > 0 else { return nil }
         var minC = Double.infinity
         for p in terrain {
             let nm = (p.distance / terrMax) * prof.totalNM
@@ -1706,6 +1757,10 @@ struct RouteAltitudeProfile {
     let totalNM: Double
     private let known: [(d: Double, alt: Double)]
     var hasData: Bool { !known.isEmpty }
+    /// True only when at least two waypoints carry a planned altitude — i.e. there is a real,
+    /// non-flat profile to judge terrain clearance against. A single known altitude extrapolates to a
+    /// flat line across the whole route, which over rising terrain produces a false clearance bust.
+    var hasUsableProfile: Bool { known.count >= 2 }
 
     init(_ waypoints: [FlightPlanWaypoint]) {
         var c: [Double] = []

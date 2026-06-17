@@ -37,7 +37,12 @@ struct CompanionSettingsView: View {
     // MARK: - Enable Section
 
     private var enableSection: some View {
-        SettingsGroup(title: nil, tint: tint, footer: L10n.Companion.enableDescription) {
+        // When Wi-Fi Aware isn't available (iOS 17–25, or incompatible hardware), say so explicitly
+        // instead of letting the user toggle into a silently inert configuration.
+        let footer = companionConnectivityManager.isWiFiAwareSupported
+            ? L10n.Companion.enableDescription
+            : L10n.Companion.requiresIOS26
+        return SettingsGroup(title: nil, tint: tint, footer: footer) {
             SettingsToggleRow(icon: "ipad.and.iphone", title: L10n.Companion.enableCompanionMode,
                               tint: tint, isOn: $enableCompanionMode)
         }

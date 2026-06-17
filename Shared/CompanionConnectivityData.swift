@@ -142,7 +142,9 @@ extension CompanionFlightData {
         altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
         courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
         gpsSignalStatus = try c.decodeIfPresent(String.self, forKey: .gpsSignalStatus) ?? "unknown"
-        currentWaypointIndex = try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
+        // Clamp a peer-supplied index to >= 0 so it can never become a negative array subscript on
+        // the receiver (the upper bound is checked per-use against the actual waypoint count).
+        currentWaypointIndex = max(0, try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)
         chronometerStartTime = try c.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
         chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
         aircraftRegistration = try c.decodeIfPresent(String.self, forKey: .aircraftRegistration) ?? ""

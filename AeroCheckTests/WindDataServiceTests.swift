@@ -54,4 +54,19 @@ final class WindDataServiceTests: XCTestCase {
         XCTAssertNotNil(est)
         XCTAssertGreaterThan(est ?? 0, 80)
     }
+
+    // A non-finite wind reading (e.g. a JSON overflow exponent decoding to ±inf) must never produce
+    // an estimate — otherwise it reaches the speed indicator and traps at Int(displaySpeed). The
+    // caller falls back to ground speed when this returns nil. (v4.0.0 review P1)
+    func testNonFiniteWindSpeedFallsBackToGroundSpeed() {
+        let service = WindDataService()
+        service.currentWindData = wind(ageMinutes: 1, speedKmh: .infinity, dir: 0)
+        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord))
+    }
+
+    func testNonFiniteWindDirectionFallsBackToGroundSpeed() {
+        let service = WindDataService()
+        service.currentWindData = wind(ageMinutes: 1, speedKmh: 20, dir: .nan)
+        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord))
+    }
 }

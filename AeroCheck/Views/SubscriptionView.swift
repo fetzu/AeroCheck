@@ -234,13 +234,19 @@ struct SubscriptionView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
+                // altimeterBlue (light) instead of aviationBlue (very dark, ~1.5:1 on the dark
+                // background); plus a 44pt touch target for the legal links. (v4.0.0 review P2)
                 Link(L10n.Subscription.termsOfService, destination: URL(string: "https://aerocheck.app/terms")!)
                     .font(.caption2)
-                    .foregroundColor(Color.aviationBlue)
+                    .foregroundColor(Color.altimeterBlue)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
 
                 Link(L10n.Subscription.privacyPolicy, destination: URL(string: "https://aerocheck.app/privacy")!)
                     .font(.caption2)
-                    .foregroundColor(Color.aviationBlue)
+                    .foregroundColor(Color.altimeterBlue)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
         }
         .padding(.top)

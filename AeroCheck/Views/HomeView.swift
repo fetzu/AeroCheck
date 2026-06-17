@@ -370,27 +370,13 @@ struct HomeView: View {
                         .transition(.move(edge: .leading))
                 }
                 if showSpeedReference {
-                    // Speed Reference stays a *popup* (not a full takeover) — the landscape analog of
-                    // the portrait bottom sheet: a constrained card sliding in from the leading edge
-                    // over a dimmed backdrop, tap-outside to dismiss. (v4 UI/UX Revamp — device feedback)
-                    ZStack(alignment: .leading) {
-                        Color.black.opacity(0.35)
-                            .ignoresSafeArea()
-                            .onTapGesture { showSpeedReference = false }
-                            .transition(.opacity)
-                        SpeedReferenceSheet(onClose: { showSpeedReference = false })
-                            .environmentObject(appState)
-                            .frame(width: 460, height: 540)
-                            .background(Color.cockpitBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 12)
-                            .padding(.leading, 28)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
+                    // Full-screen leading-edge slide-in, consistent with the other rail destinations
+                    // (Settings / Flight Log / Navigation). Reverts the 3.5 constrained-popup variant
+                    // (88f4e5e) on iPad per user request; iPhone keeps its bottom sheet via coverBinding.
+                    SpeedReferenceSheet(onClose: { showSpeedReference = false })
+                        .environmentObject(appState)
+                        .background(Color.cockpitBackground.ignoresSafeArea())
+                        .transition(.move(edge: .leading))
                 }
                 if showNavigation {
                     NavigationMapView(isPresented: $showNavigation)

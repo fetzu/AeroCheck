@@ -1006,18 +1006,35 @@ struct FlightView: View {
 
     private func mainChecklistAreaCompact(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            // Compact header bar for iPhone
-            compactHeaderBar
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+            // v4 compact top: aircraft · tappable phase badge · counter ‖ timer · GPS · options.
+            compactHudTopBar
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
                 .background(Color.panelBackground)
 
-            // Speed and altitude indicators inline (when applicable)
+            // Tappable segmented phase progress bar — replaces the old PREV button.
+            phaseProgressBarView
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+                .padding(.bottom, 8)
+                .background(Color.panelBackground)
+
+            // Live SPD / ALT / HDG instrument strip (flight phases only).
             if appState.activeChecklist.showsSpeedIndicator(for: appState.currentPhase) {
-                compactInstrumentBar
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.panelBackground.opacity(0.8))
+                CockpitInstrumentStrip(
+                    speedKnots: locationManager.displaySpeedKnots,
+                    targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
+                    stallSpeed: appState.activeChecklist.stallSpeed,
+                    gpsSignalStatus: locationManager.gpsSignalStatus,
+                    estimatedAirspeed: estimatedAirspeed,
+                    stallAlertEnabled: appState.settings.stallAlertSound,
+                    altitudeFeet: locationManager.currentAltitudeFeet,
+                    headingDegrees: locationManager.currentCourseDegrees,
+                    verticalSpeedFPM: locationManager.verticalSpeedFpm
+                )
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
             }
 
             // Checklist content
@@ -1115,6 +1132,7 @@ struct FlightView: View {
                             pulseActionButton: pulseActionButton,
                             isCompact: true,
                             checklistLanguage: appState.settings.checklistLanguage.resolvedLanguage,
+                            hudMode: true,
                             engineHourStart: appState.settings.logEngineHours ? appState.currentFlight?.engineHourStart : nil,
                             engineHourEnd: appState.settings.logEngineHours ? appState.currentFlight?.engineHourEnd : nil,
                             engineHourStartInputFormat: appState.currentFlight?.engineHourStartInputFormat,
@@ -1169,179 +1187,110 @@ struct FlightView: View {
             }
             .background(Color.cockpitBackground)
 
-            // Compact navigation bar
-            compactNavigationBar
+            // Contextual hold-to-confirm GO-AROUND / T&G / FULL-STOP (approach/landing; circuit mode
+            // shows single-tap GO-AROUND/T&G beside NEXT instead).
+            eventActionsRow
+
+            // Bottom action bar: phase timestamp action · circuit quick events · cruise check · NEXT.
+            HStack(spacing: 10) {
+                hudPhaseActionButton
+                circuitQuickEventButtons
+                cruiseCheckButton
+                hudNextButton
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(Color.panelBackground)
+
+            // Bottom dock — MAP · V-SPEEDS · FREQ (locked iPhone concept).
+            compactDock
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.bottom, 10)
                 .background(Color.panelBackground)
         }
     }
 
-    // MARK: - Compact Header Bar (iPhone)
+    // MARK: - Compact HUD top bar (iPhone, v4)
 
-    private var compactHeaderBar: some View {
-        HStack(spacing: 8) {
-            // Aircraft identifier with long-press to abandon
+    /// iPhone HUD top bar — the v4 language in one row: aircraft · stage-tinted phase badge · counter
+    /// ‖ timer · GPS · options. Badge → phase selector; GPS → GPS reference; gear → flight-info sheet.
+    private var compactHudTopBar: some View {
+        HStack(spacing: 7) {
             abandonableAircraftIdentifier(iconSize: 14, isCompact: true)
 
-            Spacer()
-
-            // Phase indicator (tappable)
             Button(action: { showPhaseSelector = true }) {
-                HStack(spacing: 4) {
-                    Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondaryText)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondaryText)
+                Text(appState.currentPhase.shortTitle)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(phaseBadgeColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
+            }
+            Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
+                .font(.system(size: 12))
+                .foregroundColor(.secondaryText)
+
+            circuitCounterChip
+
+            Spacer(minLength: 4)
+
+            Text(appState.flightDuration)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundColor(.primaryText)
+                .id(timerTrigger)
+
+            Button(action: { openReference(.gps) }) {
+                HStack(spacing: 3) {
+                    Image(systemName: "location.fill").font(.system(size: 11))
+                    Text("GPS").font(.system(size: 12, weight: .semibold))
                 }
+                .foregroundColor(gpsStatusColor)
             }
+            .accessibilityLabel(L10n.GPS.status)
 
-            Spacer()
-
-            // Flight duration
-            HStack(spacing: 4) {
-                StatusIndicator(.active, size: 8)
-                Text(appState.flightDuration)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGreen)
-                    .id(timerTrigger)
-            }
-
-            // Flight info button
             Button(action: { showFlightInfo = true }) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 18))
+                Image(systemName: "gearshape")
+                    .font(.system(size: 17))
                     .foregroundColor(.secondaryText)
             }
+            .accessibilityLabel(L10n.Flight.info)
         }
     }
 
-    // MARK: - Compact Instrument Bar (iPhone)
+    // MARK: - Compact bottom dock (iPhone, v4)
 
-    private var compactInstrumentBar: some View {
-        HStack(spacing: 16) {
-            // Speed indicator (compact)
-            if let targetSpeed = appState.activeChecklist.targetSpeed(for: appState.currentPhase) {
-                CompactSpeedView(
-                    speedKnots: locationManager.displaySpeedKnots,
-                    targetSpeed: targetSpeed,
-                    stallSpeed: appState.activeChecklist.stallSpeed,
-                    gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed,
-                    stallAlertEnabled: appState.settings.stallAlertSound
-                )
+    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, replacing the old blue NAV/SPEEDS buttons.
+    /// MAP opens the full nav map; V-SPEEDS and FREQ open the themed bottom drawers.
+    private var compactDock: some View {
+        HStack(spacing: 8) {
+            dockButton(icon: "map.fill", title: L10n.Button.nav) { showNavigationMode = true }
+            dockButton(icon: "speedometer", title: L10n.Button.speeds) { openReference(.vSpeeds) }
+            dockButton(icon: "antenna.radiowaves.left.and.right", title: L10n.Nav.freq) { openReference(.freq) }
+        }
+    }
+
+    private func dockButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(.altimeterBlue)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.primaryText)
             }
-
-            Spacer()
-
-            // Altimeter (compact)
-            CompactAltimeterView(
-                altitudeFeet: locationManager.currentAltitudeFeet,
-                gpsSignalStatus: locationManager.gpsSignalStatus
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
             )
+            .contentShape(Rectangle())
         }
-    }
-
-    // MARK: - Compact Navigation Bar (iPhone)
-
-    private var compactNavigationBar: some View {
-        HStack(spacing: 12) {
-            // Previous button
-            Button(action: { appState.previousPhase() }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(appState.canGoToPreviousPhase ? .primaryText : .dimText)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(appState.canGoToPreviousPhase ? Color.aviationBlue : Color.gray.opacity(0.3))
-                    )
-            }
-            .disabled(!appState.canGoToPreviousPhase)
-
-            // Navigation mode button (compact)
-            Button(action: { showNavigationMode = true }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "map")
-                        .font(.system(size: 14))
-                    Text(L10n.Button.nav)
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(.primaryText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.aviationBlue, lineWidth: 2)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationBlue.opacity(0.2)))
-                )
-            }
-
-            // Speeds button
-            Button(action: { openReference(.vSpeeds) }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "speedometer")
-                        .font(.system(size: 14))
-                    Text(L10n.Button.speeds)
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundColor(.primaryText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.aviationBlue, lineWidth: 2)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.aviationBlue.opacity(0.2)))
-                )
-            }
-
-            Spacer()
-
-            // Right side: END FLIGHT or NEXT
-            if appState.isLastPhase {
-                Button(action: { showEndFlightAlert = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.checkered")
-                            .font(.system(size: 14))
-                        Text(L10n.Button.end)
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.aviationRed)
-                    )
-                }
-                .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked))
-            } else {
-                Button(action: {
-                    pulseNextButton = false
-                    pulseActionButton = false
-                    allItemsChecked = false
-                    appState.nextPhase()
-                }) {
-                    HStack(spacing: 4) {
-                        Text(L10n.Button.next)
-                            .font(.system(size: 14, weight: .bold))
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundColor(appState.canGoToNextPhase ? .primaryText : .dimText)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(appState.canGoToNextPhase ? Color.aviationGreen : Color.gray.opacity(0.3))
-                    )
-                }
-                .disabled(!appState.canGoToNextPhase)
-                .modifier(PulseModifier(isActive: pulseNextButton && allItemsChecked && !currentPhaseNeedsAction))
-            }
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     private func handleChecklistTap(scrollProxy: ScrollViewProxy) {
@@ -2640,6 +2589,7 @@ enum HUDReference: Identifiable, Equatable {
     case gps
     case departureBriefing
     case approachBriefing
+    case freq
 
     var id: Int {
         switch self {
@@ -2647,6 +2597,7 @@ enum HUDReference: Identifiable, Equatable {
         case .gps: return 1
         case .departureBriefing: return 2
         case .approachBriefing: return 3
+        case .freq: return 4
         }
     }
 
@@ -2655,6 +2606,7 @@ enum HUDReference: Identifiable, Equatable {
         case .vSpeeds: return "V-SPEEDS"
         case .gps: return L10n.GPS.statusTitle
         case .departureBriefing, .approachBriefing: return "BRIEFING"
+        case .freq: return L10n.Nav.freq
         }
     }
 
@@ -2664,6 +2616,7 @@ enum HUDReference: Identifiable, Equatable {
         case .gps: return "location.fill"
         case .departureBriefing: return "airplane.departure"
         case .approachBriefing: return "airplane.arrival"
+        case .freq: return "antenna.radiowaves.left.and.right"
         }
     }
 
@@ -2674,6 +2627,7 @@ enum HUDReference: Identifiable, Equatable {
         case .vSpeeds: return .aviationGreen
         case .gps: return .primaryText
         case .departureBriefing, .approachBriefing: return .aviationGold
+        case .freq: return .altimeterBlue
         }
     }
 
@@ -2695,6 +2649,7 @@ struct HUDReferencePanel: View {
     let onClose: () -> Void
 
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var airportDataService: AirportDataService
 
     private var corners: AnyShape {
         switch presentation {
@@ -2779,6 +2734,8 @@ struct HUDReferencePanel: View {
             if let context = briefingContext {
                 ApproachBriefingContent(context: context)
             }
+        case .freq:
+            FrequencyReferenceContent(locationManager: locationManager)
         }
     }
 }
@@ -3129,4 +3086,74 @@ struct InFlightSpeedReference: View {
         .environmentObject(LocationManager())
         .environmentObject(WindDataService())
         .environmentObject(FlightPlanManager())
+}
+
+
+// MARK: - Frequency reference content (nearby radio frequencies, hosted in HUDReferencePanel)
+
+/// iPhone HUD FREQ drawer: nearby airports and their radio frequencies, queried once on appear.
+/// Cockpit cards (no system List), matching the other reference drawers. (iPhone HUD)
+struct FrequencyReferenceContent: View {
+    @ObservedObject var locationManager: LocationManager
+    @EnvironmentObject var airportDataService: AirportDataService
+
+    private struct Entry: Identifiable {
+        let id = UUID()
+        let ident: String
+        let freqs: [(type: String, value: String)]
+    }
+    @State private var entries: [Entry] = []
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if !airportDataService.isDataAvailable {
+                infoCard(L10n.Nav.freqUnavailable)
+            } else if loaded && entries.isEmpty {
+                infoCard(L10n.Nav.noNearbyFreq)
+            } else {
+                ForEach(entries) { entry in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(entry.ident)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.aviationGold)
+                        ForEach(Array(entry.freqs.enumerated()), id: \.offset) { _, f in
+                            HStack {
+                                Text(f.type)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondaryText)
+                                Spacer()
+                                Text(f.value)
+                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.primaryText)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .cardSection()
+                }
+            }
+        }
+        .onAppear(perform: load)
+    }
+
+    private func infoCard(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundColor(.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSection()
+    }
+
+    private func load() {
+        guard !loaded else { return }
+        loaded = true
+        guard let coord = locationManager.currentLocation?.coordinate, airportDataService.isDataAvailable else { return }
+        let nearby = airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
+        entries = nearby.compactMap { airport in
+            let fs = airportDataService.getFrequencies(for: airport.ident)
+            guard !fs.isEmpty else { return nil }
+            return Entry(ident: airport.ident, freqs: fs.map { (type: $0.type, value: $0.formattedFrequency) })
+        }
+    }
 }

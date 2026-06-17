@@ -1118,6 +1118,8 @@ enum L10n {
         static let noWaypoints = String(localized: "nav.noWaypoints")
         static let waypoint = String(localized: "nav.waypoint")
         static let freq = String(localized: "nav.freq")
+        static let freqUnavailable = String(localized: "nav.freqUnavailable")
+        static let noNearbyFreq = String(localized: "nav.noNearbyFreq")
         static let alt = String(localized: "nav.alt")
         static let gs = String(localized: "nav.gs")
         static let eet = String(localized: "nav.eet")

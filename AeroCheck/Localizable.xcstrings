@@ -1,6 +1,38 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "nav.freqUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airport data isn't downloaded. Enable it in Settings › Navigation & Maps."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les données aéroport ne sont pas téléchargées. Activez-les dans Réglages › Navigation et cartes."
+          }
+        }
+      }
+    },
+    "nav.noNearbyFreq" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No nearby frequencies."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune fréquence à proximité."
+          }
+        }
+      }
+    },
     "pdf.title" : {
       "localizations" : {
         "en" : {

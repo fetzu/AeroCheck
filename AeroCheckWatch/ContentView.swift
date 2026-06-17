@@ -349,15 +349,23 @@ struct FrequenciesScreen: View {
                 .background(Color.aviationGold.opacity(0.3))
 
             // Current + next waypoint frequencies, then a few common ones.
-            if let freq = connectivityManager.flightData.currentWaypointFrequency {
-                FrequencyRow(name: "WPT", frequency: freq, isActive: true)
-            }
-            if let nextFreq = connectivityManager.flightData.nextWaypointFrequency {
-                FrequencyRow(name: "NEXT", frequency: nextFreq, isActive: false)
-            }
-            if let commonFreqs = connectivityManager.flightData.commonFrequencies?.prefix(4) {
-                ForEach(Array(commonFreqs)) { freq in
-                    FrequencyRow(name: freq.name, frequency: freq.frequency, isActive: false)
+            if let panel = connectivityManager.flightData.panelFrequencies, !panel.isEmpty {
+                // Mirror of the phone's nav-map FREQ panel (same content / NOW-NEXT / order).
+                ForEach(Array(panel.prefix(6))) { freq in
+                    FreqPanelRow(freq: freq)
+                }
+            } else {
+                // Fallback before the phone's map has pushed a list.
+                if let freq = connectivityManager.flightData.currentWaypointFrequency {
+                    FrequencyRow(name: "WPT", frequency: freq, isActive: true)
+                }
+                if let nextFreq = connectivityManager.flightData.nextWaypointFrequency {
+                    FrequencyRow(name: "NEXT", frequency: nextFreq, isActive: false)
+                }
+                if let commonFreqs = connectivityManager.flightData.commonFrequencies?.prefix(4) {
+                    ForEach(Array(commonFreqs)) { freq in
+                        FrequencyRow(name: freq.name, frequency: freq.frequency, isActive: false)
+                    }
                 }
             }
 
@@ -415,6 +423,45 @@ struct FrequencyRow: View {
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundColor(isActive ? .aviationGold : .white)
         }
+    }
+}
+
+/// A row mirroring the phone FREQ panel: optional NOW/NEXT badge + station + frequency.
+struct FreqPanelRow: View {
+    let freq: FrequencyInfo
+
+    private var accent: Color {
+        if freq.role == .now { return .aviationGold }
+        if freq.role == .next { return .altimeterBlue }
+        if freq.role == .emergency { return .aviationRed }
+        return .primaryText
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if freq.role == .now {
+                badge("NOW", .aviationGold)
+            } else if freq.role == .next {
+                badge("NEXT", .altimeterBlue)
+            }
+            Text(freq.name)
+                .font(.system(size: 11))
+                .foregroundColor(freq.role == .now ? .aviationGold : .secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(freq.frequency)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundColor(accent)
+        }
+    }
+
+    private func badge(_ text: String, _ color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundColor(.black)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(color))
     }
 }
 

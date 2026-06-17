@@ -1845,7 +1845,11 @@ struct NavigationMapView: View {
     /// area FIS, nearby CTRs) is `.other`, revealed by "All Frequencies". Deduped; cached (recomputed
     /// on phase change + significant move). (3.5 — current/next)
     private func recomputePhaseFrequencies() {
-        guard appState.settings.enableFlightPlanning else { phaseFreqItems = []; return }
+        guard appState.settings.enableFlightPlanning else {
+            phaseFreqItems = []
+            WatchConnectivityManager.shared.updatePanelFrequencies([])
+            return
+        }
         var items: [PhaseFrequency] = []
         var seen = Set<String>()
         func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false) {
@@ -1881,6 +1885,14 @@ struct NavigationMapView: View {
         // Emergency, always last.
         add(SwissCommonFrequency.emergency.name, SwissCommonFrequency.emergency.frequency, emergency: true)
         phaseFreqItems = items
+
+        // Mirror this exact list (content + NOW/NEXT + order) to the Apple Watch. (Watch freq sync)
+        WatchConnectivityManager.shared.updatePanelFrequencies(items.map { item in
+            let role: FrequencyRole = item.isEmergency ? .emergency
+                : item.role == .current ? .now
+                : item.role == .next ? .next : .other
+            return FrequencyInfo(name: item.station, frequency: item.freq, type: .common, role: role)
+        })
     }
 
     /// An airfield's VFR frequencies: ATIS first when present (the first listen — it does NOT give you

@@ -53,6 +53,8 @@ struct WatchFlightData: Codable {
     var currentWaypointFrequency: String?
     var nextWaypointFrequency: String?
     var commonFrequencies: [FrequencyInfo]?
+    /// The nav-map FREQ panel's exact list (NOW/NEXT + order), pushed by NavigationView. (Watch freq sync)
+    var panelFrequencies: [FrequencyInfo]?
 
     init() {
         self.schemaVersion = WatchFlightData.currentSchemaVersion
@@ -79,6 +81,7 @@ struct WatchFlightData: Codable {
         self.currentWaypointFrequency = nil
         self.nextWaypointFrequency = nil
         self.commonFrequencies = nil
+        self.panelFrequencies = nil
     }
 
     /// Tolerant decoder: every field is optional-with-default so a payload from a different app
@@ -111,15 +114,18 @@ struct WatchFlightData: Codable {
         currentWaypointFrequency = try c.decodeIfPresent(String.self, forKey: .currentWaypointFrequency)
         nextWaypointFrequency = try c.decodeIfPresent(String.self, forKey: .nextWaypointFrequency)
         commonFrequencies = try c.decodeIfPresent([FrequencyInfo].self, forKey: .commonFrequencies)
+        panelFrequencies = try c.decodeIfPresent([FrequencyInfo].self, forKey: .panelFrequencies)
     }
 }
 
 /// Frequency information for Watch display
 struct FrequencyInfo: Codable, Identifiable {
-    var id: String { name }
+    var id: String { name + frequency }
     let name: String
     let frequency: String
     let type: FrequencyType
+    /// NOW / NEXT / emergency role, mirroring the phone's FREQ panel. Optional so older payloads decode. (Watch freq sync)
+    var role: FrequencyRole? = nil
 
     enum FrequencyType: String, Codable {
         case tower
@@ -129,6 +135,11 @@ struct FrequencyInfo: Codable, Identifiable {
         case common
         case waypoint
     }
+}
+
+/// NOW / NEXT / emergency role for a frequency row, mirroring the phone's FREQ panel.
+enum FrequencyRole: String, Codable {
+    case now, next, other, emergency
 }
 
 /// Messages from iPhone to Watch

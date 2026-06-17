@@ -19,6 +19,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private weak var locationManagerRef: LocationManager?
     private weak var flightPlanManagerRef: FlightPlanManager?
 
+    /// The nav-map FREQ panel's current list, pushed by NavigationView so the watch mirrors it exactly.
+    private var panelFrequencies: [FrequencyInfo]?
+
+    /// Called by NavigationView whenever it recomputes its FREQ panel. (Watch freq sync)
+    func updatePanelFrequencies(_ frequencies: [FrequencyInfo]) {
+        panelFrequencies = frequencies
+    }
+
     private override init() {
         super.init()
         setupSession()
@@ -244,6 +252,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Chronometer (flight-plan leg timer) — sent every update so the watch mirrors the phone.
         data.chronometerElapsed = flightPlanManager.chronometerElapsed
         data.chronometerRunning = flightPlanManager.isChronometerRunning
+
+        // The nav-map FREQ panel's list (NOW/NEXT + order), if NavigationView has pushed one.
+        data.panelFrequencies = panelFrequencies
 
         return data
     }

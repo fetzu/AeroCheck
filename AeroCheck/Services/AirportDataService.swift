@@ -465,7 +465,26 @@ class AirportDataService: ObservableObject {
         types: Set<AirportType>? = nil,
         limit: Int = 500
     ) -> [Airport] {
-        var filtered = airports.filter { airport in
+        guard !airports.isEmpty, minLat <= maxLat, minLon <= maxLon else { return [] }
+
+        // Gather only the grid cells overlapping the bbox instead of scanning all ~40K airports on
+        // every map region change. Cells are gridCellDegrees wide; key = floor(coord / cellDegrees).
+        let minLatKey = Int((minLat / Self.gridCellDegrees).rounded(.down))
+        let maxLatKey = Int((maxLat / Self.gridCellDegrees).rounded(.down))
+        let minLonKey = Int((minLon / Self.gridCellDegrees).rounded(.down))
+        let maxLonKey = Int((maxLon / Self.gridCellDegrees).rounded(.down))
+
+        var candidates: [Airport] = []
+        for latKey in minLatKey...maxLatKey {
+            for lonKey in minLonKey...maxLonKey {
+                if let cell = spatialGrid[GridKey(lat: latKey, lon: lonKey)] {
+                    candidates.append(contentsOf: cell)
+                }
+            }
+        }
+
+        // Cells are coarse (~60 nm), so still apply the exact bbox bounds.
+        var filtered = candidates.filter { airport in
             airport.latitude >= minLat && airport.latitude <= maxLat &&
             airport.longitude >= minLon && airport.longitude <= maxLon
         }

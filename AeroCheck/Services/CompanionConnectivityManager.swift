@@ -382,6 +382,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         cleanupConnection()
         stopListening()
+        stopUpdates()
         browserTask?.cancel()
         browserTask = nil
         connectionState = .disconnected

@@ -150,9 +150,11 @@ class OpenAIPDataService: ObservableObject {
                 allAirspaces.append(contentsOf: countryAirspaces)
                 byCountry[country] = countryAirspaces
 
-                // Save per-country file
+                // Save per-country file. Atomic so a crash/suspend mid-write (e.g. flaky inflight
+                // Wi-Fi during a multi-country download) can't truncate the prior valid file and
+                // silently drop that country's CTR/restricted zones on next launch.
                 let encoded = try JSONEncoder().encode(countryAirspaces)
-                try encoded.write(to: airspaceFileURL(for: country))
+                try encoded.write(to: airspaceFileURL(for: country), options: .atomic)
 
                 // Update metadata
                 metadata.lastSyncDates[country] = Date()
@@ -186,7 +188,9 @@ class OpenAIPDataService: ObservableObject {
         // Save metadata
         metadata.lastFullRefresh = Date()
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
-            try? metaEncoded.write(to: metadataFileURL)
+            // Atomic: a truncated metadata file fails the decode at launch and drops ALL countries
+            // via the early-return guard, not just one.
+            try? metaEncoded.write(to: metadataFileURL, options: .atomic)
         }
 
         // Update in-memory data.

@@ -215,6 +215,8 @@ struct FlightView: View {
                     .padding(.vertical, 4)
                     .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             // Just the counter — the phase NAME is already in the badge, so "Phase" is redundant.
             Text("\(appState.currentPhase.rawValue + 1) / \(ChecklistPhase.allCases.count)")
                 .font(.captionText)
@@ -249,6 +251,8 @@ struct FlightView: View {
                 }
                 .foregroundColor(gpsStatusColor)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.GPS.status)
             .accessibilityHint(L10n.Flight.info)
 
@@ -258,6 +262,8 @@ struct FlightView: View {
                     .font(.system(size: 18))
                     .foregroundColor(.secondaryText)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.Flight.info)
         }
     }
@@ -1233,6 +1239,8 @@ struct FlightView: View {
                     .padding(.vertical, 3)
                     .background(Capsule().fill(phaseBadgeColor.opacity(0.18)))
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             Text("\(appState.currentPhase.rawValue + 1)/\(ChecklistPhase.allCases.count)")
                 .font(.system(size: 12))
                 .foregroundColor(.secondaryText)
@@ -1253,6 +1261,8 @@ struct FlightView: View {
                 }
                 .foregroundColor(gpsStatusColor)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.GPS.status)
 
             Button(action: { showFlightInfo = true }) {
@@ -1260,6 +1270,8 @@ struct FlightView: View {
                     .font(.system(size: 17))
                     .foregroundColor(.secondaryText)
             }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel(L10n.Flight.info)
         }
     }

@@ -48,6 +48,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var selectedConflictId: String?   // tapped conflict — highlighted on map + profile (#4)
     @State private var focusRegion: MKCoordinateRegion?   // hold a conflict → recenter the map (#4)
     @State private var focusToken = 0
+    @State private var holdCenterId: String?              // conflict being held — drives the fill cue (#4)
+    @State private var holdCenterProgress: CGFloat = 0
     private let elevationService = ElevationService()
     private static let terrainConflictId = "terrain"
 
@@ -584,6 +586,26 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
+    /// A left-to-right fill that sweeps across a conflict row while it's being held, so the
+    /// hold-to-center is discoverable and you can see it's about to fire. (#4 feedback)
+    @ViewBuilder private func holdFill(_ id: String) -> some View {
+        if holdCenterId == id {
+            GeometryReader { geo in
+                Rectangle().fill(Color.white.opacity(0.10)).frame(width: geo.size.width * holdCenterProgress)
+            }
+        }
+    }
+
+    private func updateHold(_ id: String, pressing: Bool) {
+        if pressing {
+            holdCenterId = id; holdCenterProgress = 0
+            withAnimation(.linear(duration: 0.6)) { holdCenterProgress = 1 }
+        } else {
+            withAnimation(.easeOut(duration: 0.15)) { holdCenterProgress = 0 }
+            holdCenterId = nil
+        }
+    }
+
     /// Hold a conflict → select it AND recenter the map on it, so a small zone you can't see when
     /// zoomed out is brought into view. (#4 feedback)
     private func centerOnConflict(_ id: String) {
@@ -660,9 +682,12 @@ struct FlightPlanMapBuilderView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(selected ? Color.white.opacity(0.07) : .clear)
+        .background(alignment: .leading) { holdFill(Self.terrainConflictId) }
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(Self.terrainConflictId) }
-        .onLongPressGesture(minimumDuration: 1.0) { centerOnConflict(Self.terrainConflictId) }
+        .onLongPressGesture(minimumDuration: 0.6, maximumDistance: 50,
+                            perform: { centerOnConflict(Self.terrainConflictId) },
+                            onPressingChanged: { updateHold(Self.terrainConflictId, pressing: $0) })
     }
 
     private func airspaceRow(_ a: Airspace) -> some View {
@@ -701,9 +726,12 @@ struct FlightPlanMapBuilderView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(selected ? Color.white.opacity(0.07) : .clear)
+        .background(alignment: .leading) { holdFill(a.id) }
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(a.id) }
-        .onLongPressGesture(minimumDuration: 1.0) { centerOnConflict(a.id) }
+        .onLongPressGesture(minimumDuration: 0.6, maximumDistance: 50,
+                            perform: { centerOnConflict(a.id) },
+                            onPressingChanged: { updateHold(a.id, pressing: $0) })
     }
 
     /// Debounced recompute of the on-route airspace blocks (profile) + conflict subset (list + map). (#4)
@@ -1710,7 +1738,10 @@ private struct RouteProfileView: View {
     @State private var dragKind: DragKind?
     @State private var draggingIndex: Int?
     @State private var draggingAltitude: Double?
-    private enum DragKind { case altitude(Int); case tap }
+    @State private var addHoldWork: DispatchWorkItem?   // deferred add: only after a deliberate hold
+    @State private var addArmed = false
+    @State private var addAnchor: CGPoint?
+    private enum DragKind { case altitude(Int); case add }
 
     private let leftPad: CGFloat = 38
     private let bottomPad: CGFloat = 16
@@ -1719,6 +1750,11 @@ private struct RouteProfileView: View {
     private static let warnFt: Double = 150 * 3.28084
     private static let magenta = Color(red: 1.0, green: 0.08, blue: 0.8)
     private static let altSnap: Double = 100
+    /// VFR is excluded from Class A worldwide; above ~FL195 (EU/CH) is effectively IFR-only, and the US
+    /// Class A floor is FL180 — so FL195 is the worldwide VFR ceiling. Caps the draggable altitude and
+    /// the y-axis so the profile can't be scaled to impossible flight levels. (feedback)
+    private static let maxAltitudeFt: Double = 19500   // FL195
+    private static let profileCeilingFt: Double = 21000
 
     /// Everything the drawing and the gestures need, in one coordinate system so they can't drift. The
     /// y-axis (`yMax`) comes from the COMMITTED altitudes so it stays put while you drag a dot.
@@ -1877,25 +1913,49 @@ private struct RouteProfileView: View {
                     if onSetAltitude != nil, let i = nearestDot(to: v.startLocation, g: g) {
                         dragKind = .altitude(i); draggingIndex = i
                     } else {
-                        dragKind = .tap
+                        // Not on a dot — arm a deliberate hold-to-add (a quick tap no longer adds). (feedback)
+                        dragKind = .add
+                        if onAddAtDistance != nil { armAdd(at: v.startLocation) }
                     }
                 }
-                if case .altitude = dragKind {
+                switch dragKind {
+                case .altitude:
                     draggingAltitude = snapAlt(g.ftRaw(forY: v.location.y))
+                case .add:
+                    if let a = addAnchor, hypot(v.location.x - a.x, v.location.y - a.y) > 16 { cancelAdd() }
+                case .none: break
                 }
             }
             .onEnded { v in
                 switch dragKind {
                 case .altitude(let i):
                     if let a = draggingAltitude { onSetAltitude?(i, a) }
-                case .tap:
-                    if onAddAtDistance != nil, abs(v.translation.width) < 10, abs(v.translation.height) < 10 {
+                case .add:
+                    if addArmed, abs(v.translation.width) < 16, abs(v.translation.height) < 16 {
                         onAddAtDistance?(g.nm(forX: v.location.x), snapAlt(g.ftRaw(forY: v.location.y)))
                     }
                 case .none: break
                 }
+                cancelAdd()
                 dragKind = nil; draggingIndex = nil; draggingAltitude = nil
             }
+    }
+
+    /// Arm a deferred add — a new point drops only after a deliberate ~0.5 s hold (haptic on arm), so a
+    /// quick tap or the start of a scrub never creates a stray waypoint. (feedback)
+    private func armAdd(at p: CGPoint) {
+        cancelAdd()
+        addAnchor = p
+        let work = DispatchWorkItem {
+            addArmed = true
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+        addHoldWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    private func cancelAdd() {
+        addHoldWork?.cancel(); addHoldWork = nil; addArmed = false; addAnchor = nil
     }
 
     /// Waypoint index whose dot is within ~28 pt of `p`, or nil.
@@ -1910,7 +1970,9 @@ private struct RouteProfileView: View {
         return nil
     }
 
-    private func snapAlt(_ ft: Double) -> Double { max(0, (ft / Self.altSnap).rounded() * Self.altSnap) }
+    private func snapAlt(_ ft: Double) -> Double {
+        min(Self.maxAltitudeFt, max(0, (ft / Self.altSnap).rounded() * Self.altSnap))
+    }
 
     private func computeYMax(terrainFt: [(nm: Double, ft: Double)], lineFt: [(nm: Double, ft: Double)]) -> Double {
         var top = terrainFt.map { $0.ft }.max() ?? 0
@@ -1918,7 +1980,7 @@ private struct RouteProfileView: View {
         top = max(top, routeTop)
         for b in blocks where b.isConflict { top = max(top, b.ceilingFt) }
         top = max(top, routeTop + 4000) // headroom to show nearby context-zone floors above the route
-        return max(2000, top * 1.1)
+        return min(Self.profileCeilingFt, max(2000, top * 1.1)) // never scale beyond the VFR ceiling
     }
 
     private func altLabel(_ ft: Double) -> String {
@@ -1950,6 +2012,10 @@ private struct RouteProfileView: View {
                 }
             }
         }
-        return lo.isFinite ? (lo, hi) : nil
+        guard lo.isFinite else { return nil }
+        // Don't draw the band when the whole route is already on screen — it would cover everything. (feedback)
+        let total = cumNM.last ?? 0
+        if lo <= total * 0.02, hi >= total * 0.98 { return nil }
+        return (lo, hi)
     }
 }

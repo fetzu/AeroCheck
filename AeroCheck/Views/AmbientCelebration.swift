@@ -35,6 +35,11 @@ final class AmbientController: ObservableObject {
         AmbientPalette.background = AmbientTheme.background
         AmbientPalette.panel = AmbientTheme.panel
         AmbientPalette.card = AmbientTheme.panel
+        AmbientPalette.chrome = AmbientTheme.chrome
+        AmbientPalette.hairline = AmbientTheme.hairline
+        AmbientPalette.textPrimary = AmbientTheme.textPrimary
+        AmbientPalette.textSecondary = AmbientTheme.textSecondary
+        AmbientPalette.textDim = AmbientTheme.textDim
         revision &+= 1
         reveal &+= 1
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -43,24 +48,33 @@ final class AmbientController: ObservableObject {
 
 // MARK: - Palette
 
-/// The alternate accent set (primary + plum surfaces) and the soft secondary hues used by the reveal.
-/// Plain sRGB components; nothing here is wired up unless `AmbientController.engage()` installs it.
+/// The alternate accent set (a pink accent over light blush surfaces with dark text) and the soft
+/// secondary hues used by the reveal. Plain sRGB components; nothing here is wired up unless
+/// `AmbientController.engage()` installs it.
 enum AmbientTheme {
-    static let accent     = Color(red: 230 / 255, green: 46 / 255,  blue: 139 / 255)
-    static let background = Color(red: 28 / 255,  green: 14 / 255,  blue: 28 / 255)
-    static let panel      = Color(red: 42 / 255,  green: 20 / 255,  blue: 38 / 255)
+    static let accent       = Color(red: 230 / 255, green: 46 / 255,  blue: 139 / 255)
+    static let background   = Color(red: 253 / 255, green: 242 / 255, blue: 248 / 255) // blush
+    static let panel        = Color(red: 1.0,       green: 1.0,       blue: 1.0)       // white cards
+    static let chrome       = Color(red: 252 / 255, green: 231 / 255, blue: 243 / 255) // cotton bar
+    static let hairline     = Color(red: 240 / 255, green: 217 / 255, blue: 230 / 255)
+    static let textPrimary  = Color(red: 59 / 255,  green: 10 / 255,  blue: 36 / 255)  // deep plum
+    static let textSecondary = Color(red: 157 / 255, green: 91 / 255, blue: 121 / 255)
+    static let textDim      = Color(red: 201 / 255, green: 155 / 255, blue: 180 / 255)
 
     static let rose       = Color(red: 244 / 255, green: 114 / 255, blue: 182 / 255)
     static let cotton     = Color(red: 251 / 255, green: 207 / 255, blue: 232 / 255)
     static let lavender   = Color(red: 196 / 255, green: 181 / 255, blue: 253 / 255)
     static let sky        = Color(red: 147 / 255, green: 197 / 255, blue: 253 / 255)
 
-    // Reveal-only detailing.
+    // Reveal-only detailing (the uni-tiel mark).
     static let crestSun   = Color(red: 253 / 255, green: 230 / 255, blue: 138 / 255)
-    static let cheek      = Color(red: 251 / 255, green: 113 / 255, blue: 133 / 255)
-    static let beak       = Color(red: 243 / 255, green: 217 / 255, blue: 192 / 255)
-    static let plum       = Color(red: 131 / 255, green: 24 / 255,  blue: 67 / 255)
+    static let cheek      = Color(red: 251 / 255, green: 146 / 255, blue: 60 / 255)   // orange cheek patch
+    static let beak       = Color(red: 156 / 255, green: 163 / 255, blue: 175 / 255)  // grey beak
+    static let belly      = Color(red: 251 / 255, green: 207 / 255, blue: 232 / 255)
     static let pupil      = Color(red: 42 / 255,  green: 14 / 255,  blue: 30 / 255)
+    static let horn       = Color(red: 252 / 255, green: 211 / 255, blue: 77 / 255)
+    static let hornHi     = Color(red: 254 / 255, green: 243 / 255, blue: 199 / 255)
+    static let hornLine   = Color(red: 217 / 255, green: 154 / 255, blue: 46 / 255)
 
     /// Reveal confetti draws from the focused pink→sky set.
     static let confetti: [Color] = [accent, rose, cotton, lavender, sky]
@@ -77,18 +91,18 @@ extension CockpitTheme {
             mode: .day,
             background: AmbientPalette.background ?? .cockpitBackground,
             panel: AmbientPalette.panel ?? .panelBackground,
-            panelStroke: accent.opacity(0.28),
+            panelStroke: AmbientPalette.hairline ?? accent.opacity(0.28),
             action: accent,
             actionText: .white,
             onTarget: .aviationGreen,
             warning: Color(red: 0.91, green: 0.56, blue: 0.18),
             danger: .aviationRed,
             info: .altimeterBlue,
-            textPrimary: .primaryText,
-            textSecondary: .secondaryText,
-            textDim: .dimText,
-            glassFill: Color.white.opacity(0.06),
-            glassStroke: accent.opacity(0.35)
+            textPrimary: AmbientPalette.textPrimary ?? .primaryText,
+            textSecondary: AmbientPalette.textSecondary ?? .secondaryText,
+            textDim: AmbientPalette.textDim ?? .dimText,
+            glassFill: Color.black.opacity(0.05),
+            glassStroke: accent.opacity(0.30)
         )
     }
 }
@@ -188,57 +202,20 @@ private struct CurvedText: View {
     }
 }
 
-// MARK: - Mascot
+// MARK: - Mark
 
-/// A cartoon rainbow cockatiel perched on a cloud, drawn in a 190×250 design space.
-private struct CockatielMark: View {
+/// The uni-tiel: a left-facing rainbow cockatiel head with a spiral unicorn horn, rainbow crest,
+/// orange cheek and a little neck, drawn in a 180×230 design space.
+private struct UnitielMark: View {
     var body: some View {
         Canvas { context, size in
-            let scale = size.width / 190
+            let scale = size.width / 180
             context.scaleBy(x: scale, y: scale)
 
             func circle(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat) -> Path {
                 Path(ellipseIn: CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2))
             }
-            func ellipse(_ cx: CGFloat, _ cy: CGFloat, _ rx: CGFloat, _ ry: CGFloat) -> Path {
-                Path(ellipseIn: CGRect(x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2))
-            }
-            func quadArc(_ x0: CGFloat, _ x1: CGFloat, _ apexY: CGFloat, baseY: CGFloat = 206) -> Path {
-                var path = Path()
-                path.move(to: CGPoint(x: x0, y: baseY))
-                path.addQuadCurve(to: CGPoint(x: x1, y: baseY),
-                                  control: CGPoint(x: (x0 + x1) / 2, y: apexY))
-                return path
-            }
-
-            // Rainbow arcs behind the mascot (mostly hidden by the cloud).
-            let arcStyle = StrokeStyle(lineWidth: 9, lineCap: .round)
-            context.stroke(quadArc(20, 170, 120), with: .color(AmbientTheme.rose.opacity(0.5)), style: arcStyle)
-            context.stroke(quadArc(32, 158, 134), with: .color(AmbientTheme.lavender.opacity(0.5)), style: arcStyle)
-            context.stroke(quadArc(44, 146, 148), with: .color(AmbientTheme.sky.opacity(0.5)), style: arcStyle)
-
-            // Cloud.
-            let white = GraphicsContext.Shading.color(.white)
-            context.fill(Path(roundedRect: CGRect(x: 58, y: 200, width: 104, height: 28), cornerRadius: 14), with: white)
-            context.fill(circle(60, 206, 30), with: white)
-            context.fill(circle(95, 196, 36), with: white)
-            context.fill(circle(132, 198, 34), with: white)
-            context.fill(circle(160, 206, 26), with: white)
-
-            // Tail feathers (in front of the cloud).
-            func poly(_ pts: [CGPoint]) -> Path {
-                var path = Path()
-                path.move(to: pts[0])
-                for point in pts.dropFirst() { path.addLine(to: point) }
-                path.closeSubpath()
-                return path
-            }
-            context.fill(poly([CGPoint(x: 86, y: 150), CGPoint(x: 74, y: 202), CGPoint(x: 86, y: 205), CGPoint(x: 98, y: 152)]), with: .color(AmbientTheme.accent))
-            context.fill(poly([CGPoint(x: 98, y: 151), CGPoint(x: 96, y: 206), CGPoint(x: 108, y: 206), CGPoint(x: 110, y: 154)]), with: .color(AmbientTheme.rose))
-            context.fill(poly([CGPoint(x: 110, y: 150), CGPoint(x: 124, y: 202), CGPoint(x: 134, y: 197), CGPoint(x: 120, y: 152)]), with: .color(AmbientTheme.sky))
-
-            // Crest (drawn before the head so the head covers the bases).
-            func leaf(_ a: CGPoint, _ c1: CGPoint, _ tip: CGPoint, _ c2: CGPoint, _ b: CGPoint) -> Path {
+            func quad(_ a: CGPoint, _ c1: CGPoint, _ tip: CGPoint, _ c2: CGPoint, _ b: CGPoint) -> Path {
                 var path = Path()
                 path.move(to: a)
                 path.addQuadCurve(to: tip, control: c1)
@@ -246,50 +223,86 @@ private struct CockatielMark: View {
                 path.closeSubpath()
                 return path
             }
-            context.fill(leaf(CGPoint(x: 84, y: 52), CGPoint(x: 82, y: 14), CGPoint(x: 96, y: 8), CGPoint(x: 99, y: 30), CGPoint(x: 101, y: 52)), with: .color(AmbientTheme.crestSun))
-            context.fill(leaf(CGPoint(x: 98, y: 50), CGPoint(x: 103, y: 12), CGPoint(x: 117, y: 9), CGPoint(x: 112, y: 32), CGPoint(x: 112, y: 50)), with: .color(AmbientTheme.rose))
-            context.fill(leaf(CGPoint(x: 110, y: 52), CGPoint(x: 120, y: 18), CGPoint(x: 132, y: 21), CGPoint(x: 124, y: 38), CGPoint(x: 120, y: 54)), with: .color(AmbientTheme.sky))
+            func line(_ a: CGPoint, _ b: CGPoint) -> Path {
+                var path = Path()
+                path.move(to: a)
+                path.addLine(to: b)
+                return path
+            }
+            func starPath(_ cx: CGFloat, _ cy: CGFloat, _ s: CGFloat) -> Path {
+                var p = Path()
+                p.move(to: CGPoint(x: cx, y: cy - s))
+                p.addLine(to: CGPoint(x: cx + 0.28 * s, y: cy - 0.28 * s))
+                p.addLine(to: CGPoint(x: cx + s, y: cy))
+                p.addLine(to: CGPoint(x: cx + 0.28 * s, y: cy + 0.28 * s))
+                p.addLine(to: CGPoint(x: cx, y: cy + s))
+                p.addLine(to: CGPoint(x: cx - 0.28 * s, y: cy + 0.28 * s))
+                p.addLine(to: CGPoint(x: cx - s, y: cy))
+                p.addLine(to: CGPoint(x: cx - 0.28 * s, y: cy - 0.28 * s))
+                p.closeSubpath()
+                return p
+            }
 
-            // Body, belly, head.
-            context.fill(ellipse(98, 118, 38, 46), with: .color(AmbientTheme.accent))
-            context.fill(ellipse(95, 131, 22, 31), with: .color(AmbientTheme.cotton))
-            context.fill(circle(98, 70, 32), with: .color(AmbientTheme.accent))
+            // Neck / upper chest (a little of the body below the head).
+            var chest = Path()
+            chest.move(to: CGPoint(x: 70, y: 150))
+            chest.addQuadCurve(to: CGPoint(x: 90, y: 222), control: CGPoint(x: 66, y: 196))
+            chest.addQuadCurve(to: CGPoint(x: 130, y: 192), control: CGPoint(x: 120, y: 226))
+            chest.addQuadCurve(to: CGPoint(x: 116, y: 148), control: CGPoint(x: 134, y: 160))
+            chest.closeSubpath()
+            context.fill(chest, with: .color(AmbientTheme.accent))
+            var belly = Path()
+            belly.move(to: CGPoint(x: 78, y: 162))
+            belly.addQuadCurve(to: CGPoint(x: 94, y: 218), control: CGPoint(x: 74, y: 196))
+            belly.addQuadCurve(to: CGPoint(x: 122, y: 192), control: CGPoint(x: 114, y: 220))
+            belly.addQuadCurve(to: CGPoint(x: 108, y: 158), control: CGPoint(x: 124, y: 168))
+            belly.closeSubpath()
+            context.fill(belly, with: .color(AmbientTheme.belly))
 
-            // Wing.
-            var wing = Path()
-            wing.move(to: CGPoint(x: 104, y: 90))
-            wing.addQuadCurve(to: CGPoint(x: 118, y: 158), control: CGPoint(x: 142, y: 116))
-            wing.addQuadCurve(to: CGPoint(x: 98, y: 106), control: CGPoint(x: 101, y: 150))
-            wing.closeSubpath()
-            context.fill(wing, with: .color(AmbientTheme.rose))
+            // Head.
+            context.fill(circle(92, 108, 50), with: .color(AmbientTheme.accent))
 
-            var wingTip = Path()
-            wingTip.move(to: CGPoint(x: 110, y: 142))
-            wingTip.addQuadCurve(to: CGPoint(x: 116, y: 160), control: CGPoint(x: 122, y: 152))
-            wingTip.addQuadCurve(to: CGPoint(x: 106, y: 146), control: CGPoint(x: 107, y: 156))
-            wingTip.closeSubpath()
-            context.fill(wingTip, with: .color(AmbientTheme.sky))
+            // Rainbow crest, swept up and back (to the right, for a left-facing head).
+            context.fill(quad(CGPoint(x: 98, y: 60), CGPoint(x: 98, y: 24), CGPoint(x: 108, y: 8), CGPoint(x: 118, y: 26), CGPoint(x: 112, y: 62)), with: .color(AmbientTheme.crestSun))
+            context.fill(quad(CGPoint(x: 106, y: 60), CGPoint(x: 112, y: 22), CGPoint(x: 124, y: 10), CGPoint(x: 122, y: 34), CGPoint(x: 118, y: 64)), with: .color(AmbientTheme.rose))
+            context.fill(quad(CGPoint(x: 114, y: 64), CGPoint(x: 124, y: 34), CGPoint(x: 136, y: 24), CGPoint(x: 130, y: 48), CGPoint(x: 122, y: 68)), with: .color(AmbientTheme.lavender))
+            context.fill(quad(CGPoint(x: 122, y: 68), CGPoint(x: 136, y: 48), CGPoint(x: 148, y: 42), CGPoint(x: 138, y: 58), CGPoint(x: 128, y: 72)), with: .color(AmbientTheme.sky))
 
-            let featherLine = StrokeStyle(lineWidth: 1.6, lineCap: .round)
-            var fl1 = Path(); fl1.move(to: CGPoint(x: 106, y: 104)); fl1.addQuadCurve(to: CGPoint(x: 116, y: 144), control: CGPoint(x: 124, y: 118))
-            var fl2 = Path(); fl2.move(to: CGPoint(x: 102, y: 120)); fl2.addQuadCurve(to: CGPoint(x: 112, y: 152), control: CGPoint(x: 118, y: 132))
-            context.stroke(fl1, with: .color(AmbientTheme.cotton.opacity(0.8)), style: featherLine)
-            context.stroke(fl2, with: .color(AmbientTheme.cotton.opacity(0.8)), style: featherLine)
+            // Spiral unicorn horn on the forehead, pointing up-left.
+            let hornT = CGAffineTransform(translationX: 76, y: 74)
+                .rotated(by: -0.52)
+                .scaledBy(x: 1, y: 66.0 / 46.0)
+            var cone = Path()
+            cone.move(to: CGPoint(x: -6, y: 0))
+            cone.addLine(to: CGPoint(x: 6, y: 0))
+            cone.addLine(to: CGPoint(x: 0, y: -46))
+            cone.closeSubpath()
+            context.fill(cone.applying(hornT), with: .color(AmbientTheme.horn))
+            context.stroke(line(CGPoint(x: -1, y: -3), CGPoint(x: 0, y: -43)).applying(hornT), with: .color(AmbientTheme.hornHi), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+            context.stroke(line(CGPoint(x: -5, y: -7), CGPoint(x: 5, y: -11)).applying(hornT), with: .color(AmbientTheme.hornLine), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+            context.stroke(line(CGPoint(x: -4, y: -17), CGPoint(x: 4, y: -21)).applying(hornT), with: .color(AmbientTheme.hornLine), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+            context.stroke(line(CGPoint(x: -3, y: -27), CGPoint(x: 3, y: -30)).applying(hornT), with: .color(AmbientTheme.hornLine), style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
+            context.stroke(line(CGPoint(x: -2, y: -36), CGPoint(x: 2, y: -38)).applying(hornT), with: .color(AmbientTheme.hornLine), style: StrokeStyle(lineWidth: 1.1, lineCap: .round))
 
-            // Face.
-            context.fill(circle(80, 82, 10), with: .color(AmbientTheme.cheek.opacity(0.9)))
-            context.fill(circle(102, 66, 11), with: white)
-            context.fill(circle(104, 68, 6), with: .color(AmbientTheme.pupil))
-            context.fill(circle(100, 63, 2.3), with: white)
-
+            // Beak (downcurved, on the left).
             var beak = Path()
-            beak.move(to: CGPoint(x: 84, y: 77))
-            beak.addQuadCurve(to: CGPoint(x: 82, y: 95), control: CGPoint(x: 72, y: 86))
-            beak.addQuadCurve(to: CGPoint(x: 91, y: 78), control: CGPoint(x: 89, y: 88))
+            beak.move(to: CGPoint(x: 48, y: 104))
+            beak.addQuadCurve(to: CGPoint(x: 40, y: 132), control: CGPoint(x: 26, y: 112))
+            beak.addQuadCurve(to: CGPoint(x: 52, y: 110), control: CGPoint(x: 50, y: 126))
             beak.closeSubpath()
             context.fill(beak, with: .color(AmbientTheme.beak))
+
+            // Cheek + eye.
+            context.fill(circle(66, 128, 14), with: .color(AmbientTheme.cheek))
+            context.fill(circle(74, 100, 12), with: .color(AmbientTheme.pupil))
+            context.fill(circle(69, 95, 3), with: .color(.white))
+
+            // A few sparkles.
+            context.fill(starPath(40, 30, 6), with: .color(AmbientTheme.crestSun))
+            context.fill(starPath(152, 70, 5), with: .color(AmbientTheme.lavender))
+            context.fill(starPath(150, 150, 4), with: .color(AmbientTheme.sky))
         }
-        .aspectRatio(190.0 / 250.0, contentMode: .fit)
+        .aspectRatio(180.0 / 230.0, contentMode: .fit)
     }
 }
 
@@ -377,14 +390,14 @@ private struct ConfettiLayer: View {
 private struct AmbientLogoCard: View {
     var body: some View {
         ZStack {
-            CockatielMark()
-                .frame(width: 150, height: 197)
-            CurvedText(text: AmbientCopy.title, radius: 118, size: 21, uiWeight: .heavy,
+            UnitielMark()
+                .frame(width: 190, height: 243)
+            CurvedText(text: AmbientCopy.title, radius: 150, size: 25, uiWeight: .heavy,
                        color: .white, side: .top, tracking: 1, shadow: AmbientTheme.accent)
-            CurvedText(text: AmbientCopy.subtitle, radius: 120, size: 11, uiWeight: .bold,
+            CurvedText(text: AmbientCopy.subtitle, radius: 152, size: 13, uiWeight: .bold,
                        color: AmbientTheme.cotton, side: .bottom, tracking: 3)
         }
-        .frame(width: 300, height: 300)
+        .frame(width: 366, height: 366)
     }
 }
 
@@ -399,7 +412,7 @@ struct AmbientCelebrationOverlay: View {
     var body: some View {
         ZStack {
             if activeReveal != 0 {
-                Color.black.opacity(0.32)
+                Color.black.opacity(0.42)
                     .ignoresSafeArea()
                     .transition(.opacity)
                 ConfettiLayer(start: start)

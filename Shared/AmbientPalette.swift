@@ -16,6 +16,13 @@ enum AmbientPalette {
     nonisolated(unsafe) static var background: Color?
     nonisolated(unsafe) static var panel: Color?
     nonisolated(unsafe) static var card: Color?
+    nonisolated(unsafe) static var textPrimary: Color?
+    nonisolated(unsafe) static var textSecondary: Color?
+    nonisolated(unsafe) static var textDim: Color?
+    // Navigation chrome (rail / tab bar) surface and the hairline separators that, in the standard
+    // palette, are a faint white-on-dark line.
+    nonisolated(unsafe) static var chrome: Color?
+    nonisolated(unsafe) static var hairline: Color?
 
     /// `true` while an accent override is installed.
     static var isActive: Bool { accent != nil }
@@ -26,5 +33,10 @@ enum AmbientPalette {
         background = nil
         panel = nil
         card = nil
+        textPrimary = nil
+        textSecondary = nil
+        textDim = nil
+        chrome = nil
+        hairline = nil
     }
 }

@@ -27,10 +27,10 @@ extension Color {
     static var panelBackground: Color { AmbientPalette.panel ?? Color(red: 0.12, green: 0.12, blue: 0.15) }
     static var cardBackground: Color { AmbientPalette.card ?? Color(red: 0.15, green: 0.15, blue: 0.18) }
 
-    // Text colors
-    static let primaryText = Color.white
-    static let secondaryText = Color(white: 0.7)
-    static let dimText = Color(white: 0.5)
+    // Text colors (overridable — see note on aviationGold above; lets a light theme flip text to dark)
+    static var primaryText: Color { AmbientPalette.textPrimary ?? Color.white }
+    static var secondaryText: Color { AmbientPalette.textSecondary ?? Color(white: 0.7) }
+    static var dimText: Color { AmbientPalette.textDim ?? Color(white: 0.5) }
 
     // Instrument accent
     static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)

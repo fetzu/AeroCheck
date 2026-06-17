@@ -529,7 +529,7 @@ struct HomeView: View {
 
     // MARK: - Nav rail / tab bar (Direction 1)
 
-    private var railSurface: Color { Color(red: 0.10, green: 0.10, blue: 0.13) }
+    private var railSurface: Color { AmbientPalette.chrome ?? Color(red: 0.10, green: 0.10, blue: 0.13) }
 
     /// Vertical command rail (iPad landscape): brand mark, the four destinations, GPS at the foot.
     private var navRail: some View {
@@ -553,7 +553,7 @@ struct HomeView: View {
         .frame(maxHeight: .infinity)
         .background(railSurface.ignoresSafeArea())
         .overlay(alignment: .trailing) {
-            Rectangle().fill(Color.white.opacity(0.06)).frame(width: 1).ignoresSafeArea()
+            Rectangle().fill((AmbientPalette.hairline ?? Color.white.opacity(0.06))).frame(width: 1).ignoresSafeArea()
         }
     }
 
@@ -566,7 +566,7 @@ struct HomeView: View {
         .padding(.horizontal, 6)
         .background(railSurface.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+            Rectangle().fill((AmbientPalette.hairline ?? Color.white.opacity(0.06))).frame(height: 1)
         }
     }
 
@@ -656,7 +656,7 @@ struct HomeView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.cardBackground)
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder((AmbientPalette.hairline ?? Color.white.opacity(0.06)), lineWidth: 1))
                 )
             }
             .buttonStyle(.plain)

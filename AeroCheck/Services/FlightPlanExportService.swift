@@ -501,7 +501,8 @@ class FlightPlanExportService {
 
         // Header section - 3 rows matching the MODEL layout
         // Column widths proportional to MODEL (6 columns total)
-        let headerRowHeight: CGFloat = 20
+        // 26pt so the two-line labels (Durée totale\nEET, Piste\nen service, …) aren't clipped. (#5 PDF)
+        let headerRowHeight: CGFloat = 26
         let hCol1: CGFloat = 70    // Label (Pilote, Durée totale EET, Instructeur)
         let hCol2: CGFloat = 110   // Value
         let hCol3: CGFloat = 80    // Label (Avion, Autonomie, Date de l'annonce)
@@ -783,8 +784,8 @@ class FlightPlanExportService {
         drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW + timingValueW, height: fuelRowHeight), text: "", attributes: labelAttributes)
         yPosition += fuelRowHeight
 
-        // Debriefing section (3 rows tall)
-        let debriefHeight = fuelRowHeight * 3
+        // Debriefing section — fill the remaining page so it's a real writing area, not a thin strip. (#5 PDF)
+        let debriefHeight = max(fuelRowHeight * 3, (rect.height - margin) - yPosition)
         let debriefLabelW: CGFloat = 60
         drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: debriefLabelW, height: debriefHeight), text: "Debriefing", attributes: labelAttributes)
         drawCell(context, rect: CGRect(x: tableX + debriefLabelW, y: yPosition, width: tableWidth - debriefLabelW, height: debriefHeight), text: plan.debriefing, attributes: smallDataAttributes)

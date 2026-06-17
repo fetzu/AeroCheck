@@ -551,7 +551,7 @@ class FlightPlanExportService {
         }
 
         // Title
-        ("AVIS DE VOL - PLAN DE VOL DE NAVIGATION" as NSString).draw(at: CGPoint(x: tableX, y: y),
+        (L10n.PDF.title as NSString).draw(at: CGPoint(x: tableX, y: y),
             withAttributes: [.font: fTitle, .foregroundColor: ink])
         y += 17
         ctx.setStrokeColor(ink.cgColor)
@@ -578,9 +578,9 @@ class FlightPlanExportService {
         let dateStr = plan.plannedDepartureTime.map { dateFmt.string(from: $0) } ?? ""
         let annDate = plan.announcementDate.map { dateFmt.string(from: $0) } ?? ""
         let annTime = plan.announcementTime.map { timeFmt.string(from: $0) } ?? ""
-        headerRow("Pilote", plan.pilot, "Avion", plan.aircraftRegistration, "Date", dateStr)
-        headerRow("Durée totale EET", plan.formattedTotalEET, "Autonomie", plan.formattedEndurance ?? "--:--", "Piste en service", plan.runwayInUse ?? "")
-        headerRow("Instructeur", plan.instructor ?? "", "Date de l'annonce", annDate, "Heure de l'annonce", annTime)
+        headerRow(L10n.PDF.pilot, plan.pilot, L10n.PDF.aircraft, plan.aircraftRegistration, "Date", dateStr)
+        headerRow(L10n.PDF.totalEET, plan.formattedTotalEET, L10n.PDF.endurance, plan.formattedEndurance ?? "--:--", L10n.PDF.runwayInUse, plan.runwayInUse ?? "")
+        headerRow(L10n.PDF.instructor, plan.instructor ?? "", L10n.PDF.noticeDate, annDate, L10n.PDF.noticeTime, annTime)
 
         // Route — the centrepiece: 1 + 15 rows, uniform height whether filled or blank
         y += 4
@@ -630,7 +630,7 @@ class FlightPlanExportService {
 
         // Carburant · Temps · Compteur — two panels spanning the full width
         y += 5
-        section("Carburant · Temps · Compteur")
+        section(L10n.PDF.sectionFuel)
         let panelTop = y
         let panelH: CGFloat = 128
         let panelGap: CGFloat = 9
@@ -693,7 +693,7 @@ class FlightPlanExportService {
         let tcLabelW = tcW * 0.6
         let tcValW = tcW - tcLabelW
         let groupH: CGFloat = 12
-        let tcRowH = (panelH - 2 * groupH) / 8
+        let tcRowH = (panelH - 2 * groupH) / 7
         var ty = panelTop
         func tcGroup(_ s: String) {
             cell(CGRect(x: tcX, y: ty, width: tcW, height: groupH), s, font: fGroup, fill: shHeader, color: labelInk, grid: gridMed)
@@ -704,16 +704,15 @@ class FlightPlanExportService {
             cell(CGRect(x: tcX + tcLabelW, y: ty, width: tcValW, height: tcRowH), v, font: fValue, align: .right)
             ty += tcRowH
         }
-        tcGroup("Temps")
+        tcGroup(L10n.PDF.groupTimes)
         tcRow("Block OFF", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
         tcRow("Time OFF", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
         tcRow("Time ON", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
         tcRow("Block ON", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
-        tcGroup("Compteur · Atterrissages")
-        tcRow("Compteur START", plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
-        tcRow("Compteur STOP", plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
-        tcRow("Atterrissages", "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
-        tcRow("home / total", "")
+        tcGroup(L10n.PDF.groupCounter)
+        tcRow(L10n.PDF.counterStart, plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
+        tcRow(L10n.PDF.counterStop, plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
+        tcRow(L10n.PDF.landings, "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
 
         y = panelTop + panelH
 

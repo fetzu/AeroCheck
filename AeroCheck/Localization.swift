@@ -1004,6 +1004,24 @@ enum L10n {
     }
 
     // MARK: - Navigation / Flight Plans
+    enum PDF {
+        static let title = String(localized: "pdf.title")
+        static let pilot = String(localized: "pdf.pilot")
+        static let aircraft = String(localized: "pdf.aircraft")
+        static let totalEET = String(localized: "pdf.totalEET")
+        static let endurance = String(localized: "pdf.endurance")
+        static let runwayInUse = String(localized: "pdf.runwayInUse")
+        static let instructor = String(localized: "pdf.instructor")
+        static let noticeDate = String(localized: "pdf.noticeDate")
+        static let noticeTime = String(localized: "pdf.noticeTime")
+        static let sectionFuel = String(localized: "pdf.sectionFuel")
+        static let groupTimes = String(localized: "pdf.groupTimes")
+        static let groupCounter = String(localized: "pdf.groupCounter")
+        static let counterStart = String(localized: "pdf.counterStart")
+        static let counterStop = String(localized: "pdf.counterStop")
+        static let landings = String(localized: "pdf.landings")
+    }
+
     enum Nav {
         // Airspace conflicts
         static let airspaceAltitudeUncertain = String(localized: "nav.airspaceAltitudeUncertain")

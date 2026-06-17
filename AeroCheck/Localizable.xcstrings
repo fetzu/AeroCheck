@@ -1,18 +1,242 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "nav.navLog" : {
+    "pdf.title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nav Log"
+            "value" : "FLIGHT NOTICE - NAVIGATION FLIGHT PLAN"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Log de nav"
+            "value" : "AVIS DE VOL - PLAN DE VOL DE NAVIGATION"
+          }
+        }
+      }
+    },
+    "pdf.pilot" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilot"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilote"
+          }
+        }
+      }
+    },
+    "pdf.aircraft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aircraft"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avion"
+          }
+        }
+      }
+    },
+    "pdf.totalEET" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total time EET"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durée totale EET"
+          }
+        }
+      }
+    },
+    "pdf.endurance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Endurance"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autonomie"
+          }
+        }
+      }
+    },
+    "pdf.runwayInUse" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runway in use"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Piste en service"
+          }
+        }
+      }
+    },
+    "pdf.instructor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructeur"
+          }
+        }
+      }
+    },
+    "pdf.noticeDate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notice date"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date de l'annonce"
+          }
+        }
+      }
+    },
+    "pdf.noticeTime" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notice time"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heure de l'annonce"
+          }
+        }
+      }
+    },
+    "pdf.sectionFuel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuel · Times · Counter"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant · Temps · Compteur"
+          }
+        }
+      }
+    },
+    "pdf.groupTimes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Times"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temps"
+          }
+        }
+      }
+    },
+    "pdf.groupCounter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counter · Landings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compteur · Atterrissages"
+          }
+        }
+      }
+    },
+    "pdf.counterStart" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counter START"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compteur START"
+          }
+        }
+      }
+    },
+    "pdf.counterStop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counter STOP"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compteur STOP"
+          }
+        }
+      }
+    },
+    "pdf.landings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landings (home / total)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atterrissages (base / total)"
           }
         }
       }
@@ -53,10 +277,6 @@
     },
     "/ %@" : {
       "comment" : "A label showing the elapsed time of a navigation leg, alongside the planned time and a delta showing how far ahead or behind the leg is.",
-      "isCommentAutoGenerated" : true
-    },
-    "%@" : {
-      "comment" : "A label displaying the name of the exported file, followed by its size.",
       "isCommentAutoGenerated" : true
     },
     "%@ %@" : {
@@ -324,9 +544,6 @@
     "aerocheck.app" : {
       "comment" : "The name of the app.",
       "isCommentAutoGenerated" : true
-    },
-    "AeroCheck.app" : {
-
     },
     "Aircraft" : {
       "comment" : "A label for the aircraft filter in the flight log.",
@@ -3298,6 +3515,7 @@
       }
     },
     "Developer Options" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -7017,9 +7235,6 @@
       "comment" : "The text label for the \"JSON\" export option in the flight plan editor.",
       "isCommentAutoGenerated" : true
     },
-    "Julien 'fetzu' Bono" : {
-
-    },
     "KIAS" : {
       "comment" : "An abbreviation for \"kilometers per hour\" used in aviation contexts.",
       "isCommentAutoGenerated" : true
@@ -9616,6 +9831,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La vitesse sol et le vent sont utilisés pour calculer l'EET. Le CM et la distance sont calculés automatiquement."
+          }
+        }
+      }
+    },
+    "nav.navLog" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nav Log"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log de nav"
           }
         }
       }

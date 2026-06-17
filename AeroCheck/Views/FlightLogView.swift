@@ -1785,7 +1785,7 @@ struct FlightDetailView: View {
     private var actionsRow: some View {
         HStack(spacing: 8) {
             if flight.flightPlan != nil {
-                detailActionButton(title: L10n.FlightDetail.navPlan, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
+                detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
             }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {

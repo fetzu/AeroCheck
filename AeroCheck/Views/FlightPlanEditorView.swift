@@ -28,12 +28,18 @@ enum FlightPlanExportFormat {
     }
 }
 
-/// Wrapper for export data to use with sheet(item:)
+/// A generated export, written to a temp file so it can go straight to the system share sheet
+/// (no intermediate "export ready" screen). (#5 feedback)
 struct FlightPlanExportItem: Identifiable {
     let id = UUID()
-    let data: Data
-    let filename: String
-    let format: FlightPlanExportFormat
+    let url: URL
+
+    init?(data: Data, filename: String, format: FlightPlanExportFormat) {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(filename).\(format.fileExtension)")
+        do { try data.write(to: url, options: .atomic) } catch { return nil }
+        self.url = url
+    }
 }
 
 /// Flight plan editor view - tabular format similar to "AVIS DE VOL" form
@@ -98,7 +104,7 @@ struct FlightPlanEditorView: View {
                 ToolbarItem(placement: .primaryAction) { exportMenu }
             }
             .sheet(item: $exportItem) { item in
-                FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
+                ShareSheet(activityItems: [item.url])
             }
         }
         .preferredColorScheme(.dark)
@@ -1236,94 +1242,6 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
             guard let airportAnnotation = view.annotation as? AirportAnnotation else { return }
             parent.onAirportTapped?(airportAnnotation.airport)
         }
-    }
-}
-
-// MARK: - Export Sheet
-
-struct FlightPlanExportSheet: View {
-    @Environment(\.dismiss) var dismiss
-
-    let data: Data
-    let filename: String
-    let format: FlightPlanExportFormat
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: iconName)
-                    .font(.system(size: 60))
-                    .foregroundColor(.aviationGold)
-
-                Text(L10n.Nav.exportReady)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primaryText)
-
-                Text("\(fullFilename)")
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundColor(.secondaryText)
-
-                Text(formattedSize)
-                    .font(.system(size: 12))
-                    .foregroundColor(.dimText)
-
-                ShareLink(item: exportFile, preview: SharePreview(filename, icon: iconName)) {
-                    Label(L10n.Nav.share, systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.aviationGold)
-                .padding(.horizontal, 40)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Nav.exportFlightPlan)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-
-    private var iconName: String {
-        switch format {
-        case .json: return "doc.text"
-        case .xlsx: return "tablecells"
-        case .pdf: return "doc.richtext"
-        case .gpx: return "point.topleft.down.to.point.bottomright.curvepath"
-        }
-    }
-
-    private var fullFilename: String {
-        "\(filename).\(format.fileExtension)"
-    }
-
-    private var formattedSize: String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(data.count))
-    }
-
-    private var exportFile: ExportFile {
-        ExportFile(data: data, filename: fullFilename, contentType: format.contentType)
-    }
-}
-
-/// Transferable file for sharing
-struct ExportFile: Transferable {
-    let data: Data
-    let filename: String
-    let contentType: UTType
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .data) { file in
-            file.data
-        }
-        .suggestedFileName { $0.filename }
     }
 }
 

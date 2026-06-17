@@ -143,7 +143,7 @@ struct FlightPlanMapBuilderView: View {
                 .environmentObject(airportDataService)
             }
             .sheet(item: $exportItem) { item in
-                FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
+                ShareSheet(activityItems: [item.url])
             }
         }
         .preferredColorScheme(.dark)

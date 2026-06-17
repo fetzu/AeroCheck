@@ -409,15 +409,7 @@ struct TimeDisplayView: View {
     }
 }
 
-// MARK: - Watch Colors
-
-extension Color {
-    static let aviationGold = Color(red: 0.85, green: 0.65, blue: 0.2)
-    static let aviationAmber = Color(red: 1.0, green: 0.75, blue: 0.0)
-    static let aviationGreen = Color(red: 0.2, green: 0.7, blue: 0.3)
-    static let aviationRed = Color(red: 0.85, green: 0.2, blue: 0.2)
-    static let panelBackground = Color(red: 0.12, green: 0.12, blue: 0.15)
-}
+// MARK: - Watch Colors — now from Shared/DesignTokens.swift.
 
 #Preview {
     ContentView()

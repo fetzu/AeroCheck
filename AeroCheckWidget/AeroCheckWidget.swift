@@ -1,22 +1,7 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Aviation Theme Colors
-// NOTE: These colors are duplicated from AeroCheck/Components/DesignSystem.swift
-// Keep in sync with the main app's color definitions.
-// Widget extensions cannot share code with the main app without a shared framework.
-
-extension Color {
-    // Primary colors - Aviation inspired (source: DesignSystem.swift)
-    static let aviationGold = Color(red: 0.85, green: 0.65, blue: 0.2)
-    static let aviationGreen = Color(red: 0.2, green: 0.7, blue: 0.3)
-    static let aviationBlue = Color(red: 0.1, green: 0.2, blue: 0.4)
-
-    // Background colors for dark mode (source: DesignSystem.swift)
-    static let cockpitBackground = Color(red: 0.08, green: 0.08, blue: 0.1)
-    static let panelBackground = Color(red: 0.12, green: 0.12, blue: 0.15)
-    static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.18)
-}
+// MARK: - Aviation Theme Colors — now from Shared/DesignTokens.swift.
 
 // MARK: - Shared Owned-Aircraft Data
 // NOTE: The App Group id, defaults key, and `WidgetAircraft` shape are duplicated from the main

@@ -12,7 +12,9 @@ extension Color {
     // Primary colors — aviation inspired
     static let aviationBlue = Color(red: 0.1, green: 0.2, blue: 0.4)
     static let aviationDarkBlue = Color(red: 0.05, green: 0.1, blue: 0.25)
-    static let aviationGold = Color(red: 0.85, green: 0.65, blue: 0.2)
+    // Accent + surfaces route through AmbientPalette so they can be re-skinned at runtime; absent an
+    // installed override they return their standard values, so the default look is unchanged.
+    static var aviationGold: Color { AmbientPalette.accent ?? Color(red: 0.85, green: 0.65, blue: 0.2) }
     static let aviationAmber = Color(red: 1.0, green: 0.75, blue: 0.0)
 
     // Status colors
@@ -20,10 +22,10 @@ extension Color {
     static let aviationRed = Color(red: 0.85, green: 0.2, blue: 0.2)
     static let aviationYellow = Color(red: 0.95, green: 0.8, blue: 0.2)
 
-    // Background colors
-    static let cockpitBackground = Color(red: 0.08, green: 0.08, blue: 0.1)
-    static let panelBackground = Color(red: 0.12, green: 0.12, blue: 0.15)
-    static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.18)
+    // Background colors (overridable — see note on aviationGold above)
+    static var cockpitBackground: Color { AmbientPalette.background ?? Color(red: 0.08, green: 0.08, blue: 0.1) }
+    static var panelBackground: Color { AmbientPalette.panel ?? Color(red: 0.12, green: 0.12, blue: 0.15) }
+    static var cardBackground: Color { AmbientPalette.card ?? Color(red: 0.15, green: 0.15, blue: 0.18) }
 
     // Text colors
     static let primaryText = Color.white

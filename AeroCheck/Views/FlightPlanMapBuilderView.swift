@@ -80,7 +80,7 @@ struct FlightPlanMapBuilderView: View {
                         HStack(spacing: 0) {
                             leftSide
                                 .frame(width: geo.size.width * 0.62)
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1)
+                            Rectangle().fill(Color.subtleOverlay(0.08)).frame(width: 1)
                             rightColumn
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
@@ -88,7 +88,7 @@ struct FlightPlanMapBuilderView: View {
                         VStack(spacing: 0) {
                             leftSide
                                 .frame(height: geo.size.height * 0.65)   // map + profile get the lion's share on iPhone
-                            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                            Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
                             rightColumn
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
@@ -258,7 +258,7 @@ struct FlightPlanMapBuilderView: View {
                 .focused($focusedEndpoint, equals: slot)
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
     }
 
     private func airportResults(onSelect: @escaping (Airport) -> Void) -> some View {
@@ -297,7 +297,7 @@ struct FlightPlanMapBuilderView: View {
                 }
                 .buttonStyle(.plain)
                 if airport.id != searchResults.prefix(6).last?.id {
-                    Divider().background(Color.white.opacity(0.06))
+                    Divider().background(Color.subtleOverlay(0.06))
                 }
             }
         }
@@ -436,7 +436,7 @@ struct FlightPlanMapBuilderView: View {
             mapArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             if waypoints.count >= 2 {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(Color.subtleOverlay(0.08)).frame(height: 1)
                 routeProfileStrip
             }
         }
@@ -534,7 +534,7 @@ struct FlightPlanMapBuilderView: View {
             .foregroundColor(selected ? .black : .primaryText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9).fill(selected ? tint : Color.white.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: 9).fill(selected ? tint : Color.subtleOverlay(0.06)))
         }
         .buttonStyle(.plain)
     }
@@ -571,12 +571,12 @@ struct FlightPlanMapBuilderView: View {
             VStack(spacing: 0) {
                 if terrainWarning {
                     terrainWarnRow
-                    if !crossedAirspaces.isEmpty { Divider().background(Color.white.opacity(0.06)) }
+                    if !crossedAirspaces.isEmpty { Divider().background(Color.subtleOverlay(0.06)) }
                 }
                 ForEach(crossedAirspaces) { airspace in
                     airspaceRow(airspace)
                     if airspace.id != crossedAirspaces.last?.id {
-                        Divider().background(Color.white.opacity(0.06))
+                        Divider().background(Color.subtleOverlay(0.06))
                     }
                 }
             }
@@ -596,7 +596,7 @@ struct FlightPlanMapBuilderView: View {
     @ViewBuilder private func holdFill(_ id: String) -> some View {
         if holdCenterId == id {
             GeometryReader { geo in
-                Rectangle().fill(Color.white.opacity(0.10)).frame(width: geo.size.width * holdCenterProgress)
+                Rectangle().fill(Color.subtleOverlay(0.10)).frame(width: geo.size.width * holdCenterProgress)
             }
         }
     }
@@ -686,7 +686,7 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(selected ? Color.white.opacity(0.07) : .clear)
+        .background(selected ? Color.subtleOverlay(0.07) : .clear)
         .background(alignment: .leading) { holdFill(Self.terrainConflictId) }
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(Self.terrainConflictId) }
@@ -730,7 +730,7 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(selected ? Color.white.opacity(0.07) : .clear)
+        .background(selected ? Color.subtleOverlay(0.07) : .clear)
         .background(alignment: .leading) { holdFill(a.id) }
         .contentShape(Rectangle())
         .onTapGesture { selectConflict(a.id) }
@@ -817,7 +817,7 @@ struct FlightPlanMapBuilderView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(listEditMode == .active ? .black : .aviationGold)
                     .frame(width: 30, height: 30)
-                    .background(Circle().fill(listEditMode == .active ? Color.aviationGold : Color.white.opacity(0.06)))
+                    .background(Circle().fill(listEditMode == .active ? Color.aviationGold : Color.subtleOverlay(0.06)))
             }
             .accessibilityLabel(L10n.Nav.reorderWaypoints)
             .accessibilityAddTraits(listEditMode == .active ? [.isSelected] : [])
@@ -879,7 +879,7 @@ struct FlightPlanMapBuilderView: View {
                     onTap: { editingWaypoint = waypoint }
                 )
                 .listRowBackground(Color.cardBackground)
-                .listRowSeparatorTint(Color.white.opacity(0.06))
+                .listRowSeparatorTint(Color.subtleOverlay(0.06))
             }
             .onMove { source, destination in
                 flightPlanManager.moveWaypoints(in: planId, from: source, to: destination)
@@ -1107,7 +1107,7 @@ private struct WaypointBuilderRow: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.subtleOverlay(0.06)))
         }
         .padding(.vertical, 6)
         .onAppear { altitudeText = waypoint.altitude.map { String(Int($0)) } ?? "" }

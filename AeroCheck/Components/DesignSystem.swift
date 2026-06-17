@@ -30,7 +30,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.buttonText)
-            .foregroundColor(.black)
+            .foregroundColor(.onAccent)
             .padding(.horizontal, isLarge ? 32 : 20)
             .padding(.vertical, isLarge ? 18 : 12)
             .background(

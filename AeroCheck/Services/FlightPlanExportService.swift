@@ -474,367 +474,268 @@ class FlightPlanExportService {
         return data
     }
 
-    private static func drawFlightPlan(_ plan: FlightPlan, in rect: CGRect, context: CGContext) {
-        let margin: CGFloat = 25
-        var yPosition: CGFloat = margin
-
-        let titleFont = UIFont.boldSystemFont(ofSize: 11)
-        let labelFont = UIFont.systemFont(ofSize: 8)
-        let dataFont = UIFont.systemFont(ofSize: 9)
-        let smallFont = UIFont.systemFont(ofSize: 7)
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "dd.MM.yyyy"
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
-
-        context.setStrokeColor(UIColor.black.cgColor)
-        context.setLineWidth(0.5)
-
-        let tableWidth = rect.width - 2 * margin
+    private static func drawFlightPlan(_ plan: FlightPlan, in rect: CGRect, context ctx: CGContext) {
+        let margin: CGFloat = 24
         let tableX = margin
+        let tableWidth = rect.width - 2 * margin
+        var y = margin
+
+        // Grayscale palette — print-first kneeboard form (#5 PDF redesign, Direction A)
+        let ink = UIColor(white: 0.11, alpha: 1)
+        let labelInk = UIColor(white: 0.32, alpha: 1)
+        let gridLight = UIColor(white: 0.82, alpha: 1)
+        let gridMed = UIColor(white: 0.68, alpha: 1)
+        let shHeader = UIColor(white: 0.90, alpha: 1)
+        let shLabel = UIColor(white: 0.925, alpha: 1)
+        let shZebra = UIColor(white: 0.975, alpha: 1)
+        let shDep = UIColor(white: 0.95, alpha: 1)
+        let shNA = UIColor(white: 0.80, alpha: 1)
+
+        let fTitle = UIFont.boldSystemFont(ofSize: 13)
+        let fLabel = UIFont.systemFont(ofSize: 8)
+        let fValue = UIFont.systemFont(ofSize: 9.5, weight: .medium)
+        let fRouteHdr = UIFont.systemFont(ofSize: 8.3, weight: .semibold)
+        let fRoute = UIFont.systemFont(ofSize: 8.3)
+        let fSec = UIFont.systemFont(ofSize: 8, weight: .semibold)
+        let fFuelHdr = UIFont.systemFont(ofSize: 7.6, weight: .medium)
+        let fFuel = UIFont.systemFont(ofSize: 8.2)
+        let fGroup = UIFont.systemFont(ofSize: 7.4, weight: .semibold)
+
+        let dateFmt = DateFormatter(); dateFmt.dateFormat = "dd.MM.yyyy"
+        let timeFmt = DateFormatter(); timeFmt.dateFormat = "HH:mm"
+
+        func drawText(_ r: CGRect, _ s: String, font: UIFont, align: NSTextAlignment, color: UIColor) {
+            guard !s.isEmpty else { return }
+            let para = NSMutableParagraphStyle()
+            para.alignment = align
+            para.lineBreakMode = .byClipping
+            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: para]
+            let inset = r.insetBy(dx: 4, dy: 1)
+            let ns = s as NSString
+            let bb = ns.boundingRect(with: CGSize(width: inset.width, height: .greatestFiniteMagnitude),
+                                     options: [.usesLineFragmentOrigin], attributes: attrs, context: nil)
+            let ty = inset.minY + max(0, (inset.height - bb.height) / 2)
+            ns.draw(in: CGRect(x: inset.minX, y: ty, width: inset.width, height: max(bb.height, inset.height)), withAttributes: attrs)
+        }
+
+        func cell(_ r: CGRect, _ s: String = "", font: UIFont? = nil, align: NSTextAlignment = .left,
+                  fill: UIColor? = nil, color: UIColor? = nil, grid: UIColor? = nil, lw: CGFloat = 0.5, stroke: Bool = true) {
+            if let fill = fill {
+                ctx.setFillColor(fill.cgColor)
+                ctx.fill(r)
+            }
+            if stroke {
+                ctx.setStrokeColor((grid ?? gridLight).cgColor)
+                ctx.setLineWidth(lw)
+                ctx.stroke(r)
+            }
+            drawText(r, s, font: font ?? fRoute, align: align, color: color ?? ink)
+        }
+
+        func dashedV(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat) {
+            ctx.saveGState()
+            ctx.setStrokeColor(gridMed.cgColor)
+            ctx.setLineWidth(0.5)
+            ctx.setLineDash(phase: 0, lengths: [1.6, 1.6])
+            ctx.move(to: CGPoint(x: x, y: y0))
+            ctx.addLine(to: CGPoint(x: x, y: y1))
+            ctx.strokePath()
+            ctx.setLineDash(phase: 0, lengths: [])
+            ctx.restoreGState()
+        }
+
+        func section(_ s: String) {
+            let attrs: [NSAttributedString.Key: Any] = [.font: fSec, .foregroundColor: labelInk, .kern: 1.1]
+            (s.uppercased() as NSString).draw(at: CGPoint(x: tableX, y: y), withAttributes: attrs)
+            y += 13
+        }
 
         // Title
-        let titleAttributes: [NSAttributedString.Key: Any] = [.font: titleFont, .foregroundColor: UIColor.black]
-        "AVIS DE VOL - PLAN DE VOL DE NAVIGATION".draw(at: CGPoint(x: margin, y: yPosition), withAttributes: titleAttributes)
-        yPosition += 16
+        ("AVIS DE VOL - PLAN DE VOL DE NAVIGATION" as NSString).draw(at: CGPoint(x: tableX, y: y),
+            withAttributes: [.font: fTitle, .foregroundColor: ink])
+        y += 17
+        ctx.setStrokeColor(ink.cgColor)
+        ctx.setLineWidth(1.2)
+        ctx.move(to: CGPoint(x: tableX, y: y))
+        ctx.addLine(to: CGPoint(x: tableX + tableWidth, y: y))
+        ctx.strokePath()
+        y += 8
 
-        // Header section - 3 rows matching the MODEL layout
-        // Column widths proportional to MODEL (6 columns total)
-        // 26pt so the two-line labels (Durée totale\nEET, Piste\nen service, …) aren't clipped. (#5 PDF)
-        let headerRowHeight: CGFloat = 26
-        let hCol1: CGFloat = 70    // Label (Pilote, Durée totale EET, Instructeur)
-        let hCol2: CGFloat = 110   // Value
-        let hCol3: CGFloat = 80    // Label (Avion, Autonomie, Date de l'annonce)
-        let hCol4: CGFloat = 80    // Value
-        let hCol5: CGFloat = 80    // Label (Date, Piste en service, Heure de l'annonce)
-        let hCol6: CGFloat = tableWidth - hCol1 - hCol2 - hCol3 - hCol4 - hCol5 // Value
-
-        let labelAttributes: [NSAttributedString.Key: Any] = [.font: labelFont, .foregroundColor: UIColor.black]
-        let dataAttributes: [NSAttributedString.Key: Any] = [.font: dataFont, .foregroundColor: UIColor.black]
-
-        // Row 1: Pilote | [value] | Avion | [value] | Date | [value]
-        var xOff: CGFloat = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Pilote", attributes: labelAttributes)
-        xOff += hCol1
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.pilot, attributes: dataAttributes)
-        xOff += hCol2
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Avion", attributes: labelAttributes)
-        xOff += hCol3
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: plan.aircraftRegistration, attributes: dataAttributes)
-        xOff += hCol4
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Date", attributes: labelAttributes)
-        xOff += hCol5
-        let dateStr = plan.plannedDepartureTime.map { dateFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: dateStr, attributes: dataAttributes)
-        yPosition += headerRowHeight
-
-        // Row 2: Durée totale EET | [value] | Autonomie | [value] | Piste en service | [value]
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Durée totale\nEET", attributes: labelAttributes)
-        xOff += hCol1
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.formattedTotalEET, attributes: dataAttributes)
-        xOff += hCol2
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Autonomie", attributes: labelAttributes)
-        xOff += hCol3
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: plan.formattedEndurance ?? "--:--", attributes: dataAttributes)
-        xOff += hCol4
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Piste\nen service", attributes: labelAttributes)
-        xOff += hCol5
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: plan.runwayInUse ?? "", attributes: dataAttributes)
-        yPosition += headerRowHeight
-
-        // Row 3: Instructeur | [value] | Date de l'annonce | [value] | Heure de l'annonce | [value]
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol1, height: headerRowHeight), text: "Instructeur", attributes: labelAttributes)
-        xOff += hCol1
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol2, height: headerRowHeight), text: plan.instructor ?? "", attributes: dataAttributes)
-        xOff += hCol2
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol3, height: headerRowHeight), text: "Date de\nl'annonce", attributes: labelAttributes)
-        xOff += hCol3
-        let announceDateStr = plan.announcementDate.map { dateFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol4, height: headerRowHeight), text: announceDateStr, attributes: dataAttributes)
-        xOff += hCol4
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol5, height: headerRowHeight), text: "Heure de\nl'annonce", attributes: labelAttributes)
-        xOff += hCol5
-        let announceTimeStr = plan.announcementTime.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: hCol6, height: headerRowHeight), text: announceTimeStr, attributes: dataAttributes)
-        yPosition += headerRowHeight
-
-        // Route table - 12 columns: Freq, C/S, Waypoint, MC, Dist, Alt, Wind, GS, EET, ETO, ATO, Remarks
-        let routeColWidths: [CGFloat] = [45, 32, 75, 32, 32, 32, 32, 32, 32, 38, 38, tableWidth - 420]
-        let routeRowHeight: CGFloat = 16
-
-        let headerSmallFont = UIFont.systemFont(ofSize: 8)
-        let headerAttributes: [NSAttributedString.Key: Any] = [.font: headerSmallFont, .foregroundColor: UIColor.black]
-
-        // Route header row 1
-        let routeHeaders = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
-        var xPos = tableX
-        for (index, header) in routeHeaders.enumerated() {
-            drawCell(context, rect: CGRect(x: xPos, y: yPosition, width: routeColWidths[index], height: routeRowHeight),
-                     text: header, attributes: headerAttributes, centered: true)
-            xPos += routeColWidths[index]
+        // Header — label / value pairs (each value sits in the cell to the right of its label)
+        let hRow: CGFloat = 19
+        let lw1: CGFloat = 84, vw1: CGFloat = 100, lw2: CGFloat = 92, vw2: CGFloat = 72, lw3: CGFloat = 95
+        let vw3 = tableWidth - lw1 - vw1 - lw2 - vw2 - lw3
+        func headerRow(_ l1: String, _ v1: String, _ l2: String, _ v2: String, _ l3: String, _ v3: String) {
+            var x = tableX
+            cell(CGRect(x: x, y: y, width: lw1, height: hRow), l1, font: fLabel, fill: shLabel, color: labelInk); x += lw1
+            cell(CGRect(x: x, y: y, width: vw1, height: hRow), v1, font: fValue); x += vw1
+            cell(CGRect(x: x, y: y, width: lw2, height: hRow), l2, font: fLabel, fill: shLabel, color: labelInk); x += lw2
+            cell(CGRect(x: x, y: y, width: vw2, height: hRow), v2, font: fValue); x += vw2
+            cell(CGRect(x: x, y: y, width: lw3, height: hRow), l3, font: fLabel, fill: shLabel, color: labelInk); x += lw3
+            cell(CGRect(x: x, y: y, width: vw3, height: hRow), v3, font: fValue)
+            y += hRow
         }
-        yPosition += routeRowHeight
+        let dateStr = plan.plannedDepartureTime.map { dateFmt.string(from: $0) } ?? ""
+        let annDate = plan.announcementDate.map { dateFmt.string(from: $0) } ?? ""
+        let annTime = plan.announcementTime.map { timeFmt.string(from: $0) } ?? ""
+        headerRow("Pilote", plan.pilot, "Avion", plan.aircraftRegistration, "Date", dateStr)
+        headerRow("Durée totale EET", plan.formattedTotalEET, "Autonomie", plan.formattedEndurance ?? "--:--", "Piste en service", plan.runwayInUse ?? "")
+        headerRow("Instructeur", plan.instructor ?? "", "Date de l'annonce", annDate, "Heure de l'annonce", annTime)
 
-        // Route header row 2 with dashes
-        let dashHeaders = ["", "", "", "-", "-", "-", "", "-", "-", "-", "-", ""]
-        xPos = tableX
-        for (index, header) in dashHeaders.enumerated() {
-            drawCell(context, rect: CGRect(x: xPos, y: yPosition, width: routeColWidths[index], height: routeRowHeight),
-                     text: header, attributes: headerAttributes, centered: true)
-            xPos += routeColWidths[index]
+        // Route — the centrepiece: 1 + 15 rows, uniform height whether filled or blank
+        y += 4
+        section("Route")
+        var widths: [CGFloat] = [44, 38, 71, 36, 38, 38, 38, 33, 33, 38, 38, 0]
+        widths[11] = tableWidth - widths.dropLast().reduce(0, +)
+        let headers = ["Freq", "C/S", "Waypoint", "MC", "Dist.", "Alt", "Wind", "GS", "EET", "ETO", "ATO", "Remarks"]
+        let routeHdrH: CGFloat = 18
+        var hx = tableX
+        for (i, h) in headers.enumerated() {
+            cell(CGRect(x: hx, y: y, width: widths[i], height: routeHdrH), h, font: fRouteHdr, align: .center, fill: shHeader, grid: gridMed)
+            hx += widths[i]
         }
-        yPosition += routeRowHeight
+        y += routeHdrH
 
-        // Route waypoints (15 rows)
-        let smallDataAttributes: [NSAttributedString.Key: Any] = [.font: smallFont, .foregroundColor: UIColor.black]
-        let waypointRows = 15
-        for i in 0..<waypointRows {
-            xPos = tableX
-            if i < plan.waypoints.count {
-                let waypoint = plan.waypoints[i]
-                let isFirstWaypoint = i == 0
-
-                let values: [String] = [
-                    waypoint.frequency ?? "",
-                    waypoint.callSign ?? "",
-                    waypoint.name,
-                    isFirstWaypoint ? "" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""),
-                    isFirstWaypoint ? "" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? ""),
-                    waypoint.altitude.map { String(format: "%.0f", $0) } ?? "",
-                    "", // Wind
-                    isFirstWaypoint ? "" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? ""),
-                    isFirstWaypoint ? "" : (waypoint.formattedEET ?? ""),
-                    isFirstWaypoint ? "" : (waypoint.formattedETO ?? ""),  // First waypoint: no ETO, only ATO
-                    waypoint.formattedATO ?? "",
-                    waypoint.remarks
-                ]
-
-                for (index, value) in values.enumerated() {
-                    let centered = index != 2 && index != 11 // Don't center Waypoint and Remarks
-                    drawCell(context, rect: CGRect(x: xPos, y: yPosition, width: routeColWidths[index], height: routeRowHeight),
-                             text: value, attributes: smallDataAttributes, centered: centered)
-                    xPos += routeColWidths[index]
-                }
-            } else {
-                // Empty row
-                for width in routeColWidths {
-                    drawCell(context, rect: CGRect(x: xPos, y: yPosition, width: width, height: routeRowHeight),
-                             text: "", attributes: smallDataAttributes)
-                    xPos += width
-                }
+        let rowH: CGFloat = 18.5
+        let naCols: Set<Int> = [3, 4, 5, 6, 7, 8]   // MC, Dist, Alt, Wind, GS, EET — no value on the departure line
+        for i in 0..<16 {
+            let isDep = i == 0
+            let rowFill: UIColor? = isDep ? shDep : (i % 2 == 1 ? shZebra : nil)
+            let rowFont = isDep ? fRouteHdr : fRoute
+            let wp = i < plan.waypoints.count ? plan.waypoints[i] : nil
+            var vals = [String](repeating: "", count: 12)
+            if let wp = wp {
+                vals[0] = wp.frequency ?? ""
+                vals[1] = wp.callSign ?? ""
+                vals[2] = wp.name
+                vals[3] = wp.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? ""
+                vals[4] = wp.distance.map { String(format: "%.1f", $0) } ?? ""
+                vals[5] = wp.altitude.map { String(format: "%.0f", $0) } ?? ""
+                vals[7] = wp.plannedGroundSpeed.map { "\($0)" } ?? ""
+                vals[8] = wp.formattedEET ?? ""
+                vals[9] = wp.formattedETO ?? ""
+                vals[10] = wp.formattedATO ?? ""
+                vals[11] = wp.remarks
             }
-            yPosition += routeRowHeight
+            var rx = tableX
+            for c in 0..<12 {
+                let na = isDep && naCols.contains(c)
+                let align: NSTextAlignment = (c == 2 || c == 11) ? .left : .center
+                cell(CGRect(x: rx, y: y, width: widths[c], height: rowH), na ? "" : vals[c],
+                     font: rowFont, align: align, fill: na ? shNA : rowFill)
+                rx += widths[c]
+            }
+            y += rowH
         }
 
-        // Fuel calculation section - matching MODEL layout exactly
+        // Carburant · Temps · Compteur — two panels spanning the full width
+        y += 5
+        section("Carburant · Temps · Compteur")
+        let panelTop = y
+        let panelH: CGFloat = 128
+        let panelGap: CGFloat = 9
+        let carbW = (tableWidth - panelGap) * 0.6
+        let tcW = tableWidth - panelGap - carbW
+        let tcX = tableX + carbW + panelGap
+
+        // Carburant (left): label · Fuel flow l/h · Time hh|mm · Fuel liters
+        let cLabelW = carbW * 0.34
+        let cFFW = carbW * 0.18
+        let cHHW = carbW * 0.13
+        let cMMW = carbW * 0.13
+        let cFuelW = carbW - cLabelW - cFFW - cHHW - cMMW
+        let carbHdrH: CGFloat = 22
+        let timeW = cHHW + cMMW
+
+        var chx = tableX
+        cell(CGRect(x: chx, y: panelTop, width: cLabelW, height: carbHdrH), "Fuel calculation", font: fFuelHdr, fill: shHeader, color: labelInk, grid: gridMed); chx += cLabelW
+        cell(CGRect(x: chx, y: panelTop, width: cFFW, height: carbHdrH), "Fuel flow\nl/h", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed); chx += cFFW
+        cell(CGRect(x: chx, y: panelTop, width: timeW, height: carbHdrH / 2), "Time", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
+        cell(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: timeW, height: carbHdrH / 2), "", fill: shHeader, grid: gridMed)
+        dashedV(chx + cHHW, panelTop + carbHdrH / 2, panelTop + carbHdrH)
+        drawText(CGRect(x: chx, y: panelTop + carbHdrH / 2, width: cHHW, height: carbHdrH / 2), "hh", font: fFuelHdr, align: .center, color: labelInk)
+        drawText(CGRect(x: chx + cHHW, y: panelTop + carbHdrH / 2, width: cMMW, height: carbHdrH / 2), "mm", font: fFuelHdr, align: .center, color: labelInk)
+        chx += timeW
+        cell(CGRect(x: chx, y: panelTop, width: cFuelW, height: carbHdrH), "Fuel\nliters", font: fFuelHdr, align: .center, fill: shHeader, color: labelInk, grid: gridMed)
+
         let fuelFlow = plan.fuelFlow ?? FlightPlan.defaultFuelFlow(for: plan.aircraftTypeId)
         let tripFuel = plan.tripFuel ?? 0
         let reserveFuel = plan.reserveFuel ?? 0
         let additionalFuel = plan.additionalFuel ?? (fuelFlow * 0.75)
         let extraFuel = plan.extraFuel ?? 0
         let fuelRequired = tripFuel + reserveFuel + additionalFuel + extraFuel
-
-        let fuelRowHeight: CGFloat = 16
-
-        // Fuel section columns (left side)
-        let fuelLabelW: CGFloat = 90
-        let fuelFlowW: CGFloat = 50
-        let fuelTimeHHW: CGFloat = 32
-        let fuelTimeMMW: CGFloat = 32
-        let fuelLitersW: CGFloat = 50
-        let fuelTotalW = fuelLabelW + fuelFlowW + fuelTimeHHW + fuelTimeMMW + fuelLitersW
-
-        // Timing section columns (right side)
-        let gapW: CGFloat = 8
-        let timingLabelW: CGFloat = 75
-        let timingValueW: CGFloat = 60
-        let timingX = tableX + fuelTotalW + gapW
-
-        // Fuel header row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Fuel calculation", attributes: labelAttributes, centered: true)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "Fuel flow", attributes: labelAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW + fuelTimeMMW, height: fuelRowHeight), text: "Time", attributes: labelAttributes, centered: true)
-        xOff += fuelTimeHHW + fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: "Fuel", attributes: labelAttributes, centered: true)
-        // Empty gap cell
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Timing: Compteur START
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Compteur START", attributes: labelAttributes, centered: true)
-        let counterStartStr = plan.counterStart.map { String(format: "%.1f", $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: counterStartStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Trip fuel row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Trip fuel", attributes: smallDataAttributes)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: String(format: "%.0f", fuelFlow), attributes: smallDataAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
-        xOff += fuelTimeHHW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", tripFuel), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Block OFF
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Block OFF", attributes: labelAttributes, centered: true)
-        let blockOffStr = plan.blockOff.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: blockOffStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Reserve fuel row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Reserve fuel (alt)", attributes: smallDataAttributes)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
-        xOff += fuelTimeHHW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", reserveFuel), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Time OFF
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Time OFF", attributes: labelAttributes, centered: true)
-        let timeOffStr = plan.timeOff.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: timeOffStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Additional fuel row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Additional (45')", attributes: smallDataAttributes)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "0", attributes: smallDataAttributes)
-        xOff += fuelTimeHHW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "45", attributes: smallDataAttributes, centered: true)
-        xOff += fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", additionalFuel), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Time ON
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Time ON", attributes: labelAttributes, centered: true)
-        let timeOnStr = plan.timeOn.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: timeOnStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Extra fuel row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Extra fuel", attributes: smallDataAttributes)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
-        xOff += fuelTimeHHW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", extraFuel), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Block ON
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Block ON", attributes: labelAttributes, centered: true)
-        let blockOnStr = plan.blockOn.map { timeFormatter.string(from: $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: blockOnStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Fuel required row
-        xOff = tableX
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLabelW, height: fuelRowHeight), text: "Fuel required", attributes: smallDataAttributes)
-        xOff += fuelLabelW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelFlowW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelFlowW
-        drawCellWithDottedRight(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeHHW, height: fuelRowHeight), text: "", attributes: smallDataAttributes)
-        xOff += fuelTimeHHW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelTimeMMW, height: fuelRowHeight), text: "", attributes: smallDataAttributes, centered: true)
-        xOff += fuelTimeMMW
-        drawCell(context, rect: CGRect(x: xOff, y: yPosition, width: fuelLitersW, height: fuelRowHeight), text: String(format: "%.1f", fuelRequired), attributes: smallDataAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        // Compteur STOP
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Compteur STOP", attributes: labelAttributes, centered: true)
-        let counterStopStr = plan.counterStop.map { String(format: "%.1f", $0) } ?? ""
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: counterStopStr, attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Notes section (3 rows tall) with Atterrissages on the right
-        let notesHeight = fuelRowHeight * 3
-        let notesLabelW: CGFloat = 40
-        let notesValueW = fuelTotalW - notesLabelW
-
-        // Notes (spans 3 rows on left)
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: notesLabelW, height: notesHeight), text: "Notes", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + notesLabelW, y: yPosition, width: notesValueW, height: notesHeight), text: plan.remarks, attributes: smallDataAttributes)
-        drawCell(context, rect: CGRect(x: tableX + fuelTotalW, y: yPosition, width: gapW, height: notesHeight), text: "", attributes: labelAttributes)
-
-        // Atterrissages row
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "Atterrissages", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)", attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // LSZQ / total row
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW, height: fuelRowHeight), text: "LSZQ / total", attributes: labelAttributes, centered: true)
-        drawCell(context, rect: CGRect(x: timingX + timingLabelW, y: yPosition, width: timingValueW, height: fuelRowHeight), text: "", attributes: dataAttributes, centered: true)
-        yPosition += fuelRowHeight
-
-        // Empty row on right to complete Notes section height
-        drawCell(context, rect: CGRect(x: timingX, y: yPosition, width: timingLabelW + timingValueW, height: fuelRowHeight), text: "", attributes: labelAttributes)
-        yPosition += fuelRowHeight
-
-        // Debriefing section — fill the remaining page so it's a real writing area, not a thin strip. (#5 PDF)
-        let debriefHeight = max(fuelRowHeight * 3, (rect.height - margin) - yPosition)
-        let debriefLabelW: CGFloat = 60
-        drawCell(context, rect: CGRect(x: tableX, y: yPosition, width: debriefLabelW, height: debriefHeight), text: "Debriefing", attributes: labelAttributes)
-        drawCell(context, rect: CGRect(x: tableX + debriefLabelW, y: yPosition, width: tableWidth - debriefLabelW, height: debriefHeight), text: plan.debriefing, attributes: smallDataAttributes)
-    }
-
-    /// Draw a cell with border and text
-    private static func drawCell(_ context: CGContext, rect: CGRect, text: String, attributes: [NSAttributedString.Key: Any], centered: Bool = false) {
-        context.stroke(rect)
-
-        let textRect = rect.insetBy(dx: 2, dy: 2)
-        if centered {
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.alignment = .center
-            var centeredAttributes = attributes
-            centeredAttributes[.paragraphStyle] = paragraphStyle
-            text.draw(in: textRect, withAttributes: centeredAttributes)
-        } else {
-            text.draw(in: textRect, withAttributes: attributes)
+        func fmtL(_ v: Double) -> String { String(format: "%.1f", v) }
+        let carbRows: [(label: String, ff: String, hh: String, mm: String, liters: String, ffGrey: Bool)] = [
+            ("Trip fuel", String(format: "%.0f", fuelFlow), "", "", fmtL(tripFuel), false),
+            ("Reserve fuel (alt)", "", "", "", fmtL(reserveFuel), false),
+            ("Additional (45')", "", "0", "45", fmtL(additionalFuel), false),
+            ("Extra fuel", "", "", "", fmtL(extraFuel), false),
+            ("Fuel required", "", "", "", fmtL(fuelRequired), true)
+        ]
+        let carbRowH = (panelH - carbHdrH) / CGFloat(carbRows.count)
+        for (idx, row) in carbRows.enumerated() {
+            let cy = panelTop + carbHdrH + CGFloat(idx) * carbRowH
+            let isTot = idx == carbRows.count - 1
+            let rf: UIColor? = isTot ? shDep : nil
+            let lblFont = isTot ? fRouteHdr : fFuel
+            var rx = tableX
+            cell(CGRect(x: rx, y: cy, width: cLabelW, height: carbRowH), row.label, font: lblFont, fill: rf); rx += cLabelW
+            cell(CGRect(x: rx, y: cy, width: cFFW, height: carbRowH), row.ffGrey ? "" : row.ff, font: fFuel, align: .center, fill: row.ffGrey ? shNA : rf); rx += cFFW
+            cell(CGRect(x: rx, y: cy, width: timeW, height: carbRowH), "", fill: rf)
+            dashedV(rx + cHHW, cy, cy + carbRowH)
+            drawText(CGRect(x: rx, y: cy, width: cHHW, height: carbRowH), row.hh, font: fFuel, align: .center, color: ink)
+            drawText(CGRect(x: rx + cHHW, y: cy, width: cMMW, height: carbRowH), row.mm, font: fFuel, align: .center, color: ink)
+            rx += timeW
+            cell(CGRect(x: rx, y: cy, width: cFuelW, height: carbRowH), row.liters, font: lblFont, align: .center, fill: rf)
         }
-    }
 
-    /// Draw a cell with dotted right border (for Time hh column)
-    private static func drawCellWithDottedRight(_ context: CGContext, rect: CGRect, text: String, attributes: [NSAttributedString.Key: Any]) {
-        // Draw solid borders on top, bottom, left
-        context.setLineDash(phase: 0, lengths: [])
-        context.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY)) // Top
-        context.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY)) // Bottom
-        context.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        context.addLine(to: CGPoint(x: rect.minX, y: rect.maxY)) // Left
-        context.strokePath()
+        // Temps · Compteur · Atterrissages (right) — one shared table
+        let tcLabelW = tcW * 0.6
+        let tcValW = tcW - tcLabelW
+        let groupH: CGFloat = 12
+        let tcRowH = (panelH - 2 * groupH) / 8
+        var ty = panelTop
+        func tcGroup(_ s: String) {
+            cell(CGRect(x: tcX, y: ty, width: tcW, height: groupH), s, font: fGroup, fill: shHeader, color: labelInk, grid: gridMed)
+            ty += groupH
+        }
+        func tcRow(_ k: String, _ v: String) {
+            cell(CGRect(x: tcX, y: ty, width: tcLabelW, height: tcRowH), k, font: fFuel, color: labelInk)
+            cell(CGRect(x: tcX + tcLabelW, y: ty, width: tcValW, height: tcRowH), v, font: fValue, align: .right)
+            ty += tcRowH
+        }
+        tcGroup("Temps")
+        tcRow("Block OFF", plan.blockOff.map { timeFmt.string(from: $0) } ?? "")
+        tcRow("Time OFF", plan.timeOff.map { timeFmt.string(from: $0) } ?? "")
+        tcRow("Time ON", plan.timeOn.map { timeFmt.string(from: $0) } ?? "")
+        tcRow("Block ON", plan.blockOn.map { timeFmt.string(from: $0) } ?? "")
+        tcGroup("Compteur · Atterrissages")
+        tcRow("Compteur START", plan.counterStart.map { String(format: "%.1f", $0) } ?? "")
+        tcRow("Compteur STOP", plan.counterStop.map { String(format: "%.1f", $0) } ?? "")
+        tcRow("Atterrissages", "\(plan.landingsAtBase ?? 0) / \(plan.totalLandings ?? 0)")
+        tcRow("home / total", "")
 
-        // Draw dotted right border
-        context.setLineDash(phase: 0, lengths: [2, 2])
-        context.move(to: CGPoint(x: rect.maxX, y: rect.minY))
-        context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        context.strokePath()
+        y = panelTop + panelH
 
-        // Reset dash pattern
-        context.setLineDash(phase: 0, lengths: [])
-
-        // Draw text centered
-        let textRect = rect.insetBy(dx: 2, dy: 2)
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        var centeredAttributes = attributes
-        centeredAttributes[.paragraphStyle] = paragraphStyle
-        text.draw(in: textRect, withAttributes: centeredAttributes)
+        // Notes (1/3) + Debriefing (2/3) fill the remaining page height
+        y += 9
+        let gap: CGFloat = 8
+        let remaining = (rect.height - margin) - y
+        let notesH = (remaining - gap) / 3
+        let debriefH = remaining - gap - notesH
+        cell(CGRect(x: tableX, y: y, width: tableWidth, height: notesH), grid: gridMed)
+        ("Notes" as NSString).draw(at: CGPoint(x: tableX + 5, y: y + 4), withAttributes: [.font: fGroup, .foregroundColor: labelInk])
+        if !plan.remarks.isEmpty {
+            (plan.remarks as NSString).draw(in: CGRect(x: tableX + 5, y: y + 17, width: tableWidth - 10, height: notesH - 20),
+                withAttributes: [.font: fFuel, .foregroundColor: ink])
+        }
+        y += notesH + gap
+        cell(CGRect(x: tableX, y: y, width: tableWidth, height: debriefH), grid: gridMed)
+        ("Debriefing" as NSString).draw(at: CGPoint(x: tableX + 5, y: y + 4), withAttributes: [.font: fGroup, .foregroundColor: labelInk])
+        if !plan.debriefing.isEmpty {
+            (plan.debriefing as NSString).draw(in: CGRect(x: tableX + 5, y: y + 17, width: tableWidth - 10, height: debriefH - 20),
+                withAttributes: [.font: fFuel, .foregroundColor: ink])
+        }
     }
 
     private static func escapeXML(_ string: String) -> String {

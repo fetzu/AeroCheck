@@ -11,9 +11,6 @@ enum OpenAIPConfig {
     /// Core REST API base URL for structured data (airports, airspaces, navaids)
     static let coreAPIBaseURL = "https://api.core.openaip.net/api"
 
-    /// Tiles API base URL for raster/vector map tiles
-    static let tilesAPIBaseURL = "https://api.tiles.openaip.net/api/data"
-
     /// Subdomains for tile load balancing
     static let tileSubdomains = ["a", "b", "c"]
 
@@ -47,8 +44,6 @@ enum OpenAIPConfig {
     static let streamingCacheInvalidationDistanceNM: Double = 10.0
     /// Minimum interval between streaming API requests (60 seconds)
     static let streamingMinFetchInterval: TimeInterval = 60
-    /// Base backoff interval on error (2 minutes)
-    static let streamingErrorBackoff: TimeInterval = 120
     /// Maximum backoff interval on repeated errors (5 minutes)
     static let streamingMaxErrorBackoff: TimeInterval = 300
     /// Request timeout for streaming API calls (10 seconds)

@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 /// Get a localized string in a specific language
 /// - Parameters:
@@ -286,7 +285,6 @@ enum L10n {
         // GPS
         static let gps = String(localized: "settings.gps")
         static let gpsInterval = String(localized: "settings.gps.recordingInterval")
-        static let gpsStatus = String(localized: "settings.gps.gpsStatus")
         static func seconds(_ n: Int) -> String {
             String(format: String(localized: "settings.gps.seconds"), n)
         }
@@ -316,13 +314,8 @@ enum L10n {
         static let display = String(localized: "settings.display")
         static let keepScreenOn = String(localized: "settings.display.keepScreenOn")
         static let alwaysUseUTC = String(localized: "settings.display.alwaysUseUTC")
-        static let nightMode = String(localized: "settings.display.nightMode")
         static let keepScreenOnFooter = String(localized: "settings.display.keepScreenOnDesc")
         static let alwaysUseUTCFooter = String(localized: "settings.display.alwaysUseUTCDesc")
-        static let nightModeFooter = String(localized: "settings.display.nightModeDesc")
-        static let nightModeOff = String(localized: "settings.display.nightMode.off")
-        static let nightModeOn = String(localized: "settings.display.nightMode.on")
-        static let nightModeSystem = String(localized: "settings.display.nightMode.system")
         // Cockpit theme (v4 UI/UX Revamp — replaces the night-mode picker; sunlight now selectable)
         static let theme = String(localized: "settings.display.theme")
         static let themeFooter = String(localized: "settings.display.themeDesc")
@@ -673,8 +666,6 @@ enum L10n {
         static let goArounds = String(localized: "checklist.goArounds")
         static let touchAndGo = String(localized: "checklist.touchAndGo")
         static let touchAndGoes = String(localized: "checklist.touchAndGoes")
-        static let fullStop = String(localized: "checklist.fullStop")
-        static let fullStops = String(localized: "checklist.fullStops")
         static let landed = String(localized: "checklist.landed")
         static let landing = String(localized: "checklist.landing")
 
@@ -717,14 +708,6 @@ enum L10n {
 
         static func touchAndGoes(language: String) -> String {
             localizedString(key: "checklist.touchAndGoes", language: language, defaultValue: "Touch-and-goes")
-        }
-
-        static func fullStop(language: String) -> String {
-            localizedString(key: "checklist.fullStop", language: language, defaultValue: "FULL STOP")
-        }
-
-        static func fullStops(language: String) -> String {
-            localizedString(key: "checklist.fullStops", language: language, defaultValue: "Full Stops")
         }
 
         static func landed(language: String) -> String {
@@ -829,38 +812,6 @@ enum L10n {
         static let navPlan = String(localized: "flightDetail.navPlan")
         static let export = String(localized: "flightDetail.export")
         static let delete = String(localized: "flightDetail.delete")
-    }
-
-    // MARK: - Debug
-    enum Debug {
-        // Transaction Debug
-        static let transactionLoading = String(localized: "debug.transaction.loading")
-        static let transactionNoFound = String(localized: "debug.transaction.noFound")
-        static let transactionCouldMean = String(localized: "debug.transaction.couldMean")
-        static let transactionTotal = String(localized: "debug.transaction.totalTransactions")
-        static let transactionActive = String(localized: "debug.transaction.activeSubscriptions")
-        static let transactionAccountType = String(localized: "debug.transaction.accountType")
-        static let transactionSummary = String(localized: "debug.transaction.summary")
-        static let transactionAll = String(localized: "debug.transaction.allTransactions")
-        static let transactionTitle = String(localized: "debug.transaction.title")
-        static let transactionClose = String(localized: "debug.transaction.close")
-        static let transactionEnvironment = String(localized: "debug.transaction.environment")
-        static let transactionPurchased = String(localized: "debug.transaction.purchased")
-        static let transactionExpires = String(localized: "debug.transaction.expires")
-        static let transactionID = String(localized: "debug.transaction.transactionID")
-        static let transactionOriginalID = String(localized: "debug.transaction.originalID")
-        static func transactionVerificationError(_ error: String) -> String {
-            String(format: String(localized: "debug.transaction.verificationError"), error)
-        }
-        static func transactionRevokedOn(_ date: String) -> String {
-            String(format: String(localized: "debug.transaction.revokedOn"), date)
-        }
-
-        // Subscription Log
-        static let subscriptionLogNoLogs = String(localized: "debug.subscriptionLog.noLogs")
-        static let subscriptionLogAppear = String(localized: "debug.subscriptionLog.logsAppear")
-        static let subscriptionLogTitle = String(localized: "debug.subscriptionLog.title")
-        static let subscriptionLogClose = String(localized: "debug.subscriptionLog.close")
     }
 
     // MARK: - Event Confirmation

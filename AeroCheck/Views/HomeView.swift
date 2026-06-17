@@ -1025,34 +1025,6 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Quick Stat View
-
-struct QuickStatView: View {
-    let icon: String
-    let value: String
-    let label: String
-    var isCompact: Bool = false
-    
-    var body: some View {
-        VStack(spacing: isCompact ? 3 : 8) {
-            Image(systemName: icon)
-                .font(.system(size: isCompact ? 16 : 20))
-                .foregroundColor(.aviationBlue)
-                .accessibilityHidden(true)
-
-            Text(value)
-                .font(.system(size: isCompact ? 18 : 24, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-
-            Text(label)
-                .font(.system(size: isCompact ? 11 : 13))
-                .foregroundColor(.secondaryText)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(value) \(label)")
-    }
-}
-
 // MARK: - Symbol Effect Compatibility
 
 private extension View {

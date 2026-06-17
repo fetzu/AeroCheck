@@ -25,17 +25,6 @@ enum ExternalRequest {
         return URLSession(configuration: config)
     }()
 
-    /// Builds a session configuration carrying the User-Agent, for callers that need their own
-    /// session tuning (e.g. the bulk tile downloader's per-host connection cap).
-    static func configuredSession(_ configure: (URLSessionConfiguration) -> Void) -> URLSession {
-        let config = URLSessionConfiguration.default
-        config.httpAdditionalHeaders = ["User-Agent": userAgent]
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 60
-        configure(config)
-        return URLSession(configuration: config)
-    }
-
     // MARK: - Pure policy (unit-tested)
 
     /// Whether an HTTP status warrants a retry (transient throttling/server error) within budget.

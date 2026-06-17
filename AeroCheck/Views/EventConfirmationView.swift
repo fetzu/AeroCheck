@@ -265,8 +265,8 @@ extension View {
                 airport: nil,
                 message: "Touch-and-go detected"
             ),
-            onConfirm: { print("Confirmed") },
-            onDismiss: { print("Dismissed") }
+            onConfirm: { },
+            onDismiss: { }
         )
     }
 }

@@ -33,16 +33,6 @@ enum AirportType: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Whether this type should be shown by default
-    var shownByDefault: Bool {
-        switch self {
-        case .largeAirport, .mediumAirport, .smallAirport:
-            return true
-        case .heliport, .seaplaneBase, .closed, .balloonport:
-            return false
-        }
-    }
-
     /// Airport types relevant to fixed-wing flight planning. The flight-plan builder filters its map
     /// and search results to this set so heliports, seaplane bases, balloonports and closed fields
     /// don't clutter route building. To support rotorcraft later, add `.heliport` here (and to the
@@ -187,30 +177,6 @@ struct Runway: Codable, Identifiable, Equatable, Sendable {
         return parts.joined(separator: " - ")
     }
 
-    /// Calculate headwind/crosswind components for given wind
-    /// - Parameters:
-    ///   - windDirection: Wind direction in degrees (from)
-    ///   - windSpeed: Wind speed in knots
-    ///   - useHighEnd: Whether to use high-end runway heading
-    /// - Returns: (headwind, crosswind) components in knots (positive = headwind/right crosswind)
-    func windComponents(windDirection: Double, windSpeed: Double, useHighEnd: Bool) -> (headwind: Double, crosswind: Double)? {
-        let runwayHeading: Double?
-        if useHighEnd {
-            runwayHeading = heHeadingDegT
-        } else {
-            runwayHeading = leHeadingDegT
-        }
-
-        guard let heading = runwayHeading else { return nil }
-
-        // Calculate relative wind angle
-        let relativeAngle = (windDirection - heading) * .pi / 180.0
-
-        let headwind = windSpeed * cos(relativeAngle)
-        let crosswind = windSpeed * sin(relativeAngle)
-
-        return (headwind: headwind, crosswind: crosswind)
-    }
 }
 
 // MARK: - CSV Parsing Extensions

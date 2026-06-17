@@ -7,14 +7,6 @@ enum GPSSignalStatus {
     case good       // Green: GPS functioning, accurate position available
     case degraded   // Orange: GPS working but accuracy poor or updates infrequent
     case lost       // Red: GPS truly lost — no position data available
-
-    var color: String {
-        switch self {
-        case .good: return "aviationGreen"
-        case .degraded: return "orange"
-        case .lost: return "aviationRed"
-        }
-    }
 }
 
 /// Manages GPS location tracking during flights
@@ -493,17 +485,6 @@ class LocationManager: NSObject, ObservableObject {
             return smoothedSpeedMPS
         }
         // Stale or no valid reading yet: try raw current location
-        if let speed = currentLocation?.speed, speed >= 0 { return speed }
-        return 0
-    }
-
-    /// Display speed in m/s (extra-smoothed for visual stability)
-    /// Slower EMA (α=0.15) — use for speed indicator UI only.
-    var displaySpeedMPS: Double {
-        if let lastTime = lastValidSpeedTime,
-           Date().timeIntervalSince(lastTime) < cachedValueStalenessLimit {
-            return displaySmoothedSpeedMPS
-        }
         if let speed = currentLocation?.speed, speed >= 0 { return speed }
         return 0
     }

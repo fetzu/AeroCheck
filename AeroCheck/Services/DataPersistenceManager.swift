@@ -528,17 +528,6 @@ class DataPersistenceManager: ObservableObject {
         }
     }
 
-    // MARK: - Map Tiles Directory
-
-    /// Get directory for ICAO map tiles
-    var icaoMapTilesDirectory: URL {
-        mapTilesDirectory.appendingPathComponent("ICAO", isDirectory: true)
-    }
-
-    /// Get directory for Segelflug map tiles
-    var segelflugMapTilesDirectory: URL {
-        mapTilesDirectory.appendingPathComponent("Segelflug", isDirectory: true)
-    }
 }
 
 // MARK: - Index Entry Types

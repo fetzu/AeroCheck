@@ -494,7 +494,7 @@ struct FlightPlanMapBuilderView: View {
                                  visibleRegion: region,
                                  onSetAltitude: { index, alt in setWaypointAltitude(index, alt) },
                                  onAddAtDistance: { nm, alt in addProfilePoint(atNM: nm, altitude: alt) })
-                    .frame(height: profileExpanded ? 300 : 136)
+                    .frame(height: profileExpanded ? 300 : (horizontalSizeClass == .compact ? 100 : 136))
                     .padding(.horizontal, 8).padding(.bottom, 8)
             }
         }
@@ -1313,7 +1313,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
         let coords = waypoints.map { $0.coordinate }
         let rects = coords.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
         let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
-        let padding = UIEdgeInsets(top: 60, left: 60, bottom: 60, right: 60)
+        // Extra top inset so the fitted route clears the floating From/To bar instead of hiding behind it.
+        let padding = UIEdgeInsets(top: 100, left: 60, bottom: 60, right: 60)
         mapView.setVisibleMapRect(union, edgePadding: padding, animated: true)
     }
 

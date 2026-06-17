@@ -748,6 +748,12 @@ struct FlightView: View {
     private func performEngineStart() {
         appState.recordEngineStart()
         pulseActionButton = false
+        // Prompt the engine-hour (Hobbs/tach) input on first start, mirroring shutdown — otherwise the
+        // HUD action button records the time but never offers the hour entry on iPhone. (HUD feedback)
+        if appState.settings.logEngineHours && appState.currentFlight?.engineHourStart == nil {
+            hourMeterStartInitialValue = ""
+            showHourMeterStart = true
+        }
         if allItemsChecked { triggerNextButtonPulse() }
     }
     private func performEngineStartUpdate() {

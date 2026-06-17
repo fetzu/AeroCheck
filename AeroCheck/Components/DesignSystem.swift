@@ -1554,12 +1554,14 @@ struct CockpitHeroChecklistItem: View {
             Text(challenge)
                 .font(.system(size: challengeSize, weight: .medium))
                 .foregroundColor(theme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(2)                 // never run past 2 lines — long item names threw off the HUD
+                .minimumScaleFactor(0.6)
             if let response, !response.isEmpty {
                 Text(response)
                     .font(.system(size: responseSize, weight: .medium))
                     .foregroundColor(theme.action)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

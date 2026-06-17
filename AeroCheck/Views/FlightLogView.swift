@@ -4480,7 +4480,7 @@ struct ShareCardAltitudeChart: View {
         } else if !terrainData.isEmpty {
             // Path-based terrain rendering — SwiftUI Charts AreaMark always stacks
             // multiple series, so we use GeometryReader + ZStack + Path for true
-            // painter's model layering (matching TerrainProfileView.swift pattern).
+            // painter's model layering.
             GeometryReader { geometry in
                 let size = geometry.size
 

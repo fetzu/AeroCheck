@@ -96,6 +96,12 @@ class WindDataService: ObservableObject {
             return nil
         }
 
+        // Defence-in-depth: a non-finite reading must never reach the speed indicator, where
+        // Int(displaySpeed) on a non-finite Double is a hard trap. Fall back to ground speed.
+        guard windData.speedKmh.isFinite, windData.directionDegrees.isFinite else {
+            return nil
+        }
+
         // Convert wind speed from km/h to knots
         let windSpeedKnots = windData.speedKmh * 0.539957
 
@@ -120,7 +126,8 @@ class WindDataService: ObservableObject {
         // direction. Caught by WindDataServiceTests.testHeadwindIncreasesAirspeed.)
         let estimatedAirspeed = groundSpeedKnots - alongTrackWindComponent
 
-        return max(0, estimatedAirspeed)
+        let result = max(0, estimatedAirspeed)
+        return result.isFinite ? result : nil
     }
 
     /// Age of the current wind reading in seconds, if any (for provenance display).
@@ -205,6 +212,15 @@ class WindDataService: ObservableObject {
                   let directionDegrees = properties["wind_direction"] as? Double,
                   let stationName = properties["station_name"] as? String,
                   let timestampStr = properties["reference_ts"] as? String else {
+                continue
+            }
+
+            // Reject implausible / non-finite readings. JSONSerialization decodes an overflow
+            // exponent (e.g. 1e400) to ±inf, which would pass the `as? Double` cast above, flow into
+            // calculateEstimatedAirspeed, and trap at Int(displaySpeed) on the live speed indicator.
+            guard speedValue.isFinite, directionDegrees.isFinite,
+                  speedValue >= 0, speedValue <= 250,
+                  directionDegrees >= 0, directionDegrees <= 360 else {
                 continue
             }
 

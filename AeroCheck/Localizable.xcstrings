@@ -9220,6 +9220,38 @@
         }
       }
     },
+    "nav.airspaceNotChecked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Airspace not checked"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espace aérien non vérifié"
+          }
+        }
+      }
+    },
+    "nav.airspaceNotCheckedDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No airspace data downloaded for this area. Download airspace data to check the route against CTR, restricted and prohibited zones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune donnée d'espace aérien téléchargée pour cette zone. Téléchargez les données pour vérifier la route par rapport aux zones CTR, réglementées et interdites."
+          }
+        }
+      }
+    },
     "nav.noConflicts" : {
       "localizations" : {
         "en" : {

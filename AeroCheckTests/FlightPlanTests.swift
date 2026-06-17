@@ -108,6 +108,15 @@ final class FlightPlanTests: XCTestCase {
         XCTAssertEqual(prof.altitude(atNM: prof.totalNM), 3500)
     }
 
+    // A single known altitude extrapolates to a flat line; terrain clearance must NOT be judged
+    // against it (over rising terrain it produces a false bust). hasUsableProfile gates that. (v4.0.0
+    // review P1)
+    func testAltitudeProfileNeedsTwoAltitudesToBeUsableForTerrain() {
+        XCTAssertFalse(RouteAltitudeProfile(eastWestPlan(altA: nil, altB: nil)).hasUsableProfile)
+        XCTAssertFalse(RouteAltitudeProfile(eastWestPlan(altA: 3500, altB: nil)).hasUsableProfile)
+        XCTAssertTrue(RouteAltitudeProfile(eastWestPlan(altA: 3500, altB: 6000)).hasUsableProfile)
+    }
+
     // MARK: - bestInsertionIndex — cheapest-insertion smart add (flight-plan revamp #4)
 
     private func wp(_ lat: Double, _ lon: Double) -> FlightPlanWaypoint {

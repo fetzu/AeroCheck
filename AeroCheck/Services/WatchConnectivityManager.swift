@@ -191,19 +191,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         data.currentPhaseRawValue = appState.currentPhase.rawValue
         data.currentPhaseName = appState.currentPhase.shortTitle
 
-        // Next phase
-        if let nextPhaseIndex = ChecklistPhase.allCases.firstIndex(of: appState.currentPhase),
-           nextPhaseIndex + 1 < ChecklistPhase.allCases.count {
-            let nextPhase = ChecklistPhase.allCases[nextPhaseIndex + 1]
-            // Skip CRUISE and DESCENT in circuit mode
-            if appState.isCircuitMode && (nextPhase == .cruise || nextPhase == .descent) {
-                if nextPhaseIndex + 2 < ChecklistPhase.allCases.count {
-                    data.nextPhaseName = ChecklistPhase.allCases[nextPhaseIndex + 2].shortTitle
-                }
-            } else {
-                data.nextPhaseName = nextPhase.shortTitle
-            }
-        }
+        // Next phase — use the canonical navigable-phase helper so it steps over EVERY consecutive
+        // circuit-skipped phase. The old +1/+2 math only skipped one, so at CLIMB in circuit mode it
+        // landed on DESCENT (itself skipped) instead of APPROACH. nil at the last phase, as before.
+        data.nextPhaseName = appState.currentPhase.nextNavigable(circuitMode: appState.isCircuitMode)?.shortTitle
 
         // Timing
         data.lineUpTime = appState.lineUpTime

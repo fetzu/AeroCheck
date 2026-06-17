@@ -452,7 +452,7 @@ struct SpeedIndicatorView: View {
     static func annunciationState(displaySpeed: Double, targetSpeed: Int, stallSpeed: Int,
                                   showingEstimatedAirspeed: Bool,
                                   gpsSignalStatus: GPSSignalStatus) -> SpeedState {
-        let speedInt = Int(displaySpeed)
+        let speedInt = displaySpeed.isFinite ? Int(displaySpeed) : 0
         if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
             return abs(speedInt - targetSpeed) <= 5 ? .onTarget : .offTarget
         }
@@ -512,7 +512,7 @@ struct SpeedIndicatorView: View {
     }
 
     private var targetIcon: String {
-        let speedInt = Int(displaySpeed)
+        let speedInt = displaySpeed.isFinite ? Int(displaySpeed) : 0
         if speedInt < targetSpeed - 5 {
             return "arrow.up"
         } else if speedInt > targetSpeed + 5 {

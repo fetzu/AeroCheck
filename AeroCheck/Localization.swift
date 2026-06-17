@@ -1009,6 +1009,8 @@ enum L10n {
         static let airspaceSingular = String(localized: "nav.airspaceSingular")
         static let airspacePlural = String(localized: "nav.airspacePlural")
         static let restricted = String(localized: "nav.restricted")
+        static let airspaceNotChecked = String(localized: "nav.airspaceNotChecked")
+        static let airspaceNotCheckedDetail = String(localized: "nav.airspaceNotCheckedDetail")
         static let routeClear = String(localized: "nav.routeClear")
         static let terrainClose = String(localized: "nav.terrainClose")
         static let terrainProximity = String(localized: "nav.terrainProximity")

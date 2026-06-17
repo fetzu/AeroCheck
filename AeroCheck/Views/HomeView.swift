@@ -109,6 +109,16 @@ struct HomeView: View {
     /// Mirrors the body's rail-layout test (iPad landscape). When true, the rail destinations present
     /// as leading-edge slide-in overlays instead of the default bottom covers. (3.5 — device feedback)
     @State private var useRailLayout: Bool = false
+    /// Latest computed rail value; applied to `useRailLayout` only when no destination is open, so a
+    /// rotation / app-switch resize never tears down (and loses) a presented destination. (orientation)
+    @State private var railWhenIdle: Bool = false
+
+    /// True while any Home destination is presented (cover or rail overlay). The layout switch is
+    /// frozen while this holds. (orientation reliability)
+    private var anyDestinationOpen: Bool {
+        showSettings || showFlightLog || showSpeedReference || showNavigation
+            || showFlightPlanning || lastFlightForDetail != nil
+    }
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (3.5 — feedback)
     @State private var flightLogSelectionID: UUID? = nil
@@ -178,9 +188,13 @@ struct HomeView: View {
                         }
                     }
                 }
-                .onAppear { useRailLayout = rail }
+                .onAppear { railWhenIdle = rail; if !anyDestinationOpen { useRailLayout = rail } }
                 .onChange(of: geometry.size) { _, _ in
-                    if useRailLayout != rail { useRailLayout = rail }
+                    // Track the layout the size implies, but DON'T switch while a destination is open —
+                    // switching destroys the presented cover/overlay (and its whole nested stack),
+                    // bouncing you back on rotation or an app-switch resize. Freeze; re-sync on close.
+                    railWhenIdle = rail
+                    if !anyDestinationOpen, useRailLayout != rail { useRailLayout = rail }
                 }
             }
 
@@ -188,6 +202,10 @@ struct HomeView: View {
             // "behind" the left rail), rather than the default bottom cover. Portrait keeps the covers
             // below. (3.5 — device feedback)
             railDestinationOverlays
+        }
+        // When the last destination closes, apply any layout change deferred while it was open.
+        .onChange(of: anyDestinationOpen) { _, open in
+            if !open, useRailLayout != railWhenIdle { useRailLayout = railWhenIdle }
         }
         .fullScreenCover(isPresented: coverBinding($showSettings)) {
             SettingsView()

@@ -11,7 +11,67 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 <br>
 
 ### `Latest`
-# **Version 3.6.0** - Flight Plan Airspace Conflicts
+# **Version 4.0.0** - Redesigned Cockpit & Map-First Flight Planning
+*Released June 17, 2026*
+
+AeroCheck 4.0.0 is the biggest overhaul yet — the entire app has been redesigned around a cleaner, cockpit-style interface, rebuilt iPad-first (with iPhone close behind), plus a brand-new map-first flight planner and an iPad↔iPhone second screen.
+
+### New Features
+
+#### Redesigned In-Flight HUD
+- **One-glance hierarchy**: the current checklist item is the hero; past and future steps recede.
+- **Cockpit instrument strip**: live speed, altitude, heading and vertical speed with a color-blind-safe on-target bar, plus stall and instrument-failure annunciations.
+- **Tappable phase bar**: jump forward and back through the 16 phases from a single segmented bar.
+- **One-tap reference panels**: V-Speeds, GPS status, and departure/approach briefings open as a docked panel on iPad or a bottom drawer on iPhone.
+- **Hold-to-confirm events**: Go-Around, Touch-and-Go and Full-Stop sit behind a deliberate hold, with a brief undo.
+
+#### Map-First Flight Plan Builder
+- **Build routes on the map**: drag a waypoint to move it, drag the route line to insert one, and release near an airfield to auto-snap (name and frequency filled in automatically).
+- **From → To bar** and **route thumbnails** on the plan list, with one-tap Activate.
+- **Interactive route profile**: terrain silhouette and planned-altitude line; drag a point to set its altitude; on-route **airspace conflicts** and **terrain-clearance** warnings update live.
+- **GPX route export** for Dynon/Garmin avionics.
+
+#### Companion Mode (iPad ↔ iPhone)
+- **Second screen over Wi-Fi Aware**: pair an iPhone as a synced viewer of your iPad's live flight data. (Requires iOS 26 on both devices.)
+
+#### Display & Accessibility
+- **Three-way Night Mode**: Off / On / Follow System.
+- **Accessibility throughout**: VoiceOver labels, Dynamic Type support, 44-point touch targets, and Reduce Motion across the redesigned screens.
+
+### Improvements
+- **iPad-first layouts**: two-column landscape and reflowed portrait across Home, Flight, Navigation, Flight Log and Settings.
+- **Refreshed Navigation, Flight Log and Settings** with the new cockpit design language and Liquid Glass map controls on iOS 26.
+- **Apple Watch**: live flight-data refinements, including the correct next phase in Circuit Mode.
+- **A hidden groove**: tap into the right funk and you might just spook a little color out of hiding.
+- **Smoother maps**: faster nearby-airport and airspace updates, with lighter map-tile and GPS-track rendering during flight.
+- **Reliability**: iCloud flight conflicts are merged instead of overwritten, large flights sync without UI hitches, and terrain data never falls back to a misleading sea-level value.
+- **French localization** pass across the new interface.
+
+### Bug Fixes
+- **Airspace check honesty**: the route planner now shows a green "no conflicts" only when airspace data is actually loaded — otherwise it tells you airspace wasn't checked, instead of a false all-clear.
+- **Crash-safe airspace data**: downloads are written atomically, so an interrupted update can't corrupt the cache.
+- **Estimated airspeed** is now hardened against bad wind readings.
+- **Terrain warning** no longer false-triggers when only one waypoint has a planned altitude.
+- **Companion**: the viewer returns to standalone cleanly when the flight ends.
+- **iPad**: Speed References slides in full-screen again from Home.
+- **iPhone**: the in-flight phase label and timer no longer overflow the top bar.
+- Plus broader stability and polish across the app.
+
+### Compatibility
+- Requires **iOS/iPadOS 17.0** or later. **Companion mode** requires iOS 26 on both devices.
+
+**Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.6.0...4.0.0
+
+
+[Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/4.0.0)
+
+<br>
+
+________
+
+<br>
+
+## **Version 3.6.0** - Flight Plan Airspace Conflicts
 *Released February 18, 2026*
 
 ### New Features
@@ -35,10 +95,6 @@ All notable changes to AéroCheck are documented here. For full details, visit t
 **Full Changelog**: https://github.com/fetzu/AeroCheck/compare/3.5.0...3.6.0
 
 [Full Changelog](https://github.com/fetzu/AeroCheck/releases/tag/3.6.0)
-
-<br>
-
-________
 
 <br>
 

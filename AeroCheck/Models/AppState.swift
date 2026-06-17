@@ -916,9 +916,17 @@ class AppState: ObservableObject {
         checkpointActiveFlight(force: true)
     }
 
+    /// A detected stop/landing is back-dated ~1 min (the aircraft was already slowing) but never
+    /// before line-up — otherwise flight time (landing − line-up) goes negative. (v4.0.0 review P2)
+    private func backDatedStopTime() -> Date {
+        let candidate = Date().addingTimeInterval(-60)
+        if let lineUp = lineUpTime, candidate < lineUp { return lineUp }
+        return candidate
+    }
+
     func recordLanding() {
         // Removes 1 minute (while vacating the runway)
-        landingTime = Date().addingTimeInterval(-60)
+        landingTime = backDatedStopTime()
         currentFlight?.landingTime = landingTime
         hasLandingBeenDetected = true
 
@@ -932,7 +940,7 @@ class AppState: ObservableObject {
 
     /// Update landing time to current time minus 1 minute (for long-press update)
     func updateLandingTime() {
-        landingTime = Date().addingTimeInterval(-60)
+        landingTime = backDatedStopTime()
         currentFlight?.landingTime = landingTime
     }
     
@@ -991,7 +999,7 @@ class AppState: ObservableObject {
 
     /// Record a full stop landing and return to taxi phase, resetting subsequent phases
     func recordFullStop() {
-        let fullStopTime = Date().addingTimeInterval(-60) // Remove 1 minute like landing
+        let fullStopTime = backDatedStopTime() // Remove 1 min, but never before line-up
         currentFlight?.fullStopCount += 1
         currentFlight?.fullStopTimes.append(fullStopTime)
 
@@ -1045,7 +1053,7 @@ class AppState: ObservableObject {
             consecutiveLowSpeedReadings += 1
             if consecutiveLowSpeedReadings >= requiredLowSpeedReadings {
                 // Plane has stopped - record landing time (minus 1 minute)
-                landingTime = Date().addingTimeInterval(-60)
+                landingTime = backDatedStopTime()
                 currentFlight?.landingTime = landingTime
                 hasLandingBeenDetected = true
             }

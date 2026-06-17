@@ -357,7 +357,10 @@ struct Flight: Identifiable, Codable {
     /// Flight time duration (from lineup/takeoff to landing)
     var flightTime: TimeInterval? {
         guard let takeoff = lineUpTime, let landing = landingTime else { return nil }
-        return landing.timeIntervalSince(takeoff)
+        let interval = landing.timeIntervalSince(takeoff)
+        // A landing recorded before line-up (clock skew / out-of-order events) would read negative;
+        // treat it as unavailable rather than show a garbled duration. (v4.0.0 review P2)
+        return interval >= 0 ? interval : nil
     }
 
     /// Block off location as CLLocationCoordinate2D

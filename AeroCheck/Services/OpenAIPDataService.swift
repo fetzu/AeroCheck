@@ -226,11 +226,11 @@ class OpenAIPDataService: ObservableObject {
             request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: "x-openaip-api-key")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-            let (data, response) = try await URLSession.shared.data(for: request)
+            // ExternalRequest adds a request timeout + retry/backoff on 429/5xx & transient errors.
+            let (data, httpResponse) = try await ExternalRequest.data(for: request)
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                throw OpenAIPError.apiError(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
+            guard httpResponse.statusCode == 200 else {
+                throw OpenAIPError.apiError(statusCode: httpResponse.statusCode)
             }
 
             let decoded = try JSONDecoder().decode(OpenAIPResponse<Airspace>.self, from: data)

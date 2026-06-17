@@ -385,7 +385,9 @@ struct FlightPlanMapBuilderView: View {
         let freqs = airportDataService.getFrequencies(for: airport.ident)
         wp.frequency = (freqs.first { $0.type.uppercased().contains("TWR") }
             ?? freqs.first { $0.type.uppercased().contains("ATIS") } ?? freqs.first)?.formattedFrequency
-        if let elevation = airport.elevation { wp.altitude = Double(elevation) }
+        // Only fill field elevation when no altitude is set, so snapping/endpoint changes don't
+        // clobber a pilot's planned altitude (mirrors addAirport). (v4.0.0 review P2)
+        if wp.altitude == nil, let elevation = airport.elevation { wp.altitude = Double(elevation) }
     }
 
     private func swapEndpoints() {

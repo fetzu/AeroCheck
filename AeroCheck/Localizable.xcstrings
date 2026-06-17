@@ -2556,6 +2556,22 @@
         }
       }
     },
+    "companion.requiresIOS26" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion mode requires iOS 26 or later on two compatible devices (Wi-Fi Aware). It can't connect on this device."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le mode compagnon nécessite iOS 26 ou ultérieur sur deux appareils compatibles (Wi-Fi Aware). La connexion est impossible sur cet appareil."
+          }
+        }
+      }
+    },
     "companion.keepTrying" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7431,6 +7447,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "CHRONOMÈTRE"
+          }
+        }
+      }
+    },
+    "nav.pauseChronometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause chronometer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre le chronomètre en pause"
+          }
+        }
+      }
+    },
+    "nav.startChronometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start chronometer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer le chronomètre"
+          }
+        }
+      }
+    },
+    "nav.resetChronometer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset chronometer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser le chronomètre"
           }
         }
       }

@@ -340,7 +340,7 @@ struct CompanionFlightView: View {
         Group {
             if let plan = flightPlan {
                 let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
-                if currentIdx < plan.waypoints.count {
+                if plan.waypoints.indices.contains(currentIdx) {
                     let wp = plan.waypoints[currentIdx]
                     HStack {
                         Text("NEXT")
@@ -397,7 +397,7 @@ struct CompanionFlightView: View {
             // Record ATO button
             Button(action: {
                 if let plan = flightPlan, let currentIdx = flightData?.currentWaypointIndex,
-                   currentIdx < plan.waypoints.count,
+                   plan.waypoints.indices.contains(currentIdx),
                    plan.waypoints[currentIdx].actualTimeOver == nil {
                     companionConnectivityManager.sendCommand(.recordATO(waypointIndex: currentIdx))
                 }

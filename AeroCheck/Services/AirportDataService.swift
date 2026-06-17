@@ -521,10 +521,11 @@ class AirportDataService: ObservableObject {
             throw URLError(.badURL)
         }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        // Route through ExternalRequest for a request timeout + retry/backoff. Use the shared session
+        // so the large (~MB) airport CSV isn't cut off by a tight resource deadline on slow links.
+        let (data, httpResponse) = try await ExternalRequest.data(from: url, session: .shared)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+        guard httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
 

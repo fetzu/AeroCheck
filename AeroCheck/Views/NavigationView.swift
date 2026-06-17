@@ -2133,10 +2133,12 @@ struct NavigationMapView: View {
                                 flightPlanManager.markWaypoint()
                             }
                         }
-                        legIconButton(running ? "pause.fill" : "play.fill") {
+                        legIconButton(running ? "pause.fill" : "play.fill",
+                                      accessibilityLabel: running ? L10n.Nav.pauseChronometer : L10n.Nav.startChronometer) {
                             running ? flightPlanManager.pauseChronometer() : flightPlanManager.startChronometer()
                         }
-                        legIconButton("arrow.counterclockwise") { flightPlanManager.resetChronometer() }
+                        legIconButton("arrow.counterclockwise",
+                                      accessibilityLabel: L10n.Nav.resetChronometer) { flightPlanManager.resetChronometer() }
                     }
                 }
             }
@@ -2188,19 +2190,22 @@ struct NavigationMapView: View {
             .foregroundColor(filled ? .black : tint)
             .padding(.horizontal, iconOnly ? 8 : 10).frame(height: 32)
             .background(RoundedRectangle(cornerRadius: 7).fill(filled ? tint : tint.opacity(0.16)))
+            .frame(minHeight: 44)   // 44pt touch target around the 32pt visual
             .contentShape(Rectangle())
         }
         .accessibilityLabel(label)
     }
 
-    private func legIconButton(_ icon: String, action: @escaping () -> Void) -> some View {
+    private func legIconButton(_ icon: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 13, weight: .medium))
                 .foregroundColor(.secondaryText)
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05)))
+                .frame(minWidth: 44, minHeight: 44)   // 44pt touch target around the 32pt visual
                 .contentShape(Rectangle())
         }
+        .accessibilityLabel(accessibilityLabel)
     }
 
     /// A duration as "M:SS" (or "H:MM:SS" past an hour). (v4 UI/UX Revamp)
@@ -2911,12 +2916,15 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
         // `GPSTrackPolyline` isolates the breadcrumb trail. (v4 UI/UX Revamp fix)
         let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
-        let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
+        // Rebuild only when new source points arrived (compare source count, not the possibly
+        // subsampled vertex count), and cap the drawn vertices for very long tracks. (v4.0.0 review P2)
+        let needsUpdate = existingPolylines.first?.sourceCount != gpsTrack.count
         if needsUpdate {
             mapView.removeOverlays(existingPolylines)
             if gpsTrack.count > 1 {
-                let coordinates = gpsTrack.map { $0.coordinate }
+                let coordinates = subsampledTrackCoordinates(gpsTrack)
                 let polyline = GPSTrackPolyline(coordinates: coordinates, count: coordinates.count)
+                polyline.sourceCount = gpsTrack.count
                 // Use .aboveLabels for GPS track to ensure visibility over tile overlays
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
@@ -3945,12 +3953,15 @@ struct SwissMapView: UIViewRepresentable {
         // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
         // `GPSTrackPolyline` isolates the breadcrumb trail. (v4 UI/UX Revamp fix)
         let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
-        let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
+        // Rebuild only when new source points arrived (compare source count, not the possibly
+        // subsampled vertex count), and cap the drawn vertices for very long tracks. (v4.0.0 review P2)
+        let needsUpdate = existingPolylines.first?.sourceCount != gpsTrack.count
         if needsUpdate {
             mapView.removeOverlays(existingPolylines)
             if gpsTrack.count > 1 {
-                let coordinates = gpsTrack.map { $0.coordinate }
+                let coordinates = subsampledTrackCoordinates(gpsTrack)
                 let polyline = GPSTrackPolyline(coordinates: coordinates, count: coordinates.count)
+                polyline.sourceCount = gpsTrack.count
                 // Use .aboveLabels for GPS track to ensure visibility over tile overlays
                 mapView.addOverlay(polyline, level: .aboveLabels)
             }
@@ -4394,7 +4405,26 @@ class FlightPlanRoutePolyline: MKPolyline {
 
 /// The recorded GPS breadcrumb trail. A distinct subclass so overlay bookkeeping targets ONLY the
 /// trail and never the route or track vector (all three are MKPolylines). (v4 UI/UX Revamp fix)
-class GPSTrackPolyline: MKPolyline {}
+class GPSTrackPolyline: MKPolyline {
+    /// Number of source GPS points this polyline was built from (it may carry fewer, subsampled,
+    /// vertices). Used to decide whether a rebuild is needed without re-rendering on every redraw.
+    var sourceCount: Int = 0
+}
+
+/// Max vertices drawn for the GPS breadcrumb. Long flights are subsampled to this so MapKit doesn't
+/// re-tessellate thousands of points on every fix; short tracks pass through unchanged. (v4.0.0 review P2)
+private let maxTrackVertices = 3000
+private func subsampledTrackCoordinates(_ track: [GPSPoint]) -> [CLLocationCoordinate2D] {
+    guard track.count > maxTrackVertices else { return track.map { $0.coordinate } }
+    let step = Double(track.count - 1) / Double(maxTrackVertices - 1)
+    var result: [CLLocationCoordinate2D] = []
+    result.reserveCapacity(maxTrackVertices)
+    for i in 0..<maxTrackVertices {
+        let idx = min(Int((Double(i) * step).rounded()), track.count - 1)
+        result.append(track[idx].coordinate)
+    }
+    return result
+}
 
 /// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (v4 UI/UX Revamp C4)
 class TrackVectorPolyline: MKPolyline {}

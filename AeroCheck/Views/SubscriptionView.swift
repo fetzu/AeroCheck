@@ -143,6 +143,8 @@ struct SubscriptionView: View {
             Text(L10n.Subscription.currentStatus)
                 .font(.caption)
                 .fontWeight(.semibold)
+                .tracking(1.2)
+                .textCase(.uppercase)
                 .foregroundColor(Color.secondaryText)
 
             HStack {
@@ -165,6 +167,8 @@ struct SubscriptionView: View {
             Text(L10n.Subscription.choosePlan)
                 .font(.caption)
                 .fontWeight(.semibold)
+                .tracking(1.2)
+                .textCase(.uppercase)
                 .foregroundColor(Color.secondaryText)
 
             if subscriptionManager.products.isEmpty {

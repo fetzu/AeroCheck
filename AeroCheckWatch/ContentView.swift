@@ -268,11 +268,12 @@ struct NavigationScreen: View {
                         .foregroundColor(connectivityManager.flightData.chronometerRunning ? .aviationGreen : .secondary)
                 }
                 HStack(spacing: 10) {
+                    // Same order as the iPhone leg-timer controls: mark · pause/resume · reset.
+                    chronoControl("mappin.and.ellipse") { connectivityManager.sendCommand(.chronoMark) }
                     chronoControl(connectivityManager.flightData.chronometerRunning ? "pause.fill" : "play.fill") {
                         connectivityManager.sendCommand(.chronoToggle)
                     }
                     chronoControl("arrow.counterclockwise") { connectivityManager.sendCommand(.chronoReset) }
-                    chronoControl("mappin.and.ellipse") { connectivityManager.sendCommand(.chronoMark) }
                 }
             }
             .frame(maxWidth: .infinity)

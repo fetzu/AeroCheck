@@ -327,7 +327,7 @@ private struct ConfettiLayer: View {
 
     private static let pieces: [ConfettiPiece] = {
         var rng = SplitMix64(state: 0x1234_5678_9ABC_DEF0)
-        return (0..<130).map { index in
+        return (0..<320).map { index in
             ConfettiPiece(
                 fromLeft: index % 2 == 0,
                 y0: CGFloat(0.12 + 0.46 * rng.unit()),
@@ -411,8 +411,9 @@ struct AmbientCelebrationOverlay: View {
                 }
             }
         }
+        // Blocks stray taps while playing (so a 6th tap can't cut the animation short) but offers no
+        // tap-to-dismiss — the reveal always runs its full course, then clears itself.
         .allowsHitTesting(activeReveal != 0)
-        .onTapGesture { dismiss() }
         .onChange(of: reveal) { _, newValue in
             guard newValue != 0 else { return }
             start = Date()
@@ -424,13 +425,6 @@ struct AmbientCelebrationOverlay: View {
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 withAnimation(.easeOut(duration: 0.4)) { activeReveal = 0 }
             }
-        }
-    }
-
-    private func dismiss() {
-        withAnimation(.easeOut(duration: 0.35)) {
-            showLogo = false
-            activeReveal = 0
         }
     }
 }

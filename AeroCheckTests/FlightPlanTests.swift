@@ -71,4 +71,71 @@ final class FlightPlanTests: XCTestCase {
         plan.currentWaypointIndex = 5
         XCTAssertNil(plan.currentWaypointId)
     }
+
+    // MARK: - RouteAltitudeProfile — extrapolated altitude (flight-plan revamp #4)
+
+    /// ~1° of longitude at 46°N ≈ 41.7 NM, so a two-point W→E leg gives a known total to interpolate.
+    private func eastWestPlan(altA: Double?, altB: Double?) -> [FlightPlanWaypoint] {
+        [FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46.0, longitude: 6.0), altitude: altA),
+         FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 46.0, longitude: 8.0), altitude: altB)]
+    }
+
+    func testAltitudeProfileInterpolatesBetweenKnownWaypoints() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 2000, altB: 6000))
+        // Midpoint of the leg should be the mean of the two altitudes.
+        let mid = prof.altitude(atNM: prof.totalNM / 2)
+        XCTAssertNotNil(mid)
+        XCTAssertEqual(mid!, 4000, accuracy: 60) // small tolerance for great-circle vs linear NM
+    }
+
+    func testAltitudeProfileClampsBeyondEnds() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 2000, altB: 6000))
+        XCTAssertEqual(prof.altitude(atNM: -10), 2000)              // before the first known point
+        XCTAssertEqual(prof.altitude(atNM: prof.totalNM + 50), 6000) // after the last known point
+    }
+
+    func testAltitudeProfileWithNoAltitudesHasNoData() {
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: nil, altB: nil))
+        XCTAssertFalse(prof.hasData)
+        XCTAssertNil(prof.altitude(atNM: prof.totalNM / 2))
+    }
+
+    func testAltitudeProfileSingleKnownAltitudeClampsFlat() {
+        // Only the departure altitude set → the whole profile sits at that altitude.
+        let prof = RouteAltitudeProfile(eastWestPlan(altA: 3500, altB: nil))
+        XCTAssertTrue(prof.hasData)
+        XCTAssertEqual(prof.altitude(atNM: 0), 3500)
+        XCTAssertEqual(prof.altitude(atNM: prof.totalNM), 3500)
+    }
+
+    // MARK: - bestInsertionIndex — cheapest-insertion smart add (flight-plan revamp #4)
+
+    private func wp(_ lat: Double, _ lon: Double) -> FlightPlanWaypoint {
+        FlightPlanWaypoint(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+    }
+
+    func testBestInsertionAppendsForEmptyOrSinglePlan() {
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46, longitude: 7), in: []), 0)
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46, longitude: 7), in: [wp(46, 6)]), 1)
+    }
+
+    func testBestInsertionPlacesMidpointOnTheLeg() {
+        // A(46,6) → B(46,8); a point near the middle inserts between them (index 1).
+        let plan = [wp(46, 6), wp(46, 8)]
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46.02, longitude: 7), in: plan), 1)
+    }
+
+    func testBestInsertionAppendsBeyondLastAndPrependsBeforeFirst() {
+        let plan = [wp(46, 6), wp(46, 8)]
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46, longitude: 9), in: plan), 2) // append
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46, longitude: 5), in: plan), 0) // prepend
+    }
+
+    func testBestInsertionChoosesTheNearerLegOnAThreePointRoute() {
+        // A(46,6) - B(46,7) - C(46,8); a point near the B→C leg inserts at index 2.
+        let plan = [wp(46, 6), wp(46, 7), wp(46, 8)]
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46.02, longitude: 7.5), in: plan), 2)
+        // …and a point near the A→B leg inserts at index 1.
+        XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46.02, longitude: 6.5), in: plan), 1)
+    }
 }

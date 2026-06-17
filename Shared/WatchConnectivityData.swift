@@ -36,6 +36,10 @@ struct WatchFlightData: Codable {
     var altitudeFeet: Double?
     var course: Double?
 
+    // Chronometer (flight-plan leg timer — kept in sync with the phone, controllable from the watch)
+    var chronometerElapsed: TimeInterval = 0
+    var chronometerRunning: Bool = false
+
     // Navigation plan (when active)
     var hasActiveNavPlan: Bool
     var currentWaypointName: String?
@@ -49,6 +53,8 @@ struct WatchFlightData: Codable {
     var currentWaypointFrequency: String?
     var nextWaypointFrequency: String?
     var commonFrequencies: [FrequencyInfo]?
+    /// The nav-map FREQ panel's exact list (NOW/NEXT + order), pushed by NavigationView. (Watch freq sync)
+    var panelFrequencies: [FrequencyInfo]?
 
     init() {
         self.schemaVersion = WatchFlightData.currentSchemaVersion
@@ -63,6 +69,8 @@ struct WatchFlightData: Codable {
         self.speedMPS = nil
         self.altitudeFeet = nil
         self.course = nil
+        self.chronometerElapsed = 0
+        self.chronometerRunning = false
         self.hasActiveNavPlan = false
         self.currentWaypointName = nil
         self.currentWaypointIndex = nil
@@ -73,6 +81,7 @@ struct WatchFlightData: Codable {
         self.currentWaypointFrequency = nil
         self.nextWaypointFrequency = nil
         self.commonFrequencies = nil
+        self.panelFrequencies = nil
     }
 
     /// Tolerant decoder: every field is optional-with-default so a payload from a different app
@@ -93,6 +102,8 @@ struct WatchFlightData: Codable {
         speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
         altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
         course = try c.decodeIfPresent(Double.self, forKey: .course)
+        chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
+        chronometerRunning = try c.decodeIfPresent(Bool.self, forKey: .chronometerRunning) ?? false
         hasActiveNavPlan = try c.decodeIfPresent(Bool.self, forKey: .hasActiveNavPlan) ?? false
         currentWaypointName = try c.decodeIfPresent(String.self, forKey: .currentWaypointName)
         currentWaypointIndex = try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex)
@@ -103,15 +114,18 @@ struct WatchFlightData: Codable {
         currentWaypointFrequency = try c.decodeIfPresent(String.self, forKey: .currentWaypointFrequency)
         nextWaypointFrequency = try c.decodeIfPresent(String.self, forKey: .nextWaypointFrequency)
         commonFrequencies = try c.decodeIfPresent([FrequencyInfo].self, forKey: .commonFrequencies)
+        panelFrequencies = try c.decodeIfPresent([FrequencyInfo].self, forKey: .panelFrequencies)
     }
 }
 
 /// Frequency information for Watch display
 struct FrequencyInfo: Codable, Identifiable {
-    var id: String { name }
+    var id: String { name + frequency }
     let name: String
     let frequency: String
     let type: FrequencyType
+    /// NOW / NEXT / emergency role, mirroring the phone's FREQ panel. Optional so older payloads decode. (Watch freq sync)
+    var role: FrequencyRole? = nil
 
     enum FrequencyType: String, Codable {
         case tower
@@ -121,6 +135,11 @@ struct FrequencyInfo: Codable, Identifiable {
         case common
         case waypoint
     }
+}
+
+/// NOW / NEXT / emergency role for a frequency row, mirroring the phone's FREQ panel.
+enum FrequencyRole: String, Codable {
+    case now, next, other, emergency
 }
 
 /// Messages from iPhone to Watch
@@ -136,4 +155,13 @@ struct WatchConnectivityKeys {
     static let messageType = "messageType"
     static let flightData = "flightData"
     static let timestamp = "timestamp"
+    static let command = "command"
+}
+
+/// Commands the Watch sends to the phone to drive the shared flight-plan chronometer. The phone acts
+/// on them (FlightPlanManager) and echoes the updated state back, so both sides stay in sync.
+enum WatchCommand: String {
+    case chronoToggle   // pause if running, resume/start if paused
+    case chronoReset
+    case chronoMark     // mark current waypoint (record ATO + advance + restart the leg)
 }

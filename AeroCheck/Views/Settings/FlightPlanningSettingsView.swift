@@ -14,8 +14,10 @@ struct FlightPlanningSettingsView: View {
     @State private var pendingEstimatedAirspeedValue: Bool = false
     @State private var isLoadingSettings: Bool = false
 
+    private let tint: Color = .orange
+
     var body: some View {
-        Form {
+        SettingsPage {
             flightPlanningSection
             experimentalAirspeedSection
         }
@@ -45,57 +47,53 @@ struct FlightPlanningSettingsView: View {
     // MARK: - Flight Planning Section
 
     private var flightPlanningSection: some View {
-        Section {
-            Toggle(L10n.Settings.enableFlightPlanning, isOn: Binding(
-                get: { enableFlightPlanning },
-                set: { newValue in
-                    if newValue {
-                        showFlightPlanningWarning = true
-                    } else {
-                        enableFlightPlanning = false
+        SettingsGroup(title: L10n.Settings.flightPlanning,
+                      tint: tint,
+                      footer: L10n.Settings.flightPlanningFooter) {
+            SettingsToggleRow(
+                icon: "map.fill",
+                title: L10n.Settings.enableFlightPlanning,
+                tint: tint,
+                isOn: Binding(
+                    get: { enableFlightPlanning },
+                    set: { newValue in
+                        if newValue {
+                            showFlightPlanningWarning = true
+                        } else {
+                            enableFlightPlanning = false
+                        }
                     }
-                }
-            ))
+                )
+            )
 
             if enableFlightPlanning {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 9) {
+                    SettingsRowLabel(
+                        icon: "scope",
+                        title: L10n.Settings.waypointProximity,
+                        subtitle: L10n.Settings.waypointProximityFooter,
+                        tint: tint
+                    )
                     HStack {
-                        Text(L10n.Settings.waypointProximity)
-                        Spacer()
+                        Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
+                            .tint(.aviationGold)
                         Text("\(Int(waypointProximityThreshold)) m")
                             .foregroundColor(.secondary)
                     }
-
-                    Slider(value: $waypointProximityThreshold, in: 100...2000, step: 100)
-                        .tint(.aviationGold)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
 
-                Picker(L10n.Settings.terrainAltitudeUnit, selection: $terrainAltitudeUnit) {
+                SettingsMenuRow(
+                    icon: "mountain.2.fill",
+                    title: L10n.Settings.terrainAltitudeUnit,
+                    subtitle: L10n.Settings.terrainUnitFooter,
+                    tint: tint,
+                    selection: $terrainAltitudeUnit
+                ) {
                     ForEach(TerrainAltitudeUnit.allCases) { unit in
                         Text(unit.rawValue).tag(unit)
                     }
-                }
-                .pickerStyle(.menu)
-            }
-        } header: {
-            HStack {
-                Label(L10n.Settings.flightPlanning, systemImage: "map.fill")
-                Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.aviationAmber)
-                    )
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.flightPlanningFooter)
-                if enableFlightPlanning {
-                    Text(L10n.Settings.waypointProximityFooter)
-                    Text(L10n.Settings.terrainUnitFooter)
                 }
             }
         }
@@ -104,44 +102,32 @@ struct FlightPlanningSettingsView: View {
     // MARK: - Experimental Airspeed Section
 
     private var experimentalAirspeedSection: some View {
-        Section {
-            Toggle(L10n.Settings.showEstimatedAirspeed, isOn: Binding(
-                get: { showEstimatedAirspeed },
-                set: { newValue in
-                    if newValue {
-                        pendingEstimatedAirspeedValue = true
-                        showEstimatedAirspeedWarning = true
-                    } else {
-                        showEstimatedAirspeed = false
+        SettingsGroup(title: "\(L10n.Settings.experimental) · \(L10n.Tag.beta)",
+                      tint: tint,
+                      footer: "\(L10n.Settings.experimentalFooter)\n\(L10n.Settings.switzerlandOnly)") {
+            SettingsToggleRow(
+                icon: "exclamationmark.triangle.fill",
+                title: L10n.Settings.showEstimatedAirspeed,
+                tint: tint,
+                isOn: Binding(
+                    get: { showEstimatedAirspeed },
+                    set: { newValue in
+                        if newValue {
+                            pendingEstimatedAirspeedValue = true
+                            showEstimatedAirspeedWarning = true
+                        } else {
+                            showEstimatedAirspeed = false
+                        }
                     }
-                }
-            ))
+                )
+            )
             if showEstimatedAirspeed {
-                Toggle(L10n.Settings.stallAlertSound, isOn: $stallAlertSound)
-            }
-        } header: {
-            HStack {
-                Label(L10n.Settings.experimental, systemImage: "exclamationmark.triangle.fill")
-                Text(L10n.Tag.beta)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.aviationAmber)
-                    )
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.experimentalFooter)
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.aviationAmber)
-                    Text(L10n.Settings.switzerlandOnly)
-                        .foregroundColor(.aviationAmber)
-                }
-                .font(.caption)
+                SettingsToggleRow(
+                    icon: "speaker.wave.2.fill",
+                    title: L10n.Settings.stallAlertSound,
+                    tint: tint,
+                    isOn: $stallAlertSound
+                )
             }
         }
     }

@@ -325,6 +325,110 @@ class OpenAIPDataService: ObservableObject {
         return airspacesInBounds(region)
     }
 
+    /// Airspaces the route actually crosses — a point sampled along a leg falls inside the polygon AND
+    /// (when altitudes are known) the extrapolated flight altitude there is within the airspace's
+    /// vertical band ± a separation buffer. So a Class-C airway FL90–FL195 is dropped for a flight that
+    /// stays well under FL90, instead of cluttering the list. Restrictive airspaces (prohibited/
+    /// restricted/danger) sort first. (flight-plan revamp #4)
+    ///
+    /// - Parameter altitudesFt: planned altitude (ft MSL) per waypoint, parallel to `waypoints`; `nil`
+    ///   entries are unknown. With at least one known altitude the route is given a piecewise-linear
+    ///   altitude profile (clamped at the ends); with none, vertical filtering is skipped (horizontal
+    ///   crossing only). Flight levels are compared as ~MSL (the buffer absorbs the QNH error).
+    func airspacesCrossedByRoute(
+        _ waypoints: [CLLocationCoordinate2D],
+        altitudesFt: [Double?] = [],
+        verticalBufferFt: Double = 500,
+        sampleStepNM: Double = 1.0
+    ) -> [Airspace] {
+        airspaceProfileBlocks(waypoints, altitudesFt: altitudesFt, verticalBufferFt: verticalBufferFt,
+                              sampleStepNM: sampleStepNM)
+            .filter { $0.isConflict }
+            .map { $0.airspace }
+    }
+
+    /// Every airspace whose footprint the route enters, with the along-track distance band it spans and
+    /// its vertical band — for the builder's route-profile cross-section (#4 redesign). `isConflict` is
+    /// true when the extrapolated flight altitude there is within the airspace ± the buffer; the others
+    /// are "context" (crossed horizontally but cleared vertically) and drawn faded. Conflicts sort
+    /// first, then by start distance.
+    func airspaceProfileBlocks(
+        _ waypoints: [CLLocationCoordinate2D],
+        altitudesFt: [Double?] = [],
+        verticalBufferFt: Double = 500,
+        sampleStepNM: Double = 1.0
+    ) -> [AirspaceProfileBlock] {
+        guard isLoaded, waypoints.count >= 2 else { return [] }
+        let candidates = airspacesAlongRoute(waypoints)
+        guard !candidates.isEmpty else { return [] }
+
+        // Cumulative along-track distance per waypoint, and the known-altitude profile points.
+        var cum: [Double] = [0]
+        for i in 1..<waypoints.count { cum.append(cum[i - 1] + Self.distanceNM(waypoints[i - 1], waypoints[i])) }
+        var profile: [(d: Double, alt: Double)] = []
+        for (i, a) in altitudesFt.enumerated() where i < waypoints.count {
+            if let a = a { profile.append((cum[i], a)) }
+        }
+        profile.sort { $0.d < $1.d }
+        let hasProfile = !profile.isEmpty
+
+        func altAt(_ d: Double) -> Double? {
+            guard hasProfile else { return nil }
+            if d <= profile.first!.d { return profile.first!.alt }
+            if d >= profile.last!.d { return profile.last!.alt }
+            for k in 1..<profile.count where d <= profile[k].d {
+                let p0 = profile[k - 1], p1 = profile[k]
+                let t = (d - p0.d) / max(0.0001, p1.d - p0.d)
+                return p0.alt + (p1.alt - p0.alt) * t
+            }
+            return profile.last!.alt
+        }
+
+        // Densify into samples (endpoints + ~1 NM interpolation) carrying their along-track distance.
+        var samples: [(c: CLLocationCoordinate2D, d: Double)] = []
+        for i in 0..<(waypoints.count - 1) {
+            let a = waypoints[i], b = waypoints[i + 1]
+            let segNM = cum[i + 1] - cum[i]
+            let steps = max(1, Int((segNM / max(0.1, sampleStepNM)).rounded(.up)))
+            for s in 0..<steps {
+                let t = Double(s) / Double(steps)
+                samples.append((CLLocationCoordinate2D(
+                    latitude: a.latitude + (b.latitude - a.latitude) * t,
+                    longitude: a.longitude + (b.longitude - a.longitude) * t), cum[i] + segNM * t))
+            }
+        }
+        if let last = waypoints.last { samples.append((last, cum.last ?? 0)) }
+
+        var blocks: [AirspaceProfileBlock] = []
+        for airspace in candidates {
+            var minD = Double.infinity, maxD = -Double.infinity, anyInside = false, anyVertical = false
+            let floor = airspace.lowerCeiling.asFeetMSL
+            let ceiling = airspace.upperCeiling.asFeetMSL
+            for sample in samples where airspace.containsPoint(sample.c) {
+                anyInside = true
+                minD = min(minD, sample.d); maxD = max(maxD, sample.d)
+                if let alt = altAt(sample.d) {
+                    if alt + verticalBufferFt >= floor && alt - verticalBufferFt <= ceiling { anyVertical = true }
+                } else {
+                    anyVertical = true // no altitude profile → treat horizontal crossing as a conflict
+                }
+            }
+            guard anyInside else { continue }
+            blocks.append(AirspaceProfileBlock(airspace: airspace, startNM: minD, endNM: maxD,
+                                               floorFt: floor, ceilingFt: ceiling, isConflict: anyVertical))
+        }
+        return blocks.sorted { a, b in
+            if a.isConflict != b.isConflict { return a.isConflict }
+            if a.airspace.isRestrictive != b.airspace.isRestrictive { return a.airspace.isRestrictive }
+            return a.startNM < b.startNM
+        }
+    }
+
+    private static func distanceNM(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) / 1852.0
+    }
+
     /// Fetch airspaces along a route on-demand from the OpenAIP API
     /// Used when no downloaded data is available — makes API calls along the route
     /// Returns airspaces near the route for conflict analysis

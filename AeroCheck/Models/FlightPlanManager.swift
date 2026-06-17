@@ -10,6 +10,11 @@ class FlightPlanManager: ObservableObject {
     @Published var flightPlans: [FlightPlan] = []
     @Published var activeFlightPlan: FlightPlan?
     @Published var chronometerElapsed: TimeInterval = 0
+    /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
+    private var chronometerAccumulated: TimeInterval = 0
+
+    /// True while the leg timer is actively counting (pause clears the plan's start time). (v4 UI/UX Revamp)
+    var isChronometerRunning: Bool { activeFlightPlan?.chronometerStartTime != nil }
 
     // MARK: - Private Properties
 
@@ -138,6 +143,30 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Best index to INSERT a dropped point so it least lengthens the route ("cheapest insertion"):
+    /// the interior leg it adds the smallest detour to, or prepend/append when the point sits beyond an
+    /// endpoint. Returns an index in `0...count` suitable for `insertWaypoint(at:)`. (flight-plan
+    /// revamp #4 — smart add; same convention as ForeFlight rubber-band / SkyDemon tap-insert.)
+    nonisolated static func bestInsertionIndex(for coordinate: CLLocationCoordinate2D, in waypoints: [FlightPlanWaypoint]) -> Int {
+        guard waypoints.count >= 2 else { return waypoints.count } // 0/1 points → just append
+        func dist(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+            CLLocation(latitude: a.latitude, longitude: a.longitude)
+                .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+        }
+        let coords = waypoints.map { $0.coordinate }
+        // Added route length for the two endpoint options…
+        var bestIndex = coords.count
+        var bestAdded = dist(coords[coords.count - 1], coordinate)   // append after the last
+        let prepend = dist(coordinate, coords[0])                    // prepend before the first
+        if prepend < bestAdded { bestAdded = prepend; bestIndex = 0 }
+        // …versus the detour added by routing through the point on each interior leg.
+        for i in 0..<(coords.count - 1) {
+            let detour = dist(coords[i], coordinate) + dist(coordinate, coords[i + 1]) - dist(coords[i], coords[i + 1])
+            if detour < bestAdded { bestAdded = detour; bestIndex = i + 1 }
+        }
+        return bestIndex
+    }
+
     /// Insert a waypoint at a specific index
     func insertWaypoint(to planId: UUID, at index: Int, coordinate: CLLocationCoordinate2D, name: String = "") {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
@@ -175,6 +204,14 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Reverse the route (swap From ↔ To and everything between). (flight-plan revamp #2)
+    func reverseRoute(planId: UUID) {
+        guard var plan = flightPlans.first(where: { $0.id == planId }), plan.waypoints.count >= 2 else { return }
+        plan.waypoints.reverse()
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Move waypoints within a flight plan
     func moveWaypoints(in planId: UUID, from source: IndexSet, to destination: Int) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }
@@ -207,6 +244,7 @@ class FlightPlanManager: ObservableObject {
 
         activeFlightPlan = activePlan
         chronometerElapsed = 0
+        chronometerAccumulated = 0
         saveFlightPlans()
         saveActiveFlightPlan()
     }
@@ -224,6 +262,7 @@ class FlightPlanManager: ObservableObject {
 
         activeFlightPlan = nil
         chronometerElapsed = 0
+        chronometerAccumulated = 0
         stopChronometer()
         saveFlightPlans()
         clearActiveFlightPlan()
@@ -388,8 +427,10 @@ class FlightPlanManager: ObservableObject {
         plan.waypoints[index].actualTimeOver = Date()
 
         // If recording ATO for the current waypoint, also advance to next
+        var advanced = false
         if index == plan.currentWaypointIndex {
             plan.currentWaypointIndex += 1
+            advanced = true
         }
 
         activeFlightPlan = plan
@@ -400,6 +441,9 @@ class FlightPlanManager: ObservableObject {
 
         saveFlightPlans()
         saveActiveFlightPlan()
+
+        // Crossing the active waypoint begins a new leg — restart the leg timer (keeps run state). (v4 UI/UX Revamp)
+        if advanced { resetChronometer() }
     }
 
     /// Auto-advance waypoint if within proximity (records ATO based on GPS position)
@@ -412,9 +456,9 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Chronometer
 
-    /// Start the chronometer
+    /// Start — or resume from pause — the leg timer. No-op if already running. (v4 UI/UX Revamp)
     func startChronometer() {
-        guard var plan = activeFlightPlan else { return }
+        guard var plan = activeFlightPlan, plan.chronometerStartTime == nil else { return }
 
         plan.chronometerStartTime = Date()
         activeFlightPlan = plan
@@ -427,17 +471,35 @@ class FlightPlanManager: ObservableObject {
         startChronometerTimer()
     }
 
+    /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (v4 UI/UX Revamp)
+    func pauseChronometer() {
+        guard var plan = activeFlightPlan, let start = plan.chronometerStartTime else { return }
+        chronometerAccumulated += Date().timeIntervalSince(start)
+        plan.chronometerStartTime = nil
+        activeFlightPlan = plan
+
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
+            flightPlans[index] = plan
+        }
+
+        saveActiveFlightPlan()
+        chronometerTimer?.invalidate()
+        chronometerTimer = nil
+        chronometerElapsed = chronometerAccumulated
+    }
+
     /// Stop the chronometer
     func stopChronometer() {
         chronometerTimer?.invalidate()
         chronometerTimer = nil
     }
 
-    /// Reset the chronometer to zero
+    /// Reset the leg timer to zero, keeping the running/paused state. (v4 UI/UX Revamp)
     func resetChronometer() {
         guard var plan = activeFlightPlan else { return }
 
-        plan.chronometerStartTime = Date()
+        chronometerAccumulated = 0
+        if plan.chronometerStartTime != nil { plan.chronometerStartTime = Date() }
         activeFlightPlan = plan
         chronometerElapsed = 0
 
@@ -446,6 +508,26 @@ class FlightPlanManager: ObservableObject {
         }
 
         saveActiveFlightPlan()
+    }
+
+    /// Mark the current waypoint as crossed (record ATO + advance, which restarts the leg timer) — the
+    /// classic VFR leg-timing action. (v4 UI/UX Revamp)
+    func markWaypoint() {
+        guard let plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
+        recordATO(forWaypointAt: plan.currentWaypointIndex)
+    }
+
+    /// Go back to (resume) the leg arriving at `index`: make it the current target again, clear its and
+    /// every later crossing (ATO), and restart the leg timer. (v4 UI/UX Revamp — go back a leg)
+    func resumeLeg(at index: Int) {
+        guard var plan = activeFlightPlan, index >= 0, index < plan.waypoints.count else { return }
+        plan.currentWaypointIndex = index
+        for i in index..<plan.waypoints.count { plan.waypoints[i].actualTimeOver = nil }
+        activeFlightPlan = plan
+        if let idx = flightPlans.firstIndex(where: { $0.id == plan.id }) { flightPlans[idx] = plan }
+        saveFlightPlans()
+        saveActiveFlightPlan()
+        resetChronometer()
     }
 
     private func startChronometerTimer() {
@@ -459,10 +541,10 @@ class FlightPlanManager: ObservableObject {
 
     private func updateChronometerElapsed() {
         guard let startTime = activeFlightPlan?.chronometerStartTime else {
-            chronometerElapsed = 0
+            chronometerElapsed = chronometerAccumulated  // paused — frozen at the accumulated value
             return
         }
-        chronometerElapsed = Date().timeIntervalSince(startTime)
+        chronometerElapsed = chronometerAccumulated + Date().timeIntervalSince(startTime)
     }
 
     private func startChronometerIfNeeded() {

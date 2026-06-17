@@ -192,7 +192,7 @@ actor ElevationService {
             // Determine number of samples for this leg proportional to its length
             let legSamples = max(5, Int(Double(totalSamples) * (legDistanceNM / totalDistance)))
 
-            // The caller (TerrainProfileView) only invokes this when every waypoint is in
+            // The caller (the flight-plan route profile) only invokes this when every waypoint is in
             // Switzerland, so a nil leg here is always a fetch failure — not legitimately-absent
             // data. Fail the whole profile rather than drawing a continuous fill across the gap that
             // would hide an unfetched (possibly mountainous) segment. (PERF-16)

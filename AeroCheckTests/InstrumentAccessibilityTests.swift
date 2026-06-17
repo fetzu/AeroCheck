@@ -44,7 +44,7 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(StatusIndicator.Status.error.accessibilityText, "error")
     }
 
-    // MARK: - Cockpit theme engine (Phase 3.0)
+    // MARK: - Cockpit theme engine (v4 UI/UX Revamp)
 
     func testCockpitThemeResolvesEachMode() {
         XCTAssertEqual(CockpitTheme.resolve(.day).mode, .day)
@@ -63,11 +63,62 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(CockpitTheme.night.danger, .nightStall)
     }
 
-    func testCockpitThemeModeDerivesFromNightMode() {
+    func testThemePreferenceResolvesEffectiveModeAndTheme() {
         var s = AppSettings()
-        s.nightMode = true
-        XCTAssertEqual(s.cockpitThemeMode, .night)
-        s.nightMode = false
-        XCTAssertEqual(s.cockpitThemeMode, .day)
+        s.themePreference = .night
+        XCTAssertTrue(s.effectiveNightMode(systemIsDark: false))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .night)
+
+        s.themePreference = .day
+        XCTAssertFalse(s.effectiveNightMode(systemIsDark: true))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true), .day)
+
+        // .sunlight is a forced bright palette and is NOT night, regardless of the device flag.
+        s.themePreference = .sunlight
+        XCTAssertFalse(s.effectiveNightMode(systemIsDark: true))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true), .sunlight)
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .sunlight)
+
+        // .auto follows the device dark-mode flag (dark → night, light → day).
+        s.themePreference = .auto
+        XCTAssertTrue(s.effectiveNightMode(systemIsDark: true))
+        XCTAssertFalse(s.effectiveNightMode(systemIsDark: false))
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: true), .night)
+        XCTAssertEqual(s.cockpitThemeMode(systemIsDark: false), .day)
+    }
+
+    func testInstrumentTargetStateBarColorMapsToTheme() {
+        let day = CockpitTheme.day
+        XCTAssertEqual(InstrumentTargetState.onTarget.barColor(in: day), day.onTarget)
+        XCTAssertEqual(InstrumentTargetState.caution.barColor(in: day), day.warning)
+        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: day), day.danger)
+        XCTAssertEqual(InstrumentTargetState.neutral.barColor(in: day), day.textDim)
+        // Same states re-theme under night (red-shift).
+        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: .night), CockpitTheme.night.danger)
+    }
+
+    // MARK: - On-target proximity bar (v4 UI/UX Revamp)
+
+    func testBarStateMapsSpeedStateToColorBlindSafeState() {
+        // The bar's state must never disagree with the readout's annunciated speed state.
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .onTarget), .onTarget)
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .offTarget), .caution)
+        XCTAssertEqual(SpeedIndicatorView.barState(for: .stall), .stall)
+    }
+
+    func testTargetBarFractionIsFullAtTargetAndShrinksWithDeviation() {
+        // On target → full bar.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 76, targetSpeed: 76), 1.0, accuracy: 0.0001)
+        // 15 kt off → half (30 kt full-scale).
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 61, targetSpeed: 76), 0.5, accuracy: 0.0001)
+        // Symmetric above/below target.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 86, targetSpeed: 76),
+                       SpeedIndicatorView.targetBarFraction(displaySpeed: 66, targetSpeed: 76), accuracy: 0.0001)
+    }
+
+    func testTargetBarFractionIsFlooredSoTheBarNeverVanishes() {
+        // Far off-target floors at 0.12 (a thin nub still reads "far off" via color), never 0.
+        XCTAssertEqual(SpeedIndicatorView.targetBarFraction(displaySpeed: 0, targetSpeed: 76), 0.12, accuracy: 0.0001)
+        XCTAssertGreaterThan(SpeedIndicatorView.targetBarFraction(displaySpeed: 200, targetSpeed: 76), 0.0)
     }
 }

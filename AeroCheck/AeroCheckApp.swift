@@ -1,5 +1,6 @@
 import SwiftUI
 import WatchConnectivity
+import UIKit
 
 /// Main application entry point
 @main
@@ -30,6 +31,7 @@ struct AeroCheckApp: App {
 
     var body: some Scene {
         WindowGroup {
+            AppRootView(appState: appState) {
             ContentView()
                 .environmentObject(appState)
                 .environmentObject(locationManager)
@@ -44,11 +46,6 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
-                // Night mode: app-wide, so the flight instruments dim to the red/amber palette. (UX-09)
-                .environment(\.isNightMode, appState.settings.nightMode)
-                // Cockpit theme: app-wide semantic palette the revamped screens read. (Phase 3.0)
-                .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode))
-                .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -129,6 +126,7 @@ struct AeroCheckApp: App {
                 .onChange(of: appState.isFlightActive) { _, isActive in
                     handleFlightStateChange(isActive: isActive)
                 }
+            }
         }
 
         #if os(macOS)
@@ -392,5 +390,39 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
         // Wait for first completion
         _ = await group.next()
         group.cancelAll()
+    }
+}
+
+// MARK: - App appearance
+
+/// Forces the app's SwiftUI UI to dark with `.environment(\.colorScheme, .dark)` — a SUBTREE-local
+/// override that does NOT touch the window/presentation — so this wrapper, which sits ABOVE that
+/// override, can still read the DEVICE's real light/dark via `@Environment(\.colorScheme)` to drive the
+/// `.system` night-mode preference.
+///
+/// Why not `.preferredColorScheme(.dark)`: per Apple, that sets the presentation/window level and
+/// propagates UP the hierarchy, so once applied the system scheme can no longer be read — it masked
+/// every probe (window/scene/screen), which is why the earlier four attempts all failed.
+/// `.environment(\.colorScheme, _)` is local-only, leaving the device setting readable. (round 6)
+struct AppRootView<Content: View>: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.colorScheme) private var systemColorScheme
+    private let content: Content
+
+    init(appState: AppState, @ViewBuilder content: () -> Content) {
+        self.appState = appState
+        self.content = content()
+    }
+
+    var body: some View {
+        let systemIsDark = systemColorScheme == .dark
+        content
+            // Night mode: dims the flight instruments to the red/amber palette; `.system` follows the
+            // device scheme read above (UX-09 / v4 UI/UX Revamp).
+            .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
+            // Cockpit theme: app-wide semantic palette the revamped screens read (v4 UI/UX Revamp).
+            .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
+            // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
+            .environment(\.colorScheme, .dark)
     }
 }

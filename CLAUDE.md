@@ -292,3 +292,12 @@ Settings are organized into 4 groups following Apple HIG:
 1. Add keys to `Localizable.xcstrings`
 2. Regenerate `Localization.swift` if using code generation
 3. Use `L10n.key` in views
+
+### Re-enabling heliports (rotorcraft support)
+The flight-plan builder (search + map) is filtered to fixed-wing sites only — heliports, seaplane
+bases, balloonports and closed fields are hidden so airplane route building stays uncluttered. The
+filter is the single set `AirportType.fixedWing` in `Models/Airport.swift`
+(`[.largeAirport, .mediumAirport, .smallAirport]`). To surface heliports (e.g. if the app ever
+supports helicopters), add `.heliport` (and/or `.seaplaneBase`) to that set — both
+`AirportDataService.searchAirports(types:)` and the builder's map query
+(`FlightPlanMapBuilderView.scheduleAirportUpdate`) consume it, so one edit re-enables them everywhere.

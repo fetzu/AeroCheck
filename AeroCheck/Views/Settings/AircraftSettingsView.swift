@@ -11,14 +11,20 @@ struct AircraftSettingsView: View {
     @State private var isSyncingAircraftData = false
     @State private var isLoadingSettings = false
 
+    private let tint: Color = .aviationGold
+
     var body: some View {
-        Form {
+        SettingsPage {
             subscriptionSection
             aircraftSection
             aircraftVisibilitySection
         }
         .navigationTitle(L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showSubscriptionView) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
+        }
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }
         .onChange(of: selectedAircraft) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -26,8 +32,18 @@ struct AircraftSettingsView: View {
 
     // MARK: - Subscription Section
 
+    private var subscriptionFooter: String {
+        if subscriptionManager.subscriptionStatus.isSubscribed {
+            return L10n.Settings.subscriptionAccessAll
+        } else if subscriptionManager.isInGracePeriod {
+            return L10n.Settings.subscriptionLapsed
+        } else {
+            return L10n.Settings.subscriptionUnlockText
+        }
+    }
+
     private var subscriptionSection: some View {
-        Section {
+        SettingsGroup(title: L10n.Settings.subscription, tint: tint, footer: subscriptionFooter) {
             Button(action: { showSubscriptionView = true }) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -65,28 +81,18 @@ struct AircraftSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
             }
-            .sheet(isPresented: $showSubscriptionView) {
-                SubscriptionView()
-                    .environmentObject(subscriptionManager)
-            }
-        } header: {
-            Label(L10n.Settings.subscription, systemImage: "star.fill")
-        } footer: {
-            if subscriptionManager.subscriptionStatus.isSubscribed {
-                Text(L10n.Settings.subscriptionAccessAll)
-            } else if subscriptionManager.isInGracePeriod {
-                Text(L10n.Settings.subscriptionLapsed)
-            } else {
-                Text(L10n.Settings.subscriptionUnlockText)
-            }
+            .buttonStyle(.plain)
         }
     }
 
     // MARK: - Aircraft Section
 
     private var aircraftSection: some View {
-        Section {
+        SettingsGroup(title: L10n.Settings.aircraft, tint: tint, footer: L10n.Settings.aircraftFooter) {
             // Bundled aircraft (F-HVXA only)
             ForEach(AircraftType.allCases) { aircraft in
                 Button(action: {
@@ -119,7 +125,11 @@ struct AircraftSettingsView: View {
                                 .foregroundColor(.aviationGold)
                         }
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
 
             // Premium Aircrafts navigation link
@@ -162,26 +172,42 @@ struct AircraftSettingsView: View {
                     }
 
                     Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.dimText.opacity(0.7))
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             // Get latest aircraft data button
             Button(action: getLatestAircraftData) {
-                HStack {
-                    if isSyncingAircraftData {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                HStack(spacing: 13) {
+                    ZStack {
+                        Circle().fill(tint.opacity(0.16)).frame(width: 34, height: 34)
+                        if isSyncingAircraftData {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(tint)
+                        }
                     }
                     Text(L10n.Settings.getLatest)
+                        .font(.subheadline)
+                        .foregroundColor(.primaryText)
+                    Spacer(minLength: 8)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .disabled(isSyncingAircraftData)
-        } header: {
-            Label(L10n.Settings.aircraft, systemImage: "airplane")
-        } footer: {
-            Text(L10n.Settings.aircraftFooter)
         }
     }
 
@@ -209,11 +235,14 @@ struct AircraftSettingsView: View {
     }
 
     private var aircraftVisibilitySection: some View {
-        Section {
+        SettingsGroup(title: L10n.Settings.aircraftVisibility, tint: tint, footer: L10n.Settings.aircraftVisibilityFooter) {
             if availableAeroclubs.isEmpty {
                 Text(L10n.Settings.noAircraftToFilter)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
             } else {
                 HStack(spacing: 12) {
                     Button(action: showAllAircraft) {
@@ -246,7 +275,8 @@ struct AircraftSettingsView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
 
                 ForEach(availableAeroclubs, id: \.aeroclub) { group in
                     DisclosureGroup {
@@ -256,12 +286,11 @@ struct AircraftSettingsView: View {
                     } label: {
                         aeroclubVisibilityHeader(for: group.aeroclub, aircraftCount: group.aircraft.count)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .tint(tint)
                 }
             }
-        } header: {
-            Label(L10n.Settings.aircraftVisibility, systemImage: "eye.circle")
-        } footer: {
-            Text(L10n.Settings.aircraftVisibilityFooter)
         }
     }
 

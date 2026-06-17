@@ -82,6 +82,30 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
         return String(format: "%02d:%02d", minutes, seconds)
     }
+
+    /// The flight-plan chronometer, interpolated locally so it ticks smoothly between phone updates;
+    /// mirrors the phone's chronometer. (Watch chrono sync)
+    var chronometerDisplayString: String {
+        let base = flightData.chronometerElapsed
+        let elapsed = flightData.chronometerRunning
+            ? base + max(0, Date().timeIntervalSince(lastUpdateTime ?? Date()))
+            : base
+        let hours = Int(elapsed) / 3600
+        let minutes = (Int(elapsed) % 3600) / 60
+        let seconds = Int(elapsed) % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    /// Send a chronometer command to the phone (pause/resume, reset, mark waypoint). The phone acts on
+    /// it and echoes the new state back. (Watch chrono control)
+    func sendCommand(_ command: WatchCommand) {
+        guard let session = session, session.isReachable else { return }
+        session.sendMessage([WatchConnectivityKeys.command: command.rawValue], replyHandler: nil) { error in
+            print("[AéroCheck Watch] Failed to send command: \(error.localizedDescription)")
+        }
+    }
 }
 
 // MARK: - WCSessionDelegate

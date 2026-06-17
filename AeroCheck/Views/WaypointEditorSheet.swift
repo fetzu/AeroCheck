@@ -37,12 +37,17 @@ struct WaypointEditorSheet: View {
     @State private var groundElevationMeters: Double?
     @State private var isLoadingElevation = false
 
+    private let tint: Color = .altimeterBlue
+
     var body: some View {
         NavigationStack {
-            Form {
+            SettingsPage {
                 // Location section
-                Section {
-                    TextField(L10n.Nav.waypointNamePlaceholder, text: $name)
+                SettingsGroup(title: L10n.Nav.location, tint: tint, footer: L10n.Nav.coordinatesHelp) {
+                    fieldRow(L10n.Nav.waypointName, icon: "mappin.and.ellipse") {
+                        TextField(L10n.Nav.waypointNamePlaceholder, text: $name)
+                            .foregroundColor(.primaryText)
+                    }
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -52,6 +57,7 @@ struct WaypointEditorSheet: View {
                             TextField("46.0000", text: $latitudeString)
                                 .keyboardType(.decimalPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -61,11 +67,14 @@ struct WaypointEditorSheet: View {
                             TextField("7.0000", text: $longitudeString)
                                 .keyboardType(.decimalPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
 
-                    Button(action: { showingMapPicker = true }) {
-                        Label(L10n.Nav.selectOnMap, systemImage: "map")
+                    SettingsButtonRow(icon: "map", title: L10n.Nav.selectOnMap, tint: tint, showsChevron: false) {
+                        showingMapPicker = true
                     }
 
                     // Mini map preview
@@ -73,15 +82,13 @@ struct WaypointEditorSheet: View {
                         MiniMapPreview(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
                             .frame(height: 150)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
                     }
-                } header: {
-                    Label(L10n.Nav.location, systemImage: "mappin.and.ellipse")
-                } footer: {
-                    Text(L10n.Nav.coordinatesHelp)
                 }
 
                 // Altitude section
-                Section {
+                SettingsGroup(title: L10n.Nav.altitude, tint: tint, footer: groundElevationMeters != nil ? L10n.Nav.defaultAGL : nil) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.plannedAltitude)
@@ -90,11 +97,14 @@ struct WaypointEditorSheet: View {
                             TextField("5000", text: $altitudeString)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
 
                         Text(L10n.Unit.ft)
                             .foregroundColor(.secondaryText)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
 
                     // Ground level display
                     HStack {
@@ -114,17 +124,14 @@ struct WaypointEditorSheet: View {
                                 .foregroundColor(.dimText)
                                 .font(.system(size: 12))
                         }
+                        Spacer(minLength: 0)
                     }
-                } header: {
-                    Label(L10n.Nav.altitude, systemImage: "arrow.up.and.down")
-                } footer: {
-                    if groundElevationMeters != nil {
-                        Text(L10n.Nav.defaultAGL)
-                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
                 }
 
                 // Navigation section
-                Section {
+                SettingsGroup(title: L10n.Nav.navigation, tint: tint, footer: L10n.Nav.navigationHelp) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.groundSpeed)
@@ -133,11 +140,14 @@ struct WaypointEditorSheet: View {
                             TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))", text: $groundSpeedString)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
 
                         Text(L10n.Unit.kt)
                             .foregroundColor(.secondaryText)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -147,6 +157,7 @@ struct WaypointEditorSheet: View {
                             TextField("270", text: $windDirectionString)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
 
                         Text("°")
@@ -159,120 +170,74 @@ struct WaypointEditorSheet: View {
                             TextField("10", text: $windSpeedString)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 14, design: .monospaced))
+                                .foregroundColor(.primaryText)
                         }
 
                         Text(L10n.Unit.kt)
                             .foregroundColor(.secondaryText)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
 
                     // Computed values (read-only)
                     if let mc = waypoint.magneticCourse {
-                        HStack {
-                            Text(L10n.Nav.magneticCourse)
-                                .foregroundColor(.secondaryText)
-                            Spacer()
-                            Text(String(format: "%03d°", Int(mc)))
-                                .font(.system(size: 14, design: .monospaced))
-                        }
+                        SettingsValueRow(title: L10n.Nav.magneticCourse, tint: tint, value: String(format: "%03d°", Int(mc)))
                     }
 
                     if let distance = waypoint.distance {
-                        HStack {
-                            Text(L10n.Nav.distanceToNext)
-                                .foregroundColor(.secondaryText)
-                            Spacer()
-                            Text(String(format: "%.1f NM", distance))
-                                .font(.system(size: 14, design: .monospaced))
-                        }
+                        SettingsValueRow(title: L10n.Nav.distanceToNext, tint: tint, value: String(format: "%.1f NM", distance))
                     }
-                } header: {
-                    Label(L10n.Nav.navigation, systemImage: "location.north.line")
-                } footer: {
-                    Text(L10n.Nav.navigationHelp)
                 }
 
                 // Radio section
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L10n.Nav.frequency)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondaryText)
+                SettingsGroup(title: L10n.Nav.radio, tint: tint) {
+                    fieldRow(L10n.Nav.frequency, icon: "antenna.radiowaves.left.and.right") {
                         TextField("118.100", text: $frequency)
                             .keyboardType(.decimalPad)
                             .font(.system(size: 14, design: .monospaced))
+                            .foregroundColor(.primaryText)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L10n.Nav.callsign)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondaryText)
+                    fieldRow(L10n.Nav.callsign) {
                         TextField("e.g., PORRENTRUY INFO", text: $callSign)
                             .font(.system(size: 14))
+                            .foregroundColor(.primaryText)
                     }
-                } header: {
-                    Label(L10n.Nav.radio, systemImage: "antenna.radiowaves.left.and.right")
                 }
 
                 // Remarks section
-                Section {
+                SettingsGroup(title: L10n.Nav.remarks, tint: tint) {
                     TextEditor(text: $remarks)
                         .frame(minHeight: 80)
                         .font(.system(size: 14))
-                } header: {
-                    Label(L10n.Nav.remarks, systemImage: "note.text")
+                        .foregroundColor(.primaryText)
+                        .scrollContentBackground(.hidden)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                 }
 
                 // Timing section (read-only computed values)
                 if waypoint.estimatedElapsedTime != nil || waypoint.estimatedTimeOver != nil {
-                    Section {
+                    SettingsGroup(title: L10n.Nav.timing, tint: tint) {
                         if let eet = waypoint.formattedEET {
-                            HStack {
-                                Text(L10n.Nav.eetFromDeparture)
-                                    .foregroundColor(.secondaryText)
-                                Spacer()
-                                Text(eet)
-                                    .font(.system(size: 14, design: .monospaced))
-                            }
+                            SettingsValueRow(icon: "clock", title: L10n.Nav.eetFromDeparture, tint: tint, value: eet)
                         }
 
                         if let eto = waypoint.formattedETO {
-                            HStack {
-                                Text(L10n.Nav.eto)
-                                    .foregroundColor(.secondaryText)
-                                Spacer()
-                                Text(eto)
-                                    .font(.system(size: 14, design: .monospaced))
-                            }
+                            SettingsValueRow(title: L10n.Nav.eto, tint: tint, value: eto)
                         }
 
                         if let ato = waypoint.formattedATO {
-                            HStack {
-                                Text(L10n.Nav.atoRecorded)
-                                    .foregroundColor(.secondaryText)
-                                Spacer()
-                                Text(ato)
-                                    .font(.system(size: 14, design: .monospaced))
-                                    .foregroundColor(.aviationGreen)
-                            }
+                            SettingsValueRow(title: L10n.Nav.atoRecorded, tint: tint, value: ato, valueColor: .aviationGreen)
                         }
-                    } header: {
-                        Label(L10n.Nav.timing, systemImage: "clock")
                     }
                 }
 
                 // Delete section - only shown when onDelete callback is provided
                 if onDelete != nil {
-                    Section {
-                        Button(role: .destructive, action: {
+                    SettingsGroup(tint: tint) {
+                        SettingsButtonRow(icon: "trash", title: L10n.Nav.deleteWaypoint, tint: tint, showsChevron: false, destructive: true) {
                             showingDeleteConfirmation = true
-                        }) {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "trash")
-                                Text(L10n.Nav.deleteWaypoint)
-                                Spacer()
-                            }
-                            .foregroundColor(.red)
                         }
                     }
                 }
@@ -329,6 +294,18 @@ struct WaypointEditorSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    /// Houses a text-input control on a cockpit settings card: an optional tinted label row above the
+    /// field, both padded to match the kit's row insets.
+    @ViewBuilder
+    private func fieldRow<Field: View>(_ label: String, icon: String? = nil, @ViewBuilder field: () -> Field) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsRowLabel(icon: icon, title: label, tint: tint)
+            field()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private func loadWaypointData() {

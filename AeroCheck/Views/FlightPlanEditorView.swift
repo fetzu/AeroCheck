@@ -28,12 +28,18 @@ enum FlightPlanExportFormat {
     }
 }
 
-/// Wrapper for export data to use with sheet(item:)
+/// A generated export, written to a temp file so it can go straight to the system share sheet
+/// (no intermediate "export ready" screen). (#5 feedback)
 struct FlightPlanExportItem: Identifiable {
     let id = UUID()
-    let data: Data
-    let filename: String
-    let format: FlightPlanExportFormat
+    let url: URL
+
+    init?(data: Data, filename: String, format: FlightPlanExportFormat) {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(filename).\(format.fileExtension)")
+        do { try data.write(to: url, options: .atomic) } catch { return nil }
+        self.url = url
+    }
 }
 
 /// Flight plan editor view - tabular format similar to "AVIS DE VOL" form
@@ -44,22 +50,14 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
 
+    // Live "Flight plan details" editor (#5): the route is read-only here (the builder owns it), and
+    // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
-    @State private var showingWaypointEditor: FlightPlanWaypoint?
-    @State private var showingAddWaypoint = false
-    @State private var showingTerrainProfile = false
-    @State private var showingMapPicker = false
-    @State private var showingICAOSearch = false
     @State private var exportItem: FlightPlanExportItem?
-    @State private var showingAddWaypointChoice = false
-    @State private var routeRefreshToken = UUID() // Forces route table refresh
-    @State private var showingBulkAltitude = false
-    @State private var bulkAltitudeString = ""
-    @State private var airspaceConflicts: [AirspaceConflict] = []
-    @State private var showingAirspaceConflicts = false
-    @State private var airspaceDataUnavailable = false
     @State private var icaoSectionExpanded = false
+    @State private var logbookExpanded = false
     @State private var showingICAOCopied = false
+    @State private var commitWork: DispatchWorkItem?
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -74,39 +72,22 @@ struct FlightPlanEditorView: View {
     init(flightPlan: FlightPlan, isViewingFromFlightLog: Bool = false) {
         _flightPlan = State(initialValue: flightPlan)
         self.isViewingFromFlightLog = isViewingFromFlightLog
+        // Coming from the Flight Log, the Logbook/Times are the point of interest → expand by default;
+        // from the planning side they're post-flight noise → stay collapsed. (#5 feedback)
+        _logbookExpanded = State(initialValue: isViewingFromFlightLog)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Header section
+                VStack(spacing: 16) {
+                    routeSummaryCard        // route is read-only here — the builder owns it (#5)
                     headerSection
-
-                    // Airspace conflict warning banner (or data unavailable hint)
-                    if !airspaceConflicts.isEmpty {
-                        airspaceWarningBanner
-                    } else if airspaceDataUnavailable && flightPlan.waypoints.count >= 2 {
-                        airspaceDataHint
-                    }
-
-                    // Route table section
-                    routeSection
-
-                    // Fuel calculation section
                     fuelSection
-
-                    // Timing section
-                    timingSection
-
-                    // Notes section
+                    timingSection           // collapsible "Logbook / times"
                     notesSection
-
-                    // ICAO Details section (collapsible)
                     icaoDetailsSection
-
-                    // Actions section
-                    actionsSection
+                    if !isViewingFromFlightLog { actionsSection }
                 }
                 .padding()
                 // Add keyboard padding only when needed (handled by system)
@@ -114,228 +95,102 @@ struct FlightPlanEditorView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
-            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.flightPlan : flightPlan.name)
+            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.navLog : flightPlan.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Nav.save) {
-                        saveAndDismiss()
-                    }
-                }
-            }
-            .sheet(item: $showingWaypointEditor) { waypoint in
-                WaypointEditorSheet(
-                    waypoint: waypoint,
-                    aircraftType: flightPlan.aircraftTypeId,
-                    onSave: { updatedWaypoint in
-                        updateWaypoint(updatedWaypoint)
-                    },
-                    onDelete: {
-                        if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
-                            deleteWaypoint(at: index)
-                        }
-                    }
-                )
-            }
-            .sheet(isPresented: $showingAddWaypoint) {
-                AddWaypointSheet(aircraftTypeId: flightPlan.aircraftTypeId) { newWaypoint in
-                    addWaypoint(newWaypoint)
-                }
-            }
-            .sheet(isPresented: $showingTerrainProfile) {
-                TerrainProfileView(waypoints: flightPlan.waypoints)
-                    .environmentObject(appState)
-            }
-            .alert(L10n.Nav.setAltitude, isPresented: $showingBulkAltitude) {
-                TextField("ft", text: $bulkAltitudeString)
-                    .keyboardType(.numberPad)
-                Button(L10n.Nav.allWaypoints) {
-                    if let alt = Double(bulkAltitudeString) {
-                        for i in 0..<flightPlan.waypoints.count {
-                            flightPlan.waypoints[i].altitude = alt
-                        }
-                        routeRefreshToken = UUID()
-                    }
-                }
-                Button(L10n.Nav.emptyOnly) {
-                    if let alt = Double(bulkAltitudeString) {
-                        for i in 0..<flightPlan.waypoints.count {
-                            if flightPlan.waypoints[i].altitude == nil {
-                                flightPlan.waypoints[i].altitude = alt
-                            }
-                        }
-                        routeRefreshToken = UUID()
-                    }
-                }
-                Button(L10n.Button.cancel, role: .cancel) {}
-            } message: {
-                Text(L10n.Nav.setAltitudeMessage)
-            }
-            .sheet(isPresented: $showingMapPicker) {
-                MapWaypointPickerView { coordinate, name in
-                    let waypoint = FlightPlanWaypoint(
-                        name: name,
-                        coordinate: coordinate,
-                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
-                    )
-                    addWaypoint(waypoint)
-                }
-                .environmentObject(airportDataService)
-                .environmentObject(appState)
-            }
-            .sheet(isPresented: $showingICAOSearch) {
-                ICAOSearchSheet(airportDataService: airportDataService) { airport, primaryFrequency in
-                    let waypoint = FlightPlanWaypoint(
-                        name: airport.ident,
-                        coordinate: airport.coordinate,
-                        altitude: airport.elevation.map { Double($0) },
-                        frequency: primaryFrequency,
-                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
-                    )
-                    addWaypoint(waypoint)
-                }
+                ToolbarItem(placement: .primaryAction) { exportMenu }
             }
             .sheet(item: $exportItem) { item in
-                FlightPlanExportSheet(
-                    data: item.data,
-                    filename: item.filename,
-                    format: item.format
-                )
+                ShareSheet(activityItems: [item.url])
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: routeRefreshToken) { _, _ in Task { await analyzeAirspaceConflicts() } }
-        .task { await analyzeAirspaceConflicts() }
-        .sheet(isPresented: $showingAirspaceConflicts) {
-            AirspaceConflictDetailSheet(conflicts: airspaceConflicts)
-        }
+        // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
+        .onChange(of: flightPlan) { _, _ in scheduleCommit() }
+        .onDisappear { flushCommit() }
     }
 
-    // MARK: - Airspace Warning Banner
+    // MARK: - Live details helpers (#5)
 
-    private var airspaceWarningBanner: some View {
-        Button(action: { showingAirspaceConflicts = true }) {
-            HStack(spacing: 10) {
-                let highSeverity = airspaceConflicts.contains { $0.severity == .high }
-                Image(systemName: highSeverity ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                    .foregroundColor(highSeverity ? .aviationRed : .aviationAmber)
-                    .font(.system(size: 18))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(highSeverity ? L10n.Nav.restrictedAirspaceOnRoute : L10n.Nav.airspaceAlongRoute)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primaryText)
-
-                    let summary = airspaceConflicts.prefix(3)
-                        .map { $0.airspace.name }
-                        .joined(separator: ", ")
-                    Text(summary + (airspaceConflicts.count > 3 ? " +\(airspaceConflicts.count - 3) more" : ""))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(1)
+    /// Read-only route header — editing the route happens in the builder.
+    private var routeSummaryCard: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(routeEndpoints)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText).lineLimit(1)
+                Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · \(flightPlan.formattedTotalEET)")
+                    .font(.system(size: 11)).foregroundColor(.secondaryText)
+            }
+            Spacer()
+            if !isViewingFromFlightLog {
+                Button { dismiss() } label: {
+                    Label(L10n.Nav.editRoute, systemImage: "map")
+                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.altimeterBlue)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.panelBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(
-                                airspaceConflicts.contains(where: { $0.severity == .high })
-                                    ? Color.aviationRed.opacity(0.5)
-                                    : Color.aviationAmber.opacity(0.3),
-                                lineWidth: 1
-                            )
-                    )
-            )
-        }
-    }
-
-    private func analyzeAirspaceConflicts() async {
-        guard flightPlan.waypoints.count >= 2 else {
-            airspaceConflicts = []
-            airspaceDataUnavailable = false
-            return
-        }
-
-        let waypoints = flightPlan.waypoints.map { wp in
-            (coordinate: wp.coordinate, altitude: wp.altitude)
-        }
-        let routeCoords = flightPlan.waypoints.map(\.coordinate)
-
-        // Use downloaded data if available, otherwise fetch on-demand from API
-        let nearbyAirspaces: [Airspace]
-        if openAIPDataService.isDataAvailable {
-            airspaceDataUnavailable = false
-            await openAIPDataService.ensureLoaded()
-            nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
-        } else {
-            // On-demand fetch from API — works without downloading the full dataset
-            do {
-                nearbyAirspaces = try await openAIPDataService.fetchAirspacesAlongRoute(routeCoords)
-                airspaceDataUnavailable = false
-            } catch {
-                print("[Airspace] On-demand fetch failed: \(error.localizedDescription)")
-                airspaceConflicts = []
-                airspaceDataUnavailable = true
-                return
             }
         }
-
-        airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
-            waypoints: waypoints,
-            airspaces: nearbyAirspaces
-        )
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
     }
 
-    // MARK: - Airspace Data Hint
+    private var routeEndpoints: String {
+        let names = flightPlan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
+        if names.count >= 2, let f = names.first, let l = names.last { return "\(f) → \(l)" }
+        return names.first ?? L10n.Nav.flightPlan
+    }
 
-    private var airspaceDataHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 14))
-                .foregroundColor(.secondaryText)
-            Text(L10n.Nav.airspaceCheckFailed)
-                .font(.system(size: 13))
-                .foregroundColor(.secondaryText)
+    private var exportMenu: some View {
+        Menu {
+            Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
+            Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
+            Button { exportFlightPlan(format: .xlsx) } label: { Label("Excel", systemImage: "tablecells") }
+            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF", systemImage: "doc.richtext") }
+            Divider()
+            Button {
+                UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
+                showingICAOCopied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showingICAOCopied = false }
+            } label: { Label(L10n.Nav.copyICAOFlightPlan, systemImage: "doc.on.clipboard") }
+                .disabled(flightPlan.waypoints.count < 2)
+        } label: {
+            Image(systemName: "square.and.arrow.up")
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.panelBackground)
-        )
+        .disabled(flightPlan.waypoints.isEmpty)
     }
 
-    // MARK: - Header Section
+    /// Debounced auto-commit of non-route edits to the live plan (not for a logged-plan snapshot).
+    private func scheduleCommit() {
+        guard !isViewingFromFlightLog else { return }
+        commitWork?.cancel()
+        let work = DispatchWorkItem { flightPlanManager.updateFlightPlan(flightPlan) }
+        commitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    private func flushCommit() {
+        commitWork?.cancel()
+        guard !isViewingFromFlightLog else { return }
+        flightPlanManager.updateFlightPlan(flightPlan)
+    }
+
+    // MARK: - Plan (header) Section
 
     private var headerSection: some View {
         VStack(spacing: 16) {
-            // Title bar
             HStack {
                 Text(L10n.Nav.navigationFlightPlan)
                     .font(.system(size: isCompactWidth ? 12 : 14, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .tracking(1)
-
                 Spacer()
-
                 HStack(spacing: 8) {
                     Text(L10n.Nav.flightType)
                         .font(.system(size: isCompactWidth ? 10 : 12))
                         .foregroundColor(.secondaryText)
-
                     Picker("", selection: $flightPlan.flightType) {
                         ForEach(FlightType.allCases) { type in
                             Text(type.rawValue).tag(type)
@@ -343,272 +198,26 @@ struct FlightPlanEditorView: View {
                     }
                     .pickerStyle(.menu)
                     .tint(.aviationGold)
-                    .onChange(of: flightPlan.flightType) { _, _ in
-                        // Force refresh by saving and recalculating
-                        var updatedPlan = flightPlan
-                        updatedPlan.calculateRouteData()
-                        flightPlan = updatedPlan
-                    }
                 }
             }
 
-            // Main header grid - adaptive columns for compact devices
-            if isCompactWidth {
-                // 2 columns for iPhone
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
-                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: L10n.Nav.date, date: Binding(
-                        get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
-                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
-                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
-                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
-                }
-            } else {
-                // 4 columns for iPad
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    // Row 1
-                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
-                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: L10n.Nav.date, date: Binding(
-                        get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
-                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
-
-                    // Row 2
-                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
-                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
-                }
+            let cols = isCompactWidth ? 2 : 4
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: cols), spacing: 12) {
+                FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                DateFormField(label: L10n.Nav.date, date: Binding(
+                    get: { flightPlan.plannedDepartureTime ?? Date() },
+                    set: { flightPlan.plannedDepartureTime = $0 }
+                ))
+                OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
-    }
-
-    // MARK: - Route Section
-
-    private var routeSection: some View {
-        VStack(spacing: 12) {
-            // Section header
-            HStack {
-                Label(L10n.Nav.route, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
-
-                Button(action: { showingTerrainProfile = true }) {
-                    Label(L10n.Nav.terrain, systemImage: "mountain.2")
-                        .font(.system(size: 12))
-                }
-                .disabled(flightPlan.waypoints.count < 2)
-
-                Menu {
-                    Button(action: { showingAddWaypoint = true }) {
-                        Label(L10n.Nav.addWaypointManually, systemImage: "plus")
-                    }
-                    if airportDataService.isDataAvailable {
-                        Button(action: { showingICAOSearch = true }) {
-                            Label(L10n.Nav.addWithICAO, systemImage: "magnifyingglass")
-                        }
-                    }
-                    Button(action: { showingMapPicker = true }) {
-                        Label(L10n.Nav.addFromMap, systemImage: "map")
-                    }
-                    if !flightPlan.waypoints.isEmpty {
-                        Divider()
-                        Button(action: {
-                            bulkAltitudeString = ""
-                            showingBulkAltitude = true
-                        }) {
-                            Label(L10n.Nav.setAltitude, systemImage: "arrow.up.and.down")
-                        }
-                    }
-                } label: {
-                    Label(L10n.Nav.add, systemImage: "plus.circle")
-                        .font(.system(size: 12))
-                }
-            }
-
-            // Route table - id forces refresh when waypoints change
-            Group {
-                if flightPlan.waypoints.isEmpty {
-                    emptyRouteView
-                } else {
-                    routeTable
-                }
-            }
-            .id(routeRefreshToken)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
-    }
-
-    private var emptyRouteView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "mappin.slash")
-                .font(.system(size: 32))
-                .foregroundColor(.dimText)
-
-            Text(L10n.Nav.noWaypoints)
-                .font(.system(size: 14))
-                .foregroundColor(.secondaryText)
-
-            Menu {
-                Button(action: { showingAddWaypoint = true }) {
-                    Label(L10n.Nav.addWaypointManually, systemImage: "plus")
-                }
-                Button(action: { showingMapPicker = true }) {
-                    Label(L10n.Nav.addFromMap, systemImage: "map")
-                }
-            } label: {
-                Label(L10n.Nav.addFirstWaypoint, systemImage: "plus")
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.aviationGold)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-
-    private var routeTable: some View {
-        Group {
-            if isCompactWidth {
-                // iPhone: Wrap in horizontal ScrollView with fixed-width content
-                ScrollView(.horizontal, showsIndicators: true) {
-                    compactRouteTableContent
-                        .frame(minWidth: 600)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.aviationDarkBlue.opacity(0.5), lineWidth: 1)
-                )
-            } else {
-                // iPad: Flexible waypoint column with drag-and-reorder support
-                VStack(spacing: 0) {
-                    // Table header
-                    HStack(spacing: 0) {
-                        tableHeaderCell("#", width: 30)
-                        tableHeaderCell(L10n.Nav.waypoint, width: nil, alignment: .leading)
-                        tableHeaderCell(L10n.Nav.freq, width: 55)
-                        tableHeaderCell(L10n.Nav.mc, width: 50)
-                        tableHeaderCell(L10n.Nav.dist, width: 50)
-                        tableHeaderCell(L10n.Nav.alt, width: 60)
-                        tableHeaderCell(L10n.Nav.gs, width: 50)
-                        tableHeaderCell(L10n.Nav.eet, width: 50)
-                        tableHeaderCell(L10n.Nav.eto, width: 55)
-                        tableHeaderCell(L10n.Nav.ato, width: 55)
-                    }
-                    .background(Color.aviationDarkBlue)
-
-                    // Table rows with drag-and-reorder
-                    List {
-                        ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                            WaypointTableRow(
-                                index: index,
-                                waypoint: waypoint,
-                                isLast: index == flightPlan.waypoints.count - 1,
-                                isCompact: false,
-                                onTap: {
-                                    showingWaypointEditor = waypoint
-                                },
-                                onDelete: {
-                                    deleteWaypoint(at: index)
-                                },
-                                onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
-                                onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
-                            )
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        }
-                        .onMove { source, destination in
-                            guard let from = source.first else { return }
-                            moveWaypoint(from: from, to: destination > from ? destination - 1 : destination)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: CGFloat(flightPlan.waypoints.count) * 36, maxHeight: CGFloat(flightPlan.waypoints.count) * 36)
-                    .environment(\.editMode, .constant(.active))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.aviationDarkBlue, lineWidth: 1)
-                )
-            }
-        }
-    }
-
-    /// Compact route table content for iPhone - uses fixed column widths
-    private var compactRouteTableContent: some View {
-        VStack(spacing: 0) {
-            // Table header with fixed widths
-            HStack(spacing: 0) {
-                tableHeaderCell("#", width: 30)
-                tableHeaderCell(L10n.Nav.waypoint, width: 100, alignment: .leading)
-                tableHeaderCell(L10n.Nav.freq, width: 55)
-                tableHeaderCell(L10n.Nav.mc, width: 50)
-                tableHeaderCell(L10n.Nav.dist, width: 50)
-                tableHeaderCell(L10n.Nav.alt, width: 60)
-                tableHeaderCell(L10n.Nav.gs, width: 50)
-                tableHeaderCell(L10n.Nav.eet, width: 50)
-                tableHeaderCell(L10n.Nav.eto, width: 55)
-                tableHeaderCell(L10n.Nav.ato, width: 55)
-            }
-            .background(Color.aviationDarkBlue)
-
-            // Table rows
-            ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                WaypointTableRow(
-                    index: index,
-                    waypoint: waypoint,
-                    isLast: index == flightPlan.waypoints.count - 1,
-                    isCompact: true,
-                    onTap: {
-                        showingWaypointEditor = waypoint
-                    },
-                    onDelete: {
-                        deleteWaypoint(at: index)
-                    },
-                    onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
-                    onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
-                )
-            }
-        }
-    }
-
-    private func tableHeaderCell(_ text: String, width: CGFloat?, alignment: Alignment = .center) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(.aviationGold)
-            .frame(width: width, alignment: alignment)
-            .frame(height: 32)
-            .frame(maxWidth: width == nil ? .infinity : nil)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
     }
 
     // MARK: - Fuel Section
@@ -694,14 +303,20 @@ struct FlightPlanEditorView: View {
 
     private var timingSection: some View {
         VStack(spacing: 12) {
-            HStack {
-                Label(L10n.Nav.timing, systemImage: "clock")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
+            // Post-flight logbook data — collapsed by default so it doesn't clutter planning. (#5)
+            Button { withAnimation { logbookExpanded.toggle() } } label: {
+                HStack {
+                    Label(L10n.Nav.logbookTimes, systemImage: "clock")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.aviationGold)
+                    Spacer()
+                    Image(systemName: logbookExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12)).foregroundColor(.secondaryText)
+                }
             }
+            .buttonStyle(.plain)
 
+            if logbookExpanded {
             // First row: Counter Start, Block OFF, Time ON, Time OFF, Block ON, Counter Stop
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
@@ -766,6 +381,7 @@ struct FlightPlanEditorView: View {
                 Spacer()
                 Spacer()
             }
+            } // if logbookExpanded
         }
         .padding()
         .background(
@@ -930,129 +546,26 @@ struct FlightPlanEditorView: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
-            // Hide Activate/Deactivate and Recalculate buttons when viewing from Flight Log
-            if !isViewingFromFlightLog {
-                if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
-                    Button(action: {
-                        flightPlanManager.deactivateFlightPlan()
-                    }) {
-                        Label(L10n.Nav.deactivateFlightPlan, systemImage: "airplane.arrival")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                } else {
-                    Button(action: {
-                        flightPlanManager.updateFlightPlan(flightPlan)
-                        flightPlanManager.activateFlightPlan(flightPlan)
-                        dismiss()
-                    }) {
-                        Label(L10n.Nav.activateFlightPlan, systemImage: "airplane.departure")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.aviationGreen)
+            if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
+                Button { flightPlanManager.deactivateFlightPlan() } label: {
+                    Label(L10n.Nav.deactivateFlightPlan, systemImage: "airplane.arrival").frame(maxWidth: .infinity)
                 }
-
-                Button(action: {
-                    recalculateRoute()
-                }) {
-                    Label(L10n.Nav.recalculateRoute, systemImage: "arrow.triangle.2.circlepath")
-                        .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent).tint(.orange)
+            } else {
+                Button {
+                    flightPlanManager.updateFlightPlan(flightPlan)
+                    flightPlanManager.activateFlightPlan(flightPlan)
+                    dismiss()
+                } label: {
+                    Label(L10n.Nav.activateFlightPlan, systemImage: "airplane.departure").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-
-                Divider()
-                    .padding(.vertical, 8)
+                .buttonStyle(.borderedProminent).tint(.aviationGreen)
             }
-
-            // Export section
-            exportSection
         }
         .padding()
     }
 
     // MARK: - Export Section
-
-    private var exportSection: some View {
-        VStack(spacing: 8) {
-            Text(L10n.Nav.exportFlightPlan)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.secondaryText)
-
-            HStack(spacing: 12) {
-                Button(action: { exportFlightPlan(format: .json) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 20))
-                        Text("JSON")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .gpx) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                            .font(.system(size: 20))
-                        Text("GPX")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .xlsx) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "tablecells")
-                            .font(.system(size: 20))
-                        Text("Excel")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .pdf) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.richtext")
-                            .font(.system(size: 20))
-                        Text("PDF")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-            }
-
-            // ICAO FPL copy button
-            Button(action: {
-                let fplText = flightPlan.toICAOFlightPlan()
-                UIPasteboard.general.string = fplText
-                showingICAOCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    showingICAOCopied = false
-                }
-            }) {
-                HStack {
-                    Image(systemName: showingICAOCopied ? "checkmark.circle.fill" : "doc.on.clipboard")
-                        .font(.system(size: 16))
-                    Text(showingICAOCopied ? L10n.Nav.icaoCopied : L10n.Nav.copyICAOFlightPlan)
-                        .font(.system(size: 12))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(.bordered)
-            .tint(showingICAOCopied ? .green : .aviationGold)
-            .disabled(flightPlan.waypoints.count < 2)
-        }
-    }
 
     // MARK: - Computed Properties for Auto-Population
 
@@ -1110,14 +623,6 @@ struct FlightPlanEditorView: View {
         return flightPlan.totalLandings ?? 0
     }
 
-    // MARK: - Actions
-
-    private func saveAndDismiss() {
-        flightPlan.calculateRouteData()
-        flightPlanManager.updateFlightPlan(flightPlan)
-        dismiss()
-    }
-
     private func exportFlightPlan(format: FlightPlanExportFormat) {
         // Generate the data
         let generatedData: Data?
@@ -1141,52 +646,6 @@ struct FlightPlanEditorView: View {
             filename: flightPlan.exportFilename,
             format: format
         )
-    }
-
-    private func addWaypoint(_ waypoint: FlightPlanWaypoint) {
-        var updatedPlan = flightPlan
-        updatedPlan.waypoints.append(waypoint)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func updateWaypoint(_ waypoint: FlightPlanWaypoint) {
-        if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
-            var updatedPlan = flightPlan
-            updatedPlan.waypoints[index] = waypoint
-            updatedPlan.calculateRouteData()
-            flightPlan = updatedPlan
-            routeRefreshToken = UUID() // Force UI refresh
-        }
-    }
-
-    private func deleteWaypoint(at index: Int) {
-        var updatedPlan = flightPlan
-        updatedPlan.waypoints.remove(at: index)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func moveWaypoint(from source: Int, to destination: Int) {
-        var updatedPlan = flightPlan
-        let waypoint = updatedPlan.waypoints.remove(at: source)
-        updatedPlan.waypoints.insert(waypoint, at: destination)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func recalculateRoute() {
-        var updatedPlan = flightPlan
-        // Clear ATO fields when recalculating
-        for i in updatedPlan.waypoints.indices {
-            updatedPlan.waypoints[i].actualTimeOver = nil
-        }
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
     }
 }
 
@@ -1602,149 +1061,9 @@ struct IntFormField: View {
     }
 }
 
-// MARK: - Add Waypoint Sheet
+// MARK: - Waypoint Picker Map View Representable
 
-struct AddWaypointSheet: View {
-    @Environment(\.dismiss) var dismiss
-
-    let aircraftTypeId: String
-    let onAdd: (FlightPlanWaypoint) -> Void
-
-    private let elevationService = ElevationService()
-
-    @State private var name: String = ""
-    @State private var latitude: String = ""
-    @State private var longitude: String = ""
-    @State private var altitude: String = ""
-    @State private var frequency: String = ""
-    @State private var remarks: String = ""
-    @State private var groundElevationMeters: Double?
-    @State private var isLoadingElevation = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField(L10n.FlightPlan.waypointNameHint, text: $name)
-
-                    HStack {
-                        TextField(L10n.Nav.latitude, text: $latitude)
-                            .keyboardType(.decimalPad)
-                        TextField(L10n.Nav.longitude, text: $longitude)
-                            .keyboardType(.decimalPad)
-                    }
-
-                    TextField(L10n.FlightPlan.altitudePlaceholder, text: $altitude)
-                        .keyboardType(.numberPad)
-
-                    // Ground level display
-                    HStack {
-                        if isLoadingElevation {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text(L10n.Nav.loadingElevation)
-                                .foregroundColor(.secondaryText)
-                                .font(.system(size: 12))
-                        } else if let groundElevation = groundElevationMeters {
-                            let groundFeet = groundElevation * 3.28084
-                            Text(L10n.Nav.groundLevel(Int(groundFeet)))
-                                .foregroundColor(.dimText)
-                                .font(.system(size: 12))
-                        }
-                    }
-                } header: {
-                    Label(L10n.Nav.location, systemImage: "mappin")
-                } footer: {
-                    if groundElevationMeters != nil {
-                        Text(L10n.Nav.defaultAGL)
-                    }
-                }
-
-                Section {
-                    TextField(L10n.Nav.frequency, text: $frequency)
-                        .keyboardType(.decimalPad)
-
-                    TextField(L10n.Nav.remarks, text: $remarks)
-                } header: {
-                    Label(L10n.Nav.details, systemImage: "info.circle")
-                }
-            }
-            .navigationTitle(L10n.Nav.addWaypoint)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) { dismiss() }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Nav.add) {
-                        addWaypoint()
-                    }
-                    .disabled(latitude.isEmpty || longitude.isEmpty)
-                }
-            }
-            .onChange(of: latitude) { _, _ in
-                Task { await fetchGroundElevation() }
-            }
-            .onChange(of: longitude) { _, _ in
-                Task { await fetchGroundElevation() }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-
-    private func fetchGroundElevation() async {
-        guard let lat = Double(latitude),
-              let lon = Double(longitude) else {
-            groundElevationMeters = nil
-            return
-        }
-
-        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-
-        // Only fetch if within Switzerland
-        guard await elevationService.isInSwitzerland(coordinate) else {
-            groundElevationMeters = nil
-            return
-        }
-
-        isLoadingElevation = true
-
-        if let elevation = await elevationService.fetchElevation(at: coordinate) {
-            groundElevationMeters = elevation
-
-            // If altitude is not set, default to ground level + 3000 ft AGL
-            if altitude.isEmpty {
-                let defaultAltitude = (elevation * 3.28084) + 3000
-                altitude = String(format: "%.0f", defaultAltitude)
-            }
-        } else {
-            groundElevationMeters = nil
-        }
-
-        isLoadingElevation = false
-    }
-
-    private func addWaypoint() {
-        guard let lat = Double(latitude),
-              let lon = Double(longitude) else { return }
-
-        let waypoint = FlightPlanWaypoint(
-            name: name.isEmpty ? L10n.Nav.wpt : name,
-            coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
-            altitude: Double(altitude),
-            frequency: frequency.isEmpty ? nil : frequency,
-            remarks: remarks,
-            plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
-        )
-
-        onAdd(waypoint)
-        dismiss()
-    }
-}
-
-// MARK: - Map Layer Type for Waypoint Picker
-
+/// Map layers for the waypoint-picker / route-builder maps. (shared by the builder + waypoint sheet)
 enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
     case apple = "Apple Maps"
     case icao = "ICAO / Segelflug"
@@ -1760,163 +1079,6 @@ enum WaypointPickerMapLayer: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - Map Waypoint Picker
-
-struct MapWaypointPickerView: View {
-    @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var airportDataService: AirportDataService
-    @EnvironmentObject var appState: AppState
-
-    let onSelect: (CLLocationCoordinate2D, String) -> Void
-
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 47.1, longitude: 7.1), // Default to Swiss Jura
-        span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
-    )
-    @State private var waypointName: String = ""
-    @State private var selectedLayer: WaypointPickerMapLayer = .apple
-    @State private var selectedAirport: Airport?
-    @State private var selectedAirportFrequency: String?
-    @State private var showAirportConfirmation = false
-    @State private var visibleAirports: [Airport] = []
-    @State private var airportUpdateTask: Task<Void, Never>?
-
-    private func scheduleAirportUpdate() {
-        airportUpdateTask?.cancel()
-        airportUpdateTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
-            guard !Task.isCancelled else { return }
-            guard appState.settings.showAirportsOnMap, airportDataService.isDataAvailable else {
-                await MainActor.run { visibleAirports = [] }
-                return
-            }
-            let currentRegion = region
-            let halfLatSpan = currentRegion.span.latitudeDelta / 2
-            let halfLonSpan = currentRegion.span.longitudeDelta / 2
-            let airports = airportDataService.getAirportsInRegion(
-                minLat: currentRegion.center.latitude - halfLatSpan,
-                maxLat: currentRegion.center.latitude + halfLatSpan,
-                minLon: currentRegion.center.longitude - halfLonSpan,
-                maxLon: currentRegion.center.longitude + halfLonSpan,
-                types: [.largeAirport, .mediumAirport, .smallAirport],
-                limit: 100
-            )
-            await MainActor.run { visibleAirports = airports }
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                // Map view based on selected layer
-                WaypointPickerMapViewRepresentable(
-                    region: $region,
-                    mapLayer: selectedLayer,
-                    airports: visibleAirports,
-                    onAirportTapped: { airport in
-                        selectedAirport = airport
-                        let frequencies = airportDataService.getFrequencies(for: airport.ident)
-                        selectedAirportFrequency = frequencies.first(where: { $0.type.uppercased().contains("TWR") })?.formattedFrequency
-                            ?? frequencies.first(where: { $0.type.uppercased().contains("ATIS") })?.formattedFrequency
-                            ?? frequencies.first?.formattedFrequency
-                        showAirportConfirmation = true
-                    }
-                )
-                .ignoresSafeArea()
-
-                // Crosshair at center
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Color.aviationGold)
-                        .frame(width: 2, height: 20)
-                    Rectangle()
-                        .fill(Color.aviationGold)
-                        .frame(width: 2, height: 20)
-                }
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Color.aviationGold)
-                        .frame(width: 20, height: 2)
-                    Rectangle()
-                        .fill(Color.aviationGold)
-                        .frame(width: 20, height: 2)
-                }
-
-                // Layer selector at top
-                VStack {
-                    HStack {
-                        Spacer()
-                        Picker(L10n.Nav.layer, selection: $selectedLayer) {
-                            ForEach(WaypointPickerMapLayer.allCases) { layer in
-                                Label(layer.rawValue, systemImage: layer.icon)
-                                    .tag(layer)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .padding(8)
-                        .background(Color.panelBackground.opacity(0.9))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .padding()
-                    }
-                    Spacer()
-                }
-
-                // Bottom panel
-                VStack {
-                    Spacer()
-
-                    VStack(spacing: 12) {
-                        TextField(L10n.Nav.waypointNamePlaceholder, text: $waypointName)
-                            .textFieldStyle(.roundedBorder)
-
-                        Text("Lat: \(String(format: "%.4f", region.center.latitude))  Lon: \(String(format: "%.4f", region.center.longitude))")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.secondaryText)
-
-                        Button(action: {
-                            onSelect(region.center, waypointName)
-                            dismiss()
-                        }) {
-                            Text(L10n.Nav.addWaypointAtCenter)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.aviationGold)
-                    }
-                    .padding()
-                    .background(Color.panelBackground.opacity(0.95))
-                }
-            }
-            .navigationTitle(L10n.Nav.selectLocation)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) { dismiss() }
-                }
-            }
-            .alert(L10n.Nav.addAirportToRoute, isPresented: $showAirportConfirmation) {
-                Button(L10n.Nav.add) {
-                    if let airport = selectedAirport {
-                        onSelect(airport.coordinate, airport.ident)
-                        dismiss()
-                    }
-                }
-                Button(L10n.Button.cancel, role: .cancel) { }
-            } message: {
-                if let airport = selectedAirport {
-                    Text("\(airport.ident) - \(airport.name)")
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .onAppear { scheduleAirportUpdate() }
-        .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
-        .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
-    }
-}
-
-// MARK: - Waypoint Picker Map View Representable
 
 struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
@@ -1995,13 +1157,13 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
 
         case .icao:
             mapView.mapType = .standard
-            let overlay = WaypointPickerICAOTileOverlay()
+            let overlay = ICAOSegelflugkarteTileOverlay()
             overlay.canReplaceMapContent = true
             mapView.addOverlay(overlay, level: .aboveLabels)
 
         case .swissimage:
             mapView.mapType = .standard
-            let overlay = WaypointPickerSwisstopoTileOverlay(
+            let overlay = SwisstopoTileOverlay(
                 layerIdentifier: "ch.swisstopo.swissimage",
                 tileExtension: "jpeg"
             )
@@ -2079,364 +1241,6 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
             guard let airportAnnotation = view.annotation as? AirportAnnotation else { return }
             parent.onAirportTapped?(airportAnnotation.airport)
-        }
-    }
-}
-
-// MARK: - Waypoint Picker Tile Overlays
-
-/// ICAO/Segelflugkarte tile overlay for waypoint picker
-class WaypointPickerICAOTileOverlay: MKTileOverlay {
-    private let icaoLayerIdentifier = "ch.bazl.luftfahrtkarten-icao"
-    private let segelflugkarteLayerIdentifier = "ch.bazl.segelflugkarte"
-
-    override init(urlTemplate URLTemplate: String?) {
-        super.init(urlTemplate: "https://wmts.geo.admin.ch/1.0.0/ch.bazl.luftfahrtkarten-icao/default/current/3857/{z}/{x}/{y}.png")
-        self.minimumZ = 7
-        self.maximumZ = 12  // Segelflugkarte max zoom is 12
-    }
-
-    convenience init() {
-        self.init(urlTemplate: nil)
-    }
-
-    override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        let layerIdentifier: String
-        let finalZ: Int
-
-        // ICAO for zoom 7-11, Segelflugkarte for zoom 11-12
-        if path.z <= 11 {
-            layerIdentifier = icaoLayerIdentifier
-            finalZ = min(max(path.z, 7), 11)
-        } else {
-            layerIdentifier = segelflugkarteLayerIdentifier
-            finalZ = min(max(path.z, 11), 12)
-        }
-
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(finalZ)/\(path.x)/\(path.y).png"
-        return URL(string: urlString) ?? URL(string: "about:blank")!
-    }
-}
-
-/// SwissImage tile overlay for waypoint picker
-class WaypointPickerSwisstopoTileOverlay: MKTileOverlay {
-    let layerIdentifier: String
-    let tileExtension: String
-
-    init(layerIdentifier: String, tileExtension: String = "png") {
-        self.layerIdentifier = layerIdentifier
-        self.tileExtension = tileExtension
-
-        let urlTemplate = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/{z}/{x}/{y}.\(tileExtension)"
-        super.init(urlTemplate: urlTemplate)
-
-        self.minimumZ = 7
-        self.maximumZ = 18
-    }
-
-    override func url(forTilePath path: MKTileOverlayPath) -> URL {
-        let clampedZ = min(max(path.z, 7), 18)
-        let urlString = "https://wmts.geo.admin.ch/1.0.0/\(layerIdentifier)/default/current/3857/\(clampedZ)/\(path.x)/\(path.y).\(tileExtension)"
-        return URL(string: urlString) ?? URL(string: "about:blank")!
-    }
-}
-
-// MARK: - Export Sheet
-
-struct FlightPlanExportSheet: View {
-    @Environment(\.dismiss) var dismiss
-
-    let data: Data
-    let filename: String
-    let format: FlightPlanExportFormat
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: iconName)
-                    .font(.system(size: 60))
-                    .foregroundColor(.aviationGold)
-
-                Text(L10n.Nav.exportReady)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primaryText)
-
-                Text("\(fullFilename)")
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundColor(.secondaryText)
-
-                Text(formattedSize)
-                    .font(.system(size: 12))
-                    .foregroundColor(.dimText)
-
-                ShareLink(item: exportFile, preview: SharePreview(filename, icon: iconName)) {
-                    Label(L10n.Nav.share, systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.aviationGold)
-                .padding(.horizontal, 40)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Nav.exportFlightPlan)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-
-    private var iconName: String {
-        switch format {
-        case .json: return "doc.text"
-        case .xlsx: return "tablecells"
-        case .pdf: return "doc.richtext"
-        case .gpx: return "point.topleft.down.to.point.bottomright.curvepath"
-        }
-    }
-
-    private var fullFilename: String {
-        "\(filename).\(format.fileExtension)"
-    }
-
-    private var formattedSize: String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(data.count))
-    }
-
-    private var exportFile: ExportFile {
-        ExportFile(data: data, filename: fullFilename, contentType: format.contentType)
-    }
-}
-
-/// Transferable file for sharing
-struct ExportFile: Transferable {
-    let data: Data
-    let filename: String
-    let contentType: UTType
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .data) { file in
-            file.data
-        }
-        .suggestedFileName { $0.filename }
-    }
-}
-
-// MARK: - ICAO Search Sheet
-
-/// Sheet for searching and adding airports by ICAO code
-struct ICAOSearchSheet: View {
-    @Environment(\.dismiss) var dismiss
-    let airportDataService: AirportDataService
-    let onSelect: (Airport, String?) -> Void  // (airport, primaryFrequency)
-
-    @State private var searchText: String = ""
-    @State private var searchResults: [Airport] = []
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                searchField
-                searchContent
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Nav.addWithICAO)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) { dismiss() }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .onChange(of: searchText) { _, newValue in
-            updateSearchResults(query: newValue)
-        }
-    }
-
-    private var searchField: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondaryText)
-            TextField(L10n.Nav.icaoSearchPlaceholder, text: $searchText)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-        }
-        .padding(12)
-        .background(Color.panelBackground)
-        .cornerRadius(10)
-        .padding(.horizontal)
-        .padding(.top, 8)
-    }
-
-    @ViewBuilder
-    private var searchContent: some View {
-        if searchResults.isEmpty && !searchText.isEmpty {
-            Spacer()
-            VStack(spacing: 12) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 40))
-                    .foregroundColor(.dimText)
-                Text(L10n.Nav.noAirportsFound)
-                    .font(.bodyText)
-                    .foregroundColor(.dimText)
-            }
-            Spacer()
-        } else if searchResults.isEmpty {
-            Spacer()
-            VStack(spacing: 12) {
-                Image(systemName: "airplane")
-                    .font(.system(size: 40))
-                    .foregroundColor(.dimText)
-                Text(L10n.Nav.icaoSearchHint)
-                    .font(.bodyText)
-                    .foregroundColor(.dimText)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-            Spacer()
-        } else {
-            airportResultsList
-        }
-    }
-
-    private var airportResultsList: some View {
-        List {
-            ForEach(Array(searchResults), id: \.id) { airport in
-                Button {
-                    selectAirport(airport)
-                } label: {
-                    airportRow(airport)
-                }
-                .listRowBackground(Color.panelBackground)
-            }
-        }
-        .listStyle(.plain)
-    }
-
-    private func airportRow(_ airport: Airport) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(airport.ident)
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.bold)
-                    .foregroundColor(.primaryText)
-                Text(airport.name)
-                    .font(.caption)
-                    .foregroundColor(.secondaryText)
-            }
-            Spacer()
-            Text(airport.type.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)
-                .font(.caption2)
-                .foregroundColor(.dimText)
-        }
-    }
-
-    private func updateSearchResults(query: String) {
-        guard query.count >= 2 else {
-            searchResults = []
-            return
-        }
-        searchResults = airportDataService.searchAirports(query: query, limit: 30)
-    }
-
-    private func selectAirport(_ airport: Airport) {
-        let frequencies = airportDataService.getFrequencies(for: airport.ident)
-        // Extract just the frequency number for the waypoint field
-        let freqValue: String? = {
-            let priorityTypes = ["TWR", "ATIS", "APP", "GND"]
-            for type in priorityTypes {
-                if let freq = frequencies.first(where: { $0.type.uppercased().contains(type) }) {
-                    return freq.formattedFrequency
-                }
-            }
-            return frequencies.first?.formattedFrequency
-        }()
-        onSelect(airport, freqValue)
-        dismiss()
-    }
-}
-
-// MARK: - Airspace Conflict Detail Sheet
-
-/// Shows detailed list of airspace conflicts along a flight plan route
-struct AirspaceConflictDetailSheet: View {
-    let conflicts: [AirspaceConflict]
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(conflicts) { conflict in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            // Severity indicator
-                            Circle()
-                                .fill(severityColor(conflict.severity))
-                                .frame(width: 10, height: 10)
-
-                            Text(conflict.airspace.name)
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.primaryText)
-                        }
-
-                        HStack(spacing: 16) {
-                            Label(conflict.airspace.typeDisplayString, systemImage: "shield")
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondaryText)
-
-                            Text(L10n.Nav.legNumber(conflict.legIndex + 1))
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(.secondaryText)
-                        }
-
-                        HStack(spacing: 12) {
-                            Text("\(conflict.airspace.lowerCeiling.displayString) → \(conflict.airspace.upperCeiling.displayString)")
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(.dimText)
-
-                            Spacer()
-
-                            Text(conflict.conflictType.displayString)
-                                .font(.system(size: 12))
-                                .foregroundColor(severityColor(conflict.severity))
-                        }
-
-                        if conflict.altitudeUncertain {
-                            Label(L10n.Nav.airspaceAltitudeUncertain, systemImage: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.aviationAmber)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    .listRowBackground(Color.panelBackground)
-                }
-            }
-            .listStyle(.plain)
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Nav.airspaceConflictsTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-    }
-
-    private func severityColor(_ severity: AirspaceConflict.ConflictSeverity) -> Color {
-        switch severity {
-        case .high: return .aviationRed
-        case .medium: return .aviationAmber
-        case .low: return .aviationGold
         }
     }
 }

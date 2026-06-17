@@ -163,17 +163,31 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertEqual(clamped.waypointProximityThreshold, 500)
     }
 
-    // MARK: - Night mode persistence (UX-09)
+    // MARK: - Theme preference persistence (UX-09 / v4 UI/UX Revamp)
 
-    func testNightModeDefaultsOffAndRoundTrips() throws {
-        // Backward compatibility: settings saved before nightMode existed (key absent) decode to off.
-        let legacy = Data(#"{"keepScreenOn":true}"#.utf8)
-        let decodedLegacy = try JSONDecoder().decode(AppSettings.self, from: legacy)
-        XCTAssertFalse(decodedLegacy.nightMode, "Absent nightMode defaults to off")
+    func testThemePreferenceDefaultsMigratesAndRoundTrips() throws {
+        // Absent preference (and absent legacy keys) defaults to day.
+        let absent = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"keepScreenOn":true}"#.utf8))
+        XCTAssertEqual(absent.themePreference, .day, "Absent theme preference defaults to day")
 
+        // Legacy `nightMode` Bool migrates: true → night, false → day.
+        let legacyOn = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightMode":true}"#.utf8))
+        XCTAssertEqual(legacyOn.themePreference, .night)
+        let legacyOff = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightMode":false}"#.utf8))
+        XCTAssertEqual(legacyOff.themePreference, .day)
+
+        // Phase-3.1 `nightModePreference` string migrates: off→day, on→night, system→auto.
+        let prefOff = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightModePreference":"off"}"#.utf8))
+        XCTAssertEqual(prefOff.themePreference, .day)
+        let prefOn = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightModePreference":"on"}"#.utf8))
+        XCTAssertEqual(prefOn.themePreference, .night)
+        let prefSystem = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"nightModePreference":"system"}"#.utf8))
+        XCTAssertEqual(prefSystem.themePreference, .auto)
+
+        // The new preference round-trips (sunlight survives encode/decode).
         var s = AppSettings()
-        s.nightMode = true
+        s.themePreference = .sunlight
         let roundTripped = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
-        XCTAssertTrue(roundTripped.nightMode)
+        XCTAssertEqual(roundTripped.themePreference, .sunlight)
     }
 }

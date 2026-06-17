@@ -4,8 +4,16 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var selection: Section?
+    /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
+    var onClose: (() -> Void)? = nil
+
+    /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
+    @State private var selection: Section? = .aircraft
+    /// iPhone push-navigation path.
+    @State private var path: [Section] = []
 
     /// The settings sections. On iPad regular width `NavigationSplitView` shows them as a sidebar
     /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
@@ -47,26 +55,130 @@ struct SettingsView: View {
             case .about: return L10n.Settings.aboutSubtitle
             }
         }
+        /// Per-section accent for the cockpit icon circle. (v4 UI/UX Revamp)
+        var tint: Color {
+            switch self {
+            case .aircraft: return .aviationGold
+            case .checklist: return .altimeterBlue
+            case .navigation: return .aviationGreen
+            case .flightPlanning: return .orange
+            case .sync: return .altimeterBlue
+            case .companion: return .aviationGold
+            case .about: return .secondaryText
+            }
+        }
+        /// Optional row badge (Beta on flight planning + companion mode).
+        var badge: String? {
+            switch self {
+            case .companion: return L10n.Tag.beta
+            default: return nil
+            }
+        }
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(Section.allCases, selection: $selection) { section in
-                SettingsRow(icon: section.icon, title: section.title, subtitle: section.subtitle)
-            }
-            .navigationTitle(L10n.Settings.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Settings.done) { dismiss() }
+        Group {
+            if horizontalSizeClass == .regular {
+                // iPad: a FIXED two-column layout (sidebar + detail). Replaces NavigationSplitView so
+                // the sidebar can't be collapsed. (v4 UI/UX Revamp — user feedback)
+                HStack(spacing: 0) {
+                    NavigationStack { sidebar(twoColumn: true) }
+                        .frame(width: 340)
+                    Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1).ignoresSafeArea()
+                    NavigationStack {
+                        detailView(for: selection)
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
-        } detail: {
-            NavigationStack {
-                detailView(for: selection)
+                .background(Color.cockpitBackground.ignoresSafeArea())
+            } else {
+                // iPhone: single column with push navigation.
+                NavigationStack(path: $path) {
+                    sidebar(twoColumn: false)
+                        .navigationDestination(for: Section.self) { detailView(for: $0) }
+                }
             }
         }
         .preferredColorScheme(.dark)
+        // A Plus/Max iPhone flips compact↔regular when rotated, which swaps push-nav (`path`) for the
+        // two-column `selection`. Bridge the two so you stay on the same section instead of snapping
+        // back to the top. (iPad is always regular, so this is a no-op there.) (orientation audit)
+        .onChange(of: horizontalSizeClass) { _, newClass in
+            if newClass == .regular {
+                if let last = path.last { selection = last }
+            } else if let sel = selection {
+                path = [sel]
+            }
+        }
+    }
+
+    /// The section list. In two-column mode rows set `selection`; in compact mode they push via `path`.
+    /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (v4 UI/UX Revamp)
+    private func sidebar(twoColumn: Bool) -> some View {
+        List {
+            themePickerCard
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+
+            ForEach(Section.allCases) { section in
+                Button {
+                    if twoColumn { selection = section } else { path.append(section) }
+                } label: {
+                    SettingsRow(
+                        icon: section.icon,
+                        title: section.title,
+                        subtitle: section.subtitle,
+                        tint: section.tint,
+                        badge: section.badge,
+                        isSelected: twoColumn && section == selection
+                    )
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.cockpitBackground.ignoresSafeArea())
+        .navigationTitle(L10n.Settings.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Top-left, matching the app convention (Flight Log, flight-plan list). (v4 UI/UX Revamp)
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+            }
+        }
+    }
+
+    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (v4 UI/UX Revamp)
+    private var themePickerCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(L10n.Settings.theme)
+                .font(.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundColor(.secondaryText)
+            Picker(L10n.Settings.theme, selection: Binding(
+                get: { appState.settings.themePreference },
+                set: { appState.settings.themePreference = $0; appState.saveSettings() }
+            )) {
+                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
+                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
+                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
+                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        )
     }
 
     @ViewBuilder
@@ -944,6 +1056,9 @@ struct PremiumAircraftListView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.cockpitBackground.ignoresSafeArea())
         .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)

@@ -1,22 +1,7 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Aviation Theme Colors
-// NOTE: These colors are duplicated from AeroCheck/Components/DesignSystem.swift
-// Keep in sync with the main app's color definitions.
-// Widget extensions cannot share code with the main app without a shared framework.
-
-extension Color {
-    // Primary colors - Aviation inspired (source: DesignSystem.swift)
-    static let aviationGold = Color(red: 0.85, green: 0.65, blue: 0.2)
-    static let aviationGreen = Color(red: 0.2, green: 0.7, blue: 0.3)
-    static let aviationBlue = Color(red: 0.1, green: 0.2, blue: 0.4)
-
-    // Background colors for dark mode (source: DesignSystem.swift)
-    static let cockpitBackground = Color(red: 0.08, green: 0.08, blue: 0.1)
-    static let panelBackground = Color(red: 0.12, green: 0.12, blue: 0.15)
-    static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.18)
-}
+// MARK: - Aviation Theme Colors — now from Shared/DesignTokens.swift.
 
 // MARK: - Shared Owned-Aircraft Data
 // NOTE: The App Group id, defaults key, and `WidgetAircraft` shape are duplicated from the main
@@ -75,45 +60,38 @@ struct AeroCheckProvider: TimelineProvider {
 
 // MARK: - Widget Views
 
+
 struct SmallWidgetView: View {
     let aircraft: [WidgetAircraft]
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header with aviation gold accent
-            HStack(spacing: 6) {
-                Image(systemName: "airplane")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("AéroCheck")
-                    .font(.system(size: 13, weight: .bold))
+        VStack(spacing: 6) {
+            // De-emphasised brand at the top.
+            HStack(spacing: 4) {
+                Image(systemName: "airplane").font(.system(size: 11, weight: .semibold))
+                Text("AéroCheck").font(.system(size: 11, weight: .semibold))
             }
-            .foregroundStyle(Color.aviationGold)
+            .foregroundStyle(colorScheme == .dark ? Color(white: 0.5) : Color(white: 0.45))
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            // Aircraft buttons — only the aircraft the user owns
-            HStack(spacing: 12) {
+            // Owned-aircraft launch button(s) — the hero.
+            HStack(spacing: 8) {
                 ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
                     AircraftButton(aircraft: item, accentColor: aircraftAccentColor(for: item))
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Spacer()
+            // Start-a-flight CTA at the bottom.
+            HStack(spacing: 4) {
+                Image(systemName: "airplane.departure").font(.system(size: 11, weight: .semibold))
+                Text("Start a flight").font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Color.aviationGold)
         }
         .padding()
-        .containerBackground(for: .widget) {
-            containerBackgroundView
-        }
-    }
-
-    @ViewBuilder
-    private var containerBackgroundView: some View {
-        if colorScheme == .dark {
-            Color.cockpitBackground
-        } else {
-            Color(white: 0.95)
-        }
+        .containerBackground(for: .widget) { widgetContainerBackground(colorScheme) }
     }
 }
 
@@ -122,74 +100,78 @@ struct MediumWidgetView: View {
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Aircraft buttons section
-            VStack(spacing: 8) {
-                Text("Start Flight")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(labelColor)
+        VStack(spacing: 10) {
+            // Small brand header.
+            HStack(spacing: 5) {
+                Image(systemName: "airplane").font(.system(size: 13, weight: .semibold))
+                Text("AéroCheck").font(.system(size: 13, weight: .bold))
+            }
+            .foregroundStyle(Color.aviationGold)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: 12) {
-                    ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
-                        AircraftButton(aircraft: item, accentColor: aircraftAccentColor(for: item))
+            HStack(spacing: 14) {
+                // Start a flight — aircraft tiles fill this section.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("START A FLIGHT").modifier(WidgetSectionLabel())
+                    HStack(spacing: 10) {
+                        ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
+                            AircraftButton(aircraft: item, accentColor: aircraftAccentColor(for: item))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle().fill(Color.aviationGold.opacity(0.3)).frame(width: 0.5)
+
+                // History — Flight Log tile fills this section.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("HISTORY").modifier(WidgetSectionLabel())
+                    Link(destination: URL(string: "aerocheck://flight-log")!) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "book.closed.fill").font(.system(size: 22))
+                            Text("Flight Log").font(.system(size: 11, weight: .medium))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(colorScheme == .dark ? Color.aviationGreen.opacity(0.2) : Color.aviationGreen.opacity(0.15))
+                        .foregroundStyle(Color.aviationGreen)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.aviationGreen.opacity(0.3), lineWidth: 1))
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-
-            // Divider with aviation styling
-            Rectangle()
-                .fill(Color.aviationGold.opacity(0.3))
-                .frame(width: 1, height: 60)
-
-            // Flight Log button section
-            VStack(spacing: 8) {
-                Text("History")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(labelColor)
-
-                Link(destination: URL(string: "aerocheck://flight-log")!) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "book.closed.fill")
-                            .font(.system(size: 24))
-                        Text("Flight Log")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .frame(width: 70, height: 70)
-                    .background(buttonBackground(for: .aviationGreen))
-                    .foregroundStyle(Color.aviationGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-            }
+            .frame(maxHeight: .infinity)
         }
         .padding()
-        .containerBackground(for: .widget) {
-            containerBackgroundView
-        }
-    }
-
-    private var labelColor: Color {
-        colorScheme == .dark ? Color(white: 0.6) : Color(white: 0.4)
-    }
-
-    private func buttonBackground(for color: Color) -> Color {
-        colorScheme == .dark ? color.opacity(0.2) : color.opacity(0.15)
-    }
-
-    @ViewBuilder
-    private var containerBackgroundView: some View {
-        if colorScheme == .dark {
-            Color.cockpitBackground
-        } else {
-            Color(white: 0.95)
-        }
+        .containerBackground(for: .widget) { widgetContainerBackground(colorScheme) }
     }
 }
 
-/// Accent colour for an aircraft button. The free bundled aircraft uses blue; premium aircraft
-/// use the aviation gold accent.
+/// Uppercase section label for the medium widget.
+private struct WidgetSectionLabel: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 10, weight: .semibold))
+            .textCase(.uppercase)
+            .foregroundStyle(Color(white: 0.55))
+    }
+}
+
+/// Shared widget container background (cockpit dark / light).
+@ViewBuilder
+private func widgetContainerBackground(_ colorScheme: ColorScheme) -> some View {
+    if colorScheme == .dark {
+        Color.cockpitBackground
+    } else {
+        Color(white: 0.95)
+    }
+}
+
+/// Accent colour for an aircraft button. The free bundled aircraft uses the v4 blue; premium
+/// aircraft use the aviation gold accent.
 private func aircraftAccentColor(for aircraft: WidgetAircraft) -> Color {
-    aircraft.key == "wt9-dynamic" ? .aviationBlue : .aviationGold
+    aircraft.key == "wt9-dynamic" ? .altimeterBlue : .aviationGold
 }
 
 struct AircraftButton: View {
@@ -202,25 +184,21 @@ struct AircraftButton: View {
         Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(aircraft.key)")!) {
             VStack(spacing: 4) {
                 Image(systemName: "airplane")
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                 Text(aircraft.registration)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
             }
-            .frame(width: 60, height: 60)
-            .background(buttonBackground)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(colorScheme == .dark ? accentColor.opacity(0.2) : accentColor.opacity(0.12))
             .foregroundStyle(accentColor)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(accentColor.opacity(0.3), lineWidth: 1)
             )
         }
-    }
-
-    private var buttonBackground: Color {
-        colorScheme == .dark ? accentColor.opacity(0.2) : accentColor.opacity(0.12)
     }
 }
 

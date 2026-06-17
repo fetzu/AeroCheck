@@ -28,6 +28,7 @@
 		A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000017111111110000001 /* InstrumentAccessibilityTests.swift */; };
 		A5000018111111110000002 /* WatchContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000018111111110000001 /* WatchContractTests.swift */; };
 		A5000022111111110000002 /* CompanionServiceContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000022111111110000001 /* CompanionServiceContractTests.swift */; };
+		A5000023111111110000002 /* FlightFavoriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000023111111110000001 /* FlightFavoriteTests.swift */; };
 		A5000019111111110000002 /* FlightPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000019111111110000001 /* FlightPlanTests.swift */; };
 		A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000020111111110000001 /* SpeedIndicatorTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
@@ -37,10 +38,9 @@
 		04F1C6F32EF9CD5A00192A14 /* FlightPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */; };
 		04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */; };
 		04F1C6FB2EF9CD9D00192A14 /* FlightPlanningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */; };
-		04F1C6FC2EF9CD9D00192A14 /* TerrainProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */; };
 		04F1C6FD2EF9CD9D00192A14 /* WaypointEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */; };
 		04F1C6FE2EF9CD9D00192A14 /* FlightPlanEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */; };
-		04F1C6FF2EF9CD9D00192A14 /* FlightPlanOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */; };
+		A1000001211111110000060 /* FlightPlanMapBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000060 /* FlightPlanMapBuilderView.swift */; };
 		04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */; };
 		04F1C7022F0A111100192A14 /* DataPersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */; };
 		04F1C7042F0A111100192A14 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F1C7052F0A111100192A14 /* SyncManager.swift */; };
@@ -65,6 +65,7 @@
 		A1000001211111110000016 /* WT9ChecklistData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000016 /* WT9ChecklistData.swift */; };
 		A1000001211111110000018 /* NavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000018 /* NavigationView.swift */; };
 		A1000001211111110000019 /* OfflineMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000019 /* OfflineMapManager.swift */; };
+		A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000061 /* SwisstopoTileOverlays.swift */; };
 		A1000001211111110000020 /* WindDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000020 /* WindDataService.swift */; };
 		A2000001211111110000001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000001 /* WidgetKit.framework */; };
 		A2000001211111110000002 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2000001111111110000002 /* SwiftUI.framework */; };
@@ -77,6 +78,9 @@
 		A4000001211111110000002 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000002 /* WatchContentView.swift */; };
 		A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000003 /* WatchConnectivityManager.swift */; };
 		A4000001211111110000004 /* WatchConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000001111111110000002 /* WatchConnectivityData.swift */; };
+		A3000009211111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
+		A3000009311111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
+		A3000009411111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B3000001211111110000001 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000001 /* SubscriptionManager.swift */; };
@@ -189,6 +193,7 @@
 		A5000017111111110000001 /* InstrumentAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstrumentAccessibilityTests.swift; sourceTree = "<group>"; };
 		A5000018111111110000001 /* WatchContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContractTests.swift; sourceTree = "<group>"; };
 		A5000022111111110000001 /* CompanionServiceContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionServiceContractTests.swift; sourceTree = "<group>"; };
+		A5000023111111110000001 /* FlightFavoriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightFavoriteTests.swift; sourceTree = "<group>"; };
 		A5000019111111110000001 /* FlightPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanTests.swift; sourceTree = "<group>"; };
 		A5000020111111110000001 /* SpeedIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicatorTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
@@ -199,9 +204,8 @@
 		04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanManager.swift; sourceTree = "<group>"; };
 		04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationService.swift; sourceTree = "<group>"; };
 		04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanEditorView.swift; sourceTree = "<group>"; };
+		A1000001111111110000060 /* FlightPlanMapBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanMapBuilderView.swift; sourceTree = "<group>"; };
 		04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningView.swift; sourceTree = "<group>"; };
-		04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanOverlayView.swift; sourceTree = "<group>"; };
-		04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerrainProfileView.swift; sourceTree = "<group>"; };
 		04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaypointEditorSheet.swift; sourceTree = "<group>"; };
 		04F1C7012EFACEEE00192A14 /* FlightPlanExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanExportService.swift; sourceTree = "<group>"; };
 		04F1C7032F0A111100192A14 /* DataPersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPersistenceManager.swift; sourceTree = "<group>"; };
@@ -229,6 +233,7 @@
 		A1000001111111110000016 /* WT9ChecklistData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WT9ChecklistData.swift; sourceTree = "<group>"; };
 		A1000001111111110000018 /* NavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationView.swift; sourceTree = "<group>"; };
 		A1000001111111110000019 /* OfflineMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineMapManager.swift; sourceTree = "<group>"; };
+		A1000001111111110000061 /* SwisstopoTileOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwisstopoTileOverlays.swift; sourceTree = "<group>"; };
 		A1000001111111110000020 /* WindDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataService.swift; sourceTree = "<group>"; };
 		A2000001111111110000000 /* AeroCheckWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AeroCheckWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000001111111110000001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -237,6 +242,7 @@
 		A2000001111111110000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A3000001111111110000001 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		A3000001111111110000002 /* WatchConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityData.swift; sourceTree = "<group>"; };
+		A3000009111111110000009 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		A4000001111111110000000 /* AeroCheckWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheckWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -339,6 +345,7 @@
 				A5000017111111110000001 /* InstrumentAccessibilityTests.swift */,
 				A5000018111111110000001 /* WatchContractTests.swift */,
 				A5000022111111110000001 /* CompanionServiceContractTests.swift */,
+				A5000023111111110000001 /* FlightFavoriteTests.swift */,
 				A5000019111111110000001 /* FlightPlanTests.swift */,
 				A5000020111111110000001 /* SpeedIndicatorTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
@@ -412,9 +419,8 @@
 				I1000001111111110000007 /* OnboardingView.swift */,
 				A1000001111111110000006 /* SettingsView.swift */,
 				04F1C6F62EF9CD9D00192A14 /* FlightPlanEditorView.swift */,
+				A1000001111111110000060 /* FlightPlanMapBuilderView.swift */,
 				04F1C6F72EF9CD9D00192A14 /* FlightPlanningView.swift */,
-				04F1C6F82EF9CD9D00192A14 /* FlightPlanOverlayView.swift */,
-				04F1C6F92EF9CD9D00192A14 /* TerrainProfileView.swift */,
 				04F1C6FA2EF9CD9D00192A14 /* WaypointEditorSheet.swift */,
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
@@ -464,6 +470,7 @@
 				A1000001111111110000050 /* ExternalRequest.swift */,
 				A1000001111111110000098 /* WidgetBridge.swift */,
 				A1000001111111110000019 /* OfflineMapManager.swift */,
+				A1000001111111110000061 /* SwisstopoTileOverlays.swift */,
 				047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */,
 				A1000001111111110000020 /* WindDataService.swift */,
 				04F1C6F42EF9CD6F00192A14 /* ElevationService.swift */,
@@ -518,6 +525,7 @@
 			isa = PBXGroup;
 			children = (
 				A3000001111111110000002 /* WatchConnectivityData.swift */,
+				A3000009111111110000009 /* DesignTokens.swift */,
 				58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */,
 			);
 			path = Shared;
@@ -721,6 +729,7 @@
 				A5000017111111110000002 /* InstrumentAccessibilityTests.swift in Sources */,
 				A5000018111111110000002 /* WatchContractTests.swift in Sources */,
 				A5000022111111110000002 /* CompanionServiceContractTests.swift in Sources */,
+				A5000023111111110000002 /* FlightFavoriteTests.swift in Sources */,
 				A5000019111111110000002 /* FlightPlanTests.swift in Sources */,
 				A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,
@@ -734,10 +743,9 @@
 				04F1C6F32EF9CD5A00192A14 /* FlightPlanManager.swift in Sources */,
 				A1000001211111110000001 /* AeroCheckApp.swift in Sources */,
 				04F1C6FB2EF9CD9D00192A14 /* FlightPlanningView.swift in Sources */,
-				04F1C6FC2EF9CD9D00192A14 /* TerrainProfileView.swift in Sources */,
 				04F1C6FD2EF9CD9D00192A14 /* WaypointEditorSheet.swift in Sources */,
 				04F1C6FE2EF9CD9D00192A14 /* FlightPlanEditorView.swift in Sources */,
-				04F1C6FF2EF9CD9D00192A14 /* FlightPlanOverlayView.swift in Sources */,
+				A1000001211111110000060 /* FlightPlanMapBuilderView.swift in Sources */,
 				04F1C7002EFACEEE00192A14 /* FlightPlanExportService.swift in Sources */,
 				04F1C7022F0A111100192A14 /* DataPersistenceManager.swift in Sources */,
 				04F1C7042F0A111100192A14 /* SyncManager.swift in Sources */,
@@ -755,6 +763,7 @@
 				A1000001211111110000050 /* ExternalRequest.swift in Sources */,
 				A1000001211111110000098 /* WidgetBridge.swift in Sources */,
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
+				A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */,
 				04F1C6F12EF9CD5100192A14 /* FlightPlan.swift in Sources */,
 				04F1C6F52EF9CD6F00192A14 /* ElevationService.swift in Sources */,
 				A1000001211111110000020 /* WindDataService.swift in Sources */,
@@ -766,6 +775,7 @@
 				A1000001211111110000018 /* NavigationView.swift in Sources */,
 				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
+				A3000009211111110000009 /* DesignTokens.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
 				3C226443148C497A84702219 /* CompanionFlightView.swift in Sources */,
@@ -804,6 +814,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2000001211111110000003 /* AeroCheckWidget.swift in Sources */,
+				A3000009311111110000009 /* DesignTokens.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -815,6 +826,7 @@
 				A4000001211111110000002 /* WatchContentView.swift in Sources */,
 				A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */,
 				A4000001211111110000004 /* WatchConnectivityData.swift in Sources */,
+				A3000009411111110000009 /* DesignTokens.swift in Sources */,
 				0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1026,7 +1038,6 @@
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
-				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1079,7 +1090,6 @@
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = NO;
-				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

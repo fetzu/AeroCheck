@@ -111,7 +111,7 @@ struct ContentView: View {
                 locationManager.clearGPSStatusOverride()
             }
         }
-        .sheet(isPresented: $appState.showFlightLog) {
+        .fullScreenCover(isPresented: $appState.showFlightLog) {
             FlightLogView()
                 .environmentObject(appState)
                 .environmentObject(flightPlanManager)

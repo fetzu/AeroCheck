@@ -11,8 +11,10 @@ struct SyncDataSettingsView: View {
     @State private var gpsPriority: GPSPriority = .precision
     @State private var isLoadingSettings: Bool = false
 
+    private let tint: Color = .altimeterBlue
+
     var body: some View {
-        Form {
+        SettingsPage {
             iCloudSyncSection
             gpsSection
             dataSection
@@ -34,46 +36,55 @@ struct SyncDataSettingsView: View {
     // MARK: - iCloud Sync Section
 
     private var iCloudSyncSection: some View {
-        Section {
-            Toggle(L10n.Settings.syncToICloud, isOn: $iCloudSyncEnabled)
+        SettingsGroup(title: L10n.Settings.icloud, tint: tint, footer: iCloudFooterText) {
+            SettingsToggleRow(icon: "icloud", title: L10n.Settings.syncToICloud,
+                              tint: tint, isOn: $iCloudSyncEnabled)
 
             if iCloudSyncEnabled {
                 if let lastSync = syncManager.lastSyncDate {
-                    HStack {
-                        Text(L10n.Settings.lastSync)
-                        Spacer()
-                        Text(formatSyncDate(lastSync))
-                            .foregroundColor(.secondary)
-                    }
+                    SettingsValueRow(icon: "clock.arrow.circlepath", title: L10n.Settings.lastSync,
+                                     tint: tint, value: formatSyncDate(lastSync))
                 }
 
-                Button(action: {
-                    Task { await syncManager.syncNow() }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
-                            .animation(
-                                syncManager.isSyncing
-                                    ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
-                                    : .default,
-                                value: syncManager.isSyncing
-                            )
-                        Text(syncManager.isSyncing ? L10n.Settings.syncing : L10n.Settings.syncNow)
-                    }
-                }
-                .disabled(syncManager.isSyncing)
-            }
-        } header: {
-            Label(L10n.Settings.icloud, systemImage: "icloud")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.icloudFooter)
-                if iCloudSyncEnabled {
-                    Text(L10n.Settings.flightLogsFooter)
-                }
+                syncNowRow
             }
         }
+    }
+
+    /// "Sync now" action housed in a custom row to preserve the rotating refresh animation.
+    private var syncNowRow: some View {
+        Button(action: {
+            Task { await syncManager.syncNow() }
+        }) {
+            HStack(spacing: 10) {
+                SettingsRowLabel(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: syncManager.isSyncing ? L10n.Settings.syncing : L10n.Settings.syncNow,
+                    tint: tint
+                )
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(tint)
+                    .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
+                    .animation(
+                        syncManager.isSyncing
+                            ? Animation.linear(duration: 1).repeatForever(autoreverses: false)
+                            : .default,
+                        value: syncManager.isSyncing
+                    )
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(syncManager.isSyncing)
+    }
+
+    private var iCloudFooterText: String {
+        iCloudSyncEnabled
+            ? "\(L10n.Settings.icloudFooter)\n\(L10n.Settings.flightLogsFooter)"
+            : L10n.Settings.icloudFooter
     }
 
     private func formatSyncDate(_ date: Date) -> String {
@@ -85,44 +96,45 @@ struct SyncDataSettingsView: View {
     // MARK: - GPS Section
 
     private var gpsSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(L10n.Settings.gpsInterval)
-                    Spacer()
-                    Text(L10n.Settings.seconds(Int(gpsInterval)))
-                        .foregroundColor(.secondary)
-                }
+        SettingsGroup(title: L10n.Settings.gps, tint: tint, footer: gpsFooterText) {
+            gpsIntervalRow
 
-                Slider(value: $gpsInterval, in: 1...30, step: 1)
-                    .tint(.aviationGold)
-            }
-
-            Picker(L10n.Settings.gpsPriority, selection: $gpsPriority) {
+            SettingsMenuRow(icon: "speedometer", title: L10n.Settings.gpsPriority,
+                            tint: tint, selection: $gpsPriority) {
                 Text(L10n.Settings.gpsPrecision).tag(GPSPriority.precision)
                 Text(L10n.Settings.gpsBatterySaver).tag(GPSPriority.batterySaver)
             }
 
-            HStack {
-                Text(L10n.GPS.status)
-                Spacer()
-                Text(gpsStatusText)
-                    .foregroundColor(gpsStatusColor)
-            }
+            SettingsValueRow(icon: "location.fill", title: L10n.GPS.status,
+                             tint: tint, value: gpsStatusText, valueColor: gpsStatusColor)
 
             if locationManager.authorizationStatus == .notDetermined {
-                Button(L10n.GPS.requestPermission) {
+                SettingsButtonRow(icon: "lock.shield", title: L10n.GPS.requestPermission,
+                                  tint: tint, showsChevron: false) {
                     locationManager.requestAuthorization()
                 }
             }
-        } header: {
-            Label(L10n.Settings.gps, systemImage: "location.fill")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.gpsFooter)
-                Text(L10n.Settings.gpsPriorityFooter)
-            }
         }
+    }
+
+    /// GPS recording interval housed in a custom row to preserve the slider control.
+    private var gpsIntervalRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                SettingsRowLabel(icon: "timer", title: L10n.Settings.gpsInterval, tint: tint)
+                Text(L10n.Settings.seconds(Int(gpsInterval)))
+                    .font(.subheadline)
+                    .foregroundColor(.secondaryText)
+            }
+            Slider(value: $gpsInterval, in: 1...30, step: 1)
+                .tint(.aviationGold)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    private var gpsFooterText: String {
+        "\(L10n.Settings.gpsFooter)\n\(L10n.Settings.gpsPriorityFooter)"
     }
 
     private var gpsStatusText: String {
@@ -154,22 +166,13 @@ struct SyncDataSettingsView: View {
     // MARK: - Data Section
 
     private var dataSection: some View {
-        Section {
-            HStack {
-                Text(L10n.Settings.recordedFlights)
-                Spacer()
-                Text("\(appState.flights.count)")
-                    .foregroundColor(.secondary)
-            }
+        SettingsGroup(title: L10n.Settings.data, tint: tint) {
+            SettingsValueRow(icon: "airplane", title: L10n.Settings.recordedFlights,
+                             tint: tint, value: "\(appState.flights.count)")
 
-            HStack {
-                Text(L10n.Settings.totalGPSPoints)
-                Spacer()
-                Text("\(totalGPSPoints)")
-                    .foregroundColor(.secondary)
-            }
-        } header: {
-            Label(L10n.Settings.data, systemImage: "externaldrive.fill")
+            SettingsValueRow(icon: "point.topleft.down.curvedto.point.bottomright.up",
+                             title: L10n.Settings.totalGPSPoints,
+                             tint: tint, value: "\(totalGPSPoints)")
         }
     }
 

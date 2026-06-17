@@ -11,9 +11,12 @@ struct TimestampActionButton: View {
     let timestampLabel: String
     var timestampSuffix: String = ""
     let isPulsing: Bool
+    /// HUD bottom-bar style: single row at NEXT's height/corner radius (no timestamp/hint stacked
+    /// below), so it sits flush next to the NEXT button. (v4 UI/UX Revamp)
+    var compact: Bool = false
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
-    
+
     @State private var isPressed = false
     @State private var showUpdateConfirmation = false
     @State private var longPressProgress: CGFloat = 0
@@ -24,30 +27,35 @@ struct TimestampActionButton: View {
     }
     
     var body: some View {
-        VStack(spacing: 8) {
-            // The button
+        VStack(spacing: compact ? 0 : 8) {
+            // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
             HStack {
                 Image(systemName: icon)
                 Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .font(.system(size: compact ? 20 : 18, weight: .bold))
+            .foregroundColor(compact ? .black : .white)
+            // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
+            // identical; the title shrinks (one line) rather than wrapping when the row is tight.
+            .frame(maxWidth: compact ? .infinity : nil)
+            .padding(.horizontal, compact ? 0 : 24)
+            .padding(.vertical, compact ? 18 : 14)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: compact ? 14 : 10)
                         .fill(hasBeenPressed ? color.opacity(0.5) : color)
                         .shadow(color: color.opacity(hasBeenPressed ? 0.2 : 0.4), radius: 6, x: 0, y: 3)
-                    
+
                     // Long press progress indicator
                     if longPressProgress > 0 && hasBeenPressed {
                         GeometryReader { geo in
-                            RoundedRectangle(cornerRadius: 10)
+                            RoundedRectangle(cornerRadius: compact ? 14 : 10)
                                 .fill(color.opacity(0.8))
                                 .frame(width: geo.size.width * longPressProgress)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .clipShape(RoundedRectangle(cornerRadius: compact ? 14 : 10))
                     }
                 }
             )
@@ -75,15 +83,14 @@ struct TimestampActionButton: View {
                     }
             )
             
-            // Timestamp display
-            if let time = timestamp {
+            // Timestamp display + hold hint (full mode only — the compact HUD button is a single row).
+            if !compact, let time = timestamp {
                 Text("\(timestampLabel): \(time)\(timestampSuffix)")
                     .font(.captionText)
                     .foregroundColor(color)
             }
-            
-            // Long press hint when already pressed
-            if hasBeenPressed {
+
+            if !compact, hasBeenPressed {
                 Text(L10n.ChecklistAction.holdToUpdate)
                     .font(.system(size: 10))
                     .foregroundColor(.dimText)
@@ -208,6 +215,10 @@ struct ChecklistView: View {
     var pulseActionButton: Bool = false
     var isCompact: Bool = false
     var checklistLanguage: String = "en" // Language code for button translations
+    /// When embedded in the iPad HUD: hide the redundant page/title header, the inline briefing banner
+    /// (it's a phase-aware tile), and the inline action buttons (engine-start / line-up / events live
+    /// in the HUD bottom bar + event row). (v4 UI/UX Revamp)
+    var hudMode: Bool = false
 
     // Engine hours display
     var engineHourStart: Double? = nil
@@ -216,9 +227,10 @@ struct ChecklistView: View {
     var engineHourEndInputFormat: String? = nil
     var onEditEngineHourStart: (() -> Void)? = nil
     var onEditEngineHourEnd: (() -> Void)? = nil
+    /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
+    @Binding var hiddenItemsRevealed: Bool
 
     // State for temporarily revealing hidden items
-    @State private var hiddenItemsRevealed: Bool = false
     @State private var revealLongPressProgress: CGFloat = 0
     @State private var revealLongPressTimer: Timer?
     
@@ -274,12 +286,14 @@ struct ChecklistView: View {
          pulseActionButton: Bool = false,
          isCompact: Bool = false,
          checklistLanguage: String = "en",
+         hudMode: Bool = false,
          engineHourStart: Double? = nil,
          engineHourEnd: Double? = nil,
          engineHourStartInputFormat: String? = nil,
          engineHourEndInputFormat: String? = nil,
          onEditEngineHourStart: (() -> Void)? = nil,
-         onEditEngineHourEnd: (() -> Void)? = nil) {
+         onEditEngineHourEnd: (() -> Void)? = nil,
+         hiddenItemsRevealed: Binding<Bool> = .constant(false)) {
         self.phase = phase
         self.activeChecklist = activeChecklist
         self.onEngineStart = onEngineStart
@@ -309,21 +323,25 @@ struct ChecklistView: View {
         self.pulseActionButton = pulseActionButton
         self.isCompact = isCompact
         self.checklistLanguage = checklistLanguage
+        self.hudMode = hudMode
         self.engineHourStart = engineHourStart
         self.engineHourEnd = engineHourEnd
         self.engineHourStartInputFormat = engineHourStartInputFormat
         self.engineHourEndInputFormat = engineHourEndInputFormat
         self.onEditEngineHourStart = onEditEngineHourStart
         self.onEditEngineHourEnd = onEditEngineHourEnd
+        self._hiddenItemsRevealed = hiddenItemsRevealed
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Page indicator with optional step-by-step hint
             HStack {
-                Text(L10n.ChecklistAction.page(phase.pageNumber))
-                    .font(isCompact ? .system(size: 11) : .captionText)
-                    .foregroundColor(.dimText)
+                if !hudMode {
+                    Text(L10n.ChecklistAction.page(phase.pageNumber))
+                        .font(isCompact ? .system(size: 11) : .captionText)
+                        .foregroundColor(.dimText)
+                }
 
                 Spacer()
 
@@ -339,8 +357,8 @@ struct ChecklistView: View {
             }
             .padding(.bottom, isCompact ? 4 : 8)
 
-            // Briefing text if applicable (tappable)
-            if let briefingText = phase.briefingText, let briefingType = phase.briefingType {
+            // Briefing text if applicable (tappable). Hidden in HUD mode — it's a phase-aware tile there.
+            if !hudMode, let briefingText = phase.briefingText, let briefingType = phase.briefingType {
                 Button(action: { onBriefingTap?(briefingType) }) {
                     HStack {
                         Text(briefingText)
@@ -366,30 +384,54 @@ struct ChecklistView: View {
                 .padding(.bottom, isCompact ? 8 : 16)
             }
 
-            // Checklist title
-            HStack {
-                Text(phase.title)
-                    .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
-                    .foregroundColor(.aviationGold)
-                    .textCase(.uppercase)
-                    .tracking(isCompact ? 1 : 2)
-                Spacer()
-            }
+            // Checklist title + divider. Hidden in HUD mode — the phase name is in the top-bar badge.
+            if !hudMode {
+                HStack {
+                    Text(phase.title)
+                        .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
+                        .foregroundColor(.aviationGold)
+                        .textCase(.uppercase)
+                        .tracking(isCompact ? 1 : 2)
+                    Spacer()
+                }
 
-            AviationDivider()
-                .padding(.vertical, isCompact ? 8 : 12)
+                AviationDivider()
+                    .padding(.vertical, isCompact ? 8 : 12)
+            }
             
             // Checklist items with optional step-by-step highlighting
             ScrollViewReader { scrollProxy in
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
-                        ChecklistItemRow(
-                            item: item,
-                            showSeparator: index < visibleItems.count - 1,
-                            isHighlighted: stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count,
-                            isCompleted: stepByStepEnabled && index < highlightedItemIndex,
-                            isCompact: isCompact
-                        )
+                        let isHighlighted = stepByStepEnabled && index == highlightedItemIndex && highlightedItemIndex < visibleItems.count
+                        let isCompleted = stepByStepEnabled && index < highlightedItemIndex
+
+                        Group {
+                            // The CURRENT item becomes the one-glance "hero" (v4 UI/UX Revamp HUD): same
+                            // challenge/response data, rendered large and themed (compact-scaled on
+                            // iPhone). Completed/upcoming items stay as normal rows. The global
+                            // tap-to-advance hint already lives in the header, so it's suppressed on
+                            // the card; the card is presentational so taps still reach the parent
+                            // tap-to-advance gesture.
+                            if isHighlighted {
+                                CockpitHeroChecklistItem(
+                                    challenge: item.challenge,
+                                    response: item.response,
+                                    progressText: "\(index + 1) / \(visibleItems.count)",
+                                    showAdvanceHint: false,
+                                    isCompact: isCompact
+                                )
+                                .padding(.vertical, 4)
+                            } else {
+                                ChecklistItemRow(
+                                    item: item,
+                                    showSeparator: index < visibleItems.count - 1,
+                                    isHighlighted: isHighlighted,
+                                    isCompleted: isCompleted,
+                                    isCompact: isCompact
+                                )
+                            }
+                        }
                         .id(index)
                     }
                     
@@ -400,10 +442,12 @@ struct ChecklistView: View {
                 }
                 // Tap gesture handled by parent view for larger tap area
                 .onChange(of: highlightedItemIndex) { _, newIndex in
-                    // Auto-scroll to highlighted item
+                    // Keep the current item near the TOP so completed items scroll up out of the way and
+                    // the upcoming items dominate the view — but not flush-top, so the just-completed
+                    // item stays visible for confirmation. (v4 UI/UX Revamp feedback)
                     if newIndex < visibleItems.count {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            scrollProxy.scrollTo(newIndex, anchor: .center)
+                            scrollProxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.12))
                         }
                     }
                 }
@@ -441,8 +485,9 @@ struct ChecklistView: View {
                 }
             }
 
-            // Special buttons
-            if phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
+            // Special buttons (engine-start / ready-for-line-up / shutdown). In HUD mode these move to
+            // the bottom bar next to NEXT, so they're hidden here.
+            if !hudMode, phase.showsEngineStartButton || phase.showsLineUpButton || phase.showsEngineShutdownButton {
                 Spacer().frame(height: 24)
 
                 HStack {
@@ -495,8 +540,8 @@ struct ChecklistView: View {
                 }
             }
 
-            // Go Around / Touch and Go buttons
-            if phase.showsGoAroundButtons {
+            // Go Around / Touch and Go buttons. In HUD mode these live in the event-actions row.
+            if !hudMode, phase.showsGoAroundButtons {
                 Spacer().frame(height: 24)
 
                 HStack(spacing: 16) {
@@ -528,8 +573,8 @@ struct ChecklistView: View {
                 }
             }
 
-            // Full Stop Landing button
-            if phase.showsLandedButton {
+            // Full Stop Landing button. In HUD mode this lives in the event-actions row.
+            if !hudMode, phase.showsLandedButton {
                 Spacer().frame(height: 24)
 
                 HStack(spacing: 16) {
@@ -690,62 +735,41 @@ struct ChecklistItemRow: View {
         self.isCompact = isCompact
     }
     
-    private var numberColor: Color {
-        if isCompleted {
-            return .aviationGreen.opacity(0.6)
-        } else if isHighlighted {
-            return .aviationGold
-        }
-        return .aviationGold
-    }
-    
+    // Past/future rows are deliberately muted "one-liners" so the current item (rendered as the hero
+    // card) is the focus. (v4 UI/UX Revamp)
+
     private var challengeColor: Color {
-        if isCompleted {
-            return .primaryText.opacity(0.5)
-        }
-        return .primaryText
+        isCompleted ? .dimText : .secondaryText
     }
-    
+
     private var responseColor: Color {
-        if isCompleted {
-            return .secondaryText.opacity(0.5)
-        }
-        return .secondaryText
+        isCompleted ? .dimText.opacity(0.7) : .dimText
     }
-    
-    // Scalable equivalents of the fixed 16/22pt checklist fonts: text-style-based so the primary
-    // checklist reading content honours Dynamic Type (the challenge/response already wrap vertically
-    // via .fixedSize, so large sizes grow the row instead of clipping). (UX-14)
+
+    // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
+    // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
     private var itemFont: Font {
-        .system(isCompact ? .callout : .title2, design: .monospaced).weight(.medium)
+        .system(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
     }
 
     private var responseFont: Font {
-        .system(isCompact ? .callout : .title2, design: .monospaced)
+        .system(isCompact ? .subheadline : .callout, design: .monospaced)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline, spacing: 0) {
-                // Item number - fixed width to prevent wrapping
-                if let number = item.number {
-                    HStack(spacing: isCompact ? 2 : 4) {
-                        if isCompleted {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: isCompact ? 11 : 14, weight: .bold))
-                                .foregroundColor(.aviationGreen.opacity(0.6))
-                        }
-                        Text("\(number).")
-                            .font(itemFont)
-                            .foregroundColor(numberColor)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                // Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
+                // intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
+                Group {
+                    if isCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: isCompact ? 10 : 12, weight: .bold))
+                            .foregroundColor(.aviationGreen.opacity(0.7))
                     }
-                    .frame(minWidth: isCompleted ? (isCompact ? 44 : 60) : (isCompact ? 28 : 40), alignment: .trailing)
-                    .padding(.trailing, isCompact ? 6 : 10)
-                } else {
-                    Spacer().frame(width: isCompact ? 34 : 50)
                 }
+                .frame(width: isCompact ? 18 : 22, alignment: .leading)
+                .padding(.trailing, isCompact ? 4 : 6)
 
                 // Challenge text
                 Text(item.challenge)
@@ -769,7 +793,7 @@ struct ChecklistItemRow: View {
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, isCompact ? 6 : 10)
+            .padding(.vertical, isCompact ? 4 : 6)
             .padding(.horizontal, isHighlighted ? (isCompact ? 4 : 8) : 0)
             .background(
                 Group {
@@ -790,7 +814,7 @@ struct ChecklistItemRow: View {
                 Rectangle()
                     .fill(Color.white.opacity(0.08))
                     .frame(height: 1)
-                    .padding(.leading, isCompact ? 34 : 50)
+                    .padding(.leading, isCompact ? 22 : 28)
             }
         }
     }
@@ -997,14 +1021,13 @@ struct CompactSpeedRow: View {
 
 // MARK: - Briefing Views
 
-struct DepartureBriefingView: View {
+/// Departure briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
+struct DepartureBriefingContent: View {
     let context: BriefingContext
-    @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                     // Departure Section
                     BriefingSection(title: L10n.Briefing.departureTitle.uppercased()) {
                         if let airport = context.departureAirport {
@@ -1057,31 +1080,17 @@ struct DepartureBriefingView: View {
                         )
                     }
 
-                    Spacer()
-                }
-                .padding(24)
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Briefing.departureTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Briefing.close) { dismiss() }
-                }
-            }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
-struct ApproachBriefingView: View {
+/// Approach briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
+struct ApproachBriefingContent: View {
     let context: BriefingContext
-    @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
                     // Approach Section
                     BriefingSection(title: L10n.Briefing.approachTitle.uppercased()) {
                         if let airport = context.destinationAirport {
@@ -1125,20 +1134,7 @@ struct ApproachBriefingView: View {
                         EmergencyItem(text: L10n.Briefing.goAroundProcedure)
                     }
 
-                    Spacer()
-                }
-                .padding(24)
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Briefing.approachTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Briefing.close) { dismiss() }
-                }
-            }
         }
-        .preferredColorScheme(.dark)
     }
 }
 

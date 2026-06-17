@@ -22,16 +22,44 @@ struct ChecklistProgress {
     var currentHighlightedItem: [ChecklistPhase: Int] = [:]
 }
 
+/// Night-mode preference: off, always on, or follow the device's dark-mode setting. (v4 UI/UX Revamp)
+/// The user's cockpit-theme choice. `auto` follows the device's light/dark setting (light→day,
+/// dark→night); `day`/`sunlight`/`night` force that palette. Replaces the old `NightModePreference`
+/// (off/on/system) — `sunlight` is the high-contrast bright-cockpit palette, now selectable. (v4 UI/UX Revamp)
+enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
+    case auto, day, sunlight, night
+    var id: String { rawValue }
+}
+
 /// Application-wide settings
 struct AppSettings: Codable, Equatable {
     var selectedAircraft: AircraftType = .wt9Dynamic
     var selectedRemoteAircraftId: String? = nil // ID of selected remote aircraft (e.g., "pa28-181")
     var keepScreenOn: Bool = true
-    var nightMode: Bool = false // Dim red/amber instrument palette to protect dark adaptation (UX-09)
+    /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
+    /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright
+    /// cockpits. (v4 UI/UX Revamp; migrated from the old `nightModePreference`/`nightMode`)
+    var themePreference: ThemePreference = .auto
 
-    /// The active cockpit theme mode (Phase 3.0). Derived from `nightMode` for now — night-mode
-    /// users map to `.night`; `.sunlight` becomes selectable when the Settings theme picker lands.
-    var cockpitThemeMode: CockpitThemeMode { nightMode ? .night : .day }
+    /// Whether night mode is effectively active, given the device's dark-mode state (only relevant for
+    /// `.auto`). Drives the `\.isNightMode` env (instrument dimming). Sunlight is NOT night.
+    func effectiveNightMode(systemIsDark: Bool) -> Bool {
+        switch themePreference {
+        case .night: return true
+        case .auto: return systemIsDark
+        case .day, .sunlight: return false
+        }
+    }
+
+    /// The active cockpit theme mode (v4 UI/UX Revamp) resolved against the live device appearance.
+    func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
+        switch themePreference {
+        case .day: return .day
+        case .sunlight: return .sunlight
+        case .night: return .night
+        case .auto: return systemIsDark ? .night : .day
+        }
+    }
     var gpsRecordingInterval: Double = 5.0 // seconds
     var showSpeedReference: Bool = true
     var stepByStepHighlighting: Bool = true // Highlight items one by one
@@ -39,11 +67,12 @@ struct AppSettings: Codable, Equatable {
     var forceICAOChartLayer: Bool = false // When true, ICAO layer stays at all zoom levels
     var offlineMode: Bool = false // When true, use cached ICAO chart only
     var alwaysUseUTC: Bool = false // When true, all times are displayed in UTC
+    var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
     var stallAlertSound: Bool = false // When true, plays an aural + haptic stall alert (UX-02)
 
-    // Flight Planning (Beta)
-    var enableFlightPlanning: Bool = false // Beta feature toggle
+    // Flight Planning
+    var enableFlightPlanning: Bool = true // ON by default
     var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
@@ -61,15 +90,16 @@ struct AppSettings: Codable, Equatable {
     var checklistLanguage: ChecklistLanguage = .auto // Language for checklist content
 
     // Airport data overlay
-    var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
+    var showAirportsOnMap: Bool = true // When true, shows airports on navigation map (requires airport data download) — ON by default
+    var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
-    var showOpenAIPOverlay: Bool = false // When true, shows OpenAIP airspace tiles on navigation map
+    var showOpenAIPOverlay: Bool = true // When true, shows OpenAIP airspace tiles on navigation map — ON by default
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 
     // Flight logging
-    var logEngineHours: Bool = false // When true, prompts for hour meter reading at engine start and stop
+    var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
 
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
@@ -125,7 +155,7 @@ struct AppSettings: Codable, Equatable {
         case selectedAircraft
         case selectedRemoteAircraftId
         case keepScreenOn
-        case nightMode
+        case themePreference
         case gpsRecordingInterval
         case showSpeedReference
         case stepByStepHighlighting
@@ -133,6 +163,7 @@ struct AppSettings: Codable, Equatable {
         case forceICAOChartLayer
         case offlineMode
         case alwaysUseUTC
+        case distanceInNauticalMiles
         case showEstimatedAirspeed
         case stallAlertSound
         case enableFlightPlanning
@@ -144,6 +175,7 @@ struct AppSettings: Codable, Equatable {
         case iCloudSyncEnabled
         case checklistLanguage
         case showAirportsOnMap
+        case showTrackVector
         case logEngineHours
         case hasCompletedOnboarding
         case gpsPriority
@@ -157,6 +189,12 @@ struct AppSettings: Codable, Equatable {
         // marketingMode is intentionally excluded
     }
 
+    /// Legacy keys read only for backward-compatible migration (not encoded).
+    private enum LegacyCodingKeys: String, CodingKey {
+        case nightMode            // oldest: Bool
+        case nightModePreference  // v4 UI/UX Revamp: "off"/"on"/"system"
+    }
+
     // Default initializer (needed because we have a custom decoder)
     init() {}
 
@@ -167,7 +205,25 @@ struct AppSettings: Codable, Equatable {
         selectedAircraft = try container.decodeIfPresent(AircraftType.self, forKey: .selectedAircraft) ?? .wt9Dynamic
         selectedRemoteAircraftId = try container.decodeIfPresent(String.self, forKey: .selectedRemoteAircraftId)
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? true
-        nightMode = try container.decodeIfPresent(Bool.self, forKey: .nightMode) ?? false
+        // Theme preference (auto/day/sunlight/night). Migrate older saves:
+        //   nightModePreference "off"→.day "on"→.night "system"→.auto  ·  legacy nightMode Bool true→.night.
+        if let pref = try container.decodeIfPresent(ThemePreference.self, forKey: .themePreference) {
+            themePreference = pref
+        } else if let legacyContainer = try? decoder.container(keyedBy: LegacyCodingKeys.self) {
+            if let oldPref = try? legacyContainer.decodeIfPresent(String.self, forKey: .nightModePreference) {
+                switch oldPref {
+                case "on": themePreference = .night
+                case "system": themePreference = .auto
+                default: themePreference = .day
+                }
+            } else if let legacy = try? legacyContainer.decodeIfPresent(Bool.self, forKey: .nightMode) {
+                themePreference = legacy ? .night : .day
+            } else {
+                themePreference = .day
+            }
+        } else {
+            themePreference = .day
+        }
         gpsRecordingInterval = try container.decodeIfPresent(Double.self, forKey: .gpsRecordingInterval) ?? 5.0
         showSpeedReference = try container.decodeIfPresent(Bool.self, forKey: .showSpeedReference) ?? true
         stepByStepHighlighting = try container.decodeIfPresent(Bool.self, forKey: .stepByStepHighlighting) ?? true
@@ -175,6 +231,7 @@ struct AppSettings: Codable, Equatable {
         forceICAOChartLayer = try container.decodeIfPresent(Bool.self, forKey: .forceICAOChartLayer) ?? false
         offlineMode = try container.decodeIfPresent(Bool.self, forKey: .offlineMode) ?? false
         alwaysUseUTC = try container.decodeIfPresent(Bool.self, forKey: .alwaysUseUTC) ?? false
+        distanceInNauticalMiles = try container.decodeIfPresent(Bool.self, forKey: .distanceInNauticalMiles) ?? true
         showEstimatedAirspeed = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedAirspeed) ?? false
         stallAlertSound = try container.decodeIfPresent(Bool.self, forKey: .stallAlertSound) ?? false
         enableFlightPlanning = try container.decodeIfPresent(Bool.self, forKey: .enableFlightPlanning) ?? false
@@ -186,7 +243,8 @@ struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .iCloudSyncEnabled) ?? true
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
-        logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
+        showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
+        logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
@@ -322,6 +380,52 @@ class AppState: ObservableObject {
     }
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
+
+    // MARK: - Cruise check (FREDA) reminder
+    /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
+    /// is a check every 10–15 minutes in cruise. (v4 UI/UX Revamp)
+    static let cruiseCheckInterval: TimeInterval = 15 * 60 // standard VFR re-cruise check every ~15 min
+    /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (v4 UI/UX Revamp)
+    @Published var cruiseCheckDue: Bool = false
+    /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is
+    /// MANUAL — the pilot starts it from the CRUISE button on the Cruise checklist page, so a busy
+    /// pilot is never reminded for a check they haven't begun timing. (v4 UI/UX Revamp — manual start)
+    @Published var cruiseCheckStartTime: Date?
+
+    /// Seconds remaining until the next cruise check is due — the full interval while idle. (v4 UI/UX Revamp)
+    func cruiseCheckRemaining(now: Date = Date()) -> TimeInterval {
+        guard let start = cruiseCheckStartTime else { return Self.cruiseCheckInterval }
+        return max(0, Self.cruiseCheckInterval - now.timeIntervalSince(start))
+    }
+
+    /// Re-evaluate whether a cruise check is due. The countdown only runs once the pilot has started
+    /// it (`cruiseCheckStartTime != nil`); leaving cruise clears + idles it. Call periodically while
+    /// in cruise. (v4 UI/UX Revamp)
+    func evaluateCruiseCheck(now: Date = Date()) {
+        guard currentPhase == .cruise else {
+            if cruiseCheckDue { cruiseCheckDue = false }
+            cruiseCheckStartTime = nil
+            return
+        }
+        guard let start = cruiseCheckStartTime else { return } // idle until the pilot starts it
+        if !cruiseCheckDue, now.timeIntervalSince(start) >= Self.cruiseCheckInterval {
+            cruiseCheckDue = true
+            // Re-arm the Cruise checklist so the pilot re-runs the check: reset its highlight to the
+            // first item and clear its completion status (items show undone again). (v4 UI/UX Revamp)
+            currentHighlightedItem[.cruise] = 0
+            phaseCompletionStatus[.cruise] = nil
+        }
+    }
+
+    /// Start / re-arm the cruise-check countdown from the full interval. One method backs every gesture:
+    /// tap-to-start (idle), tap-to-acknowledge (due), and hold-to-reset (any time). (v4 UI/UX Revamp — manual start)
+    func armCruiseCheck() {
+        cruiseCheckStartTime = Date()
+        cruiseCheckDue = false
+    }
+
+    /// Acknowledge a due cruise check — identical to re-arming the countdown. (v4 UI/UX Revamp)
+    func acknowledgeCruiseCheck() { armCruiseCheck() }
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
     @Published var flightStartError: String?
@@ -769,22 +873,27 @@ class AppState: ObservableObject {
         return currentHighlightedItem[phase] ?? 0
     }
     
-    /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`).
-    func advanceHighlightedItem() {
+    /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`). `learningMode`
+    /// is the EFFECTIVE mode (the global setting OR temporarily-revealed hidden items), so tap-to-advance
+    /// steps through revealed/learning-mode items too. (v4 UI/UX Revamp feedback)
+    func advanceHighlightedItem(learningMode: Bool) {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.advanced(current: currentIndex, visibleCount: visibleCount)
     }
 
-    /// Mark the last item as complete (moves index past the last item)
-    func markLastItemComplete() {
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+    /// Mark the last item as complete (moves index past the last item). `learningMode` = effective mode.
+    func markLastItemComplete(learningMode: Bool) {
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
+        // Completing the Cruise checklist auto-starts the cruise-check countdown — running the check IS
+        // the trigger, so the pilot never has to remember to start the timer. (v4 UI/UX Revamp)
+        if currentPhase == .cruise { armCruiseCheck() }
     }
 
-    /// Check if all items in current phase are completed
-    func areAllItemsCompleted() -> Bool {
-        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: settings.learningMode)
+    /// Check if all items in current phase are completed. `learningMode` = effective mode.
+    func areAllItemsCompleted(learningMode: Bool) -> Bool {
+        let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
     }
@@ -1019,11 +1128,20 @@ class AppState: ObservableObject {
         guard let currentIndex = ChecklistPhase.allCases.firstIndex(of: currentPhase),
               currentIndex + 1 < ChecklistPhase.allCases.count else { return }
         
-        // Advancing from the current phase: .missingAction if a required button wasn't pressed, else .completed.
-        phaseCompletionStatus[currentPhase] = currentPhase.hasMissingRequiredAction(
+        // Advancing from the current phase: .missingAction if a required button wasn't pressed; else
+        // .completed ONLY if the checklist was actually worked through (all step-by-step items reached),
+        // otherwise .skipped. Since NEXT is tappable while a phase is still incomplete, pressing past an
+        // un-worked phase must read as skipped (orange), not done (green). (round 6 regression fix)
+        let checklistWorkedThrough = !settings.stepByStepHighlighting
+            || areAllItemsCompleted(learningMode: settings.learningMode)
+        if currentPhase.hasMissingRequiredAction(
             engineStarted: engineStartTime != nil,
             linedUp: lineUpTime != nil,
-            engineShutDown: engineShutdownTime != nil) ? .missingAction : .completed
+            engineShutDown: engineShutdownTime != nil) {
+            phaseCompletionStatus[currentPhase] = .missingAction
+        } else {
+            phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
+        }
         
         // Update highest completed phase
         if currentPhase.rawValue >= highestCompletedPhase.rawValue {
@@ -1179,6 +1297,17 @@ class AppState: ObservableObject {
             flights[index].name = name
             flights[index].touch()
             saveFlight(flights[index]) // PR-09: persist + sync only this flight
+        }
+    }
+
+    /// Toggle the user-pinned "favorite" flag. Favorited flights pin to the top of the logbook.
+    /// Mirrors `updateFlightName`: mutate in place, stamp `modifiedAt`, persist + sync only this
+    /// flight so the star rides CloudKit's conflict tiebreaker. (v4 UI/UX Revamp favorites)
+    func toggleFavorite(_ flight: Flight) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].isFavorite.toggle()
+            flights[index].touch()
+            saveFlight(flights[index])
         }
     }
     

@@ -14,6 +14,19 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private var session: WCSession?
     private var updateTimer: Timer?
 
+    // Held weakly so a Watch command (e.g. chronometer control) can act on live state + echo back.
+    private weak var appStateRef: AppState?
+    private weak var locationManagerRef: LocationManager?
+    private weak var flightPlanManagerRef: FlightPlanManager?
+
+    /// The nav-map FREQ panel's current list, pushed by NavigationView so the watch mirrors it exactly.
+    private var panelFrequencies: [FrequencyInfo]?
+
+    /// Called by NavigationView whenever it recomputes its FREQ panel. (Watch freq sync)
+    func updatePanelFrequencies(_ frequencies: [FrequencyInfo]) {
+        panelFrequencies = frequencies
+    }
+
     private override init() {
         super.init()
         setupSession()
@@ -37,6 +50,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     /// Start sending periodic updates to the Watch
     func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         stopUpdates()
+        appStateRef = appState
+        locationManagerRef = locationManager
+        flightPlanManagerRef = flightPlanManager
 
         // Send initial update immediately
         sendFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
@@ -128,20 +144,24 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
 
+        // Always stage the latest snapshot in the application context, so a watch resuming from the
+        // background (wrist-raise) reads the freshest state immediately rather than a stale one. The OS
+        // coalesces these and delivers only the most recent, so calling it each tick is fine. (sync freshness)
+        try? session.updateApplicationContext([
+            WatchConnectivityKeys.flightData: encodedData,
+            WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
+        ])
+
+        // When the watch is reachable (both apps active), also push live for ~instant updates.
         if session.isReachable {
-            // Send as message for real-time updates
             let message: [String: Any] = [
                 WatchConnectivityKeys.messageType: WatchMessage.dataUpdate.rawValue,
                 WatchConnectivityKeys.flightData: encodedData,
                 WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
             ]
-
-            session.sendMessage(message, replyHandler: nil) { error in
-                // Silently fail for periodic updates
+            session.sendMessage(message, replyHandler: nil) { _ in
+                // Silently fail for periodic updates — the staged context covers it.
             }
-        } else {
-            // Fall back to application context
-            updateApplicationContext(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
         }
     }
 
@@ -233,6 +253,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             data.hasActiveNavPlan = false
         }
 
+        // Chronometer (flight-plan leg timer) — sent every update so the watch mirrors the phone.
+        data.chronometerElapsed = flightPlanManager.chronometerElapsed
+        data.chronometerRunning = flightPlanManager.isChronometerRunning
+
+        // The nav-map FREQ panel's list (NOW/NEXT + order), if NavigationView has pushed one.
+        data.panelFrequencies = panelFrequencies
+
         return data
     }
 
@@ -309,7 +336,26 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        // Handle messages from Watch if needed
-        print("[AéroCheck Watch] Received message from Watch: \(message)")
+        if let raw = message[WatchConnectivityKeys.command] as? String, let command = WatchCommand(rawValue: raw) {
+            Task { @MainActor in self.handleWatchCommand(command) }
+        }
+    }
+
+    /// Act on a chronometer command from the Watch, then immediately echo the updated state back so the
+    /// watch reflects it without waiting for the next periodic tick.
+    @MainActor
+    private func handleWatchCommand(_ command: WatchCommand) {
+        guard let fpm = flightPlanManagerRef else { return }
+        switch command {
+        case .chronoToggle:
+            fpm.isChronometerRunning ? fpm.pauseChronometer() : fpm.startChronometer()
+        case .chronoReset:
+            fpm.resetChronometer()
+        case .chronoMark:
+            fpm.markWaypoint()
+        }
+        if let app = appStateRef, let loc = locationManagerRef {
+            sendFlightData(appState: app, locationManager: loc, flightPlanManager: fpm)
+        }
     }
 }

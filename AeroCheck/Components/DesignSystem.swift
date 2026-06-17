@@ -2,30 +2,7 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
-// MARK: - Aviation Theme Colors
-
-extension Color {
-    // Primary colors - Aviation inspired
-    static let aviationBlue = Color(red: 0.1, green: 0.2, blue: 0.4)
-    static let aviationDarkBlue = Color(red: 0.05, green: 0.1, blue: 0.25)
-    static let aviationGold = Color(red: 0.85, green: 0.65, blue: 0.2)
-    static let aviationAmber = Color(red: 1.0, green: 0.75, blue: 0.0)
-    
-    // Status colors
-    static let aviationGreen = Color(red: 0.2, green: 0.7, blue: 0.3)
-    static let aviationRed = Color(red: 0.85, green: 0.2, blue: 0.2)
-    static let aviationYellow = Color(red: 0.95, green: 0.8, blue: 0.2)
-    
-    // Background colors
-    static let cockpitBackground = Color(red: 0.08, green: 0.08, blue: 0.1)
-    static let panelBackground = Color(red: 0.12, green: 0.12, blue: 0.15)
-    static let cardBackground = Color(red: 0.15, green: 0.15, blue: 0.18)
-    
-    // Text colors
-    static let primaryText = Color.white
-    static let secondaryText = Color(white: 0.7)
-    static let dimText = Color(white: 0.5)
-}
+// MARK: - Aviation Theme Colors — moved to Shared/DesignTokens.swift (shared with the Watch app + widget).
 
 // MARK: - Typography
 
@@ -420,6 +397,18 @@ struct SpeedIndicatorView: View {
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
             }
             .foregroundColor(.secondaryText)
+
+            // Color-blind-safe proximity bar: WIDTH shows how close to target, COLOR the state — a
+            // glanceable analog complement to the numeric readout and TGT arrow. Hidden when GPS is
+            // lost (no reliable speed to plot), matching the readout. (v4 UI/UX Revamp)
+            if gpsSignalStatus != .lost {
+                InstrumentTargetBar(
+                    fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
+                    state: SpeedIndicatorView.barState(for: speedState)
+                )
+                .frame(width: 100)
+                .accessibilityHidden(true) // the composed speed value already states the target state in words
+            }
         }
         .onAppear {
             startFlashingIfNeeded()
@@ -478,6 +467,24 @@ struct SpeedIndicatorView: View {
         } else {
             return .offTarget
         }
+    }
+
+    /// Maps the annunciated speed state to the color-blind-safe instrument-bar state. Pure + testable
+    /// so the bar can never disagree with the readout's annunciation. (v4 UI/UX Revamp)
+    static func barState(for state: SpeedState) -> InstrumentTargetState {
+        switch state {
+        case .onTarget: return .onTarget
+        case .offTarget: return .caution
+        case .stall: return .stall
+        }
+    }
+
+    /// 0...1 proximity-to-target fill for the on-target bar: full at the target speed, shrinking
+    /// linearly with deviation (30 kt full-scale) and floored so the bar never vanishes (a thin nub
+    /// still reads "far off" via its color). Pure + testable. (v4 UI/UX Revamp)
+    static func targetBarFraction(displaySpeed: Double, targetSpeed: Int) -> Double {
+        let deviation = abs(displaySpeed - Double(targetSpeed))
+        return max(0.12, min(1.0, 1.0 - deviation / 30.0))
     }
 
     private var backgroundColor: Color {
@@ -603,12 +610,6 @@ struct FlightSpeedIndicator: View {
     }
 }
 
-// MARK: - Altimeter Display
-
-/// Light blue color for altimeter background
-extension Color {
-    static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)
-}
 
 // MARK: - Night Mode (UX-09)
 
@@ -661,7 +662,7 @@ extension EnvironmentValues {
     }
 }
 
-// MARK: - Cockpit Theme (Phase 3.0 foundation)
+// MARK: - Cockpit Theme (v4 UI/UX Revamp foundation)
 
 /// The three cockpit display modes. Generalises the binary night-mode toggle (UX-09) into a
 /// readable-in-any-light system the revamped screens theme against:
@@ -751,7 +752,7 @@ private struct CockpitThemeKey: EnvironmentKey {
 
 extension EnvironmentValues {
     /// The active cockpit theme palette. Injected once near the app root from the user's theme mode;
-    /// revamped screens read it instead of hardcoding colors. (Phase 3.0)
+    /// revamped screens read it instead of hardcoding colors. (v4 UI/UX Revamp)
     var cockpitTheme: CockpitTheme {
         get { self[CockpitThemeKey.self] }
         set { self[CockpitThemeKey.self] = newValue }
@@ -926,33 +927,623 @@ struct PulseModifier: ViewModifier {
 // MARK: - Settings Row
 
 /// A navigation row component for the settings hub, displaying an icon, title, and subtitle
+/// A settings-hub section row, styled as a cockpit card (tinted icon circle + title/subtitle +
+/// chevron). The reference implementation of the v4 UI/UX Revamp cockpit language for list surfaces: dark
+/// `cardBackground`, per-section accent in a soft circle, a gold-bordered selected state for the iPad
+/// split view, and an optional badge (e.g. BETA). Title/subtitle use semantic fonts so they scale
+/// with Dynamic Type. (v4 UI/UX Revamp reference)
 struct SettingsRow: View {
     let icon: String
     let title: String
     let subtitle: String
+    var tint: Color = .aviationGold
+    var badge: String? = nil
+    var isSelected: Bool = false
 
     var body: some View {
-        HStack(spacing: 14) {
-            // Icon in a rounded rectangle
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.aviationGold)
-                .frame(width: 32, height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.aviationGold.opacity(0.15))
-                )
+        HStack(spacing: 13) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.16))
+                    .frame(width: 38, height: 38)
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body)
-                    .foregroundColor(.primary)
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundColor(.primaryText)
+                    if let badge {
+                        Text(badge)
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(tint))
+                    }
+                }
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.secondaryText)
                     .lineLimit(1)
             }
+
+            Spacer(minLength: 6)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.dimText.opacity(0.7))
+                .accessibilityHidden(true)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(isSelected ? Color.aviationGold.opacity(0.7) : Color.white.opacity(0.06),
+                                      lineWidth: isSelected ? 1.5 : 1)
+                )
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Cockpit Settings Components (settings sub-page revamp)
+
+/// Lays settings rows out in a card with leading-inset hairlines between them (none after the last).
+/// `_VariadicView` is how SwiftUI itself interleaves separators between ViewBuilder children.
+private struct SettingsRowSeparators: _VariadicView_MultiViewRoot {
+    func body(children: _VariadicView.Children) -> some View {
+        let lastID = children.last?.id
+        return VStack(spacing: 0) {
+            ForEach(children) { child in
+                child
+                if child.id != lastID {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(height: 0.5)
+                        .padding(.leading, 14)
+                }
+            }
+        }
+    }
+}
+
+/// A vertical scroll of cockpit cards on the cockpit background — the shell for a settings sub-page.
+struct SettingsPage<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                content
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color.cockpitBackground.ignoresSafeArea())
+        .scrollContentBackground(.hidden)
+    }
+}
+
+/// A titled group: uppercase accent header + a card holding rows, plus an optional footer line.
+struct SettingsGroup<Content: View>: View {
+    var title: String? = nil
+    var tint: Color = .aviationGold
+    var footer: String? = nil
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let title {
+                Text(title.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.4)
+                    .foregroundColor(tint)
+                    .padding(.horizontal, 4)
+            }
+            _VariadicView.Tree(SettingsRowSeparators()) { content }
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                )
+            if let footer {
+                Text(footer)
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 6)
+            }
+        }
+    }
+}
+
+/// The leading content of a settings row: tinted icon disc + title + optional subtitle, then a spacer
+/// so a trailing control (toggle, value, chevron) is pushed to the edge.
+struct SettingsRowLabel: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    var titleColor: Color = .primaryText
+    var body: some View {
+        HStack(spacing: 13) {
+            if let icon {
+                ZStack {
+                    Circle().fill(tint.opacity(0.16)).frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(tint)
+                }
+                .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline).foregroundColor(titleColor)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+    }
+}
+
+/// A row carrying a gold-tinted toggle. The whole label is the toggle's label, so VoiceOver reads
+/// the title and switch state together.
+struct SettingsToggleRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    @Binding var isOn: Bool
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+        }
+        .tint(tint)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+
+/// A tappable row (navigation push or action), optionally showing a trailing value and a chevron.
+struct SettingsButtonRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    var value: String? = nil
+    var showsChevron: Bool = true
+    var destructive: Bool = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle,
+                                 tint: destructive ? .aviationRed : tint,
+                                 titleColor: destructive ? .aviationRed : .primaryText)
+                if let value {
+                    Text(value).font(.subheadline).foregroundColor(.secondaryText).lineLimit(1)
+                }
+                if showsChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.dimText.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A read-only row: label on the left, a static value on the right.
+struct SettingsValueRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    let value: String
+    /// Colour of the value text — override to keep a status semantic (e.g. green/red authorisation).
+    var valueColor: Color = .secondaryText
+    var body: some View {
+        HStack(spacing: 10) {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+            Text(value)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(valueColor)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+}
+
+/// A row that opens a menu picker for an enum/value selection (label · current value · chevron).
+struct SettingsMenuRow<T: Hashable, Options: View>: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    @Binding var selection: T
+    @ViewBuilder var options: Options
+    var body: some View {
+        Picker(selection: $selection) {
+            options
+        } label: {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+        }
+        .pickerStyle(.menu)
+        .tint(.secondaryText)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+    }
+}
+
+// MARK: - Cockpit Instrument Panel (v4 UI/UX Revamp HUD)
+
+/// On-target state of the live speed, encoded by SHAPE/POSITION (the bar) as well as color, so it
+/// reads for color-blind pilots and in any theme. (v4 UI/UX Revamp)
+enum InstrumentTargetState: Equatable {
+    case onTarget
+    case caution
+    case stall
+    case neutral
+
+    /// Bar/accent color for this state in the given theme.
+    func barColor(in theme: CockpitTheme) -> Color {
+        switch self {
+        case .onTarget: return theme.onTarget
+        case .caution: return theme.warning
+        case .stall: return theme.danger
+        case .neutral: return theme.textDim
+        }
+    }
+}
+
+/// The color-blind-safe on-target proximity bar: a centered capsule whose WIDTH encodes how close the
+/// live value is to its target (full = on target, shrinking with deviation) and whose COLOR encodes
+/// the target state — so the reading never depends on color alone. Shared by the full instruments and
+/// `CockpitInstrumentPanel` so they render identically in any theme. (v4 UI/UX Revamp)
+struct InstrumentTargetBar: View {
+    /// 0...1 fill of the bar (1 = on target).
+    let fraction: Double
+    let state: InstrumentTargetState
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(state.barColor(in: theme))
+                .frame(width: max(0, min(1, fraction)) * geo.size.width, height: 4)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(height: 4)
+    }
+}
+
+/// The revamped in-flight instrument strip: speed (with a color-blind-safe on-target bar), altitude
+/// (+ vertical speed) and heading in one Liquid-Glass panel. Purely presentational — the caller
+/// formats the values and computes the target state; the panel themes itself via `\.cockpitTheme`
+/// so it reads correctly in day / sunlight / night. (v4 UI/UX Revamp)
+struct CockpitInstrumentPanel: View {
+    let speed: String
+    var targetState: InstrumentTargetState = .neutral
+    /// 0...1 fill of the on-target bar under the speed; nil hides the bar (no active target).
+    var targetBarFraction: Double? = nil
+    let altitude: String
+    /// Vertical speed in fpm as a signed display string (e.g. "+480"); nil hides the row.
+    var verticalSpeed: String? = nil
+    let heading: String
+
+    @Environment(\.cockpitTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            cell(label: "SPD kt", flex: 1.2) {
+                Text(speed)
+                    .font(.system(size: 30, weight: .medium, design: .monospaced))
+                    .foregroundColor(targetState == .neutral ? theme.textPrimary : targetState.barColor(in: theme))
+                if let fraction = targetBarFraction {
+                    InstrumentTargetBar(fraction: fraction, state: targetState)
+                        .padding(.top, 3)
+                }
+            }
+            divider
+            cell(label: "ALT ft", flex: 1) {
+                Text(altitude)
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                if let vs = verticalSpeed {
+                    Text(vs)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(theme.onTarget)
+                }
+            }
+            divider
+            cell(label: "HDG", flex: 1) {
+                Text(heading)
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundColor(theme.textPrimary)
+                Text("track")
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.textSecondary)
+            }
+        }
+        .padding(.vertical, 11)
+        .padding(.horizontal, 6)
+        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+    }
+
+    private var divider: some View {
+        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 38)
+    }
+
+    @ViewBuilder
+    private func cell<Content: View>(label: String, flex: CGFloat, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(theme.textSecondary)
+            content()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minWidth: 0)
+        .layoutPriority(Double(flex))
+    }
+}
+
+// MARK: - Cockpit Instrument Strip (live, safety-bearing)
+
+/// The real in-flight instrument strip for the revamped HUD: SPD / ALT / HDG in one horizontal
+/// Liquid-Glass panel with the color-blind-safe on-target bar — the look of `CockpitInstrumentPanel`,
+/// but carrying the live SAFETY behavior (stall annunciation + aural/haptic alert, GPS-failure flags,
+/// VoiceOver values). The safety LOGIC is the same shared, unit-tested code the boxed instruments use
+/// (`SpeedIndicatorView.annunciationState` / `.accessibilityValue` / `.targetBarFraction` / `.barState`,
+/// `AltimeterView.accessibilityValue`, `StallAlert`, `InstrumentFailureFlag`); only the visual layout
+/// is new. (v4 UI/UX Revamp)
+struct CockpitInstrumentStrip: View {
+    let speedKnots: Double           // ground speed (display fallback)
+    let targetSpeed: Int?
+    let stallSpeed: Int
+    let gpsSignalStatus: GPSSignalStatus
+    var estimatedAirspeed: Double? = nil
+    var stallAlertEnabled: Bool = false
+    let altitudeFeet: Double
+    var headingDegrees: Double? = nil
+    var verticalSpeedFPM: Double? = nil
+
+    /// Vertical speed for the ALT cell, formatted (e.g. "↑480" / "↓300") with a colour — shown only
+    /// above ±50 fpm so level flight stays clean. Hidden when GPS is lost.
+    private var verticalSpeedDisplay: (text: String, color: Color)? {
+        guard gpsSignalStatus != .lost, let vs = verticalSpeedFPM, abs(vs) >= 50 else { return nil }
+        let rounded = Int((vs / 10).rounded()) * 10
+        return (vs > 0 ? "↑\(abs(rounded))" : "↓\(abs(rounded))", vs > 0 ? theme.onTarget : theme.info)
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.cockpitTheme) private var theme
+    @State private var isFlashing = false
+
+    private var displaySpeed: Double { estimatedAirspeed ?? speedKnots }
+    private var showingEstimatedAirspeed: Bool { estimatedAirspeed != nil }
+
+    private var speedState: SpeedIndicatorView.SpeedState {
+        SpeedIndicatorView.annunciationState(
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed ?? 0, stallSpeed: stallSpeed,
+            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus)
+    }
+
+    private var showFailureFlag: Bool { gpsSignalStatus == .degraded || gpsSignalStatus == .lost }
+    private var failureLevel: InstrumentFailureFlag.FailureLevel { gpsSignalStatus == .lost ? .lost : .degraded }
+
+    private var speedColor: Color {
+        switch speedState {
+        case .onTarget: return theme.onTarget
+        case .offTarget: return theme.warning
+        case .stall:
+            if reduceMotion { return theme.danger }
+            return isFlashing ? theme.danger : theme.danger.opacity(0.7)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            speedCell
+            divider
+            altitudeCell
+            divider
+            headingCell
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 8)
+        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
+        .onAppear { if speedState == .stall { startFlash(); fireStallAlert() } }
+        .onChange(of: speedState) { _, newState in
+            if newState == .stall { startFlash(); fireStallAlert() } else { stopFlash() }
+        }
+    }
+
+    private var speedCell: some View {
+        cell(label: showingEstimatedAirspeed ? "IAS kt" : "SPD kt") {
+            ZStack {
+                VStack(spacing: 0) {
+                    if gpsSignalStatus != .lost {
+                        // Static STALL annunciation — never colour/flash alone, steady under Reduce Motion.
+                        if speedState == .stall {
+                            Text("STALL").font(.system(size: 11, weight: .heavy)).foregroundColor(theme.danger)
+                        }
+                        Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(max(0, displaySpeed)))")
+                            .font(.system(size: 30, weight: .medium, design: .monospaced))
+                            .foregroundColor(speedColor)
+                            .minimumScaleFactor(0.6).lineLimit(1)
+                        if let target = targetSpeed {
+                            InstrumentTargetBar(
+                                fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: target),
+                                state: SpeedIndicatorView.barState(for: speedState)
+                            )
+                            .frame(maxWidth: 72).padding(.top, 3)
+                        }
+                    }
+                }
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityValue(SpeedIndicatorView.accessibilityValue(
+            displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
+            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var altitudeCell: some View {
+        cell(label: "ALT ft") {
+            ZStack {
+                if gpsSignalStatus != .lost {
+                    VStack(spacing: 1) {
+                        Text("\(Int(max(0, altitudeFeet)))")
+                            .font(.system(size: 24, weight: .medium, design: .monospaced))
+                            .foregroundColor(theme.textPrimary)
+                            .minimumScaleFactor(0.5).lineLimit(1)
+                        if let vs = verticalSpeedDisplay {
+                            Text(vs.text)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundColor(vs.color)
+                        }
+                    }
+                }
+                if showFailureFlag {
+                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 70, height: 34))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Altitude")
+        .accessibilityValue(AltimeterView.accessibilityValue(altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var headingCell: some View {
+        cell(label: "HDG") {
+            Text(headingDegrees.map { String(format: "%03d°", (Int($0.rounded()) % 360 + 360) % 360) } ?? "---")
+                .font(.system(size: 24, weight: .medium, design: .monospaced))
+                .foregroundColor(theme.textPrimary)
+            Text("track").font(.system(size: 10)).foregroundColor(theme.textSecondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Heading")
+        .accessibilityValue(headingDegrees.map { "\((Int($0.rounded()) % 360 + 360) % 360) degrees track" } ?? "unknown")
+    }
+
+    private var divider: some View {
+        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 44)
+    }
+
+    @ViewBuilder
+    private func cell<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 2) {
+            Text(label).font(.system(size: 11)).foregroundColor(theme.textSecondary)
+            content()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func fireStallAlert() { if stallAlertEnabled { StallAlert.shared.trigger() } }
+
+    private func startFlash() {
+        guard !reduceMotion else { return }
+        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) { isFlashing = true }
+    }
+    private func stopFlash() {
+        withAnimation(.easeInOut(duration: 0.1)) { isFlashing = false }
+    }
+}
+
+// MARK: - Cockpit Hero Checklist Item (v4 UI/UX Revamp HUD)
+
+/// The one-glance centerpiece of the revamped in-flight HUD: the CURRENT checklist item rendered
+/// large (challenge + response) with the item progress and a tap-to-advance hint. Presentational
+/// and themed via `\.cockpitTheme`; the container supplies the surrounding dimmed completed/next
+/// items. (v4 UI/UX Revamp)
+struct CockpitHeroChecklistItem: View {
+    let challenge: String
+    var response: String? = nil
+    /// e.g. "item 2 / 5"; nil hides the progress line.
+    var progressText: String? = nil
+    var showAdvanceHint: Bool = true
+    /// Scales the type/padding down for the narrower iPhone checklist.
+    var isCompact: Bool = false
+
+    @Environment(\.cockpitTheme) private var theme
+
+    private var challengeSize: CGFloat { isCompact ? 20 : 28 }
+    private var responseSize: CGFloat { isCompact ? 16 : 22 }
+    private var metaSize: CGFloat { isCompact ? 11 : 12 }
+    private var pad: CGFloat { isCompact ? 10 : 14 }
+    private var corner: CGFloat { isCompact ? 10 : 12 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if progressText != nil || showAdvanceHint {
+                HStack {
+                    if let progressText {
+                        Text(progressText.uppercased())
+                            .font(.system(size: metaSize))
+                            .foregroundColor(theme.textSecondary)
+                    }
+                    Spacer(minLength: 8)
+                    if showAdvanceHint {
+                        Label(L10n.ChecklistAction.tapToAdvance, systemImage: "hand.point.up.left")
+                            .labelStyle(.titleAndIcon)
+                            .font(.system(size: metaSize))
+                            .foregroundColor(theme.action)
+                    }
+                }
+                .padding(.bottom, 1)
+            }
+            Text(challenge)
+                .font(.system(size: challengeSize, weight: .medium))
+                .foregroundColor(theme.textPrimary)
+                .lineLimit(2)                 // never run past 2 lines — long item names threw off the HUD
+                .minimumScaleFactor(0.6)
+            if let response, !response.isEmpty {
+                Text(response)
+                    .font(.system(size: responseSize, weight: .medium))
+                    .foregroundColor(theme.action)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(pad)
+        .background(theme.panel)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(theme.action).frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: corner))
+        .overlay(
+            RoundedRectangle(cornerRadius: corner).strokeBorder(theme.panelStroke, lineWidth: 0.5)
+        )
     }
 }

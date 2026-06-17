@@ -44,22 +44,14 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
 
+    // Live "Flight plan details" editor (#5): the route is read-only here (the builder owns it), and
+    // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
     @State private var flightPlan: FlightPlan
-    @State private var showingWaypointEditor: FlightPlanWaypoint?
-    @State private var showingAddWaypoint = false
-    @State private var showingTerrainProfile = false
-    @State private var showingMapPicker = false
-    @State private var showingICAOSearch = false
     @State private var exportItem: FlightPlanExportItem?
-    @State private var showingAddWaypointChoice = false
-    @State private var routeRefreshToken = UUID() // Forces route table refresh
-    @State private var showingBulkAltitude = false
-    @State private var bulkAltitudeString = ""
-    @State private var airspaceConflicts: [AirspaceConflict] = []
-    @State private var showingAirspaceConflicts = false
-    @State private var airspaceDataUnavailable = false
     @State private var icaoSectionExpanded = false
+    @State private var logbookExpanded = false
     @State private var showingICAOCopied = false
+    @State private var commitWork: DispatchWorkItem?
 
     /// Whether we're on a compact width device (iPhone)
     /// Note: Using UIDevice instead of horizontalSizeClass because sheets on iPad
@@ -79,34 +71,14 @@ struct FlightPlanEditorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Header section
+                VStack(spacing: 16) {
+                    routeSummaryCard        // route is read-only here — the builder owns it (#5)
                     headerSection
-
-                    // Airspace conflict warning banner (or data unavailable hint)
-                    if !airspaceConflicts.isEmpty {
-                        airspaceWarningBanner
-                    } else if airspaceDataUnavailable && flightPlan.waypoints.count >= 2 {
-                        airspaceDataHint
-                    }
-
-                    // Route table section
-                    routeSection
-
-                    // Fuel calculation section
                     fuelSection
-
-                    // Timing section
-                    timingSection
-
-                    // Notes section
+                    timingSection           // collapsible "Logbook / times"
                     notesSection
-
-                    // ICAO Details section (collapsible)
                     icaoDetailsSection
-
-                    // Actions section
-                    actionsSection
+                    if !isViewingFromFlightLog { actionsSection }
                 }
                 .padding()
                 // Add keyboard padding only when needed (handled by system)
@@ -118,224 +90,98 @@ struct FlightPlanEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.cancel) { dismiss() }
+                    Button(L10n.Button.done) { dismiss() }
                 }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.Nav.save) {
-                        saveAndDismiss()
-                    }
-                }
-            }
-            .sheet(item: $showingWaypointEditor) { waypoint in
-                WaypointEditorSheet(
-                    waypoint: waypoint,
-                    aircraftType: flightPlan.aircraftTypeId,
-                    onSave: { updatedWaypoint in
-                        updateWaypoint(updatedWaypoint)
-                    },
-                    onDelete: {
-                        if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
-                            deleteWaypoint(at: index)
-                        }
-                    }
-                )
-            }
-            .sheet(isPresented: $showingAddWaypoint) {
-                AddWaypointSheet(aircraftTypeId: flightPlan.aircraftTypeId) { newWaypoint in
-                    addWaypoint(newWaypoint)
-                }
-            }
-            .sheet(isPresented: $showingTerrainProfile) {
-                TerrainProfileView(waypoints: flightPlan.waypoints)
-                    .environmentObject(appState)
-            }
-            .alert(L10n.Nav.setAltitude, isPresented: $showingBulkAltitude) {
-                TextField("ft", text: $bulkAltitudeString)
-                    .keyboardType(.numberPad)
-                Button(L10n.Nav.allWaypoints) {
-                    if let alt = Double(bulkAltitudeString) {
-                        for i in 0..<flightPlan.waypoints.count {
-                            flightPlan.waypoints[i].altitude = alt
-                        }
-                        routeRefreshToken = UUID()
-                    }
-                }
-                Button(L10n.Nav.emptyOnly) {
-                    if let alt = Double(bulkAltitudeString) {
-                        for i in 0..<flightPlan.waypoints.count {
-                            if flightPlan.waypoints[i].altitude == nil {
-                                flightPlan.waypoints[i].altitude = alt
-                            }
-                        }
-                        routeRefreshToken = UUID()
-                    }
-                }
-                Button(L10n.Button.cancel, role: .cancel) {}
-            } message: {
-                Text(L10n.Nav.setAltitudeMessage)
-            }
-            .sheet(isPresented: $showingMapPicker) {
-                MapWaypointPickerView { coordinate, name in
-                    let waypoint = FlightPlanWaypoint(
-                        name: name,
-                        coordinate: coordinate,
-                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
-                    )
-                    addWaypoint(waypoint)
-                }
-                .environmentObject(airportDataService)
-                .environmentObject(appState)
-            }
-            .sheet(isPresented: $showingICAOSearch) {
-                ICAOSearchSheet(airportDataService: airportDataService) { airport, primaryFrequency in
-                    let waypoint = FlightPlanWaypoint(
-                        name: airport.ident,
-                        coordinate: airport.coordinate,
-                        altitude: airport.elevation.map { Double($0) },
-                        frequency: primaryFrequency,
-                        plannedGroundSpeed: FlightPlan.defaultCruiseSpeed(for: flightPlan.aircraftTypeId)
-                    )
-                    addWaypoint(waypoint)
-                }
+                ToolbarItem(placement: .primaryAction) { exportMenu }
             }
             .sheet(item: $exportItem) { item in
-                FlightPlanExportSheet(
-                    data: item.data,
-                    filename: item.filename,
-                    format: item.format
-                )
+                FlightPlanExportSheet(data: item.data, filename: item.filename, format: item.format)
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: routeRefreshToken) { _, _ in Task { await analyzeAirspaceConflicts() } }
-        .task { await analyzeAirspaceConflicts() }
-        .sheet(isPresented: $showingAirspaceConflicts) {
-            AirspaceConflictDetailSheet(conflicts: airspaceConflicts)
-        }
+        // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
+        .onChange(of: flightPlan) { _, _ in scheduleCommit() }
+        .onDisappear { flushCommit() }
     }
 
-    // MARK: - Airspace Warning Banner
+    // MARK: - Live details helpers (#5)
 
-    private var airspaceWarningBanner: some View {
-        Button(action: { showingAirspaceConflicts = true }) {
-            HStack(spacing: 10) {
-                let highSeverity = airspaceConflicts.contains { $0.severity == .high }
-                Image(systemName: highSeverity ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                    .foregroundColor(highSeverity ? .aviationRed : .aviationAmber)
-                    .font(.system(size: 18))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(highSeverity ? L10n.Nav.restrictedAirspaceOnRoute : L10n.Nav.airspaceAlongRoute)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primaryText)
-
-                    let summary = airspaceConflicts.prefix(3)
-                        .map { $0.airspace.name }
-                        .joined(separator: ", ")
-                    Text(summary + (airspaceConflicts.count > 3 ? " +\(airspaceConflicts.count - 3) more" : ""))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondaryText)
-                        .lineLimit(1)
+    /// Read-only route header — editing the route happens in the builder.
+    private var routeSummaryCard: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(routeEndpoints)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText).lineLimit(1)
+                Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · \(flightPlan.formattedTotalEET)")
+                    .font(.system(size: 11)).foregroundColor(.secondaryText)
+            }
+            Spacer()
+            if !isViewingFromFlightLog {
+                Button { dismiss() } label: {
+                    Label(L10n.Nav.editRoute, systemImage: "map")
+                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.altimeterBlue)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.panelBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(
-                                airspaceConflicts.contains(where: { $0.severity == .high })
-                                    ? Color.aviationRed.opacity(0.5)
-                                    : Color.aviationAmber.opacity(0.3),
-                                lineWidth: 1
-                            )
-                    )
-            )
-        }
-    }
-
-    private func analyzeAirspaceConflicts() async {
-        guard flightPlan.waypoints.count >= 2 else {
-            airspaceConflicts = []
-            airspaceDataUnavailable = false
-            return
-        }
-
-        let waypoints = flightPlan.waypoints.map { wp in
-            (coordinate: wp.coordinate, altitude: wp.altitude)
-        }
-        let routeCoords = flightPlan.waypoints.map(\.coordinate)
-
-        // Use downloaded data if available, otherwise fetch on-demand from API
-        let nearbyAirspaces: [Airspace]
-        if openAIPDataService.isDataAvailable {
-            airspaceDataUnavailable = false
-            await openAIPDataService.ensureLoaded()
-            nearbyAirspaces = openAIPDataService.airspacesAlongRoute(routeCoords)
-        } else {
-            // On-demand fetch from API — works without downloading the full dataset
-            do {
-                nearbyAirspaces = try await openAIPDataService.fetchAirspacesAlongRoute(routeCoords)
-                airspaceDataUnavailable = false
-            } catch {
-                print("[Airspace] On-demand fetch failed: \(error.localizedDescription)")
-                airspaceConflicts = []
-                airspaceDataUnavailable = true
-                return
             }
         }
-
-        airspaceConflicts = AirspaceAnalyzer.analyzeRoute(
-            waypoints: waypoints,
-            airspaces: nearbyAirspaces
-        )
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
     }
 
-    // MARK: - Airspace Data Hint
+    private var routeEndpoints: String {
+        let names = flightPlan.waypoints.map { $0.name.isEmpty ? L10n.Nav.wpt : $0.name }
+        if names.count >= 2, let f = names.first, let l = names.last { return "\(f) → \(l)" }
+        return names.first ?? L10n.Nav.flightPlan
+    }
 
-    private var airspaceDataHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 14))
-                .foregroundColor(.secondaryText)
-            Text(L10n.Nav.airspaceCheckFailed)
-                .font(.system(size: 13))
-                .foregroundColor(.secondaryText)
+    private var exportMenu: some View {
+        Menu {
+            Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
+            Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
+            Button { exportFlightPlan(format: .xlsx) } label: { Label("Excel", systemImage: "tablecells") }
+            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF", systemImage: "doc.richtext") }
+            Divider()
+            Button {
+                UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
+                showingICAOCopied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showingICAOCopied = false }
+            } label: { Label(L10n.Nav.copyICAOFlightPlan, systemImage: "doc.on.clipboard") }
+                .disabled(flightPlan.waypoints.count < 2)
+        } label: {
+            Image(systemName: "square.and.arrow.up")
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.panelBackground)
-        )
+        .disabled(flightPlan.waypoints.isEmpty)
     }
 
-    // MARK: - Header Section
+    /// Debounced auto-commit of non-route edits to the live plan (not for a logged-plan snapshot).
+    private func scheduleCommit() {
+        guard !isViewingFromFlightLog else { return }
+        commitWork?.cancel()
+        let work = DispatchWorkItem { flightPlanManager.updateFlightPlan(flightPlan) }
+        commitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    private func flushCommit() {
+        commitWork?.cancel()
+        guard !isViewingFromFlightLog else { return }
+        flightPlanManager.updateFlightPlan(flightPlan)
+    }
+
+    // MARK: - Plan (header) Section
 
     private var headerSection: some View {
         VStack(spacing: 16) {
-            // Title bar
             HStack {
                 Text(L10n.Nav.navigationFlightPlan)
                     .font(.system(size: isCompactWidth ? 12 : 14, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .tracking(1)
-
                 Spacer()
-
                 HStack(spacing: 8) {
                     Text(L10n.Nav.flightType)
                         .font(.system(size: isCompactWidth ? 10 : 12))
                         .foregroundColor(.secondaryText)
-
                     Picker("", selection: $flightPlan.flightType) {
                         ForEach(FlightType.allCases) { type in
                             Text(type.rawValue).tag(type)
@@ -343,272 +189,26 @@ struct FlightPlanEditorView: View {
                     }
                     .pickerStyle(.menu)
                     .tint(.aviationGold)
-                    .onChange(of: flightPlan.flightType) { _, _ in
-                        // Force refresh by saving and recalculating
-                        var updatedPlan = flightPlan
-                        updatedPlan.calculateRouteData()
-                        flightPlan = updatedPlan
-                    }
                 }
             }
 
-            // Main header grid - adaptive columns for compact devices
-            if isCompactWidth {
-                // 2 columns for iPhone
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
-                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: L10n.Nav.date, date: Binding(
-                        get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
-                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
-                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
-                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
-                }
-            } else {
-                // 4 columns for iPad
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    // Row 1
-                    FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
-                    FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                    DateFormField(label: L10n.Nav.date, date: Binding(
-                        get: { flightPlan.plannedDepartureTime ?? Date() },
-                        set: { flightPlan.plannedDepartureTime = $0 }
-                    ))
-                    OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
-
-                    // Row 2
-                    OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
-                    FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
-                    FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
-                    FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
-                }
+            let cols = isCompactWidth ? 2 : 4
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: cols), spacing: 12) {
+                FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
+                DateFormField(label: L10n.Nav.date, date: Binding(
+                    get: { flightPlan.plannedDepartureTime ?? Date() },
+                    set: { flightPlan.plannedDepartureTime = $0 }
+                ))
+                OptionalFormField(label: L10n.Nav.runway, text: $flightPlan.runwayInUse, keyboardType: .numberPad)
+                OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
+                FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
+                FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
-    }
-
-    // MARK: - Route Section
-
-    private var routeSection: some View {
-        VStack(spacing: 12) {
-            // Section header
-            HStack {
-                Label(L10n.Nav.route, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
-
-                Button(action: { showingTerrainProfile = true }) {
-                    Label(L10n.Nav.terrain, systemImage: "mountain.2")
-                        .font(.system(size: 12))
-                }
-                .disabled(flightPlan.waypoints.count < 2)
-
-                Menu {
-                    Button(action: { showingAddWaypoint = true }) {
-                        Label(L10n.Nav.addWaypointManually, systemImage: "plus")
-                    }
-                    if airportDataService.isDataAvailable {
-                        Button(action: { showingICAOSearch = true }) {
-                            Label(L10n.Nav.addWithICAO, systemImage: "magnifyingglass")
-                        }
-                    }
-                    Button(action: { showingMapPicker = true }) {
-                        Label(L10n.Nav.addFromMap, systemImage: "map")
-                    }
-                    if !flightPlan.waypoints.isEmpty {
-                        Divider()
-                        Button(action: {
-                            bulkAltitudeString = ""
-                            showingBulkAltitude = true
-                        }) {
-                            Label(L10n.Nav.setAltitude, systemImage: "arrow.up.and.down")
-                        }
-                    }
-                } label: {
-                    Label(L10n.Nav.add, systemImage: "plus.circle")
-                        .font(.system(size: 12))
-                }
-            }
-
-            // Route table - id forces refresh when waypoints change
-            Group {
-                if flightPlan.waypoints.isEmpty {
-                    emptyRouteView
-                } else {
-                    routeTable
-                }
-            }
-            .id(routeRefreshToken)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.panelBackground)
-        )
-    }
-
-    private var emptyRouteView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "mappin.slash")
-                .font(.system(size: 32))
-                .foregroundColor(.dimText)
-
-            Text(L10n.Nav.noWaypoints)
-                .font(.system(size: 14))
-                .foregroundColor(.secondaryText)
-
-            Menu {
-                Button(action: { showingAddWaypoint = true }) {
-                    Label(L10n.Nav.addWaypointManually, systemImage: "plus")
-                }
-                Button(action: { showingMapPicker = true }) {
-                    Label(L10n.Nav.addFromMap, systemImage: "map")
-                }
-            } label: {
-                Label(L10n.Nav.addFirstWaypoint, systemImage: "plus")
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.aviationGold)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-
-    private var routeTable: some View {
-        Group {
-            if isCompactWidth {
-                // iPhone: Wrap in horizontal ScrollView with fixed-width content
-                ScrollView(.horizontal, showsIndicators: true) {
-                    compactRouteTableContent
-                        .frame(minWidth: 600)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.aviationDarkBlue.opacity(0.5), lineWidth: 1)
-                )
-            } else {
-                // iPad: Flexible waypoint column with drag-and-reorder support
-                VStack(spacing: 0) {
-                    // Table header
-                    HStack(spacing: 0) {
-                        tableHeaderCell("#", width: 30)
-                        tableHeaderCell(L10n.Nav.waypoint, width: nil, alignment: .leading)
-                        tableHeaderCell(L10n.Nav.freq, width: 55)
-                        tableHeaderCell(L10n.Nav.mc, width: 50)
-                        tableHeaderCell(L10n.Nav.dist, width: 50)
-                        tableHeaderCell(L10n.Nav.alt, width: 60)
-                        tableHeaderCell(L10n.Nav.gs, width: 50)
-                        tableHeaderCell(L10n.Nav.eet, width: 50)
-                        tableHeaderCell(L10n.Nav.eto, width: 55)
-                        tableHeaderCell(L10n.Nav.ato, width: 55)
-                    }
-                    .background(Color.aviationDarkBlue)
-
-                    // Table rows with drag-and-reorder
-                    List {
-                        ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                            WaypointTableRow(
-                                index: index,
-                                waypoint: waypoint,
-                                isLast: index == flightPlan.waypoints.count - 1,
-                                isCompact: false,
-                                onTap: {
-                                    showingWaypointEditor = waypoint
-                                },
-                                onDelete: {
-                                    deleteWaypoint(at: index)
-                                },
-                                onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
-                                onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
-                            )
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        }
-                        .onMove { source, destination in
-                            guard let from = source.first else { return }
-                            moveWaypoint(from: from, to: destination > from ? destination - 1 : destination)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: CGFloat(flightPlan.waypoints.count) * 36, maxHeight: CGFloat(flightPlan.waypoints.count) * 36)
-                    .environment(\.editMode, .constant(.active))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.aviationDarkBlue, lineWidth: 1)
-                )
-            }
-        }
-    }
-
-    /// Compact route table content for iPhone - uses fixed column widths
-    private var compactRouteTableContent: some View {
-        VStack(spacing: 0) {
-            // Table header with fixed widths
-            HStack(spacing: 0) {
-                tableHeaderCell("#", width: 30)
-                tableHeaderCell(L10n.Nav.waypoint, width: 100, alignment: .leading)
-                tableHeaderCell(L10n.Nav.freq, width: 55)
-                tableHeaderCell(L10n.Nav.mc, width: 50)
-                tableHeaderCell(L10n.Nav.dist, width: 50)
-                tableHeaderCell(L10n.Nav.alt, width: 60)
-                tableHeaderCell(L10n.Nav.gs, width: 50)
-                tableHeaderCell(L10n.Nav.eet, width: 50)
-                tableHeaderCell(L10n.Nav.eto, width: 55)
-                tableHeaderCell(L10n.Nav.ato, width: 55)
-            }
-            .background(Color.aviationDarkBlue)
-
-            // Table rows
-            ForEach(Array(flightPlan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                WaypointTableRow(
-                    index: index,
-                    waypoint: waypoint,
-                    isLast: index == flightPlan.waypoints.count - 1,
-                    isCompact: true,
-                    onTap: {
-                        showingWaypointEditor = waypoint
-                    },
-                    onDelete: {
-                        deleteWaypoint(at: index)
-                    },
-                    onMoveUp: index > 0 ? { moveWaypoint(from: index, to: index - 1) } : nil,
-                    onMoveDown: index < flightPlan.waypoints.count - 1 ? { moveWaypoint(from: index, to: index + 1) } : nil
-                )
-            }
-        }
-    }
-
-    private func tableHeaderCell(_ text: String, width: CGFloat?, alignment: Alignment = .center) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(.aviationGold)
-            .frame(width: width, alignment: alignment)
-            .frame(height: 32)
-            .frame(maxWidth: width == nil ? .infinity : nil)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.panelBackground))
     }
 
     // MARK: - Fuel Section
@@ -694,14 +294,20 @@ struct FlightPlanEditorView: View {
 
     private var timingSection: some View {
         VStack(spacing: 12) {
-            HStack {
-                Label(L10n.Nav.timing, systemImage: "clock")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.aviationGold)
-
-                Spacer()
+            // Post-flight logbook data — collapsed by default so it doesn't clutter planning. (#5)
+            Button { withAnimation { logbookExpanded.toggle() } } label: {
+                HStack {
+                    Label(L10n.Nav.logbookTimes, systemImage: "clock")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.aviationGold)
+                    Spacer()
+                    Image(systemName: logbookExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12)).foregroundColor(.secondaryText)
+                }
             }
+            .buttonStyle(.plain)
 
+            if logbookExpanded {
             // First row: Counter Start, Block OFF, Time ON, Time OFF, Block ON, Counter Stop
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: isCompactWidth ? 2 : 6), spacing: 12) {
                 NumberFormField(
@@ -766,6 +372,7 @@ struct FlightPlanEditorView: View {
                 Spacer()
                 Spacer()
             }
+            } // if logbookExpanded
         }
         .padding()
         .background(
@@ -930,129 +537,26 @@ struct FlightPlanEditorView: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
-            // Hide Activate/Deactivate and Recalculate buttons when viewing from Flight Log
-            if !isViewingFromFlightLog {
-                if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
-                    Button(action: {
-                        flightPlanManager.deactivateFlightPlan()
-                    }) {
-                        Label(L10n.Nav.deactivateFlightPlan, systemImage: "airplane.arrival")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                } else {
-                    Button(action: {
-                        flightPlanManager.updateFlightPlan(flightPlan)
-                        flightPlanManager.activateFlightPlan(flightPlan)
-                        dismiss()
-                    }) {
-                        Label(L10n.Nav.activateFlightPlan, systemImage: "airplane.departure")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.aviationGreen)
+            if flightPlan.id == flightPlanManager.activeFlightPlan?.id {
+                Button { flightPlanManager.deactivateFlightPlan() } label: {
+                    Label(L10n.Nav.deactivateFlightPlan, systemImage: "airplane.arrival").frame(maxWidth: .infinity)
                 }
-
-                Button(action: {
-                    recalculateRoute()
-                }) {
-                    Label(L10n.Nav.recalculateRoute, systemImage: "arrow.triangle.2.circlepath")
-                        .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent).tint(.orange)
+            } else {
+                Button {
+                    flightPlanManager.updateFlightPlan(flightPlan)
+                    flightPlanManager.activateFlightPlan(flightPlan)
+                    dismiss()
+                } label: {
+                    Label(L10n.Nav.activateFlightPlan, systemImage: "airplane.departure").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-
-                Divider()
-                    .padding(.vertical, 8)
+                .buttonStyle(.borderedProminent).tint(.aviationGreen)
             }
-
-            // Export section
-            exportSection
         }
         .padding()
     }
 
     // MARK: - Export Section
-
-    private var exportSection: some View {
-        VStack(spacing: 8) {
-            Text(L10n.Nav.exportFlightPlan)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.secondaryText)
-
-            HStack(spacing: 12) {
-                Button(action: { exportFlightPlan(format: .json) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 20))
-                        Text("JSON")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .gpx) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                            .font(.system(size: 20))
-                        Text("GPX")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .xlsx) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "tablecells")
-                            .font(.system(size: 20))
-                        Text("Excel")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: { exportFlightPlan(format: .pdf) }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.richtext")
-                            .font(.system(size: 20))
-                        Text("PDF")
-                            .font(.system(size: 10))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-            }
-
-            // ICAO FPL copy button
-            Button(action: {
-                let fplText = flightPlan.toICAOFlightPlan()
-                UIPasteboard.general.string = fplText
-                showingICAOCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    showingICAOCopied = false
-                }
-            }) {
-                HStack {
-                    Image(systemName: showingICAOCopied ? "checkmark.circle.fill" : "doc.on.clipboard")
-                        .font(.system(size: 16))
-                    Text(showingICAOCopied ? L10n.Nav.icaoCopied : L10n.Nav.copyICAOFlightPlan)
-                        .font(.system(size: 12))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(.bordered)
-            .tint(showingICAOCopied ? .green : .aviationGold)
-            .disabled(flightPlan.waypoints.count < 2)
-        }
-    }
 
     // MARK: - Computed Properties for Auto-Population
 
@@ -1110,14 +614,6 @@ struct FlightPlanEditorView: View {
         return flightPlan.totalLandings ?? 0
     }
 
-    // MARK: - Actions
-
-    private func saveAndDismiss() {
-        flightPlan.calculateRouteData()
-        flightPlanManager.updateFlightPlan(flightPlan)
-        dismiss()
-    }
-
     private func exportFlightPlan(format: FlightPlanExportFormat) {
         // Generate the data
         let generatedData: Data?
@@ -1141,52 +637,6 @@ struct FlightPlanEditorView: View {
             filename: flightPlan.exportFilename,
             format: format
         )
-    }
-
-    private func addWaypoint(_ waypoint: FlightPlanWaypoint) {
-        var updatedPlan = flightPlan
-        updatedPlan.waypoints.append(waypoint)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func updateWaypoint(_ waypoint: FlightPlanWaypoint) {
-        if let index = flightPlan.waypoints.firstIndex(where: { $0.id == waypoint.id }) {
-            var updatedPlan = flightPlan
-            updatedPlan.waypoints[index] = waypoint
-            updatedPlan.calculateRouteData()
-            flightPlan = updatedPlan
-            routeRefreshToken = UUID() // Force UI refresh
-        }
-    }
-
-    private func deleteWaypoint(at index: Int) {
-        var updatedPlan = flightPlan
-        updatedPlan.waypoints.remove(at: index)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func moveWaypoint(from source: Int, to destination: Int) {
-        var updatedPlan = flightPlan
-        let waypoint = updatedPlan.waypoints.remove(at: source)
-        updatedPlan.waypoints.insert(waypoint, at: destination)
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
-    }
-
-    private func recalculateRoute() {
-        var updatedPlan = flightPlan
-        // Clear ATO fields when recalculating
-        for i in updatedPlan.waypoints.indices {
-            updatedPlan.waypoints[i].actualTimeOver = nil
-        }
-        updatedPlan.calculateRouteData()
-        flightPlan = updatedPlan
-        routeRefreshToken = UUID() // Force UI refresh
     }
 }
 

@@ -1050,6 +1050,8 @@ enum L10n {
         static let fitRoute = String(localized: "nav.fitRoute")
         static let moreActions = String(localized: "nav.moreActions")
         static let routeProfileTitle = String(localized: "nav.routeProfileTitle")
+        static let editRoute = String(localized: "nav.editRoute")
+        static let logbookTimes = String(localized: "nav.logbookTimes")
         static let expandProfile = String(localized: "nav.expandProfile")
         static let waypointsTab = String(localized: "nav.waypointsTab")
         static let conflictsTab = String(localized: "nav.conflictsTab")

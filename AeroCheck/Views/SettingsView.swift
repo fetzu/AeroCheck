@@ -70,7 +70,7 @@ struct SettingsView: View {
         /// Optional row badge (Beta on flight planning + companion mode).
         var badge: String? {
             switch self {
-            case .flightPlanning, .companion: return L10n.Tag.beta
+            case .companion: return L10n.Tag.beta
             default: return nil
             }
         }

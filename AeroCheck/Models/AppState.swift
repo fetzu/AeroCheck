@@ -39,7 +39,7 @@ struct AppSettings: Codable, Equatable {
     /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
     /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright
     /// cockpits. (Phase 3.5; migrated from the old `nightModePreference`/`nightMode`)
-    var themePreference: ThemePreference = .day
+    var themePreference: ThemePreference = .auto
 
     /// Whether night mode is effectively active, given the device's dark-mode state (only relevant for
     /// `.auto`). Drives the `\.isNightMode` env (instrument dimming). Sunlight is NOT night.
@@ -71,8 +71,8 @@ struct AppSettings: Codable, Equatable {
     var showEstimatedAirspeed: Bool = false // When true, shows estimated IAS based on wind data (experimental)
     var stallAlertSound: Bool = false // When true, plays an aural + haptic stall alert (UX-02)
 
-    // Flight Planning (Beta)
-    var enableFlightPlanning: Bool = false // Beta feature toggle
+    // Flight Planning
+    var enableFlightPlanning: Bool = true // ON by default
     var waypointProximityThreshold: Double = 500 // meters, for auto-advancing waypoints
     var terrainAltitudeUnit: TerrainAltitudeUnit = .feet // feet, meters, or dual
 
@@ -90,11 +90,11 @@ struct AppSettings: Codable, Equatable {
     var checklistLanguage: ChecklistLanguage = .auto // Language for checklist content
 
     // Airport data overlay
-    var showAirportsOnMap: Bool = false // When true, shows airports on navigation map (requires airport data download)
-    var showTrackVector: Bool = false // When true, draws a ground-track trend vector ahead of the aircraft (3.5)
+    var showAirportsOnMap: Bool = true // When true, shows airports on navigation map (requires airport data download) — ON by default
+    var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (3.5) — ON by default
 
     // OpenAIP aviation data overlay
-    var showOpenAIPOverlay: Bool = false // When true, shows OpenAIP airspace tiles on navigation map
+    var showOpenAIPOverlay: Bool = true // When true, shows OpenAIP airspace tiles on navigation map — ON by default
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 

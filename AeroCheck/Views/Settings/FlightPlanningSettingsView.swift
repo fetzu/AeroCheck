@@ -47,7 +47,7 @@ struct FlightPlanningSettingsView: View {
     // MARK: - Flight Planning Section
 
     private var flightPlanningSection: some View {
-        SettingsGroup(title: "\(L10n.Settings.flightPlanning) · \(L10n.Tag.beta)",
+        SettingsGroup(title: L10n.Settings.flightPlanning,
                       tint: tint,
                       footer: L10n.Settings.flightPlanningFooter) {
             SettingsToggleRow(

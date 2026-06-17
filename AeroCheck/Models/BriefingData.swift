@@ -116,38 +116,6 @@ struct BriefingContext {
         departureAirport?.elevation
     }
 
-    /// Field elevation at destination (feet)
-    var destinationElevation: Int? {
-        destinationAirport?.elevation
-    }
-
-    /// Calculate MSL altitude for no-return (1000 ft AAL)
-    func noReturnAltitude(for phase: BriefingPhase) -> Int? {
-        let elevation: Int?
-        switch phase {
-        case .departure:
-            elevation = departureElevation
-        case .approach:
-            elevation = destinationElevation
-        }
-        guard let elev = elevation else { return nil }
-        return elev + 1000
-    }
-
-    /// Calculate MSL altitude for minimum parachute activation (600 ft AAL)
-    func minParachuteAltitude(for phase: BriefingPhase) -> Int? {
-        guard hasParachute else { return nil }
-        let elevation: Int?
-        switch phase {
-        case .departure:
-            elevation = departureElevation
-        case .approach:
-            elevation = destinationElevation
-        }
-        guard let elev = elevation else { return nil }
-        return elev + 600
-    }
-
     /// Empty context for when no data is available
     static func empty(aircraftRegistration: String = "Unknown", aircraftType: String = "Unknown") -> BriefingContext {
         BriefingContext(

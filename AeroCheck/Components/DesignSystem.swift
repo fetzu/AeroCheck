@@ -9,14 +9,10 @@ import UIKit
 extension Font {
     // Custom aviation-style fonts
     static let checklistTitle = Font.system(size: 28, weight: .bold, design: .default)
-    static let checklistItem = Font.system(size: 22, weight: .medium, design: .monospaced)
-    static let checklistResponse = Font.system(size: 22, weight: .regular, design: .monospaced)
     static let buttonText = Font.system(size: 20, weight: .semibold, design: .default)
     static let headerText = Font.system(size: 18, weight: .bold, design: .default)
     static let bodyText = Font.system(size: 18, weight: .regular, design: .default)
     static let captionText = Font.system(size: 14, weight: .medium, design: .default)
-    static let timeDisplay = Font.system(size: 24, weight: .bold, design: .monospaced)
-    static let speedValue = Font.system(size: 20, weight: .bold, design: .monospaced)
 }
 
 // MARK: - Button Styles
@@ -581,36 +577,6 @@ final class StallAlert {
     }
 }
 
-// MARK: - Speed Indicator Container (handles GPS speed conversion)
-
-struct FlightSpeedIndicator: View {
-    let gpsSpeedMetersPerSecond: Double
-    let targetSpeed: Int?
-    let stallSpeed: Int
-    let gpsSignalStatus: GPSSignalStatus
-    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
-    var stallAlertEnabled: Bool = false
-
-    // Convert m/s to knots (1 m/s = 1.94384 knots)
-    private var speedInKnots: Double {
-        gpsSpeedMetersPerSecond * 1.94384
-    }
-
-    var body: some View {
-        if let target = targetSpeed {
-            SpeedIndicatorView(
-                currentSpeed: max(0, speedInKnots),
-                targetSpeed: target,
-                stallSpeed: stallSpeed,
-                gpsSignalStatus: gpsSignalStatus,
-                estimatedAirspeed: estimatedAirspeed,
-                stallAlertEnabled: stallAlertEnabled
-            )
-        }
-    }
-}
-
-
 // MARK: - Night Mode (UX-09)
 
 /// Low-luminance instrument palette for night flight: no bright blue/white emitters, so the
@@ -848,17 +814,6 @@ struct AltimeterView: View {
     /// Composes the VoiceOver value string (pure + static, unit-tested). (UX-10)
     static func accessibilityValue(altitudeFeet: Int, gpsLost: Bool) -> String {
         gpsLost ? "GPS signal lost" : "\(altitudeFeet) feet M S L"
-    }
-}
-
-// MARK: - Altimeter Container (handles altitude in feet)
-
-struct FlightAltimeter: View {
-    let altitudeFeet: Double
-    let gpsSignalStatus: GPSSignalStatus
-
-    var body: some View {
-        AltimeterView(altitudeFeet: max(0, altitudeFeet), gpsSignalStatus: gpsSignalStatus)
     }
 }
 
@@ -1233,78 +1188,6 @@ struct InstrumentTargetBar: View {
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .frame(height: 4)
-    }
-}
-
-/// The revamped in-flight instrument strip: speed (with a color-blind-safe on-target bar), altitude
-/// (+ vertical speed) and heading in one Liquid-Glass panel. Purely presentational — the caller
-/// formats the values and computes the target state; the panel themes itself via `\.cockpitTheme`
-/// so it reads correctly in day / sunlight / night. (v4 UI/UX Revamp)
-struct CockpitInstrumentPanel: View {
-    let speed: String
-    var targetState: InstrumentTargetState = .neutral
-    /// 0...1 fill of the on-target bar under the speed; nil hides the bar (no active target).
-    var targetBarFraction: Double? = nil
-    let altitude: String
-    /// Vertical speed in fpm as a signed display string (e.g. "+480"); nil hides the row.
-    var verticalSpeed: String? = nil
-    let heading: String
-
-    @Environment(\.cockpitTheme) private var theme
-
-    var body: some View {
-        HStack(spacing: 0) {
-            cell(label: "SPD kt", flex: 1.2) {
-                Text(speed)
-                    .font(.system(size: 30, weight: .medium, design: .monospaced))
-                    .foregroundColor(targetState == .neutral ? theme.textPrimary : targetState.barColor(in: theme))
-                if let fraction = targetBarFraction {
-                    InstrumentTargetBar(fraction: fraction, state: targetState)
-                        .padding(.top, 3)
-                }
-            }
-            divider
-            cell(label: "ALT ft", flex: 1) {
-                Text(altitude)
-                    .font(.system(size: 22, weight: .medium, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                if let vs = verticalSpeed {
-                    Text(vs)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundColor(theme.onTarget)
-                }
-            }
-            divider
-            cell(label: "HDG", flex: 1) {
-                Text(heading)
-                    .font(.system(size: 22, weight: .medium, design: .monospaced))
-                    .foregroundColor(theme.textPrimary)
-                Text("track")
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.textSecondary)
-            }
-        }
-        .padding(.vertical, 11)
-        .padding(.horizontal, 6)
-        .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
-    }
-
-    private var divider: some View {
-        Rectangle().fill(theme.glassStroke).frame(width: 0.5).frame(maxHeight: 38)
-    }
-
-    @ViewBuilder
-    private func cell<Content: View>(label: String, flex: CGFloat, @ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(theme.textSecondary)
-            content()
-        }
-        .frame(maxWidth: .infinity)
-        .frame(minWidth: 0)
-        .layoutPriority(Double(flex))
     }
 }
 

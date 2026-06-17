@@ -498,13 +498,6 @@ struct AirspaceConflict: Identifiable {
     enum ConflictType {
         case transit                     // Route passes through airspace
         case proximity                   // Route passes near boundary (< 1 NM)
-
-        var displayString: String {
-            switch self {
-            case .transit: return "Route crosses airspace"
-            case .proximity: return "Route near airspace boundary"
-            }
-        }
     }
 
     /// Severity level for display

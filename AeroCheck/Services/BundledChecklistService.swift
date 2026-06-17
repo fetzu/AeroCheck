@@ -90,12 +90,6 @@ enum BundledChecklistService {
         }
     }
 
-    /// Get the bundled resource name for an aircraft ID (legacy support - uses default language)
-    private static func bundledResourceName(for aircraftId: String) -> String? {
-        guard let config = bundledAircraftConfigs[aircraftId] else { return nil }
-        return config.resourceNames[config.defaultLanguage]
-    }
-
     // MARK: - Version Comparison
 
     /// Compare two version strings to determine which is newer
@@ -125,23 +119,5 @@ enum BundledChecklistService {
         }
 
         return false // Versions are equal
-    }
-
-    /// Get the version of a bundled checklist
-    static func bundledVersion(for aircraftId: String, language: String? = nil) -> String? {
-        loadBundledChecklist(for: aircraftId, language: language)?.version
-    }
-
-    /// Get all bundled versions for an aircraft (one per language)
-    static func allBundledVersions(for aircraftId: String) -> [String: String] {
-        guard let config = bundledAircraftConfigs[aircraftId] else { return [:] }
-
-        var versions: [String: String] = [:]
-        for lang in config.availableLanguages {
-            if let version = bundledVersion(for: aircraftId, language: lang) {
-                versions[lang] = version
-            }
-        }
-        return versions
     }
 }

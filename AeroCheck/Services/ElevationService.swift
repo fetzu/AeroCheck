@@ -87,81 +87,6 @@ actor ElevationService {
         return nil
     }
 
-    /// Fetch elevations along a route using the profile API (more efficient)
-    /// Returns array of (distance from start in NM, elevation in meters)
-    func fetchRouteElevations(waypoints: [CLLocationCoordinate2D], samplesPerLeg: Int = 10) async -> [(distance: Double, elevation: Double)] {
-        guard waypoints.count >= 2 else { return [] }
-
-        var results: [(distance: Double, elevation: Double)] = []
-        var cumulativeDistance: Double = 0
-
-        for i in 0..<(waypoints.count - 1) {
-            let from = waypoints[i]
-            let to = waypoints[i + 1]
-
-            // Calculate leg distance
-            let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
-            let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
-            let legDistanceMeters = fromLocation.distance(from: toLocation)
-            let legDistanceNM = legDistanceMeters / 1852.0
-
-            // Fetch profile for this leg
-            if let legProfile = await fetchLegProfile(from: from, to: to) {
-                for point in legProfile {
-                    // Convert distance from meters to NM and add cumulative
-                    let distanceNM = cumulativeDistance + (point.distance / 1852.0)
-                    results.append((distance: distanceNM, elevation: point.elevation))
-                }
-            }
-
-            cumulativeDistance += legDistanceNM
-        }
-
-        return results
-    }
-
-    /// Fetch elevation profile for a single leg using the profile API
-    private func fetchLegProfile(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async -> [(distance: Double, elevation: Double)]? {
-        guard isInSwitzerland(from) && isInSwitzerland(to) else { return nil }
-
-        // Convert to LV95
-        let fromLV95 = wgs84ToLV95(from)
-        let toLV95 = wgs84ToLV95(to)
-
-        // Build GeoJSON LineString
-        let geom = """
-        {"type":"LineString","coordinates":[[\(fromLV95.easting),\(fromLV95.northing)],[\(toLV95.easting),\(toLV95.northing)]]}
-        """
-
-        guard let encodedGeom = geom.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://api3.geo.admin.ch/rest/services/profile.json?geom=\(encodedGeom)&sr=2056&nb_points=20") else {
-            return nil
-        }
-
-        do {
-            let (data, httpResponse) = try await ExternalRequest.data(from: url)
-
-            guard httpResponse.statusCode == 200 else {
-                return nil
-            }
-
-            if let json = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                return json.compactMap { point -> (distance: Double, elevation: Double)? in
-                    guard let dist = point["dist"] as? Double,
-                          let alts = point["alts"] as? [String: Any],
-                          let elevation = alts["COMB"] as? Double else {
-                        return nil
-                    }
-                    return (distance: dist, elevation: elevation)
-                }
-            }
-        } catch {
-            print("[AéroCheck] Profile fetch error: \(error.localizedDescription)")
-        }
-
-        return nil
-    }
-
     /// Fetch elevations with caching and batching for better performance
     func fetchRouteElevationsOptimized(waypoints: [CLLocationCoordinate2D], totalSamples: Int = 50) async -> [(distance: Double, elevation: Double)] {
         guard waypoints.count >= 2 else { return [] }
@@ -279,12 +204,6 @@ actor ElevationService {
         } else {
             return await fetchTrackTerrainViaOpenMeteo(gpsTrack: gpsTrack, targetSamples: targetSamples)
         }
-    }
-
-    /// Check if a GPS track is eligible for terrain data
-    func isTerrainAvailable(for gpsTrack: [(coordinate: CLLocationCoordinate2D, timestamp: Date)]) -> Bool {
-        // Terrain is available everywhere — swisstopo for Swiss flights, Open-Meteo globally
-        return gpsTrack.count >= 2
     }
 
     // MARK: - Swisstopo Track Terrain (POST with multi-coordinate LineString)
@@ -482,21 +401,3 @@ actor ElevationService {
     }
 }
 
-// MARK: - Terrain Profile Data
-
-struct TerrainProfileData {
-    let points: [(distance: Double, elevation: Double)]
-    let waypoints: [(distance: Double, name: String, altitude: Double?)]
-    let maxElevation: Double
-    let minElevation: Double
-    let totalDistance: Double
-
-    var isAvailable: Bool {
-        !points.isEmpty
-    }
-
-    /// Convert elevation to feet
-    func elevationInFeet(_ meters: Double) -> Double {
-        meters * 3.28084
-    }
-}

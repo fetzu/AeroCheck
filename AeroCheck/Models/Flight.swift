@@ -348,12 +348,6 @@ struct Flight: Identifiable, Codable {
         return end.timeIntervalSince(start)
     }
     
-    /// Session duration (total time from app start to stop)
-    var sessionDuration: TimeInterval? {
-        guard let start = startTime, let stop = stopTime else { return nil }
-        return stop.timeIntervalSince(start)
-    }
-
     /// Block time duration (from first movement to last stop)
     var blockTime: TimeInterval? {
         guard let off = blockOffTime, let on = blockOnTime else { return nil }

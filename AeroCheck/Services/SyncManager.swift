@@ -425,12 +425,6 @@ class SyncManager: ObservableObject {
         return validated
     }
 
-    func createFlightRecord(_ flight: Flight) -> CKRecord? {
-        guard let recordZone = recordZone else { return nil }
-        let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
-        return Self.buildFlightRecord(flight, recordID: recordID)
-    }
-
     /// Encodes a flight into a CKRecord. `nonisolated static` (the JSON encode + GPS-track payload is
     /// the expensive part) so the sync-batch path can build records OFF the main actor instead of
     /// inside a `DispatchQueue.main.sync`. (PR-24 / PERF-13)

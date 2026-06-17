@@ -223,26 +223,6 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    /// Gets the best available checklist for a bundled aircraft
-    /// Checks cache, then API, then falls back to bundled version
-    /// - Parameter aircraftId: The bundled aircraft identifier (e.g., "wt9-dynamic")
-    /// - Parameter language: The language for checklist content (default: nil)
-    /// - Returns: The best available checklist, never nil for bundled aircraft with bundled languages
-    func getBundledAircraftChecklist(for aircraftId: String, language: String? = nil) async -> RemoteAircraftChecklist? {
-        guard BundledChecklistService.isBundled(aircraftId: aircraftId) else {
-            return await fetchChecklist(for: aircraftId, language: language)
-        }
-
-        // Try to get from API/cache first
-        if let checklist = await fetchChecklist(for: aircraftId, language: language) {
-            return checklist
-        }
-
-        // Fall back to bundled version with language support
-        // (should always succeed for bundled aircraft with bundled languages)
-        return BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language)
-    }
-
     /// Checks if an update is available for a checklist using checksum comparison
     /// For bundled aircraft, also compares against bundled version to ensure we don't downgrade
     /// - Parameters:
@@ -472,21 +452,6 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    /// Clears all cached checklists
-    func clearAllCaches() {
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: nil)
-
-            for fileURL in contents where fileURL.pathExtension == "json" {
-                try? fileManager.removeItem(at: fileURL)
-            }
-
-            print("[AircraftDataService] Cleared all caches")
-        } catch {
-            print("[AircraftDataService] Failed to clear caches: \(error)")
-        }
-    }
-
     /// Clears all premium (non-free) cached checklists
     /// Called when subscription expires and grace period ends
     func clearPremiumCaches() {
@@ -708,29 +673,6 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    private func updateSubscriptionVerificationDate(aircraftId: String) {
-        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
-
-        guard let metadata = loadCacheMetadata(aircraftId: aircraftId) else { return }
-
-        // Create updated metadata with new verification date
-        let updatedMetadata = CacheMetadata(
-            aircraftId: metadata.aircraftId,
-            checksum: metadata.checksum,
-            cachedAt: metadata.cachedAt,
-            subscriptionVerifiedAt: Date()
-        )
-
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
-            let data = try encoder.encode(updatedMetadata)
-            try data.write(to: metadataPath)
-        } catch {
-            print("Failed to update cache metadata: \(error)")
-        }
-    }
-
     private func loadCachedChecklist(aircraftId: String) -> RemoteAircraftChecklist? {
         let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
 
@@ -790,15 +732,6 @@ enum AircraftDataError: LocalizedError {
 }
 
 // MARK: - API Response Types
-
-private struct AircraftListResponse: Codable {
-    let success: Bool
-    let data: AircraftListData
-}
-
-private struct AircraftListData: Codable {
-    let aircraft: [RemoteAircraftMetadata]
-}
 
 private struct ChecklistResponse: Codable {
     let success: Bool

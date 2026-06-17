@@ -140,15 +140,6 @@ class OfflineMapManager: ObservableObject {
         return formatter.string(from: date)
     }
 
-    /// Formatted Segelflug cache date string
-    var formattedSegelflugCacheDate: String {
-        guard let date = segelflugCacheDate else { return "Not downloaded" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
     /// Cache version string (based on download date)
     var cacheVersion: String {
         guard let date = cacheDate else { return "N/A" }

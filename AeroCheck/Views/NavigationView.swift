@@ -210,7 +210,6 @@ struct NavigationMapView: View {
     /// Measured height of the compact bottom sheet — the floating controls sit just above it and the
     /// sheet grows only to its content (not a fixed half-screen). (v4 UI/UX Revamp — iPhone)
     @State private var compactSheetHeight: CGFloat = 96
-    @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
     @State private var streamingCTRCheckTask: Task<Void, Never>?
     /// Preview index for iPhone compact panel waypoint browsing (nil = showing real active waypoint)
@@ -957,213 +956,6 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Whether the pilot is currently within Swiss airspace (for showing area frequencies)
-    private var isInSwissAirspace: Bool {
-        guard let location = locationManager.currentLocation else { return false }
-        return SwissAirspaceSectors.isInSwitzerland(location.coordinate)
-    }
-
-    // Helper to check if common frequency should be highlighted
-    private func shouldHighlightCommonFrequency(_ freq: SwissCommonFrequency) -> Bool {
-        guard let location = locationManager.currentLocation else { return false }
-        let coord = location.coordinate
-        let sector = SwissAirspaceSectors.getSector(for: coord)
-
-        switch freq {
-        case .zurichInfo:
-            return sector == .zurich
-        case .genevaInfo:
-            return sector == .geneva
-        case .fisEast:
-            return sector == .zurich || sector == .east
-        case .fisWest:
-            return sector == .geneva || sector == .west
-        case .emergency:
-            return false
-        }
-    }
-
-    // Helper to get nearby CTRs from OpenAIP data (downloaded or streamed)
-    private func getNearbyCTRsForCompact() -> [(airspace: Airspace, distanceNM: Double)] {
-        guard let location = locationManager.currentLocation else { return [] }
-        // Primary: full downloaded data
-        if openAIPDataService.isDataAvailable {
-            return Array(openAIPDataService.nearbyCTRs(from: location.coordinate).prefix(5))
-        }
-        // Streaming fallback (when enabled)
-        if appState.settings.enableAirspaceStreaming {
-            return Array(openAIPDataService.streamingCTRs.prefix(5))
-        }
-        return []
-    }
-
-    /// Get nearby airports with TWR frequencies as fallback when OpenAIP is unavailable
-    private var compactFallbackTWRAirports: [(airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)] {
-        guard let location = locationManager.currentLocation,
-              airportDataService.isDataAvailable else { return [] }
-        let nearbyAirports = airportDataService.findNearestAirports(
-            to: location.coordinate,
-            limit: 8,
-            maxDistanceNm: 20.0
-        )
-        return nearbyAirports.compactMap { airport -> (airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double)? in
-            let frequencies = airportDataService.getFrequencies(for: airport.ident)
-            let twrFreqs = frequencies.filter { $0.type == "TWR" }
-            guard !twrFreqs.isEmpty else { return nil }
-            let distanceNM = airport.distance(from: location.coordinate)
-            return (airport: airport, twrFrequencies: twrFreqs, distanceNM: distanceNM)
-        }
-    }
-
-    /// Compact "Nearby Controlled Airspace" section — OpenAIP primary (downloaded or streamed), OurAirports TWR fallback
-    @ViewBuilder
-    private var compactControlledAirspaceSection: some View {
-        let ctrs = getNearbyCTRsForCompact()
-        // OurAirports fallback only if no OpenAIP data (downloaded or streamed) available
-        let fallback = (!ctrs.isEmpty || openAIPDataService.isDataAvailable) ? [] : compactFallbackTWRAirports
-
-        if !ctrs.isEmpty || !fallback.isEmpty {
-            Divider()
-                .background(Color.dimText)
-                .padding(.vertical, 4)
-
-            Text(L10n.Nav.nearbyControlledAirspace)
-                .font(.system(size: 9, weight: .bold))
-                .foregroundColor(.dimText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-
-            if !ctrs.isEmpty {
-                ForEach(ctrs, id: \.airspace.id) { item in
-                    compactCTRRow(item.airspace, distanceNM: item.distanceNM)
-                    if item.airspace.id != ctrs.last?.airspace.id {
-                        Divider()
-                            .background(Color.dimText.opacity(0.5))
-                    }
-                }
-            } else {
-                ForEach(fallback, id: \.airport.id) { item in
-                    compactFallbackTWRRow(item.airport, twrFrequencies: item.twrFrequencies, distanceNM: item.distanceNM)
-                    if item.airport.id != fallback.last?.airport.id {
-                        Divider()
-                            .background(Color.dimText.opacity(0.5))
-                    }
-                }
-            }
-        }
-    }
-
-    /// Compact fallback row showing OurAirports TWR frequency
-    private func compactFallbackTWRRow(_ airport: Airport, twrFrequencies: [AirportFrequency], distanceNM: Double) -> some View {
-        let isNearby = distanceNM <= 5.0
-
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(airport.ident)
-                    .font(.system(size: 12, weight: isNearby ? .semibold : .regular))
-                    .foregroundColor(isNearby ? .primaryText : .secondaryText)
-                Text(airport.name)
-                    .font(.system(size: 10))
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(twrFrequencies.first?.formattedFrequency ?? "—")
-                    .font(.system(size: 14, weight: isNearby ? .bold : .medium, design: .monospaced))
-                    .foregroundColor(isNearby ? .aviationGold : .secondaryText)
-                Text(String(format: "%.0fnm", distanceNM))
-                    .font(.system(size: 10))
-                    .foregroundColor(.dimText)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(isNearby ? Color.aviationGold.opacity(0.1) : Color.clear)
-    }
-
-    private func compactFrequencyRow(name: String, callSign: String?, frequency: String, isCurrent: Bool) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 13, weight: isCurrent ? .bold : .medium))
-                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
-                    .lineLimit(1)
-                if let callSign = callSign, !callSign.isEmpty {
-                    Text(callSign)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondaryText)
-                }
-            }
-            Spacer()
-            Text(frequency)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundColor(isCurrent ? .aviationGreen : .aviationGold)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
-    }
-
-    private func compactCommonFrequencyRow(_ freq: SwissCommonFrequency, isHighlighted: Bool) -> some View {
-        HStack {
-            Text(freq.name)
-                .font(.system(size: 12, weight: isHighlighted ? .semibold : .regular))
-                .foregroundColor(isHighlighted ? .primaryText : .secondaryText)
-            Spacer()
-            Text(freq.frequency)
-                .font(.system(size: 14, weight: isHighlighted ? .bold : .medium, design: .monospaced))
-                .foregroundColor(isHighlighted ? .aviationGold : .secondaryText)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(isHighlighted ? Color.aviationGold.opacity(0.1) : Color.clear)
-    }
-
-    private func compactCTRRow(_ airspace: Airspace, distanceNM: Double) -> some View {
-        let isActive = distanceNM <= 5.0 && airspace.containsAltitude(locationManager.currentAltitudeFeet)
-
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(airspace.shortName)
-                        .font(.system(size: 12, weight: isActive ? .semibold : .regular))
-                        .foregroundColor(isActive ? .primaryText : .secondaryText)
-                    if airspace.isMilitary {
-                        Text("MIL")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.orange)
-                            .padding(.horizontal, 3)
-                            .padding(.vertical, 1)
-                            .background(Color.orange.opacity(0.2))
-                            .cornerRadius(3)
-                    }
-                }
-                if let freq = airspace.primaryFrequency {
-                    Text(freq.name ?? freq.value)
-                        .font(.system(size: 10))
-                        .foregroundColor(.dimText)
-                }
-                Text(airspace.altitudeRangeString)
-                    .font(.system(size: 8))
-                    .foregroundColor(.dimText)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(airspace.primaryFrequency?.value ?? "—")
-                    .font(.system(size: 14, weight: isActive ? .bold : .medium, design: .monospaced))
-                    .foregroundColor(isActive ? .aviationGold : .secondaryText)
-                Text(String(format: "%.0fnm", distanceNM))
-                    .font(.system(size: 10))
-                    .foregroundColor(.dimText)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(isActive ? Color.aviationGold.opacity(0.1) : Color.clear)
-    }
-
     // MARK: - State Update Helper
 
     private func updateMapStateForLocation(_ location: CLLocation) {
@@ -1765,12 +1557,6 @@ struct NavigationMapView: View {
         case .east: return [.fisEast]
         case .west: return [.fisWest]
         }
-    }
-
-    /// A planned-elapsed-time duration as "H:MM" (e.g. 34 min → "0:34", 1h05 → "1:05"). (v4 UI/UX Revamp)
-    private func eetDurationText(_ t: TimeInterval) -> String {
-        let total = Int(t.rounded())
-        return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
     }
 
     private struct FreqEntry { let station: String; let freq: String }
@@ -5009,22 +4795,6 @@ private struct NavClockText: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text(Self.string(for: context.date, useUTC: useUTC))
-                .font(font)
-                .foregroundColor(color)
-        }
-    }
-}
-
-/// The flight-plan chronometer, ticking itself once per second via `TimelineView` rather than the
-/// old top-level `refreshTrigger` `.id()` hack that re-rendered the whole map body. (PR-10)
-private struct NavChronometerText: View {
-    @EnvironmentObject var flightPlanManager: FlightPlanManager
-    let font: Font
-    let color: Color
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            Text(flightPlanManager.formattedChronometer)
                 .font(font)
                 .foregroundColor(color)
         }

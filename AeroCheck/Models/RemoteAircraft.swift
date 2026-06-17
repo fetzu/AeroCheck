@@ -32,11 +32,6 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     /// top-level fields above reflect the first registration for backward compatibility.
     var registrations: [RemoteAircraftRegistration]? = nil
 
-    /// Converts to local AircraftType if available
-    var localAircraftType: AircraftType? {
-        return AircraftType(rawValue: aircraftType)
-    }
-
     /// Whether this aircraft is bundled locally in the app
     var isBundled: Bool {
         return aircraftType == "WT9"

@@ -257,14 +257,23 @@ struct NavigationScreen: View {
                 }
             }
 
-            // Chronometer — the centerpiece in navigation mode.
-            VStack(spacing: 1) {
+            // Chronometer — the centerpiece, synced with the phone and controllable here.
+            VStack(spacing: 3) {
                 Text("CHRONO")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.secondary)
-                Text(connectivityManager.formattedFlightTime)
-                    .font(.system(size: 30, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationGreen)
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text(connectivityManager.chronometerDisplayString)
+                        .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        .foregroundColor(connectivityManager.flightData.chronometerRunning ? .aviationGreen : .secondary)
+                }
+                HStack(spacing: 10) {
+                    chronoControl(connectivityManager.flightData.chronometerRunning ? "pause.fill" : "play.fill") {
+                        connectivityManager.sendCommand(.chronoToggle)
+                    }
+                    chronoControl("arrow.counterclockwise") { connectivityManager.sendCommand(.chronoReset) }
+                    chronoControl("mappin.and.ellipse") { connectivityManager.sendCommand(.chronoMark) }
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -307,6 +316,17 @@ struct NavigationScreen: View {
         } else {
             return String(format: "%.0f", d)
         }
+    }
+
+    private func chronoControl(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.aviationGold)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.panelBackground))
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -14,6 +14,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private var session: WCSession?
     private var updateTimer: Timer?
 
+    // Held weakly so a Watch command (e.g. chronometer control) can act on live state + echo back.
+    private weak var appStateRef: AppState?
+    private weak var locationManagerRef: LocationManager?
+    private weak var flightPlanManagerRef: FlightPlanManager?
+
     private override init() {
         super.init()
         setupSession()
@@ -37,6 +42,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     /// Start sending periodic updates to the Watch
     func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         stopUpdates()
+        appStateRef = appState
+        locationManagerRef = locationManager
+        flightPlanManagerRef = flightPlanManager
 
         // Send initial update immediately
         sendFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
@@ -233,6 +241,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             data.hasActiveNavPlan = false
         }
 
+        // Chronometer (flight-plan leg timer) — sent every update so the watch mirrors the phone.
+        data.chronometerElapsed = flightPlanManager.chronometerElapsed
+        data.chronometerRunning = flightPlanManager.isChronometerRunning
+
         return data
     }
 
@@ -309,7 +321,26 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        // Handle messages from Watch if needed
-        print("[AéroCheck Watch] Received message from Watch: \(message)")
+        if let raw = message[WatchConnectivityKeys.command] as? String, let command = WatchCommand(rawValue: raw) {
+            Task { @MainActor in self.handleWatchCommand(command) }
+        }
+    }
+
+    /// Act on a chronometer command from the Watch, then immediately echo the updated state back so the
+    /// watch reflects it without waiting for the next periodic tick.
+    @MainActor
+    private func handleWatchCommand(_ command: WatchCommand) {
+        guard let fpm = flightPlanManagerRef else { return }
+        switch command {
+        case .chronoToggle:
+            fpm.isChronometerRunning ? fpm.pauseChronometer() : fpm.startChronometer()
+        case .chronoReset:
+            fpm.resetChronometer()
+        case .chronoMark:
+            fpm.markWaypoint()
+        }
+        if let app = appStateRef, let loc = locationManagerRef {
+            sendFlightData(appState: app, locationManager: loc, flightPlanManager: fpm)
+        }
     }
 }

@@ -36,6 +36,10 @@ struct WatchFlightData: Codable {
     var altitudeFeet: Double?
     var course: Double?
 
+    // Chronometer (flight-plan leg timer — kept in sync with the phone, controllable from the watch)
+    var chronometerElapsed: TimeInterval = 0
+    var chronometerRunning: Bool = false
+
     // Navigation plan (when active)
     var hasActiveNavPlan: Bool
     var currentWaypointName: String?
@@ -63,6 +67,8 @@ struct WatchFlightData: Codable {
         self.speedMPS = nil
         self.altitudeFeet = nil
         self.course = nil
+        self.chronometerElapsed = 0
+        self.chronometerRunning = false
         self.hasActiveNavPlan = false
         self.currentWaypointName = nil
         self.currentWaypointIndex = nil
@@ -93,6 +99,8 @@ struct WatchFlightData: Codable {
         speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
         altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
         course = try c.decodeIfPresent(Double.self, forKey: .course)
+        chronometerElapsed = try c.decodeIfPresent(TimeInterval.self, forKey: .chronometerElapsed) ?? 0
+        chronometerRunning = try c.decodeIfPresent(Bool.self, forKey: .chronometerRunning) ?? false
         hasActiveNavPlan = try c.decodeIfPresent(Bool.self, forKey: .hasActiveNavPlan) ?? false
         currentWaypointName = try c.decodeIfPresent(String.self, forKey: .currentWaypointName)
         currentWaypointIndex = try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex)
@@ -136,4 +144,13 @@ struct WatchConnectivityKeys {
     static let messageType = "messageType"
     static let flightData = "flightData"
     static let timestamp = "timestamp"
+    static let command = "command"
+}
+
+/// Commands the Watch sends to the phone to drive the shared flight-plan chronometer. The phone acts
+/// on them (FlightPlanManager) and echoes the updated state back, so both sides stay in sync.
+enum WatchCommand: String {
+    case chronoToggle   // pause if running, resume/start if paused
+    case chronoReset
+    case chronoMark     // mark current waypoint (record ATO + advance + restart the leg)
 }

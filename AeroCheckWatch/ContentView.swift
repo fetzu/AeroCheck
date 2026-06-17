@@ -26,27 +26,58 @@ struct ContentView: View {
     @ViewBuilder
     private var screens: some View {
         if connectivityManager.flightData.isFlightActive {
-            // Active flight: show relevant screens
             if connectivityManager.flightData.hasActiveNavPlan {
-                // With navigation plan: Nav screen + Flight screen
+                // With navigation plan: Navigation (chrono + nav data) · Flight (clock + phase) · Frequencies.
                 TabView {
                     NavigationScreen()
                         .environmentObject(connectivityManager)
 
                     FlightScreen()
                         .environmentObject(connectivityManager)
+
+                    FrequenciesScreen()
+                        .environmentObject(connectivityManager)
                 }
                 .tabViewStyle(.verticalPage)
             } else {
-                // No navigation plan: just Flight screen
+                // No navigation plan: just the Flight screen.
                 FlightScreen()
                     .environmentObject(connectivityManager)
             }
         } else {
-            // No active flight: show standby screen
             StandbyScreen()
                 .environmentObject(connectivityManager)
         }
+    }
+}
+
+/// Stage tint for a checklist phase, matching the iOS HUD's phase badge (FlightView.phaseBadgeColor):
+/// ground prep = blue, departure = gold, airborne = green, arrival = orange, wrap-up = grey. Uses the
+/// phase raw value the phone already sends, so no payload change is needed.
+func phaseStageColor(_ rawValue: Int) -> Color {
+    switch rawValue {
+    case 0...5: return .altimeterBlue   // preflight … run-up
+    case 6...7: return .aviationGold    // before departure, line up
+    case 8...10: return .aviationGreen  // climb, cruise, descent
+    case 11...12: return .orange        // approach, landing
+    default: return .secondaryText      // after landing, shutdown, hangar
+    }
+}
+
+/// Stage-tinted current-phase chip used on the Flight + Navigation screens.
+struct PhaseBadge: View {
+    let name: String
+    let rawValue: Int
+    var body: some View {
+        let tint = phaseStageColor(rawValue)
+        Text(name)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(tint)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(tint.opacity(0.18)))
     }
 }
 
@@ -75,28 +106,28 @@ struct StandbyScreen: View {
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 8) {
-            // App icon/branding
-            Image(systemName: "airplane")
-                .font(.system(size: 24))
-                .foregroundColor(.aviationGold)
-
-            Text("AeroCheck")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.aviationGold)
+        VStack(spacing: 6) {
+            // Compact brand at the very top, leaving the clock the room to be the hero.
+            HStack(spacing: 4) {
+                Image(systemName: "airplane")
+                    .font(.system(size: 14))
+                Text("AeroCheck")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .foregroundColor(.aviationGold)
+            .padding(.top, 2)
 
             Spacer()
 
-            // Current time display
+            // Big current-time hero (with seconds).
             TimeDisplayView(
                 time: currentTime,
                 useUTC: connectivityManager.flightData.alwaysUseUTC,
-                style: .medium
+                style: .hero
             )
 
             Spacer()
 
-            // Status
             HStack(spacing: 4) {
                 Circle()
                     .fill(connectivityManager.isConnected ? Color.aviationGreen : Color.gray)
@@ -112,7 +143,8 @@ struct StandbyScreen: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.bottom, 8)
         .background(Color.black)
         .onReceive(timer) { time in
             currentTime = time
@@ -120,7 +152,7 @@ struct StandbyScreen: View {
     }
 }
 
-// MARK: - Flight Screen (Time + Phase)
+// MARK: - Flight Screen (Clock + Phase)
 
 struct FlightScreen: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
@@ -130,7 +162,13 @@ struct FlightScreen: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            // Current time - large and prominent
+            // Stage-tinted current phase at the top.
+            PhaseBadge(
+                name: connectivityManager.flightData.currentPhaseName,
+                rawValue: connectivityManager.flightData.currentPhaseRawValue
+            )
+
+            // Wall clock — the Flight screen's hero.
             TimeDisplayView(
                 time: currentTime,
                 useUTC: connectivityManager.flightData.alwaysUseUTC,
@@ -154,42 +192,24 @@ struct FlightScreen: View {
 
             Spacer()
 
-            // Current and next phase
-            VStack(spacing: 4) {
-                // Current phase
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.aviationGreen)
-                        .font(.system(size: 12))
+            // Next phase
+            if let nextPhase = connectivityManager.flightData.nextPhaseName {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.right.circle")
+                        .foregroundColor(.aviationGold)
+                        .font(.system(size: 10))
 
-                    Text(connectivityManager.flightData.currentPhaseName)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                    Text(nextPhase)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.aviationGold)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-
-                // Next phase
-                if let nextPhase = connectivityManager.flightData.nextPhaseName {
-                    HStack {
-                        Image(systemName: "arrow.right.circle")
-                            .foregroundColor(.aviationGold)
-                            .font(.system(size: 10))
-
-                        Text(nextPhase)
-                            .font(.system(size: 10))
-                            .foregroundColor(.aviationGold)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.panelBackground)
-            )
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
@@ -200,17 +220,17 @@ struct FlightScreen: View {
     }
 }
 
-// MARK: - Navigation Screen
+// MARK: - Navigation Screen (Chronometer hero + nav data)
 
 struct NavigationScreen: View {
     @EnvironmentObject var connectivityManager: WatchConnectivityManager
 
     var body: some View {
         VStack(spacing: 6) {
-            // Waypoint name and progress
+            // Waypoint + progress header.
             HStack {
                 Text(connectivityManager.flightData.currentWaypointName ?? "---")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.aviationGold)
                     .lineLimit(1)
 
@@ -224,58 +244,37 @@ struct NavigationScreen: View {
                 }
             }
 
+            // Chronometer — the centerpiece in navigation mode.
+            VStack(spacing: 1) {
+                Text("CHRONO")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.secondary)
+                Text(connectivityManager.formattedFlightTime)
+                    .font(.system(size: 30, weight: .bold, design: .monospaced))
+                    .foregroundColor(.aviationGreen)
+            }
+            .frame(maxWidth: .infinity)
+
             Divider()
                 .background(Color.aviationGold.opacity(0.3))
 
-            // Navigation data grid
+            // Navigation data grid — existing cell styling.
             HStack(spacing: 12) {
-                // Heading/Bearing
                 NavigationDataCell(
                     label: "HDG",
                     value: formatBearing(connectivityManager.flightData.bearingToWaypoint),
                     unit: nil
                 )
-
-                // Distance
                 NavigationDataCell(
                     label: "DIST",
                     value: formatDistance(connectivityManager.flightData.distanceToWaypointNM),
                     unit: "NM"
                 )
-
-                // EET
                 NavigationDataCell(
                     label: "EET",
                     value: connectivityManager.formattedEET ?? "--:--",
                     unit: nil
                 )
-            }
-
-            Divider()
-                .background(Color.aviationGold.opacity(0.3))
-
-            // Frequencies section
-            VStack(spacing: 4) {
-                Text("FREQUENCIES")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(.secondary)
-
-                // Current waypoint frequency
-                if let freq = connectivityManager.flightData.currentWaypointFrequency {
-                    FrequencyRow(name: "WPT", frequency: freq, isActive: true)
-                }
-
-                // Next waypoint frequency
-                if let nextFreq = connectivityManager.flightData.nextWaypointFrequency {
-                    FrequencyRow(name: "NEXT", frequency: nextFreq, isActive: false)
-                }
-
-                // Show a couple common frequencies
-                if let commonFreqs = connectivityManager.flightData.commonFrequencies?.prefix(2) {
-                    ForEach(Array(commonFreqs)) { freq in
-                        FrequencyRow(name: freq.name, frequency: freq.frequency, isActive: false)
-                    }
-                }
             }
         }
         .padding(.horizontal, 6)
@@ -295,6 +294,45 @@ struct NavigationScreen: View {
         } else {
             return String(format: "%.0f", d)
         }
+    }
+}
+
+// MARK: - Frequencies Screen (its own page)
+
+struct FrequenciesScreen: View {
+    @EnvironmentObject var connectivityManager: WatchConnectivityManager
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 11))
+                Text("FREQUENCIES")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundColor(.aviationGold)
+
+            Divider()
+                .background(Color.aviationGold.opacity(0.3))
+
+            // Current + next waypoint frequencies, then a few common ones.
+            if let freq = connectivityManager.flightData.currentWaypointFrequency {
+                FrequencyRow(name: "WPT", frequency: freq, isActive: true)
+            }
+            if let nextFreq = connectivityManager.flightData.nextWaypointFrequency {
+                FrequencyRow(name: "NEXT", frequency: nextFreq, isActive: false)
+            }
+            if let commonFreqs = connectivityManager.flightData.commonFrequencies?.prefix(4) {
+                ForEach(Array(commonFreqs)) { freq in
+                    FrequencyRow(name: freq.name, frequency: freq.frequency, isActive: false)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(Color.black)
     }
 }
 
@@ -335,13 +373,13 @@ struct FrequencyRow: View {
     var body: some View {
         HStack {
             Text(name)
-                .font(.system(size: 10))
+                .font(.system(size: 11))
                 .foregroundColor(isActive ? .aviationGold : .secondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(frequency)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundColor(isActive ? .aviationGold : .white)
         }
     }
@@ -355,8 +393,18 @@ struct TimeDisplayView: View {
     let style: TimeDisplayStyle
 
     enum TimeDisplayStyle {
-        case large   // For main display
-        case medium  // For standby screen
+        case hero    // Standby hero clock
+        case large   // Flight screen clock
+        case medium  // Compact
+    }
+
+    /// (hours/minutes, main colon, seconds + secondary colon) point sizes.
+    private var sizes: (h: CGFloat, c: CGFloat, s: CGFloat) {
+        switch style {
+        case .hero:   return (40, 34, 24)
+        case .large:  return (32, 28, 20)
+        case .medium: return (28, 24, 18)
+        }
     }
 
     private var timeComponents: (hours: String, minutes: String, seconds: String) {
@@ -377,31 +425,28 @@ struct TimeDisplayView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 2) {
-                // Hours
                 Text(timeComponents.hours)
-                    .font(.system(size: style == .large ? 32 : 28, weight: .bold, design: .monospaced))
+                    .font(.system(size: sizes.h, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
 
                 Text(":")
-                    .font(.system(size: style == .large ? 28 : 24, weight: .bold, design: .monospaced))
+                    .font(.system(size: sizes.c, weight: .bold, design: .monospaced))
                     .foregroundColor(.aviationGold)
 
-                // Minutes
                 Text(timeComponents.minutes)
-                    .font(.system(size: style == .large ? 32 : 28, weight: .bold, design: .monospaced))
+                    .font(.system(size: sizes.h, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
 
                 Text(":")
-                    .font(.system(size: style == .large ? 20 : 18, weight: .medium, design: .monospaced))
+                    .font(.system(size: sizes.s, weight: .medium, design: .monospaced))
                     .foregroundColor(.aviationGold.opacity(0.7))
 
-                // Seconds - slightly smaller and dimmer
+                // Seconds — slightly smaller and dimmer.
                 Text(timeComponents.seconds)
-                    .font(.system(size: style == .large ? 20 : 18, weight: .medium, design: .monospaced))
+                    .font(.system(size: sizes.s, weight: .medium, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
             }
 
-            // UTC indicator
             Text(useUTC ? "UTC" : "LOCAL")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(useUTC ? .aviationAmber : .secondary)

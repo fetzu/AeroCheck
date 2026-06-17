@@ -143,7 +143,7 @@ struct MediumWidgetView: View {
                     .frame(width: 70, height: 70)
                     .background(buttonBackground(for: .aviationGreen))
                     .foregroundStyle(Color.aviationGreen)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
             }
         }
@@ -174,7 +174,7 @@ struct MediumWidgetView: View {
 /// Accent colour for an aircraft button. The free bundled aircraft uses blue; premium aircraft
 /// use the aviation gold accent.
 private func aircraftAccentColor(for aircraft: WidgetAircraft) -> Color {
-    aircraft.key == "wt9-dynamic" ? .aviationBlue : .aviationGold
+    aircraft.key == "wt9-dynamic" ? .altimeterBlue : .aviationGold
 }
 
 struct AircraftButton: View {
@@ -196,9 +196,9 @@ struct AircraftButton: View {
             .frame(width: 60, height: 60)
             .background(buttonBackground)
             .foregroundStyle(accentColor)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(accentColor.opacity(0.3), lineWidth: 1)
             )
         }

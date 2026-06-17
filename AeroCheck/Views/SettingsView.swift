@@ -7,7 +7,7 @@ struct SettingsView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
-    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
     var onClose: (() -> Void)? = nil
 
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
@@ -55,7 +55,7 @@ struct SettingsView: View {
             case .about: return L10n.Settings.aboutSubtitle
             }
         }
-        /// Per-section accent for the cockpit icon circle. (Phase 3.5 redesign)
+        /// Per-section accent for the cockpit icon circle. (v4 UI/UX Revamp)
         var tint: Color {
             switch self {
             case .aircraft: return .aviationGold
@@ -80,7 +80,7 @@ struct SettingsView: View {
         Group {
             if horizontalSizeClass == .regular {
                 // iPad: a FIXED two-column layout (sidebar + detail). Replaces NavigationSplitView so
-                // the sidebar can't be collapsed. (Phase 3.5 — user feedback)
+                // the sidebar can't be collapsed. (v4 UI/UX Revamp — user feedback)
                 HStack(spacing: 0) {
                     NavigationStack { sidebar(twoColumn: true) }
                         .frame(width: 340)
@@ -114,7 +114,7 @@ struct SettingsView: View {
     }
 
     /// The section list. In two-column mode rows set `selection`; in compact mode they push via `path`.
-    /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (3.5)
+    /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (v4 UI/UX Revamp)
     private func sidebar(twoColumn: Bool) -> some View {
         List {
             themePickerCard
@@ -147,14 +147,14 @@ struct SettingsView: View {
         .navigationTitle(L10n.Settings.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Top-left, matching the app convention (Flight Log, flight-plan list). (Phase 3.5)
+            // Top-left, matching the app convention (Flight Log, flight-plan list). (v4 UI/UX Revamp)
             ToolbarItem(placement: .cancellationAction) {
                 Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
             }
         }
     }
 
-    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (3.5)
+    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (v4 UI/UX Revamp)
     private var themePickerCard: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(L10n.Settings.theme)
@@ -1056,6 +1056,9 @@ struct PremiumAircraftListView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.cockpitBackground.ignoresSafeArea())
         .navigationTitle(L10n.Settings.premiumAircrafts)
         .navigationBarTitleDisplayMode(.inline)
         .preferredColorScheme(.dark)

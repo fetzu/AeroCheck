@@ -382,7 +382,8 @@ struct OpenAIPDownloadSheet: View {
                         Text(L10n.Settings.selectCountries)
                     }
                 }
-                .listStyle(.insetGrouped)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
 
                 // Download progress
                 if openAIPCacheManager.isDownloading || openAIPDataService.isDownloading {
@@ -600,7 +601,8 @@ struct ContinentCountryListView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color.cockpitBackground)
         .navigationTitle(continent.name)
         .navigationBarTitleDisplayMode(.inline)

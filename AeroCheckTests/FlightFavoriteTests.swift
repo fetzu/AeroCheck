@@ -3,7 +3,7 @@ import XCTest
 
 /// Tests the logbook "favorite" flag: it must survive a Codable round-trip, default to `false` for
 /// legacy records that predate the field, and toggling it through `AppState` must flip the flag and
-/// stamp `modifiedAt` so the star rides CloudKit's conflict tiebreaker. (3.3 favorites)
+/// stamp `modifiedAt` so the star rides CloudKit's conflict tiebreaker. (v4 UI/UX Revamp favorites)
 @MainActor
 final class FlightFavoriteTests: XCTestCase {
 

@@ -4,7 +4,7 @@ import UIKit
 import UniformTypeIdentifiers
 
 /// A plan is identified by its `id`; hashing by id lets it drive `navigationDestination(item:)` for
-/// the master-detail push. Consistent with the synthesized `Equatable` (equal plans share an id). (Phase 3.5)
+/// the master-detail push. Consistent with the synthesized `Equatable` (equal plans share an id). (v4 UI/UX Revamp)
 extension FlightPlan: Hashable {
     public func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
@@ -33,7 +33,7 @@ struct FlightPlanningView: View {
     @State private var exportFormat: ExportFormat = .gpx
     @State private var importError: String?
     @State private var showingImportError = false
-    /// Optional aircraft filter (registration); nil = all. (Phase 3.5 — user feedback)
+    /// Optional aircraft filter (registration); nil = all. (v4 UI/UX Revamp — user feedback)
     @State private var selectedAircraft: String? = nil
 
     enum ExportFormat: String, CaseIterable {
@@ -74,7 +74,7 @@ struct FlightPlanningView: View {
         } message: {
             Text(L10n.Nav.activateEmptyMessage)
         }
-        // Map-centric builder (Phase 3.4), opened from the detail pane's Edit or a new plan.
+        // Map-centric builder (v4 UI/UX Revamp), opened from the detail pane's Edit or a new plan.
         // Full-screen so iPad gets the two-column map+list layout. Presented by id → live plan.
         .fullScreenCover(item: $editingPlan) { plan in
             FlightPlanMapBuilderView(planId: plan.id)
@@ -120,7 +120,7 @@ struct FlightPlanningView: View {
     }
 
     /// Wraps the list (or empty state) in its own NavigationStack so its toolbar (Done + filter + add)
-    /// lives in the LEFT panel's nav bar, not spanning both columns. (Phase 3.5 — user feedback)
+    /// lives in the LEFT panel's nav bar, not spanning both columns. (v4 UI/UX Revamp — user feedback)
     private func listNavStack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
             ZStack {
@@ -374,7 +374,7 @@ struct FlightPlanningView: View {
         }
     }
 
-    /// Cockpit-style section header: tracked uppercase label with an optional status dot. (Phase 3.5 redesign)
+    /// Cockpit-style section header: tracked uppercase label with an optional status dot. (v4 UI/UX Revamp)
     private func cockpitSectionHeader(_ title: String, tint: Color, showDot: Bool) -> some View {
         HStack(spacing: 7) {
             if showDot {

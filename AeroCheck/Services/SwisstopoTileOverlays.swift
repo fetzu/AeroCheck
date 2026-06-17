@@ -7,7 +7,7 @@ import MapKit
 // `WaypointPickerICAOTileOverlay`/`WaypointPickerSwisstopoTileOverlay` in FlightPlanEditorView; all
 // map consumers (NavigationView, the flight mini-map, the flight-plan editor + map builder) now use
 // these. Use default args for a simple online overlay; pass an `OfflineMapManager` for the cache-first
-// behavior the main navigation map needs. (Phase 3.5 design-system consolidation)
+// behavior the main navigation map needs. (v4 UI/UX Revamp design-system consolidation)
 
 // MARK: - ICAO + Segelflugkarte Tile Overlay (with seamless switching)
 

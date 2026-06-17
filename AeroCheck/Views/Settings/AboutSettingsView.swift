@@ -60,7 +60,7 @@ struct AboutSettingsView: View {
     // MARK: - Replay Onboarding
 
     /// Re-show the first-run walkthrough. Clearing the flag makes the app root (ContentView) swap to
-    /// OnboardingView, which tears down the settings presentation behind it. (Phase 3.5)
+    /// OnboardingView, which tears down the settings presentation behind it. (v4 UI/UX Revamp)
     private var replayOnboardingSection: some View {
         SettingsGroup(tint: tint, footer: L10n.Settings.replayIntroFooter) {
             SettingsButtonRow(icon: "play.circle", title: L10n.Settings.replayIntro,

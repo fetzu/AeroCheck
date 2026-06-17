@@ -22,10 +22,10 @@ struct ChecklistProgress {
     var currentHighlightedItem: [ChecklistPhase: Int] = [:]
 }
 
-/// Night-mode preference: off, always on, or follow the device's dark-mode setting. (Phase 3.1)
+/// Night-mode preference: off, always on, or follow the device's dark-mode setting. (v4 UI/UX Revamp)
 /// The user's cockpit-theme choice. `auto` follows the device's light/dark setting (light→day,
 /// dark→night); `day`/`sunlight`/`night` force that palette. Replaces the old `NightModePreference`
-/// (off/on/system) — `sunlight` is the high-contrast bright-cockpit palette, now selectable. (Phase 3.5)
+/// (off/on/system) — `sunlight` is the high-contrast bright-cockpit palette, now selectable. (v4 UI/UX Revamp)
 enum ThemePreference: String, Codable, CaseIterable, Identifiable, Sendable {
     case auto, day, sunlight, night
     var id: String { rawValue }
@@ -38,7 +38,7 @@ struct AppSettings: Codable, Equatable {
     var keepScreenOn: Bool = true
     /// Cockpit theme choice: auto (follow device) / day / sunlight / night. Night dims instruments to
     /// a red/amber palette to protect dark adaptation (UX-09); sunlight is high-contrast for bright
-    /// cockpits. (Phase 3.5; migrated from the old `nightModePreference`/`nightMode`)
+    /// cockpits. (v4 UI/UX Revamp; migrated from the old `nightModePreference`/`nightMode`)
     var themePreference: ThemePreference = .auto
 
     /// Whether night mode is effectively active, given the device's dark-mode state (only relevant for
@@ -51,7 +51,7 @@ struct AppSettings: Codable, Equatable {
         }
     }
 
-    /// The active cockpit theme mode (Phase 3.0/3.1/3.5) resolved against the live device appearance.
+    /// The active cockpit theme mode (v4 UI/UX Revamp) resolved against the live device appearance.
     func cockpitThemeMode(systemIsDark: Bool) -> CockpitThemeMode {
         switch themePreference {
         case .day: return .day
@@ -91,7 +91,7 @@ struct AppSettings: Codable, Equatable {
 
     // Airport data overlay
     var showAirportsOnMap: Bool = true // When true, shows airports on navigation map (requires airport data download) — ON by default
-    var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (3.5) — ON by default
+    var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
     var showOpenAIPOverlay: Bool = true // When true, shows OpenAIP airspace tiles on navigation map — ON by default
@@ -192,7 +192,7 @@ struct AppSettings: Codable, Equatable {
     /// Legacy keys read only for backward-compatible migration (not encoded).
     private enum LegacyCodingKeys: String, CodingKey {
         case nightMode            // oldest: Bool
-        case nightModePreference  // Phase 3.1: "off"/"on"/"system"
+        case nightModePreference  // v4 UI/UX Revamp: "off"/"on"/"system"
     }
 
     // Default initializer (needed because we have a custom decoder)
@@ -383,16 +383,16 @@ class AppState: ObservableObject {
 
     // MARK: - Cruise check (FREDA) reminder
     /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
-    /// is a check every 10–15 minutes in cruise. (3.5)
+    /// is a check every 10–15 minutes in cruise. (v4 UI/UX Revamp)
     static let cruiseCheckInterval: TimeInterval = 15 * 60 // standard VFR re-cruise check every ~15 min
-    /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (3.5)
+    /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (v4 UI/UX Revamp)
     @Published var cruiseCheckDue: Bool = false
     /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is
     /// MANUAL — the pilot starts it from the CRUISE button on the Cruise checklist page, so a busy
-    /// pilot is never reminded for a check they haven't begun timing. (3.5 — manual start)
+    /// pilot is never reminded for a check they haven't begun timing. (v4 UI/UX Revamp — manual start)
     @Published var cruiseCheckStartTime: Date?
 
-    /// Seconds remaining until the next cruise check is due — the full interval while idle. (3.5)
+    /// Seconds remaining until the next cruise check is due — the full interval while idle. (v4 UI/UX Revamp)
     func cruiseCheckRemaining(now: Date = Date()) -> TimeInterval {
         guard let start = cruiseCheckStartTime else { return Self.cruiseCheckInterval }
         return max(0, Self.cruiseCheckInterval - now.timeIntervalSince(start))
@@ -400,7 +400,7 @@ class AppState: ObservableObject {
 
     /// Re-evaluate whether a cruise check is due. The countdown only runs once the pilot has started
     /// it (`cruiseCheckStartTime != nil`); leaving cruise clears + idles it. Call periodically while
-    /// in cruise. (3.5)
+    /// in cruise. (v4 UI/UX Revamp)
     func evaluateCruiseCheck(now: Date = Date()) {
         guard currentPhase == .cruise else {
             if cruiseCheckDue { cruiseCheckDue = false }
@@ -411,20 +411,20 @@ class AppState: ObservableObject {
         if !cruiseCheckDue, now.timeIntervalSince(start) >= Self.cruiseCheckInterval {
             cruiseCheckDue = true
             // Re-arm the Cruise checklist so the pilot re-runs the check: reset its highlight to the
-            // first item and clear its completion status (items show undone again). (3.5)
+            // first item and clear its completion status (items show undone again). (v4 UI/UX Revamp)
             currentHighlightedItem[.cruise] = 0
             phaseCompletionStatus[.cruise] = nil
         }
     }
 
     /// Start / re-arm the cruise-check countdown from the full interval. One method backs every gesture:
-    /// tap-to-start (idle), tap-to-acknowledge (due), and hold-to-reset (any time). (3.5 — manual start)
+    /// tap-to-start (idle), tap-to-acknowledge (due), and hold-to-reset (any time). (v4 UI/UX Revamp — manual start)
     func armCruiseCheck() {
         cruiseCheckStartTime = Date()
         cruiseCheckDue = false
     }
 
-    /// Acknowledge a due cruise check — identical to re-arming the countdown. (3.5)
+    /// Acknowledge a due cruise check — identical to re-arming the countdown. (v4 UI/UX Revamp)
     func acknowledgeCruiseCheck() { armCruiseCheck() }
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
@@ -875,7 +875,7 @@ class AppState: ObservableObject {
     
     /// Advance to the next item in the current phase (rules in `ChecklistHighlighting`). `learningMode`
     /// is the EFFECTIVE mode (the global setting OR temporarily-revealed hidden items), so tap-to-advance
-    /// steps through revealed/learning-mode items too. (Phase 3.1 feedback)
+    /// steps through revealed/learning-mode items too. (v4 UI/UX Revamp feedback)
     func advanceHighlightedItem(learningMode: Bool) {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
@@ -887,7 +887,7 @@ class AppState: ObservableObject {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         currentHighlightedItem[currentPhase] = ChecklistHighlighting.lastItemComplete(visibleCount: visibleCount)
         // Completing the Cruise checklist auto-starts the cruise-check countdown — running the check IS
-        // the trigger, so the pilot never has to remember to start the timer. (3.5)
+        // the trigger, so the pilot never has to remember to start the timer. (v4 UI/UX Revamp)
         if currentPhase == .cruise { armCruiseCheck() }
     }
 
@@ -1302,7 +1302,7 @@ class AppState: ObservableObject {
 
     /// Toggle the user-pinned "favorite" flag. Favorited flights pin to the top of the logbook.
     /// Mirrors `updateFlightName`: mutate in place, stamp `modifiedAt`, persist + sync only this
-    /// flight so the star rides CloudKit's conflict tiebreaker. (3.3 favorites)
+    /// flight so the star rides CloudKit's conflict tiebreaker. (v4 UI/UX Revamp favorites)
     func toggleFavorite(_ flight: Flight) {
         if let index = flights.firstIndex(where: { $0.id == flight.id }) {
             flights[index].isFavorite.toggle()

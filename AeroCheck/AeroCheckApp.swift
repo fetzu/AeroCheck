@@ -418,9 +418,9 @@ struct AppRootView<Content: View>: View {
         let systemIsDark = systemColorScheme == .dark
         content
             // Night mode: dims the flight instruments to the red/amber palette; `.system` follows the
-            // device scheme read above (UX-09 / Phase 3.1).
+            // device scheme read above (UX-09 / v4 UI/UX Revamp).
             .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
-            // Cockpit theme: app-wide semantic palette the revamped screens read (Phase 3.0).
+            // Cockpit theme: app-wide semantic palette the revamped screens read (v4 UI/UX Revamp).
             .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
             // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
             .environment(\.colorScheme, .dark)

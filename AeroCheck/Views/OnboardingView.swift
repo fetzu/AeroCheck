@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Onboarding flow shown to new users on first launch. Cockpit language: a tinted rounded-square
-/// page icon, semantic Dynamic-Type fonts, gold primary action, and custom gold page dots. (Phase 3.5 redesign)
+/// page icon, semantic Dynamic-Type fonts, gold primary action, and custom gold page dots. (v4 UI/UX Revamp)
 struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var airportDataService: AirportDataService

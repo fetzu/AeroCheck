@@ -10,10 +10,10 @@ class FlightPlanManager: ObservableObject {
     @Published var flightPlans: [FlightPlan] = []
     @Published var activeFlightPlan: FlightPlan?
     @Published var chronometerElapsed: TimeInterval = 0
-    /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (3.5)
+    /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
-    /// True while the leg timer is actively counting (pause clears the plan's start time). (3.5)
+    /// True while the leg timer is actively counting (pause clears the plan's start time). (v4 UI/UX Revamp)
     var isChronometerRunning: Bool { activeFlightPlan?.chronometerStartTime != nil }
 
     // MARK: - Private Properties
@@ -442,7 +442,7 @@ class FlightPlanManager: ObservableObject {
         saveFlightPlans()
         saveActiveFlightPlan()
 
-        // Crossing the active waypoint begins a new leg — restart the leg timer (keeps run state). (3.5)
+        // Crossing the active waypoint begins a new leg — restart the leg timer (keeps run state). (v4 UI/UX Revamp)
         if advanced { resetChronometer() }
     }
 
@@ -456,7 +456,7 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Chronometer
 
-    /// Start — or resume from pause — the leg timer. No-op if already running. (3.5)
+    /// Start — or resume from pause — the leg timer. No-op if already running. (v4 UI/UX Revamp)
     func startChronometer() {
         guard var plan = activeFlightPlan, plan.chronometerStartTime == nil else { return }
 
@@ -471,7 +471,7 @@ class FlightPlanManager: ObservableObject {
         startChronometerTimer()
     }
 
-    /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (3.5)
+    /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (v4 UI/UX Revamp)
     func pauseChronometer() {
         guard var plan = activeFlightPlan, let start = plan.chronometerStartTime else { return }
         chronometerAccumulated += Date().timeIntervalSince(start)
@@ -494,7 +494,7 @@ class FlightPlanManager: ObservableObject {
         chronometerTimer = nil
     }
 
-    /// Reset the leg timer to zero, keeping the running/paused state. (3.5)
+    /// Reset the leg timer to zero, keeping the running/paused state. (v4 UI/UX Revamp)
     func resetChronometer() {
         guard var plan = activeFlightPlan else { return }
 
@@ -511,14 +511,14 @@ class FlightPlanManager: ObservableObject {
     }
 
     /// Mark the current waypoint as crossed (record ATO + advance, which restarts the leg timer) — the
-    /// classic VFR leg-timing action. (3.5)
+    /// classic VFR leg-timing action. (v4 UI/UX Revamp)
     func markWaypoint() {
         guard let plan = activeFlightPlan, plan.currentWaypointIndex < plan.waypoints.count else { return }
         recordATO(forWaypointAt: plan.currentWaypointIndex)
     }
 
     /// Go back to (resume) the leg arriving at `index`: make it the current target again, clear its and
-    /// every later crossing (ATO), and restart the leg timer. (3.5 — go back a leg)
+    /// every later crossing (ATO), and restart the leg timer. (v4 UI/UX Revamp — go back a leg)
     func resumeLeg(at index: Int) {
         guard var plan = activeFlightPlan, index >= 0, index < plan.waypoints.count else { return }
         plan.currentWaypointIndex = index

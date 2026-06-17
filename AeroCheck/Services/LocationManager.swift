@@ -24,7 +24,7 @@ class LocationManager: NSObject, ObservableObject {
 
     @Published var currentLocation: CLLocation?
     /// Smoothed vertical speed in feet per minute (climb +, descent −), derived from GPS altitude over
-    /// a short window. nil until enough samples exist. (Phase 3.1 — instrument strip VSI)
+    /// a short window. nil until enough samples exist. (v4 UI/UX Revamp — instrument strip VSI)
     @Published private(set) var verticalSpeedFpm: Double?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var isTracking: Bool = false
@@ -538,7 +538,7 @@ class LocationManager: NSObject, ObservableObject {
 
     /// Derive a smoothed vertical speed (fpm) from the GPS altitude trend over the last ~12 s. GPS
     /// altitude is noisy, so the value is averaged across the window and EMA-smoothed; nil until there
-    /// are at least two samples spanning ≥2 s. (Phase 3.1 — instrument strip VSI)
+    /// are at least two samples spanning ≥2 s. (v4 UI/UX Revamp — instrument strip VSI)
     private func updateVerticalSpeed(altitudeFt: Double) {
         let now = Date()
         altitudeSamples.append((now, altitudeFt))

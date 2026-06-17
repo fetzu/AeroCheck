@@ -44,7 +44,7 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(StatusIndicator.Status.error.accessibilityText, "error")
     }
 
-    // MARK: - Cockpit theme engine (Phase 3.0)
+    // MARK: - Cockpit theme engine (v4 UI/UX Revamp)
 
     func testCockpitThemeResolvesEachMode() {
         XCTAssertEqual(CockpitTheme.resolve(.day).mode, .day)
@@ -97,7 +97,7 @@ final class InstrumentAccessibilityTests: XCTestCase {
         XCTAssertEqual(InstrumentTargetState.stall.barColor(in: .night), CockpitTheme.night.danger)
     }
 
-    // MARK: - On-target proximity bar (Phase 3.1)
+    // MARK: - On-target proximity bar (v4 UI/UX Revamp)
 
     func testBarStateMapsSpeedStateToColorBlindSafeState() {
         // The bar's state must never disagree with the readout's annunciated speed state.

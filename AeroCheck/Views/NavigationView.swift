@@ -177,30 +177,30 @@ struct NavigationMapView: View {
     @State private var showLayerPicker: Bool = false
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
-    /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (3.5 — inc C)
+    /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
     /// True once the map has snapped to the aircraft after opening, so the first GPS fix centers
-    /// tightly even when no position was available at open. (3.5 — center on position by default)
+    /// tightly even when no position was available at open. (v4 UI/UX Revamp — center on position by default)
     @State private var hasInitiallyCentered: Bool = false
     /// A waypoint being previewed from the expanded sheet (tap a row); nil = follow the active waypoint.
     @State private var previewWaypointIndex: Int? = nil
-    /// A crossed waypoint the user tapped to resume its leg (drives the confirm dialog). (3.5)
+    /// A crossed waypoint the user tapped to resume its leg (drives the confirm dialog). (v4 UI/UX Revamp)
     @State private var legResumeTarget: Int? = nil
-    /// Whether the frequency column shows the full list vs the capped essentials. (3.5 — feedback)
+    /// Whether the frequency column shows the full list vs the capped essentials. (v4 UI/UX Revamp — feedback)
     @State private var showAllFreqs = false
     /// Phase-aware frequencies for the sheet's right column + the collapsed chip. Cached (recomputed
-    /// on phase / significant-move) rather than per-render, since it does a nearest-airport query. (3.5 C2)
+    /// on phase / significant-move) rather than per-render, since it does a nearest-airport query. (v4 UI/UX Revamp C2)
     @State private var phaseFreqItems: [PhaseFrequency] = []
     // Track-vector smoothing — EMA of ground speed + ground track (track averaged circularly via
-    // sin/cos so it doesn't wrap). Favours recent samples (~10 s time constant). (3.5 C4)
+    // sin/cos so it doesn't wrap). Favours recent samples (~10 s time constant). (v4 UI/UX Revamp C4)
     @State private var smoothedGroundSpeed: Double = 0
     @State private var smoothedTrackSin: Double = 0
     @State private var smoothedTrackCos: Double = 1
     @State private var hasTrackVectorEMA = false
-    /// Last known aircraft coordinate — keeps the track vector anchored across brief GPS gaps. (3.5)
+    /// Last known aircraft coordinate — keeps the track vector anchored across brief GPS gaps. (v4 UI/UX Revamp)
     @State private var lastKnownCoordinate: CLLocationCoordinate2D?
     /// Stable periodic timer (created once via @State) for the cruise-check evaluation — an inline
-    /// Timer.publish recreated each render can stall, so the cruise check never fired. (3.5 fix)
+    /// Timer.publish recreated each render can stall, so the cruise check never fired. (v4 UI/UX Revamp fix)
     @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     @State private var mapOrientationMode: MapOrientationMode = .northUp
     @State private var locationUpdateCounter: Int = 0 // Forces map view updates on location change
@@ -208,7 +208,7 @@ struct NavigationMapView: View {
     // Compact layout state (for small devices)
     @State private var showCompactPanel: Bool = false
     /// Measured height of the compact bottom sheet — the floating controls sit just above it and the
-    /// sheet grows only to its content (not a fixed half-screen). (3.5 — iPhone)
+    /// sheet grows only to its content (not a fixed half-screen). (v4 UI/UX Revamp — iPhone)
     @State private var compactSheetHeight: CGFloat = 96
     @State private var panelDragOffset: CGFloat = 0 // For drag-to-collapse gesture
     @State private var showGPSStatusModal: Bool = false
@@ -354,7 +354,7 @@ struct NavigationMapView: View {
     /// Uses compact layout when flight planning is enabled and device width is compact (iPhone)
     /// Now also supports showing just frequency drawer when no flight plan is active
     private var shouldUseCompactLayout: Bool {
-        isCompactWidth  // iPhone always uses the compact layout; plan/freq UI is gated inside. (3.5)
+        isCompactWidth  // iPhone always uses the compact layout; plan/freq UI is gated inside. (v4 UI/UX Revamp)
     }
 
     /// Whether there is an active flight plan
@@ -374,7 +374,7 @@ struct NavigationMapView: View {
         }
         .preferredColorScheme(.dark)
         // Immersive full-screen map: hide the system status bar so the top chrome (airspace / layer)
-        // never collides with the time / battery / network indicators. (3.5 fix)
+        // never collides with the time / battery / network indicators. (v4 UI/UX Revamp fix)
         .statusBarHidden(true)
         // A detected go-around / touch-and-go / full-stop must be confirmable while the full-screen
         // map is up — FlightView's own overlay sits behind this .fullScreenCover. (PR-40)
@@ -398,16 +398,16 @@ struct NavigationMapView: View {
                 }
                 hasInitiallyCentered = true
             }
-            // Default to centered & following the aircraft. (3.5 — center on position by default)
+            // Default to centered & following the aircraft. (v4 UI/UX Revamp — center on position by default)
             isFollowingAircraft = true
             // Ensure airport data is loaded — needed both for the map overlay AND for the phase-aware
             // frequencies (nearest-airport lookup), so load it regardless of the overlay setting, then
-            // refresh the cached phase frequencies once it's available. (3.5 fix)
+            // refresh the cached phase frequencies once it's available. (v4 UI/UX Revamp fix)
             Task {
                 await airportDataService.ensureLoaded()
                 // ensureLoaded() only loads an existing cache — it never downloads. The frequency
                 // feature (nearest airfield + airfield auto-complete) needs the DB, so fetch it once
-                // on demand if it was never downloaded. (3.5 fix)
+                // on demand if it was never downloaded. (v4 UI/UX Revamp fix)
                 if !airportDataService.isDataAvailable && !airportDataService.isDownloading {
                     await airportDataService.downloadData()
                 }
@@ -425,7 +425,7 @@ struct NavigationMapView: View {
             // Seed the cached spatial map content for the initial region. (PR-11)
             recomputeMapSpatialContent(force: true)
             // Prime the track-vector EMA from the last known fix so the vector appears immediately on
-            // (re)open — even on a stationary device with no fresh location *change* to trigger it. (3.5 fix)
+            // (re)open — even on a stationary device with no fresh location *change* to trigger it. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
         }
         .onDisappear {
@@ -449,7 +449,7 @@ struct NavigationMapView: View {
         .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
             // Re-prime the track-vector EMA each tick so a stationary device (no GPS *change*) keeps a
-            // valid vector after a Nav→Checklist→Nav round trip. (3.5 fix)
+            // valid vector after a Nav→Checklist→Nav round trip. (v4 UI/UX Revamp fix)
             updateTrackVectorEMA()
         }
         .onChange(of: appState.settings.showOpenAIPOverlay) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -457,7 +457,7 @@ struct NavigationMapView: View {
             recomputeMapSpatialContent(force: true)
             // Nearest-airfield + waypoint auto-complete frequencies are gated on the airport DB, which
             // loads asynchronously AFTER the first recompute. Re-run the freq build the moment it lands
-            // so those entries actually appear. (3.5 fix — the recurring "only destination shows" bug.)
+            // so those entries actually appear. (v4 UI/UX Revamp fix — the recurring "only destination shows" bug.)
             if available { recomputePhaseFrequencies() }
         }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
@@ -469,7 +469,7 @@ struct NavigationMapView: View {
             if isFollowingAircraft, let location = newLocation {
                 if !hasInitiallyCentered {
                     // First fix after opening (no position was available at open) — snap to a tight,
-                    // centered view rather than re-centering at whatever stale zoom was left. (3.5)
+                    // centered view rather than re-centering at whatever stale zoom was left. (v4 UI/UX Revamp)
                     mapState.region = MKCoordinateRegion(
                         center: location.coordinate,
                         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -570,7 +570,7 @@ struct NavigationMapView: View {
     @ViewBuilder
     private func compactLayoutBody(geometry: GeometryProxy) -> some View {
         // Single expression (no top-level `let` + `return`) so the body is unambiguously a view, not a
-        // result-builder with a disabling `return`. Heights are inlined / measured. (3.5 fix)
+        // result-builder with a disabling `return`. Heights are inlined / measured. (v4 UI/UX Revamp fix)
         ZStack(alignment: .top) {
             // Map content - full screen behind everything
             mapContent
@@ -594,7 +594,7 @@ struct NavigationMapView: View {
             }
 
             // Bottom nav sheet — only with flight planning on (it carries the plan + frequencies). The
-            // sheet sizes to its content; the map view stays clean when planning is off. (3.5)
+            // sheet sizes to its content; the map view stays clean when planning is off. (v4 UI/UX Revamp)
             if appState.settings.enableFlightPlanning {
                 VStack {
                     Spacer()
@@ -608,7 +608,7 @@ struct NavigationMapView: View {
         .onPreferenceChange(CompactSheetHeightPreferenceKey.self) { compactSheetHeight = $0 }
     }
 
-    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands to fit its content. (3.5)
+    // MARK: - Compact nav sheet (iPhone) — always-visible peek that expands to fit its content. (v4 UI/UX Revamp)
 
     private func compactNavSheet(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
@@ -635,7 +635,7 @@ struct NavigationMapView: View {
     }
 
     /// Expanded sheet body — sizes to its content (waypointList caps + scrolls internally, freqColumn
-    /// is short) so the sheet only grows as much as needed. (3.5 — iPhone)
+    /// is short) so the sheet only grows as much as needed. (v4 UI/UX Revamp — iPhone)
     @ViewBuilder
     private func compactExpandedContent(bottomSafeArea: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -653,7 +653,7 @@ struct NavigationMapView: View {
     }
 
     /// Peek sheet body — leg timer (when a plan is active) + a one-line glance. No trailing Spacer, so
-    /// it sizes to content. (3.5 — iPhone)
+    /// it sizes to content. (v4 UI/UX Revamp — iPhone)
     @ViewBuilder
     private func compactPeekContent(bottomSafeArea: CGFloat) -> some View {
         VStack(spacing: 0) {
@@ -668,7 +668,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// "— ⌃ —" handle (pills + state chevron); tap or drag to expand/collapse the sheet. (3.5 — iPhone)
+    /// "— ⌃ —" handle (pills + state chevron); tap or drag to expand/collapse the sheet. (v4 UI/UX Revamp — iPhone)
     private var compactSheetHandle: some View {
         HStack(spacing: 6) {
             Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
@@ -690,7 +690,7 @@ struct NavigationMapView: View {
         )
     }
 
-    /// Peek glance — next-waypoint summary + the current frequency chip; tap to expand. (3.5 — iPhone)
+    /// Peek glance — next-waypoint summary + the current frequency chip; tap to expand. (v4 UI/UX Revamp — iPhone)
     private var compactGlanceRow: some View {
         HStack(spacing: 8) {
             navGlanceData
@@ -730,7 +730,7 @@ struct NavigationMapView: View {
             }
 
             // Flight Plan button — only when flight planning (Beta) is on; the map view stays clean
-            // (no plan button or sheet) when it's off. (3.5 — iPhone)
+            // (no plan button or sheet) when it's off. (v4 UI/UX Revamp — iPhone)
             if appState.settings.enableFlightPlanning {
             if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
                 Button(action: {
@@ -850,7 +850,7 @@ struct NavigationMapView: View {
             Spacer()
 
             // Single map-display button → consolidated sheet (layers + airspace + track-vector toggles).
-            // The narrow top bar can't fit three separate buttons. (3.5 — iPhone)
+            // The narrow top bar can't fit three separate buttons. (v4 UI/UX Revamp — iPhone)
             Button(action: {
                 if isOfflineMode {
                     showCacheInfoModal = true
@@ -927,7 +927,7 @@ struct NavigationMapView: View {
 
                 // (FREQ button removed — frequencies now live in the always-visible bottom sheet peek.)
 
-                // 3-state tracking button: free → center & follow → track-up → free. (3.5 — iPhone)
+                // 3-state tracking button: free → center & follow → track-up → free. (v4 UI/UX Revamp — iPhone)
                 Button(action: cycleTracking) {
                     Image(systemName: trackingIcon)
                         .font(.system(size: 16, weight: .medium))
@@ -938,7 +938,7 @@ struct NavigationMapView: View {
                 .accessibilityLabel(L10n.Nav.navigation)
                 .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
 
-                // Zoom out / in (pinch also works). (3.5 — iPhone)
+                // Zoom out / in (pinch also works). (v4 UI/UX Revamp — iPhone)
                 VStack(spacing: 0) {
                     Button(action: { zoom(by: 0.5) }) {
                         Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
@@ -1212,7 +1212,7 @@ struct NavigationMapView: View {
         }
         lastSpatialRegion = region
 
-        // Phase-aware frequencies depend on the nearest airport, so refresh them on a real move. (3.5 C2)
+        // Phase-aware frequencies depend on the nearest airport, so refresh them on a real move. (v4 UI/UX Revamp C2)
         recomputePhaseFrequencies()
 
         // Airports — queried once and reused below for the frequency lines.
@@ -1462,7 +1462,7 @@ struct NavigationMapView: View {
 
                         // Current phase, inline. When a cruise check is due it becomes a tappable amber
                         // ⟳ FREDA badge (tap to acknowledge); otherwise a plain gold phase label —
-                        // a disabled Button was dimming the text. (3.5 — re-cruise)
+                        // a disabled Button was dimming the text. (v4 UI/UX Revamp — re-cruise)
                         if appState.isFlightActive {
                             Rectangle().fill(Color.dimText).frame(width: 1, height: 20)
                             if appState.cruiseCheckDue {
@@ -1494,7 +1494,7 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Track-vector toggle — grouped with the airspace/layer map-display controls. (3.5 C4)
+            // Track-vector toggle — grouped with the airspace/layer map-display controls. (v4 UI/UX Revamp C4)
             Button(action: {
                 appState.settings.showTrackVector.toggle()
                 appState.saveSettings()
@@ -1560,7 +1560,7 @@ struct NavigationMapView: View {
 
     /// The bottom assembly: a scale bar + offline/cache badge floating just above a full-width,
     /// two-row glass bar. Row 1 = NAV (next waypoint) + FREQ; row 2 = flight plan + GPS / tracking /
-    /// zoom. (3.5 nav-chrome rebuild)
+    /// zoom. (v4 UI/UX Revamp nav-chrome rebuild)
     private var bottomControls: some View {
         VStack(spacing: 0) {
             // Scale bar + offline/cache badge, left-aligned, above the bar.
@@ -1606,7 +1606,7 @@ struct NavigationMapView: View {
                     Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
                 }
                 // Degrade the row when horizontal space runs out: MARK/START labels → icons (compact),
-                // then drop the +/− zoom buttons (minimal). ViewThatFits picks the first that fits. (3.5)
+                // then drop the +/− zoom buttons (minimal). ViewThatFits picks the first that fits. (v4 UI/UX Revamp)
                 ViewThatFits(in: .horizontal) {
                     bottomControlRow(.full)
                     bottomControlRow(.compact)
@@ -1620,7 +1620,7 @@ struct NavigationMapView: View {
             .overlay(alignment: .top) {
                 Rectangle().fill(Color.white.opacity(0.09)).frame(height: 0.5)
             }
-            // Tap a crossed waypoint in the leg table → confirm resuming that leg. (3.5)
+            // Tap a crossed waypoint in the leg table → confirm resuming that leg. (v4 UI/UX Revamp)
             .confirmationDialog(
                 L10n.Nav.resumeLegTitle,
                 isPresented: Binding(get: { legResumeTarget != nil }, set: { if !$0 { legResumeTarget = nil } }),
@@ -1636,7 +1636,7 @@ struct NavigationMapView: View {
                 Text(L10n.Nav.resumeLegMessage)
             }
             // Covers for the row-2 buttons — declared once on the bar (the buttons live inside the
-            // ViewThatFits candidates). (3.5)
+            // ViewThatFits candidates). (v4 UI/UX Revamp)
             .fullScreenCover(isPresented: $showFlightPlanning) {
                 FlightPlanningView()
                     .environmentObject(appState)
@@ -1654,7 +1654,7 @@ struct NavigationMapView: View {
 
     /// Grab handle — two grabber pills flanking a state-aware chevron ("— ⌃ —" collapsed / "— ⌄ —"
     /// expanded): keeps the iOS drag-grabber convention but adds an explicit expand cue. Tap to toggle,
-    /// or drag up/down (snaps). (3.5 inc C)
+    /// or drag up/down (snaps). (v4 UI/UX Revamp inc C)
     private var navSheetHandle: some View {
         HStack(spacing: 6) {
             Capsule().fill(Color.white.opacity(0.22)).frame(width: 16, height: 4)
@@ -1721,7 +1721,7 @@ struct NavigationMapView: View {
                     Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: 13, design: .monospaced)).foregroundColor(.dimText)
                 }
-                // Chronometer moved to bottom-bar row 2 (always visible). (3.5)
+                // Chronometer moved to bottom-bar row 2 (always visible). (v4 UI/UX Revamp)
             }
             .lineLimit(1)
         } else {
@@ -1731,7 +1731,7 @@ struct NavigationMapView: View {
     }
 
     /// Collapsed chip — the active (phase-relevant) frequency; tap expands the sheet to the full
-    /// phase-aware list. (3.5 C2)
+    /// phase-aware list. (v4 UI/UX Revamp C2)
     private var freqChip: some View {
         let active = phaseFreqItems.first(where: { $0.role == .current })
             ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
@@ -1756,7 +1756,7 @@ struct NavigationMapView: View {
         return String(format: "%03d°", Int(brg))
     }
 
-    // MARK: - Phase-aware frequencies (3.5 C2)
+    // MARK: - Phase-aware frequencies (v4 UI/UX Revamp C2)
 
     private func areaFreqs(for sector: SwissAirspaceSector) -> [SwissCommonFrequency] {
         switch sector {
@@ -1767,7 +1767,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// A planned-elapsed-time duration as "H:MM" (e.g. 34 min → "0:34", 1h05 → "1:05"). (3.5)
+    /// A planned-elapsed-time duration as "H:MM" (e.g. 34 min → "0:34", 1h05 → "1:05"). (v4 UI/UX Revamp)
     private func eetDurationText(_ t: TimeInterval) -> String {
         let total = Int(t.rounded())
         return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
@@ -1778,7 +1778,7 @@ struct NavigationMapView: View {
     /// The nearest airfield that actually has usable VFR frequencies — walks up to 6 nearest and skips
     /// frequency-less fields (grass strips / heliports), mirroring the HUD's nearest-strip logic. The
     /// old `limit: 1` made a single freq-less closest field silently drop the whole nearest entry, so
-    /// the area FIS ("Zurich Info") wrongly became the current frequency. (3.5 fix)
+    /// the area FIS ("Zurich Info") wrongly became the current frequency. (v4 UI/UX Revamp fix)
     private func nearestAirfieldWithFreqs(to coord: CLLocationCoordinate2D) -> Airport? {
         guard airportDataService.isDataAvailable else { return nil }
         return airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
@@ -1793,7 +1793,7 @@ struct NavigationMapView: View {
     /// Select the CURRENT and NEXT frequencies a VFR pilot needs, proximity-aware: within ~10 NM of a
     /// field CURRENT is that field's contact, else the area FIS/Info; NEXT is the next route airfield,
     /// else the nearest CTR ahead, else the FIS↔field hand-off. Prefers the CONTACT freq (ATIS is
-    /// listen-only and stays under "All Frequencies"). Degrades to plan order with no GPS. (3.5)
+    /// listen-only and stays under "All Frequencies"). Degrades to plan order with no GPS. (v4 UI/UX Revamp)
     private func computeCurrentNextFreqs() -> (current: FreqEntry?, next: FreqEntry?) {
         func contact(_ list: [(label: String, freq: String)]) -> FreqEntry? {
             (list.first { !$0.label.uppercased().contains("ATIS") } ?? list.first)
@@ -1843,7 +1843,7 @@ struct NavigationMapView: View {
     /// Recompute the cached frequency list. CURRENT + NEXT (proximity/time-aware) show by default along
     /// with EMERGENCY; everything else along the journey (nearest field's full set, route waypoints,
     /// area FIS, nearby CTRs) is `.other`, revealed by "All Frequencies". Deduped; cached (recomputed
-    /// on phase change + significant move). (3.5 — current/next)
+    /// on phase change + significant move). (v4 UI/UX Revamp — current/next)
     private func recomputePhaseFrequencies() {
         guard appState.settings.enableFlightPlanning else {
             phaseFreqItems = []
@@ -1897,7 +1897,7 @@ struct NavigationMapView: View {
 
     /// An airfield's VFR frequencies: ATIS first when present (the first listen — it does NOT give you
     /// the next entity's frequency), then the contact frequency (TWR > AFIS > INFO > A/G > … — never
-    /// the APP/GND that was being shown wrongly). (3.5)
+    /// the APP/GND that was being shown wrongly). (v4 UI/UX Revamp)
     private static let contactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO"]
     private func airfieldFreqs(for ident: String) -> [(type: String, freq: String)] {
         let freqs = airportDataService.getFrequencies(for: ident)
@@ -1916,7 +1916,7 @@ struct NavigationMapView: View {
     }
 
     /// A waypoint's frequencies: the manually-entered one if set, else the airfield's ATIS + contact
-    /// auto-completed from the DB when the waypoint name is an airfield ident. (3.5)
+    /// auto-completed from the DB when the waypoint name is an airfield ident. (v4 UI/UX Revamp)
     private func waypointFreqs(_ wp: FlightPlanWaypoint) -> [(label: String, freq: String)] {
         let name = wp.name.isEmpty ? nil : wp.name
         if let f = wp.frequency, !f.isEmpty {
@@ -1928,10 +1928,10 @@ struct NavigationMapView: View {
         return []
     }
 
-    // MARK: - Track vector (3.5 C4)
+    // MARK: - Track vector (v4 UI/UX Revamp C4)
 
     /// Update the EMA of ground speed + ground track on each GPS fix. Track is averaged via sin/cos so
-    /// it never wraps; α≈0.15 favours recent fixes (~10 s time constant). (3.5 C4)
+    /// it never wraps; α≈0.15 favours recent fixes (~10 s time constant). (v4 UI/UX Revamp C4)
     private func updateTrackVectorEMA() {
         if let c = locationManager.currentLocation?.coordinate { lastKnownCoordinate = c }
         let gs = max(0, locationManager.currentSpeedKnots)
@@ -1954,18 +1954,18 @@ struct NavigationMapView: View {
     }
 
     /// The trend-vector overlays (main line + 1/2/5-min perpendicular ticks) along the smoothed track.
-    /// Empty when disabled, stationary (<5 kt), or no fix. (3.5 C4)
+    /// Empty when disabled, stationary (<5 kt), or no fix. (v4 UI/UX Revamp C4)
     private var trackVectorOverlays: [TrackVectorPolyline] {
         guard appState.settings.showTrackVector, hasTrackVectorEMA,
               let origin = locationManager.currentLocation?.coordinate ?? lastKnownCoordinate else { return [] }
-        // Hide the vector when essentially stationary (<5 kt) — ground track is meaningless there. (3.5)
+        // Hide the vector when essentially stationary (<5 kt) — ground track is meaningless there. (v4 UI/UX Revamp)
         guard smoothedGroundSpeed >= 5 else { return [] }
         let gsKnots = smoothedGroundSpeed
         let track = atan2(smoothedTrackSin, smoothedTrackCos) * 180 / .pi
         let gsMS = gsKnots * 0.514444 // knots → m/s
         var overlays: [TrackVectorPolyline] = []
         // Each segment is drawn twice: a dark casing first (below) + the bright core on top — so it
-        // stays legible on the busy/light Segelflugkarte AND on dark satellite imagery. (3.5 fix)
+        // stays legible on the busy/light Segelflugkarte AND on dark satellite imagery. (v4 UI/UX Revamp fix)
         func addSegment(_ coords: [CLLocationCoordinate2D]) {
             var casing = coords
             overlays.append(TrackVectorCasingPolyline(coordinates: &casing, count: coords.count))
@@ -1984,7 +1984,7 @@ struct NavigationMapView: View {
         return overlays
     }
 
-    /// Geodesic forward projection: a coordinate `distanceMeters` from `c` along `bearingDeg`. (3.5 C4)
+    /// Geodesic forward projection: a coordinate `distanceMeters` from `c` along `bearingDeg`. (v4 UI/UX Revamp C4)
     private func projectedCoordinate(from c: CLLocationCoordinate2D, bearingDeg: Double, distanceMeters: Double) -> CLLocationCoordinate2D {
         let R = 6_371_000.0
         let d = distanceMeters / R
@@ -1997,7 +1997,7 @@ struct NavigationMapView: View {
     }
 
     /// Expanded sheet — LEFT column = flight-plan/nav (chrono, waypoint list, live data, progress);
-    /// RIGHT column = phase-aware frequencies. (3.5 inc C / C2 — paradigm: left = nav, right = freq)
+    /// RIGHT column = phase-aware frequencies. (v4 UI/UX Revamp inc C / C2 — paradigm: left = nav, right = freq)
     @ViewBuilder
     private var navSheetContent: some View {
         if let plan = flightPlanManager.activeFlightPlan {
@@ -2013,7 +2013,7 @@ struct NavigationMapView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // The column divider is drawn as a trailing overlay (bounded by this column's content
                 // height) — a standalone `Rectangle().frame(width:)` has NO height and is greedy in Y,
-                // which ballooned the whole sheet. (3.5 fix — 3rd attempt)
+                // which ballooned the whole sheet. (v4 UI/UX Revamp fix — 3rd attempt)
                 .overlay(alignment: .trailing) {
                     Rectangle().fill(Color.white.opacity(0.08)).frame(width: 0.5)
                 }
@@ -2027,10 +2027,10 @@ struct NavigationMapView: View {
             .fixedSize(horizontal: false, vertical: true)
         } else {
             // No flight plan — the frequency list (nearest + area + emergency) doesn't need a plan, so
-            // expanding still shows it. (3.5 fix — the chevron did nothing without a plan)
+            // expanding still shows it. (v4 UI/UX Revamp fix — the chevron did nothing without a plan)
             freqColumn
                 // Mirror the with-plan layout: same 244-pt column, pushed to the trailing edge (where
-                // it sits as the right column when a plan is active) rather than centered. (3.5 fix)
+                // it sits as the right column when a plan is active) rather than centered. (v4 UI/UX Revamp fix)
                 .frame(width: 244)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.horizontal, 14)
@@ -2041,7 +2041,7 @@ struct NavigationMapView: View {
     }
 
     /// The frequency column — by default just CURRENT + NEXT (what a VFR pilot needs to hand) plus
-    /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (3.5 — current/next)
+    /// EMERGENCY; "All Frequencies" reveals every station along the journey in order. (v4 UI/UX Revamp — current/next)
     private var freqColumn: some View {
         let nonEmergency = phaseFreqItems.filter { !$0.isEmergency }
         let emergency = phaseFreqItems.filter { $0.isEmergency }
@@ -2069,7 +2069,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (3.5)
+    /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
     private func roleTag(_ role: FreqRole) -> (String, Color)? {
         switch role {
         case .current: return (L10n.Nav.freqCurrent, .aviationGold)
@@ -2101,7 +2101,7 @@ struct NavigationMapView: View {
 
     private func waypointList(plan: FlightPlan, compact: Bool = false) -> some View {
         // Deterministic height (content for ≤5 waypoints, scroll beyond) — a greedy ScrollView made
-        // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (3.5 fix)
+        // the whole sheet balloon to fill the screen. Keep the sheet as short as the content. (v4 UI/UX Revamp fix)
         ScrollView {
             VStack(spacing: 0) {
                 ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wpt in
@@ -2123,7 +2123,7 @@ struct NavigationMapView: View {
         let actual = actualLegTime(plan: plan, index: index, isCurrent: isCurrent, isPast: isPast, wpt: wpt)
         return Button(action: { handleWaypointTap(index: index, plan: plan, isPast: isPast) }) {
             HStack(spacing: 8) {
-                // Sequence number — matches the numbered disc on the map. (3.5)
+                // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(isCurrent ? .aviationGold : .secondaryText)
@@ -2137,9 +2137,9 @@ struct NavigationMapView: View {
                     .lineLimit(1)
                 Spacer(minLength: 6)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
-                // whether or not a leg has been flown yet. (3.5 — column alignment)
+                // whether or not a leg has been flown yet. (v4 UI/UX Revamp — column alignment)
                 HStack(spacing: 6) {
-                    // Heading + distance kept on iPad; dropped on the narrow iPhone table. (3.5)
+                    // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
                     if !compact {
                         Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
                             .foregroundColor(.secondaryText).frame(width: 38, alignment: .trailing)
@@ -2167,7 +2167,7 @@ struct NavigationMapView: View {
     }
 
     /// Actual time flown on the leg arriving at `index`: the live timer for the current leg, ATO-to-ATO
-    /// for a crossed leg, nil for a future leg. (3.5)
+    /// for a crossed leg, nil for a future leg. (v4 UI/UX Revamp)
     private func actualLegTime(plan: FlightPlan, index: Int, isCurrent: Bool, isPast: Bool, wpt: FlightPlanWaypoint) -> TimeInterval? {
         if isCurrent {
             let e = flightPlanManager.chronometerElapsed
@@ -2180,7 +2180,7 @@ struct NavigationMapView: View {
         return nil
     }
 
-    /// The ▲ ahead / ▼ over delta of actual vs planned leg time, or blank when not yet comparable. (3.5)
+    /// The ▲ ahead / ▼ over delta of actual vs planned leg time, or blank when not yet comparable. (v4 UI/UX Revamp)
     @ViewBuilder
     private func legDeltaText(planned: TimeInterval?, actual: TimeInterval?) -> some View {
         if let planned, let actual {
@@ -2192,7 +2192,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (3.5)
+    /// Tap a crossed waypoint → confirm resuming that leg; tap a current/future one → map preview. (v4 UI/UX Revamp)
     private func handleWaypointTap(index: Int, plan: FlightPlan, isPast: Bool) {
         if isPast {
             legResumeTarget = index
@@ -2268,9 +2268,9 @@ struct NavigationMapView: View {
         }
     }
 
-    /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (3.5)
+    /// Row 2 — flight plan (left, when relevant) and GPS / tracking / zoom (right). (v4 UI/UX Revamp)
     /// Destination endpoint, total remaining distance (live to next + remaining planned legs), and the
-    /// planned ETA at the destination. (3.5 — row 2)
+    /// planned ETA at the destination. (v4 UI/UX Revamp — row 2)
     private var destinationSummary: (dest: String, remainingNM: Double, eta: Date?)? {
         guard let plan = flightPlanManager.activeFlightPlan,
               plan.waypoints.count >= 2,
@@ -2316,12 +2316,12 @@ struct NavigationMapView: View {
 
     /// How dense the bottom control row renders — ViewThatFits picks the first that fits, degrading the
     /// MARK/START labels to icon-only (compact), then dropping the +/− zoom buttons (minimal, pinch
-    /// still zooms). (3.5 — responsive row 2)
+    /// still zooms). (v4 UI/UX Revamp — responsive row 2)
     enum BarDensity { case full, compact, minimal }
 
     /// VFR leg timer on row 2 — times the current leg, compares it to the planned leg time (▲ ahead /
     /// ▼ over), and MARK records the crossing + restarts the leg. Pause/resume + reset. Idle shows just
-    /// a START button. Plan-scoped, always visible without opening the drawer. (3.5 — leg timer)
+    /// a START button. Plan-scoped, always visible without opening the drawer. (v4 UI/UX Revamp — leg timer)
     @ViewBuilder
     private func legTimerCluster(_ density: BarDensity) -> some View {
         if let plan = flightPlanManager.activeFlightPlan {
@@ -2357,7 +2357,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// "FROM → TO" idents for the leg currently being flown, or nil before the first leg / once done. (3.5)
+    /// "FROM → TO" idents for the leg currently being flown, or nil before the first leg / once done. (v4 UI/UX Revamp)
     private func currentLegLabel(_ plan: FlightPlan) -> String? {
         let i = plan.currentWaypointIndex
         guard i >= 1, i < plan.waypoints.count else { return nil }
@@ -2366,7 +2366,7 @@ struct NavigationMapView: View {
         return "\(from.isEmpty ? "WPT \(i)" : from) → \(to.isEmpty ? "WPT \(i + 1)" : to)"
     }
 
-    /// The current leg (FROM → TO) + leg elapsed vs the planned leg time, with an ahead/over delta. (3.5)
+    /// The current leg (FROM → TO) + leg elapsed vs the planned leg time, with an ahead/over delta. (v4 UI/UX Revamp)
     private func legReadout(legLabel: String?, elapsed: TimeInterval, planned: TimeInterval?, running: Bool) -> some View {
         HStack(spacing: 6) {
             if let legLabel {
@@ -2417,7 +2417,7 @@ struct NavigationMapView: View {
         }
     }
 
-    /// A duration as "M:SS" (or "H:MM:SS" past an hour). (3.5)
+    /// A duration as "M:SS" (or "H:MM:SS" past an hour). (v4 UI/UX Revamp)
     private func formatClock(_ t: TimeInterval) -> String {
         let total = Int(t.rounded())
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
@@ -2442,12 +2442,12 @@ struct NavigationMapView: View {
             }
 
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
-            // the mid-route outlook. (3.5 — device feedback)
+            // the mid-route outlook. (v4 UI/UX Revamp — device feedback)
             destinationSummaryView
 
             Spacer()
 
-            // Leg timer — centered on row 2, always visible without opening the drawer. (3.5)
+            // Leg timer — centered on row 2, always visible without opening the drawer. (v4 UI/UX Revamp)
             legTimerCluster(density)
 
             Spacer()
@@ -2477,7 +2477,7 @@ struct NavigationMapView: View {
             .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
 
             // Zoom out / in (kept for gloved / turbulence use, docked far-right). First thing dropped
-            // when horizontal space runs out — pinch still zooms. (3.5)
+            // when horizontal space runs out — pinch still zooms. (v4 UI/UX Revamp)
             if density != .minimal {
                 HStack(spacing: 0) {
                     Button(action: { zoom(by: 2.0) }) {
@@ -2507,7 +2507,7 @@ struct NavigationMapView: View {
         .padding(.vertical, 8)
     }
 
-    /// Live distance to the next waypoint (NM), if a fix + plan are available. (3.5)
+    /// Live distance to the next waypoint (NM), if a fix + plan are available. (v4 UI/UX Revamp)
     private var nextWaypointDistanceText: String? {
         guard let loc = locationManager.currentLocation,
               let dist = flightPlanManager.distanceToNextWaypoint(from: loc) else { return nil }
@@ -2522,7 +2522,7 @@ struct NavigationMapView: View {
         isFollowingAircraft = true
 
         // Re-center WITHOUT changing the zoom. Forcing a fixed span here previously cropped the
-        // visible airports out of the freshly re-queried region whenever follow was engaged. (3.5 fix)
+        // visible airports out of the freshly re-queried region whenever follow was engaged. (v4 UI/UX Revamp fix)
         let newRegion = MKCoordinateRegion(
             center: location.coordinate,
             span: mapState.region.span
@@ -2551,7 +2551,7 @@ struct NavigationMapView: View {
     }
 
     /// Single tracking button: each tap advances an Apple-Maps-style cycle —
-    /// free → center & follow (north-up) → track-up (rotate with heading) → free. (3.5 nav-chrome rebuild)
+    /// free → center & follow (north-up) → track-up (rotate with heading) → free. (v4 UI/UX Revamp nav-chrome rebuild)
     private func cycleTracking() {
         if !isFollowingAircraft {
             // free → center & follow, north-up
@@ -2586,11 +2586,11 @@ struct NavigationMapView: View {
     }
 
     /// Zoom the live map by scaling the current region span (factor < 1 zooms in). `mapState.region`
-    /// is kept current by the map's `regionDidChangeAnimated`, so this reads the true zoom. (3.5)
+    /// is kept current by the map's `regionDidChangeAnimated`, so this reads the true zoom. (v4 UI/UX Revamp)
     private func zoom(by factor: Double) {
         // The map camera is distance-driven (setCamera fromDistance: mapState.cameraDistance), so a
         // span-only change never zoomed the tile layers — it just got reverted by regionDidChange.
-        // Scale the camera distance AND nudge the region so updateUIView re-applies the camera. (3.5 fix)
+        // Scale the camera distance AND nudge the region so updateUIView re-applies the camera. (v4 UI/UX Revamp fix)
         mapState.cameraDistance = min(max(mapState.cameraDistance * factor, 800), 4_000_000)
         let r = mapState.region
         let lat = min(max(r.span.latitudeDelta * factor, 0.0015), 80)
@@ -2601,13 +2601,13 @@ struct NavigationMapView: View {
     }
 }
 
-/// One phase-aware frequency row for the flight-plan sheet (station label + frequency). (3.5 C2)
+/// One phase-aware frequency row for the flight-plan sheet (station label + frequency). (v4 UI/UX Revamp C2)
 /// Role of a frequency in the current/next/emergency model: only CURRENT + NEXT (+ EMERGENCY) show by
-/// default; everything else is `.other`, revealed by "All Frequencies". (3.5)
+/// default; everything else is `.other`, revealed by "All Frequencies". (v4 UI/UX Revamp)
 enum FreqRole { case current, next, other, emergency }
 
 /// Preference key reporting the compact bottom sheet's measured height, so the floating map controls
-/// sit just above it. (3.5 — iPhone)
+/// sit just above it. (v4 UI/UX Revamp — iPhone)
 struct CompactSheetHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
@@ -2709,7 +2709,7 @@ struct SwissAirspaceSectors {
 struct SwissScaleBar: View {
     let region: MKCoordinateRegion
     var mapWidth: CGFloat = 0  // Actual map width in points, 0 means use fallback
-    /// Aviation distance unit: NM (default for the nav map) vs metric. (3.5 — configurable in settings)
+    /// Aviation distance unit: NM (default for the nav map) vs metric. (v4 UI/UX Revamp — configurable in settings)
     var nauticalMiles: Bool = false
 
     /// Calculate the appropriate scale distance based on current zoom
@@ -2745,7 +2745,7 @@ struct SwissScaleBar: View {
         // Calculate how many meters that would represent
         let targetMeters = metersPerPoint * Double(targetBarWidth)
 
-        // Choose appropriate scale - pick the largest round number that fits. Aviation uses NM. (3.5)
+        // Choose appropriate scale - pick the largest round number that fits. Aviation uses NM. (v4 UI/UX Revamp)
         let nmScales: [(meters: Double, text: String)] = [
             (185.2, "0.1 NM"), (370.4, "0.2 NM"), (926, "0.5 NM"),
             (1852, "1 NM"), (3704, "2 NM"), (9260, "5 NM"),
@@ -2828,7 +2828,7 @@ private var waypointMarkerImageCache: [String: UIImage] = [:]
 /// A numbered waypoint marker — a state-coloured disc with the waypoint's 1-based sequence number,
 /// matching the numbered rows in the flight-plan drawer. White number on a black-outlined disc reads
 /// on any map layer. Cached per state+number. (`iconName` kept for call-site compatibility — the
-/// number is drawn instead of an SF Symbol.) (3.5)
+/// number is drawn instead of an SF Symbol.) (v4 UI/UX Revamp)
 private func cachedWaypointMarker(number: Int, state: String, iconName: String, color: UIColor, size: CGFloat = 26) -> UIImage? {
     let key = "\(state)-\(number)"
     if let cached = waypointMarkerImageCache[key] { return cached }
@@ -2927,7 +2927,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         updateAirspaceOverlays(mapView, context: context)
 
         // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
-        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (3.5 fix)
+        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
         if !trackVectorEnabled {
             mapView.removeOverlays(existingTrackVector)
@@ -3123,7 +3123,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Scope strictly to the GPS-track polyline. This used to cast to `MKPolyline`, which ALSO
         // matched the flight-plan route and the track-vector subclasses — so a point-count mismatch
         // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
-        // `GPSTrackPolyline` isolates the breadcrumb trail. (3.5 fix)
+        // `GPSTrackPolyline` isolates the breadcrumb trail. (v4 UI/UX Revamp fix)
         let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
         let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
         if needsUpdate {
@@ -3578,7 +3578,7 @@ struct LayerPickerSheet: View {
                     }
 
                     // Overlays — airspace + ground-track vector toggles, consolidated here so iPhone
-                    // needs only one map-display button in the top bar. (3.5 — iPhone)
+                    // needs only one map-display button in the top bar. (v4 UI/UX Revamp — iPhone)
                     VStack(alignment: .leading, spacing: 8) {
                         Text(L10n.Nav.overlays)
                             .font(.system(size: 13, weight: .semibold))
@@ -3828,7 +3828,7 @@ struct SwissMapView: UIViewRepresentable {
 
                 // The base tile was just re-added on TOP (same .aboveLabels level), which buries the
                 // flight-plan route line. Invalidate the route diff-guard so the next updateUIView
-                // redraws the route above the tile. (3.5 fix — route line was invisible on Swiss layers)
+                // redraws the route above the tile. (v4 UI/UX Revamp fix — route line was invisible on Swiss layers)
                 context.coordinator.lastFlightPlanSignature = nil
 
                 // Force camera update like updateUIView does after overlay change (preserves heading)
@@ -3909,7 +3909,7 @@ struct SwissMapView: UIViewRepresentable {
         }
 
         // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
-        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (3.5 fix)
+        // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)
         let existingTrackVector = mapView.overlays.compactMap { $0 as? TrackVectorPolyline }
         if !trackVectorEnabled {
             mapView.removeOverlays(existingTrackVector)
@@ -3977,7 +3977,7 @@ struct SwissMapView: UIViewRepresentable {
         // When layer changes, force-refresh track overlay so the renderer uses the correct color
         if overlayChanged {
             let existingTrackPolylines = mapView.overlays.compactMap { overlay -> MKPolyline? in
-                // Exclude the track vector too — a Swiss layer switch must not strip it. (3.5 fix)
+                // Exclude the track vector too — a Swiss layer switch must not strip it. (v4 UI/UX Revamp fix)
                 if overlay is FlightPlanRoutePolyline || overlay is MKTileOverlay || overlay is TrackVectorPolyline { return nil }
                 return overlay as? MKPolyline
             }
@@ -4157,7 +4157,7 @@ struct SwissMapView: UIViewRepresentable {
         // Scope strictly to the GPS-track polyline. This used to cast to `MKPolyline`, which ALSO
         // matched the flight-plan route and the track-vector subclasses — so a point-count mismatch
         // removed ALL of them and only re-added the GPS track (route/vector "flashed then vanished").
-        // `GPSTrackPolyline` isolates the breadcrumb trail. (3.5 fix)
+        // `GPSTrackPolyline` isolates the breadcrumb trail. (v4 UI/UX Revamp fix)
         let existingPolylines = mapView.overlays.compactMap { $0 as? GPSTrackPolyline }
         let needsUpdate = existingPolylines.first?.pointCount != gpsTrack.count
         if needsUpdate {
@@ -4607,18 +4607,18 @@ class FlightPlanRoutePolyline: MKPolyline {
 }
 
 /// The recorded GPS breadcrumb trail. A distinct subclass so overlay bookkeeping targets ONLY the
-/// trail and never the route or track vector (all three are MKPolylines). (3.5 fix)
+/// trail and never the route or track vector (all three are MKPolylines). (v4 UI/UX Revamp fix)
 class GPSTrackPolyline: MKPolyline {}
 
-/// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (3.5 C4)
+/// Marker subclass for the ground-track trend vector (line + 1/2/5-min ticks), rendered cyan. (v4 UI/UX Revamp C4)
 class TrackVectorPolyline: MKPolyline {}
 
-/// The dark casing drawn under each track-vector segment for legibility on any map. (3.5 fix)
+/// The dark casing drawn under each track-vector segment for legibility on any map. (v4 UI/UX Revamp fix)
 class TrackVectorCasingPolyline: TrackVectorPolyline {}
 
 // MARK: - Swisstopo tile overlays
 // `ICAOSegelflugkarteTileOverlay` and `SwisstopoTileOverlay` moved to the shared
-// `Services/SwisstopoTileOverlays.swift` (Phase 3.5 design-system consolidation — they were
+// `Services/SwisstopoTileOverlays.swift` (v4 UI/UX Revamp design-system consolidation — they were
 // duplicated as `WaypointPicker*` in FlightPlanEditorView). All map consumers use them from there.
 
 // MARK: - Navigation Toggle Button

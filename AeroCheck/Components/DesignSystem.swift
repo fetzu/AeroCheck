@@ -400,7 +400,7 @@ struct SpeedIndicatorView: View {
 
             // Color-blind-safe proximity bar: WIDTH shows how close to target, COLOR the state — a
             // glanceable analog complement to the numeric readout and TGT arrow. Hidden when GPS is
-            // lost (no reliable speed to plot), matching the readout. (Phase 3.1)
+            // lost (no reliable speed to plot), matching the readout. (v4 UI/UX Revamp)
             if gpsSignalStatus != .lost {
                 InstrumentTargetBar(
                     fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
@@ -470,7 +470,7 @@ struct SpeedIndicatorView: View {
     }
 
     /// Maps the annunciated speed state to the color-blind-safe instrument-bar state. Pure + testable
-    /// so the bar can never disagree with the readout's annunciation. (Phase 3.1)
+    /// so the bar can never disagree with the readout's annunciation. (v4 UI/UX Revamp)
     static func barState(for state: SpeedState) -> InstrumentTargetState {
         switch state {
         case .onTarget: return .onTarget
@@ -481,7 +481,7 @@ struct SpeedIndicatorView: View {
 
     /// 0...1 proximity-to-target fill for the on-target bar: full at the target speed, shrinking
     /// linearly with deviation (30 kt full-scale) and floored so the bar never vanishes (a thin nub
-    /// still reads "far off" via its color). Pure + testable. (Phase 3.1)
+    /// still reads "far off" via its color). Pure + testable. (v4 UI/UX Revamp)
     static func targetBarFraction(displaySpeed: Double, targetSpeed: Int) -> Double {
         let deviation = abs(displaySpeed - Double(targetSpeed))
         return max(0.12, min(1.0, 1.0 - deviation / 30.0))
@@ -662,7 +662,7 @@ extension EnvironmentValues {
     }
 }
 
-// MARK: - Cockpit Theme (Phase 3.0 foundation)
+// MARK: - Cockpit Theme (v4 UI/UX Revamp foundation)
 
 /// The three cockpit display modes. Generalises the binary night-mode toggle (UX-09) into a
 /// readable-in-any-light system the revamped screens theme against:
@@ -752,7 +752,7 @@ private struct CockpitThemeKey: EnvironmentKey {
 
 extension EnvironmentValues {
     /// The active cockpit theme palette. Injected once near the app root from the user's theme mode;
-    /// revamped screens read it instead of hardcoding colors. (Phase 3.0)
+    /// revamped screens read it instead of hardcoding colors. (v4 UI/UX Revamp)
     var cockpitTheme: CockpitTheme {
         get { self[CockpitThemeKey.self] }
         set { self[CockpitThemeKey.self] = newValue }
@@ -928,10 +928,10 @@ struct PulseModifier: ViewModifier {
 
 /// A navigation row component for the settings hub, displaying an icon, title, and subtitle
 /// A settings-hub section row, styled as a cockpit card (tinted icon circle + title/subtitle +
-/// chevron). The reference implementation of the Phase 3 cockpit language for list surfaces: dark
+/// chevron). The reference implementation of the v4 UI/UX Revamp cockpit language for list surfaces: dark
 /// `cardBackground`, per-section accent in a soft circle, a gold-bordered selected state for the iPad
 /// split view, and an optional badge (e.g. BETA). Title/subtitle use semantic fonts so they scale
-/// with Dynamic Type. (Phase 3.5 redesign reference)
+/// with Dynamic Type. (v4 UI/UX Revamp reference)
 struct SettingsRow: View {
     let icon: String
     let title: String
@@ -1193,10 +1193,10 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
     }
 }
 
-// MARK: - Cockpit Instrument Panel (Phase 3.1 HUD)
+// MARK: - Cockpit Instrument Panel (v4 UI/UX Revamp HUD)
 
 /// On-target state of the live speed, encoded by SHAPE/POSITION (the bar) as well as color, so it
-/// reads for color-blind pilots and in any theme. (Phase 3.1)
+/// reads for color-blind pilots and in any theme. (v4 UI/UX Revamp)
 enum InstrumentTargetState: Equatable {
     case onTarget
     case caution
@@ -1217,7 +1217,7 @@ enum InstrumentTargetState: Equatable {
 /// The color-blind-safe on-target proximity bar: a centered capsule whose WIDTH encodes how close the
 /// live value is to its target (full = on target, shrinking with deviation) and whose COLOR encodes
 /// the target state — so the reading never depends on color alone. Shared by the full instruments and
-/// `CockpitInstrumentPanel` so they render identically in any theme. (Phase 3.1)
+/// `CockpitInstrumentPanel` so they render identically in any theme. (v4 UI/UX Revamp)
 struct InstrumentTargetBar: View {
     /// 0...1 fill of the bar (1 = on target).
     let fraction: Double
@@ -1239,7 +1239,7 @@ struct InstrumentTargetBar: View {
 /// The revamped in-flight instrument strip: speed (with a color-blind-safe on-target bar), altitude
 /// (+ vertical speed) and heading in one Liquid-Glass panel. Purely presentational — the caller
 /// formats the values and computes the target state; the panel themes itself via `\.cockpitTheme`
-/// so it reads correctly in day / sunlight / night. (Phase 3.1)
+/// so it reads correctly in day / sunlight / night. (v4 UI/UX Revamp)
 struct CockpitInstrumentPanel: View {
     let speed: String
     var targetState: InstrumentTargetState = .neutral
@@ -1316,7 +1316,7 @@ struct CockpitInstrumentPanel: View {
 /// VoiceOver values). The safety LOGIC is the same shared, unit-tested code the boxed instruments use
 /// (`SpeedIndicatorView.annunciationState` / `.accessibilityValue` / `.targetBarFraction` / `.barState`,
 /// `AltimeterView.accessibilityValue`, `StallAlert`, `InstrumentFailureFlag`); only the visual layout
-/// is new. (Phase 3.1)
+/// is new. (v4 UI/UX Revamp)
 struct CockpitInstrumentStrip: View {
     let speedKnots: Double           // ground speed (display fallback)
     let targetSpeed: Int?
@@ -1480,12 +1480,12 @@ struct CockpitInstrumentStrip: View {
     }
 }
 
-// MARK: - Cockpit Hero Checklist Item (Phase 3.1 HUD)
+// MARK: - Cockpit Hero Checklist Item (v4 UI/UX Revamp HUD)
 
 /// The one-glance centerpiece of the revamped in-flight HUD: the CURRENT checklist item rendered
 /// large (challenge + response) with the item progress and a tap-to-advance hint. Presentational
 /// and themed via `\.cockpitTheme`; the container supplies the surrounding dimmed completed/next
-/// items. (Phase 3.1)
+/// items. (v4 UI/UX Revamp)
 struct CockpitHeroChecklistItem: View {
     let challenge: String
     var response: String? = nil

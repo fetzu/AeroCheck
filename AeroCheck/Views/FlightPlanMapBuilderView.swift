@@ -1,7 +1,7 @@
 import SwiftUI
 import MapKit
 
-// MARK: - Flight Plan Map Builder (Phase 3.4)
+// MARK: - Flight Plan Map Builder (v4 UI/UX Revamp)
 
 /// Map-centric flight-plan builder — the default creation/edit path. Tap the map or search
 /// ICAO/name to add waypoints; the route draws live with numbered markers; a side panel (iPad

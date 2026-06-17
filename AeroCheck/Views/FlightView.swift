@@ -22,7 +22,7 @@ struct FlightView: View {
     @State private var showNavigationMode = false
     /// The reference popup currently shown in the HUD context slot (Pattern B of the A+B hybrid):
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
-    /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (Phase 3.1)
+    /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
     @State private var activeReference: HUDReference? = nil
     @State private var timerTrigger = false
     @State private var pulseNextButton = false
@@ -31,14 +31,14 @@ struct FlightView: View {
     @State private var scrollToBottom = false
     @State private var nearestFreqText: String?
     /// Whether the current phase's hidden (memorizable) items have been temporarily revealed (owned here
-    /// so tap-to-advance can step through them). Reset on phase change. (Phase 3.1 feedback)
+    /// so tap-to-advance can step through them). Reset on phase change. (v4 UI/UX Revamp feedback)
     @State private var hiddenItemsRevealed = false
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
-    /// Stable periodic timer (created once) driving the cruise-check evaluation. (3.5 fix)
+    /// Stable periodic timer (created once) driving the cruise-check evaluation. (v4 UI/UX Revamp fix)
     @State private var cruiseEvalTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
-    /// 0…1 fill of the CRUISE button while the pilot holds to reset (animates left→right over 1.5 s). (3.5)
+    /// 0…1 fill of the CRUISE button while the pilot holds to reset (animates left→right over 1.5 s). (v4 UI/UX Revamp)
     @State private var cruiseHoldProgress: CGFloat = 0
     @State private var showHourMeterStop = false
     @State private var hourMeterStartInitialValue: String = ""
@@ -65,14 +65,14 @@ struct FlightView: View {
 
     /// Whether the current phase's checklist is "complete" — all items stepped through (in step-by-step
     /// mode) and any required timestamp action recorded. Drives the NEXT button's ready/greyed look; the
-    /// button stays tappable either way so a phase can still be skipped. (Phase 3.1 feedback)
+    /// button stays tappable either way so a phase can still be skipped. (v4 UI/UX Revamp feedback)
     private var nextButtonReady: Bool {
         let itemsDone = !appState.settings.stepByStepHighlighting || appState.areAllItemsCompleted(learningMode: effectiveLearningMode)
         return itemsDone && !currentPhaseNeedsAction
     }
 
     /// Learning mode OR temporarily-revealed hidden items — the set of items the checklist is showing,
-    /// so tap-to-advance and completion stay in sync with what's on screen. (Phase 3.1 feedback)
+    /// so tap-to-advance and completion stay in sync with what's on screen. (v4 UI/UX Revamp feedback)
     private var effectiveLearningMode: Bool {
         appState.settings.learningMode || hiddenItemsRevealed
     }
@@ -140,13 +140,13 @@ struct FlightView: View {
     }
 
     /// Width of the left (checklist) column in the iPad two-column layout; the HUD context column
-    /// takes the rest. Tune here. (Phase 3.1)
+    /// takes the rest. Tune here. (v4 UI/UX Revamp)
     private static let checklistColumnFraction: CGFloat = 0.6
 
     // MARK: - HUD shell (top bar + phase progress bar over the content)
 
     /// Wraps the iPad HUD: the full-width top bar and tappable phase progress bar span both columns,
-    /// with the orientation-specific content below. Also drives the throttled NEAREST lookup. (Phase 3.1)
+    /// with the orientation-specific content below. Also drives the throttled NEAREST lookup. (v4 UI/UX Revamp)
     private func hudShell<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) {
             hudTopBar
@@ -239,7 +239,7 @@ struct FlightView: View {
                 .id(timerTrigger)
 
             // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
-            // popup (status guide + advanced fix info). (Phase 3.1 feedback)
+            // popup (status guide + advanced fix info). (v4 UI/UX Revamp feedback)
             Button(action: { openReference(.gps) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
@@ -270,10 +270,10 @@ struct FlightView: View {
                     mainChecklistAreaCompact(geometry: geometry)
                 }
                 // Reference popups (V-SPEEDS / GPS / BRIEFING) → themed bottom drawer; iPhone has no
-                // side column, so Pattern B degrades to a cockpit-styled sheet. (Phase 3.1)
+                // side column, so Pattern B degrades to a cockpit-styled sheet. (v4 UI/UX Revamp)
                 .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.66) }
             } else if geometry.size.height > geometry.size.width {
-                // iPad PORTRAIT: full-width top bar + phase bar, then the vertical stack. (Phase 3.1 HUD)
+                // iPad PORTRAIT: full-width top bar + phase bar, then the vertical stack. (v4 UI/UX Revamp HUD)
                 hudShell {
                     portraitLayout
                 }
@@ -281,7 +281,7 @@ struct FlightView: View {
                 .overlay { referenceDrawerOverlay(maxHeight: geometry.size.height * 0.6) }
             } else {
                 // iPad LANDSCAPE: full-width top bar + phase bar, then checklist-left / context-right.
-                // (Phase 3.1 HUD)
+                // (v4 UI/UX Revamp HUD)
                 hudShell {
                     HStack(spacing: 0) {
                         hudLeftColumn
@@ -415,7 +415,7 @@ struct FlightView: View {
     
     /// The HUD left column: the live instrument strip (top), the checklist with the hero item
     /// (scrolls, takes the slack), and the big NEXT button (bottom). The full-width top bar + phase
-    /// progress bar live above both columns in the body. (Phase 3.1 HUD rebuild)
+    /// progress bar live above both columns in the body. (v4 UI/UX Revamp HUD rebuild)
     private var hudLeftColumn: some View {
         VStack(spacing: 0) {
             // Live SPD/ALT/HDG instrument strip (flight phases only).
@@ -584,13 +584,13 @@ struct FlightView: View {
         }
     }
 
-    // MARK: - Cruise check (3.5)
+    // MARK: - Cruise check (v4 UI/UX Revamp)
 
     /// On the Cruise checklist page the CRUISE button shares the bottom bar 50/50 with NEXT, styled to
     /// match it (large ⟳ icon + value). It shows the countdown to the next cruise check. Tap to start
     /// (idle) or acknowledge + restart (when due); completing the Cruise checklist also auto-starts it.
     /// Hold 1 s to reset/re-arm — the button fills left→right while held, so the hold is discoverable.
-    /// When due it turns amber + pulses and the Cruise checklist re-arms. Hidden outside cruise. (3.5)
+    /// When due it turns amber + pulses and the Cruise checklist re-arms. Hidden outside cruise. (v4 UI/UX Revamp)
     @ViewBuilder
     private var cruiseCheckButton: some View {
         if appState.currentPhase == .cruise {
@@ -610,7 +610,7 @@ struct FlightView: View {
                 .background(
                     ZStack {
                         RoundedRectangle(cornerRadius: 14).fill(colors.fill)
-                        // Hold-to-reset progress fill — grows left→right while held. (3.5)
+                        // Hold-to-reset progress fill — grows left→right while held. (v4 UI/UX Revamp)
                         RoundedRectangle(cornerRadius: 14)
                             .fill(Color.white.opacity(0.20))
                             .scaleEffect(x: cruiseHoldProgress, anchor: .leading)
@@ -646,7 +646,7 @@ struct FlightView: View {
         return (.secondaryText, Color.white.opacity(0.05), Color.white.opacity(0.12))
     }
 
-    /// Countdown remaining as "M:SS". (3.5)
+    /// Countdown remaining as "M:SS". (v4 UI/UX Revamp)
     private func cruiseTimeText(_ remaining: TimeInterval) -> String {
         let s = Int(remaining.rounded())
         return String(format: "%d:%02d", s / 60, s % 60)
@@ -698,7 +698,7 @@ struct FlightView: View {
 
     /// The phase's timestamp action (engine-start / ready-for-line-up / shutdown) shown next to NEXT in
     /// the HUD bottom bar — moved out of the checklist scroll so it's always reachable, not scrolled
-    /// away. Mutually exclusive per phase; empty otherwise. (Phase 3.1)
+    /// away. Mutually exclusive per phase; empty otherwise. (v4 UI/UX Revamp)
     @ViewBuilder
     private var hudPhaseActionButton: some View {
         let phase = appState.currentPhase
@@ -801,7 +801,7 @@ struct FlightView: View {
 
     /// iPad portrait stack: a top instruments strip (primary flight data), the reused header + hero
     /// checklist + NEXT bar in the middle (takes the slack), and the persistent map band at the
-    /// bottom. Reuses `mainChecklistArea` wholesale so the checklist wiring isn't duplicated. (Phase 3.1)
+    /// bottom. Reuses `mainChecklistArea` wholesale so the checklist wiring isn't duplicated. (v4 UI/UX Revamp)
     private var portraitLayout: some View {
         VStack(spacing: 0) {
             // Instruments + hero checklist + NEXT (takes the vertical slack so the checklist scrolls).
@@ -832,7 +832,7 @@ struct FlightView: View {
     /// Always-accessible GO-AROUND / TOUCH & GO / FULL-STOP buttons for the relevant phases, so the
     /// pilot doesn't have to scroll the checklist to reach them. Gated on the same phase flags as the
     /// in-checklist buttons; hold-to-confirm so a stray touch can't fire a go-around. Empty (no space)
-    /// when no event applies to the current phase. (Phase 3.1)
+    /// when no event applies to the current phase. (v4 UI/UX Revamp)
     @ViewBuilder
     private var eventActionsRow: some View {
         let phase = appState.currentPhase
@@ -945,7 +945,7 @@ struct FlightView: View {
     }
 
     // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so
-    // the HUD buttons and the checklist buttons log identically — no double-counting. (Phase 3.1)
+    // the HUD buttons and the checklist buttons log identically — no double-counting. (v4 UI/UX Revamp)
     private func performGoAround() {
         appState.recordGoAround()
         flightEventDetector.notifyManualEvent(.goAround)
@@ -973,7 +973,7 @@ struct FlightView: View {
     /// Phase-aware quick-access tiles for the HUD context column, from a fixed vocabulary so it's
     /// predictable. This first slice surfaces the synchronous, reuse-existing tiles — V-SPEEDS (a
     /// labeled tap showing the phase-relevant target inline) and the departure/approach BRIEFINGS for
-    /// their phase clusters. Async tiles (FREQ / NEAREST / WIND) are a later slice. (Phase 3.1)
+    /// their phase clusters. Async tiles (FREQ / NEAREST / WIND) are a later slice. (v4 UI/UX Revamp)
     @ViewBuilder
     private var phaseContextZone: some View {
         let phase = appState.currentPhase
@@ -1373,7 +1373,7 @@ struct FlightView: View {
     private func abandonableAircraftIdentifier(iconSize: CGFloat, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 4 : 8) {
             // Progress ring behind the icon. The ring footprint is RESERVED at all times (fixed frame)
-            // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (3.5 fix)
+            // so it appearing on press-and-hold doesn't enlarge the icon and shift the top bar. (v4 UI/UX Revamp fix)
             ZStack {
                 if abandonFlightProgress > 0 {
                     Circle()
@@ -1427,7 +1427,7 @@ struct FlightView: View {
     private var sidePanel: some View {
         if let reference = activeReference {
             // Pattern B (iPad landscape): the reference popup takes over the right column over the map;
-            // the checklist stays live on the left, back/close restores the map. (Phase 3.1)
+            // the checklist stays live on the left, back/close restores the map. (v4 UI/UX Revamp)
             HUDReferencePanel(
                 reference: reference,
                 presentation: .docked,
@@ -1481,7 +1481,7 @@ struct FlightView: View {
 
     /// The bottom-drawer presentation of a reference popup for iPad portrait / iPhone: a dimming scrim
     /// (tap to dismiss) with the cockpit-themed panel rising from the bottom, leaving the instruments
-    /// and current checklist item visible above. (Phase 3.1)
+    /// and current checklist item visible above. (v4 UI/UX Revamp)
     @ViewBuilder
     private func referenceDrawerOverlay(maxHeight: CGFloat) -> some View {
         if let reference = activeReference {
@@ -1510,10 +1510,10 @@ struct FlightView: View {
 
     /// The persistent glance mini-map, wrapped as a button that opens the full nav map. The map
     /// itself has hit-testing disabled (it follows programmatically), so the whole tile is one big,
-    /// discoverable NAV target. (Phase 3.1)
+    /// discoverable NAV target. (v4 UI/UX Revamp)
     /// The persistent map tile, filling whatever frame the caller gives it (tall in the landscape
     /// right column, a band in portrait). Tapping it opens the full nav map; the NEAREST-frequency
-    /// strip is overlaid along the bottom. (Phase 3.1 HUD rebuild)
+    /// strip is overlaid along the bottom. (v4 UI/UX Revamp HUD rebuild)
     private var miniMapContent: some View {
         Button {
             showNavigationMode = true
@@ -1643,14 +1643,14 @@ struct TimeInfoRow: View {
 /// A compact segmented phase progress bar for the HUD top region: one segment per phase, colored by
 /// completion status, the current phase taller + gold. Tapping a segment jumps to that phase — this is
 /// the back/forward navigation in the revamped HUD (replacing the PREV button and the phase list).
-/// (Phase 3.1)
+/// (v4 UI/UX Revamp)
 struct PhaseProgressBar: View {
     let phases: [ChecklistPhase]
     let currentPhase: ChecklistPhase
     let status: (ChecklistPhase) -> PhaseCompletionStatus
     let onSelect: (ChecklistPhase) -> Void
     var isCircuitMode: Bool = false
-    /// When true, the Cruise segment turns amber to flag an (over)due FREDA cruise check. (3.5)
+    /// When true, the Cruise segment turns amber to flag an (over)due FREDA cruise check. (v4 UI/UX Revamp)
     var cruiseCheckDue: Bool = false
 
     /// The pattern phases that repeat each lap in circuit mode. Contiguous in the visible list since
@@ -1872,7 +1872,7 @@ struct SpeedReferenceSheet: View {
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
-    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
     var onClose: (() -> Void)? = nil
 
     private var isIPad: Bool {
@@ -2005,7 +2005,7 @@ struct CompactSpeedView: View {
 
                 // Same proximity bar as the iPad instrument: WIDTH = closeness to target, COLOR =
                 // state. Hidden when GPS is lost; accessibilityHidden (the value already speaks the
-                // state in words). (Phase 3.1)
+                // state in words). (v4 UI/UX Revamp)
                 if gpsSignalStatus != .lost {
                     InstrumentTargetBar(
                         fraction: SpeedIndicatorView.targetBarFraction(displaySpeed: displaySpeed, targetSpeed: targetSpeed),
@@ -2185,7 +2185,7 @@ struct CompactAltimeterView: View {
 /// MapKit drops the Apple Maps logo (oversized on a small map) — they have full coverage over
 /// Switzerland; outside it the area is blank rather than Apple tiles. Deliberately lightweight (no
 /// airspace / airport / flight-plan overlays); tap it (handled by the caller) to open the full
-/// `NavigationMapView`. (Phase 3.1)
+/// `NavigationMapView`. (v4 UI/UX Revamp)
 struct FlightMiniMap: UIViewRepresentable {
     /// The live flight track; the polyline is rebuilt only when the point count changes.
     let points: [GPSPoint]
@@ -2308,7 +2308,7 @@ struct FlightMiniMap: UIViewRepresentable {
 /// A press-and-hold button for consequential flight events (GO-AROUND, TOUCH & GO, FULL STOP). The
 /// action fires only after a deliberate ~1 s hold — a fill sweeps to show progress and releasing
 /// early cancels — so a stray cockpit touch can't trigger a go-around. VoiceOver activation fires
-/// immediately (it's already a deliberate action). Optionally shows a running count. (Phase 3.1)
+/// immediately (it's already a deliberate action). Optionally shows a running count. (v4 UI/UX Revamp)
 struct HoldToConfirmButton: View {
     let title: String
     let systemImage: String
@@ -2379,7 +2379,7 @@ struct HoldToConfirmButton: View {
 // MARK: - Phase Context Tile
 
 /// A compact, tappable quick-access tile for the phase-aware HUD zone: icon + label, with an optional
-/// inline value (e.g. the phase target speed). Presentational; the caller supplies the action. (Phase 3.1)
+/// inline value (e.g. the phase target speed). Presentational; the caller supplies the action. (v4 UI/UX Revamp)
 struct PhaseContextTile: View {
     let title: String
     let systemImage: String
@@ -2592,7 +2592,7 @@ struct FlightInfoSheet: View {
 
 /// A reference popup that pairs with the live checklist (V-speeds, GPS, briefings). In the approved
 /// A+B hybrid these render as Pattern B: docked into the iPad-landscape right column (over the map),
-/// or as a cockpit-themed bottom drawer on iPad portrait / iPhone. (Phase 3.1 popup redesign)
+/// or as a cockpit-themed bottom drawer on iPad portrait / iPhone. (v4 UI/UX Revamp popup redesign)
 enum HUDReference: Identifiable, Equatable {
     case vSpeeds
     case gps
@@ -2646,7 +2646,7 @@ enum HUDReference: Identifiable, Equatable {
 /// Shared cockpit-themed container for a reference popup. The SAME view renders in two presentations:
 /// `.docked` (fills the iPad-landscape right column, back-arrow header restores the map) and `.drawer`
 /// (a bottom drawer with a grabber + drag-down to dismiss, for iPad portrait / iPhone). The content is
-/// identical in both — only the chrome differs. (Phase 3.1 popup redesign)
+/// identical in both — only the chrome differs. (v4 UI/UX Revamp popup redesign)
 struct HUDReferencePanel: View {
     enum Presentation { case docked, drawer }
 
@@ -2773,7 +2773,7 @@ private struct DrawerDragDismiss: ViewModifier {
 
 /// Dedicated GPS reference: current signal, the advanced fix info iOS exposes (accuracy, fix time,
 /// position/altitude), and a guide explaining each status. Satellite count / raw GNSS time aren't
-/// available through CoreLocation. Cockpit cards (no system List). (Phase 3.1 popup redesign)
+/// available through CoreLocation. Cockpit cards (no system List). (v4 UI/UX Revamp popup redesign)
 struct GPSStatusContent: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager

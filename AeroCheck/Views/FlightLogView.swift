@@ -11,12 +11,12 @@ struct FlightLogView: View {
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
-    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (3.5)
+    /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
     var onClose: (() -> Void)? = nil
     /// Optional flight to preselect in the iPad 2-column pane (e.g. the Home last-flight strip).
     /// It feeds `effectiveSelectionID` for the pane only — it never drives the compact push path,
     /// so it can't trigger the transient-geometry push race. Compact opens the detail directly from
-    /// Home instead. (3.5 — feedback)
+    /// Home instead. (v4 UI/UX Revamp — feedback)
     var initialFlightID: UUID? = nil
 
     /// What the 2-column pane shows: a manual selection wins, otherwise the seeded initial flight.
@@ -38,9 +38,9 @@ struct FlightLogView: View {
     @State private var selectedAircraft: String? = nil
     /// Selected flight id — drives the iPad-landscape 2-column detail pane and the compact
     /// push (`navigationDestination`). A `UUID` (Hashable) avoids making `Flight` itself
-    /// Hashable/Equatable, which would have to be id-only and break content-change detection. (3.3 / 3.5)
+    /// Hashable/Equatable, which would have to be id-only and break content-change detection. (v4 UI/UX Revamp)
     @State private var selectedFlightID: UUID? = nil
-    /// Non-nil while the stats share-card customization sheet is open (snapshot of the current filter). (3.3)
+    /// Non-nil while the stats share-card customization sheet is open (snapshot of the current filter). (v4 UI/UX Revamp)
     @State private var statsShareData: StatsShareCardData? = nil
 
     enum ExportAllType: Sendable {
@@ -70,7 +70,7 @@ struct FlightLogView: View {
                 } else {
                     GeometryReader { geo in
                         if horizontalSizeClass == .regular && geo.size.width > geo.size.height {
-                            // iPad landscape: master (list) left + detail pane right, like the HUD. (3.3)
+                            // iPad landscape: master (list) left + detail pane right, like the HUD. (v4 UI/UX Revamp)
                             HStack(spacing: 0) {
                                 flightList(twoColumn: true)
                                     .frame(width: geo.size.width * 0.42)
@@ -93,7 +93,7 @@ struct FlightLogView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Close + import only — the big in-content "Flight Log" title and the gold Export
-                // button live in the dashboard header now (concept). (3.3)
+                // button live in the dashboard header now (concept). (v4 UI/UX Revamp)
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.FlightLog.close) { if let onClose { onClose() } else { dismiss() } }
                 }
@@ -400,7 +400,7 @@ struct FlightLogView: View {
                         .listRowSeparator(.hidden)
                 }
             } else {
-                // Pinned favorites float above the month pages. (3.3 favorites)
+                // Pinned favorites float above the month pages. (v4 UI/UX Revamp favorites)
                 let favorites = favoriteFlights
                 if !favorites.isEmpty {
                     Section {
@@ -442,7 +442,7 @@ struct FlightLogView: View {
             .swipeActions(edge: .leading, allowsFullSwipe: true) { favoriteSwipeButton(flight) }
         } else {
             // Compact: same selection state drives a push via navigationDestination(item:), so the
-            // Home last-flight strip can open straight onto a flight's detail. (3.5)
+            // Home last-flight strip can open straight onto a flight's detail. (v4 UI/UX Revamp)
             Button { selectedFlightID = flight.id } label: {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
             }
@@ -452,7 +452,7 @@ struct FlightLogView: View {
         }
     }
 
-    /// Leading (swipe-right) favorite toggle. Trailing swipe stays the iOS-conventional delete. (3.3)
+    /// Leading (swipe-right) favorite toggle. Trailing swipe stays the iOS-conventional delete. (v4 UI/UX Revamp)
     private func favoriteSwipeButton(_ flight: Flight) -> some View {
         Button {
             withAnimation { appState.toggleFavorite(flight) }
@@ -463,7 +463,7 @@ struct FlightLogView: View {
         .tint(.aviationGold)
     }
 
-    /// Favorited flights within the current filter, newest first (pinned above the month pages). (3.3)
+    /// Favorited flights within the current filter, newest first (pinned above the month pages). (v4 UI/UX Revamp)
     private var favoriteFlights: [Flight] {
         filteredFlights.filter { $0.isFavorite }
     }
@@ -545,7 +545,7 @@ struct FlightLogView: View {
         }
     }
 
-    // MARK: - Dashboard (3.3 Flight Log revamp)
+    // MARK: - Dashboard (v4 UI/UX Revamp Flight Log revamp)
 
     private var dashboardHeader: some View {
         let stats = aggregateStats(filteredFlights)
@@ -765,7 +765,7 @@ struct FlightLogView: View {
     }
 
     /// Aggregate logbook stats over the given flights. Hours prefer block time, then flight time, then
-    /// the engine-start→shutdown duration. (3.3)
+    /// the engine-start→shutdown duration. (v4 UI/UX Revamp)
     private func aggregateStats(_ flights: [Flight]) -> LogStats {
         var totalSeconds = 0.0
         var landings = 0
@@ -984,10 +984,10 @@ struct CustomLabelStyle: LabelStyle {
     }
 }
 
-// MARK: - Dashboard metric card (3.3)
+// MARK: - Dashboard metric card (v4 UI/UX Revamp)
 
 /// A compact metric card for the Flight Log dashboard: label + icon, then a big value with an optional
-/// unit. (3.3 Flight Log revamp)
+/// unit. (v4 UI/UX Revamp Flight Log revamp)
 struct LogMetricCard: View {
     let label: String
     let value: String
@@ -1017,7 +1017,7 @@ struct LogMetricCard: View {
 }
 
 /// A tiny line sparkline (e.g. a flight's altitude profile) for list rows. Normalised to its own
-/// min/max so the shape is visible regardless of absolute values. (3.3)
+/// min/max so the shape is visible regardless of absolute values. (v4 UI/UX Revamp)
 struct MiniSparkline: View {
     let values: [Double]
     var color: Color = .aviationGold
@@ -1046,7 +1046,7 @@ struct MiniSparkline: View {
 // MARK: - Flight Log stats share card (round 7 / customizable round 10)
 
 /// Accent color choices for the stats share card — drives the "FLIGHT LOG" label, the airplane
-/// glyph, the HOURS/hero value, and the footer URL. (3.3 share-card customization)
+/// glyph, the HOURS/hero value, and the footer URL. (v4 UI/UX Revamp share-card customization)
 enum StatsCardAccent: String, CaseIterable, Identifiable {
     case gold, blue, green, orange, red
 
@@ -1073,7 +1073,7 @@ enum StatsCardAccent: String, CaseIterable, Identifiable {
     }
 }
 
-/// Layout variants for the stats share card. (3.3 share-card customization)
+/// Layout variants for the stats share card. (v4 UI/UX Revamp share-card customization)
 enum StatsCardLayout: String, CaseIterable, Identifiable {
     case standard   // four equal stat tiles in a row
     case hero       // a big HOURS hero, then three smaller tiles
@@ -1096,7 +1096,7 @@ enum StatsCardLayout: String, CaseIterable, Identifiable {
 }
 
 /// Bundle of customization choices for the stats share card. Theme defaults to the single-flight
-/// card's theme so the two share surfaces stay visually consistent. (3.3 share-card customization)
+/// card's theme so the two share surfaces stay visually consistent. (v4 UI/UX Revamp share-card customization)
 struct StatsShareCardOptions {
     var theme: ShareCardColorScheme = .darkBlue
     var accent: StatsCardAccent = .gold
@@ -1106,7 +1106,7 @@ struct StatsShareCardOptions {
 }
 
 /// An immutable snapshot of the filtered-log stats, taken when the share sheet opens so the
-/// customization preview/render works from a stable dataset. (3.3 share-card customization)
+/// customization preview/render works from a stable dataset. (v4 UI/UX Revamp share-card customization)
 struct StatsShareCardData: Identifiable {
     let id = UUID()
     let periodLabel: String
@@ -1288,7 +1288,7 @@ struct FlightRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Calendar date block: day over weekday (the month/year lives in the section header). (3.5)
+            // Calendar date block: day over weekday (the month/year lives in the section header). (v4 UI/UX Revamp)
             VStack(spacing: 1) {
                 Text(dayNumber)
                     .font(.system(size: 19, weight: .bold))
@@ -1319,7 +1319,7 @@ struct FlightRowView: View {
             Spacer(minLength: 6)
 
             // Featured total time ON TOP of the altitude sparkline; one line, never wraps. (round 8)
-            // More vertical separation between the two — they were cramped while the row had slack. (3.5)
+            // More vertical separation between the two — they were cramped while the row had slack. (v4 UI/UX Revamp)
             VStack(alignment: .trailing, spacing: 7) {
                 HStack(spacing: 4) {
                     if flight.isFavorite {
@@ -1352,7 +1352,7 @@ struct FlightRowView: View {
         return formatter.string(from: date)
     }
 
-    /// Weekday abbreviation (e.g. "SAT") under the day number, like a logbook entry. (3.5)
+    /// Weekday abbreviation (e.g. "SAT") under the day number, like a logbook entry. (v4 UI/UX Revamp)
     private var weekday: String {
         guard let date = flight.startTime else { return "" }
         let formatter = DateFormatter()
@@ -1360,7 +1360,7 @@ struct FlightRowView: View {
         return formatter.string(from: date).uppercased()
     }
 
-    /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (3.3)
+    /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (v4 UI/UX Revamp)
     @ViewBuilder
     private var routeView: some View {
         if flight.touchAndGoCount > 0 {
@@ -1406,7 +1406,7 @@ struct FlightRowView: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (3.3)
+    /// Downsampled altitude (ft) for the row sparkline — a cheap ~60-point glance of the profile. (v4 UI/UX Revamp)
     private var sparklineAltitudes: [Double] {
         // Sample ~60 points by striding the track directly — don't `.map` the whole (possibly
         // thousands-long) GPS track on every row render. (round 9 perf)
@@ -1840,10 +1840,10 @@ struct FlightDetailView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Plan vs Actual (3.3)
+    // MARK: - Plan vs Actual (v4 UI/UX Revamp)
 
     /// Planned ETO vs actual ATO over each waypoint, with the delta, when the flight was flown against a
-    /// saved plan that recorded times. Hidden otherwise. (3.3 Flight Log revamp)
+    /// saved plan that recorded times. Hidden otherwise. (v4 UI/UX Revamp Flight Log revamp)
     @ViewBuilder
     private var planVsActualSection: some View {
         if let plan = flight.flightPlan {
@@ -2288,7 +2288,7 @@ struct AltitudeChartView: View {
     /// Downsample target for the overview chart line.
     private static let maxChartPoints = 400
 
-    /// Which series the chart plots; toggled by the pilot. (3.3)
+    /// Which series the chart plots; toggled by the pilot. (v4 UI/UX Revamp)
     enum ChartMode: String, CaseIterable, Identifiable {
         case altitude, speed
         var id: String { rawValue }
@@ -2301,7 +2301,7 @@ struct AltitudeChartView: View {
 
     // PR-26: each series + Y-range is computed ONCE (downsampled to ~400 points), cached in @State,
     // populated in onAppear — not O(n) computed properties re-run on every scrub frame. Both altitude
-    // (ft) and speed (kt) are cached so the toggle is instant. (3.3 adds speed)
+    // (ft) and speed (kt) are cached so the toggle is instant. (v4 UI/UX Revamp adds speed)
     @State private var altitudeData: [ChartSample] = []
     @State private var altitudeRange: ClosedRange<Double> = 0...1000
     @State private var speedData: [ChartSample] = []
@@ -3571,7 +3571,7 @@ struct ShareCardCustomizationView: View {
 
 /// Customization sheet for the Flight-Log stats share card: live preview + theme / accent / layout
 /// pickers and content toggles, then a full-res render → share. Mirrors `ShareCardCustomizationView`
-/// (the single-flight sheet). (3.3 share-card customization)
+/// (the single-flight sheet). (v4 UI/UX Revamp share-card customization)
 struct StatsShareCardCustomizationView: View {
     let data: StatsShareCardData
     @ObservedObject var appState: AppState

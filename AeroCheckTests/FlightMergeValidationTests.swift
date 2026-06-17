@@ -163,7 +163,7 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertEqual(clamped.waypointProximityThreshold, 500)
     }
 
-    // MARK: - Theme preference persistence (UX-09 / Phase 3.5)
+    // MARK: - Theme preference persistence (UX-09 / v4 UI/UX Revamp)
 
     func testThemePreferenceDefaultsMigratesAndRoundTrips() throws {
         // Absent preference (and absent legacy keys) defaults to day.

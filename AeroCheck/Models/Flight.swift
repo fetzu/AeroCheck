@@ -111,7 +111,7 @@ struct Flight: Identifiable, Codable {
 
     /// User-pinned flag. Favorited flights sort to the top of the logbook and show a gold star.
     /// Optional + backward-compatible: legacy records decode to `false`. Toggling bumps `modifiedAt`
-    /// so it rides the CloudKit conflict tiebreaker like any other scalar edit. (3.3 favorites)
+    /// so it rides the CloudKit conflict tiebreaker like any other scalar edit. (v4 UI/UX Revamp favorites)
     var isFavorite: Bool
 
     /// Current flight record schema version. Records claiming a higher version come from a newer

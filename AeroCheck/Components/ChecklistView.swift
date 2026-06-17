@@ -12,7 +12,7 @@ struct TimestampActionButton: View {
     var timestampSuffix: String = ""
     let isPulsing: Bool
     /// HUD bottom-bar style: single row at NEXT's height/corner radius (no timestamp/hint stacked
-    /// below), so it sits flush next to the NEXT button. (Phase 3.1)
+    /// below), so it sits flush next to the NEXT button. (v4 UI/UX Revamp)
     var compact: Bool = false
     let onFirstPress: () -> Void
     let onUpdateTime: () -> Void
@@ -28,7 +28,7 @@ struct TimestampActionButton: View {
     
     var body: some View {
         VStack(spacing: compact ? 0 : 8) {
-            // The button — black text on the colour, matching the NEXT button. (Phase 3.1)
+            // The button — black text on the colour, matching the NEXT button. (v4 UI/UX Revamp)
             HStack {
                 Image(systemName: icon)
                 Text(title)
@@ -217,7 +217,7 @@ struct ChecklistView: View {
     var checklistLanguage: String = "en" // Language code for button translations
     /// When embedded in the iPad HUD: hide the redundant page/title header, the inline briefing banner
     /// (it's a phase-aware tile), and the inline action buttons (engine-start / line-up / events live
-    /// in the HUD bottom bar + event row). (Phase 3.1)
+    /// in the HUD bottom bar + event row). (v4 UI/UX Revamp)
     var hudMode: Bool = false
 
     // Engine hours display
@@ -227,7 +227,7 @@ struct ChecklistView: View {
     var engineHourEndInputFormat: String? = nil
     var onEditEngineHourStart: (() -> Void)? = nil
     var onEditEngineHourEnd: (() -> Void)? = nil
-    /// Owned by the parent so tap-to-advance / completion include revealed items. (Phase 3.1)
+    /// Owned by the parent so tap-to-advance / completion include revealed items. (v4 UI/UX Revamp)
     @Binding var hiddenItemsRevealed: Bool
 
     // State for temporarily revealing hidden items
@@ -407,7 +407,7 @@ struct ChecklistView: View {
                         let isCompleted = stepByStepEnabled && index < highlightedItemIndex
 
                         Group {
-                            // The CURRENT item becomes the one-glance "hero" (Phase 3.1 HUD): same
+                            // The CURRENT item becomes the one-glance "hero" (v4 UI/UX Revamp HUD): same
                             // challenge/response data, rendered large and themed (compact-scaled on
                             // iPhone). Completed/upcoming items stay as normal rows. The global
                             // tap-to-advance hint already lives in the header, so it's suppressed on
@@ -444,7 +444,7 @@ struct ChecklistView: View {
                 .onChange(of: highlightedItemIndex) { _, newIndex in
                     // Keep the current item near the TOP so completed items scroll up out of the way and
                     // the upcoming items dominate the view — but not flush-top, so the just-completed
-                    // item stays visible for confirmation. (Phase 3.1 feedback)
+                    // item stays visible for confirmation. (v4 UI/UX Revamp feedback)
                     if newIndex < visibleItems.count {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             scrollProxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.12))
@@ -736,7 +736,7 @@ struct ChecklistItemRow: View {
     }
     
     // Past/future rows are deliberately muted "one-liners" so the current item (rendered as the hero
-    // card) is the focus. (Phase 3.1)
+    // card) is the focus. (v4 UI/UX Revamp)
 
     private var challengeColor: Color {
         isCompleted ? .dimText : .secondaryText
@@ -747,7 +747,7 @@ struct ChecklistItemRow: View {
     }
 
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
-    // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / Phase 3.1)
+    // wrap vertically via .fixedSize, so large sizes grow the row instead of clipping). (UX-14 / v4 UI/UX Revamp)
     private var itemFont: Font {
         .system(isCompact ? .subheadline : .callout, design: .monospaced).weight(.medium)
     }
@@ -760,7 +760,7 @@ struct ChecklistItemRow: View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline, spacing: 0) {
                 // Leading status slot — a check for completed items, empty otherwise. The item NUMBER is
-                // intentionally dropped: it added clutter to the muted past/future rows. (Phase 3.1)
+                // intentionally dropped: it added clutter to the muted past/future rows. (v4 UI/UX Revamp)
                 Group {
                     if isCompleted {
                         Image(systemName: "checkmark")
@@ -1022,7 +1022,7 @@ struct CompactSpeedRow: View {
 // MARK: - Briefing Views
 
 /// Departure briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
-/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (Phase 3.1)
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
 struct DepartureBriefingContent: View {
     let context: BriefingContext
 
@@ -1085,7 +1085,7 @@ struct DepartureBriefingContent: View {
 }
 
 /// Approach briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
-/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (Phase 3.1)
+/// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
 struct ApproachBriefingContent: View {
     let context: BriefingContext
 

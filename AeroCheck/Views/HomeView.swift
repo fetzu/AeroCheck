@@ -107,7 +107,7 @@ struct HomeView: View {
     @State private var selectedAircraftIndex: Int = 0
     @State private var cachedItemCountText: String = "—"
     /// Mirrors the body's rail-layout test (iPad landscape). When true, the rail destinations present
-    /// as leading-edge slide-in overlays instead of the default bottom covers. (3.5 — device feedback)
+    /// as leading-edge slide-in overlays instead of the default bottom covers. (v4 UI/UX Revamp — device feedback)
     @State private var useRailLayout: Bool = false
     /// Latest computed rail value; applied to `useRailLayout` only when no destination is open, so a
     /// rotation / app-switch resize never tears down (and loses) a presented destination. (orientation)
@@ -120,10 +120,10 @@ struct HomeView: View {
             || showFlightPlanning || lastFlightForDetail != nil
     }
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
-    /// show immediately; the Flight Log nav button clears it to open the plain list. (3.5 — feedback)
+    /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
     @State private var flightLogSelectionID: UUID? = nil
     /// Non-rail (portrait / iPhone): the last-flight strip opens this flight's detail directly, so its
-    /// back button returns to Home rather than the Flight Log list. (3.5 — feedback round 2)
+    /// back button returns to Home rather than the Flight Log list. (v4 UI/UX Revamp — feedback round 2)
     @State private var lastFlightForDetail: Flight? = nil
 
     /// Check if we're on a compact width device (iPhone)
@@ -172,7 +172,7 @@ struct HomeView: View {
                         .ignoresSafeArea()
 
                     if rail {
-                        // iPad landscape: command rail (nav) + hero canvas. (3.5 redesign — Direction 1)
+                        // iPad landscape: command rail (nav) + hero canvas. (v4 UI/UX Revamp — Direction 1)
                         HStack(spacing: 0) {
                             navRail
                             heroCanvas(landscape: true, isCompact: false)
@@ -200,7 +200,7 @@ struct HomeView: View {
 
             // In the rail layout, the four rail destinations slide in from the leading edge (they sit
             // "behind" the left rail), rather than the default bottom cover. Portrait keeps the covers
-            // below. (3.5 — device feedback)
+            // below. (v4 UI/UX Revamp — device feedback)
             railDestinationOverlays
         }
         // When the last destination closes, apply any layout change deferred while it was open.
@@ -233,7 +233,7 @@ struct HomeView: View {
                 .environmentObject(locationManager)
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
-        // returns to Home, not the Flight Log list. (3.5 — feedback round 2)
+        // returns to Home, not the Flight Log list. (v4 UI/UX Revamp — feedback round 2)
         .fullScreenCover(item: $lastFlightForDetail) { flight in
             NavigationStack {
                 FlightDetailView(flight: flight)
@@ -330,7 +330,7 @@ struct HomeView: View {
 
     /// Routes a rail destination to the default bottom cover only in the portrait/compact layout.
     /// In the rail layout it stays unpresented here so `railDestinationOverlays` can slide it in from
-    /// the leading edge instead. (3.5 — device feedback)
+    /// the leading edge instead. (v4 UI/UX Revamp — device feedback)
     private func coverBinding(_ flag: Binding<Bool>) -> Binding<Bool> {
         Binding(
             get: { flag.wrappedValue && !useRailLayout },
@@ -348,7 +348,7 @@ struct HomeView: View {
     /// The four rail destinations, presented as full-screen overlays that slide in from the leading
     /// edge (they live "behind" the left rail). Each destination still owns its dismissal: Settings /
     /// Flight Log / Speeds route their close button to `onClose`; NavigationMapView flips its own
-    /// `isPresented` binding. The per-flag `.animation` drives both the slide-in and the slide-out. (3.5)
+    /// `isPresented` binding. The per-flag `.animation` drives both the slide-in and the slide-out. (v4 UI/UX Revamp)
     @ViewBuilder
     private var railDestinationOverlays: some View {
         if useRailLayout {
@@ -372,7 +372,7 @@ struct HomeView: View {
                 if showSpeedReference {
                     // Speed Reference stays a *popup* (not a full takeover) — the landscape analog of
                     // the portrait bottom sheet: a constrained card sliding in from the leading edge
-                    // over a dimmed backdrop, tap-outside to dismiss. (3.5 — device feedback)
+                    // over a dimmed backdrop, tap-outside to dismiss. (v4 UI/UX Revamp — device feedback)
                     ZStack(alignment: .leading) {
                         Color.black.opacity(0.35)
                             .ignoresSafeArea()
@@ -466,10 +466,10 @@ struct HomeView: View {
     }
     
     /// The hero canvas: aircraft selector + Start/Circuits + GPS + last-flight, centred. Shared by the
-    /// landscape rail layout and the portrait stack. (3.5 redesign — Direction 1)
+    /// landscape rail layout and the portrait stack. (v4 UI/UX Revamp — Direction 1)
     private func heroCanvas(landscape: Bool, isCompact: Bool) -> some View {
         // The hero, Start/Circuits, and last-flight all share one width so the column reads as a unit.
-        // GPS lives in the rail foot (landscape) / brand header (portrait), not wedged in here. (3.5)
+        // GPS lives in the rail foot (landscape) / brand header (portrait), not wedged in here. (v4 UI/UX Revamp)
         VStack(spacing: landscape ? 18 : (isCompact ? 16 : 24)) {
             aircraftCard(isLandscape: false, isCompact: isCompact)   // the fuller, taller card
                 .frame(maxWidth: heroWidth)
@@ -483,7 +483,7 @@ struct HomeView: View {
     }
 
     /// Last-flight + flight-plan strips: side by side on a wide canvas, stacked otherwise. Ordered
-    /// past → future (left/top = last flight, right/bottom = flight plan). (3.5 — device feedback)
+    /// past → future (left/top = last flight, right/bottom = flight plan). (v4 UI/UX Revamp — device feedback)
     @ViewBuilder
     private func activityStrips(sideBySide: Bool) -> some View {
         if sideBySide {
@@ -499,10 +499,10 @@ struct HomeView: View {
         }
     }
 
-    /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (3.5)
+    /// Shared width for the hero card, the Start/Circuits line, and the last-flight strip. (v4 UI/UX Revamp)
     private var heroWidth: CGFloat { 620 }
 
-    /// Brand mark for the portrait header (no gear — Settings lives in the tab bar now). (3.5)
+    /// Brand mark for the portrait header (no gear — Settings lives in the tab bar now). (v4 UI/UX Revamp)
     private func brandHeader(isCompact: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -520,7 +520,7 @@ struct HomeView: View {
                     .foregroundColor(.secondaryText)
             }
             Spacer()
-            // The single GPS status for portrait / iPhone (landscape shows it in the rail foot). (3.5)
+            // The single GPS status for portrait / iPhone (landscape shows it in the rail foot). (v4 UI/UX Revamp)
             gpsStatusIndicator(isCompact: isCompact)
         }
     }
@@ -566,11 +566,11 @@ struct HomeView: View {
         }
     }
 
-    /// The four destination buttons — laid out vertically (rail) or horizontally (tab bar). (3.5)
+    /// The four destination buttons — laid out vertically (rail) or horizontally (tab bar). (v4 UI/UX Revamp)
     @ViewBuilder
     private var navButtons: some View {
         // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
-        // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (3.5 — device feedback)
+        // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (v4 UI/UX Revamp — device feedback)
         navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
         navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
         navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
@@ -608,13 +608,13 @@ struct HomeView: View {
         .accessibilityLabel((badge ?? 0) > 0 ? "\(label), \(badge!)" : label)
     }
 
-    /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (3.5)
+    /// Compact "last flight" strip surfaced on the console — taps into the Flight Log. (v4 UI/UX Revamp)
     @ViewBuilder
     private var lastFlightStrip: some View {
         if let last = appState.flights.max(by: { ($0.startTime ?? .distantPast) < ($1.startTime ?? .distantPast) }) {
             // iPad rail (landscape): open the 2-column Flight Log with this flight in the right pane.
             // Otherwise (portrait / iPhone): open its detail directly so back returns to Home, not the
-            // Flight Log list. (3.5 — feedback round 2)
+            // Flight Log list. (v4 UI/UX Revamp — feedback round 2)
             Button {
                 if useRailLayout {
                     flightLogSelectionID = last.id
@@ -662,7 +662,7 @@ struct HomeView: View {
 
     /// Smart flight-plan strip, in priority order: the active plan (route + waypoints), else a plan
     /// scheduled for today (route + departure time, gold), else the saved-count link, else nothing.
-    /// Taps into the flight-plan list. (3.5 — device feedback)
+    /// Taps into the flight-plan list. (v4 UI/UX Revamp — device feedback)
     @ViewBuilder
     private var flightPlanStrip: some View {
         if let active = flightPlanManager.activeFlightPlan {
@@ -675,7 +675,7 @@ struct HomeView: View {
     }
 
     /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
-    /// imminent flight is one tap away instead of buried behind the generic list. (3.5)
+    /// imminent flight is one tap away instead of buried behind the generic list. (v4 UI/UX Revamp)
     private var todaysFlightPlan: FlightPlan? {
         let calendar = Calendar.current
         return flightPlanManager.flightPlans
@@ -749,7 +749,7 @@ struct HomeView: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    /// START FLIGHT (green) + CIRCUITS (amber) — shared by the stacked layout and the iPad console. (3.5)
+    /// START FLIGHT (green) + CIRCUITS (amber) — shared by the stacked layout and the iPad console. (v4 UI/UX Revamp)
     private func startCircuitsButtons(isLandscape: Bool, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 8 : 12) {
             Button(action: startFlight) {
@@ -807,17 +807,17 @@ struct HomeView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: isLandscape ? 100 : (isCompact ? 120 : 180))
-            // Discoverability: tappable edge chevrons hint the carousel without shouting. (3.5)
+            // Discoverability: tappable edge chevrons hint the carousel without shouting. (v4 UI/UX Revamp)
             .overlay(alignment: .leading) { carouselChevron(.left, count: aircraft.count) }
             .overlay(alignment: .trailing) { carouselChevron(.right, count: aircraft.count) }
 
-            // Aircraft indicator chip: dots + "N / M aircraft" (only when more than one). (3.5)
+            // Aircraft indicator chip: dots + "N / M aircraft" (only when more than one). (v4 UI/UX Revamp)
             if aircraft.count > 1 {
                 HStack(spacing: 7) {
                     HStack(spacing: 5) {
                         ForEach(0..<aircraft.count, id: \.self) { index in
                             // Active page reads as an elongated gold pill (App Store / onboarding
-                            // convention — also matches OnboardingView's pageDots). (3.5 — feedback)
+                            // convention — also matches OnboardingView's pageDots). (v4 UI/UX Revamp — feedback)
                             let isActive = index == selectedAircraftIndex
                             Capsule()
                                 .fill(isActive ? Color.aviationGold : Color.dimText.opacity(0.5))
@@ -840,7 +840,7 @@ struct HomeView: View {
             AviationDivider()
                 .padding(.horizontal, isCompact ? 16 : (isLandscape ? 20 : 40))
 
-            // Quick stats — cockpit stat chips (checklist version / phases / items). (3.5 redesign)
+            // Quick stats — cockpit stat chips (checklist version / phases / items). (v4 UI/UX Revamp)
             HStack(spacing: isCompact ? 8 : 10) {
                 homeStatChip("CHECKLIST", selectedAircraft.map { "v\($0.version)" } ?? "—", .aviationGold, compact: isLandscape || isCompact)
                 homeStatChip("PHASES", "\(ChecklistPhase.allCases.count)", .altimeterBlue, compact: isLandscape || isCompact)
@@ -858,7 +858,7 @@ struct HomeView: View {
     private enum CarouselDirection { case left, right }
 
     /// A tappable carousel chevron (prev/next aircraft), dimmed/disabled at the ends. Only shown when
-    /// there's more than one aircraft, so it hints the swipe without adding weight otherwise. (3.5)
+    /// there's more than one aircraft, so it hints the swipe without adding weight otherwise. (v4 UI/UX Revamp)
     @ViewBuilder
     private func carouselChevron(_ direction: CarouselDirection, count: Int) -> some View {
         if count > 1 {
@@ -911,7 +911,7 @@ struct HomeView: View {
     }
 
     /// A cockpit stat chip for the home card: tiny tracked label over a mono value, on the darker
-    /// cockpit surface for contrast against the card. (Phase 3.5 redesign)
+    /// cockpit surface for contrast against the card. (v4 UI/UX Revamp)
     private func homeStatChip(_ label: String, _ value: String, _ color: Color, compact: Bool) -> some View {
         VStack(spacing: 3) {
             Text(label)

@@ -111,7 +111,7 @@ struct SubscriptionView: View {
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.subtleOverlay(0.06), lineWidth: 1))
         )
     }
 
@@ -133,7 +133,7 @@ struct SubscriptionView: View {
             }
             .padding(.vertical, 9)
             if !isLast {
-                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 41)
+                Rectangle().fill(Color.subtleOverlay(0.06)).frame(height: 1).padding(.leading, 41)
             }
         }
     }
@@ -270,7 +270,7 @@ struct ProductCard: View {
                             Text(L10n.Subscription.bestValue)
                                 .font(.caption2)
                                 .fontWeight(.bold)
-                                .foregroundColor(.black)
+                                .foregroundColor(.onAccent)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
                                 .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGold))
@@ -298,7 +298,7 @@ struct ProductCard: View {
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.cardBackground)
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(product.isYearly ? Color.aviationGold : Color.white.opacity(0.08), lineWidth: product.isYearly ? 2 : 1))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(product.isYearly ? Color.aviationGold : Color.subtleOverlay(0.08), lineWidth: product.isYearly ? 2 : 1))
             )
         }
         .disabled(subscriptionManager.isPurchasing)

@@ -388,16 +388,20 @@ private struct ConfettiLayer: View {
 // MARK: - Logo + overlay
 
 private struct AmbientLogoCard: View {
+    /// Overall side length of the square logo; everything scales from it so the mark grows to fit
+    /// the available screen (much bigger on iPad; capped so it never clips on iPhone).
+    let side: CGFloat
+
     var body: some View {
         ZStack {
             UnitielMark()
-                .frame(width: 190, height: 243)
-            CurvedText(text: AmbientCopy.title, radius: 150, size: 25, uiWeight: .heavy,
+                .frame(width: side * 0.50, height: side * 0.64)
+            CurvedText(text: AmbientCopy.title, radius: side * 0.41, size: side * 0.068, uiWeight: .heavy,
                        color: .white, side: .top, tracking: 1, shadow: AmbientTheme.accent)
-            CurvedText(text: AmbientCopy.subtitle, radius: 152, size: 13, uiWeight: .bold,
+            CurvedText(text: AmbientCopy.subtitle, radius: side * 0.415, size: side * 0.0355, uiWeight: .bold,
                        color: AmbientTheme.cotton, side: .bottom, tracking: 3)
         }
-        .frame(width: 366, height: 366)
+        .frame(width: side, height: side)
     }
 }
 
@@ -419,8 +423,12 @@ struct AmbientCelebrationOverlay: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                 if showLogo {
-                    AmbientLogoCard()
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    GeometryReader { geo in
+                        AmbientLogoCard(side: min(540, min(geo.size.width, geo.size.height) * 0.92))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .ignoresSafeArea()
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
             }
         }

@@ -428,7 +428,9 @@ struct AppRootView<Content: View>: View {
             // An installed runtime accent takes precedence over the user's resolved mode.
             .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
             // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
-            .environment(\.colorScheme, .dark)
+            // The runtime light treatment flips this to `.light` so system controls (toggles, pickers),
+            // materials and any default/semantic text render correctly on the light surfaces.
+            .environment(\.colorScheme, AmbientPalette.isActive ? .light : .dark)
             .ambientCelebrationOverlay()
     }
 }

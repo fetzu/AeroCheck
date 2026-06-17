@@ -812,7 +812,7 @@ struct ChecklistItemRow: View {
             // Subtle separator line
             if showSeparator {
                 Rectangle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.subtleOverlay(0.08))
                     .frame(height: 1)
                     .padding(.leading, isCompact ? 22 : 28)
             }

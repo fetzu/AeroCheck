@@ -643,7 +643,7 @@ struct FlightView: View {
     private func cruiseCheckColors(due: Bool, started: Bool) -> (label: Color, fill: Color, stroke: Color) {
         if due { return (.black, .aviationAmber, Color(red: 1.0, green: 0.81, blue: 0.52)) }
         if started { return (.aviationGreen, Color.aviationGreen.opacity(0.14), Color.aviationGreen.opacity(0.5)) }
-        return (.secondaryText, Color.white.opacity(0.05), Color.white.opacity(0.12))
+        return (.secondaryText, .subtleOverlay(0.05), .subtleOverlay(0.12))
     }
 
     /// Countdown remaining as "M:SS". (v4 UI/UX Revamp)

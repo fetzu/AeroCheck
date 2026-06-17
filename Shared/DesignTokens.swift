@@ -34,4 +34,14 @@ extension Color {
 
     // Instrument accent
     static let altimeterBlue = Color(red: 0.4, green: 0.6, blue: 0.8)
+
+    // On-accent text: white over the pink runtime accent, black over the standard gold — for text and
+    // glyphs sitting ON an `.aviationGold`-filled control.
+    static var onAccent: Color { AmbientPalette.isActive ? Color.white : Color.black }
+
+    /// A subtle overlay that adapts: a faint white lift on the dark cockpit, a faint dark tint on a
+    /// light runtime theme — so hairlines, insets and inactive fills stay visible in both.
+    static func subtleOverlay(_ opacity: Double) -> Color {
+        AmbientPalette.isActive ? Color.black.opacity(min(1, opacity * 1.6)) : Color.white.opacity(opacity)
+    }
 }

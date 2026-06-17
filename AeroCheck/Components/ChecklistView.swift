@@ -32,10 +32,15 @@ struct TimestampActionButton: View {
             HStack {
                 Image(systemName: icon)
                 Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
             .font(.system(size: compact ? 20 : 18, weight: .bold))
             .foregroundColor(compact ? .black : .white)
-            .padding(.horizontal, compact ? 18 : 24)
+            // Compact = HUD bottom bar: fill width + match NEXT's vertical padding so the heights are
+            // identical; the title shrinks (one line) rather than wrapping when the row is tight.
+            .frame(maxWidth: compact ? .infinity : nil)
+            .padding(.horizontal, compact ? 0 : 24)
             .padding(.vertical, compact ? 18 : 14)
             .background(
                 ZStack {

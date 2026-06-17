@@ -1389,12 +1389,15 @@ struct FlightView: View {
                 Text(appState.activeChecklist.registration)
                     .font(isCompact ? .system(size: 14, weight: .semibold) : .headerText)
                     .foregroundColor(abandonFlightProgress > 0 ? .aviationRed : .primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)   // never wrap the registration; shrink slightly if tight
 
                 // Circuit mode indicator
                 if appState.isCircuitMode {
                     Text(L10n.Flight.forCircuits)
                         .font(isCompact ? .system(size: 11, weight: .medium) : .system(size: 13, weight: .medium))
                         .foregroundColor(.aviationAmber)
+                        .lineLimit(1)
                 }
             }
         }

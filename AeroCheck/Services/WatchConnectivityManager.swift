@@ -144,20 +144,24 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             return
         }
 
+        // Always stage the latest snapshot in the application context, so a watch resuming from the
+        // background (wrist-raise) reads the freshest state immediately rather than a stale one. The OS
+        // coalesces these and delivers only the most recent, so calling it each tick is fine. (sync freshness)
+        try? session.updateApplicationContext([
+            WatchConnectivityKeys.flightData: encodedData,
+            WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
+        ])
+
+        // When the watch is reachable (both apps active), also push live for ~instant updates.
         if session.isReachable {
-            // Send as message for real-time updates
             let message: [String: Any] = [
                 WatchConnectivityKeys.messageType: WatchMessage.dataUpdate.rawValue,
                 WatchConnectivityKeys.flightData: encodedData,
                 WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
             ]
-
-            session.sendMessage(message, replyHandler: nil) { error in
-                // Silently fail for periodic updates
+            session.sendMessage(message, replyHandler: nil) { _ in
+                // Silently fail for periodic updates — the staged context covers it.
             }
-        } else {
-            // Fall back to application context
-            updateApplicationContext(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
         }
     }
 

@@ -1343,6 +1343,13 @@ struct RouteBuilderMapView: UIViewRepresentable {
             parent.region = mapView.region
         }
 
+        // Fires continuously while the user pans/zooms (not just at the end), so the profile's
+        // "looking here" band tracks the map live instead of snapping on release. (feedback)
+        func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
+            guard !isDragging else { return } // don't fight an in-progress waypoint/line drag
+            parent.region = mapView.region
+        }
+
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let tile = overlay as? MKTileOverlay {
                 return MKTileOverlayRenderer(tileOverlay: tile)
@@ -1738,10 +1745,11 @@ private struct RouteProfileView: View {
     @State private var dragKind: DragKind?
     @State private var draggingIndex: Int?
     @State private var draggingAltitude: Double?
-    @State private var addHoldWork: DispatchWorkItem?   // deferred add: only after a deliberate hold
-    @State private var addArmed = false
+    @State private var addHoldWork: DispatchWorkItem?   // deferred create: only after a short hold
     @State private var addAnchor: CGPoint?
-    private enum DragKind { case altitude(Int); case add }
+    @State private var creatingNM: Double?              // a new point being held-then-dragged into place
+    @State private var creatingAltitude: Double?
+    private enum DragKind { case altitude(Int); case add; case creating }
 
     private let leftPad: CGFloat = 38
     private let bottomPad: CGFloat = 16
@@ -1890,18 +1898,39 @@ private struct RouteProfileView: View {
                      at: CGPoint(x: g.px(nm), y: g.size.height - 5), anchor: .center)
         }
 
-        // live altitude readout while dragging a dot — a magenta pill so it reads on any background
+        // live altitude readout while dragging an existing dot
         if let i = draggingIndex, let a = draggingAltitude, i < lineFt.count {
-            let p = CGPoint(x: g.px(lineFt[i].nm), y: g.py(lineFt[i].ft))
-            let resolved = ctx.resolve(Text(altLabel(a) + (a >= 10000 ? "" : " ft"))
-                .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.black))
-            let sz = resolved.measure(in: CGSize(width: 140, height: 30))
-            let cx = min(max(p.x, g.plot.minX + sz.width / 2 + 8), g.plot.maxX - sz.width / 2 - 8)
-            let cy = (p.y - 16 < g.plot.minY + 10) ? p.y + 18 : p.y - 16
-            let pill = CGRect(x: cx - sz.width / 2 - 5, y: cy - sz.height / 2 - 2, width: sz.width + 10, height: sz.height + 4)
-            ctx.fill(Path(roundedRect: pill, cornerRadius: 5), with: .color(Self.magenta))
-            ctx.draw(resolved, at: CGPoint(x: cx, y: cy), anchor: .center)
+            drawReadout(ctx, g: g, at: CGPoint(x: g.px(lineFt[i].nm), y: g.py(lineFt[i].ft)), altitude: a)
         }
+
+        // a new point being held-then-dragged into place: a dot on the finger, dashed connectors to the
+        // waypoints it will sit between, and its altitude readout. (feedback)
+        if let nm = creatingNM, let a = creatingAltitude {
+            let dot = CGPoint(x: g.px(nm), y: g.py(a))
+            if !lineFt.isEmpty {
+                var leftIdx = 0
+                for (i, p) in lineFt.enumerated() where p.nm <= nm { leftIdx = i }
+                let rightIdx = min(leftIdx + 1, lineFt.count - 1)
+                for idx in Set([leftIdx, rightIdx]) {
+                    let np = CGPoint(x: g.px(lineFt[idx].nm), y: g.py(lineFt[idx].ft))
+                    var seg = Path(); seg.move(to: dot); seg.addLine(to: np)
+                    ctx.stroke(seg, with: .color(Self.magenta.opacity(0.6)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                }
+            }
+            ctx.fill(Path(ellipseIn: CGRect(x: dot.x - 5, y: dot.y - 5, width: 10, height: 10)), with: .color(Self.magenta))
+            drawReadout(ctx, g: g, at: dot, altitude: a)
+        }
+    }
+
+    private func drawReadout(_ ctx: GraphicsContext, g: Geometry, at p: CGPoint, altitude a: Double) {
+        let resolved = ctx.resolve(Text(altLabel(a) + (a >= 10000 ? "" : " ft"))
+            .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.black))
+        let sz = resolved.measure(in: CGSize(width: 140, height: 30))
+        let cx = min(max(p.x, g.plot.minX + sz.width / 2 + 8), g.plot.maxX - sz.width / 2 - 8)
+        let cy = (p.y - 16 < g.plot.minY + 10) ? p.y + 18 : p.y - 16
+        let pill = CGRect(x: cx - sz.width / 2 - 5, y: cy - sz.height / 2 - 2, width: sz.width + 10, height: sz.height + 4)
+        ctx.fill(Path(roundedRect: pill, cornerRadius: 5), with: .color(Self.magenta))
+        ctx.draw(resolved, at: CGPoint(x: cx, y: cy), anchor: .center)
     }
 
     // MARK: Editing gestures (R3)
@@ -1913,49 +1942,55 @@ private struct RouteProfileView: View {
                     if onSetAltitude != nil, let i = nearestDot(to: v.startLocation, g: g) {
                         dragKind = .altitude(i); draggingIndex = i
                     } else {
-                        // Not on a dot — arm a deliberate hold-to-add (a quick tap no longer adds). (feedback)
+                        // Not on a dot — a short hold creates a point you then drag into place; a quick
+                        // tap or the start of a scrub does nothing. (feedback)
                         dragKind = .add
-                        if onAddAtDistance != nil { armAdd(at: v.startLocation) }
+                        if onAddAtDistance != nil { armCreate(at: v.startLocation, g: g) }
                     }
                 }
                 switch dragKind {
                 case .altitude:
                     draggingAltitude = snapAlt(g.ftRaw(forY: v.location.y))
                 case .add:
-                    if let a = addAnchor, hypot(v.location.x - a.x, v.location.y - a.y) > 16 { cancelAdd() }
+                    if let a = addAnchor, hypot(v.location.x - a.x, v.location.y - a.y) > 16 { cancelCreate() }
+                case .creating:
+                    creatingNM = g.nm(forX: v.location.x)
+                    creatingAltitude = snapAlt(g.ftRaw(forY: v.location.y))
                 case .none: break
                 }
             }
-            .onEnded { v in
+            .onEnded { _ in
                 switch dragKind {
                 case .altitude(let i):
                     if let a = draggingAltitude { onSetAltitude?(i, a) }
-                case .add:
-                    if addArmed, abs(v.translation.width) < 16, abs(v.translation.height) < 16 {
-                        onAddAtDistance?(g.nm(forX: v.location.x), snapAlt(g.ftRaw(forY: v.location.y)))
-                    }
-                case .none: break
+                case .creating:
+                    if let nm = creatingNM, let a = creatingAltitude { onAddAtDistance?(nm, a) }
+                case .add, .none: break // released before the hold fired → no point
                 }
-                cancelAdd()
+                cancelCreate()
                 dragKind = nil; draggingIndex = nil; draggingAltitude = nil
+                creatingNM = nil; creatingAltitude = nil
             }
     }
 
-    /// Arm a deferred add — a new point drops only after a deliberate ~0.5 s hold (haptic on arm), so a
-    /// quick tap or the start of a scrub never creates a stray waypoint. (feedback)
-    private func armAdd(at p: CGPoint) {
-        cancelAdd()
+    /// After a short ~0.2 s hold on an empty spot, materialise a new point under the finger (haptic);
+    /// the finger then drags it into place (distance ← x, altitude ← y) before release commits it. A
+    /// quick tap or the start of a scrub cancels before it fires, so nothing is created by accident.
+    private func armCreate(at p: CGPoint, g: Geometry) {
+        cancelCreate()
         addAnchor = p
         let work = DispatchWorkItem {
-            addArmed = true
+            dragKind = .creating
+            creatingNM = g.nm(forX: p.x)
+            creatingAltitude = snapAlt(g.ftRaw(forY: p.y))
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
         addHoldWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
     }
 
-    private func cancelAdd() {
-        addHoldWork?.cancel(); addHoldWork = nil; addArmed = false; addAnchor = nil
+    private func cancelCreate() {
+        addHoldWork?.cancel(); addHoldWork = nil; addAnchor = nil
     }
 
     /// Waypoint index whose dot is within ~28 pt of `p`, or nil.

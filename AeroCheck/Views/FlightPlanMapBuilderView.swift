@@ -87,7 +87,7 @@ struct FlightPlanMapBuilderView: View {
                     } else {
                         VStack(spacing: 0) {
                             leftSide
-                                .frame(height: geo.size.height * 0.5)
+                                .frame(height: geo.size.height * 0.65)   // map + profile get the lion's share on iPhone
                             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
                             rightColumn
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)

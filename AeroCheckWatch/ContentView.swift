@@ -162,11 +162,14 @@ struct FlightScreen: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            // Stage-tinted current phase at the top.
-            PhaseBadge(
-                name: connectivityManager.flightData.currentPhaseName,
-                rawValue: connectivityManager.flightData.currentPhaseRawValue
-            )
+            // Stage-tinted current phase, pinned left (clear of the system clock at top-right).
+            HStack {
+                PhaseBadge(
+                    name: connectivityManager.flightData.currentPhaseName,
+                    rawValue: connectivityManager.flightData.currentPhaseRawValue
+                )
+                Spacer()
+            }
 
             // Wall clock — the Flight screen's hero.
             TimeDisplayView(
@@ -192,23 +195,33 @@ struct FlightScreen: View {
 
             Spacer()
 
-            // Next phase
+            // Next phase — gold-accented card (matches the approved mockup).
             if let nextPhase = connectivityManager.flightData.nextPhaseName {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.right.circle")
+                HStack(spacing: 7) {
+                    Image(systemName: "arrow.right")
                         .foregroundColor(.aviationGold)
-                        .font(.system(size: 10))
-
+                        .font(.system(size: 12, weight: .bold))
+                    Text("NEXT")
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundColor(.secondary)
+                    Spacer(minLength: 4)
                     Text(nextPhase)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.aviationGold)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
                 .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
+                .background(
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground)
+                        Rectangle().fill(Color.aviationGold).frame(width: 3)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                )
             }
         }
         .padding(.horizontal, 4)

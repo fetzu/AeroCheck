@@ -406,6 +406,7 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
 /// `.environment(\.colorScheme, _)` is local-only, leaving the device setting readable. (round 6)
 struct AppRootView<Content: View>: View {
     @ObservedObject var appState: AppState
+    @ObservedObject private var ambient = AmbientController.shared
     @Environment(\.colorScheme) private var systemColorScheme
     private let content: Content
 
@@ -417,12 +418,17 @@ struct AppRootView<Content: View>: View {
     var body: some View {
         let systemIsDark = systemColorScheme == .dark
         content
+            // A fresh identity when the runtime accent revision changes forces the view tree to
+            // re-read the (computed) design tokens so an installed override takes effect everywhere.
+            .id(ambient.revision)
             // Night mode: dims the flight instruments to the red/amber palette; `.system` follows the
             // device scheme read above (UX-09 / v4 UI/UX Revamp).
             .environment(\.isNightMode, appState.settings.effectiveNightMode(systemIsDark: systemIsDark))
             // Cockpit theme: app-wide semantic palette the revamped screens read (v4 UI/UX Revamp).
-            .environment(\.cockpitTheme, CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
+            // An installed runtime accent takes precedence over the user's resolved mode.
+            .environment(\.cockpitTheme, CockpitTheme.ambientOverride ?? CockpitTheme.resolve(appState.settings.cockpitThemeMode(systemIsDark: systemIsDark)))
             // Force the app's appearance dark WITHOUT a window override, so the read above stays valid.
             .environment(\.colorScheme, .dark)
+            .ambientCelebrationOverlay()
     }
 }

@@ -510,6 +510,8 @@ struct HomeView: View {
                     Image(systemName: "airplane")
                         .font(.system(size: isCompact ? 22 : 28))
                         .foregroundColor(.aviationGold)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 5) { AmbientController.shared.engage() }
                     Text("AéroCheck")
                         .font(.system(size: isCompact ? 20 : 26, weight: .bold))
                         .foregroundColor(.primaryText)
@@ -536,6 +538,8 @@ struct HomeView: View {
                 .font(.system(size: 26))
                 .foregroundColor(.aviationGold)
                 .padding(.top, 18)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 5) { AmbientController.shared.engage() }
                 .accessibilityHidden(true)
             Spacer()
             VStack(spacing: 6) {

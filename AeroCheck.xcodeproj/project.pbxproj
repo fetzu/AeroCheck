@@ -81,6 +81,10 @@
 		A3000009211111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
 		A3000009311111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
 		A3000009411111110000009 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3000009111111110000009 /* DesignTokens.swift */; };
+		A300000A211111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
+		A300000A311111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
+		A300000A411111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
+		A1000001211111110000062 /* AmbientCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000062 /* AmbientCelebration.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B3000001211111110000001 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000001 /* SubscriptionManager.swift */; };
@@ -214,6 +218,7 @@
 		A1000001111111110000001 /* AeroCheckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckApp.swift; sourceTree = "<group>"; };
 		A1000001111111110000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001111111110000003 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		A1000001111111110000062 /* AmbientCelebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientCelebration.swift; sourceTree = "<group>"; };
 		A1000001111111110000004 /* FlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightView.swift; sourceTree = "<group>"; };
 		A1000001111111110000005 /* FlightLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLogView.swift; sourceTree = "<group>"; };
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -243,6 +248,7 @@
 		A3000001111111110000001 /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		A3000001111111110000002 /* WatchConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityData.swift; sourceTree = "<group>"; };
 		A3000009111111110000009 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
+		A300000A111111110000009 /* AmbientPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientPalette.swift; sourceTree = "<group>"; };
 		A4000001111111110000000 /* AeroCheckWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheckWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -411,6 +417,7 @@
 				J1000003111111110000001 /* Settings */,
 				A1000001111111110000002 /* ContentView.swift */,
 				A1000001111111110000003 /* HomeView.swift */,
+				A1000001111111110000062 /* AmbientCelebration.swift */,
 				A1000001111111110000004 /* FlightView.swift */,
 				D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */,
 				E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */,
@@ -526,6 +533,7 @@
 			children = (
 				A3000001111111110000002 /* WatchConnectivityData.swift */,
 				A3000009111111110000009 /* DesignTokens.swift */,
+				A300000A111111110000009 /* AmbientPalette.swift */,
 				58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */,
 			);
 			path = Shared;
@@ -776,6 +784,8 @@
 				A3000001211111110000001 /* WatchConnectivityManager.swift in Sources */,
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
 				A3000009211111110000009 /* DesignTokens.swift in Sources */,
+				A300000A211111110000009 /* AmbientPalette.swift in Sources */,
+				A1000001211111110000062 /* AmbientCelebration.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
 				3C226443148C497A84702219 /* CompanionFlightView.swift in Sources */,
@@ -815,6 +825,7 @@
 			files = (
 				A2000001211111110000003 /* AeroCheckWidget.swift in Sources */,
 				A3000009311111110000009 /* DesignTokens.swift in Sources */,
+				A300000A311111110000009 /* AmbientPalette.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -827,6 +838,7 @@
 				A4000001211111110000003 /* WatchConnectivityManager.swift in Sources */,
 				A4000001211111110000004 /* WatchConnectivityData.swift in Sources */,
 				A3000009411111110000009 /* DesignTokens.swift in Sources */,
+				A300000A411111110000009 /* AmbientPalette.swift in Sources */,
 				0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

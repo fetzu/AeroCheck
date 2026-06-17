@@ -526,6 +526,6 @@ struct CoordinatePickerView: View {
         ),
         aircraftType: "WT9",
         onSave: { _ in },
-        onDelete: { print("Delete tapped") }
+        onDelete: { }
     )
 }

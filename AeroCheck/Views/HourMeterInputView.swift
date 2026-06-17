@@ -347,8 +347,6 @@ struct HourMeterInputView: View {
     HourMeterInputView(
         isPresented: .constant(true),
         phase: .start,
-        onSubmit: { hours, format in
-            print("Submitted: \(hours) hours (format: \(format))")
-        }
+        onSubmit: { _, _ in }
     )
 }

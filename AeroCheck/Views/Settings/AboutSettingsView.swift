@@ -13,6 +13,7 @@ struct AboutSettingsView: View {
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
     @State private var marketingMode: Bool = false
+    @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
     private let tint: Color = .secondaryText
 
@@ -39,6 +40,20 @@ struct AboutSettingsView: View {
         .sheet(isPresented: $showSubscriptionLogs) {
             SubscriptionDebugLogView(debugLogger: subscriptionManager.debugLogger)
                 .environmentObject(subscriptionManager)
+        }
+        // Dev: preview the restyled flight-event confirmation prompt without flying. (temporary)
+        .overlay {
+            if let event = previewEvent {
+                ZStack {
+                    Color.black.opacity(0.5).ignoresSafeArea()
+                        .onTapGesture { previewEvent = nil }
+                    EventConfirmationView(
+                        event: event,
+                        onConfirm: { previewEvent = nil },
+                        onDismiss: { previewEvent = nil }
+                    )
+                }
+            }
         }
     }
 
@@ -278,6 +293,14 @@ struct AboutSettingsView: View {
                                   tint: tint, showsChevron: false, destructive: true) {
                     appState.settings.hasCompletedOnboarding = false
                     appState.saveSettings()
+                }
+
+                // Temporary: fire a sample detected event so the restyled confirmation prompt can be
+                // verified without flying a pattern.
+                SettingsButtonRow(icon: "bell.badge", title: "Preview event prompt",
+                                  tint: tint, showsChevron: false) {
+                    previewEvent = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: nil,
+                                                       message: "Touch-and-go detected (preview)")
                 }
             }
             .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in

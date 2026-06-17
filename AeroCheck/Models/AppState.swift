@@ -99,7 +99,7 @@ struct AppSettings: Codable, Equatable {
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 
     // Flight logging
-    var logEngineHours: Bool = false // When true, prompts for hour meter reading at engine start and stop
+    var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
 
     // Onboarding
     var hasCompletedOnboarding: Bool = false // When true, onboarding has been completed or skipped
@@ -244,7 +244,7 @@ struct AppSettings: Codable, Equatable {
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
         showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
-        logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? false
+        logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
         gpsPriority = try container.decodeIfPresent(GPSPriority.self, forKey: .gpsPriority) ?? .precision
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue

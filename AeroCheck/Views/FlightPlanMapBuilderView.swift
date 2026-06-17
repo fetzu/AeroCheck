@@ -1054,38 +1054,43 @@ private struct WaypointBuilderRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Numbered badge
-            Text("\(index + 1)")
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundColor(.black)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(Color.aviationGold))
-                .accessibilityLabel("Waypoint \(index + 1)")
+            // The whole left region (badge + name + leg data) is one tap target → opens the waypoint
+            // editor; only the altitude chip on the right stays a separate input. (feedback)
+            Button(action: onTap) {
+                HStack(spacing: 12) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(Color.aviationGold))
 
-            VStack(alignment: .leading, spacing: 3) {
-                Button(action: onTap) {
-                    Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primaryText)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(waypoint.name.isEmpty ? "WPT\(index + 1)" : waypoint.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primaryText)
+                            .lineLimit(1)
+                        // Inline leg data to the NEXT waypoint (nil on the last waypoint).
+                        if !isLast {
+                            Text(legLine)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.dimText)
+                                .lineLimit(1)
+                        } else {
+                            Text("destination")
+                                .font(.system(size: 11))
+                                .foregroundColor(.dimText)
+                        }
+                    }
+
+                    Spacer(minLength: 6)
                 }
-                .buttonStyle(.plain)
-                // Inline leg data to the NEXT waypoint (nil on the last waypoint).
-                if !isLast {
-                    Text(legLine)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.dimText)
-                        .lineLimit(1)
-                } else {
-                    Text("destination")
-                        .font(.system(size: 11))
-                        .foregroundColor(.dimText)
-                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(waypoint.name.isEmpty ? "Waypoint \(index + 1)" : waypoint.name)
+            .accessibilityHint(L10n.Nav.editWaypoint)
 
-            Spacer(minLength: 6)
-
-            // Editable altitude chip (feet).
+            // Editable altitude chip (feet) — separate tap target.
             HStack(spacing: 3) {
                 TextField("ALT", text: $altitudeText)
                     .keyboardType(.numberPad)

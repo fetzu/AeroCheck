@@ -106,15 +106,20 @@ struct FlightPlanMapBuilderView: View {
                 ToolbarItem(placement: .principal) {
                     if waypoints.count >= 1 { toolbarSummary }
                 }
+                // Two surfaced icon buttons (there's room on iPad): Nav Log + gold Export GPX. (#5 feedback)
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button { exportGPX() } label: { Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up") }
-                        Button { showTableEditor = true } label: { Label(L10n.Nav.tableEditor, systemImage: "tablecells") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
+                    Button { showTableEditor = true } label: {
+                        Image(systemName: "list.clipboard")
                     }
                     .disabled(waypoints.isEmpty)
-                    .accessibilityLabel(L10n.Nav.moreActions)
+                    .accessibilityLabel(L10n.Nav.navLog)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { exportGPX() } label: {
+                        Image(systemName: "square.and.arrow.up").foregroundColor(.aviationGold)
+                    }
+                    .disabled(waypoints.count < 2)
+                    .accessibilityLabel(L10n.Nav.exportGPX)
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: focusToken)
@@ -956,7 +961,8 @@ struct FlightPlanMapBuilderView: View {
     private func addProfilePoint(atNM nm: Double, altitude: Double) {
         guard let coord = coordinate(atNM: nm) else { return }
         let index = insertionIndex(forNM: nm)
-        flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coord)
+        // Tag profile-dropped points "WPT (ALT)" so they're distinguishable from map-tapped ones. (#5 feedback)
+        flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: coord, name: "WPT (ALT)")
         if let p = plan, index < p.waypoints.count {
             var wp = p.waypoints[index]
             wp.altitude = altitude

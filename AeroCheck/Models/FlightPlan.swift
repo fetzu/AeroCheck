@@ -978,10 +978,17 @@ extension FlightPlan {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyyMMdd"
         let dateStr = dateFormatter.string(from: plannedDepartureTime ?? createdAt)
-        let cleanName = name.isEmpty ? "FlightPlan" : name
-            .replacingOccurrences(of: " ", with: "_")
-            .replacingOccurrences(of: "/", with: "-")
-        return "AeroCheck_\(dateStr)_\(cleanName)"
+        let clean: (String) -> String = {
+            $0.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: "/", with: "-")
+        }
+        let cleanName = clean(name.isEmpty ? "FlightPlan" : name)
+        // Include the route endpoints (e.g. LSZQ-LSZB) so a file is identifiable at a glance. (#5 feedback)
+        var route = ""
+        if waypoints.count >= 2 {
+            let from = clean(waypoints.first?.name ?? ""), to = clean(waypoints.last?.name ?? "")
+            if !from.isEmpty, !to.isEmpty { route = "\(from)-\(to)_" }
+        }
+        return "AeroCheck_\(dateStr)_\(route)\(cleanName)"
     }
 }
 

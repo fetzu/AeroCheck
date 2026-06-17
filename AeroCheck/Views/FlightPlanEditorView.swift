@@ -66,6 +66,9 @@ struct FlightPlanEditorView: View {
     init(flightPlan: FlightPlan, isViewingFromFlightLog: Bool = false) {
         _flightPlan = State(initialValue: flightPlan)
         self.isViewingFromFlightLog = isViewingFromFlightLog
+        // Coming from the Flight Log, the Logbook/Times are the point of interest → expand by default;
+        // from the planning side they're post-flight noise → stay collapsed. (#5 feedback)
+        _logbookExpanded = State(initialValue: isViewingFromFlightLog)
     }
 
     var body: some View {
@@ -86,7 +89,7 @@ struct FlightPlanEditorView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color.cockpitBackground)
-            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.flightPlan : flightPlan.name)
+            .navigationTitle(flightPlan.name.isEmpty ? L10n.Nav.navLog : flightPlan.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

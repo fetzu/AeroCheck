@@ -1,5 +1,4 @@
 import SwiftUI
-import WatchConnectivity
 import UIKit
 
 /// Main application entry point

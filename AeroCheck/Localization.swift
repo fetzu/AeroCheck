@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 /// Get a localized string in a specific language
 /// - Parameters:

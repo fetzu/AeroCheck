@@ -968,8 +968,6 @@ struct DebugLogRow: View {
 
 // MARK: - Premium Aircraft List
 
-import SwiftUI
-
 /// View displaying all premium aircraft available from the API
 struct PremiumAircraftListView: View {
     @EnvironmentObject var appState: AppState

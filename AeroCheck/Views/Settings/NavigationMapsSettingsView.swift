@@ -21,8 +21,10 @@ struct NavigationMapsSettingsView: View {
     @State private var showOpenAIPDeleteConfirmation: Bool = false
     @State private var isLoadingSettings: Bool = false
 
+    private let tint: Color = .aviationGreen
+
     var body: some View {
-        Form {
+        SettingsPage {
             navigationSection
             offlineMapsSection
             openAIPSection
@@ -77,25 +79,20 @@ struct NavigationMapsSettingsView: View {
     // MARK: - Navigation Section
 
     private var navigationSection: some View {
-        Section {
-            Toggle(L10n.Settings.forceICAO, isOn: $forceICAOChartLayer)
+        SettingsGroup(title: L10n.Settings.navigation, tint: tint, footer: L10n.Settings.forceICAOFooter) {
+            SettingsToggleRow(icon: "map", title: L10n.Settings.forceICAO, tint: tint, isOn: $forceICAOChartLayer)
                 .disabled(offlineMode)
-            Toggle(L10n.Nav.trackVector, isOn: $showTrackVector)
-            Text(L10n.Nav.trackVectorDesc)
-                .font(.caption)
-                .foregroundColor(.secondaryText)
-        } header: {
-            Label(L10n.Settings.navigation, systemImage: "map")
-        } footer: {
-            Text(L10n.Settings.forceICAOFooter)
+            SettingsToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector,
+                              subtitle: L10n.Nav.trackVectorDesc, tint: tint, isOn: $showTrackVector)
         }
     }
 
     // MARK: - Offline Maps Section
 
+    @ViewBuilder
     private var offlineMapsSection: some View {
-        Section {
-            Toggle(L10n.Settings.offlineMode, isOn: $offlineMode)
+        SettingsGroup(title: L10n.Settings.offlineMaps, tint: tint, footer: offlineMapsFooter) {
+            SettingsToggleRow(icon: "arrow.down.circle", title: L10n.Settings.offlineMode, tint: tint, isOn: $offlineMode)
                 .onChange(of: offlineMode) { _, newValue in
                     if newValue && !offlineMapManager.isCacheAvailable {
                         showDownloadModal = true
@@ -104,80 +101,49 @@ struct NavigationMapsSettingsView: View {
 
             if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
                 if offlineMapManager.isCacheAvailable {
-                    HStack {
-                        Text(L10n.Settings.icaoChart)
-                        Spacer()
-                        Text(offlineMapManager.cacheVersion)
-                            .foregroundColor(.secondary)
-                    }
+                    SettingsValueRow(title: L10n.Settings.icaoChart, tint: tint, value: offlineMapManager.cacheVersion)
                 }
 
                 if offlineMapManager.isSegelflugCacheAvailable {
-                    HStack {
-                        Text(L10n.Settings.segelflugkarte)
-                        Spacer()
-                        Text(offlineMapManager.segelflugCacheVersion)
-                            .foregroundColor(.secondary)
-                    }
+                    SettingsValueRow(title: L10n.Settings.segelflugkarte, tint: tint, value: offlineMapManager.segelflugCacheVersion)
                 }
 
-                HStack {
-                    Text(L10n.Settings.totalCacheSize)
-                    Spacer()
-                    Text(offlineMapManager.formattedCacheSize)
-                        .foregroundColor(.secondary)
-                }
+                SettingsValueRow(title: L10n.Settings.totalCacheSize, tint: tint, value: offlineMapManager.formattedCacheSize)
 
-                Button(action: { showDownloadModal = true }) {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text(L10n.Settings.updateCharts)
-                    }
-                }
+                SettingsButtonRow(icon: "arrow.clockwise", title: L10n.Settings.updateCharts, tint: tint,
+                                  showsChevron: false, action: { showDownloadModal = true })
 
-                Button(role: .destructive, action: { showDeleteConfirmation = true }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(L10n.Settings.deleteCache)
-                    }
-                }
+                SettingsButtonRow(icon: "trash", title: L10n.Settings.deleteCache, tint: tint,
+                                  showsChevron: false, destructive: true, action: { showDeleteConfirmation = true })
             } else {
-                Button(action: { showDownloadModal = true }) {
-                    HStack {
-                        Image(systemName: "arrow.down.circle")
-                        Text(L10n.Settings.downloadCharts)
-                    }
-                }
+                SettingsButtonRow(icon: "arrow.down.circle", title: L10n.Settings.downloadCharts, tint: tint,
+                                  showsChevron: false, action: { showDownloadModal = true })
             }
-        } header: {
-            Label(L10n.Settings.offlineMaps, systemImage: "arrow.down.circle")
-        } footer: {
-            offlineMapsFooter
         }
     }
 
-    @ViewBuilder
-    private var offlineMapsFooter: some View {
+    private var offlineMapsFooter: String {
         if offlineMode {
             if offlineMapManager.isSegelflugCacheAvailable {
-                Text(L10n.Settings.offlineActive)
+                return L10n.Settings.offlineActive
             } else {
-                Text(L10n.Settings.onlyICAO)
+                return L10n.Settings.onlyICAO
             }
         } else if offlineMapManager.isCacheAvailable {
-            Text(L10n.Settings.chartsCached)
+            return L10n.Settings.chartsCached
         } else {
-            Text(L10n.Settings.downloadDesc)
+            return L10n.Settings.downloadDesc
         }
     }
 
     // MARK: - OpenAIP Section
 
+    @ViewBuilder
     private var openAIPSection: some View {
-        Section {
-            Toggle(L10n.Settings.airspaceOverlay, isOn: $showOpenAIPOverlay)
+        SettingsGroup(title: L10n.Settings.openAIPAirspace, tint: tint, footer: L10n.Settings.openAIPFooter) {
+            SettingsToggleRow(icon: "shield", title: L10n.Settings.airspaceOverlay, tint: tint, isOn: $showOpenAIPOverlay)
 
-            Toggle(L10n.Settings.airspaceStreaming, isOn: Binding(
+            SettingsToggleRow(icon: "dot.radiowaves.left.and.right", title: L10n.Settings.airspaceStreaming, tint: tint, isOn: Binding(
                 get: { enableAirspaceStreaming },
                 set: { newValue in
                     if newValue {
@@ -189,6 +155,7 @@ struct NavigationMapsSettingsView: View {
             ))
 
             if openAIPDataService.isDownloading {
+                // Download-in-progress row: spinner + progress bar, housed with the row container insets.
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         ProgressView()
@@ -199,7 +166,10 @@ struct NavigationMapsSettingsView: View {
                     ProgressView(value: openAIPDataService.downloadProgress)
                         .tint(.aviationGold)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             } else if openAIPDataService.isDataAvailable {
+                // Multi-line status row: stacked text label + trailing update badge.
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.airspacesLoaded(openAIPDataService.airspaceCount))
@@ -224,34 +194,25 @@ struct NavigationMapsSettingsView: View {
                             .accessibilityLabel(L10n.Settings.airportUpdateAvailable)
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             }
 
             if openAIPCacheManager.isCacheAvailable {
-                HStack {
-                    Text(L10n.Settings.tileCache)
-                    Spacer()
-                    Text(openAIPCacheManager.formattedCacheSize)
-                        .foregroundColor(.secondary)
-                }
+                SettingsValueRow(title: L10n.Settings.tileCache, tint: tint, value: openAIPCacheManager.formattedCacheSize)
             }
 
-            Button(action: { showOpenAIPDownloadSheet = true }) {
-                HStack {
-                    Image(systemName: openAIPDataService.isDataAvailable ? "arrow.triangle.2.circlepath" : "arrow.down.circle")
-                    Text(openAIPDataService.isDataAvailable ? L10n.Settings.updateData : L10n.Settings.downloadData)
-                }
-            }
+            SettingsButtonRow(icon: openAIPDataService.isDataAvailable ? "arrow.triangle.2.circlepath" : "arrow.down.circle",
+                              title: openAIPDataService.isDataAvailable ? L10n.Settings.updateData : L10n.Settings.downloadData,
+                              tint: tint, showsChevron: false, action: { showOpenAIPDownloadSheet = true })
 
             if openAIPDataService.isDataAvailable || openAIPCacheManager.isCacheAvailable {
-                Button(role: .destructive, action: { showOpenAIPDeleteConfirmation = true }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(L10n.Settings.deleteOpenAIPData)
-                    }
-                }
+                SettingsButtonRow(icon: "trash", title: L10n.Settings.deleteOpenAIPData, tint: tint,
+                                  showsChevron: false, destructive: true, action: { showOpenAIPDeleteConfirmation = true })
             }
 
             if let error = openAIPDataService.downloadError ?? openAIPCacheManager.downloadError {
+                // Error row: warning glyph + red caption, housed with the row container insets.
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationRed)
@@ -259,19 +220,19 @@ struct NavigationMapsSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.aviationRed)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             }
-        } header: {
-            Label(L10n.Settings.openAIPAirspace, systemImage: "shield")
-        } footer: {
-            Text(L10n.Settings.openAIPFooter)
         }
     }
 
     // MARK: - Airport Data Section
 
+    @ViewBuilder
     private var airportDataSection: some View {
-        Section {
+        SettingsGroup(title: L10n.Settings.airportData, tint: tint, footer: L10n.Settings.airportDataFooter) {
             if airportDataService.isDownloading {
+                // Download-in-progress row: spinner + progress bar, housed with the row container insets.
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         ProgressView()
@@ -282,7 +243,10 @@ struct NavigationMapsSettingsView: View {
                     ProgressView(value: airportDataService.downloadProgress)
                         .tint(.aviationGold)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             } else if airportDataService.isDataAvailable {
+                // Multi-line status row: stacked text label + trailing update badge.
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.airportsLoaded(airportDataService.airportCount))
@@ -301,38 +265,23 @@ struct NavigationMapsSettingsView: View {
                             .accessibilityLabel(L10n.Settings.airportUpdateAvailable)
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
 
-                Toggle(L10n.Settings.showAirportsOnMap, isOn: $showAirportsOnMap)
+                SettingsToggleRow(icon: "mappin.and.ellipse", title: L10n.Settings.showAirportsOnMap, tint: tint, isOn: $showAirportsOnMap)
 
-                Button(action: {
-                    Task { await airportDataService.downloadData() }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text(L10n.Settings.updateAirportData)
-                    }
-                }
+                SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.updateAirportData, tint: tint,
+                                  showsChevron: false, action: { Task { await airportDataService.downloadData() } })
 
-                Button(role: .destructive, action: {
-                    airportDataService.deleteData()
-                }) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text(L10n.Settings.deleteAirportData)
-                    }
-                }
+                SettingsButtonRow(icon: "trash", title: L10n.Settings.deleteAirportData, tint: tint,
+                                  showsChevron: false, destructive: true, action: { airportDataService.deleteData() })
             } else {
-                Button(action: {
-                    Task { await airportDataService.downloadData() }
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.down.circle")
-                        Text(L10n.Settings.downloadAirportData)
-                    }
-                }
+                SettingsButtonRow(icon: "arrow.down.circle", title: L10n.Settings.downloadAirportData, tint: tint,
+                                  showsChevron: false, action: { Task { await airportDataService.downloadData() } })
             }
 
             if let error = airportDataService.downloadError {
+                // Error row: warning glyph + red caption, housed with the row container insets.
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.aviationRed)
@@ -340,11 +289,9 @@ struct NavigationMapsSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.aviationRed)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             }
-        } header: {
-            Label(L10n.Settings.airportData, systemImage: "building.2")
-        } footer: {
-            Text(L10n.Settings.airportDataFooter)
         }
     }
 

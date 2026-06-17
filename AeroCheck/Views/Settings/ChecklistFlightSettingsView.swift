@@ -14,11 +14,37 @@ struct ChecklistFlightSettingsView: View {
     @State private var themePreference: ThemePreference = .day
     @State private var isLoadingSettings: Bool = false
 
+    private let tint: Color = .altimeterBlue
+
     var body: some View {
-        Form {
-            checklistSection
-            flightLoggingSection
-            displaySection
+        SettingsPage {
+            SettingsGroup(title: L10n.Settings.checklist, tint: tint) {
+                SettingsToggleRow(icon: "checklist", title: L10n.Settings.stepByStep,
+                                  subtitle: L10n.Settings.stepByStepFooter, tint: tint, isOn: $stepByStepHighlighting)
+                SettingsToggleRow(icon: "graduationcap", title: L10n.Settings.learningMode,
+                                  subtitle: L10n.Settings.learningModeFooter, tint: tint, isOn: $learningMode)
+                SettingsToggleRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.circuitMode,
+                                  subtitle: L10n.Settings.circuitModeFooter, tint: tint, isOn: $enableCircuitMode)
+                SettingsMenuRow(icon: "character.bubble", title: L10n.Settings.checklistLanguage,
+                                subtitle: L10n.Settings.checklistLanguageFooter, tint: tint, selection: $checklistLanguage) {
+                    ForEach(ChecklistLanguage.availableLanguages) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+            }
+
+            SettingsGroup(title: L10n.Settings.flightLogging, tint: tint) {
+                SettingsToggleRow(icon: "clock.badge.checkmark", title: L10n.Settings.logEngineHours,
+                                  subtitle: L10n.Settings.logEngineHoursFooter, tint: tint, isOn: $logEngineHours)
+            }
+
+            SettingsGroup(title: L10n.Settings.display, tint: tint) {
+                SettingsToggleRow(icon: "sun.max", title: L10n.Settings.keepScreenOn,
+                                  subtitle: L10n.Settings.keepScreenOnFooter, tint: tint, isOn: $keepScreenOn)
+                SettingsToggleRow(icon: "globe", title: L10n.Settings.alwaysUseUTC,
+                                  subtitle: L10n.Settings.alwaysUseUTCFooter, tint: tint, isOn: $alwaysUseUTC)
+                themeRow
+            }
         }
         .navigationTitle(L10n.Settings.checklistAndFlight)
         .navigationBarTitleDisplayMode(.inline)
@@ -34,64 +60,22 @@ struct ChecklistFlightSettingsView: View {
         .onChange(of: themePreference) { _, _ in if !isLoadingSettings { saveSettings() } }
     }
 
-    // MARK: - Checklist Section
+    // MARK: - Theme (segmented, label above)
 
-    private var checklistSection: some View {
-        Section {
-            Toggle(L10n.Settings.stepByStep, isOn: $stepByStepHighlighting)
-            Toggle(L10n.Settings.learningMode, isOn: $learningMode)
-            Toggle(L10n.Settings.circuitMode, isOn: $enableCircuitMode)
-
-            Picker(L10n.Settings.checklistLanguage, selection: $checklistLanguage) {
-                ForEach(ChecklistLanguage.availableLanguages) { language in
-                    Text(language.displayName).tag(language)
-                }
-            }
-        } header: {
-            Label(L10n.Settings.checklist, systemImage: "checklist")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.stepByStepFooter)
-                Text(L10n.Settings.learningModeFooter)
-                Text(L10n.Settings.circuitModeFooter)
-                Text(L10n.Settings.checklistLanguageFooter)
-            }
-        }
-    }
-
-    // MARK: - Flight Logging Section
-
-    private var flightLoggingSection: some View {
-        Section {
-            Toggle(L10n.Settings.logEngineHours, isOn: $logEngineHours)
-        } header: {
-            Label(L10n.Settings.flightLogging, systemImage: "clock.badge.checkmark")
-        } footer: {
-            Text(L10n.Settings.logEngineHoursFooter)
-        }
-    }
-
-    // MARK: - Display Section
-
-    private var displaySection: some View {
-        Section {
-            Toggle(L10n.Settings.keepScreenOn, isOn: $keepScreenOn)
-            Toggle(L10n.Settings.alwaysUseUTC, isOn: $alwaysUseUTC)
+    private var themeRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            SettingsRowLabel(icon: "circle.lefthalf.filled", title: L10n.Settings.theme, subtitle: L10n.Settings.themeFooter, tint: tint)
             Picker(L10n.Settings.theme, selection: $themePreference) {
                 Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
                 Text(L10n.Settings.themeDay).tag(ThemePreference.day)
                 Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
                 Text(L10n.Settings.themeNight).tag(ThemePreference.night)
             }
-        } header: {
-            Label(L10n.Settings.display, systemImage: "sun.max.fill")
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.Settings.keepScreenOnFooter)
-                Text(L10n.Settings.alwaysUseUTCFooter)
-                Text(L10n.Settings.themeFooter)
-            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Settings Persistence

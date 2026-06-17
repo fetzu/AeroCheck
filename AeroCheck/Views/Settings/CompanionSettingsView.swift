@@ -10,8 +10,10 @@ struct CompanionSettingsView: View {
     @State private var isLoadingSettings: Bool = false
     @State private var showPairingSheet: Bool = false
 
+    private let tint: Color = .aviationGold
+
     var body: some View {
-        Form {
+        SettingsPage {
             enableSection
             if enableCompanionMode {
                 roleSection
@@ -35,70 +37,54 @@ struct CompanionSettingsView: View {
     // MARK: - Enable Section
 
     private var enableSection: some View {
-        Section {
-            Toggle(L10n.Companion.enableCompanionMode, isOn: $enableCompanionMode)
-        } footer: {
-            Text(L10n.Companion.enableDescription)
+        SettingsGroup(title: nil, tint: tint, footer: L10n.Companion.enableDescription) {
+            SettingsToggleRow(icon: "ipad.and.iphone", title: L10n.Companion.enableCompanionMode,
+                              tint: tint, isOn: $enableCompanionMode)
         }
     }
 
     // MARK: - Role Section
 
     private var roleSection: some View {
-        Section {
-            Picker(L10n.Companion.deviceRole, selection: $companionRole) {
+        SettingsGroup(title: nil, tint: tint, footer: resolvedRoleDescription.isEmpty ? nil : resolvedRoleDescription) {
+            SettingsMenuRow(icon: "person.2", title: L10n.Companion.deviceRole,
+                            tint: tint, selection: $companionRole) {
                 ForEach(CompanionRoleSetting.allCases) { role in
                     Text(role.displayName).tag(role)
                 }
             }
-        } footer: {
-            Text(resolvedRoleDescription)
         }
     }
 
     // MARK: - Pairing Section
 
     private var pairingSection: some View {
-        Section(L10n.Companion.pairedDevices) {
+        SettingsGroup(title: L10n.Companion.pairedDevices, tint: tint) {
             if companionConnectivityManager.pairedDevices.isEmpty {
-                HStack {
-                    Image(systemName: "ipad.and.iphone")
-                        .foregroundColor(.secondary)
-                    Text(L10n.Companion.noPairedDevices)
-                        .foregroundColor(.secondary)
-                }
+                SettingsValueRow(icon: "ipad.and.iphone", title: L10n.Companion.noPairedDevices,
+                                 tint: tint, value: "")
             } else {
                 ForEach(companionConnectivityManager.pairedDevices) { device in
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.aviationGreen)
-                        VStack(alignment: .leading) {
-                            Text(device.name ?? L10n.Companion.unknownDevice)
-                                .foregroundColor(.primary)
-                            if let pairingName = device.pairingName {
-                                Text(pairingName)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
+                    SettingsRowLabel(icon: "checkmark.circle.fill",
+                                     title: device.name ?? L10n.Companion.unknownDevice,
+                                     subtitle: device.pairingName,
+                                     tint: .aviationGreen)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
                 }
             }
 
-            Button(action: { showPairingSheet = true }) {
-                HStack {
-                    Image(systemName: "plus.circle")
-                    Text(L10n.Companion.pairNewDevice)
-                }
-            }
-            .disabled(!companionConnectivityManager.isWiFiAwareSupported)
+            SettingsButtonRow(icon: "plus.circle", title: L10n.Companion.pairNewDevice,
+                              tint: tint, showsChevron: false,
+                              action: { showPairingSheet = true })
+                .disabled(!companionConnectivityManager.isWiFiAwareSupported)
         }
     }
 
     // MARK: - Connection Section
 
     private var connectionSection: some View {
-        Section(L10n.Companion.connection) {
+        SettingsGroup(title: L10n.Companion.connection, tint: tint) {
             switch companionConnectivityManager.connectionState {
             case .disconnected:
                 disconnectedRow
@@ -109,7 +95,10 @@ struct CompanionSettingsView: View {
                         .padding(.trailing, 8)
                     Text(L10n.Companion.pairing)
                         .foregroundColor(.secondary)
+                    Spacer(minLength: 8)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
 
             case .connecting:
                 HStack {
@@ -117,7 +106,10 @@ struct CompanionSettingsView: View {
                         .padding(.trailing, 8)
                     Text(L10n.Companion.connecting)
                         .foregroundColor(.secondary)
+                    Spacer(minLength: 8)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
 
             case .connected:
                 connectedRow
@@ -128,7 +120,10 @@ struct CompanionSettingsView: View {
                         .padding(.trailing, 8)
                     Text(L10n.Companion.reconnecting)
                         .foregroundColor(.orange)
+                    Spacer(minLength: 8)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
             }
         }
     }
@@ -138,74 +133,48 @@ struct CompanionSettingsView: View {
             let resolvedRole = companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
             if companionConnectivityManager.hasPairedDevices {
                 if resolvedRole == .viewer {
-                    Button(action: {
-                        companionConnectivityManager.connectToPairedDevice()
-                    }) {
-                        HStack {
-                            Image(systemName: "link")
-                            Text(L10n.Companion.connectToiPad)
-                        }
-                    }
+                    SettingsButtonRow(icon: "link", title: L10n.Companion.connectToiPad,
+                                      tint: tint, showsChevron: false,
+                                      action: { companionConnectivityManager.connectToPairedDevice() })
                 } else {
-                    Button(action: {
-                        companionConnectivityManager.startListening()
-                    }) {
-                        HStack {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text(L10n.Companion.startListening)
-                        }
-                    }
+                    SettingsButtonRow(icon: "antenna.radiowaves.left.and.right", title: L10n.Companion.startListening,
+                                      tint: tint, showsChevron: false,
+                                      action: { companionConnectivityManager.startListening() })
                 }
             } else {
-                Text(L10n.Companion.pairDeviceFirst)
-                    .foregroundColor(.secondary)
+                SettingsValueRow(icon: "exclamationmark.circle", title: L10n.Companion.pairDeviceFirst,
+                                 tint: tint, value: "")
             }
         }
     }
 
     private var connectedRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.aviationGreen)
-                Text(L10n.Companion.connected)
-                    .foregroundColor(.aviationGreen)
-            }
-            if let deviceName = companionConnectivityManager.connectedDeviceName {
-                Text(String(format: L10n.Companion.connectedTo, deviceName))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            SettingsRowLabel(icon: "checkmark.circle.fill",
+                             title: L10n.Companion.connected,
+                             subtitle: companionConnectivityManager.connectedDeviceName.map { String(format: L10n.Companion.connectedTo, $0) },
+                             tint: .aviationGreen,
+                             titleColor: .aviationGreen)
             Button(role: .destructive, action: {
                 companionConnectivityManager.disconnect()
             }) {
                 Text(L10n.Companion.disconnect)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Info Section
 
     private var infoSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                Label {
-                    Text(L10n.Companion.wifiAwareInfo)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } icon: {
-                    Image(systemName: "wifi")
-                        .foregroundColor(.secondary)
-                }
-                Label {
-                    Text(L10n.Companion.noNetworkRequired)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } icon: {
-                    Image(systemName: "wifi.slash")
-                        .foregroundColor(.secondary)
-                }
-            }
+        SettingsGroup(title: nil, tint: tint) {
+            SettingsRowLabel(icon: "wifi", title: L10n.Companion.wifiAwareInfo, tint: tint)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+            SettingsRowLabel(icon: "wifi.slash", title: L10n.Companion.noNetworkRequired, tint: tint)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
         }
     }
 

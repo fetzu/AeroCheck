@@ -1023,6 +1023,205 @@ struct SettingsRow: View {
     }
 }
 
+// MARK: - Cockpit Settings Components (settings sub-page revamp)
+
+/// Lays settings rows out in a card with leading-inset hairlines between them (none after the last).
+/// `_VariadicView` is how SwiftUI itself interleaves separators between ViewBuilder children.
+private struct SettingsRowSeparators: _VariadicView_MultiViewRoot {
+    func body(children: _VariadicView.Children) -> some View {
+        let lastID = children.last?.id
+        return VStack(spacing: 0) {
+            ForEach(children) { child in
+                child
+                if child.id != lastID {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.06))
+                        .frame(height: 0.5)
+                        .padding(.leading, 14)
+                }
+            }
+        }
+    }
+}
+
+/// A vertical scroll of cockpit cards on the cockpit background — the shell for a settings sub-page.
+struct SettingsPage<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                content
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color.cockpitBackground.ignoresSafeArea())
+        .scrollContentBackground(.hidden)
+    }
+}
+
+/// A titled group: uppercase accent header + a card holding rows, plus an optional footer line.
+struct SettingsGroup<Content: View>: View {
+    var title: String? = nil
+    var tint: Color = .aviationGold
+    var footer: String? = nil
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let title {
+                Text(title.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.4)
+                    .foregroundColor(tint)
+                    .padding(.horizontal, 4)
+            }
+            _VariadicView.Tree(SettingsRowSeparators()) { content }
+                .background(Color.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                )
+            if let footer {
+                Text(footer)
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 6)
+            }
+        }
+    }
+}
+
+/// The leading content of a settings row: tinted icon disc + title + optional subtitle, then a spacer
+/// so a trailing control (toggle, value, chevron) is pushed to the edge.
+struct SettingsRowLabel: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    var titleColor: Color = .primaryText
+    var body: some View {
+        HStack(spacing: 13) {
+            if let icon {
+                ZStack {
+                    Circle().fill(tint.opacity(0.16)).frame(width: 34, height: 34)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(tint)
+                }
+                .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline).foregroundColor(titleColor)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+        }
+    }
+}
+
+/// A row carrying a gold-tinted toggle. The whole label is the toggle's label, so VoiceOver reads
+/// the title and switch state together.
+struct SettingsToggleRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    @Binding var isOn: Bool
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+        }
+        .tint(tint)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+
+/// A tappable row (navigation push or action), optionally showing a trailing value and a chevron.
+struct SettingsButtonRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    var value: String? = nil
+    var showsChevron: Bool = true
+    var destructive: Bool = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                SettingsRowLabel(icon: icon, title: title, subtitle: subtitle,
+                                 tint: destructive ? .aviationRed : tint,
+                                 titleColor: destructive ? .aviationRed : .primaryText)
+                if let value {
+                    Text(value).font(.subheadline).foregroundColor(.secondaryText).lineLimit(1)
+                }
+                if showsChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.dimText.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A read-only row: label on the left, a static value on the right.
+struct SettingsValueRow: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    let value: String
+    /// Colour of the value text — override to keep a status semantic (e.g. green/red authorisation).
+    var valueColor: Color = .secondaryText
+    var body: some View {
+        HStack(spacing: 10) {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+            Text(value)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(valueColor)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+}
+
+/// A row that opens a menu picker for an enum/value selection (label · current value · chevron).
+struct SettingsMenuRow<T: Hashable, Options: View>: View {
+    var icon: String? = nil
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .aviationGold
+    @Binding var selection: T
+    @ViewBuilder var options: Options
+    var body: some View {
+        Picker(selection: $selection) {
+            options
+        } label: {
+            SettingsRowLabel(icon: icon, title: title, subtitle: subtitle, tint: tint)
+        }
+        .pickerStyle(.menu)
+        .tint(.secondaryText)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+    }
+}
+
 // MARK: - Cockpit Instrument Panel (Phase 3.1 HUD)
 
 /// On-target state of the live speed, encoded by SHAPE/POSITION (the bar) as well as color, so it

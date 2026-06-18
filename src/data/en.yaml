@@ -1,7 +1,7 @@
 lang: "en"
 meta:
   title: "AéroCheck — Flight checklists, navigation & planning for pilots"
-  description: "Your digital co-pilot for flight checklists, navigation and planning — rebuilt from the ground up in 4.0, iPad-first. For student and experienced private pilots."
+  description: "Your digital co-pilot for flight checklists, navigation, flight planning and logging — for student and private pilots, from preflight to shutdown."
 brand: "AéroCheck"
 
 nav:
@@ -12,45 +12,44 @@ nav:
   download: "Download"
 
 hero:
-  eyebrow: "AeroCheck 4.0 · iPad-first"
+  eyebrow: "Stay ahead of the aircraft"
   title: "Your digital co-pilot for every phase of flight."
-  subtitle: "Flight checklists, navigation and planning — rebuilt from the ground up, iPad-first, for student and experienced private pilots."
+  subtitle: "Interactive checklists, full-screen charts, map-first flight planning and an automatic logbook — for student and private pilots, from preflight to shutdown."
   primary: { label: "Get it on GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
   secondary: { label: "Read the manual", href: "/manual", icon: "book-2" }
   cycle_caption: "auto-cycles: HUD · nav · planning · log"
-  cycle: ["hud", "nav", "planning", "log"]
+  cycle: ["hudhero", "nav", "planning", "log"]
 
 flagship:
   heading: "A flight, start to finish"
-  note: "rows reveal on scroll"
   items:
     - step: "01 · Plan"
       title: "Build the route by dragging on the map"
-      description: "Drag a waypoint to move it, drag the line to insert one, release near an airfield to auto-snap its name and frequency. A live route profile flags terrain clearance and airspace conflicts while you plan."
-      chips: ["From→To first", "Live drag & snap", "Terrain & airspace conflicts", "GPX export"]
+      description: "Drag a waypoint to move it, drag the line to insert one, release near an airfield to auto-snap its name and frequency. A live route profile flags terrain clearance and detects airspace conflicts along the way — worldwide OpenAIP coverage spanning 119 countries."
+      chips: ["From→To first", "Live drag & snap", "Terrain & airspace conflict detection", "OpenAIP · 119 countries", "GPX export"]
       shot: "planning"
     - step: "02 · Fly"
       title: "The right checklist step, right now"
-      description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases."
-      chips: ["16 phases", "13 aircraft", "On-target bar", "Hold-to-confirm events"]
+      description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases. Engine time, block time and go-arounds, touch-and-gos and landings are detected and logged automatically."
+      chips: ["16 phases", "13 aircraft", "On-target instrument strip", "Engine-time logging", "Departure & approach briefings", "Navigation peek", "Circuit mode", "Auto block-time", "Auto go-around / touch-and-go / landing"]
       shot: "hud"
     - step: "03 · Navigate"
       title: "Full-screen charts, frequencies in reach"
-      description: "Swiss ICAO charts with leg-by-leg timing, a ground-track trend vector and the FREDA cruise reminder, plus a current / next / emergency frequency panel. Cache maps for offline use."
-      chips: ["ICAO / Segelflug", "FREDA reminder", "CURRENT / NEXT / EMERG", "Offline cache"]
+      description: "Swiss ICAO charts, Apple vector & satellite, and a worldwide OpenAIP airspace overlay, with airports and navaids on tap. Leg-by-leg timing, a ground-track trend vector, the FREDA reminder and a current / next / emergency frequency panel — cache by continent or stream nearby airspace live."
+      chips: ["ICAO / Segelflug", "Apple vector & satellite", "OpenAIP airspace", "Airports & navaids", "CURRENT / NEXT / EMERG", "FREDA reminder", "Offline by continent", "Live airspace streaming"]
       shot: "nav"
-    - step: "04 · Stay clear"
-      title: "Worldwide airspace, offline-ready"
-      description: "An OpenAIP airspace overlay spanning 119 countries. Download a whole continent for offline use, or stream nearby controlled airspace in real time as you fly."
-      chips: ["119 countries", "OpenAIP", "Offline by continent", "Live streaming"]
-      shot: "airspace"
+    - step: "04 · Log"
+      title: "Every flight, logged automatically"
+      description: "A full GPS track with speed and altitude profile, automatic engine, block, line-up and landing times, and a tidy logbook you can filter, replay and share. Export GPX, JSON or ZIP for your records or avionics."
+      chips: ["GPS track & altitude profile", "Flight history & stats", "Filter & replay", "Share cards", "Export GPX / JSON / ZIP"]
+      shot: "log"
 
 supporting:
   heading: "Everything else"
   items:
-    - title: "GPS tracking & logging"
-      description: "Background tracking with real-time speed and altitude, plus automatic timing of engine start, line-up, landing and shutdown. Export as GPX, JSON or ZIP."
-      icon: "location"
+    - title: "Companion mode"
+      description: "Pair an iPad and iPhone over Wi-Fi Aware so the phone mirrors the master's live flight as a synced second screen — charts on one, checklist on the other."
+      icon: "devices"
     - title: "Departure & approach briefings"
       description: "Dynamic briefings with V-speeds, emergency procedures and nearby-airport detection — wind and runway suggestions from your GPS position."
       icon: "book-2"
@@ -60,7 +59,6 @@ supporting:
 
 ecosystem:
   - { label: "13 aircraft · 16 phases", icon: "plane" }
-  - { label: "Companion mode", icon: "devices" }
   - { label: "Apple Watch", icon: "clock" }
   - { label: "Cockpit themes", icon: "adjustments" }
   - { label: "iCloud sync", icon: "cloud" }
@@ -70,7 +68,11 @@ ecosystem:
 device_toggle: { ipad: "iPad", iphone: "iPhone" }
 
 footer:
-  made_with: "Made with"
+  made_by: "Made by"
+  author: "fetzu"
+  author_url: "https://fetzu.ch"
+  with: "with"
   in: "in"
   city: "Switzerland"
-  meta: "v4.0.0 · MIT"
+  license: "MIT"
+  license_url: "https://github.com/fetzu/AeroCheck/blob/main/LICENSE"

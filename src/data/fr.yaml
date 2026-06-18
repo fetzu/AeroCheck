@@ -1,7 +1,7 @@
 lang: "fr"
 meta:
   title: "AéroCheck — Checklists, navigation et planification de vol pour pilotes"
-  description: "Votre copilote numérique pour les checklists, la navigation et la planification de vol — entièrement repensé en 4.0, pensé d'abord pour l'iPad. Pour les élèves-pilotes comme pour les pilotes privés expérimentés."
+  description: "Votre copilote numérique pour les checklists, la navigation, la planification de vol et le carnet de vol — pour élèves-pilotes et pilotes privés, du prévol à l'arrêt moteur."
 brand: "AéroCheck"
 
 nav:
@@ -12,45 +12,44 @@ nav:
   download: "Télécharger"
 
 hero:
-  eyebrow: "AeroCheck 4.0 · pensé pour l'iPad"
+  eyebrow: "Toujours une longueur d'avance"
   title: "Votre copilote numérique, à chaque phase du vol."
-  subtitle: "Checklists, navigation et planification de vol — entièrement repensé, pensé d'abord pour l'iPad, pour les élèves-pilotes comme pour les pilotes privés expérimentés."
+  subtitle: "Checklists interactives, cartes plein écran, planification sur la carte et carnet de vol automatique — pour élèves-pilotes et pilotes privés, du prévol à l'arrêt moteur."
   primary: { label: "Obtenir sur GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
   secondary: { label: "Lire le manuel", href: "/fr/manual", icon: "book-2" }
   cycle_caption: "défile automatiquement : HUD · nav · plan · journal"
-  cycle: ["hud", "nav", "planning", "log"]
+  cycle: ["hudhero", "nav", "planning", "log"]
 
 flagship:
   heading: "Un vol, du début à la fin"
-  note: "les sections apparaissent au défilement"
   items:
     - step: "01 · Planifier"
       title: "Construisez la route en glissant sur la carte"
-      description: "Déplacez un waypoint, tirez la ligne pour en insérer un, relâchez près d'un aérodrome pour accrocher automatiquement son nom et sa fréquence. Un profil de route en direct signale la marge de terrain et les conflits d'espace aérien pendant la planification."
-      chips: ["From→To d'abord", "Glisser-déposer & accrochage", "Conflits terrain & espace", "Export GPX"]
+      description: "Déplacez un waypoint, tirez la ligne pour en insérer un, relâchez près d'un aérodrome pour accrocher automatiquement son nom et sa fréquence. Un profil de route en direct signale la marge de terrain et détecte les conflits d'espace aérien tout au long — couverture mondiale OpenAIP sur 119 pays."
+      chips: ["From→To d'abord", "Glisser-déposer & accrochage", "Détection conflits terrain & espace", "OpenAIP · 119 pays", "Export GPX"]
       shot: "planning"
     - step: "02 · Voler"
       title: "La bonne étape de checklist, au bon moment"
-      description: "L'élément en cours devient le centre tandis que les étapes passées et futures s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre « dans la cible », sur les 16 phases."
-      chips: ["16 phases", "13 aéronefs", "Barre dans la cible", "Confirmation par appui"]
+      description: "L'élément en cours devient le centre tandis que les étapes passées et futures s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre « dans la cible », sur les 16 phases. Temps moteur, temps-bloc, remises de gaz, touch-and-gos et atterrissages sont détectés et journalisés automatiquement."
+      chips: ["16 phases", "13 aéronefs", "Bandeau « dans la cible »", "Journal du temps moteur", "Briefings départ & approche", "Aperçu navigation", "Mode tour de piste", "Temps-bloc auto", "Détection auto remise de gaz / touch-and-go / atterrissage"]
       shot: "hud"
     - step: "03 · Naviguer"
       title: "Cartes plein écran, fréquences à portée"
-      description: "Cartes OACI suisses avec chronométrage par tronçon, vecteur de tendance de route sol et rappel de croisière FREDA, plus un panneau de fréquences ACTUELLE / SUIVANTE / URGENCE. Mise en cache hors ligne."
-      chips: ["OACI / Segelflug", "Rappel FREDA", "ACTUELLE / SUIVANTE / URGENCE", "Cache hors ligne"]
+      description: "Cartes OACI suisses, vectoriel & satellite Apple, et une couche d'espaces aériens OpenAIP mondiale, avec aérodromes et balises à portée. Chronométrage par tronçon, vecteur de tendance de route sol, rappel FREDA et panneau de fréquences ACTUELLE / SUIVANTE / URGENCE — cache par continent ou diffusion en direct des espaces proches."
+      chips: ["OACI / Segelflug", "Vectoriel & satellite Apple", "Espaces OpenAIP", "Aérodromes & balises", "ACTUELLE / SUIVANTE / URGENCE", "Rappel FREDA", "Hors ligne par continent", "Diffusion espaces en direct"]
       shot: "nav"
-    - step: "04 · Rester dégagé"
-      title: "Espaces aériens mondiaux, prêts hors ligne"
-      description: "Une couche d'espaces aériens OpenAIP couvrant 119 pays. Téléchargez un continent entier pour l'utilisation hors ligne, ou recevez les espaces contrôlés à proximité en temps réel."
-      chips: ["119 pays", "OpenAIP", "Hors ligne par continent", "Diffusion en direct"]
-      shot: "airspace"
+    - step: "04 · Journal"
+      title: "Chaque vol, enregistré automatiquement"
+      description: "Une trace GPS complète avec profil de vitesse et d'altitude, les temps moteur, bloc, alignement et atterrissage automatiques, et un carnet de vol clair à filtrer, rejouer et partager. Export GPX, JSON ou ZIP pour vos archives ou votre avionique."
+      chips: ["Trace GPS & profil d'altitude", "Historique & statistiques", "Filtrer & rejouer", "Cartes de partage", "Export GPX / JSON / ZIP"]
+      shot: "log"
 
 supporting:
   heading: "Tout le reste"
   items:
-    - title: "Suivi GPS & journal de vol"
-      description: "Suivi en arrière-plan avec vitesse et altitude en temps réel, et chronométrage automatique du démarrage moteur, alignement, atterrissage et arrêt. Export GPX, JSON ou ZIP."
-      icon: "location"
+    - title: "Mode Compagnon"
+      description: "Associez un iPad et un iPhone via Wi-Fi Aware : le téléphone reflète le vol en direct du maître comme second écran synchronisé — la carte d'un côté, la checklist de l'autre."
+      icon: "devices"
     - title: "Briefings départ & approche"
       description: "Briefings dynamiques avec vitesses de référence, procédures d'urgence et détection des aérodromes proches — vent et suggestions de piste selon votre position GPS."
       icon: "book-2"
@@ -60,7 +59,6 @@ supporting:
 
 ecosystem:
   - { label: "13 aéronefs · 16 phases", icon: "plane" }
-  - { label: "Mode Compagnon", icon: "devices" }
   - { label: "Apple Watch", icon: "clock" }
   - { label: "Thèmes cockpit", icon: "adjustments" }
   - { label: "Sync iCloud", icon: "cloud" }
@@ -70,7 +68,11 @@ ecosystem:
 device_toggle: { ipad: "iPad", iphone: "iPhone" }
 
 footer:
-  made_with: "Fait avec"
+  made_by: "Fait par"
+  author: "fetzu"
+  author_url: "https://fetzu.ch"
+  with: "avec"
   in: "en"
   city: "Suisse"
-  meta: "v4.0.0 · MIT"
+  license: "MIT"
+  license_url: "https://github.com/fetzu/AeroCheck/blob/main/LICENSE"

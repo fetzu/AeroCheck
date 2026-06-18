@@ -19,11 +19,15 @@ export interface SiteData {
     primary: CTA; secondary: CTA;
     cycle_caption: string; cycle: string[];
   };
-  flagship: { heading: string; note: string; items: FlagshipItem[] };
+  flagship: { heading: string; items: FlagshipItem[] };
   supporting: { heading: string; items: SupportingItem[] };
   ecosystem: EcoItem[];
   device_toggle: { ipad: string; iphone: string };
-  footer: { made_with: string; in: string; city: string; meta: string };
+  footer: {
+    made_by: string; author: string; author_url: string;
+    with: string; in: string; city: string;
+    license: string; license_url: string;
+  };
 }
 
 // Site copy lives in src/data/{lang}.yaml — edit those to change wording. Read at build time (SSG).

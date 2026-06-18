@@ -7,6 +7,9 @@ export interface Shot { ipad: string; iphone: string; label: string; }
 // portrait (~0.46). The hero carousel cover-crops to a fixed aspect, so any of these fit there too.
 export const SHOTS: Record<string, Shot> = {
   hud:      { ipad: '/assets/screenshot/v5/ipad/hud.jpg',      iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
+  // Hero carousel uses the FULL iPad HUD screen; the cropped `hud` region is reserved for the Fly
+  // feature-row highlight. iPhone is full-screen in both cases, so it reuses the same image.
+  hudhero:  { ipad: '/assets/screenshot/v5/ipad/hud-hero.jpg', iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
   nav:      { ipad: '/assets/screenshot/v5/ipad/nav.jpg',      iphone: '/assets/screenshot/v5/iphone/nav.jpg',      label: 'Navigation' },
   planning: { ipad: '/assets/screenshot/v5/ipad/planning.jpg', iphone: '/assets/screenshot/v5/iphone/planning.jpg', label: 'Flight planning' },
   airspace: { ipad: '/assets/screenshot/v5/ipad/airspace.jpg', iphone: '/assets/screenshot/v5/iphone/airspace.jpg', label: 'Airspace' },

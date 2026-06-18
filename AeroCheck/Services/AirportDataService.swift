@@ -407,6 +407,29 @@ class AirportDataService: ObservableObject {
         frequenciesByAirport[airportIdent.uppercased()] ?? []
     }
 
+    /// The order a VFR pilot would actually contact a field on: its tower, else its own
+    /// advisory/info frequency (AFIS / INFO / air-to-ground / CTAF / UNICOM / radio). Area-control
+    /// frequencies (APP, DEP, CNTR) and listen-only ATIS are deliberately NOT field-contact freqs —
+    /// an uncontrolled field's AFIS must win over a distant approach controller. (Shared by the HUD
+    /// NEAREST strip and the Navigation FREQ panel so they can't drift.)
+    nonisolated static let fieldContactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO"]
+
+    /// The single most relevant field-contact frequency for an airport, or nil if it has none at all.
+    func bestFieldFrequency(for airportIdent: String) -> AirportFrequency? {
+        Self.pickFieldContact(from: getFrequencies(for: airportIdent))
+    }
+
+    /// Pure pick (no I/O — unit-testable): the most relevant field-contact frequency from a list.
+    /// Picks by `fieldContactPriority`; falls back to ATIS, then any published frequency, so a field
+    /// that only has an approach/area freq still shows something rather than nothing.
+    nonisolated static func pickFieldContact(from freqs: [AirportFrequency]) -> AirportFrequency? {
+        guard !freqs.isEmpty else { return nil }
+        for type in fieldContactPriority {
+            if let match = freqs.first(where: { $0.type.uppercased().contains(type) }) { return match }
+        }
+        return freqs.first(where: { $0.type.uppercased().contains("ATIS") }) ?? freqs.first
+    }
+
     /// Get runways for an airport
     func getRunways(for airportIdent: String) -> [Runway] {
         runwaysByAirport[airportIdent.uppercased()] ?? []

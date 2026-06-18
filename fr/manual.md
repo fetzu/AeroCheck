@@ -16,7 +16,7 @@ Bienvenue dans le manuel d'utilisation d'AeroCheck. Ce guide couvre toutes les f
 - [Briefings](#briefings)
 - [Journal de vol](#journal-de-vol)
 - [Apple Watch et mode Compagnon](#apple-watch-et-mode-compagnon)
-- [Planification de vol (Beta)](#planification-de-vol-beta)
+- [Planification de vol](#planification-de-vol)
 - [Mode circuits](#mode-circuits)
 - [Parametres et abonnement](#parametres-et-abonnement)
 
@@ -226,34 +226,30 @@ Dans les deux cas, la regle est la meme : une banniere d'obsolescence ou de deco
 
 ---
 
-## Planification de vol (Beta)
+## Planification de vol
 
-> La planification de vol est une fonctionnalite beta. Activez-la dans **Parametres > Planification de vol**.
+Ouvrez **Planification de vol** depuis l'ecran d'accueil ou la carte de navigation pour construire une route directement sur la carte.
 
-### Creer un plan de vol
+### Construire une route
 
-Ouvrez la vue de planification de vol pour creer une route. Ajoutez des waypoints en :
-- Recherchant des aerodromes ou waypoints par nom ou code OACI
-- Appuyant sur la carte pour placer un waypoint
-- Saisissant les coordonnees manuellement
+Le planificateur d'AeroCheck est **centre sur la carte** :
+- Definissez votre depart et votre destination dans la barre **De -> Vers**, puis affinez sur la carte.
+- **Faites glisser un waypoint** pour le deplacer ; **faites glisser la ligne de route** pour inserer un waypoint en cours de route.
+- Relachez un point pres d'un aerodrome pour un **accrochage automatique** -- son nom et sa frequence sont remplis automatiquement.
+- Le depot d'un waypoint utilise une **insertion "au plus court"**, en le placant dans le segment qui ajoute le moins de detour.
+- Les plans enregistres apparaissent dans une liste avec des apercus de route et un bouton **Activer** en un toucher.
 
-### Table de route
+### Details du plan de vol
 
-La table de route affiche pour chaque waypoint :
-- Nom du waypoint et frequence
-- Altitude prevue
-- Vitesse sol
-- Temps de vol estime (EET)
-- Heure estimee d'arrivee (ETO)
-- Route magnetique (MC)
+Ouvrez la feuille **Details du plan de vol** pour le detail segment par segment -- nom et frequence de chaque waypoint, altitude prevue, vitesse sol, temps de vol estime (EET), heure estimee d'arrivee (ETO) et route magnetique (MC).
 
-### Profils de terrain
+### Profil de route
 
-Pour les routes en Suisse, AeroCheck affiche un profil de terrain utilisant les donnees d'elevation swisstopo. Cette visualisation montre l'elevation du sol le long de votre route par rapport a votre altitude prevue.
+Le **profil de route interactif** dessine une silhouette du terrain (elevation swisstopo en Suisse, mondiale ailleurs) face a votre ligne d'altitude prevue. Faites glisser un point pour definir son altitude, ou maintenez pour en ajouter un. Les avertissements de marge de terrain et de conflit d'espace aerien se mettent a jour en direct lorsque vous remodelez la route.
 
 ### Verification des espaces aeriens
 
-AeroCheck confronte votre route prevue aux donnees d'espaces aeriens OpenAIP et signale les espaces controles ou reglementes qu'elle pourrait penetrer. Les conflits apparaissent sous forme de banniere au-dessus de la table de route ; appuyez dessus pour voir chaque espace, ses limites verticales et sa frequence.
+AeroCheck confronte votre route prevue aux donnees d'espaces aeriens OpenAIP et signale les espaces controles ou reglementes qu'elle pourrait penetrer. Les conflits apparaissent sous forme de banniere et de surbrillance sur la route ; appuyez pour voir chaque espace, ses limites verticales et sa frequence. Un resultat "aucun conflit" en vert n'est affiche que lorsque les donnees d'espace aerien sont effectivement chargees -- sinon AeroCheck indique que l'espace aerien n'a pas ete verifie plutot que de laisser croire que vous etes degage.
 
 La verification suit la geometrie exacte de la route entre les waypoints (et pas seulement les extremites), de sorte qu'un segment qui effleure le coin d'une zone est tout de meme detecte. Lorsque le resultat depend de l'altitude, AeroCheck est volontairement prudent : il signale la severite la plus defavorable, et lorsque le plafond ou le plancher d'une zone est publie par rapport au sol ou en niveau de vol (AGL/FL), ou lorsqu'un segment n'a pas d'altitude prevue saisie, le conflit est marque **"Altitude incertaine -- verifiez la separation verticale."** Ce qualificatif signifie que le conflit horizontal est reel mais que l'app ne peut pas confirmer si votre altitude vous en degage -- vous devez verifier vous-meme la separation verticale par rapport aux cartes en vigueur et au QNH.
 
@@ -288,31 +284,46 @@ Activez le mode circuits au demarrage d'un vol en appuyant sur **TOURS DE PISTE*
 
 ## Parametres et abonnement
 
-### Aeronef et abonnement
+Les parametres sont organises en un hub de pages dediees :
+
+### Aeronef
 
 - **AeroCheck Pro** -- Abonnez-vous pour debloquer les checklists d'aeronefs premium
-- **Aeronef** -- Selectionnez votre aeronef actif parmi les options incluses et premium
+- **Aeronef** -- Selectionnez votre aeronef actif parmi le WT9 Dynamic gratuit et les options premium debloquees
 - **Visibilite des aeronefs** -- Afficher ou masquer les aeronefs par aeroclub
 
-### Vol
+### Checklist & vol
 
 - **Checklist** -- Surlignage pas-a-pas, mode apprentissage, mode circuits et langue
-- **Journal de vol** -- Activer l'enregistrement des heures moteur (horametre)
+- **Journal de vol** -- Enregistrement des heures moteur (horametre)
 - **GPS** -- Intervalle d'enregistrement (1-30 secondes) et etat de l'autorisation
 - **Affichage** -- Garder l'ecran allume pendant le vol, utiliser l'heure UTC
 
-### Navigation et donnees
+### Navigation & cartes
 
+- **Theme** -- Choisissez le theme cockpit : **Auto, Jour, Plein soleil ou Nuit** (Auto suit l'apparence du systeme)
 - **Navigation** -- Forcer la couche carte OACI
-- **Planification de vol** (Beta) -- Activer la planification de route et les profils de terrain
-- **Vitesse estimee** (Experimental) -- Vitesse sol GPS corrigee avec le vent moyen MeteoSuisse (Suisse uniquement). Les valeurs estimees sont affichees en `EST. IAS` avec un prefixe `~` pour ne jamais etre confondues avec une vitesse air mesuree. Son activation revele aussi une bascule **Alerte de decrochage sonore** (desactivee par defaut) qui emet un avertissement audible sous la vitesse de decrochage
+- **Espaces aeriens** -- Couche OpenAIP, telechargements par continent et streaming en ligne
 - **Donnees aerodromes** -- Telecharger la base de donnees OurAirports pour les frequences mondiales
 - **Cartes hors ligne** -- Mettre en cache la carte OACI suisse et la Segelflugkarte pour une utilisation hors ligne
-- **Synchronisation iCloud** -- Synchroniser les journaux de vol entre appareils
+- **Vitesse estimee** (Experimental) -- Vitesse sol GPS corrigee avec le vent moyen MeteoSuisse (Suisse uniquement). Les valeurs estimees sont affichees en `EST. IAS` avec un prefixe `~` pour ne jamais etre confondues avec une vitesse air mesuree. Son activation revele aussi une bascule **Alerte de decrochage sonore** (desactivee par defaut) qui emet un avertissement audible sous la vitesse de decrochage
 
-### A propos et avance
+### Planification de vol
+
+- Preferences du constructeur de route et de l'export GPX
+
+### Compagnon
+
+- **Mode Compagnon** -- Associez un iPhone comme second ecran synchronise de votre iPad (necessite iOS 26 sur les deux appareils)
+
+### Synchronisation & donnees
+
+- **Synchronisation iCloud** -- Synchroniser les parametres et les journaux de vol entre appareils
+- **Donnees** -- Statistiques de vol et GPS
+
+### A propos
 
 - **A propos** -- Version de l'app, site web, auteur et informations open source
 - **Checklists disponibles** -- Voir toutes les checklists en cache et leurs versions
-- **Donnees** -- Statistiques de vol et GPS
+- **Rejouer l'introduction** -- Reafficher la visite guidee d'introduction
 - **Options developpeur** -- Outils de debogage caches (appuyez 5 fois sur le numero de version pour les activer)

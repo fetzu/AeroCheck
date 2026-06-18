@@ -56,19 +56,50 @@ jobs:
             end
           ' >> _pages/changelog.md
 
+          # Also generate the French release page. Release notes are authored in English only, so
+          # the French page mirrors the same content; its `english_only: true` front matter makes
+          # the page render a translation notice. Keep the jq below in sync with the English block above.
+          cat > fr/releases.md << 'HEADER'
+          ---
+          layout: page
+          title: Releases
+          lang: fr
+          permalink: /fr/releases/
+          english_only: true
+          ---
+
+          # Release History
+
+          All notable changes to AeroCheck are documented here. For full details, visit the [GitHub Releases page](https://github.com/${{ github.repository }}/releases).
+
+          <br>
+
+          HEADER
+
+          echo "$releases" | jq -r '
+            to_entries | .[] |
+            if .key == 0 then
+              "### `Latest`\n# **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n\n________\n\n<br>\n"
+            elif (.value.tag_name == "1.0.0") then
+              "### `Initial Release`\n## **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n"
+            else
+              "## **Version \(.value.tag_name)** - \(.value.name | split(" - ") | if length > 1 then .[1] else "" end)\n*Released \(.value.published_at | split("T")[0] | strptime("%Y-%m-%d") | strftime("%B %d, %Y"))*\n\n\(.value.body | gsub("\\r\\n"; "\n") | gsub("##"; "###"))\n\n[Full Changelog](\(.value.html_url))\n\n<br>\n"
+            end
+          ' >> fr/releases.md
+
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Check if there are changes
-          if git diff --quiet _pages/changelog.md; then
+          if git diff --quiet _pages/changelog.md fr/releases.md; then
             echo "No changes to commit"
             exit 0
           fi
 
-          git add _pages/changelog.md
-          git commit -m "docs: auto-update releases page
+          git add _pages/changelog.md fr/releases.md
+          git commit -m "docs: auto-update releases page (EN + FR)
 
           Updated from latest GitHub releases.
 

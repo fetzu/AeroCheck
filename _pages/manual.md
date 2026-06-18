@@ -16,7 +16,7 @@ Welcome to the AeroCheck user manual. This guide covers all the features of the 
 - [Briefings](#briefings)
 - [Flight Logging](#flight-logging)
 - [Apple Watch and Companion Mode](#apple-watch-and-companion-mode)
-- [Flight Planning (Beta)](#flight-planning-beta)
+- [Flight Planning](#flight-planning)
 - [Circuit Mode](#circuit-mode)
 - [Settings and Subscription](#settings-and-subscription)
 
@@ -226,34 +226,30 @@ In both cases the rule is the same: a staleness or disconnect banner means *stop
 
 ---
 
-## Flight Planning (Beta)
+## Flight Planning
 
-> Flight planning is a beta feature. Enable it in **Settings > Flight Planning**.
+Open **Flight Planning** from the home screen or the navigation map to build a route directly on the map.
 
-### Creating a Flight Plan
+### Building a Route
 
-Open the flight planning view to create a route. Add waypoints by:
-- Searching for airports or waypoints by name or ICAO code
-- Tapping on the map to place a waypoint
-- Entering coordinates manually
+AeroCheck's planner is **map-first**:
+- Set your departure and destination in the **From → To** bar, then refine on the map.
+- **Drag a waypoint** to move it; **drag the route line** to insert a new waypoint mid-route.
+- Release a dragged point **near an airfield** to auto-snap to it — its name and frequency are filled in automatically.
+- Dropping a waypoint uses **smart "cheapest insertion"**, placing it into the leg that adds the least detour.
+- Saved plans appear in a list with route thumbnails and a one-tap **Activate**.
 
-### Route Table
+### Flight Plan Details
 
-The route table displays for each waypoint:
-- Waypoint name and frequency
-- Planned altitude
-- Ground speed
-- Estimated enroute time (EET)
-- Estimated time of arrival (ETO)
-- Magnetic course (MC)
+Open the **Flight plan details** sheet for the full leg-by-leg breakdown — each waypoint's name and frequency, planned altitude, ground speed, estimated enroute time (EET), estimated time of arrival (ETO) and magnetic course (MC).
 
-### Terrain Profiles
+### Route Profile
 
-For routes within Switzerland, AeroCheck displays a terrain profile using swisstopo elevation data. This visualization shows the ground elevation along your route relative to your planned altitude.
+The **interactive route profile** draws a terrain silhouette (swisstopo elevation in Switzerland, worldwide elsewhere) against your planned-altitude line. Drag a point to set its altitude, or hold to add one. Terrain-clearance and airspace-conflict warnings update live as you reshape the route.
 
 ### Airspace Conflict Checks
 
-AeroCheck checks your planned route against OpenAIP airspace data and flags controlled or restricted airspace it may enter. Conflicts appear as a banner above the route table; tap it to see each airspace, its vertical limits, and its frequency.
+AeroCheck checks your planned route against OpenAIP airspace data and flags controlled or restricted airspace it may enter. Conflicts appear as a banner and highlight on the route; tap to see each airspace, its vertical limits, and its frequency. A green "no conflicts" result is shown only when airspace data is actually loaded — otherwise AeroCheck tells you airspace wasn't checked rather than implying you are clear.
 
 The check follows the exact route geometry between waypoints (not just the endpoints), so a leg that clips the corner of a zone is still caught. Where the result depends on altitude, AeroCheck is deliberately conservative: it reports the worst-case severity, and when a zone's ceiling or floor is published relative to the ground or as a flight level (AGL/FL), or when a leg has no planned altitude entered, the conflict is marked **"Altitude uncertain -- verify vertical separation."** That qualifier means the horizontal conflict is real but the app cannot confirm whether your altitude keeps you clear -- you must verify the vertical separation yourself against current charts and QNH.
 
@@ -288,31 +284,46 @@ Enable circuit mode when starting a flight by tapping **CIRCUITS** on the home s
 
 ## Settings and Subscription
 
-### Aircraft and Subscription
+Settings are organized into a hub of dedicated pages:
+
+### Aircraft
 
 - **AeroCheck Pro** -- Subscribe to unlock premium aircraft checklists
-- **Aircraft** -- Select your active aircraft from bundled and premium options
+- **Aircraft** -- Select your active aircraft from the free WT9 Dynamic and any unlocked premium options
 - **Aircraft Visibility** -- Show or hide aircraft by aeroclub
 
-### Flight
+### Checklist & Flight
 
 - **Checklist** -- Step-by-step highlighting, learning mode, circuit mode, and language
-- **Flight Logging** -- Enable engine hour (Hobbs meter) logging
+- **Flight Logging** -- Engine hour (Hobbs meter) logging
 - **GPS** -- Recording interval (1-30 seconds) and permission status
-- **Display** -- Keep screen on during flight, use UTC time
+- **Display** -- Keep the screen on during flight, use UTC time
 
-### Navigation and Data
+### Navigation & Maps
 
+- **Theme** -- Choose the cockpit theme: **Auto, Day, Sunlight or Night** (Auto follows the system appearance)
 - **Navigation** -- Force ICAO chart layer
-- **Flight Planning** (Beta) -- Enable route planning and terrain profiles
+- **Airspace** -- OpenAIP airspace overlay, continent downloads, and online streaming
+- **Airport Data** -- Download the OurAirports database for worldwide airport frequencies
+- **Offline Maps** -- Cache the Swiss ICAO Chart and Segelflugkarte for offline use
 - **Estimated Airspeed** (Experimental) -- GPS ground speed corrected with MeteoSwiss mean-wind data (Switzerland only). Estimated values are shown as `EST. IAS` with a `~` prefix so they are never mistaken for measured airspeed. Enabling it also reveals an **Aural stall alert** toggle (off by default) that plays an audible warning below stall speed
-- **Airport Data** -- Download OurAirports database for worldwide airport frequencies
-- **Offline Maps** -- Cache Swiss ICAO Chart and Segelflugkarte for offline use
-- **iCloud Sync** -- Synchronize flight logs across devices
 
-### About and Advanced
+### Flight Planning
+
+- Route-builder and GPX export preferences
+
+### Companion
+
+- **Companion Mode** -- Pair an iPhone as a synced second screen for your iPad (requires iOS 26 on both devices)
+
+### Sync & Data
+
+- **iCloud Sync** -- Synchronize settings and flight logs across devices
+- **Data** -- Flight and GPS statistics
+
+### About
 
 - **About** -- App version, website, author, and open-source information
 - **Available Checklists** -- View all cached aircraft checklists and versions
-- **Data** -- Flight and GPS statistics
-- **Developer Options** -- Hidden debug tools (tap version number 5 times to unlock)
+- **Replay Onboarding** -- Show the introductory tour again
+- **Developer Options** -- Hidden debug tools (tap the version number 5 times to unlock)

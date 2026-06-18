@@ -933,11 +933,13 @@ footer {
 	display: block;
 }
 
-// The ipadFrame uses background-image like iPhone does
+// The ipadFrame uses background-image like iPhone does. The frame is LANDSCAPE: the AeroCheck
+// iPad UI is designed for a landscape (cockpit-mounted) orientation, so the screenshots and the
+// device frame are both landscape. Screen area is ~92% width, ~89% height of the frame.
 .ipadFrame {
 	width: 400px;
-	height: 524px;
-	background-image: url("assets/ipad-frame-transparent.png");
+	height: 306px;
+	background-image: url("assets/ipad-frame-landscape.png");
 	background-size: 400px auto;
 	background-repeat: no-repeat;
 	pointer-events: none;
@@ -946,10 +948,10 @@ footer {
 // Carousel positioned absolutely over the frame
 .ipadPreview .carouselContainerIpad {
 	position: absolute;
-	width: 357px;
-	height: 481px;
-	left: 20px;
-	top: 22px;
+	width: 368px;
+	height: 273px;
+	left: 16px;
+	top: 15px;
 	margin: 0;
 	overflow: hidden;
 	border-radius: 4px;
@@ -991,15 +993,15 @@ footer {
 
 	.ipadFrame {
 		width: 370px;
-		height: 485px;
+		height: 283px;
 		background-size: 370px auto;
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 330px;
-		height: 444px;
-		left: 19px;
-		top: 20px;
+		width: 340px;
+		height: 253px;
+		left: 15px;
+		top: 14px;
 		margin: 0;
 	}
 }
@@ -1020,15 +1022,15 @@ footer {
 
 	.ipadFrame {
 		width: 260px;
-		height: 340px;
+		height: 199px;
 		background-size: 260px auto;
 	}
 
 	.ipadPreview .carouselContainerIpad {
-		width: 232px;
-		height: 313px;
-		left: 13px;
-		top: 14px;
+		width: 239px;
+		height: 178px;
+		left: 10px;
+		top: 10px;
 		margin: 0;
 	}
 }

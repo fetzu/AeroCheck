@@ -587,6 +587,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case cruiseHUD = "Cruise HUD"
     case navPlanActive = "Nav — Active Plan"
     case planConflicts = "Plan — Conflicts"
+    case planBuilder = "Plan — Builder"
     case flightLogDetail = "Flight Log"
 
     var id: String { rawValue }
@@ -596,7 +597,8 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .home2Aircraft: return "F-HVXA + HB-PFA owned"
         case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
         case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
-        case .planConflicts: return "Example plan into LSZQ selected"
+        case .planConflicts: return "Geneva→Samedan, full conflict list"
+        case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
         case .flightLogDetail: return "Imports the bundled marketing flights"
         }
     }
@@ -621,6 +623,9 @@ enum MarketingSceneInjector {
         "LSGN": MarketingAirport(ident: "LSGN", latitude: 46.9575, longitude: 6.8647, elevationFt: 1427),  // Neuchâtel
         "LSZB": MarketingAirport(ident: "LSZB", latitude: 46.9141, longitude: 7.4972, elevationFt: 1673),  // Bern-Belp
         "LSZG": MarketingAirport(ident: "LSZG", latitude: 47.1820, longitude: 7.4170, elevationFt: 1411),  // Grenchen
+        "LSZP": MarketingAirport(ident: "LSZP", latitude: 47.1392, longitude: 7.2997, elevationFt: 1404),  // Biel/Bienne
+        "LSZS": MarketingAirport(ident: "LSZS", latitude: 46.5341, longitude: 9.8841, elevationFt: 5600),  // Samedan
+        "LSGG": MarketingAirport(ident: "LSGG", latitude: 46.2381, longitude: 6.1089, elevationFt: 1411),  // Geneva
     ]
 
     /// Resolve an ICAO to a coordinate, preferring loaded airport data, then the hardcoded fallback.
@@ -653,6 +658,8 @@ enum MarketingSceneInjector {
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
         case .planConflicts:
             injectPlanConflicts(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
+        case .planBuilder:
+            injectPlanBuilder(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
         case .flightLogDetail:
             injectFlightLog(appState: appState)
         }
@@ -782,29 +789,54 @@ enum MarketingSceneInjector {
         flightPlanManager.marketingStartChronometer(elapsedSeconds: 95)
     }
 
-    // MARK: - Scene 4: Plan with conflicts (into LSZQ from LSZB)
+    // MARK: - Scene 4: Plan with a FULL conflict list (Geneva → Samedan)
 
     private static func injectPlanConflicts(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService) {
-        // Prefer an existing example plan FROM LSZB INTO LSZQ (the one saved in the sim).
-        let existing = flightPlanManager.flightPlans.first { plan in
-            guard let first = plan.waypoints.first?.name.uppercased(),
-                  let last = plan.waypoints.last?.name.uppercased() else { return false }
-            return first == "LSZB" && last == "LSZQ"
+        // Geneva → Samedan: a long plateau-to-Alps crossing through the most controlled airspace (~30
+        // conflicts) with a dramatic climb profile. The intermediate altitude waypoints + planned
+        // altitudes below are backported from a hand-tuned plan so the route profile shows a realistic
+        // flight-altitude line over the terrain (1000 ft → 10'800 ft → 9500 ft). Built fresh = deterministic.
+        let pts: [(name: String, lat: Double, lon: Double, alt: Double)] = [
+            ("LSGG",      46.2381,            6.1089,             1000),
+            ("WPT (ALT)", 46.26882281959379,  6.500740501792115,  5400),
+            ("WPT (ALT)", 46.3138496829949,   7.0750155514943645, 9200),
+            ("WPT (ALT)", 46.40886879183133,  8.28689440176229,   10800),
+            ("LSZS",      46.5341,            9.8841,             9500),
+        ]
+        var plan = flightPlanManager.createFlightPlan(name: "Geneva → Samedan")
+        for p in pts {
+            var wp = FlightPlanWaypoint(name: p.name, coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lon))
+            wp.altitude = p.alt
+            plan.waypoints.append(wp)
         }
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        flightPlanManager.activateFlightPlan(plan)
+    }
 
-        if let existing {
-            // Make it the most-recent / active so the editor opens on it.
-            flightPlanManager.activateFlightPlan(existing)
-            return
-        }
+    // MARK: - Scene 6: Map-first plan BUILDER (LSZQ → LSGN → LSZP → LSZB → LSZS)
 
-        // Otherwise build LSZB → LSZG → LSZQ.
-        let route = ["LSZB", "LSZG", "LSZQ"]
-        var plan = flightPlanManager.createFlightPlan(name: "LSZB → LSZQ")
-        for ident in route {
-            if let coord = coordinate(ident, airportDataService: airportDataService) {
-                plan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
-            }
+    private static func injectPlanBuilder(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService) {
+        // Jura → Engadin scenic tour: Jura plateau across to the Engadin Alps via Neuchâtel, Biel & Bern.
+        // The intermediate WPT (ALT) shaping points + planned altitudes are backported from a hand-tuned
+        // plan so the builder's route profile shows a realistic climbing flight-altitude line over the
+        // terrain (3100 → 10'200 → 6700 ft). LSZP/LSZB carry no planned altitude (interpolated on the
+        // profile), matching the source plan. Built fresh from explicit coords = deterministic.
+        let pts: [(name: String, lat: Double, lon: Double, alt: Double?)] = [
+            ("LSZQ",      47.3497,            7.0278,             3100),
+            ("WPT (ALT)", 47.15744287722123,  6.947848096060129,  4700),
+            ("LSGN",      46.9575,            6.8647,             3900),
+            ("LSZP",      47.1392,            7.2997,             nil),
+            ("LSZB",      46.9141,            7.4972,             nil),
+            ("WPT (ALT)", 46.76035098646962,  8.462946106304383,  9000),
+            ("WPT (ALT)", 46.54055676385714,  9.843543027235247, 10200),
+            ("LSZS",      46.5341,            9.8841,             6700),
+        ]
+        var plan = flightPlanManager.createFlightPlan(name: "Jura → Engadin")
+        for p in pts {
+            var wp = FlightPlanWaypoint(name: p.name, coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lon))
+            wp.altitude = p.alt
+            plan.waypoints.append(wp)
         }
         plan.calculateRouteData()
         flightPlanManager.updateFlightPlan(plan)

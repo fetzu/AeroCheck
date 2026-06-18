@@ -101,6 +101,7 @@ struct ContentView: View {
             case "cruise", "cruisehud":         scene = .cruiseHUD
             case "nav", "navplanactive":        scene = .navPlanActive
             case "conflicts", "planconflicts":  scene = .planConflicts
+            case "plan", "planbuilder":         scene = .planBuilder
             case "flightlog", "flightlogdetail": scene = .flightLogDetail
             default:                            scene = nil
             }

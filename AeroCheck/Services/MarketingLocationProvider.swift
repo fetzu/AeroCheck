@@ -666,8 +666,24 @@ enum MarketingSceneInjector {
 
         // Force subscribed so premium aircraft surface, then constrain the owned set to exactly
         // the PA-28-181 (HB-PFA). The bundled WT9 (F-HVXA) is always shown by HomeView.
+        // DEBUG-only: the premium-access override (forceSubscribed + owned override) is compiled
+        // OUT of release builds so a shipped app can never unlock premium without a real subscription.
+        #if DEBUG
         subscriptionManager.setMarketingForceSubscribed(true)
-        aircraftDataService.applyMarketingOwnedOverride(ownedIds: ["pa28-181"])
+
+        // applyMarketingOwnedOverride is a no-op until availableAircraft is fetched, so Home would
+        // otherwise show only the bundled WT9. If the list is empty or lacks pa28-181, fetch first
+        // (on the main actor), THEN apply the override so HB-PFA appears as owned without the user
+        // tapping "Get latest aircraft data".
+        if aircraftDataService.availableAircraft.contains(where: { $0.id == "pa28-181" }) {
+            aircraftDataService.applyMarketingOwnedOverride(ownedIds: ["pa28-181"])
+        } else {
+            Task { @MainActor in
+                await aircraftDataService.fetchAvailableAircraft()
+                aircraftDataService.applyMarketingOwnedOverride(ownedIds: ["pa28-181"])
+            }
+        }
+        #endif
     }
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
@@ -704,10 +720,12 @@ enum MarketingSceneInjector {
         appState.currentFlight?.engineStartTime = appState.engineStartTime
         appState.currentFlight?.lineUpTime = appState.lineUpTime
 
-        // Held static fix: ~SPD 105 kt, ALT 3500 ft, HDG 045°. CLLocation altitude is METERS.
+        // Held static fix ~4 NM SE of LSZQ Bressaucourt (47.3497, 7.0278) so the HUD mini-map shows
+        // LSZQ and its nearby frequencies. ~SPD 105 kt, ALT 3500 ft, HDG 315° (tracking back toward
+        // the field). CLLocation altitude is METERS.
         let altMeters = 3500.0 / 3.28084
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 46.80, longitude: 7.45, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 45)
+        provider.holdStaticFix(latitude: 47.305, longitude: 7.095, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
         // Also prime the LocationManager directly so the instruments are lit even before the
         // ContentView onChange forwarder runs.
         if let loc = provider.currentLocation {
@@ -740,13 +758,18 @@ enum MarketingSceneInjector {
         }
         flightPlanManager.activateFlightPlan(plan)
 
-        // Held fix near the first leg so the nav map shows the aircraft on the route.
-        if let start = coordinate("LSZQ", airportDataService: airportDataService) {
-            let provider = MarketingLocationProvider.shared
-            provider.holdStaticFix(latitude: start.latitude - 0.03, longitude: start.longitude - 0.02, altitudeMeters: 1200, speedKnots: 95, headingDegrees: 200)
-            if let loc = provider.currentLocation {
-                locationManager.injectMarketingStaticFix(loc)
-            }
+        // Present LSZQ (index 0) as the departure already passed and the active leg as LSZQ→LSGC:
+        // markWaypoint() records LSZQ's ATO and advances currentWaypointIndex to 1 (LSGC). The nav
+        // renders index < currentWaypointIndex as passed (green) and == as the active/next waypoint,
+        // so LSGC becomes the next waypoint. (Explicit waypoint-index advance — the API the nav reads.)
+        flightPlanManager.markWaypoint()
+
+        // Held fix ~3 NM down the LSZQ→LSGC leg (bearing ≈211°, LSGC is SW), just past LSZQ, so the
+        // aircraft visibly sits on the active leg with LSZQ behind it.
+        let provider = MarketingLocationProvider.shared
+        provider.holdStaticFix(latitude: 47.3069, longitude: 6.9898, altitudeMeters: 1200, speedKnots: 95, headingDegrees: 211)
+        if let loc = provider.currentLocation {
+            locationManager.injectMarketingStaticFix(loc)
         }
     }
 

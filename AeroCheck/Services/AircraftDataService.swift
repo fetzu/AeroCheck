@@ -94,9 +94,10 @@ class AircraftDataService: ObservableObject {
         WidgetBridge.publish(available: availableAircraft)
     }
 
-    // MARK: - Marketing Owned-Aircraft Override (DEV-ONLY)
+    // MARK: - Marketing Owned-Aircraft Override (DEBUG-ONLY)
 
-    /// DEV-ONLY (Marketing Mode): force the owned-aircraft set so Home shows exactly the aircraft
+    #if DEBUG
+    /// DEBUG-ONLY (Marketing Mode): force the owned-aircraft set so Home shows exactly the aircraft
     /// whose ids are in `ownedIds`, plus the always-bundled WT9 (HomeView adds bundled aircraft
     /// unconditionally). Mutates the in-memory `availableAircraft` `hasAccess` flags only — nothing
     /// is persisted, so a relaunch (or the next `fetchAvailableAircraft()`) restores the real state.
@@ -104,6 +105,8 @@ class AircraftDataService: ObservableObject {
     /// HomeView's owned list is `availableAircraft where remote.hasAccess && !remote.isBundled`, so
     /// setting `hasAccess = true` for exactly the requested premium ids and `false` for the rest
     /// yields a deterministic carousel (e.g. just F-HVXA + HB-PFA for scene #1).
+    ///
+    /// Compiled OUT of release builds: this grants premium *access* in the UI, so it must never ship.
     func applyMarketingOwnedOverride(ownedIds: Set<String>) {
         for index in availableAircraft.indices {
             let meta = availableAircraft[index]
@@ -112,6 +115,7 @@ class AircraftDataService: ObservableObject {
         }
         WidgetBridge.publish(available: availableAircraft)
     }
+    #endif
 
     // MARK: - Public Methods
 

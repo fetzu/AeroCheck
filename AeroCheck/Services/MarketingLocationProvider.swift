@@ -648,7 +648,7 @@ enum MarketingSceneInjector {
         case .home2Aircraft:
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
         case .cruiseHUD:
-            injectCruiseHUD(appState: appState, locationManager: locationManager)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
         case .navPlanActive:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
         case .planConflicts:
@@ -692,7 +692,7 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 
-    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager) {
+    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService) {
         // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
         if appState.isFlightActive { appState.cancelFlight() }
         appState.settings.selectedRemoteAircraftId = nil
@@ -724,16 +724,18 @@ enum MarketingSceneInjector {
         appState.currentFlight?.engineStartTime = appState.engineStartTime
         appState.currentFlight?.lineUpTime = appState.lineUpTime
 
-        // Held static fix just SW of LSZQ Bressaucourt so the HUD mini-map shows the field and its
-        // nearest frequency (the "NEAREST … TWR/AFIS" readout). Coordinate supplied for the marketing
-        // capture. ~SPD 105 kt, ALT 3500 ft, HDG 315°. CLLocation altitude is METERS.
+        // Load the airport DB FIRST, then inject the held fix. The HUD's NEAREST-frequency strip
+        // recomputes on the location change and is throttled to a coarse ~1 NM bucket, so it must see
+        // the data the first time the static fix lands — otherwise it resolves nil and never recomputes
+        // (the fix never moves). Held just SW of LSZQ Bressaucourt; ~SPD 105 kt, ALT 3500 ft, HDG 315°.
         let altMeters = 3500.0 / 3.28084
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
-        // Also prime the LocationManager directly so the instruments are lit even before the
-        // ContentView onChange forwarder runs.
-        if let loc = provider.currentLocation {
-            locationManager.injectMarketingStaticFix(loc)
+        Task {
+            await airportDataService.ensureLoaded()
+            provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
+            if let loc = provider.currentLocation {
+                locationManager.injectMarketingStaticFix(loc)
+            }
         }
     }
 

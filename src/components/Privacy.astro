@@ -1,0 +1,34 @@
+---
+import type { Lang } from '../lib/site';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+const COPY = {
+  en: { eyebrow: 'Privacy', heading: 'Privacy policy', note: null as string | null },
+  fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: 'Ce document est disponible en anglais.' },
+} as const;
+const t = COPY[lang];
+---
+<section class="legal container">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="legal-title">{t.heading}</h1>
+  {t.note && <p class="legal-note">{t.note}</p>}
+  <article class="legal-body"><slot /></article>
+</section>
+
+<style>
+  .legal { padding: 48px 24px 80px; max-width: 760px; }
+  .legal-title { font-size: clamp(26px, 4vw, 36px); margin: 12px 0 8px; }
+  .legal-note { color: var(--dim); font-family: var(--mono); font-size: 12px; margin: 0 0 24px; }
+
+  .legal-body { color: var(--muted); font-size: 15px; line-height: 1.75; }
+  .legal-body :global(p:first-child) { color: var(--dim); font-family: var(--mono); font-size: 12px; margin-bottom: 22px; }
+  .legal-body :global(h2) { color: var(--text); font-size: 19px; font-weight: 500; margin: 34px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .legal-body :global(h3) { color: var(--text); font-size: 15px; font-weight: 600; margin: 22px 0 6px; }
+  .legal-body :global(p) { margin: 0 0 14px; }
+  .legal-body :global(ul), .legal-body :global(ol) { margin: 0 0 14px; padding-left: 22px; }
+  .legal-body :global(li) { margin: 5px 0; }
+  .legal-body :global(li::marker) { color: var(--dim); }
+  .legal-body :global(strong) { color: var(--text); font-weight: 600; }
+  .legal-body :global(a) { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+  .legal-body :global(a:hover) { border-color: var(--gold); }
+</style>

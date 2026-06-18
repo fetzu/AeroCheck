@@ -1,0 +1,10 @@
+---
+import Base from '../layouts/Base.astro';
+import Privacy from '../components/Privacy.astro';
+import { Content } from '../legal/privacy.md';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en" title="Privacy policy">
+  <Privacy lang="en"><Content /></Privacy>
+</Base>

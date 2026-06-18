@@ -26,7 +26,7 @@ export interface SiteData {
   footer: {
     made_by: string; author: string; author_url: string;
     with: string; in: string; city: string;
-    license: string; license_url: string;
+    privacy: string; license: string; license_url: string;
   };
 }
 

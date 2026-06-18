@@ -8,11 +8,12 @@ const f = site.footer;
 // Live version from the latest GitHub release (resolved at build time).
 const version = await appVersion();
 const changelogHref = site.lang === 'fr' ? '/fr/changelog' : '/changelog';
+const privacyHref = site.lang === 'fr' ? '/fr/privacy' : '/privacy';
 ---
 <footer class="site-footer">
   <div class="container footer-inner">
     <span>{f.made_by} <a href={f.author_url} class="footer-link" target="_blank" rel="noopener">{f.author}</a> {f.with} <Icon name="heart" size={12} class="heart" /> {f.in} {f.city}</span>
-    <span class="footer-meta"><a href={changelogHref} class="footer-link">v{version}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
+    <span class="footer-meta"><a href={privacyHref} class="footer-link">{f.privacy}</a> · <a href={changelogHref} class="footer-link">v{version}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
   </div>
 </footer>
 

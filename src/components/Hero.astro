@@ -41,8 +41,11 @@ const screens = h.cycle.map((k) => shot(k));
       </div>
     </div>
 
-    <div class="cycle-dots" data-dots aria-hidden="true">
-      {screens.map((_, i) => <span class={i === 0 ? 'is-active' : ''} data-dot={i}></span>)}
+    <div class="cycle-dots" data-dots role="group" aria-label="Choose a screenshot">
+      {screens.map((s, i) => (
+        <button type="button" class={i === 0 ? 'is-active' : ''} data-dot={i}
+          aria-label={s.label} aria-pressed={i === 0 ? 'true' : 'false'}></button>
+      ))}
     </div>
     <p class="cycle-cap">{h.cycle_caption}</p>
   </div>
@@ -55,8 +58,11 @@ const screens = h.cycle.map((k) => shot(k));
   .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 22px; }
   .ipad-wrap { max-width: 600px; margin: 0 auto; }
   .hero-device { margin-top: 4px; }
-  .cycle-dots { display: flex; gap: 9px; justify-content: center; margin-top: 16px; }
-  .cycle-dots span { width: 7px; height: 3px; border-radius: 2px; background: #2A3742; transition: width .25s ease, background .25s ease; }
-  .cycle-dots span.is-active { width: 20px; background: var(--gold); }
+  .cycle-dots { display: flex; gap: 4px; justify-content: center; margin-top: 12px; }
+  .cycle-dots button { appearance: none; border: none; background: none; padding: 8px 3px; cursor: pointer; display: block; line-height: 0; }
+  .cycle-dots button::before { content: ''; display: block; width: 7px; height: 3px; border-radius: 2px; background: #2A3742; transition: width .25s ease, background .25s ease; }
+  .cycle-dots button:hover::before { background: #3C4A57; }
+  .cycle-dots button.is-active::before { width: 20px; background: var(--gold); }
+  .cycle-dots button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
   .cycle-cap { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
 </style>

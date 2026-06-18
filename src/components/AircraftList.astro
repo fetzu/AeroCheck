@@ -24,92 +24,133 @@ const COPY = {
   },
 } as const;
 const t = COPY[lang];
+const API = 'https://api.aerocheck.app/api/v3/aircraft/available';
 
-// Build-time fetch (server-side → no CORS). Read-only; never mutates the API.
 interface Aircraft {
   id: string; aircraftType: string; registration: string; modelName: string;
   aeroclub?: string; isFree: boolean; version: string; lastUpdated: string; availableLanguages?: string[];
 }
+
+// Build-time fetch (server-side → no CORS). Read-only; never mutates the API.
 let aircraft: Aircraft[] = [];
 let failed = false;
 try {
-  const res = await fetch('https://api.aerocheck.app/api/v3/aircraft/available');
+  const res = await fetch(API);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   aircraft = (await res.json())?.data?.aircraft ?? [];
 } catch {
   failed = true;
 }
 
+// Shared shaping helpers (the client refresh below mirrors these — keep them in sync).
 const freeCount = aircraft.filter((a) => a.isFree).length;
 const clubCount = new Set(aircraft.map((a) => a.aeroclub).filter(Boolean)).size;
-const stats = [
+const statCells = [
   { v: aircraft.length, l: t.stats.total },
   { v: freeCount, l: t.stats.free },
   { v: aircraft.length - freeCount, l: t.stats.premium },
   { v: clubCount, l: t.stats.clubs },
 ];
 
-// Group by aeroclub: named clubs first (alpha), unclubbed last; free aircraft first within a club.
-const groups = new Map<string, Aircraft[]>();
-for (const a of aircraft) {
-  const k = a.aeroclub || '';
-  (groups.get(k) ?? groups.set(k, []).get(k)!).push(a);
+function group(list: Aircraft[]): [string, Aircraft[]][] {
+  const groups = new Map<string, Aircraft[]>();
+  for (const a of list) {
+    const k = a.aeroclub || '';
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(a);
+  }
+  const ordered = [...groups.entries()].sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
+  for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
+  return ordered;
 }
-const ordered = [...groups.entries()].sort(([a], [b]) => {
-  if (!a) return 1; if (!b) return -1; return a.localeCompare(b);
-});
-for (const [, list] of ordered) {
-  list.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
-}
+const ordered = group(aircraft);
 ---
 <section class="ac container">
   <p class="eyebrow">{t.eyebrow}</p>
   <h1 class="ac-title">{t.heading}</h1>
   <p class="ac-intro">{t.intro}</p>
 
-  {failed ? (
-    <p class="ac-error">{t.error}</p>
-  ) : (
-    <>
-      <div class="ac-stats">
-        {stats.map((s) => (
-          <div class="stat"><span class="stat-v">{s.v}</span><span class="stat-l">{s.l}</span></div>
-        ))}
-      </div>
+  <div class="ac-stats" data-ac-stats>
+    {!failed && statCells.map((s) => (
+      <div class="stat"><span class="stat-v">{s.v}</span><span class="stat-l">{s.l}</span></div>
+    ))}
+  </div>
 
-      {ordered.map(([club, list]) => (
-        <div class="club">
-          {club && <h2 class="club-name">{club}</h2>}
-          <div class="table-wrap">
-            <table class="ac-table">
-              <thead>
+  <div data-ac-groups>
+    {failed ? (
+      <p class="ac-error">{t.error}</p>
+    ) : ordered.map(([club, list]) => (
+      <div class="club">
+        {club && <h2 class="club-name">{club}</h2>}
+        <div class="table-wrap">
+          <table class="ac-table">
+            <thead>
+              <tr>
+                <th>{t.cols.reg}</th><th>{t.cols.model}</th><th>{t.cols.type}</th>
+                <th>{t.cols.version}</th><th>{t.cols.updated}</th><th>{t.cols.langs}</th><th>{t.cols.access}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((a) => (
                 <tr>
-                  <th>{t.cols.reg}</th><th>{t.cols.model}</th><th>{t.cols.type}</th>
-                  <th>{t.cols.version}</th><th>{t.cols.updated}</th><th>{t.cols.langs}</th><th>{t.cols.access}</th>
+                  <td class="c-reg">{a.registration}</td>
+                  <td class="c-model">{a.modelName}</td>
+                  <td class="c-type">{a.aircraftType}</td>
+                  <td class="c-ver">{a.version}</td>
+                  <td class="c-upd">{a.lastUpdated}</td>
+                  <td><span class="langs">{(a.availableLanguages ?? ['en']).map((l) => <span class="lang-tag">{l.toUpperCase()}</span>)}</span></td>
+                  <td>{a.isFree
+                    ? <span class="badge badge--free">{t.free}</span>
+                    : <span class="badge badge--pro">{t.premium}</span>}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {list.map((a) => (
-                  <tr>
-                    <td class="c-reg">{a.registration}</td>
-                    <td class="c-model">{a.modelName}</td>
-                    <td class="c-type">{a.aircraftType}</td>
-                    <td class="c-ver">{a.version}</td>
-                    <td class="c-upd">{a.lastUpdated}</td>
-                    <td><span class="langs">{(a.availableLanguages ?? ['en']).map((l) => <span class="lang-tag">{l.toUpperCase()}</span>)}</span></td>
-                    <td>{a.isFree
-                      ? <span class="badge badge--free">{t.free}</span>
-                      : <span class="badge badge--pro">{t.premium}</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ))}
-    </>
-  )}
+      </div>
+    ))}
+  </div>
 </section>
+
+<script define:vars={{ API, t }}>
+  // Live refresh — PROD ONLY. The build-time render above is already correct on every deploy; this
+  // just picks up roster changes between deploys. It runs only on aerocheck.app because the API's
+  // CORS policy allows that origin alone (localhost/preview keep the baked data). Mirrors the server
+  // shaping above.
+  if (location.hostname === 'aerocheck.app') {
+    (async () => {
+      try {
+        const res = await fetch(API);
+        if (!res.ok) return;
+        const aircraft = (await res.json())?.data?.aircraft ?? [];
+        if (!aircraft.length) return;
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+        const free = aircraft.filter((a) => a.isFree).length;
+        const clubs = new Set(aircraft.map((a) => a.aeroclub).filter(Boolean)).size;
+        const cells = [[aircraft.length, t.stats.total], [free, t.stats.free], [aircraft.length - free, t.stats.premium], [clubs, t.stats.clubs]];
+        const statsEl = document.querySelector('[data-ac-stats]');
+        if (statsEl) statsEl.innerHTML = cells.map(([v, l]) => `<div class="stat"><span class="stat-v">${v}</span><span class="stat-l">${esc(l)}</span></div>`).join('');
+
+        const groups = {};
+        for (const a of aircraft) (groups[a.aeroclub || ''] ??= []).push(a);
+        const ordered = Object.entries(groups).sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
+        for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
+
+        const html = ordered.map(([club, list]) => {
+          const rows = list.map((a) => {
+            const langs = (a.availableLanguages || ['en']).map((l) => `<span class="lang-tag">${esc(l.toUpperCase())}</span>`).join('');
+            const badge = a.isFree ? `<span class="badge badge--free">${esc(t.free)}</span>` : `<span class="badge badge--pro">${esc(t.premium)}</span>`;
+            return `<tr><td class="c-reg">${esc(a.registration)}</td><td class="c-model">${esc(a.modelName)}</td><td class="c-type">${esc(a.aircraftType)}</td><td class="c-ver">${esc(a.version)}</td><td class="c-upd">${esc(a.lastUpdated)}</td><td><span class="langs">${langs}</span></td><td>${badge}</td></tr>`;
+          }).join('');
+          return `<div class="club">${club ? `<h2 class="club-name">${esc(club)}</h2>` : ''}<div class="table-wrap"><table class="ac-table"><thead><tr><th>${esc(t.cols.reg)}</th><th>${esc(t.cols.model)}</th><th>${esc(t.cols.type)}</th><th>${esc(t.cols.version)}</th><th>${esc(t.cols.updated)}</th><th>${esc(t.cols.langs)}</th><th>${esc(t.cols.access)}</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        }).join('');
+        const groupsEl = document.querySelector('[data-ac-groups]');
+        if (groupsEl) groupsEl.innerHTML = html;
+      } catch { /* keep the baked data */ }
+    })();
+  }
+</script>
 
 <style>
   .ac { padding: 48px 24px 72px; }

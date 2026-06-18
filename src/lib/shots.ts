@@ -1,15 +1,17 @@
 export interface Shot { ipad: string; iphone: string; label: string; }
 
-// PLACEHOLDER screenshots — current v4 full-frame captures. These are intentionally temporary:
-// flagship + hero shots will be replaced with purpose-captured REGIONS (see the capture playbook
-// we'll build together). Swap the paths here once the region captures exist; nothing else changes.
+// v5 purpose-captured shots (2026-06-18). Flagship feature rows use focused REGION crops
+// (planning / hud / nav / airspace); the hero carousel + 'log'/'home' use full-device hero shots.
+// All captured deterministically via the DEBUG marketing scene injector — see the capture playbook.
+// iPad regions are mixed aspect (1.44–1.58) shown at native ratio in feature rows; iPhone are full
+// portrait (~0.46). The hero carousel cover-crops to a fixed aspect, so any of these fit there too.
 export const SHOTS: Record<string, Shot> = {
-  hud:      { ipad: '/assets/screenshot/iPad/02.jpg', iphone: '/assets/screenshot/iPhone/02.jpg', label: 'In-flight HUD' },
-  nav:      { ipad: '/assets/screenshot/iPad/03.jpg', iphone: '/assets/screenshot/iPhone/03.jpg', label: 'Navigation' },
-  planning: { ipad: '/assets/screenshot/iPad/04.jpg', iphone: '/assets/screenshot/iPhone/04.jpg', label: 'Flight planning' },
-  airspace: { ipad: '/assets/screenshot/iPad/04.jpg', iphone: '/assets/screenshot/iPhone/04.jpg', label: 'Airspace' },
-  log:      { ipad: '/assets/screenshot/iPad/05.jpg', iphone: '/assets/screenshot/iPhone/05.jpg', label: 'Flight log' },
-  home:     { ipad: '/assets/screenshot/iPad/01.jpg', iphone: '/assets/screenshot/iPhone/01.jpg', label: 'Home' },
+  hud:      { ipad: '/assets/screenshot/v5/ipad/hud.jpg',      iphone: '/assets/screenshot/v5/iphone/hud.jpg',      label: 'In-flight HUD' },
+  nav:      { ipad: '/assets/screenshot/v5/ipad/nav.jpg',      iphone: '/assets/screenshot/v5/iphone/nav.jpg',      label: 'Navigation' },
+  planning: { ipad: '/assets/screenshot/v5/ipad/planning.jpg', iphone: '/assets/screenshot/v5/iphone/planning.jpg', label: 'Flight planning' },
+  airspace: { ipad: '/assets/screenshot/v5/ipad/airspace.jpg', iphone: '/assets/screenshot/v5/iphone/airspace.jpg', label: 'Airspace' },
+  log:      { ipad: '/assets/screenshot/v5/ipad/log.jpg',      iphone: '/assets/screenshot/v5/iphone/log.jpg',      label: 'Flight log' },
+  home:     { ipad: '/assets/screenshot/v5/ipad/home.jpg',     iphone: '/assets/screenshot/v5/iphone/home.jpg',     label: 'Home' },
 };
 
 export function shot(key: string): Shot {

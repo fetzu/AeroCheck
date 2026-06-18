@@ -743,25 +743,21 @@ enum MarketingSceneInjector {
 
     private static func injectNavPlanActive(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService, locationManager: LocationManager) {
         let route = ["LSZQ", "LSGC", "LSGN", "LSZB"]
+        // OurAirports' LSZQ point doesn't line up with the field symbol on the SwissTopo chart, so pin
+        // the departure waypoint (and the held fix below) to the charted airport position. (Marketing.)
+        let lszqCoord = CLLocationCoordinate2D(latitude: 47.392250, longitude: 7.029552)
 
-        // Reuse an existing matching plan if present, otherwise build it.
-        let existing = flightPlanManager.flightPlans.first { plan in
-            plan.waypoints.map { $0.name.uppercased() } == route
-        }
-        let plan: FlightPlan
-        if let existing {
-            plan = existing
-        } else {
-            var newPlan = flightPlanManager.createFlightPlan(name: "LSZQ → LSZB Tour")
-            for ident in route {
-                if let coord = coordinate(ident, airportDataService: airportDataService) {
-                    newPlan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
-                }
+        // Build the plan fresh so the LSZQ waypoint always sits on the charted field — a previously
+        // saved plan could carry the off-position OurAirports coordinate.
+        var plan = flightPlanManager.createFlightPlan(name: "LSZQ → LSZB Tour")
+        for ident in route {
+            let coord = ident == "LSZQ" ? lszqCoord : coordinate(ident, airportDataService: airportDataService)
+            if let coord {
+                plan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
             }
-            newPlan.calculateRouteData()
-            flightPlanManager.updateFlightPlan(newPlan)
-            plan = newPlan
         }
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
         flightPlanManager.activateFlightPlan(plan)
 
         // Present LSZQ (index 0) as the departure already passed and the active leg as LSZQ→LSGC:
@@ -773,9 +769,10 @@ enum MarketingSceneInjector {
         // Held fix ON the first waypoint LSZQ — the aircraft sits exactly on the field marker (the old
         // fix sat ~3 NM south of it). LSGC is the active next waypoint; the speed + heading drive the
         // ground-track trend vector (1 / 2 / 5 min projection).
+        // The LSZQ waypoint sits on the field (lszqCoord); the aircraft sits just down the LSZQ→LSGC
+        // leg, SW of the field — "just departed". Charted position supplied for the marketing capture.
         let provider = MarketingLocationProvider.shared
-        let dep = plan.waypoints.first?.coordinate
-        provider.holdStaticFix(latitude: dep?.latitude ?? 47.364761, longitude: dep?.longitude ?? 7.090180,
+        provider.holdStaticFix(latitude: 47.345151, longitude: 6.982395,
                                altitudeMeters: 2500.0 / 3.28084, speedKnots: 80, headingDegrees: 211)
         if let loc = provider.currentLocation {
             locationManager.injectMarketingStaticFix(loc)
@@ -816,7 +813,8 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 5: Flight Log — import the bundled marketing flights
 
-    /// Filenames (without extension) of the bundled marketing flights, in display order.
+    /// Filenames (without extension) of the bundled marketing flights, in display order. These are
+    /// imported by BOTH the Home and Flight Log scenes.
     private static let marketingFlightFiles = [
         "wright_brothers_1903",
         "harriet_quimby_1912",
@@ -825,9 +823,15 @@ enum MarketingSceneInjector {
         "lszq_alpine_tour"
     ]
 
+    /// A real recorded flight, bundled for the Flight Log hero only (NOT the Home set). It is the most
+    /// recent flight, so it sorts to the top and is the one shown open in detail. (User-supplied export.)
+    private static let realHighlightFlightFile = "vol_dalpes_2026"
+
     private static func injectFlightLog(appState: AppState) {
         let imported = importMarketingFlights(into: appState)
-        print("[Marketing] Imported \(imported) marketing flights")
+        // Flight Log hero highlights a REAL flight (Vol d'Alpes) on top of the marketing set.
+        let real = importFlight(named: realHighlightFlightFile, into: appState)
+        print("[Marketing] Imported \(imported) marketing flights + \(real ? 1 : 0) real flight")
     }
 
     /// Loads the bundled marketing flights into the real flight store (idempotent — skips ids already
@@ -835,25 +839,26 @@ enum MarketingSceneInjector {
     /// something to show). Returns the number newly imported.
     @discardableResult
     private static func importMarketingFlights(into appState: AppState) -> Int {
-        // The marketing/flights folder is bundled as a blue folder reference, so the JSONs land at
-        // <bundle>/flights/<name>.json. Load + insert via the real flight-persistence path.
-        let existingIds = Set(appState.flights.map { $0.id })
-        var imported = 0
-        for name in marketingFlightFiles {
-            guard let url = bundledMarketingFlightURL(named: name),
-                  let data = try? Data(contentsOf: url),
-                  let flight = try? Flight.fromJSON(data) else {
-                print("[Marketing] Could not load bundled flight \(name)")
-                continue
-            }
-            guard !existingIds.contains(flight.id) else { continue }
-            var f = flight
-            f.computeSummaryStats()
-            appState.flights.insert(f, at: 0)
-            appState.saveFlight(f) // real persistence path → appears in Flight Log
-            imported += 1
+        marketingFlightFiles.reduce(0) { $0 + (importFlight(named: $1, into: appState) ? 1 : 0) }
+    }
+
+    /// Load one bundled flight JSON and insert it via the real persistence path. Idempotent (skips if
+    /// the id is already present). Returns true if it was newly imported. The marketing/flights folder
+    /// is a blue folder reference, so the JSONs land at <bundle>/flights/<name>.json.
+    @discardableResult
+    private static func importFlight(named name: String, into appState: AppState) -> Bool {
+        guard let url = bundledMarketingFlightURL(named: name),
+              let data = try? Data(contentsOf: url),
+              let flight = try? Flight.fromJSON(data) else {
+            print("[Marketing] Could not load bundled flight \(name)")
+            return false
         }
-        return imported
+        guard !appState.flights.contains(where: { $0.id == flight.id }) else { return false }
+        var f = flight
+        f.computeSummaryStats()
+        appState.flights.insert(f, at: 0)
+        appState.saveFlight(f) // real persistence path → appears in Flight Log
+        return true
     }
 
     /// Resolve a bundled marketing flight JSON URL. Tries the folder-reference layout (flights/),

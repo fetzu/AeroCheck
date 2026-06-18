@@ -4,7 +4,6 @@ import Icon from './Icon.astro';
 interface Props { site: SiteData; lang: Lang; }
 const { site, lang } = Astro.props;
 const base = lang === 'fr' ? '/fr' : '';
-const other = lang === 'fr' ? '/' : '/fr';
 const links = [
   { label: site.nav.features, href: `${base}/#features` },
   { label: site.nav.aircraft, href: `${base}/aircraft` },
@@ -20,7 +19,11 @@ const links = [
     </a>
     <nav class="nav-links" aria-label="Primary">
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
-      <a class="lang" href={other}>{lang === 'fr' ? 'EN' : 'FR'}</a>
+      <span class="lang" aria-label="Language">
+        <a href="/" class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+        <span class="lang-sep" aria-hidden="true">/</span>
+        <a href="/fr" class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+      </span>
       <a class="btn btn--primary nav-dl" href={site.hero.primary.href}>{site.nav.download}</a>
     </nav>
   </div>
@@ -33,7 +36,11 @@ const links = [
   .brand-mark { color: var(--gold); }
   .nav-links { display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--muted); }
   .nav-links a:not(.btn):hover { color: var(--text); }
-  .lang { font-family: var(--mono); color: var(--gold); font-size: 12px; }
+  .lang { font-family: var(--mono); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+  .lang-opt { color: var(--muted); }
+  .lang-opt.is-active { color: var(--gold); }
+  .lang-opt:hover { color: var(--text); }
+  .lang-sep { color: var(--dim); }
   .nav-dl { color: var(--gold-ink); }
   @media (max-width: 720px) {
     .nav-links a:not(.lang):not(.btn) { display: none; }

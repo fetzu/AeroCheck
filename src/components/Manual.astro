@@ -1,0 +1,66 @@
+---
+import type { Lang } from '../lib/site';
+interface Heading { depth: number; slug: string; text: string; }
+interface Props { lang: Lang; headings: Heading[]; }
+const { lang, headings } = Astro.props;
+
+const COPY = {
+  en: { eyebrow: 'Manual', heading: 'User manual', toc: 'On this page' },
+  fr: { eyebrow: 'Manuel', heading: 'Manuel d’utilisation', toc: 'Sur cette page' },
+} as const;
+const t = COPY[lang];
+const sections = headings.filter((h) => h.depth === 2);
+---
+<section class="manual container">
+  <header class="manual-head">
+    <p class="eyebrow">{t.eyebrow}</p>
+    <h1 class="manual-title">{t.heading}</h1>
+  </header>
+
+  <div class="manual-grid">
+    <aside class="manual-toc">
+      <p class="toc-label">{t.toc}</p>
+      <nav aria-label={t.toc}>
+        <ul>{sections.map((s) => <li><a href={`#${s.slug}`}>{s.text}</a></li>)}</ul>
+      </nav>
+    </aside>
+    <article class="manual-body"><slot /></article>
+  </div>
+</section>
+
+<style>
+  .manual { padding: 48px 24px 80px; }
+  .manual-head { margin-bottom: 28px; }
+  .manual-title { font-size: clamp(26px, 4vw, 36px); margin-top: 12px; }
+
+  .manual-grid { display: grid; grid-template-columns: 220px 1fr; gap: 48px; align-items: start; }
+
+  .manual-toc { position: sticky; top: 80px; }
+  .toc-label { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 0 0 10px; }
+  .manual-toc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--line); }
+  .manual-toc a { display: block; padding: 5px 0 5px 14px; margin-left: -1px; border-left: 1px solid transparent; font-size: 13px; color: var(--muted); transition: color .15s ease, border-color .15s ease; }
+  .manual-toc a:hover { color: var(--text); border-left-color: var(--line-2); }
+
+  /* Rendered markdown */
+  .manual-body { max-width: 680px; color: var(--muted); font-size: 15px; line-height: 1.75; }
+  .manual-body :global(h2) { color: var(--text); font-size: 22px; font-weight: 500; letter-spacing: -.01em; margin: 40px 0 14px; padding-top: 18px; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+  .manual-body :global(h2:first-child) { margin-top: 0; padding-top: 0; border-top: none; }
+  .manual-body :global(h3) { color: var(--text); font-size: 16px; font-weight: 600; margin: 26px 0 8px; scroll-margin-top: 80px; }
+  .manual-body :global(p) { margin: 0 0 14px; }
+  .manual-body :global(ul), .manual-body :global(ol) { margin: 0 0 14px; padding-left: 22px; }
+  .manual-body :global(li) { margin: 5px 0; }
+  .manual-body :global(li::marker) { color: var(--dim); }
+  .manual-body :global(strong) { color: var(--text); font-weight: 600; }
+  .manual-body :global(a) { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+  .manual-body :global(a:hover) { border-color: var(--gold); }
+  .manual-body :global(code) { font-family: var(--mono); font-size: .86em; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--text); }
+  .manual-body :global(hr) { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+  .manual-body :global(blockquote) { border-left: 3px solid var(--line-2); margin: 0 0 14px; padding: 2px 0 2px 16px; color: var(--dim); }
+
+  @media (max-width: 860px) {
+    .manual-grid { grid-template-columns: 1fr; gap: 24px; }
+    .manual-toc { position: static; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--panel-2); }
+    .manual-toc ul { border-left: none; }
+    .manual-toc a { padding-left: 0; border-left: none; }
+  }
+</style>

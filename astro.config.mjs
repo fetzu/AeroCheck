@@ -3,7 +3,8 @@ import sitemap from '@astrojs/sitemap';
 import icon from 'astro-icon';
 
 // AéroCheck marketing site. Static output, served at aerocheck.app via GitHub Pages.
-// Note: api.aerocheck.app is a separate Cloudflare Worker — this site never touches it.
+// Note: api.aerocheck.app is a separate Cloudflare Worker — this site may READ from it to populate
+// pages (e.g. the live aircraft roster), but must NEVER modify it.
 export default defineConfig({
   site: 'https://aerocheck.app',
   trailingSlash: 'ignore',

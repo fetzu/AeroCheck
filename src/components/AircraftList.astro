@@ -1,0 +1,145 @@
+---
+import type { Lang } from '../lib/site';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+
+const COPY = {
+  en: {
+    eyebrow: 'Aircraft',
+    heading: 'Every aircraft in AeroCheck',
+    intro: 'The full roster of checklists available in the app, populated from the AeroCheck API. The WT9 Dynamic is bundled free; the rest unlock with an AeroCheck Pro subscription.',
+    stats: { total: 'Aircraft', free: 'Free', premium: 'Premium', clubs: 'Flying clubs' },
+    cols: { reg: 'Registration', model: 'Model', type: 'Type', version: 'Version', updated: 'Updated', langs: 'Languages', access: 'Access' },
+    free: 'Free', premium: 'Pro',
+    error: 'The aircraft roster couldn’t be loaded at build time. It will appear on the next successful build.',
+  },
+  fr: {
+    eyebrow: 'Aéronefs',
+    heading: 'Tous les aéronefs d’AeroCheck',
+    intro: 'La liste complète des checklists disponibles dans l’app, alimentée par l’API AeroCheck. Le WT9 Dynamic est inclus gratuitement ; les autres se débloquent avec un abonnement AeroCheck Pro.',
+    stats: { total: 'Aéronefs', free: 'Gratuit', premium: 'Premium', clubs: 'Clubs' },
+    cols: { reg: 'Immatriculation', model: 'Modèle', type: 'Type', version: 'Version', updated: 'Mise à jour', langs: 'Langues', access: 'Accès' },
+    free: 'Gratuit', premium: 'Pro',
+    error: 'La liste des aéronefs n’a pas pu être chargée à la compilation. Elle apparaîtra au prochain build.',
+  },
+} as const;
+const t = COPY[lang];
+
+// Build-time fetch (server-side → no CORS). Read-only; never mutates the API.
+interface Aircraft {
+  id: string; aircraftType: string; registration: string; modelName: string;
+  aeroclub?: string; isFree: boolean; version: string; lastUpdated: string; availableLanguages?: string[];
+}
+let aircraft: Aircraft[] = [];
+let failed = false;
+try {
+  const res = await fetch('https://api.aerocheck.app/api/v3/aircraft/available');
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  aircraft = (await res.json())?.data?.aircraft ?? [];
+} catch {
+  failed = true;
+}
+
+const freeCount = aircraft.filter((a) => a.isFree).length;
+const clubCount = new Set(aircraft.map((a) => a.aeroclub).filter(Boolean)).size;
+const stats = [
+  { v: aircraft.length, l: t.stats.total },
+  { v: freeCount, l: t.stats.free },
+  { v: aircraft.length - freeCount, l: t.stats.premium },
+  { v: clubCount, l: t.stats.clubs },
+];
+
+// Group by aeroclub: named clubs first (alpha), unclubbed last; free aircraft first within a club.
+const groups = new Map<string, Aircraft[]>();
+for (const a of aircraft) {
+  const k = a.aeroclub || '';
+  (groups.get(k) ?? groups.set(k, []).get(k)!).push(a);
+}
+const ordered = [...groups.entries()].sort(([a], [b]) => {
+  if (!a) return 1; if (!b) return -1; return a.localeCompare(b);
+});
+for (const [, list] of ordered) {
+  list.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
+}
+---
+<section class="ac container">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="ac-title">{t.heading}</h1>
+  <p class="ac-intro">{t.intro}</p>
+
+  {failed ? (
+    <p class="ac-error">{t.error}</p>
+  ) : (
+    <>
+      <div class="ac-stats">
+        {stats.map((s) => (
+          <div class="stat"><span class="stat-v">{s.v}</span><span class="stat-l">{s.l}</span></div>
+        ))}
+      </div>
+
+      {ordered.map(([club, list]) => (
+        <div class="club">
+          {club && <h2 class="club-name">{club}</h2>}
+          <div class="table-wrap">
+            <table class="ac-table">
+              <thead>
+                <tr>
+                  <th>{t.cols.reg}</th><th>{t.cols.model}</th><th>{t.cols.type}</th>
+                  <th>{t.cols.version}</th><th>{t.cols.updated}</th><th>{t.cols.langs}</th><th>{t.cols.access}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((a) => (
+                  <tr>
+                    <td class="c-reg">{a.registration}</td>
+                    <td class="c-model">{a.modelName}</td>
+                    <td class="c-type">{a.aircraftType}</td>
+                    <td class="c-ver">{a.version}</td>
+                    <td class="c-upd">{a.lastUpdated}</td>
+                    <td><span class="langs">{(a.availableLanguages ?? ['en']).map((l) => <span class="lang-tag">{l.toUpperCase()}</span>)}</span></td>
+                    <td>{a.isFree
+                      ? <span class="badge badge--free">{t.free}</span>
+                      : <span class="badge badge--pro">{t.premium}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
+  )}
+</section>
+
+<style>
+  .ac { padding: 48px 24px 72px; }
+  .ac-title { font-size: clamp(26px, 4vw, 36px); margin: 12px 0 12px; }
+  .ac-intro { color: var(--muted); max-width: 640px; margin: 0 0 28px; font-size: 15px; }
+
+  .ac-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .stat-v { display: block; font-size: 28px; font-weight: 600; color: var(--gold); line-height: 1.1; }
+  .stat-l { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-top: 6px; }
+
+  .ac-error { color: var(--magenta); padding: 32px 0; font-size: 15px; }
+
+  .club { margin-bottom: 28px; }
+  .club-name { font-size: 15px; color: var(--gold); font-weight: 500; padding: 10px 14px; background: var(--panel-2); border-left: 3px solid var(--gold); border-radius: var(--radius-sm); margin-bottom: 10px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+  .ac-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+  .ac-table th { text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); padding: 12px 14px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+  .ac-table td { padding: 13px 14px; border-bottom: 1px solid var(--line); color: var(--muted); vertical-align: middle; }
+  .ac-table tbody tr:last-child td { border-bottom: none; }
+  .ac-table tbody tr:hover { background: rgba(255,255,255,.02); }
+  .c-reg { font-family: var(--mono); font-weight: 600; color: var(--gold); }
+  .c-model { color: var(--text); }
+  .c-type, .c-ver { font-family: var(--mono); }
+  .c-upd { font-size: 13px; }
+  .langs { display: inline-flex; gap: 4px; }
+  .lang-tag { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+  .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
+  .badge--free { background: rgba(63,184,97,.16); color: var(--green); }
+  .badge--pro { background: var(--gold); color: var(--gold-ink); }
+
+  @media (max-width: 600px) { .ac-stats { grid-template-columns: repeat(2, 1fr); } }
+</style>

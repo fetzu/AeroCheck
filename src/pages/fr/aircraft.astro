@@ -1,11 +1,9 @@
 ---
 import Base from '../../layouts/Base.astro';
-import PageStub from '../../components/PageStub.astro';
+import AircraftList from '../../components/AircraftList.astro';
 import { loadSite } from '../../lib/site';
 const site = loadSite('fr');
 ---
 <Base site={site} lang="fr" title={site.nav.aircraft}>
-  <PageStub label={site.nav.aircraft} heading="Liste des aéronefs — bientôt"
-    body="La flotte complète — WT9 Dynamic plus 12 aéronefs premium de deux aéroclubs suisses — est en cours de reconstruction pour le nouveau site."
-    home="/fr" homeLabel="Retour à l'accueil" />
+  <AircraftList lang="fr" />
 </Base>

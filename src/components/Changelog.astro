@@ -1,0 +1,100 @@
+---
+import type { Lang } from '../lib/site';
+import { getReleases } from '../lib/releases';
+interface Props { lang: Lang; }
+const { lang } = Astro.props;
+
+const COPY = {
+  en: {
+    eyebrow: 'Changelog',
+    heading: 'Release history',
+    intro: 'Every AeroCheck release, pulled straight from GitHub.',
+    note: null as string | null,
+    pre: 'Pre-release',
+    viewOn: 'View on GitHub →',
+    error: 'Release notes couldn’t be loaded at build time. They’ll appear on the next successful build.',
+  },
+  fr: {
+    eyebrow: 'Journal',
+    heading: 'Historique des versions',
+    intro: 'Chaque version d’AeroCheck, directement depuis GitHub.',
+    note: 'Les notes de version sont publiées en anglais.',
+    pre: 'Pré-version',
+    viewOn: 'Voir sur GitHub →',
+    error: 'Les notes de version n’ont pas pu être chargées à la compilation. Elles apparaîtront au prochain build.',
+  },
+} as const;
+const t = COPY[lang];
+
+const releases = await getReleases();
+const fmt = new Intl.DateTimeFormat(lang === 'fr' ? 'fr-CH' : 'en-GB', { dateStyle: 'long', timeZone: 'UTC' });
+const dateLabel = (iso: string) => (iso ? fmt.format(new Date(iso)) : '');
+---
+<section class="cl container">
+  <p class="eyebrow">{t.eyebrow}</p>
+  <h1 class="cl-title">{t.heading}</h1>
+  <p class="cl-intro">{t.intro}{t.note && <span class="cl-note"> · {t.note}</span>}</p>
+
+  {releases.length === 0 ? (
+    <p class="cl-error">{t.error}</p>
+  ) : (
+    <ol class="cl-list">
+      {releases.map((r) => (
+        <li class="rel">
+          <div class="rel-meta">
+            <span class="rel-tag">v{r.tag}</span>
+            {r.prerelease && <span class="rel-pre">{t.pre}</span>}
+            <time class="rel-date" datetime={r.iso}>{dateLabel(r.iso)}</time>
+          </div>
+          <div class="rel-card">
+            {r.name && r.name !== `v${r.tag}` && r.name !== r.tag && <h2 class="rel-name">{r.name}</h2>}
+            <div class="rel-body" set:html={r.html}></div>
+            {r.url && <a class="rel-link" href={r.url} target="_blank" rel="noopener">{t.viewOn}</a>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  )}
+</section>
+
+<style>
+  .cl { padding: 48px 24px 72px; max-width: 820px; }
+  .cl-title { font-size: clamp(26px, 4vw, 36px); margin: 12px 0 12px; }
+  .cl-intro { color: var(--muted); margin: 0 0 36px; font-size: 15px; }
+  .cl-note { color: var(--dim); }
+  .cl-error { color: var(--magenta); padding: 32px 0; }
+
+  .cl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 28px; }
+  .rel { display: grid; grid-template-columns: 160px 1fr; gap: 22px; }
+  .rel-meta { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+  .rel-tag { font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--gold); }
+  .rel-pre { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--magenta); border: 1px solid var(--magenta); border-radius: 4px; padding: 1px 6px; width: fit-content; }
+  .rel-date { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+
+  .rel-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; }
+  .rel-name { font-size: 17px; margin: 0 0 10px; color: var(--text); }
+
+  /* Rendered markdown */
+  .rel-body { color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+  .rel-body :global(h1), .rel-body :global(h2), .rel-body :global(h3), .rel-body :global(h4) { color: var(--text); font-size: 14px; font-weight: 600; letter-spacing: 0; margin: 18px 0 8px; }
+  .rel-body :global(h1:first-child), .rel-body :global(h2:first-child), .rel-body :global(h3:first-child) { margin-top: 0; }
+  .rel-body :global(p) { margin: 0 0 10px; }
+  .rel-body :global(ul), .rel-body :global(ol) { margin: 0 0 10px; padding-left: 20px; }
+  .rel-body :global(li) { margin: 3px 0; }
+  .rel-body :global(a) { color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+  .rel-body :global(a:hover) { border-color: var(--gold); }
+  .rel-body :global(strong) { color: var(--text); font-weight: 600; }
+  .rel-body :global(code) { font-family: var(--mono); font-size: .88em; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .rel-body :global(pre) { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; overflow-x: auto; }
+  .rel-body :global(pre code) { border: none; background: none; padding: 0; }
+  .rel-body :global(hr) { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+  .rel-body :global(img) { display: none; } /* badges/screenshots in notes stay out of the timeline */
+
+  .rel-link { display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--gold); }
+  .rel-link:hover { text-decoration: underline; }
+
+  @media (max-width: 640px) {
+    .rel { grid-template-columns: 1fr; gap: 10px; }
+    .rel-meta { flex-direction: row; align-items: center; gap: 12px; }
+  }
+</style>

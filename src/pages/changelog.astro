@@ -1,11 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
-import PageStub from '../components/PageStub.astro';
+import Changelog from '../components/Changelog.astro';
 import { loadSite } from '../lib/site';
 const site = loadSite('en');
 ---
 <Base site={site} lang="en" title={site.nav.changelog}>
-  <PageStub label={site.nav.changelog} heading="Changelog — coming soon"
-    body="Release notes will be generated from GitHub releases, as on the current site. The pipeline port is on the build list."
-    home="/" homeLabel="Back home" />
+  <Changelog lang="en" />
 </Base>

@@ -1,0 +1,32 @@
+---
+import '../styles/global.css';
+import type { SiteData, Lang } from '../lib/site';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+interface Props { site: SiteData; lang: Lang; title?: string; }
+const { site, lang, title } = Astro.props;
+const pageTitle = title ? `${title} — ${site.brand}` : site.meta.title;
+---
+<!doctype html>
+<html lang={lang}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={site.meta.description} />
+  <link rel="icon" href="/assets/appicon.png" />
+  <meta name="theme-color" content="#0A1018" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={site.meta.description} />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/assets/appicon.png" />
+  <link rel="alternate" hreflang="en" href="https://aerocheck.app/" />
+  <link rel="alternate" hreflang="fr" href="https://aerocheck.app/fr/" />
+</head>
+<body data-device="ipad">
+  <Nav site={site} lang={lang} />
+  <main><slot /></main>
+  <Footer site={site} />
+  <script>import '../scripts/ui.ts';</script>
+</body>
+</html>

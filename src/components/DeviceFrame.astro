@@ -1,0 +1,22 @@
+---
+interface Props { device: 'ipad' | 'iphone'; class?: string; }
+const { device, class: cls = '' } = Astro.props;
+---
+<div class:list={['device', `device--${device}`, cls]}>
+  <div class="device__screen"><slot /></div>
+</div>
+
+<style>
+  .device { background: #1B2530; border: 7px solid #121A23; box-shadow: 0 24px 60px rgba(0,0,0,.5); overflow: hidden; }
+  .device--ipad { border-radius: 18px; }
+  .device--iphone { border-radius: 30px; border-width: 9px; max-width: 280px; margin: 0 auto; }
+  /* Image defines the box — the screenshot is shown in full, never cropped, at its native aspect. */
+  .device__screen { background: #0C141C; overflow: hidden; line-height: 0; border-radius: 4px; }
+  .device--iphone .device__screen { border-radius: 20px; }
+  .device__screen :global(img) { width: 100%; height: auto; display: block; }
+  /* Cycling hero: stacked images need a sized box. */
+  .device__screen :global(.cycle) { position: relative; }
+  .device__screen :global(.cycle img) { position: absolute; inset: 0; height: 100%; object-fit: cover; opacity: 0; transition: opacity .5s ease; }
+  .device__screen :global(.cycle img.is-active) { opacity: 1; position: relative; }
+  @media (prefers-reduced-motion: reduce) { .device__screen :global(.cycle img) { transition: none; } }
+</style>

@@ -1,0 +1,20 @@
+---
+import type { SiteData } from '../lib/site';
+import Icon from './Icon.astro';
+interface Props { site: SiteData; }
+const { site } = Astro.props;
+const f = site.footer;
+---
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <span>{f.made_with} <Icon name="heart" size={12} class="heart" /> {f.in} {f.city}</span>
+    <span class="footer-meta">{f.meta}</span>
+  </div>
+</footer>
+
+<style>
+  .site-footer { border-top: 1px solid var(--line); background: var(--bg-band); }
+  .footer-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; font-size: 12px; color: var(--dim); }
+  .footer-inner :global(.heart) { color: var(--gold); vertical-align: -2px; }
+  .footer-meta { font-family: var(--mono); }
+</style>

@@ -1,0 +1,41 @@
+---
+import type { SiteData, Lang } from '../lib/site';
+import Icon from './Icon.astro';
+interface Props { site: SiteData; lang: Lang; }
+const { site, lang } = Astro.props;
+const base = lang === 'fr' ? '/fr' : '';
+const other = lang === 'fr' ? '/' : '/fr';
+const links = [
+  { label: site.nav.features, href: `${base}/#features` },
+  { label: site.nav.aircraft, href: `${base}/aircraft` },
+  { label: site.nav.manual, href: `${base}/manual` },
+  { label: site.nav.changelog, href: `${base}/changelog` },
+];
+---
+<header class="site-nav">
+  <div class="container nav-inner">
+    <a class="brand" href={base || '/'}>
+      <Icon name="plane-tilt" size={20} class="brand-mark" />
+      <span>{site.brand}</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+      <a class="lang" href={other}>{lang === 'fr' ? 'EN' : 'FR'}</a>
+      <a class="btn btn--primary nav-dl" href={site.hero.primary.href}>{site.nav.download}</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-nav { position: sticky; top: 0; z-index: 50; background: rgba(10,16,24,.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 16px; }
+  .brand-mark { color: var(--gold); }
+  .nav-links { display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--muted); }
+  .nav-links a:not(.btn):hover { color: var(--text); }
+  .lang { font-family: var(--mono); color: var(--gold); font-size: 12px; }
+  .nav-dl { color: var(--gold-ink); }
+  @media (max-width: 720px) {
+    .nav-links a:not(.lang):not(.btn) { display: none; }
+  }
+</style>

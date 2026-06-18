@@ -1,0 +1,62 @@
+---
+import type { SiteData } from '../lib/site';
+import { shot } from '../lib/shots';
+import DeviceFrame from './DeviceFrame.astro';
+import Icon from './Icon.astro';
+interface Props { site: SiteData; }
+const { site } = Astro.props;
+const h = site.hero;
+const screens = h.cycle.map((k) => shot(k));
+---
+<section class="hero">
+  <div class="container hero-inner">
+    <p class="eyebrow">{h.eyebrow}</p>
+    <h1 class="hero-title">{h.title}</h1>
+    <p class="hero-sub">{h.subtitle}</p>
+
+    <div class="hero-ctas">
+      <a class="btn btn--primary" href={h.primary.href}><Icon name={h.primary.icon} size={18} />{h.primary.label}</a>
+      <a class="btn btn--ghost" href={h.secondary.href}><Icon name={h.secondary.icon} size={18} />{h.secondary.label}</a>
+    </div>
+
+    <div class="device-toggle" role="group" aria-label="Choose device">
+      <button type="button" data-device="ipad" aria-pressed="true"><Icon name="device-ipad" size={15} />{site.device_toggle.ipad}</button>
+      <button type="button" data-device="iphone" aria-pressed="false"><Icon name="device-mobile" size={15} />{site.device_toggle.iphone}</button>
+    </div>
+
+    <div class="hero-device dv-pair" data-hero>
+      <div class="dv--ipad ipad-wrap">
+        <DeviceFrame device="ipad">
+          <div class="cycle" style="aspect-ratio:1.44">
+            {screens.map((s, i) => <img src={s.ipad} alt={s.label} class={i === 0 ? 'is-active' : ''} data-i={i} loading={i === 0 ? 'eager' : 'lazy'} />)}
+          </div>
+        </DeviceFrame>
+      </div>
+      <div class="dv--iphone">
+        <DeviceFrame device="iphone">
+          <div class="cycle" style="aspect-ratio:.46">
+            {screens.map((s, i) => <img src={s.iphone} alt={s.label} class={i === 0 ? 'is-active' : ''} data-i={i} loading={i === 0 ? 'eager' : 'lazy'} />)}
+          </div>
+        </DeviceFrame>
+      </div>
+    </div>
+
+    <div class="cycle-dots" data-dots aria-hidden="true">
+      {screens.map((_, i) => <span class={i === 0 ? 'is-active' : ''} data-dot={i}></span>)}
+    </div>
+    <p class="cycle-cap">{h.cycle_caption}</p>
+  </div>
+</section>
+
+<style>
+  .hero { padding: 56px 0 36px; text-align: center; }
+  .hero-title { font-size: clamp(30px, 5vw, 44px); max-width: 620px; margin: 14px auto 0; }
+  .hero-sub { color: var(--muted); font-size: 16px; max-width: 520px; margin: 16px auto 22px; }
+  .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 22px; }
+  .ipad-wrap { max-width: 600px; margin: 0 auto; }
+  .hero-device { margin-top: 4px; }
+  .cycle-dots { display: flex; gap: 9px; justify-content: center; margin-top: 16px; }
+  .cycle-dots span { width: 7px; height: 3px; border-radius: 2px; background: #2A3742; transition: width .25s ease, background .25s ease; }
+  .cycle-dots span.is-active { width: 20px; background: var(--gold); }
+  .cycle-cap { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 10px; }
+</style>

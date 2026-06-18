@@ -1,0 +1,24 @@
+{
+  "name": "aerocheck-website",
+  "type": "module",
+  "version": "5.0.0",
+  "private": true,
+  "description": "Marketing website for AéroCheck (aerocheck.app) — Astro, static, GitHub Pages.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^5.6.1",
+    "@astrojs/sitemap": "^3.3.0",
+    "astro-icon": "^1.1.5"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "@types/js-yaml": "^4.0.9",
+    "@iconify-json/tabler": "^1.2.17"
+  }
+}

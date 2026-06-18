@@ -1,0 +1,36 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import FeatureRow from '../components/FeatureRow.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import Pills from '../components/Pills.astro';
+import { loadSite } from '../lib/site';
+const site = loadSite('en');
+---
+<Base site={site} lang="en">
+  <Hero site={site} />
+
+  <section id="features" class="flagship">
+    <div class="container">
+      <div class="section-head">
+        <span class="section-label">{site.flagship.heading}</span>
+        <span class="tag-note">{site.flagship.note}</span>
+      </div>
+      {site.flagship.items.map((item, i) => <FeatureRow item={item} index={i} />)}
+    </div>
+  </section>
+
+  <section class="supporting">
+    <div class="container">
+      <div class="section-head"><span class="section-label">{site.supporting.heading}</span></div>
+      <FeatureGrid items={site.supporting.items} />
+      <div class="pills-wrap"><Pills items={site.ecosystem} /></div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .flagship { padding-top: 24px; }
+  .supporting { background: var(--bg-band); border-top: 1px solid var(--line); }
+  .pills-wrap { margin-top: 14px; }
+</style>

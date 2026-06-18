@@ -1,0 +1,6 @@
+---
+import { Icon as TablerIcon } from 'astro-icon/components';
+interface Props { name: string; size?: number; class?: string; }
+const { name, size = 20, class: cls } = Astro.props;
+---
+<TablerIcon name={`tabler:${name}`} width={size} height={size} class={cls} aria-hidden="true" />

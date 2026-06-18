@@ -1,0 +1,16 @@
+---
+import type { EcoItem } from '../lib/site';
+import Icon from './Icon.astro';
+interface Props { items: EcoItem[]; }
+const { items } = Astro.props;
+---
+<div class="pills reveal">
+  {items.map((it) => (
+    <span class="pill"><Icon name={it.icon} size={14} class="pill-icon" />{it.label}</span>
+  ))}
+</div>
+
+<style>
+  .pill { display: inline-flex; align-items: center; gap: 7px; }
+  .pill :global(.pill-icon) { color: var(--gold); }
+</style>

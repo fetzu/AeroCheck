@@ -1,0 +1,24 @@
+---
+import type { SupportingItem } from '../lib/site';
+import Icon from './Icon.astro';
+interface Props { items: SupportingItem[]; }
+const { items } = Astro.props;
+---
+<div class="grid-3">
+  {items.map((it) => (
+    <div class="card reveal">
+      <Icon name={it.icon} size={20} class="card-icon" />
+      <h3 class="card-title">{it.title}</h3>
+      <p class="card-desc">{it.description}</p>
+    </div>
+  ))}
+</div>
+
+<style>
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .card :global(.card-icon) { color: var(--gold); }
+  .card-title { font-size: 15px; margin: 10px 0 5px; }
+  .card-desc { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; }
+  @media (max-width: 760px) { .grid-3 { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,76 @@
+lang: "en"
+meta:
+  title: "AéroCheck — Flight checklists, navigation & planning for pilots"
+  description: "Your digital co-pilot for flight checklists, navigation and planning — rebuilt from the ground up in 4.0, iPad-first. For student and experienced private pilots."
+brand: "AéroCheck"
+
+nav:
+  features: "Features"
+  aircraft: "Aircraft"
+  manual: "Manual"
+  changelog: "Changelog"
+  download: "Download"
+
+hero:
+  eyebrow: "AeroCheck 4.0 · iPad-first"
+  title: "Your digital co-pilot for every phase of flight."
+  subtitle: "Flight checklists, navigation and planning — rebuilt from the ground up, iPad-first, for student and experienced private pilots."
+  primary: { label: "Get it on GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
+  secondary: { label: "Read the manual", href: "/manual", icon: "book-2" }
+  cycle_caption: "auto-cycles: HUD · nav · planning · log"
+  cycle: ["hud", "nav", "planning", "log"]
+
+flagship:
+  heading: "A flight, start to finish"
+  note: "rows reveal on scroll"
+  items:
+    - step: "01 · Plan"
+      title: "Build the route by dragging on the map"
+      description: "Drag a waypoint to move it, drag the line to insert one, release near an airfield to auto-snap its name and frequency. A live route profile flags terrain clearance and airspace conflicts while you plan."
+      chips: ["From→To first", "Live drag & snap", "Terrain & airspace conflicts", "GPX export"]
+      shot: "planning"
+    - step: "02 · Fly"
+      title: "The right checklist step, right now"
+      description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases."
+      chips: ["16 phases", "13 aircraft", "On-target bar", "Hold-to-confirm events"]
+      shot: "hud"
+    - step: "03 · Navigate"
+      title: "Full-screen charts, frequencies in reach"
+      description: "Swiss ICAO charts with leg-by-leg timing, a ground-track trend vector and the FREDA cruise reminder, plus a current / next / emergency frequency panel. Cache maps for offline use."
+      chips: ["ICAO / Segelflug", "FREDA reminder", "CURRENT / NEXT / EMERG", "Offline cache"]
+      shot: "nav"
+    - step: "04 · Stay clear"
+      title: "Worldwide airspace, offline-ready"
+      description: "An OpenAIP airspace overlay spanning 119 countries. Download a whole continent for offline use, or stream nearby controlled airspace in real time as you fly."
+      chips: ["119 countries", "OpenAIP", "Offline by continent", "Live streaming"]
+      shot: "airspace"
+
+supporting:
+  heading: "Everything else"
+  items:
+    - title: "GPS tracking & logging"
+      description: "Background tracking with real-time speed and altitude, plus automatic timing of engine start, line-up, landing and shutdown. Export as GPX, JSON or ZIP."
+      icon: "location"
+    - title: "Departure & approach briefings"
+      description: "Dynamic briefings with V-speeds, emergency procedures and nearby-airport detection — wind and runway suggestions from your GPS position."
+      icon: "book-2"
+    - title: "Learning & circuit modes"
+      description: "Hide memorizable items to test your knowledge; circuit mode streamlines pattern work with full-stop tracking."
+      icon: "school"
+
+ecosystem:
+  - { label: "13 aircraft · 16 phases", icon: "plane" }
+  - { label: "Companion mode", icon: "devices" }
+  - { label: "Apple Watch", icon: "clock" }
+  - { label: "Cockpit themes", icon: "adjustments" }
+  - { label: "iCloud sync", icon: "cloud" }
+  - { label: "Accessibility", icon: "accessible" }
+  - { label: "Open source", icon: "brand-github" }
+
+device_toggle: { ipad: "iPad", iphone: "iPhone" }
+
+footer:
+  made_with: "Made with"
+  in: "in"
+  city: "Switzerland"
+  meta: "v4.0.0 · MIT"

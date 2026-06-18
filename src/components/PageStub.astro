@@ -1,0 +1,17 @@
+---
+import Icon from './Icon.astro';
+interface Props { label: string; heading: string; body: string; home: string; homeLabel: string; }
+const { label, heading, body, home, homeLabel } = Astro.props;
+---
+<section class="stub container">
+  <p class="eyebrow">{label}</p>
+  <h1 class="stub-title">{heading}</h1>
+  <p class="stub-body">{body}</p>
+  <a class="btn btn--ghost" href={home}><Icon name="arrow-left" size={16} />{homeLabel}</a>
+</section>
+
+<style>
+  .stub { padding: 90px 24px; text-align: center; }
+  .stub-title { font-size: clamp(26px, 4vw, 34px); margin: 12px 0 12px; }
+  .stub-body { color: var(--muted); max-width: 460px; margin: 0 auto 22px; }
+</style>

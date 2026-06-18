@@ -1,4 +1,12 @@
-.bundle
-.sass-cache
-_site
-Gemfile.lock
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# logs / env
+*.log
+.env
+.env.production
+.DS_Store

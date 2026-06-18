@@ -1,0 +1,76 @@
+lang: "fr"
+meta:
+  title: "AéroCheck — Checklists, navigation et planification de vol pour pilotes"
+  description: "Votre copilote numérique pour les checklists, la navigation et la planification de vol — entièrement repensé en 4.0, pensé d'abord pour l'iPad. Pour les élèves-pilotes comme pour les pilotes privés expérimentés."
+brand: "AéroCheck"
+
+nav:
+  features: "Fonctionnalités"
+  aircraft: "Aéronefs"
+  manual: "Manuel"
+  changelog: "Journal"
+  download: "Télécharger"
+
+hero:
+  eyebrow: "AeroCheck 4.0 · pensé pour l'iPad"
+  title: "Votre copilote numérique, à chaque phase du vol."
+  subtitle: "Checklists, navigation et planification de vol — entièrement repensé, pensé d'abord pour l'iPad, pour les élèves-pilotes comme pour les pilotes privés expérimentés."
+  primary: { label: "Obtenir sur GitHub", href: "https://github.com/fetzu/AeroCheck/releases", icon: "brand-github" }
+  secondary: { label: "Lire le manuel", href: "/fr/manual", icon: "book-2" }
+  cycle_caption: "défile automatiquement : HUD · nav · plan · journal"
+  cycle: ["hud", "nav", "planning", "log"]
+
+flagship:
+  heading: "Un vol, du début à la fin"
+  note: "les sections apparaissent au défilement"
+  items:
+    - step: "01 · Planifier"
+      title: "Construisez la route en glissant sur la carte"
+      description: "Déplacez un waypoint, tirez la ligne pour en insérer un, relâchez près d'un aérodrome pour accrocher automatiquement son nom et sa fréquence. Un profil de route en direct signale la marge de terrain et les conflits d'espace aérien pendant la planification."
+      chips: ["From→To d'abord", "Glisser-déposer & accrochage", "Conflits terrain & espace", "Export GPX"]
+      shot: "planning"
+    - step: "02 · Voler"
+      title: "La bonne étape de checklist, au bon moment"
+      description: "L'élément en cours devient le centre tandis que les étapes passées et futures s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre « dans la cible », sur les 16 phases."
+      chips: ["16 phases", "13 aéronefs", "Barre dans la cible", "Confirmation par appui"]
+      shot: "hud"
+    - step: "03 · Naviguer"
+      title: "Cartes plein écran, fréquences à portée"
+      description: "Cartes OACI suisses avec chronométrage par tronçon, vecteur de tendance de route sol et rappel de croisière FREDA, plus un panneau de fréquences ACTUELLE / SUIVANTE / URGENCE. Mise en cache hors ligne."
+      chips: ["OACI / Segelflug", "Rappel FREDA", "ACTUELLE / SUIVANTE / URGENCE", "Cache hors ligne"]
+      shot: "nav"
+    - step: "04 · Rester dégagé"
+      title: "Espaces aériens mondiaux, prêts hors ligne"
+      description: "Une couche d'espaces aériens OpenAIP couvrant 119 pays. Téléchargez un continent entier pour l'utilisation hors ligne, ou recevez les espaces contrôlés à proximité en temps réel."
+      chips: ["119 pays", "OpenAIP", "Hors ligne par continent", "Diffusion en direct"]
+      shot: "airspace"
+
+supporting:
+  heading: "Tout le reste"
+  items:
+    - title: "Suivi GPS & journal de vol"
+      description: "Suivi en arrière-plan avec vitesse et altitude en temps réel, et chronométrage automatique du démarrage moteur, alignement, atterrissage et arrêt. Export GPX, JSON ou ZIP."
+      icon: "location"
+    - title: "Briefings départ & approche"
+      description: "Briefings dynamiques avec vitesses de référence, procédures d'urgence et détection des aérodromes proches — vent et suggestions de piste selon votre position GPS."
+      icon: "book-2"
+    - title: "Modes apprentissage & circuit"
+      description: "Masquez les éléments à mémoriser pour vous tester ; le mode circuit simplifie le tour de piste avec suivi des atterrissages complets."
+      icon: "school"
+
+ecosystem:
+  - { label: "13 aéronefs · 16 phases", icon: "plane" }
+  - { label: "Mode Compagnon", icon: "devices" }
+  - { label: "Apple Watch", icon: "clock" }
+  - { label: "Thèmes cockpit", icon: "adjustments" }
+  - { label: "Sync iCloud", icon: "cloud" }
+  - { label: "Accessibilité", icon: "accessible" }
+  - { label: "Open source", icon: "brand-github" }
+
+device_toggle: { ipad: "iPad", iphone: "iPhone" }
+
+footer:
+  made_with: "Fait avec"
+  in: "en"
+  city: "Suisse"
+  meta: "v4.0.0 · MIT"

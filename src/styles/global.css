@@ -1,0 +1,145 @@
+/* AéroCheck — cockpit design system (Glass Cockpit dark + Sectional editorial). */
+
+:root {
+  --bg: #0A1018;
+  --bg-band: #070C12;
+  --panel: #0F1A24;
+  --panel-2: #0E1620;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.12);
+
+  --gold: #E0A93B;
+  --gold-ink: #1A1205;
+  --green: #3FB861;
+  --magenta: #D14FA0;
+
+  --text: #E8EDF2;
+  --muted: #8A97A6;
+  --dim: #5E6B78;
+
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 1080px;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: inherit; text-decoration: none; }
+
+img { max-width: 100%; display: block; }
+
+h1, h2, h3 { margin: 0; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+
+.container { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:active { transform: scale(0.98); }
+.btn--primary { background: var(--gold); color: var(--gold-ink); }
+.btn--primary:hover { background: #ecb849; }
+.btn--ghost { border-color: var(--line-2); color: var(--text); }
+.btn--ghost:hover { background: var(--panel-2); }
+
+/* Chips & pills */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #A7B3C0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 9px;
+}
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  font-size: 13px;
+  color: #A7B3C0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 14px;
+}
+
+/* Scroll reveal */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* Section rhythm */
+section { padding: 64px 0; }
+.section-head { margin-bottom: 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tag-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--green);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+/* Global device toggle: one segmented control sets body[data-device]; every device pair
+   (hero + each feature row) follows it. Default is iPad. */
+.dv-pair .dv--iphone { display: none; }
+body[data-device="iphone"] .dv-pair .dv--ipad { display: none; }
+body[data-device="iphone"] .dv-pair .dv--iphone { display: block; }
+
+.device-toggle { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px; gap: 2px; }
+.device-toggle button {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--sans); font-size: 13px; color: var(--muted);
+  background: transparent; border: 0; border-radius: 7px; padding: 6px 14px; cursor: pointer;
+}
+.device-toggle button[aria-pressed="true"] { background: var(--gold); color: var(--gold-ink); font-weight: 500; }
+
+.icon { display: inline-flex; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

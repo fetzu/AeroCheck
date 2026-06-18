@@ -1,0 +1,35 @@
+---
+import type { FlagshipItem } from '../lib/site';
+import { shot } from '../lib/shots';
+import DeviceFrame from './DeviceFrame.astro';
+interface Props { item: FlagshipItem; index: number; }
+const { item, index } = Astro.props;
+const s = shot(item.shot);
+const reverse = index % 2 === 1;
+---
+<div class:list={['feature-row', 'reveal', { 'feature-row--reverse': reverse }]}>
+  <div class="feature-copy">
+    <p class="step">{item.step}</p>
+    <h3 class="feature-title">{item.title}</h3>
+    <p class="feature-desc">{item.description}</p>
+    <div class="chips">{item.chips.map((c) => <span class="chip">{c}</span>)}</div>
+  </div>
+  <div class="feature-media dv-pair">
+    <div class="dv--ipad"><DeviceFrame device="ipad"><img src={s.ipad} alt={s.label} loading="lazy" /></DeviceFrame></div>
+    <div class="dv--iphone"><DeviceFrame device="iphone"><img src={s.iphone} alt={s.label} loading="lazy" /></DeviceFrame></div>
+  </div>
+</div>
+
+<style>
+  .feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 30px 0; border-bottom: 1px solid var(--line); }
+  .feature-row--reverse .feature-copy { order: 2; }
+  .step { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); margin: 0 0 10px; }
+  .feature-title { font-size: 22px; margin-bottom: 10px; }
+  .feature-desc { color: var(--muted); font-size: 14.5px; line-height: 1.65; margin: 0 0 14px; }
+  .feature-media :global(.device--iphone) { max-width: 220px; }
+  @media (max-width: 760px) {
+    .feature-row { grid-template-columns: 1fr; gap: 22px; }
+    .feature-row--reverse .feature-copy { order: 0; }
+    .feature-media { max-width: 460px; }
+  }
+</style>

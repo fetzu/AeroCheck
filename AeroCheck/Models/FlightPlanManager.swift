@@ -471,6 +471,24 @@ class FlightPlanManager: ObservableObject {
         startChronometerTimer()
     }
 
+    #if DEBUG
+    /// DEBUG (Marketing): start the leg chronometer as if it had already been running for
+    /// `elapsedSeconds`, so a screenshot shows a realistic mid-run clock (e.g. 1:37) without waiting.
+    /// Back-dates the active plan's start time and seeds the published elapsed value.
+    func marketingStartChronometer(elapsedSeconds: TimeInterval) {
+        guard var plan = activeFlightPlan else { return }
+        chronometerAccumulated = 0
+        plan.chronometerStartTime = Date().addingTimeInterval(-elapsedSeconds)
+        activeFlightPlan = plan
+        if let index = flightPlans.firstIndex(where: { $0.id == plan.id }) {
+            flightPlans[index] = plan
+        }
+        saveActiveFlightPlan()
+        chronometerElapsed = elapsedSeconds
+        startChronometerTimer()
+    }
+    #endif
+
     /// Pause the leg timer, freezing the elapsed time (resume with startChronometer). (v4 UI/UX Revamp)
     func pauseChronometer() {
         guard var plan = activeFlightPlan, let start = plan.chronometerStartTime else { return }

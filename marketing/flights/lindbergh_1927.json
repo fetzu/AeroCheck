@@ -2,6 +2,7 @@
   "id": "33333333-1927-0521-0000-000000000001",
   "name": "Spirit of St. Louis - Transatlantic",
   "airplane": "N-X-211 Spirit of St. Louis",
+  "aircraftRegistration": "N-X-211",
   "aircraftType": "RYAN-NYP",
   "checklistVersion": "1.0",
   "startTime": "1927-05-20T07:00:00Z",

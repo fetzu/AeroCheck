@@ -664,6 +664,10 @@ enum MarketingSceneInjector {
         // End any active flight so Home is visible.
         if appState.isFlightActive { appState.cancelFlight() }
 
+        // Populate the Home "last flight" card: import the bundled marketing flights so the most
+        // recent one (the Alpine Tour) surfaces on Home. (Idempotent.)
+        importMarketingFlights(into: appState)
+
         // Force subscribed so premium aircraft surface, then constrain the owned set to exactly
         // the PA-28-181 (HB-PFA). The bundled WT9 (F-HVXA) is always shown by HomeView.
         // DEBUG-only: the premium-access override (forceSubscribed + owned override) is compiled
@@ -720,12 +724,12 @@ enum MarketingSceneInjector {
         appState.currentFlight?.engineStartTime = appState.engineStartTime
         appState.currentFlight?.lineUpTime = appState.lineUpTime
 
-        // Held static fix ~4 NM SE of LSZQ Bressaucourt (47.3497, 7.0278) so the HUD mini-map shows
-        // LSZQ and its nearby frequencies. ~SPD 105 kt, ALT 3500 ft, HDG 315° (tracking back toward
-        // the field). CLLocation altitude is METERS.
+        // Held static fix just SW of LSZQ Bressaucourt so the HUD mini-map shows the field and its
+        // nearest frequency (the "NEAREST … TWR/AFIS" readout). Coordinate supplied for the marketing
+        // capture. ~SPD 105 kt, ALT 3500 ft, HDG 315°. CLLocation altitude is METERS.
         let altMeters = 3500.0 / 3.28084
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 47.305, longitude: 7.095, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
+        provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
         // Also prime the LocationManager directly so the instruments are lit even before the
         // ContentView onChange forwarder runs.
         if let loc = provider.currentLocation {
@@ -764,13 +768,19 @@ enum MarketingSceneInjector {
         // so LSGC becomes the next waypoint. (Explicit waypoint-index advance — the API the nav reads.)
         flightPlanManager.markWaypoint()
 
-        // Held fix ~3 NM down the LSZQ→LSGC leg (bearing ≈211°, LSGC is SW), just past LSZQ, so the
-        // aircraft visibly sits on the active leg with LSZQ behind it.
+        // Held fix ON the first waypoint LSZQ — the aircraft sits exactly on the field marker (the old
+        // fix sat ~3 NM south of it). LSGC is the active next waypoint; the speed + heading drive the
+        // ground-track trend vector (1 / 2 / 5 min projection).
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 47.3069, longitude: 6.9898, altitudeMeters: 1200, speedKnots: 95, headingDegrees: 211)
+        let dep = plan.waypoints.first?.coordinate
+        provider.holdStaticFix(latitude: dep?.latitude ?? 47.364761, longitude: dep?.longitude ?? 7.090180,
+                               altitudeMeters: 2500.0 / 3.28084, speedKnots: 80, headingDegrees: 211)
         if let loc = provider.currentLocation {
             locationManager.injectMarketingStaticFix(loc)
         }
+
+        // Show the leg chronometer mid-run (~1:37) so the nav map reads as an active navigation.
+        flightPlanManager.marketingStartChronometer(elapsedSeconds: 95)
     }
 
     // MARK: - Scene 4: Plan with conflicts (into LSZQ from LSZB)
@@ -814,6 +824,15 @@ enum MarketingSceneInjector {
     ]
 
     private static func injectFlightLog(appState: AppState) {
+        let imported = importMarketingFlights(into: appState)
+        print("[Marketing] Imported \(imported) marketing flights")
+    }
+
+    /// Loads the bundled marketing flights into the real flight store (idempotent — skips ids already
+    /// present). Shared by the Flight Log scene and the Home scene (so Home's "last flight" card has
+    /// something to show). Returns the number newly imported.
+    @discardableResult
+    private static func importMarketingFlights(into appState: AppState) -> Int {
         // The marketing/flights folder is bundled as a blue folder reference, so the JSONs land at
         // <bundle>/flights/<name>.json. Load + insert via the real flight-persistence path.
         let existingIds = Set(appState.flights.map { $0.id })
@@ -832,7 +851,7 @@ enum MarketingSceneInjector {
             appState.saveFlight(f) // real persistence path → appears in Flight Log
             imported += 1
         }
-        print("[Marketing] Imported \(imported) marketing flights")
+        return imported
     }
 
     /// Resolve a bundled marketing flight JSON URL. Tries the folder-reference layout (flights/),

@@ -96,12 +96,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: marketingProvider.currentLocation) { _, newLocation in
-            // Inject marketing location into LocationManager when active
+            // Inject marketing location into LocationManager when active. Use injectMarketingStaticFix
+            // so the smoothed speed / cached heading are primed too — otherwise only ALT lights up
+            // (SPD/HDG read the smoothed caches, which didUpdateLocations skips in marketing mode).
             if appState.settings.marketingMode && marketingProvider.isActive {
                 if let location = newLocation {
-                    locationManager.currentLocation = location
-                    // Also override GPS status to show as good
-                    locationManager.overrideGPSStatus(.good)
+                    locationManager.injectMarketingStaticFix(location)
                 }
             }
         }

@@ -407,6 +407,34 @@ class MarketingLocationProvider: ObservableObject {
         updateLocation()
     }
 
+    /// Hold one static GPS fix and keep publishing it, so the in-flight instruments (SPD / ALT / HDG)
+    /// stay lit for a screenshot. (DEV-ONLY — Marketing Mode scene injector)
+    ///
+    /// Reuses `MarketingGPSPoint.toCLLocation` for the m/s + altitude conversion, stops any running
+    /// scenario timer (a held fix must not drift), and publishes via `currentLocation` so the existing
+    /// `ContentView` injection path forwards it into `LocationManager`. `altitudeMeters` is the GPS
+    /// altitude in METERS (CLLocation native); `speedKnots` and `headingDegrees` are aviation units.
+    func holdStaticFix(latitude: Double, longitude: Double, altitudeMeters: Double, speedKnots: Double, headingDegrees: Double) {
+        // Stop scenario playback so the timer doesn't overwrite the held fix.
+        simulationTimer?.invalidate()
+        simulationTimer = nil
+        isPaused = true
+        useCustomPosition = false // a held fix is published directly via currentLocation, not the custom-position path
+
+        isActive = true // mark active so the GPS status shows good and ContentView forwards the fix
+
+        let point = MarketingGPSPoint(
+            lat: latitude,
+            lon: longitude,
+            alt: altitudeMeters,
+            speed: speedKnots,
+            course: headingDegrees
+        )
+        currentHeading = headingDegrees
+        // Re-assign to a fresh location each call so `.onChange(of: currentLocation)` always fires.
+        currentLocation = point.toCLLocation(heading: headingDegrees)
+    }
+
     /// Get current location for injection into LocationManager
     func getCurrentLocation() -> CLLocation? {
         if useCustomPosition, let pos = customPosition {
@@ -549,6 +577,251 @@ class MarketingLocationProvider: ObservableObject {
     }
 }
 
+// MARK: - Marketing Scene Injector (DEV-ONLY)
+
+/// One-tap marketing screenshot scenes. Each case drives the app into a deterministic UI state
+/// (owned aircraft, in-flight HUD, nav plan, conflicts, flight log) so website / App Store captures
+/// don't have to be reached by hand. DEV-ONLY — only ever invoked while Marketing Mode is on.
+enum MarketingScene: String, CaseIterable, Identifiable {
+    case home2Aircraft = "Home — 2 Aircraft"
+    case cruiseHUD = "Cruise HUD"
+    case navPlanActive = "Nav — Active Plan"
+    case planConflicts = "Plan — Conflicts"
+    case flightLogDetail = "Flight Log"
+
+    var id: String { rawValue }
+
+    var detail: String {
+        switch self {
+        case .home2Aircraft: return "F-HVXA + HB-PFA owned"
+        case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
+        case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
+        case .planConflicts: return "Example plan into LSZQ selected"
+        case .flightLogDetail: return "Imports the bundled marketing flights"
+        }
+    }
+}
+
+/// Fixed airport coordinates used to build marketing routes without depending on airport data being
+/// loaded. Resolved via AirportDataService when available, with these as the fallback. (DEV-ONLY)
+private struct MarketingAirport {
+    let ident: String
+    let latitude: Double
+    let longitude: Double
+    let elevationFt: Double
+}
+
+@MainActor
+enum MarketingSceneInjector {
+
+    // ICAO airports referenced by the route scenes (Swiss fields).
+    private static let knownAirports: [String: MarketingAirport] = [
+        "LSZQ": MarketingAirport(ident: "LSZQ", latitude: 47.3497, longitude: 7.0278, elevationFt: 1860),  // Bressaucourt
+        "LSGC": MarketingAirport(ident: "LSGC", latitude: 47.0839, longitude: 6.7928, elevationFt: 3409),  // Les Eplatures
+        "LSGN": MarketingAirport(ident: "LSGN", latitude: 46.9575, longitude: 6.8647, elevationFt: 1427),  // Neuchâtel
+        "LSZB": MarketingAirport(ident: "LSZB", latitude: 46.9141, longitude: 7.4972, elevationFt: 1673),  // Bern-Belp
+        "LSZG": MarketingAirport(ident: "LSZG", latitude: 47.1820, longitude: 7.4170, elevationFt: 1411),  // Grenchen
+    ]
+
+    /// Resolve an ICAO to a coordinate, preferring loaded airport data, then the hardcoded fallback.
+    private static func coordinate(_ ident: String, airportDataService: AirportDataService) -> CLLocationCoordinate2D? {
+        if let a = airportDataService.findAirport(byIdent: ident) {
+            return a.coordinate
+        }
+        if let a = knownAirports[ident] {
+            return CLLocationCoordinate2D(latitude: a.latitude, longitude: a.longitude)
+        }
+        return nil
+    }
+
+    /// Inject the given marketing scene. All side effects are dev-gated by the caller (Marketing Mode).
+    static func inject(
+        _ scene: MarketingScene,
+        appState: AppState,
+        locationManager: LocationManager,
+        subscriptionManager: SubscriptionManager,
+        aircraftDataService: AircraftDataService,
+        flightPlanManager: FlightPlanManager,
+        airportDataService: AirportDataService
+    ) {
+        switch scene {
+        case .home2Aircraft:
+            injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
+        case .cruiseHUD:
+            injectCruiseHUD(appState: appState, locationManager: locationManager)
+        case .navPlanActive:
+            injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
+        case .planConflicts:
+            injectPlanConflicts(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
+        case .flightLogDetail:
+            injectFlightLog(appState: appState)
+        }
+    }
+
+    // MARK: - Scene 1: Home with exactly two owned aircraft
+
+    private static func injectHome2Aircraft(appState: AppState, subscriptionManager: SubscriptionManager, aircraftDataService: AircraftDataService) {
+        // End any active flight so Home is visible.
+        if appState.isFlightActive { appState.cancelFlight() }
+
+        // Force subscribed so premium aircraft surface, then constrain the owned set to exactly
+        // the PA-28-181 (HB-PFA). The bundled WT9 (F-HVXA) is always shown by HomeView.
+        subscriptionManager.setMarketingForceSubscribed(true)
+        aircraftDataService.applyMarketingOwnedOverride(ownedIds: ["pa28-181"])
+    }
+
+    // MARK: - Scene 2: Active flight on CRUISE with a held static fix
+
+    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager) {
+        // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
+        if appState.isFlightActive { appState.cancelFlight() }
+        appState.settings.selectedRemoteAircraftId = nil
+        appState.settings.selectedAircraft = .wt9Dynamic
+        appState.startFlight()
+
+        // Mark every phase up to and including climb as completed (green); current phase = cruise.
+        appState.currentPhase = .cruise
+        for phase in ChecklistPhase.allCases where phase.rawValue < ChecklistPhase.cruise.rawValue {
+            appState.phaseCompletionStatus[phase] = .completed
+            // A worked-through phase shows its highlight past the last item.
+            let count = appState.activeChecklist.visibleItemCount(for: phase, learningMode: appState.settings.learningMode)
+            appState.currentHighlightedItem[phase] = ChecklistHighlighting.lastItemComplete(visibleCount: count)
+        }
+        appState.highestCompletedPhase = .climb
+
+        // Cruise: highlight the Fuel-Quantity item with the items before it completed (green).
+        // The WT9 cruise checklist lists Fuel Quantity as item 4; locate it by challenge text so the
+        // index is robust to checklist edits, falling back to index 3 (the 4th visible item).
+        let cruiseItems = appState.activeChecklist.visibleItems(for: .cruise, learningMode: appState.settings.learningMode)
+        let fuelIndex = cruiseItems.firstIndex { $0.challenge.lowercased().contains("fuel quantity") } ?? min(3, max(0, cruiseItems.count - 1))
+        appState.currentHighlightedItem[.cruise] = fuelIndex
+        appState.phaseCompletionStatus[.cruise] = nil // in-progress, not yet completed
+
+        // Record engine start + line up so the in-flight clock and timing readouts are populated.
+        let now = Date()
+        appState.engineStartTime = now.addingTimeInterval(-25 * 60)
+        appState.lineUpTime = now.addingTimeInterval(-20 * 60)
+        appState.currentFlight?.engineStartTime = appState.engineStartTime
+        appState.currentFlight?.lineUpTime = appState.lineUpTime
+
+        // Held static fix: ~SPD 105 kt, ALT 3500 ft, HDG 045°. CLLocation altitude is METERS.
+        let altMeters = 3500.0 / 3.28084
+        let provider = MarketingLocationProvider.shared
+        provider.holdStaticFix(latitude: 46.80, longitude: 7.45, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 45)
+        // Also prime the LocationManager directly so the instruments are lit even before the
+        // ContentView onChange forwarder runs.
+        if let loc = provider.currentLocation {
+            locationManager.injectMarketingStaticFix(loc)
+        }
+    }
+
+    // MARK: - Scene 3: Active nav plan LSZQ → LSGC → LSGN → LSZB
+
+    private static func injectNavPlanActive(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService, locationManager: LocationManager) {
+        let route = ["LSZQ", "LSGC", "LSGN", "LSZB"]
+
+        // Reuse an existing matching plan if present, otherwise build it.
+        let existing = flightPlanManager.flightPlans.first { plan in
+            plan.waypoints.map { $0.name.uppercased() } == route
+        }
+        let plan: FlightPlan
+        if let existing {
+            plan = existing
+        } else {
+            var newPlan = flightPlanManager.createFlightPlan(name: "LSZQ → LSZB Tour")
+            for ident in route {
+                if let coord = coordinate(ident, airportDataService: airportDataService) {
+                    newPlan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
+                }
+            }
+            newPlan.calculateRouteData()
+            flightPlanManager.updateFlightPlan(newPlan)
+            plan = newPlan
+        }
+        flightPlanManager.activateFlightPlan(plan)
+
+        // Held fix near the first leg so the nav map shows the aircraft on the route.
+        if let start = coordinate("LSZQ", airportDataService: airportDataService) {
+            let provider = MarketingLocationProvider.shared
+            provider.holdStaticFix(latitude: start.latitude - 0.03, longitude: start.longitude - 0.02, altitudeMeters: 1200, speedKnots: 95, headingDegrees: 200)
+            if let loc = provider.currentLocation {
+                locationManager.injectMarketingStaticFix(loc)
+            }
+        }
+    }
+
+    // MARK: - Scene 4: Plan with conflicts (into LSZQ from LSZB)
+
+    private static func injectPlanConflicts(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService) {
+        // Prefer an existing example plan FROM LSZB INTO LSZQ (the one saved in the sim).
+        let existing = flightPlanManager.flightPlans.first { plan in
+            guard let first = plan.waypoints.first?.name.uppercased(),
+                  let last = plan.waypoints.last?.name.uppercased() else { return false }
+            return first == "LSZB" && last == "LSZQ"
+        }
+
+        if let existing {
+            // Make it the most-recent / active so the editor opens on it.
+            flightPlanManager.activateFlightPlan(existing)
+            return
+        }
+
+        // Otherwise build LSZB → LSZG → LSZQ.
+        let route = ["LSZB", "LSZG", "LSZQ"]
+        var plan = flightPlanManager.createFlightPlan(name: "LSZB → LSZQ")
+        for ident in route {
+            if let coord = coordinate(ident, airportDataService: airportDataService) {
+                plan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
+            }
+        }
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        flightPlanManager.activateFlightPlan(plan)
+    }
+
+    // MARK: - Scene 5: Flight Log — import the bundled marketing flights
+
+    /// Filenames (without extension) of the bundled marketing flights, in display order.
+    private static let marketingFlightFiles = [
+        "wright_brothers_1903",
+        "harriet_quimby_1912",
+        "lindbergh_1927",
+        "yeager_1947",
+        "lszq_alpine_tour"
+    ]
+
+    private static func injectFlightLog(appState: AppState) {
+        // The marketing/flights folder is bundled as a blue folder reference, so the JSONs land at
+        // <bundle>/flights/<name>.json. Load + insert via the real flight-persistence path.
+        let existingIds = Set(appState.flights.map { $0.id })
+        var imported = 0
+        for name in marketingFlightFiles {
+            guard let url = bundledMarketingFlightURL(named: name),
+                  let data = try? Data(contentsOf: url),
+                  let flight = try? Flight.fromJSON(data) else {
+                print("[Marketing] Could not load bundled flight \(name)")
+                continue
+            }
+            guard !existingIds.contains(flight.id) else { continue }
+            var f = flight
+            f.computeSummaryStats()
+            appState.flights.insert(f, at: 0)
+            appState.saveFlight(f) // real persistence path → appears in Flight Log
+            imported += 1
+        }
+        print("[Marketing] Imported \(imported) marketing flights")
+    }
+
+    /// Resolve a bundled marketing flight JSON URL. Tries the folder-reference layout (flights/),
+    /// then a flat bundle layout as a fallback.
+    private static func bundledMarketingFlightURL(named name: String) -> URL? {
+        if let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "flights") {
+            return url
+        }
+        return Bundle.main.url(forResource: name, withExtension: "json")
+    }
+}
+
 // MARK: - Marketing Debug View
 
 import SwiftUI
@@ -557,6 +830,16 @@ import SwiftUI
 struct MarketingControlsView: View {
     @ObservedObject var provider = MarketingLocationProvider.shared
     @State private var showCustomControls = false
+
+    // Scene injector (DEV-ONLY). These managers are inherited from ContentView's environment.
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var airportDataService: AirportDataService
+    @State private var selectedScene: MarketingScene = .home2Aircraft
+    @State private var lastInjected: String?
 
     // Custom position inputs
     @State private var latitudeText = "46.8"
@@ -582,6 +865,44 @@ struct MarketingControlsView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
+
+                Divider().background(Color.white.opacity(0.3))
+
+                // MARK: - Scene injector (DEV-ONLY)
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("SCENE INJECTOR")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.aviationGold)
+                        Spacer()
+                    }
+                    Picker("Scene", selection: $selectedScene) {
+                        ForEach(MarketingScene.allCases) { scene in
+                            Text(scene.rawValue).tag(scene)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+
+                    Text(selectedScene.detail)
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button(action: injectSelectedScene) {
+                        Text("Inject Scene")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.aviationGold)
+
+                    if let lastInjected {
+                        Text(lastInjected)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.green)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal)
 
                 Divider().background(Color.white.opacity(0.3))
 
@@ -732,6 +1053,23 @@ struct MarketingControlsView: View {
         .background(Color.black.opacity(0.85))
         .cornerRadius(12)
     }
+
+    /// Drive the app into the selected marketing scene (DEV-ONLY). Always gated by Marketing Mode at
+    /// the call site (this overlay only renders when Marketing Mode is on).
+    private func injectSelectedScene() {
+        MarketingSceneInjector.inject(
+            selectedScene,
+            appState: appState,
+            locationManager: locationManager,
+            subscriptionManager: subscriptionManager,
+            aircraftDataService: aircraftDataService,
+            flightPlanManager: flightPlanManager,
+            airportDataService: airportDataService
+        )
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        lastInjected = "Injected: \(selectedScene.rawValue) @ \(formatter.string(from: Date()))"
+    }
 }
 
 // MARK: - Integration Helper
@@ -752,7 +1090,14 @@ extension LocationManager {
 // MARK: - Preview
 
 #Preview {
-    MarketingControlsView()
+    let subscriptionManager = SubscriptionManager()
+    return MarketingControlsView()
         .frame(height: 600)
         .background(Color.gray)
+        .environmentObject(AppState())
+        .environmentObject(LocationManager())
+        .environmentObject(subscriptionManager)
+        .environmentObject(AircraftDataService(subscriptionManager: subscriptionManager))
+        .environmentObject(FlightPlanManager())
+        .environmentObject(AirportDataService())
 }

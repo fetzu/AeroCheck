@@ -93,6 +93,28 @@ class SubscriptionManager: ObservableObject {
     /// Debug flag to force "not subscribed" state (for testing)
     @Published var debugForceNotSubscribed: Bool = false
 
+    /// DEV-ONLY (Marketing Mode): force a subscribed state for marketing screenshots. When set,
+    /// `subscriptionStatus` reports `.subscribed` and `shouldAllowPremiumAccess()` returns true,
+    /// regardless of the real StoreKit entitlement. Not persisted; resets on relaunch. Gated by the
+    /// caller behind `appState.settings.marketingMode`.
+    @Published var forceSubscribed: Bool = false
+
+    /// Apply (or clear) the DEV-ONLY marketing subscription override. Setting it true flips
+    /// `subscriptionStatus` to a far-future `.subscribed` so every `subscriptionStatus.isSubscribed`
+    /// read site (Home, Settings, paywall) reports premium. Clearing it returns to `.unknown` so the
+    /// next real periodic check re-resolves the true entitlement.
+    func setMarketingForceSubscribed(_ on: Bool) {
+        forceSubscribed = on
+        if on {
+            subscriptionStatus = .subscribed(
+                expiresAt: Date().addingTimeInterval(365 * 24 * 60 * 60),
+                productID: "aerocheck.pro.yearly"
+            )
+        } else {
+            subscriptionStatus = .unknown
+        }
+    }
+
     /// Whether the subscription is in grace period (lapsed but within 48h)
     @Published var isInGracePeriod: Bool = false
 
@@ -534,6 +556,10 @@ class SubscriptionManager: ObservableObject {
     /// Checks if premium content should be accessible
     /// Takes into account subscription status, grace period, and offline duration
     func shouldAllowPremiumAccess() -> Bool {
+        // DEV-ONLY marketing override wins over everything else.
+        if forceSubscribed {
+            return true
+        }
         // Debug mode check
         if debugForceNotSubscribed {
             return false
@@ -565,6 +591,7 @@ class SubscriptionManager: ObservableObject {
     ///    (offline too long) → NOT denied (keep cache); the local entitlement is authoritative.
     /// So the only way to reach `true` is a resolved, not-subscribed status with no valid grace window.
     func isPremiumAccessDefinitivelyDenied() -> Bool {
+        if forceSubscribed { return false } // DEV-ONLY marketing override
         if debugForceNotSubscribed { return true }
         if subscriptionStatus == .unknown { return false }
         if subscriptionStatus.isSubscribed { return false }

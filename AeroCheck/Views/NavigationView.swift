@@ -1684,7 +1684,8 @@ struct NavigationMapView: View {
     /// An airfield's VFR frequencies: ATIS first when present (the first listen — it does NOT give you
     /// the next entity's frequency), then the contact frequency (TWR > AFIS > INFO > A/G > … — never
     /// the APP/GND that was being shown wrongly). (v4 UI/UX Revamp)
-    private static let contactPriority = ["TWR", "AFIS", "INFO", "A/G", "CTAF", "UNIC", "RDO"]
+    // Single source of truth shared with the HUD NEAREST strip (AirportDataService).
+    private static let contactPriority = AirportDataService.fieldContactPriority
     private func airfieldFreqs(for ident: String) -> [(type: String, freq: String)] {
         let freqs = airportDataService.getFrequencies(for: ident)
         guard !freqs.isEmpty else { return [] }

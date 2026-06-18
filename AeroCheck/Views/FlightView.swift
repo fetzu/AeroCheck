@@ -1603,11 +1603,9 @@ struct FlightView: View {
         }
         let nearby = airportDataService.findNearestAirports(to: coord, limit: 6, maxDistanceNm: 40)
         for airport in nearby {
-            let freqs = airportDataService.getFrequencies(for: airport.ident)
-            let pick = freqs.first(where: { $0.type == "TWR" })
-                ?? freqs.first(where: { ["APP", "ATIS", "GND"].contains($0.type) })
-                ?? freqs.first
-            if let f = pick {
+            // Prefer the field's own contact freq (tower, else AFIS/INFO/advisory) over a distant
+            // approach controller — an AFIS field like LSZQ must show its 122.05, not Bâle Approach.
+            if let f = airportDataService.bestFieldFrequency(for: airport.ident) {
                 nearestFreqText = "\(airport.ident) \(f.type) \(f.formattedFrequency)"
                 return
             }

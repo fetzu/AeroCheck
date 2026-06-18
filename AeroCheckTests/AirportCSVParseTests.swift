@@ -60,4 +60,33 @@ final class AirportCSVParseTests: XCTestCase {
         XCTAssertNil(rows[0]["b"], "Empty values are not stored")
         XCTAssertEqual(rows[0]["c"], "3")
     }
+
+    // MARK: - Field-contact frequency pick (HUD NEAREST strip / Nav FREQ)
+
+    private func freq(_ type: String, _ mhz: Double) -> AirportFrequency {
+        AirportFrequency(id: Int(mhz * 1000), airportRef: 1, airportIdent: "LSZQ",
+                         type: type, description: nil, frequencyMhz: mhz)
+    }
+
+    /// The bug this guards: an AFIS field (e.g. LSZQ 122.05) was showing the distant approach
+    /// controller (Bâle Approach) because the old pick ranked APP above AFIS.
+    func testAfisBeatsApproachAtUncontrolledField() {
+        let picked = AirportDataService.pickFieldContact(from: [freq("AFIS", 122.05), freq("APP", 119.35)])
+        XCTAssertEqual(picked?.type, "AFIS")
+        XCTAssertEqual(picked?.frequencyMhz, 122.05)
+    }
+
+    func testTowerBeatsEverything() {
+        let picked = AirportDataService.pickFieldContact(from: [freq("APP", 119.35), freq("AFIS", 122.05), freq("TWR", 118.1)])
+        XCTAssertEqual(picked?.type, "TWR")
+    }
+
+    func testFallsBackToAtisThenAnyWhenNoFieldContact() {
+        XCTAssertEqual(AirportDataService.pickFieldContact(from: [freq("APP", 119.35), freq("ATIS", 121.1)])?.type, "ATIS")
+        XCTAssertEqual(AirportDataService.pickFieldContact(from: [freq("APP", 119.35)])?.type, "APP")
+    }
+
+    func testNilWhenNoFrequencies() {
+        XCTAssertNil(AirportDataService.pickFieldContact(from: []))
+    }
 }

@@ -1,5 +1,5 @@
 # Page Title
-page_title                                : AéroCheck - Flight Checklist App for Pilots
+page_title                                : AéroCheck - Flight Checklist, Navigation & Planning for Pilots
 
 # App Info
 ios_app_id                                :                                           # Not on App Store yet
@@ -13,7 +13,7 @@ presskit_download_link                    :                                     
 app_icon                                  : assets/appicon.png
 app_name                                  : AéroCheck
 app_price                                 : Free (Open Source)
-app_description                           : Your digital co-pilot for flight checklists and navigation. Designed for both student and experienced private pilots.
+app_description                           : Your digital co-pilot for flight checklists, navigation and planning - rebuilt from the ground up in 4.0, iPad-first. For student and experienced private pilots.
 
 enable_smart_app_banner                   : false                                     # Not on App Store yet
 

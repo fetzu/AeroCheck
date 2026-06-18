@@ -32,6 +32,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Lets the build-time GitHub fetches (footer version, changelog) use the authenticated
+          # rate limit (5000/hr) instead of the anonymous 60/hr shared across Actions runner IPs.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

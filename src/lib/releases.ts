@@ -22,11 +22,14 @@ function processor() {
 export async function getReleases(): Promise<Release[]> {
   if (cache) return cache;
 
+  // Authenticated when GITHUB_TOKEN is present (CI) → 5000/hr instead of the anonymous 60/hr.
+  const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'aerocheck-site-build' };
+  const token = (globalThis as any).process?.env?.GITHUB_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   let raw: any[] = [];
   try {
-    const res = await fetch('https://api.github.com/repos/fetzu/AeroCheck/releases?per_page=100', {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'aerocheck-site-build' },
-    });
+    const res = await fetch('https://api.github.com/repos/fetzu/AeroCheck/releases?per_page=100', { headers });
     if (res.ok) raw = await res.json();
   } catch { /* offline / rate-limited — page shows a notice */ }
 

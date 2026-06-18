@@ -6,6 +6,14 @@ const FALLBACK = '4.0.0';
 
 let cached: string | undefined;
 
+// Authenticated when GITHUB_TOKEN is present (CI) → 5000/hr instead of the anonymous 60/hr.
+function ghHeaders(): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'aerocheck-site-build' };
+  const token = (globalThis as any).process?.env?.GITHUB_TOKEN;
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
 export async function appVersion(): Promise<string> {
   if (cached !== undefined) return cached;
   cached = await resolve();
@@ -16,7 +24,7 @@ async function resolve(): Promise<string> {
   // 1. Latest published GitHub release (robust in CI without git tags).
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'aerocheck-site-build' },
+      headers: ghHeaders(),
     });
     if (res.ok) {
       const tag = String((await res.json())?.tag_name ?? '').replace(/^v/i, '').trim();

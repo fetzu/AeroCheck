@@ -11,6 +11,8 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 An iPad-first application for students and licensed pilots. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
+> **New in 4.0** — the biggest overhaul yet: a ground-up, iPad-first redesign with a cockpit-style in-flight HUD, a selectable theme engine (auto / day / sunlight / night), a map-first flight-plan builder, **Companion mode** (use an iPhone as a synced second screen for your iPad over Wi-Fi Aware, iOS 26+), an accessibility pass, and full French localization. See the [4.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/4.0.0).
+
 ## Open Source with Premium Content
 
 AéroCheck is open source under the MIT License. The app includes:
@@ -19,8 +21,8 @@ AéroCheck is open source under the MIT License. The app includes:
   - WT9 Dynamic (F-HVXA)
 
 - **Premium aircraft** (requires AeroCheck Pro subscription):
-  - Piper Archer II PA-28-181 (HB-PFA)
-  - Additional aircraft checklists delivered via the AeroCheck API
+  - 12 aircraft delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28
+  - Sourced from two Swiss flying clubs (Groupe de Vol à Moteur de Porrentruy and Lausanne Aéroclub)
   - Automatic updates when checklists change
   - Offline access after initial download
 
@@ -33,8 +35,27 @@ All subscription payments are handled securely through the Apple App Store. See 
 
 ## Supported Aircraft
 
-- **F-HVXA** - WT9 Dynamic (Checklist v2.1e, March 2025) - Free
-- **HB-PFA** - Piper Archer II PA-28-181 (Checklist v1.6e, July 2020) - Premium
+**Free (bundled)**
+- **F-HVXA** - Aerospool WT9 Dynamic - Free
+
+**Premium (AeroCheck Pro)** — 12 aircraft delivered via the API:
+
+| Registration | Aircraft | Club |
+|--------------|----------|------|
+| HB-PFA | Piper Archer II PA-28-181 | GVMP Porrentruy |
+| F-HPSA | Sportcruiser PS-28 | GVMP Porrentruy |
+| HB-PNL | Piper PA28-161 Warrior II | Lausanne Aéroclub |
+| HB-OJI | PA28-161 Piper Cadet | Lausanne Aéroclub |
+| HB-PMP | Piper PA28-236 Dakota II | Lausanne Aéroclub |
+| HB-PJE | Piper PA32R-301 Saratoga II | Lausanne Aéroclub |
+| HB-ORV | Piper PA18-150 Super Cub | Lausanne Aéroclub |
+| HB-OKN | Piper L4 | Lausanne Aéroclub |
+| HB-KFD | Robin DR400/140B | Lausanne Aéroclub |
+| HB-KOJ | Robin DR401/140B | Lausanne Aéroclub |
+| HB-SAX | CAP10-C | Lausanne Aéroclub |
+| HB-SYI | Pipistrel VELIS Electro SW128 | Lausanne Aéroclub |
+
+Checklists, speeds and limits adapt automatically to the selected aircraft. Some aircraft are French- or English-only; most ship in both languages.
 
 ## Features
 
@@ -59,14 +80,22 @@ All subscription payments are handled securely through the Apple App Store. See 
   - Segelflugkarte (1:300,000) - seamless switch at higher zoom
   - Swiss Landeskarten (national map)
   - SWISSIMAGE (aerial imagery)
-- Live speed, altitude, heading, and time display overlay
-- GPS status indicator
-- Scale bar with accurate distance measurement
+- **Two-row bottom bar** with the live instrument readout (speed, altitude, heading, time) and a centered VFR leg chronometer
+- **Expandable flight-plan sheet**: pull up the active route to see leg-by-leg timing (FROM → TO), distances and estimated times; go back a leg, or mark the current waypoint
+- **Ground-track trend vector**: a projected track line with 1/2/5-minute graduations
+- **FREDA cruise-check reminder** during the cruise phase
+- **FREQ panel** (`CURRENT / NEXT / EMERGENCY`): nearby controlled-airspace and area frequencies organised by where you are and where you're heading (OpenAIP worldwide; OurAirports TWR fallback)
+- GPS status card, scale bar with accurate distance measurement
+- **Liquid Glass map controls** on iOS 26 (material fallback on iOS 17)
 - **Offline maps**: Download Swiss ICAO Chart (~100 MB) and/or Segelflugkarte (~150 MB) for offline navigation
-- **Flight Planning** (Beta): Create waypoint routes with terrain profiles and export to PDF
-- **Airspace conflict checks**: Planned routes are checked against OpenAIP airspace along the exact leg geometry; when a ceiling/floor is given as AGL/FL or a leg has no planned altitude, the warning is flagged "verify vertical separation" rather than implying you're clear
-- **Radio Frequencies** (Switzerland): Quick access to common frequencies (Geneva/Zurich Info, FIS), with nearby CTR frequencies based on your position
-- **ETO Display**: Estimated time of arrival to next waypoint shown on chronometer
+
+### 🧭 Map-First Flight Planning
+- **Build routes directly on the map**: drag a waypoint to move it, drag the route line to insert one, and release near an airfield to **auto-snap** (name and frequency filled in automatically)
+- **Smart "cheapest insertion"** places a dropped waypoint into the leg that adds the least detour
+- **From → To bar** and **route thumbnails** on the plan list, with one-tap Activate
+- **Interactive route profile**: a terrain silhouette with your planned-altitude line — drag a point to set its altitude, hold to add one
+- **On-route airspace conflicts** and **terrain-clearance** warnings update live as you reshape the route. When a ceiling/floor is given as AGL/FL or a leg has no planned altitude, the warning is flagged "verify vertical separation" rather than implying you're clear; a green "no conflicts" only shows when airspace data is actually loaded
+- **GPX route export** for Dynon/Garmin avionics
 
 ### 📍 GPS Flight Tracking
 - Automatic GPS recording during flights
@@ -137,18 +166,30 @@ All subscription payments are handled securely through the Apple App Store. See 
 - Compatible with most flight tracking software
 - Share flights via any iOS sharing method
 
-### 🎨 Cockpit-Optimized UI
-- Dark theme for reduced glare
-- Large, high-contrast buttons
-- Aviation-inspired color scheme (gold, blue, green)
-- Large readable text
-- Screen stays on during flights
-- **Adaptive layout**: Optimized for both iPad (side panel) and iPhone (compact view)
+### 🎨 Cockpit Design & Themes
+- **Redesigned in-flight HUD**: the current checklist item is the hero; past and future steps recede. A cockpit instrument strip shows live speed, altitude, heading and vertical speed with a color-blind-safe on-target bar, plus stall and instrument-failure annunciations
+- **Tappable phase bar**: jump forward and back through the 16 phases from a single segmented bar
+- **One-tap reference panels**: V-Speeds, GPS status and departure/approach briefings open as a docked panel on iPad or a bottom drawer on iPhone
+- **Hold-to-confirm events**: Go-Around, Touch-and-Go and Full-Stop sit behind a deliberate hold, with a brief undo
+- **Selectable theme engine** — choose **Auto / Day / Sunlight / Night**; Auto follows the system appearance. Tuned for glare, dusk and night cockpits
+- **Aviation-inspired palette** (gold, blue, green); large, high-contrast buttons and readable text; screen stays on during flights
+- **Adaptive, iPad-first layout**: two-column landscape and reflowed portrait across Home, Flight, Navigation, Flight Log and Settings
 - Phase completion tracking with color-coded indicators:
   - **Green dot**: Phase completed (pressed NEXT)
   - **Orange dot**: Phase skipped (jumped ahead without NEXT)
   - **Red dot**: Phase skipped with missing action (e.g., Engine Start button not pressed)
   - **Gold dot**: Current active phase
+
+### ♿ Accessibility
+- VoiceOver labels across the redesigned screens
+- Dynamic Type support
+- WCAG-aware contrast and 44-point minimum touch targets
+- Reduce Motion support
+
+### 📲 Companion Mode (iPad ↔ iPhone)
+- Pair an iPhone as a **synced second screen** that mirrors your iPad's live flight data over Wi-Fi Aware
+- Pairing and status live under **Settings → Companion**
+- Requires **iOS 26** on both devices; on earlier iOS the feature is safely hidden
 
 ### 📋 Interactive Briefings
 - Departure briefing modal with runway, routing, speeds, and emergency procedures
@@ -215,7 +256,7 @@ The app includes all 16 phases from the official checklists (same structure for 
 ### Starting a Flight
 
 1. Launch the app
-2. Select your aircraft in Settings if needed (F-HVXA or HB-PFA)
+2. Select your aircraft in Settings if needed (the free WT9 Dynamic or any unlocked premium aircraft)
 3. Tap "START FLIGHT"
 4. GPS tracking begins automatically
 5. Follow the checklists in order
@@ -270,38 +311,43 @@ AeroCheck/
 │   ├── Configuration.storekit        # StoreKit config for testing
 │   ├── Assets.xcassets/             # Images and colors
 │   ├── Models/
-│   │   ├── Aircraft.swift           # Aircraft types & metadata
+│   │   ├── Aircraft.swift           # Bundled aircraft types & metadata
 │   │   ├── RemoteAircraft.swift     # Remote/API aircraft models
 │   │   ├── Flight.swift             # Flight data model & GPX
-│   │   ├── FlightPlan.swift         # Flight plan models (Beta)
-│   │   ├── FlightPlanManager.swift  # Flight plan state (Beta)
+│   │   ├── FlightPlan.swift         # Flight plan models
+│   │   ├── FlightPlanManager.swift  # Flight plan state (CRUD, route)
 │   │   ├── Checklist.swift          # Checklist phases & items
-│   │   ├── WT9ChecklistData.swift   # WT9 Dynamic checklist data
-│   │   ├── PA28ChecklistData.swift  # PA-28-181 checklist data
-│   │   └── AppState.swift           # App state management
+│   │   ├── WT9ChecklistData.swift   # WT9 Dynamic checklist data (bundled)
+│   │   └── AppState.swift           # App state management (facade-decomposed)
 │   ├── Views/
 │   │   ├── ContentView.swift        # Root view
-│   │   ├── HomeView.swift           # Home screen
-│   │   ├── FlightView.swift         # Active flight view
-│   │   ├── FlightLogView.swift      # Flight history
-│   │   ├── NavigationView.swift     # Full-screen navigation map + radio frequencies
-│   │   ├── FlightPlanningView.swift # Flight plan list (Beta)
-│   │   ├── FlightPlanEditorView.swift # Waypoint editor (Beta)
-│   │   ├── TerrainProfileView.swift # Terrain elevation display (Beta)
-│   │   ├── SubscriptionView.swift   # Subscription management
-│   │   └── SettingsView.swift       # Configuration
+│   │   ├── HomeView.swift           # Home (command rail + hero canvas + carousel)
+│   │   ├── FlightView.swift         # Active flight HUD
+│   │   ├── FlightLogView.swift      # Flight Log dashboard + detail
+│   │   ├── NavigationView.swift     # Full-screen navigation map + FREQ panel
+│   │   ├── FlightPlanningView.swift # Flight-plan list (master/detail)
+│   │   ├── FlightPlanMapBuilderView.swift # Map-first route builder
+│   │   ├── CompanionPairingView.swift / CompanionFlightView.swift # Companion mode
+│   │   ├── OnboardingView.swift     # First-run onboarding
+│   │   ├── SubscriptionView.swift   # Subscription / paywall
+│   │   ├── SettingsView.swift       # Settings hub
+│   │   └── Settings/                # 7 cockpit-styled settings sub-pages
 │   ├── Components/
-│   │   ├── DesignSystem.swift       # Colors, fonts, styles
+│   │   ├── DesignSystem.swift       # Theme engine, tokens, styles, Settings kit
 │   │   └── ChecklistView.swift      # Checklist display
 │   └── Services/
 │       ├── LocationManager.swift     # GPS tracking
 │       ├── OfflineMapManager.swift   # Offline ICAO/Segelflug chart caching
-│       ├── ElevationService.swift    # Terrain elevation from swisstopo (Beta)
+│       ├── ElevationService.swift    # Terrain elevation (swisstopo CH + Open-Meteo)
+│       ├── AirspaceAnalyzer.swift    # On-route airspace/terrain conflict analysis
 │       ├── WindDataService.swift     # MeteoSwiss wind data (experimental)
+│       ├── CompanionConnectivityManager.swift # Companion mode (Wi-Fi Aware, iOS 26+)
 │       ├── SubscriptionManager.swift # StoreKit 2 subscription handling
 │       └── AircraftDataService.swift # Remote aircraft checklist API
+├── Shared/                          # Shared with Watch / Widget / Companion targets
 ├── AeroCheckWidget/
 │   └── AeroCheckWidget.swift        # Home screen widgets
+├── AeroCheckWatch/                  # Apple Watch app
 └── README.md
 ```
 
@@ -377,7 +423,9 @@ JSON export includes all flight data in a structured format:
 
 In Settings:
 
-- **Aircraft in use**: Select between F-HVXA (WT9 Dynamic) and HB-PFA (PA-28-181) - this changes checklists, speeds, and stall warnings
+- **Aircraft in use**: Select your aircraft (the free WT9 Dynamic or any unlocked premium aircraft) - this changes checklists, speeds, and stall warnings
+- **Theme**: Auto / Day / Sunlight / Night cockpit theme (Auto follows the system appearance)
+- **Companion**: Pair an iPhone as a synced second screen for your iPad (iOS 26+)
 - **GPS Recording Interval**: 1-30 seconds between points
 - **Show Estimated Airspeed** *(Experimental)*: Display estimated IAS calculated from GPS ground speed and MeteoSwiss mean-wind data. Estimated values are shown as "EST. IAS" with a `~` prefix so they're never mistaken for measured airspeed. Only works in Switzerland with cellular connection. Shows safety warning before enabling.
 - **Aural Stall Alert** *(Experimental)*: Revealed once Estimated Airspeed is enabled. Plays an audible warning below the aircraft's stall speed. Off by default.
@@ -439,8 +487,8 @@ Target speeds vary by aircraft. Examples for WT9:
 
 ## Based On
 
-- WT9 F-HVXA Checklist Version 2.1e from Aeroclub du Jura GVMP (March 2025)
-- PA-28-181 HB-PFA Checklist Version 1.6e from Aeroclub du Jura GVMP (July 2020)
+- WT9 F-HVXA Checklist v2.1e from Groupe de Vol à Moteur de Porrentruy (Aeroclub du Jura GVMP)
+- Premium checklists from Groupe de Vol à Moteur de Porrentruy and Lausanne Aéroclub (e.g. PA-28-181 HB-PFA v2.0e)
 - SPHAIR Bases et procédures
 
 ## Testing

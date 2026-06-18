@@ -2,12 +2,14 @@
 
 ## Project Overview
 
-iPhone/iPad app for pilot students. Guides pilots through flight checklists while recording GPS tracks and flight data. Supports multiple aircraft with a freemium model: free bundled aircraft (WT9 Dynamic) and premium aircraft via subscription.
+iPhone/iPad app for pilot students. Guides pilots through flight checklists while recording GPS tracks and flight data. Supports multiple aircraft with a freemium model: free bundled aircraft (WT9 Dynamic) and 12 premium aircraft via subscription.
 
-- **Target:** iOS/iPadOS 17.0+ (iPhone and iPad, optimized for iPad Air 11" and larger)
-- **Tech:** Swift 5.9+, SwiftUI, CoreLocation, MapKit, WidgetKit, StoreKit 2, CloudKit
-- **Theme:** Dark cockpit-optimized UI with aviation colors
-- **Languages:** English, French (multi-language support)
+- **Target:** iOS/iPadOS 17.0+ (iPhone and iPad, iPad-first; optimized for iPad Air 11" and larger)
+- **Tech:** Swift 5.9+, SwiftUI, CoreLocation, MapKit, WidgetKit, StoreKit 2, CloudKit, WiFiAware (iOS 26+, Companion mode)
+- **UI:** v4 cockpit design language. Selectable theme engine (`ThemePreference`: auto / day / sunlight / night) resolving to `CockpitThemeMode` palettes via `@Environment(\.cockpitTheme)`; Liquid Glass map chrome on iOS 26+ with a 17.0 material fallback. Accessibility pass (VoiceOver, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion).
+- **Languages:** English, French (full UI localization, not just checklist content)
+
+> **As of v4.0.0** (released 2026-06-17) — the biggest overhaul yet: a ground-up iPad-first UI/UX revamp (rebuilt Home, in-flight HUD, Navigation, Flight Log, Settings, onboarding), a map-first flight-plan builder, and Companion mode (iPad ↔ iPhone second screen over Wi-Fi Aware). See the repo's v4.0.0 GitHub release for the user-facing changelog.
 
 ## Build & Run
 
@@ -32,24 +34,35 @@ AeroCheck/
 ├── Localization.swift         # Generated localization helpers
 ├── Views/
 │   ├── ContentView.swift      # Root router (home vs flight)
-│   ├── HomeView.swift         # Aircraft carousel, quick start
-│   ├── FlightView.swift       # Main checklist UI during flight
-│   ├── FlightLogView.swift    # Flight history, export/import
-│   ├── NavigationView.swift   # Full-screen map with Swiss layers + frequency drawer
-│   ├── SettingsView.swift     # App configuration, premium aircraft management
-│   ├── SubscriptionView.swift # Subscription purchase UI
-│   ├── FlightPlanningView.swift    # Flight plan list (Beta)
-│   ├── FlightPlanEditorView.swift  # Tabular flight plan editor (Beta)
-│   ├── WaypointEditorSheet.swift   # Waypoint editing sheet (Beta)
-│   ├── FlightPlanOverlayView.swift # In-flight HUD overlay (Beta)
-│   ├── TerrainProfileView.swift    # Terrain elevation display (Beta)
-│   ├── EventConfirmationView.swift # Flight event confirmation UI (go-around, touch-and-go prompts)
-│   └── HourMeterInputView.swift   # Engine hour meter (Hobbs/tachometer) input during start/stop
+│   ├── HomeView.swift         # v4 Home: command rail + hero canvas + aircraft carousel + activity strips
+│   ├── FlightView.swift       # v4 in-flight HUD (cockpit instrument strip, tappable phase bar, hero checklist item, docked/drawer reference panels)
+│   ├── FlightLogView.swift    # Flight Log dashboard + master/detail flight history, export/import, share cards
+│   ├── NavigationView.swift   # Nav 3.5 full-screen map: 2-row bottom bar, expandable plan sheet, leg timing, FREQ panel, track vector, FREDA reminder
+│   ├── OnboardingView.swift   # v4 redesigned first-run onboarding (replayable from Settings)
+│   ├── SettingsView.swift     # Settings hub (routes into Views/Settings/* sub-pages)
+│   ├── SubscriptionView.swift # Subscription / paywall UI
+│   ├── FlightPlanningView.swift    # Flight-plan list (master/detail, route thumbnails, From→To)
+│   ├── FlightPlanMapBuilderView.swift # Map-first route builder (live drag, smart cheapest-insertion, interactive route profile)
+│   ├── FlightPlanEditorView.swift  # "Flight plan details" live editor sheet
+│   ├── WaypointEditorSheet.swift   # Waypoint editing sheet
+│   ├── CompanionPairingView.swift  # Companion mode pairing (Wi-Fi Aware, iOS 26+)
+│   ├── CompanionFlightView.swift   # Companion viewer second-screen UI
+│   ├── EventConfirmationView.swift # Flight event confirmation UI (hold-to-confirm go-around / touch-and-go / full-stop)
+│   ├── AmbientCelebration.swift    # Ambient accent reveal overlay (hidden theme easter egg)
+│   ├── HourMeterInputView.swift    # Engine hour meter (Hobbs/tachometer) input during start/stop
+│   └── Settings/              # v4 cockpit-styled Settings sub-pages
+│       ├── AboutSettingsView.swift
+│       ├── AircraftSettingsView.swift
+│       ├── ChecklistFlightSettingsView.swift
+│       ├── CompanionSettingsView.swift
+│       ├── FlightPlanningSettingsView.swift
+│       ├── NavigationMapsSettingsView.swift
+│       └── SyncDataSettingsView.swift
 ├── Models/
-│   ├── AppState.swift         # Central state manager (@MainActor ObservableObject)
+│   ├── AppState.swift         # Central state manager (@MainActor ObservableObject); decomposed via facade structs (NavigationMapState, FlightTiming, ChecklistProgress)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
-│   ├── FlightPlan.swift       # Flight plan models and export (Beta)
-│   ├── FlightPlanManager.swift # Flight plan state management (Beta)
+│   ├── FlightPlan.swift       # Flight plan models and export
+│   ├── FlightPlanManager.swift # Flight plan state management (CRUD, waypoints, route)
 │   ├── Checklist.swift        # 16 flight phases with items
 │   ├── ActiveChecklist.swift  # Owned, resolved checklist + speeds for the active aircraft (replaces the old global ChecklistData statics)
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
@@ -74,14 +87,23 @@ AeroCheck/
 │   ├── OpenAIPTileOverlay.swift    # Custom MKTileOverlay for OpenAIP map tiles
 │   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
 │   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
-│   ├── ElevationService.swift      # Terrain elevation from swisstopo (Beta)
-│   ├── FlightPlanExportService.swift # GPX route export for avionics (Beta)
+│   ├── ElevationService.swift      # Terrain elevation (swisstopo CH + Open-Meteo worldwide) for route profiles
+│   ├── AirspaceAnalyzer.swift      # On-route airspace conflict + terrain-clearance analysis for the plan builder
+│   ├── SwisstopoTileOverlays.swift # Consolidated swisstopo tile overlays (ICAO / Segelflug / Landeskarte / SWISSIMAGE)
+│   ├── OpenAIPCacheManager.swift   # Atomic, crash-safe OpenAIP airspace cache writes
+│   ├── FlightPlanExportService.swift # GPX route export for avionics (Dynon/Garmin)
+│   ├── CompanionConnectivityManager.swift # Companion mode (Wi-Fi Aware, iOS 26+); kept available on 17.0 but inert below 26
+│   ├── ExternalRequest.swift       # Centralized outbound HTTP request helper
+│   ├── MarketingLocationProvider.swift # Simulated location for marketing/screenshot capture
 │   └── WatchConnectivityManager.swift # Apple Watch communication
 ├── Components/
-│   ├── DesignSystem.swift     # Colors, fonts, button styles
+│   ├── DesignSystem.swift     # Cockpit theme engine, semantic tokens, button styles, Settings kit (SettingsPage/Group/Row), Liquid Glass chrome
 │   └── ChecklistView.swift    # Checklist display component
-├── Shared/
-│   └── WatchConnectivityData.swift # Watch/iOS shared data models
+├── Shared/                    # Targets shared with Watch + Widget + Companion
+│   ├── WatchConnectivityData.swift     # Watch/iOS shared data models
+│   ├── CompanionConnectivityData.swift # Companion (iPad↔iPhone) shared data models + service name constant
+│   ├── DesignTokens.swift              # Shared cockpit colour palette / ThemePreference
+│   └── AmbientPalette.swift            # Runtime-overridable accent palette (hidden theme)
 └── Assets.xcassets/           # App icon, colors
 
 AeroCheckWidget/
@@ -96,13 +118,15 @@ AeroCheckWatch/
 ## Architecture
 
 **State Management:** MVVM with `@EnvironmentObject` injection
-- `AppState`: Central state (flight lifecycle, navigation, timing, settings, sync)
+- `AppState`: Central state (flight lifecycle, navigation, timing, settings, sync). Being decomposed: cohesive `@Published` clusters are merged into facade structs (`NavigationMapState`, `FlightTiming`, `ChecklistProgress`) with thin forwarding accessors so existing call sites stay reactive; pure rules are extracted into testable types (`ChecklistHighlighting`, `FlightClock`).
 - `LocationManager`: GPS service with background tracking
 - `SubscriptionManager`: StoreKit 2 product/subscription management
 - `AircraftDataService`: Remote aircraft fetching with subscription validation
 - `SyncManager`: iCloud CloudKit sync for settings and flights
-- `FlightPlanManager`: Flight plan CRUD, waypoint management (Beta)
+- `FlightPlanManager`: Flight plan CRUD, waypoint/route management, map-builder state
 - `OpenAIPDataService`: OpenAIP airspace data management (download by country/continent, tile overlay, streaming CTR fallback)
+- `CompanionConnectivityManager`: Companion mode pairing + live-data push (Wi-Fi Aware). Available on iOS 17 but **inert** below 26 (all `WiFiAware`/`NetworkListener` calls gated behind `if #available(iOS 26)`); stores version-agnostic `CompanionPairedDevice` so views on 17 can hold it.
+- **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette injected as `@Environment(\.cockpitTheme)`; views read semantic tokens, never hard-coded colors.
 - Views observe state via `@EnvironmentObject`
 
 **Data Persistence:**
@@ -126,18 +150,23 @@ AeroCheckWatch/
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
 | Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
 | Estimated Airspeed | `WindDataService` + MeteoSwiss API (experimental, Switzerland only) |
-| Navigation Mode | `NavigationView` with SwissTopo layers |
-| Radio Frequencies | Frequency drawer in NavigationView (OpenAIP CTR worldwide, FIS, common; OurAirports TWR fallback) |
+| Navigation Mode (3.5) | `NavigationView` — 2-row bottom bar, expandable flight-plan sheet with leg timing, ground-track trend vector, FREDA cruise-check reminder; SwissTopo + OpenAIP layers |
+| FREQ Panel | CURRENT / NEXT / EMERGENCY frequency model in NavigationView (OpenAIP CTR worldwide, FIS, common; OurAirports TWR fallback) |
 | Offline Maps | `OfflineMapManager` for ICAO/Segelflug chart caching |
 | Timing Events | Engine start, line up (+2min), landing, shutdown |
 | Circuit Mode | Streamlined phases for pattern training |
 | Export | GPX 1.1 (with `pc:` extensions), JSON, ZIP |
-| Flight Plan GPX Export | `FlightPlanExportService` for Dynon/Garmin avionics (Beta) |
+| Flight Plan GPX Export | `FlightPlanExportService` for Dynon/Garmin avionics |
 | Home Screen Widgets | `AeroCheckWidget` for quick flight start; renders only owned aircraft via the App Group (`WidgetBridge`) and routes through `FlightLauncher` |
 | Apple Watch App | Real-time flight data on wrist |
 | iCloud Sync | Settings and flights sync across devices |
 | Multi-Language | English, French (via `Localization.swift`) |
-| Flight Planning (Beta) | `FlightPlanManager` + waypoint routes, terrain profile, in-flight overlay |
+| Map-First Flight Planning | `FlightPlanMapBuilderView` + `FlightPlanManager` — live route drag, smart cheapest-insertion, auto-snap to airfields, interactive route-profile cross-section (drag-to-altitude, hold-to-add) |
+| Route Profile & Conflicts | `AirspaceAnalyzer` + `ElevationService` — on-route airspace conflicts and terrain-clearance warnings on the route cross-section |
+| Cockpit Theme Engine | `ThemePreference` (auto/day/sunlight/night) → `CockpitThemeMode`, injected as `@Environment(\.cockpitTheme)` |
+| Companion Mode | `CompanionConnectivityManager` — iPad (master) ↔ iPhone (viewer) synced second screen over Wi-Fi Aware (iOS 26+) |
+| Accessibility | VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion across the redesigned screens |
+| Hold-to-Confirm Events | Go-Around / Touch-and-Go / Full-Stop behind a deliberate hold with brief undo (`EventConfirmationView`) |
 | Dynamic Briefings | `BriefingData` - auto-generated departure/approach briefings with airport/wind detection |
 | Airport Frequencies | `AirportDataService` - OurAirports FREQ panel (nearby airports within 15nm) |
 | Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
@@ -187,21 +216,34 @@ if subscriptionManager.isSubscribed {
 
 ## Design System
 
-**Colors** (in `DesignSystem.swift`):
-- `.cockpitBackground` - Dark base (0.08, 0.08, 0.1)
-- `.aviationGold` - Primary accent
-- `.aviationGreen` / `.aviationRed` - Status indicators
+The v4 cockpit design language lives in `Components/DesignSystem.swift` + `Shared/DesignTokens.swift`.
 
-**Typography**: Monospaced fonts for checklist items, large touch targets
+**Theming:** Views read the active theme via `@Environment(\.cockpitTheme)` and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather than hard-coded colors. The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from the system appearance. Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a `.regularMaterial` fallback on 17.0.
+
+**Legacy color helpers** (still used as token inputs): `.cockpitBackground`, `.aviationGold` (primary accent), `.aviationGreen` / `.aviationRed` (status).
+
+**Settings kit:** reusable `SettingsPage` / `SettingsGroup` / `Settings*Row` components — use these for any settings UI.
+
+**Typography:** monospaced fonts for checklist items; Dynamic Type supported; 44pt minimum touch targets.
+
+**Custom `ButtonStyle` + `.disabled()`:** a style must read `@Environment(\.isEnabled)` itself to dim when disabled (Primary/Secondary/ActionButtonStyle do).
+
+**Accessibility:** VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets and Reduce Motion are first-class across the redesigned screens — preserve them when editing views.
 
 ## Supported Aircraft
 
 ### Bundled (Free)
-- **F-HVXA** - WT9 Dynamic (Checklist v2.1e)
+- **F-HVXA** - Aerospool WT9 Dynamic (Checklist v2.1e)
 
-### Premium (Subscription)
-- **HB-PFA** - Piper Archer II PA-28-181 (via API)
-- Additional aircraft available through subscription
+### Premium (Subscription) — 12 aircraft delivered via the v3 API
+Piper Archer II PA-28-181 (HB-PFA), PA28-161 Warrior II (HB-PNL), PA28-161 Piper Cadet (HB-OJI),
+PA28-236 Dakota II (HB-PMP), PA32R-301 Saratoga II (HB-PJE), PA18-150 Super Cub (HB-ORV),
+Piper L4 (HB-OKN), Robin DR400/140B (HB-KFD), Robin DR401/140B (HB-KOJ), CAP10-C (HB-SAX),
+Pipistrel VELIS Electro SW128 (HB-SYI), Sportcruiser PS-28 (F-HPSA).
+
+Sourced from two flying clubs (Groupe de Vol à Moteur de Porrentruy / GVMP, and Lausanne Aéroclub),
+surfaced via the v3 `aeroclub` field. Some are FR- or EN-only; most ship EN+FR. The app fetches the
+list and checklists at runtime via `AircraftDataService` — see the ecosystem `CLAUDE.md` for the full roster.
 
 ## API Integration
 
@@ -225,7 +267,7 @@ if subscriptionManager.isSubscribed {
 **GPX:** Standard format with custom `pc:` namespace for flight metadata
 **JSON:** Full flight data with ISO8601 dates
 **ZIP:** Batch export of multiple flights
-**GPX Routes (Beta):** Navigation plan export for MFDs (Dynon, Garmin)
+**GPX Routes:** Navigation plan export for MFDs (Dynon, Garmin)
 
 ## Testing Focus
 
@@ -236,9 +278,11 @@ if subscriptionManager.isSubscribed {
 - Flight persistence and export/import
 - Subscription purchase/restore flow (use Configuration.storekit)
 - Premium aircraft download and caching
-- iCloud sync (settings, flights)
-- Apple Watch connectivity
-- Dark theme and large button accessibility
+- iCloud sync (settings, flights), conflict merge
+- Apple Watch connectivity (live data, Circuit-mode next phase)
+- Companion mode pairing + live-data sync (iOS 26+); verify it stays inert/crash-free below 26
+- Theme engine (auto/day/sunlight/night) and accessibility (VoiceOver, Dynamic Type, contrast, 44pt, Reduce Motion)
+- Map-first flight-plan builder (route drag, smart insert, route-profile conflicts/terrain)
 - Localization (English/French)
 
 ## Permissions (Info.plist)
@@ -270,11 +314,14 @@ if subscriptionManager.isSubscribed {
 
 ## Settings Organization
 
-Settings are organized into 4 groups following Apple HIG:
-1. **Aircraft & Subscription** - Aircraft selection, subscription management
-2. **Flight** - Circuit mode, learning mode, flight preferences
-3. **Navigation & Data** - Map layers, offline maps, OpenAIP airspace overlay & data, airport data, wind data, online airspace streaming
-4. **About & Advanced** - Version info, developer options, debug tools
+`SettingsView` is a v4 hub that routes into dedicated sub-pages under `Views/Settings/`, each built with the shared Settings kit (`SettingsPage`/`SettingsGroup`/`Settings*Row`):
+1. **Aircraft** (`AircraftSettingsView`) - aircraft selection, subscription/premium management
+2. **Checklist & Flight** (`ChecklistFlightSettingsView`) - circuit mode, learning mode, highlighting, flight preferences
+3. **Navigation & Maps** (`NavigationMapsSettingsView`) - map layers, offline maps, OpenAIP airspace overlay & data, airport data, wind data, online airspace streaming, theme picker
+4. **Flight Planning** (`FlightPlanningSettingsView`) - route-builder and export preferences
+5. **Companion** (`CompanionSettingsView`) - Companion-mode pairing (Wi-Fi Aware, iOS 26+)
+6. **Sync & Data** (`SyncDataSettingsView`) - iCloud sync, data freshness/management
+7. **About** (`AboutSettingsView`) - version info, onboarding replay, developer options (tap version 5×), debug tools
 
 ## Development Notes
 
@@ -284,9 +331,9 @@ Settings are organized into 4 groups following Apple HIG:
 3. Debug log viewer available in Developer Options
 
 ### Adding New Aircraft
-1. Create checklist JSON on server (AeroCheck-server)
-2. Update aircraft registry on server
-3. App will fetch automatically via `AircraftDataService`
+1. Add the checklist JSON to the `AeroCheck-checklists` repo (`checklists/{id}/current/`)
+2. Bump the server's `checklists` submodule pointer and redeploy (auto-discovery — no server code edit)
+3. App fetches the new aircraft automatically via `AircraftDataService`
 
 ### Localization
 1. Add keys to `Localizable.xcstrings`

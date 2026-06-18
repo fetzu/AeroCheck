@@ -1,15 +1,18 @@
 name: Deploy website (Astro → Pages)
 
-# Builds the Astro site and deploys it to GitHub Pages.
+# Builds the Astro site and deploys it to GitHub Pages on every push to `website` (the site's prod
+# branch) and on manual dispatch.
 #
-# NOT YET LIVE: this is workflow_dispatch-only on purpose. The live site is still served by
-# Jekyll from the gh-pages branch. To go live:
-#   1. Settings → Pages → Build and deployment → Source → "GitHub Actions".
-#   2. Add a push trigger here (e.g. on: push: branches: [website]) — or merge this branch to
-#      whatever you make the site's production branch — and run it.
-# Until step 1 is done, deploy-pages would fail, so we keep it manual.
+# REQUIRES (one-time): repo Settings → Pages → Build and deployment → Source → "GitHub Actions"
+# (switches off the old Jekyll gh-pages source). Until that's set the final deploy step fails — the
+# build still runs, so it's safe; just flip the setting and re-run / push again.
+#
+# Note: a workflow_dispatch "Run workflow" button only appears when the file is on the repo's
+# DEFAULT branch (main). Since this lives on `website`, the push trigger below is what actually runs it.
 
 on:
+  push:
+    branches: [website]
   workflow_dispatch:
 
 permissions:

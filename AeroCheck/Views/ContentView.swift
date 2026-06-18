@@ -89,6 +89,36 @@ struct ContentView: View {
             // Apply screen setting
             UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn
         }
+        #if DEBUG
+        .task {
+            // DEV-ONLY: auto-inject a marketing scene at launch for deterministic screenshot capture,
+            // e.g. `SIMCTL_CHILD_AEROCHECK_SCENE=cruiseHUD xcrun simctl launch <dev> com.fetzu.aerocheck`.
+            // Compiled out of release builds entirely (this whole block is #if DEBUG).
+            guard let key = ProcessInfo.processInfo.environment["AEROCHECK_SCENE"]?.lowercased() else { return }
+            let scene: MarketingScene?
+            switch key {
+            case "home", "home2aircraft":       scene = .home2Aircraft
+            case "cruise", "cruisehud":         scene = .cruiseHUD
+            case "nav", "navplanactive":        scene = .navPlanActive
+            case "conflicts", "planconflicts":  scene = .planConflicts
+            case "flightlog", "flightlogdetail": scene = .flightLogDetail
+            default:                            scene = nil
+            }
+            guard let scene else { return }
+            appState.settings.marketingMode = true
+            // Let services initialize (airport data lazy-loads; the aircraft list fetch may be in flight).
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            MarketingSceneInjector.inject(
+                scene,
+                appState: appState,
+                locationManager: locationManager,
+                subscriptionManager: subscriptionManager,
+                aircraftDataService: aircraftDataService,
+                flightPlanManager: flightPlanManager,
+                airportDataService: airportDataService
+            )
+        }
+        #endif
         .onShake {
             // Toggle marketing controls when shaking (only if marketing mode is enabled)
             if appState.settings.marketingMode {
@@ -96,12 +126,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: marketingProvider.currentLocation) { _, newLocation in
-            // Inject marketing location into LocationManager when active
+            // Inject marketing location into LocationManager when active. Use injectMarketingStaticFix
+            // so the smoothed speed / cached heading are primed too — otherwise only ALT lights up
+            // (SPD/HDG read the smoothed caches, which didUpdateLocations skips in marketing mode).
             if appState.settings.marketingMode && marketingProvider.isActive {
                 if let location = newLocation {
-                    locationManager.currentLocation = location
-                    // Also override GPS status to show as good
-                    locationManager.overrideGPSStatus(.good)
+                    locationManager.injectMarketingStaticFix(location)
                 }
             }
         }

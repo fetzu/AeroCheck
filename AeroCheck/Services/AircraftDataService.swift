@@ -94,6 +94,44 @@ class AircraftDataService: ObservableObject {
         WidgetBridge.publish(available: availableAircraft)
     }
 
+    // MARK: - Marketing Owned-Aircraft Override (DEBUG-ONLY)
+
+    #if DEBUG
+    /// The owned-id set requested by Marketing Mode, retained so it can be re-applied after any late
+    /// `fetchAvailableAircraft()` resolves. Without this, a still-in-flight startup fetch can land
+    /// AFTER the override and clobber `hasAccess` back to the real (locked) state — a race that made
+    /// the home-carousel scene flaky (it depended on which fetch resolved last). Process-memory only.
+    private var marketingOwnedOverride: Set<String>?
+
+    /// DEBUG-ONLY (Marketing Mode): force the owned-aircraft set so Home shows exactly the aircraft
+    /// whose ids are in `ownedIds`, plus the always-bundled WT9 (HomeView adds bundled aircraft
+    /// unconditionally). Mutates the in-memory `availableAircraft` `hasAccess` flags only — nothing
+    /// is persisted to disk, so a relaunch restores the real state.
+    ///
+    /// HomeView's owned list is `availableAircraft where remote.hasAccess && !remote.isBundled`, so
+    /// setting `hasAccess = true` for exactly the requested premium ids and `false` for the rest
+    /// yields a deterministic carousel (e.g. just F-HVXA + HB-PFA for scene #1).
+    ///
+    /// Compiled OUT of release builds: this grants premium *access* in the UI, so it must never ship.
+    func applyMarketingOwnedOverride(ownedIds: Set<String>) {
+        marketingOwnedOverride = ownedIds
+        reapplyMarketingOwnedOverride()
+    }
+
+    /// Re-applies the retained marketing owned-override (if any) over the current `availableAircraft`.
+    /// Called both by `applyMarketingOwnedOverride` and at the tail of `fetchAvailableAircraft()` so a
+    /// late-resolving fetch can never strip the forced ownership.
+    private func reapplyMarketingOwnedOverride() {
+        guard let ownedIds = marketingOwnedOverride else { return }
+        for index in availableAircraft.indices {
+            let meta = availableAircraft[index]
+            if meta.isBundled { continue } // bundled WT9 is always shown by HomeView regardless
+            availableAircraft[index].hasAccess = ownedIds.contains(meta.id)
+        }
+        WidgetBridge.publish(available: availableAircraft)
+    }
+    #endif
+
     // MARK: - Public Methods
 
     /// Fetches the list of available aircraft from the server
@@ -118,6 +156,12 @@ class AircraftDataService: ObservableObject {
             // Fall back to cached data
             loadCachedMetadata()
         }
+
+        #if DEBUG
+        // Marketing Mode: re-assert the forced owned-set AFTER this fetch wrote `availableAircraft`,
+        // so a late startup fetch can't clobber the home-carousel override (race fix). No-op otherwise.
+        reapplyMarketingOwnedOverride()
+        #endif
 
         // Refresh the widget's owned-aircraft list to reflect the latest access state. (UX-07)
         WidgetBridge.publish(available: availableAircraft)

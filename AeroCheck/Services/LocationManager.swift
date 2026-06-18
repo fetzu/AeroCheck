@@ -553,6 +553,40 @@ class LocationManager: NSObject, ObservableObject {
         gpsStatusOverride = nil
         marketingModeActive = false
     }
+
+    // MARK: - Marketing Static Fix Injection (DEV-ONLY)
+
+    /// Inject a held static GPS fix for marketing screenshots and PRIME the smoothed/cached values
+    /// that drive the instrument strip. (DEV-ONLY — Marketing Mode scene injector)
+    ///
+    /// Setting `currentLocation` alone only lights ALT (which reads `currentLocation` directly). SPD
+    /// uses `displaySpeedKnots` (driven by `lastDisplayedSpeedKnots`) and HDG uses
+    /// `currentCourseDegrees` (driven by `lastValidCourse`), both of which are normally only updated
+    /// inside `didUpdateLocations` — which is skipped while `marketingModeActive`. So this method
+    /// pre-loads those caches directly so SPD / ALT / HDG all read the injected values immediately.
+    /// Activates the marketing override (real GPS ignored, status forced good).
+    func injectMarketingStaticFix(_ location: CLLocation) {
+        // Force the override on, so real fixes are ignored and the GPS indicator stays green.
+        overrideGPSStatus(.good)
+
+        currentLocation = location
+
+        let now = Date()
+        let speedMPS = max(location.speed, 0)
+        smoothedSpeedMPS = speedMPS
+        displaySmoothedSpeedMPS = speedMPS
+        lastValidSpeedMPS = speedMPS
+        lastValidSpeedTime = now
+        lastDisplayedSpeedKnots = Int(speedMPS * 1.94384)
+
+        if location.course >= 0 {
+            lastValidCourse = location.course
+            lastValidCourseTime = now
+        }
+
+        // Seed a flat vertical-speed reading so the VSI shows a value rather than "---".
+        verticalSpeedFpm = 0
+    }
 }
 
 // MARK: - CLLocationManagerDelegate

@@ -2,6 +2,7 @@
   "id": "55555555-2025-0615-0917-000000000001",
   "name": "Alpine Tour - Chasseral, Sion, Samedan",
   "airplane": "F-HVXA",
+  "aircraftRegistration": "F-HVXA",
   "aircraftType": "WT9",
   "checklistVersion": "2.1e",
   "startTime": "2025-06-15T07:00:00Z",

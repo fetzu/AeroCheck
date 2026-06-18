@@ -587,6 +587,7 @@ enum MarketingScene: String, CaseIterable, Identifiable {
     case cruiseHUD = "Cruise HUD"
     case navPlanActive = "Nav — Active Plan"
     case planConflicts = "Plan — Conflicts"
+    case planBuilder = "Plan — Builder"
     case flightLogDetail = "Flight Log"
 
     var id: String { rawValue }
@@ -596,7 +597,8 @@ enum MarketingScene: String, CaseIterable, Identifiable {
         case .home2Aircraft: return "F-HVXA + HB-PFA owned"
         case .cruiseHUD: return "Active flight, CRUISE, SPD/ALT/HDG lit"
         case .navPlanActive: return "LSZQ→LSGC→LSGN→LSZB active"
-        case .planConflicts: return "Example plan into LSZQ selected"
+        case .planConflicts: return "Geneva→Samedan, full conflict list"
+        case .planBuilder: return "LSZQ→LSGN→LSZP→LSZB→LSZS builder"
         case .flightLogDetail: return "Imports the bundled marketing flights"
         }
     }
@@ -621,6 +623,9 @@ enum MarketingSceneInjector {
         "LSGN": MarketingAirport(ident: "LSGN", latitude: 46.9575, longitude: 6.8647, elevationFt: 1427),  // Neuchâtel
         "LSZB": MarketingAirport(ident: "LSZB", latitude: 46.9141, longitude: 7.4972, elevationFt: 1673),  // Bern-Belp
         "LSZG": MarketingAirport(ident: "LSZG", latitude: 47.1820, longitude: 7.4170, elevationFt: 1411),  // Grenchen
+        "LSZP": MarketingAirport(ident: "LSZP", latitude: 47.1392, longitude: 7.2997, elevationFt: 1404),  // Biel/Bienne
+        "LSZS": MarketingAirport(ident: "LSZS", latitude: 46.5341, longitude: 9.8841, elevationFt: 5600),  // Samedan
+        "LSGG": MarketingAirport(ident: "LSGG", latitude: 46.2381, longitude: 6.1089, elevationFt: 1411),  // Geneva
     ]
 
     /// Resolve an ICAO to a coordinate, preferring loaded airport data, then the hardcoded fallback.
@@ -648,11 +653,13 @@ enum MarketingSceneInjector {
         case .home2Aircraft:
             injectHome2Aircraft(appState: appState, subscriptionManager: subscriptionManager, aircraftDataService: aircraftDataService)
         case .cruiseHUD:
-            injectCruiseHUD(appState: appState, locationManager: locationManager)
+            injectCruiseHUD(appState: appState, locationManager: locationManager, airportDataService: airportDataService)
         case .navPlanActive:
             injectNavPlanActive(flightPlanManager: flightPlanManager, airportDataService: airportDataService, locationManager: locationManager)
         case .planConflicts:
             injectPlanConflicts(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
+        case .planBuilder:
+            injectPlanBuilder(flightPlanManager: flightPlanManager, airportDataService: airportDataService)
         case .flightLogDetail:
             injectFlightLog(appState: appState)
         }
@@ -663,6 +670,10 @@ enum MarketingSceneInjector {
     private static func injectHome2Aircraft(appState: AppState, subscriptionManager: SubscriptionManager, aircraftDataService: AircraftDataService) {
         // End any active flight so Home is visible.
         if appState.isFlightActive { appState.cancelFlight() }
+
+        // Populate the Home "last flight" card: import the bundled marketing flights so the most
+        // recent one (the Alpine Tour) surfaces on Home. (Idempotent.)
+        importMarketingFlights(into: appState)
 
         // Force subscribed so premium aircraft surface, then constrain the owned set to exactly
         // the PA-28-181 (HB-PFA). The bundled WT9 (F-HVXA) is always shown by HomeView.
@@ -688,7 +699,7 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 2: Active flight on CRUISE with a held static fix
 
-    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager) {
+    private static func injectCruiseHUD(appState: AppState, locationManager: LocationManager, airportDataService: AirportDataService) {
         // Start a fresh flight on the bundled WT9 (always resolvable, no network needed).
         if appState.isFlightActive { appState.cancelFlight() }
         appState.settings.selectedRemoteAircraftId = nil
@@ -720,16 +731,18 @@ enum MarketingSceneInjector {
         appState.currentFlight?.engineStartTime = appState.engineStartTime
         appState.currentFlight?.lineUpTime = appState.lineUpTime
 
-        // Held static fix ~4 NM SE of LSZQ Bressaucourt (47.3497, 7.0278) so the HUD mini-map shows
-        // LSZQ and its nearby frequencies. ~SPD 105 kt, ALT 3500 ft, HDG 315° (tracking back toward
-        // the field). CLLocation altitude is METERS.
+        // Load the airport DB FIRST, then inject the held fix. The HUD's NEAREST-frequency strip
+        // recomputes on the location change and is throttled to a coarse ~1 NM bucket, so it must see
+        // the data the first time the static fix lands — otherwise it resolves nil and never recomputes
+        // (the fix never moves). Held just SW of LSZQ Bressaucourt; ~SPD 105 kt, ALT 3500 ft, HDG 315°.
         let altMeters = 3500.0 / 3.28084
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 47.305, longitude: 7.095, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
-        // Also prime the LocationManager directly so the instruments are lit even before the
-        // ContentView onChange forwarder runs.
-        if let loc = provider.currentLocation {
-            locationManager.injectMarketingStaticFix(loc)
+        Task {
+            await airportDataService.ensureLoaded()
+            provider.holdStaticFix(latitude: 47.364761, longitude: 7.090180, altitudeMeters: altMeters, speedKnots: 105, headingDegrees: 315)
+            if let loc = provider.currentLocation {
+                locationManager.injectMarketingStaticFix(loc)
+            }
         }
     }
 
@@ -737,25 +750,21 @@ enum MarketingSceneInjector {
 
     private static func injectNavPlanActive(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService, locationManager: LocationManager) {
         let route = ["LSZQ", "LSGC", "LSGN", "LSZB"]
+        // OurAirports' LSZQ point doesn't line up with the field symbol on the SwissTopo chart, so pin
+        // the departure waypoint (and the held fix below) to the charted airport position. (Marketing.)
+        let lszqCoord = CLLocationCoordinate2D(latitude: 47.392250, longitude: 7.029552)
 
-        // Reuse an existing matching plan if present, otherwise build it.
-        let existing = flightPlanManager.flightPlans.first { plan in
-            plan.waypoints.map { $0.name.uppercased() } == route
-        }
-        let plan: FlightPlan
-        if let existing {
-            plan = existing
-        } else {
-            var newPlan = flightPlanManager.createFlightPlan(name: "LSZQ → LSZB Tour")
-            for ident in route {
-                if let coord = coordinate(ident, airportDataService: airportDataService) {
-                    newPlan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
-                }
+        // Build the plan fresh so the LSZQ waypoint always sits on the charted field — a previously
+        // saved plan could carry the off-position OurAirports coordinate.
+        var plan = flightPlanManager.createFlightPlan(name: "LSZQ → LSZB Tour")
+        for ident in route {
+            let coord = ident == "LSZQ" ? lszqCoord : coordinate(ident, airportDataService: airportDataService)
+            if let coord {
+                plan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
             }
-            newPlan.calculateRouteData()
-            flightPlanManager.updateFlightPlan(newPlan)
-            plan = newPlan
         }
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
         flightPlanManager.activateFlightPlan(plan)
 
         // Present LSZQ (index 0) as the departure already passed and the active leg as LSZQ→LSGC:
@@ -764,38 +773,70 @@ enum MarketingSceneInjector {
         // so LSGC becomes the next waypoint. (Explicit waypoint-index advance — the API the nav reads.)
         flightPlanManager.markWaypoint()
 
-        // Held fix ~3 NM down the LSZQ→LSGC leg (bearing ≈211°, LSGC is SW), just past LSZQ, so the
-        // aircraft visibly sits on the active leg with LSZQ behind it.
+        // Held fix ON the first waypoint LSZQ — the aircraft sits exactly on the field marker (the old
+        // fix sat ~3 NM south of it). LSGC is the active next waypoint; the speed + heading drive the
+        // ground-track trend vector (1 / 2 / 5 min projection).
+        // The LSZQ waypoint sits on the field (lszqCoord); the aircraft sits just down the LSZQ→LSGC
+        // leg, SW of the field — "just departed". Charted position supplied for the marketing capture.
         let provider = MarketingLocationProvider.shared
-        provider.holdStaticFix(latitude: 47.3069, longitude: 6.9898, altitudeMeters: 1200, speedKnots: 95, headingDegrees: 211)
+        provider.holdStaticFix(latitude: 47.345151, longitude: 6.982395,
+                               altitudeMeters: 2500.0 / 3.28084, speedKnots: 80, headingDegrees: 211)
         if let loc = provider.currentLocation {
             locationManager.injectMarketingStaticFix(loc)
         }
+
+        // Show the leg chronometer mid-run (~1:37) so the nav map reads as an active navigation.
+        flightPlanManager.marketingStartChronometer(elapsedSeconds: 95)
     }
 
-    // MARK: - Scene 4: Plan with conflicts (into LSZQ from LSZB)
+    // MARK: - Scene 4: Plan with a FULL conflict list (Geneva → Samedan)
 
     private static func injectPlanConflicts(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService) {
-        // Prefer an existing example plan FROM LSZB INTO LSZQ (the one saved in the sim).
-        let existing = flightPlanManager.flightPlans.first { plan in
-            guard let first = plan.waypoints.first?.name.uppercased(),
-                  let last = plan.waypoints.last?.name.uppercased() else { return false }
-            return first == "LSZB" && last == "LSZQ"
+        // Geneva → Samedan: a long plateau-to-Alps crossing through the most controlled airspace (~30
+        // conflicts) with a dramatic climb profile. The intermediate altitude waypoints + planned
+        // altitudes below are backported from a hand-tuned plan so the route profile shows a realistic
+        // flight-altitude line over the terrain (1000 ft → 10'800 ft → 9500 ft). Built fresh = deterministic.
+        let pts: [(name: String, lat: Double, lon: Double, alt: Double)] = [
+            ("LSGG",      46.2381,            6.1089,             1000),
+            ("WPT (ALT)", 46.26882281959379,  6.500740501792115,  5400),
+            ("WPT (ALT)", 46.3138496829949,   7.0750155514943645, 9200),
+            ("WPT (ALT)", 46.40886879183133,  8.28689440176229,   10800),
+            ("LSZS",      46.5341,            9.8841,             9500),
+        ]
+        var plan = flightPlanManager.createFlightPlan(name: "Geneva → Samedan")
+        for p in pts {
+            var wp = FlightPlanWaypoint(name: p.name, coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lon))
+            wp.altitude = p.alt
+            plan.waypoints.append(wp)
         }
+        plan.calculateRouteData()
+        flightPlanManager.updateFlightPlan(plan)
+        flightPlanManager.activateFlightPlan(plan)
+    }
 
-        if let existing {
-            // Make it the most-recent / active so the editor opens on it.
-            flightPlanManager.activateFlightPlan(existing)
-            return
-        }
+    // MARK: - Scene 6: Map-first plan BUILDER (LSZQ → LSGN → LSZP → LSZB → LSZS)
 
-        // Otherwise build LSZB → LSZG → LSZQ.
-        let route = ["LSZB", "LSZG", "LSZQ"]
-        var plan = flightPlanManager.createFlightPlan(name: "LSZB → LSZQ")
-        for ident in route {
-            if let coord = coordinate(ident, airportDataService: airportDataService) {
-                plan.waypoints.append(FlightPlanWaypoint(name: ident, coordinate: coord))
-            }
+    private static func injectPlanBuilder(flightPlanManager: FlightPlanManager, airportDataService: AirportDataService) {
+        // Jura → Engadin scenic tour: Jura plateau across to the Engadin Alps via Neuchâtel, Biel & Bern.
+        // The intermediate WPT (ALT) shaping points + planned altitudes are backported from a hand-tuned
+        // plan so the builder's route profile shows a realistic climbing flight-altitude line over the
+        // terrain (3100 → 10'200 → 6700 ft). LSZP/LSZB carry no planned altitude (interpolated on the
+        // profile), matching the source plan. Built fresh from explicit coords = deterministic.
+        let pts: [(name: String, lat: Double, lon: Double, alt: Double?)] = [
+            ("LSZQ",      47.3497,            7.0278,             3100),
+            ("WPT (ALT)", 47.15744287722123,  6.947848096060129,  4700),
+            ("LSGN",      46.9575,            6.8647,             3900),
+            ("LSZP",      47.1392,            7.2997,             nil),
+            ("LSZB",      46.9141,            7.4972,             nil),
+            ("WPT (ALT)", 46.76035098646962,  8.462946106304383,  9000),
+            ("WPT (ALT)", 46.54055676385714,  9.843543027235247, 10200),
+            ("LSZS",      46.5341,            9.8841,             6700),
+        ]
+        var plan = flightPlanManager.createFlightPlan(name: "Jura → Engadin")
+        for p in pts {
+            var wp = FlightPlanWaypoint(name: p.name, coordinate: CLLocationCoordinate2D(latitude: p.lat, longitude: p.lon))
+            wp.altitude = p.alt
+            plan.waypoints.append(wp)
         }
         plan.calculateRouteData()
         flightPlanManager.updateFlightPlan(plan)
@@ -804,7 +845,8 @@ enum MarketingSceneInjector {
 
     // MARK: - Scene 5: Flight Log — import the bundled marketing flights
 
-    /// Filenames (without extension) of the bundled marketing flights, in display order.
+    /// Filenames (without extension) of the bundled marketing flights, in display order. These are
+    /// imported by BOTH the Home and Flight Log scenes.
     private static let marketingFlightFiles = [
         "wright_brothers_1903",
         "harriet_quimby_1912",
@@ -813,26 +855,42 @@ enum MarketingSceneInjector {
         "lszq_alpine_tour"
     ]
 
+    /// A real recorded flight, bundled for the Flight Log hero only (NOT the Home set). It is the most
+    /// recent flight, so it sorts to the top and is the one shown open in detail. (User-supplied export.)
+    private static let realHighlightFlightFile = "vol_dalpes_2026"
+
     private static func injectFlightLog(appState: AppState) {
-        // The marketing/flights folder is bundled as a blue folder reference, so the JSONs land at
-        // <bundle>/flights/<name>.json. Load + insert via the real flight-persistence path.
-        let existingIds = Set(appState.flights.map { $0.id })
-        var imported = 0
-        for name in marketingFlightFiles {
-            guard let url = bundledMarketingFlightURL(named: name),
-                  let data = try? Data(contentsOf: url),
-                  let flight = try? Flight.fromJSON(data) else {
-                print("[Marketing] Could not load bundled flight \(name)")
-                continue
-            }
-            guard !existingIds.contains(flight.id) else { continue }
-            var f = flight
-            f.computeSummaryStats()
-            appState.flights.insert(f, at: 0)
-            appState.saveFlight(f) // real persistence path → appears in Flight Log
-            imported += 1
+        let imported = importMarketingFlights(into: appState)
+        // Flight Log hero highlights a REAL flight (Vol d'Alpes) on top of the marketing set.
+        let real = importFlight(named: realHighlightFlightFile, into: appState)
+        print("[Marketing] Imported \(imported) marketing flights + \(real ? 1 : 0) real flight")
+    }
+
+    /// Loads the bundled marketing flights into the real flight store (idempotent — skips ids already
+    /// present). Shared by the Flight Log scene and the Home scene (so Home's "last flight" card has
+    /// something to show). Returns the number newly imported.
+    @discardableResult
+    private static func importMarketingFlights(into appState: AppState) -> Int {
+        marketingFlightFiles.reduce(0) { $0 + (importFlight(named: $1, into: appState) ? 1 : 0) }
+    }
+
+    /// Load one bundled flight JSON and insert it via the real persistence path. Idempotent (skips if
+    /// the id is already present). Returns true if it was newly imported. The marketing/flights folder
+    /// is a blue folder reference, so the JSONs land at <bundle>/flights/<name>.json.
+    @discardableResult
+    private static func importFlight(named name: String, into appState: AppState) -> Bool {
+        guard let url = bundledMarketingFlightURL(named: name),
+              let data = try? Data(contentsOf: url),
+              let flight = try? Flight.fromJSON(data) else {
+            print("[Marketing] Could not load bundled flight \(name)")
+            return false
         }
-        print("[Marketing] Imported \(imported) marketing flights")
+        guard !appState.flights.contains(where: { $0.id == flight.id }) else { return false }
+        var f = flight
+        f.computeSummaryStats()
+        appState.flights.insert(f, at: 0)
+        appState.saveFlight(f) // real persistence path → appears in Flight Log
+        return true
     }
 
     /// Resolve a bundled marketing flight JSON URL. Tries the folder-reference layout (flights/),

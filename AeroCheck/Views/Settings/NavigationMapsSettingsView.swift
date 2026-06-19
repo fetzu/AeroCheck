@@ -7,6 +7,7 @@ struct NavigationMapsSettingsView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
 
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
@@ -54,6 +55,7 @@ struct NavigationMapsSettingsView: View {
             OpenAIPDownloadSheet()
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(appState)
         }
         .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
@@ -334,6 +336,7 @@ struct NavigationMapsSettingsView: View {
 struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
@@ -512,7 +515,7 @@ struct OpenAIPDownloadSheet: View {
 
         Task {
             if tilesAndData {
-                // Download both tiles and airspace data in parallel
+                // Download tiles + airspace data + navaids in parallel
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await openAIPCacheManager.downloadTiles(for: countries)
@@ -520,11 +523,22 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await openAIPDataService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await openAIPNavaidDataService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
-                // Download airspace data only (much faster, ~100 KB)
-                await openAIPDataService.downloadData(for: countries)
+                // Download structured data only (airspace + navaids — small, ~100s KB)
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await openAIPDataService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPNavaidDataService.downloadData(for: countries)
+                    }
+                    await group.waitForAll()
+                }
             }
         }
     }

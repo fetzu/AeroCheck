@@ -46,6 +46,11 @@ struct AeroCheckApp: App {
         _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
         let navaids = OpenAIPNavaidDataService()
         _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
+        // Per-location magnetic declination for flight-plan course calc, sourced from navaid data
+        // (falls back to the Switzerland constant when no navaid is near). (v4.1.0 — declination fix)
+        FlightPlan.magneticDeclinationProvider = { [weak navaids] coordinate in
+            navaids?.nearestNavaid(to: coordinate, maxDistanceNm: 250)?.magneticDeclination ?? FlightPlan.defaultMagneticDeclination
+        }
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)
         _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
@@ -147,6 +152,9 @@ struct AeroCheckApp: App {
                     Task.detached(priority: .utility) {
                         await aircraftDataService.syncBundledAircraft()
                     }
+
+                    // v4.1.0: preload navaids so the flight-plan declination lookup has data in memory.
+                    await openAIPNavaidDataService.ensureLoaded()
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {

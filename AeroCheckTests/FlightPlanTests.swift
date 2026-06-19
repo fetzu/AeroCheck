@@ -38,6 +38,29 @@ final class FlightPlanTests: XCTestCase {
         XCTAssertNil(plan.legArriving(at: 5))   // beyond the array never crashes
     }
 
+    func testCalculateRouteDataUsesInjectedDeclinationProvider() {
+        FlightPlan.magneticDeclinationProvider = { _ in 5.0 }
+        defer { FlightPlan.magneticDeclinationProvider = nil }
+        var plan = FlightPlan(waypoints: [
+            FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46, longitude: 8)),
+            FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8))   // due north
+        ])
+        plan.calculateRouteData()
+        // True course ≈ 0; magnetic = (0 − 5 + 360) % 360 = 355.
+        XCTAssertEqual(plan.waypoints[0].magneticCourse ?? -1, 355, accuracy: 1.0)
+    }
+
+    func testCalculateRouteDataFallsBackToConstantDeclination() {
+        FlightPlan.magneticDeclinationProvider = nil
+        var plan = FlightPlan(waypoints: [
+            FlightPlanWaypoint(name: "A", coordinate: CLLocationCoordinate2D(latitude: 46, longitude: 8)),
+            FlightPlanWaypoint(name: "B", coordinate: CLLocationCoordinate2D(latitude: 47, longitude: 8))
+        ])
+        plan.calculateRouteData()
+        // No provider → 2°E fallback; magnetic = (0 − 2 + 360) % 360 = 358.
+        XCTAssertEqual(plan.waypoints[0].magneticCourse ?? -1, 358, accuracy: 1.0)
+    }
+
     func testLegArrivingOnEmptyPlanIsNil() {
         let plan = FlightPlan(waypoints: [])
         XCTAssertNil(plan.legArriving(at: 0))

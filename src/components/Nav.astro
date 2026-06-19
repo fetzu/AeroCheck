@@ -17,9 +17,23 @@ const links = [
       <Icon name="plane-tilt" size={20} class="brand-mark" />
       <span>{site.brand}</span>
     </a>
-    <nav class="nav-links" aria-label="Primary">
+
+    <!-- Language switcher kept always-visible in the bar on mobile. On desktop the inline copy
+         inside .nav-links is used instead (this one is hidden ≥720px). -->
+    <span class="lang lang--bar" aria-label="Language">
+      <a href="/" class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
+      <span class="lang-sep" aria-hidden="true">/</span>
+      <a href="/fr" class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
+    </span>
+
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu" data-nav-toggle>
+      <span class="icon-open"><Icon name="menu-2" size={22} /></span>
+      <span class="icon-close"><Icon name="x" size={22} /></span>
+    </button>
+
+    <nav class="nav-links" id="nav-menu" aria-label="Primary">
       {links.map((l) => <a href={l.href}>{l.label}</a>)}
-      <span class="lang" aria-label="Language">
+      <span class="lang lang--inline" aria-label="Language">
         <a href="/" class:list={['lang-opt', { 'is-active': lang === 'en' }]} aria-current={lang === 'en' ? 'true' : undefined}>EN</a>
         <span class="lang-sep" aria-hidden="true">/</span>
         <a href="/fr" class:list={['lang-opt', { 'is-active': lang === 'fr' }]} aria-current={lang === 'fr' ? 'true' : undefined}>FR</a>
@@ -31,8 +45,8 @@ const links = [
 
 <style>
   .site-nav { position: sticky; top: 0; z-index: 50; background: rgba(10,16,24,.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
-  .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 16px; }
+  .nav-inner { display: flex; align-items: center; gap: 14px; height: 60px; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 16px; margin-right: auto; }
   .brand-mark { color: var(--gold); }
   .nav-links { display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--muted); }
   .nav-links a:not(.btn):hover { color: var(--text); }
@@ -42,7 +56,31 @@ const links = [
   .lang-opt:hover { color: var(--text); }
   .lang-sep { color: var(--dim); }
   .nav-dl { color: var(--gold-ink); }
+
+  /* The bar-level language switcher only exists for mobile; desktop uses the inline one. */
+  .lang--bar { display: none; }
+
+  /* Hamburger toggle — hidden on desktop, shown on mobile */
+  .nav-toggle { display: none; appearance: none; background: none; border: none; color: var(--text); cursor: pointer; padding: 6px; margin: -6px; line-height: 0; }
+  .nav-toggle .icon-open, .nav-toggle .icon-close { display: inline-flex; line-height: 0; }
+  .nav-toggle .icon-close { display: none; }
+  .nav-toggle[aria-expanded="true"] .icon-open { display: none; }
+  .nav-toggle[aria-expanded="true"] .icon-close { display: inline-flex; }
+
   @media (max-width: 720px) {
-    .nav-links a:not(.lang):not(.btn) { display: none; }
+    .nav-toggle { display: inline-flex; }
+    .lang--bar { display: inline-flex; }
+    .nav-links {
+      position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; align-items: flex-start; gap: 4px;
+      background: rgba(10,16,24,.98); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      padding: 8px 24px 18px;
+      display: none;
+    }
+    .nav-links.is-open { display: flex; }
+    .nav-links a:not(.btn) { padding: 10px 0; font-size: 15px; }
+    .nav-links .lang--inline { display: none; } /* the bar copy is shown instead */
+    .nav-dl { margin-top: 8px; align-self: stretch; justify-content: center; }
   }
 </style>

@@ -168,10 +168,13 @@ struct NavigationMapView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
 
-    /// True when the downloaded OpenAIP airspace data is aging/stale — drives the on-map staleness cue
-    /// (v4.1.0 Data Freshness), so stale airspace drawn on the map is visible in flight, not just in Settings.
+    /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
+    /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
+    /// drawn on the map is visible in flight, not just in Settings.
     private var airspaceDataNeedsAttention: Bool {
+        if dataStatusManager.debugForceStale { return true }
         guard openAIPDataService.isDataAvailable, let lastUpdated = openAIPDataService.lastUpdated else { return false }
         let freshness = FreshnessThresholds.aeronautical.freshness(lastUpdated: lastUpdated, now: Date())
         return freshness == .aging || freshness == .stale
@@ -4863,4 +4866,5 @@ private struct NavClockText: View {
         .environmentObject(OpenAIPCacheManager())
         .environmentObject(OpenAIPDataService())
         .environmentObject(FlightEventDetector())
+        .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }

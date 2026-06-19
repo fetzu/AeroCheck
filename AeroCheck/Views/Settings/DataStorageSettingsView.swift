@@ -5,8 +5,10 @@ import SwiftUI
 /// The scattered download buttons in Navigation & Maps will be relocated here in a follow-up.
 struct DataStorageSettingsView: View {
     @EnvironmentObject private var dataStatusManager: DataStatusManager
+    @EnvironmentObject private var aircraftDataService: AircraftDataService
 
     @State private var refreshingIDs: Set<String> = []
+    @State private var isSyncingChecklists = false
     @State private var isUpdatingAll = false
     @State private var pendingDelete: DataSet?
     @State private var showRemoveAllConfirm = false
@@ -33,6 +35,7 @@ struct DataStorageSettingsView: View {
                     ForEach(imageryDataSets) { dataRow($0) }
                 }
             }
+            checklistsSection
             storageSection
             attributionFooter
         }
@@ -170,6 +173,94 @@ struct DataStorageSettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 6)
         .padding(.top, 2)
+    }
+
+    // MARK: - Checklists (relocated from About → device-test feedback)
+
+    private var checklistsSection: some View {
+        SettingsGroup(title: L10n.DataStorage.checklistsSection, tint: tint, footer: L10n.DataStorage.checklistsDetail) {
+            let cached = aircraftDataService.getAllCachedAircraft()
+            if cached.isEmpty {
+                Text(L10n.DataStorage.noChecklists)
+                    .font(.caption)
+                    .foregroundColor(.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+            } else {
+                ForEach(groupCachedByAeroclub(cached), id: \.aeroclub) { group in
+                    checklistGroup(group)
+                }
+            }
+            if isSyncingChecklists {
+                HStack(spacing: 13) {
+                    SettingsRowLabel(icon: "arrow.triangle.2.circlepath", title: L10n.DataStorage.syncChecklists, tint: tint)
+                    Spacer(minLength: 0)
+                    ProgressView().scaleEffect(0.8)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+            } else {
+                SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.DataStorage.syncChecklists,
+                                  tint: tint, showsChevron: false) {
+                    Task { await syncChecklists() }
+                }
+            }
+        }
+    }
+
+    private func checklistGroup(_ group: (aeroclub: String?, aircraft: [CachedAircraftInfo])) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let aeroclub = group.aeroclub {
+                HStack(spacing: 6) {
+                    Image(systemName: "building.2").font(.caption)
+                    Text(aeroclub).font(.caption.weight(.semibold))
+                }
+                .foregroundColor(.aviationGold)
+            }
+            ForEach(group.aircraft) { aircraft in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(aircraft.registration)
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                        if aircraft.isPremium {
+                            Image(systemName: "star.fill").font(.system(size: 9)).foregroundColor(.aviationGold)
+                        }
+                        Text(aircraft.modelName).font(.caption).foregroundColor(.secondaryText).lineLimit(1)
+                        Spacer(minLength: 6)
+                        HStack(spacing: 5) {
+                            ForEach(aircraft.checklistLanguages, id: \.self) { LanguageFlagView(languageCode: $0) }
+                        }
+                    }
+                    Text("\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)")
+                        .font(.caption2).foregroundColor(.dimText)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func groupCachedByAeroclub(_ aircraft: [CachedAircraftInfo]) -> [(aeroclub: String?, aircraft: [CachedAircraftInfo])] {
+        Dictionary(grouping: aircraft) { $0.aeroclub }
+            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
+            .sorted { lhs, rhs in
+                switch (lhs.aeroclub, rhs.aeroclub) {
+                case (nil, nil): return false
+                case (nil, _): return true
+                case (_, nil): return false
+                case (let a?, let b?): return a < b
+                }
+            }
+    }
+
+    private func syncChecklists() async {
+        isSyncingChecklists = true
+        await aircraftDataService.syncBundledAircraft()
+        await aircraftDataService.fetchAvailableAircraft()
+        isSyncingChecklists = false
     }
 
     // MARK: - Actions

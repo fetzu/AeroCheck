@@ -176,6 +176,26 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertEqual(staleSmall.refreshCount, 0)
     }
 
+    // MARK: - Debug "simulate stale data"
+
+    func testDebugForceStaleDrivesUrgentNudgeAndStaleRows() {
+        let suite = UserDefaults(suiteName: "test.nudge.\(UUID().uuidString)")!
+        let net = NetworkMonitor(stub: .disconnected)
+        let fresh = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .fresh, isDownloaded: true))
+        let manager = DataStatusManager(providers: [fresh], networkMonitor: net, now: { self.now }, userDefaults: suite)
+        XCTAssertEqual(manager.overallHealth, .ok)
+        XCTAssertFalse(manager.showStaleNudge)
+
+        manager.debugForceStale = true   // didSet → recompute
+        XCTAssertEqual(manager.overallHealth, .urgent)
+        XCTAssertTrue(manager.showStaleNudge)
+        XCTAssertEqual(manager.dataSets.first?.freshness, .stale)   // downloaded primary forced stale
+
+        manager.debugForceStale = false
+        XCTAssertEqual(manager.overallHealth, .ok)
+        XCTAssertEqual(manager.dataSets.first?.freshness, .fresh)
+    }
+
     func testManagerAggregatesAndReducesOnInit() {
         let net = NetworkMonitor(stub: .disconnected)
         let p1 = FakeProvider(dataSet(urgency: .primary, freshness: .aging))

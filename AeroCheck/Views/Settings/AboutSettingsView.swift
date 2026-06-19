@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// Settings sub-page for about info, available checklists, and developer options
+/// Settings sub-page for about info and developer options
 struct AboutSettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var subscriptionManager: SubscriptionManager
-    @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
 
     @Environment(\.openURL) private var openURL
 
@@ -20,7 +20,6 @@ struct AboutSettingsView: View {
     var body: some View {
         SettingsPage {
             aboutSection
-            availableChecklistsSection
             replayOnboardingSection
             developerOptionsSection
         }
@@ -170,97 +169,6 @@ struct AboutSettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
 
-    // MARK: - Available Checklists Section
-
-    private func groupCachedAircraftByAeroclub(_ aircraft: [CachedAircraftInfo]) -> [(aeroclub: String?, aircraft: [CachedAircraftInfo])] {
-        let grouped = Dictionary(grouping: aircraft) { $0.aeroclub }
-        return grouped
-            .map { (aeroclub: $0.key, aircraft: $0.value.sorted { $0.registration < $1.registration }) }
-            .sorted { lhs, rhs in
-                switch (lhs.aeroclub, rhs.aeroclub) {
-                case (nil, nil): return false
-                case (nil, _): return true
-                case (_, nil): return false
-                case (let a?, let b?): return a < b
-                }
-            }
-    }
-
-    private var availableChecklistsSection: some View {
-        SettingsGroup(title: L10n.Settings.availableChecklists, tint: tint,
-                      footer: L10n.Settings.availableChecklistsFooter) {
-            let cachedAircraft = aircraftDataService.getAllCachedAircraft()
-            let groupedAircraft = groupCachedAircraftByAeroclub(cachedAircraft)
-
-            if cachedAircraft.isEmpty {
-                Text(L10n.Settings.noCached)
-                    .foregroundColor(.secondary)
-                    .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-            } else {
-                ForEach(groupedAircraft, id: \.aeroclub) { group in
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let aeroclub = group.aeroclub {
-                            HStack(spacing: 6) {
-                                Image(systemName: "building.2")
-                                    .font(.caption)
-                                    .foregroundColor(.aviationGold)
-                                Text(aeroclub)
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.aviationGold)
-                            }
-                            .padding(.top, group.aeroclub == groupedAircraft.first?.aeroclub ? 0 : 8)
-                        }
-
-                        ForEach(group.aircraft) { aircraft in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(aircraft.registration)
-                                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
-
-                                    if aircraft.isPremium {
-                                        Image(systemName: "star.fill")
-                                            .font(.caption)
-                                            .foregroundColor(.aviationGold)
-                                    }
-
-                                    Text(aircraft.modelName)
-                                        .foregroundColor(.secondary)
-
-                                    Spacer()
-
-                                    HStack(spacing: 6) {
-                                        ForEach(aircraft.checklistLanguages, id: \.self) { languageCode in
-                                            LanguageFlagView(languageCode: languageCode)
-                                        }
-                                    }
-                                }
-                                HStack {
-                                    Text(L10n.Settings.version(aircraft.version))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("•")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text(aircraft.lastUpdated)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                }
-            }
-        }
-    }
-
     // MARK: - Developer Options Section
 
     @ViewBuilder
@@ -270,6 +178,10 @@ struct AboutSettingsView: View {
                           footer: developerOptionsFooter) {
                 SettingsToggleRow(icon: "megaphone", title: L10n.Settings.marketingMode,
                                   tint: tint, isOn: $marketingMode)
+
+                // v4.1.0: force the freshness surfaces (Home dot, nudge, on-map cue) to STALE for testing.
+                SettingsToggleRow(icon: "clock.badge.xmark", title: L10n.DataStorage.simulateStaleData,
+                                  tint: tint, isOn: $dataStatusManager.debugForceStale)
 
                 SettingsToggleRow(icon: "person.crop.circle.badge.xmark", title: L10n.Settings.forceNotSubscribed,
                                   tint: tint, isOn: $subscriptionManager.debugForceNotSubscribed)

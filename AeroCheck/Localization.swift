@@ -64,6 +64,7 @@ enum L10n {
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
         static let noChecklists = String(localized: "No checklists cached yet")
         static let syncChecklists = String(localized: "Check for checklist updates")
+        static let simulateStaleData = String(localized: "Simulate stale data")
     }
 
     // MARK: - Buttons

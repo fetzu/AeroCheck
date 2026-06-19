@@ -130,6 +130,12 @@ final class DataStatusManager: ObservableObject {
     /// when a primary dataset is STALE (not merely aging) and the nudge isn't snoozed. (v4.1.0)
     @Published private(set) var showStaleNudge = false
 
+    /// Developer toggle (About → Developer Options): forces every downloaded primary dataset to read
+    /// STALE so the Home dot, nudge, and on-map cue can be exercised on device without waiting months. (v4.1.0)
+    @Published var debugForceStale = false {
+        didSet { recompute() }
+    }
+
     private let providers: [DataSetProvider]
     private let now: () -> Date
     private let userDefaults: UserDefaults
@@ -153,8 +159,16 @@ final class DataStatusManager: ObservableObject {
     /// the providers already hold in memory), so it is safe to call on every foreground.
     func recompute() {
         let stamp = now()
-        dataSets = providers.map { $0.makeDataSet(now: stamp) }
-        overallHealth = DataHealth.reduce(dataSets)
+        var sets = providers.map { $0.makeDataSet(now: stamp) }
+        if debugForceStale {
+            sets = sets.map { set in
+                var copy = set
+                if copy.urgency == .primary && copy.isDownloaded { copy.freshness = .stale }
+                return copy
+            }
+        }
+        dataSets = sets
+        overallHealth = debugForceStale ? .urgent : DataHealth.reduce(dataSets)
         evaluateNudge()
     }
 
@@ -167,7 +181,8 @@ final class DataStatusManager: ObservableObject {
 
     private func evaluateNudge() {
         // Only the assertive case (STALE primary data → .urgent) nudges; aging stays silent on the dot.
-        showStaleNudge = (overallHealth == .urgent) && !isNudgeSnoozed
+        // The debug toggle forces the nudge regardless of snooze so it can be tested.
+        showStaleNudge = (overallHealth == .urgent) && (debugForceStale || !isNudgeSnoozed)
     }
 
     /// Snooze the nudge for a week (the "remind me later" / tap-to-dismiss action).

@@ -44,7 +44,7 @@ struct AeroCheckApp: App {
         _openAIPDataService = StateObject(wrappedValue: openAIP)
         let openAIPCache = OpenAIPCacheManager()
         _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
-        let navaids = OpenAIPNavaidDataService()
+        let navaids = OpenAIPNavaidDataService.shared
         _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
         // Per-location magnetic declination for flight-plan course calc, sourced from navaid data
         // (falls back to the Switzerland constant when no navaid is near). (v4.1.0 — declination fix)

@@ -27,6 +27,8 @@ struct FlightPlanMapBuilderView: View {
     )
     @State private var visibleAirports: [Airport] = []
     @State private var airportUpdateTask: Task<Void, Never>?
+    @State private var visibleNavaids: [Navaid] = []
+    @State private var navaidUpdateTask: Task<Void, Never>?
     @State private var fitRouteToken = 0
     @State private var didInitialFit = false
 
@@ -151,13 +153,15 @@ struct FlightPlanMapBuilderView: View {
             Task {
                 await airportDataService.ensureLoaded()
                 scheduleAirportUpdate()
+                await OpenAIPNavaidDataService.shared.ensureLoaded()
+                scheduleNavaidUpdate()
             }
             initialFitIfNeeded()
             scheduleAirspaceUpdate()
             scheduleTerrainUpdate()
         }
-        .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate() }
-        .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate() }
+        .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
+        .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
         .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
@@ -180,6 +184,7 @@ struct FlightPlanMapBuilderView: View {
             waypoints: waypoints,
             mapLayer: selectedLayer,
             airports: visibleAirports,
+            navaids: visibleNavaids,
             airspacePolygons: airspacePolygons,
             selectedAirspaceId: selectedConflictId,
             focusRegion: focusRegion,
@@ -388,6 +393,16 @@ struct FlightPlanMapBuilderView: View {
         // Only fill field elevation when no altitude is set, so snapping/endpoint changes don't
         // clobber a pilot's planned altitude (mirrors addAirport). (v4.0.0 review P2)
         if wp.altitude == nil, let elevation = airport.elevation { wp.altitude = Double(elevation) }
+    }
+
+    /// Apply a navaid to a waypoint — name/callSign by ident, plus frequency + elevation. Mirrors
+    /// applyAirport; only fills altitude when unset so it doesn't clobber a planned altitude. (v4.1.0 navaid snap)
+    private func applyNavaid(_ navaid: Navaid, to wp: inout FlightPlanWaypoint) {
+        wp.name = navaid.identifier
+        wp.coordinate = navaid.coordinate
+        wp.callSign = navaid.identifier
+        if let frequency = navaid.frequencyValue { wp.frequency = frequency }
+        if wp.altitude == nil, let elevation = navaid.elevationFeet { wp.altitude = Double(elevation) }
     }
 
     private func swapEndpoints() {
@@ -974,8 +989,12 @@ struct FlightPlanMapBuilderView: View {
     private func moveWaypoint(at index: Int, to coordinate: CLLocationCoordinate2D) {
         guard index < waypoints.count else { return }
         var wp = waypoints[index]
-        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
-            applyAirport(airport, to: &wp)
+        let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
+        let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
+        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
+            applyAirport(airport, to: &wp)              // airport wins ties with a navaid
+        } else if let navaid {
+            applyNavaid(navaid, to: &wp)
         } else {
             wp.coordinate = coordinate
         }
@@ -987,11 +1006,20 @@ struct FlightPlanMapBuilderView: View {
     /// `snapRadiusNm`. (tap-add feedback + smart insertion)
     private func smartAddWaypoint(at coordinate: CLLocationCoordinate2D) {
         let index = FlightPlanManager.bestInsertionIndex(for: coordinate, in: waypoints)
-        if let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing) {
+        let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
+        let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
+        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: airport.coordinate, name: airport.ident)
             if let p = plan, index < p.waypoints.count {
                 var wp = p.waypoints[index]
                 applyAirport(airport, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            }
+        } else if let navaid {
+            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: navaid.coordinate, name: navaid.identifier)
+            if let p = plan, index < p.waypoints.count {
+                var wp = p.waypoints[index]
+                applyNavaid(navaid, to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             }
         } else {
@@ -1087,6 +1115,27 @@ struct FlightPlanMapBuilderView: View {
                 limit: 80
             )
             await MainActor.run { visibleAirports = airports }
+        }
+    }
+
+    private func scheduleNavaidUpdate() {
+        navaidUpdateTask?.cancel()
+        navaidUpdateTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300 ms debounce
+            guard !Task.isCancelled else { return }
+            guard OpenAIPNavaidDataService.shared.isDataAvailable else {
+                await MainActor.run { visibleNavaids = [] }
+                return
+            }
+            await OpenAIPNavaidDataService.shared.ensureLoaded()
+            let r = region
+            let halfLat = r.span.latitudeDelta / 2
+            let halfLon = r.span.longitudeDelta / 2
+            let found = OpenAIPNavaidDataService.shared.navaidsInRegion(
+                latRange: (r.center.latitude - halfLat)...(r.center.latitude + halfLat),
+                lonRange: (r.center.longitude - halfLon)...(r.center.longitude + halfLon)
+            )
+            await MainActor.run { visibleNavaids = found }
         }
     }
 }
@@ -1194,6 +1243,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
     let waypoints: [FlightPlanWaypoint]
     let mapLayer: WaypointPickerMapLayer
     var airports: [Airport]
+    var navaids: [Navaid] = []
     var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
     var selectedAirspaceId: String? = nil          // tapped conflict — emphasised on the map (#4)
     var focusRegion: MKCoordinateRegion? = nil     // hold a conflict → recenter the map on it (#4)
@@ -1245,6 +1295,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         updateAirportAnnotations(mapView, context: context)
+        updateNavaidAnnotations(mapView, context: context)
         updateAirspaceOverlays(mapView, context: context)
         applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
@@ -1319,6 +1370,17 @@ struct RouteBuilderMapView: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.airport.id) })
         for airport in airports where !existingIds.contains(airport.id) {
             mapView.addAnnotation(AirportAnnotation(airport: airport))
+        }
+    }
+
+    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
+        let existingIds = Set(existing.map { $0.navaid.id })
+        let newIds = Set(navaids.map { $0.id })
+
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
+        for navaid in navaids where !existingIds.contains(navaid.id) {
+            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
         }
     }
 
@@ -1483,6 +1545,24 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 let addButton = UIButton(type: .contactAdd)
                 view.rightCalloutAccessoryView = addButton
                 return view
+            }
+
+            if annotation is NavaidAnnotation {
+                let id = "BuilderNavaid"
+                let navaidView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = annotation
+                    navaidView = reused
+                } else {
+                    navaidView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+                }
+                navaidView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.95)   // aviation gold
+                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
+                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return navaidView
             }
 
             return nil

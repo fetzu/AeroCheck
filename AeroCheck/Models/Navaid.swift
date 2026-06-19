@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 /// A radio navigation aid (VOR / DME / NDB / VOR-DME …) from OpenAIP's keyless per-country GeoJSON
 /// export. Stored in our own compact form (the export is re-encoded to disk as `[Navaid]`). Each navaid
@@ -50,6 +51,18 @@ enum NavaidType: Int {
         case .unknown: return "NAVAID"
         }
     }
+}
+
+/// MapKit annotation for displaying a navaid on the map (mirrors AirportAnnotation). (v4.1.0)
+class NavaidAnnotation: NSObject, MKAnnotation {
+    let navaid: Navaid
+    init(navaid: Navaid) {
+        self.navaid = navaid
+        super.init()
+    }
+    var coordinate: CLLocationCoordinate2D { navaid.coordinate }
+    var title: String? { navaid.identifier }
+    var subtitle: String? { "\(navaid.type.shortLabel) · \(navaid.name)" }
 }
 
 // MARK: - GeoJSON parsing (OpenAIP keyless export)

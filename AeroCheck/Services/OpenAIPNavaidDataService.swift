@@ -14,6 +14,11 @@ struct NavaidCacheMetadata: Codable {
 /// markers). New OpenAIP layer for v4.1.0; additive — it does not touch the working airspace path.
 @MainActor
 final class OpenAIPNavaidDataService: ObservableObject {
+    /// Shared instance — the app DI, the data-status provider, and the flight-plan builder all use this
+    /// one instance (the builder reads it directly rather than threading @EnvironmentObject through the
+    /// whole presentation chain, mirroring the codebase's other `.shared` managers). (v4.1.0)
+    static let shared = OpenAIPNavaidDataService()
+
     @Published var isDownloading = false
     @Published var downloadProgress: Double = 0
     @Published var downloadError: String?

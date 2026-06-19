@@ -452,6 +452,7 @@ struct NavigationMapView: View {
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateCruiseCheck()
@@ -990,6 +991,7 @@ struct NavigationMapView: View {
     // reused for the frequency lines, instead of being queried a second time.
     @State private var visibleAirports: [Airport] = []
     @State private var visibleNavaids: [Navaid] = []
+    @State private var visibleObstacles: [Obstacle] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var lastSpatialRegion: MKCoordinateRegion?
@@ -1045,6 +1047,18 @@ struct NavigationMapView: View {
                 lonRange: (region.center.longitude - navHalfLon)...(region.center.longitude + navHalfLon))
         } else {
             visibleNavaids = []
+        }
+
+        // Obstacles — same gating as navaids (read-only markers; hidden when the OpenAIP overlay is on). (v4.1.0)
+        if appState.settings.showObstaclesOnMap, !appState.settings.showOpenAIPOverlay,
+           OpenAIPObstacleDataService.shared.isDataAvailable {
+            let obsHalfLat = region.span.latitudeDelta / 2
+            let obsHalfLon = region.span.longitudeDelta / 2
+            visibleObstacles = OpenAIPObstacleDataService.shared.obstaclesInRegion(
+                latRange: (region.center.latitude - obsHalfLat)...(region.center.latitude + obsHalfLat),
+                lonRange: (region.center.longitude - obsHalfLon)...(region.center.longitude + obsHalfLon))
+        } else {
+            visibleObstacles = []
         }
 
         var freqLines: [String: String] = [:]
@@ -1122,6 +1136,7 @@ struct NavigationMapView: View {
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 visibleNavaids: visibleNavaids,
+                visibleObstacles: visibleObstacles,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 onWaypointATOTap: { index in
@@ -1141,6 +1156,7 @@ struct NavigationMapView: View {
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
                 visibleNavaids: visibleNavaids,
+                visibleObstacles: visibleObstacles,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
@@ -2708,6 +2724,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
+    var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var showOpenAIPOverlay: Bool = false
@@ -2822,6 +2839,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
         updateNavaidAnnotations(mapView, context: context)
+        updateObstacleAnnotations(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -2853,6 +2871,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
         for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
+        }
+    }
+
+    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
+        let existingIds = Set(existing.map { $0.obstacle.id })
+        let newIds = Set(visibleObstacles.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
+        for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
+            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
         }
     }
 
@@ -3140,6 +3168,25 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
                 }
                 return navaidView
+            }
+
+            // Handle obstacle annotation (v4.1.0)
+            if let obstacleAnnotation = annotation as? ObstacleAnnotation {
+                let id = "ObstacleAnnotation"
+                let obstacleView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = obstacleAnnotation
+                    obstacleView = reused
+                } else {
+                    obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
+                }
+                obstacleView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+                let color = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.9)
+                if let image = UIImage(systemName: "exclamationmark.triangle.fill", withConfiguration: config) {
+                    obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return obstacleView
             }
 
             // Handle aircraft annotation
@@ -3563,6 +3610,7 @@ struct SwissMapView: UIViewRepresentable {
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
     var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
+    var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
@@ -3860,6 +3908,7 @@ struct SwissMapView: UIViewRepresentable {
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
         updateNavaidAnnotations(mapView, context: context)
+        updateObstacleAnnotations(mapView, context: context)
     }
 
     private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
@@ -3887,6 +3936,16 @@ struct SwissMapView: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
         for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
+        }
+    }
+
+    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
+        let existingIds = Set(existing.map { $0.obstacle.id })
+        let newIds = Set(visibleObstacles.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
+        for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
+            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
         }
     }
 
@@ -4239,6 +4298,25 @@ struct SwissMapView: UIViewRepresentable {
                     navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
                 }
                 return navaidView
+            }
+
+            // Handle obstacle annotation (v4.1.0)
+            if let obstacleAnnotation = annotation as? ObstacleAnnotation {
+                let id = "ObstacleAnnotation"
+                let obstacleView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = obstacleAnnotation
+                    obstacleView = reused
+                } else {
+                    obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
+                }
+                obstacleView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+                let color = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.9)
+                if let image = UIImage(systemName: "exclamationmark.triangle.fill", withConfiguration: config) {
+                    obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return obstacleView
             }
 
             // Handle aircraft annotation

@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 /// A vertical obstacle (tower / mast / wind turbine / building) from OpenAIP's keyless per-country
 /// GeoJSON export. Surfaced for situational awareness — pairs with the terrain-clearance feature. (v4.1.0)
@@ -30,6 +31,21 @@ struct Obstacle: Codable, Identifiable, Equatable {
         self.heightFeetAGL = p.height?.asFeetMSL
         self.longitude = feature.geometry.coordinates[0]   // GeoJSON is [lon, lat]
         self.latitude = feature.geometry.coordinates[1]
+    }
+}
+
+/// MapKit annotation wrapper for an obstacle (read-only nav-map marker). Mirrors `NavaidAnnotation`.
+final class ObstacleAnnotation: NSObject, MKAnnotation {
+    let obstacle: Obstacle
+    init(obstacle: Obstacle) { self.obstacle = obstacle }
+
+    var coordinate: CLLocationCoordinate2D { obstacle.coordinate }
+    var title: String? { obstacle.name ?? String(localized: "Obstacle") }
+    var subtitle: String? {
+        var parts: [String] = []
+        if let top = obstacle.elevationFeetMSL { parts.append("\(top) ft MSL") }
+        if let agl = obstacle.heightFeetAGL { parts.append("\(agl) ft AGL") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

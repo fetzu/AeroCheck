@@ -353,6 +353,10 @@ Secrets are **not** hard-coded in tracked source. They flow:
   OpenAIP key (register/rotate at https://www.openaip.net/). `Secrets.xcconfig` is gitignored.
 - An **empty** key degrades gracefully — OpenAIP tile/CTR requests 401 and the airspace overlay
   doesn't render; the app does not crash. So a checkout without the key still builds and runs.
+- **CI (Xcode Cloud):** builds come from a fresh GitHub clone, so `Secrets.xcconfig` is absent.
+  Define `OPENAIP_API_KEY` as a *secret* environment variable in the Xcode Cloud workflow;
+  `ci_scripts/ci_post_clone.sh` writes `Secrets.xcconfig` from it after clone. GitHub Actions
+  runs only CodeQL (`codeql.yml`) — no key needed there.
 - A client-embedded key is inherently extractable from the binary/traffic. The protections that
   matter are: (a) keep it out of *tracked* (esp. *public*) source, and (b) rotate if it leaks.
   Do **not** reintroduce a literal key in source.

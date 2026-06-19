@@ -408,14 +408,22 @@ struct OpenAIPDownloadSheet: View {
                     downloadProgressView
                 }
 
-                // Download buttons
+                // Download buttons — DATA-FIRST: the structured data (small) is the primary action;
+                // the heavy raster map tiles are an explicit opt-in. (v4.1.0 feedback)
                 if !openAIPCacheManager.isDownloading && !openAIPDataService.isDownloading {
                     VStack(spacing: 8) {
-                        Button(action: { startDownload(tilesAndData: true) }) {
+                        Text(L10n.Settings.openAIPDownloadHint)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 2)
+
+                        // Primary: structured data only (airspace + navaids + obstacles + RP + airports).
+                        Button(action: { startDownload(tilesAndData: false) }) {
                             HStack {
-                                Image(systemName: "square.and.arrow.down.on.square")
+                                Image(systemName: "square.and.arrow.down")
                                     .font(.system(size: 14))
-                                Text(L10n.Settings.downloadAll)
+                                Text(L10n.Settings.downloadData)
                             }
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
@@ -428,11 +436,12 @@ struct OpenAIPDownloadSheet: View {
                         }
                         .disabled(selectedCountries.isEmpty)
 
-                        Button(action: { startDownload(tilesAndData: false) }) {
+                        // Secondary: optionally add the large raster map tiles on top of the data.
+                        Button(action: { startDownload(tilesAndData: true) }) {
                             HStack {
-                                Image(systemName: "shield.checkered")
+                                Image(systemName: "square.2.layers.3d")
                                     .font(.system(size: 14))
-                                Text(L10n.Settings.downloadAirspaceOnly)
+                                Text(L10n.Settings.downloadWithTiles)
                             }
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(.aviationGold)

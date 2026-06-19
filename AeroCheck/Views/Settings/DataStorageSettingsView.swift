@@ -28,16 +28,21 @@ struct DataStorageSettingsView: View {
     var body: some View {
         SettingsPage {
             if !primaryDataSets.isEmpty {
-                SettingsGroup(title: L10n.DataStorage.aeronauticalSection, tint: tint, footer: L10n.DataStorage.caveat) {
-                    ForEach(primaryDataSets) { dataRow($0) }
+                // Group + its OpenAIP credit wrapped together so the credit hugs the footer (no empty line).
+                VStack(alignment: .leading, spacing: 7) {
+                    SettingsGroup(title: L10n.DataStorage.aeronauticalSection, tint: tint, footer: L10n.DataStorage.caveat) {
+                        ForEach(primaryDataSets) { dataRow($0) }
+                    }
+                    openAIPCredit   // airspace is OpenAIP data
                 }
-                openAIPCredit   // airspace is OpenAIP data
             }
             if !imageryDataSets.isEmpty {
-                SettingsGroup(title: L10n.DataStorage.chartsSection, tint: tint) {
-                    ForEach(imageryDataSets) { dataRow($0) }
+                VStack(alignment: .leading, spacing: 7) {
+                    SettingsGroup(title: L10n.DataStorage.chartsSection, tint: tint) {
+                        ForEach(imageryDataSets) { dataRow($0) }
+                    }
+                    openAIPCredit   // OpenAIP map tiles
                 }
-                openAIPCredit   // OpenAIP map tiles
             }
             tripPrefetchSection
             checklistsSection
@@ -206,7 +211,6 @@ struct DataStorageSettingsView: View {
         .tint(.aviationGold)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 6)
-        .padding(.top, 2)
     }
 
     // MARK: - Checklists (relocated from About → device-test feedback)

@@ -1024,9 +1024,10 @@ struct NavigationMapView: View {
         // Phase-aware frequencies depend on the nearest airport, so refresh them on a real move. (v4 UI/UX Revamp C2)
         recomputePhaseFrequencies()
 
-        // Airports — queried once and reused below for the frequency lines.
+        // Airports — queried once and reused below for the frequency lines. Independent layer,
+        // controlled solely by `showAirportsOnMap` (decoupled from the airspace overlay — v4.1.0 fix).
         let airports: [Airport]
-        if appState.settings.showAirportsOnMap, !appState.settings.showOpenAIPOverlay,
+        if appState.settings.showAirportsOnMap,
            airportDataService.isDataAvailable {
             let halfLat = region.span.latitudeDelta / 2
             let halfLon = region.span.longitudeDelta / 2
@@ -1039,8 +1040,9 @@ struct NavigationMapView: View {
         }
         visibleAirports = airports
 
-        // Navaids — same gating as airports (hidden when the OpenAIP tile overlay already shows them). (v4.1.0)
-        if appState.settings.showNavaidsOnMap, !appState.settings.showOpenAIPOverlay,
+        // Navaids — independent layer, controlled solely by its toggle (v4.1.0; decoupled from the
+        // airspace overlay, which draws vector CTRs from data, never the navaid symbols).
+        if appState.settings.showNavaidsOnMap,
            OpenAIPNavaidDataService.shared.isDataAvailable {
             let navHalfLat = region.span.latitudeDelta / 2
             let navHalfLon = region.span.longitudeDelta / 2
@@ -1051,8 +1053,8 @@ struct NavigationMapView: View {
             visibleNavaids = []
         }
 
-        // Obstacles — same gating as navaids (read-only markers; hidden when the OpenAIP overlay is on). (v4.1.0)
-        if appState.settings.showObstaclesOnMap, !appState.settings.showOpenAIPOverlay,
+        // Obstacles — independent layer, controlled solely by its toggle (v4.1.0; decoupled from overlay).
+        if appState.settings.showObstaclesOnMap,
            OpenAIPObstacleDataService.shared.isDataAvailable {
             let obsHalfLat = region.span.latitudeDelta / 2
             let obsHalfLon = region.span.longitudeDelta / 2
@@ -1063,8 +1065,8 @@ struct NavigationMapView: View {
             visibleObstacles = []
         }
 
-        // VFR reporting points — same gating as navaids (read-only markers; hidden under the OpenAIP overlay). (v4.1.0)
-        if appState.settings.showReportingPointsOnMap, !appState.settings.showOpenAIPOverlay,
+        // VFR reporting points — independent layer, controlled solely by its toggle (v4.1.0; decoupled).
+        if appState.settings.showReportingPointsOnMap,
            OpenAIPReportingPointDataService.shared.isDataAvailable {
             let rpHalfLat = region.span.latitudeDelta / 2
             let rpHalfLon = region.span.longitudeDelta / 2
@@ -3548,6 +3550,22 @@ struct LayerPickerSheet: View {
                         VStack(spacing: 0) {
                             overlayToggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
                                 appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            overlayToggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
+                                appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            overlayToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
+                                appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            overlayToggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
+                                appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            overlayToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
+                                appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
                             }
                             Divider().padding(.leading, 56)
                             overlayToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {

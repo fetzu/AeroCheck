@@ -67,11 +67,11 @@ enum L10n {
         static let simulateStaleData = String(localized: "Simulate stale data")
         // About → Data sources credits
         static let dataSourcesTitle = String(localized: "Data sources")
-        static let sourceCharts = String(localized: "Aeronautical charts")
+        static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
         static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
         static let sourceAirports = String(localized: "Airport database · public domain")
-        static let sourceWind = String(localized: "Wind data")
-        static let sourceElevation = String(localized: "Terrain elevation")
+        static let sourceWind = String(localized: "Wind data · © MeteoSwiss")
+        static let sourceElevation = String(localized: "Terrain elevation · Open-Meteo (CC BY 4.0), © swisstopo")
         static let navaidsName = String(localized: "Navaids")
         static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
         static let showNavaidsOnMap = String(localized: "Show navaids on map")
@@ -467,6 +467,8 @@ enum L10n {
         static let download = String(localized: "settings.openAIP.download")
         static let downloadAll = String(localized: "settings.openAIP.downloadAll")
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
+        static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
+        static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
         }

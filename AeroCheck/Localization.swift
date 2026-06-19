@@ -633,6 +633,7 @@ enum L10n {
         static let icaoAndSegelflug = String(localized: "download.icaoAndSegelflug")
         static let cached = String(localized: "download.cached")
         static let downloadingTiles = String(localized: "download.downloadingTiles")
+        static let throttled = String(localized: "download.throttled")
         static func downloadingLayer(_ name: String) -> String {
             String(format: String(localized: "download.downloadingLayer"), name)
         }

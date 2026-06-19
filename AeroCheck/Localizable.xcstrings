@@ -3260,6 +3260,23 @@
         }
       }
     },
+    "download.throttled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server is throttling downloads \u2014 this may take longer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur limite les t\u00e9l\u00e9chargements \u2014 cela peut prendre plus de temps."
+          }
+        }
+      }
+    },
     "download.downloadSegelflug" : {
       "extractionState" : "manual",
       "localizations" : {

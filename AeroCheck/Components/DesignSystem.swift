@@ -268,8 +268,20 @@ struct StatusIndicator: View {
             case .error: return "error"
             }
         }
+
+        /// A glyph that distinguishes the state without relying on colour — overlaid when the user has
+        /// "Differentiate Without Color" enabled (WCAG 1.4.1). (v4.1.0 Data Freshness)
+        var differentiatingSymbol: String? {
+            switch self {
+            case .active: return "checkmark"
+            case .warning: return "exclamationmark"
+            case .error: return "xmark"
+            case .inactive: return nil
+            }
+        }
     }
 
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     let status: Status
     let size: CGFloat
     /// Optional description of what this dot indicates (e.g. "GPS", "iCloud sync"). VoiceOver reads
@@ -286,6 +298,14 @@ struct StatusIndicator: View {
         Circle()
             .fill(status.color)
             .frame(width: size, height: size)
+            .overlay {
+                // Non-colour channel for "Differentiate Without Color" users (WCAG 1.4.1).
+                if differentiateWithoutColor, let symbol = status.differentiatingSymbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.62, weight: .black))
+                        .foregroundColor(.black.opacity(0.85))
+                }
+            }
             .shadow(color: status.color.opacity(0.5), radius: 4)
             .accessibilityElement()
             .accessibilityLabel(accessibilityLabelText ?? "Status")

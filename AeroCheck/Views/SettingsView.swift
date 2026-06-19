@@ -10,10 +10,15 @@ struct SettingsView: View {
     /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
     var onClose: (() -> Void)? = nil
 
+    /// When set, the hub opens directly to this section (e.g. the Home data-status dot → Data & Storage). (v4.1.0)
+    var initialSection: Section? = nil
+
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
     /// iPhone push-navigation path.
     @State private var path: [Section] = []
+    /// Guards `initialSection` so it seeds the selection once, not on every re-appear.
+    @State private var didApplyInitialSection = false
 
     /// The settings sections. On iPad regular width `NavigationSplitView` shows them as a sidebar
     /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
@@ -105,6 +110,12 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            guard !didApplyInitialSection, let initialSection else { return }
+            didApplyInitialSection = true
+            selection = initialSection
+            path = [initialSection]
+        }
         // A Plus/Max iPhone flips compact↔regular when rotated, which swaps push-nav (`path`) for the
         // two-column `selection`. Bridge the two so you stay on the same section instead of snapping
         // back to the top. (iPad is always regular, so this is a no-op there.) (orientation audit)

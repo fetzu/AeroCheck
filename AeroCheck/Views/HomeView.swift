@@ -99,7 +99,10 @@ struct HomeView: View {
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
     @State private var showSettings = false
+    /// Section to open Settings at — the data-status dot deep-links to Data & Storage. (v4.1.0 Data Freshness)
+    @State private var pendingSettingsSection: SettingsView.Section? = nil
     @State private var showFlightLog = false
     @State private var showSpeedReference = false
     @State private var showNavigation = false
@@ -208,7 +211,7 @@ struct HomeView: View {
             if !open, useRailLayout != railWhenIdle { useRailLayout = railWhenIdle }
         }
         .fullScreenCover(isPresented: coverBinding($showSettings)) {
-            SettingsView()
+            SettingsView(initialSection: pendingSettingsSection)
                 .environmentObject(appState)
                 .environmentObject(locationManager)
         }
@@ -354,7 +357,7 @@ struct HomeView: View {
         if useRailLayout {
             ZStack {
                 if showSettings {
-                    SettingsView(onClose: { showSettings = false })
+                    SettingsView(onClose: { showSettings = false }, initialSection: pendingSettingsSection)
                         .environmentObject(appState)
                         .environmentObject(locationManager)
                         .background(Color.cockpitBackground.ignoresSafeArea())
@@ -508,8 +511,11 @@ struct HomeView: View {
                     .foregroundColor(.secondaryText)
             }
             Spacer()
-            // The single GPS status for portrait / iPhone (landscape shows it in the rail foot). (v4 UI/UX Revamp)
-            gpsStatusIndicator(isCompact: isCompact)
+            // GPS + data-currency status for portrait / iPhone (landscape shows them in the rail foot). (v4 UI/UX Revamp)
+            HStack(spacing: isCompact ? 8 : 12) {
+                dataStatusIndicator(isCompact: isCompact)
+                gpsStatusIndicator(isCompact: isCompact)
+            }
         }
     }
 
@@ -532,8 +538,11 @@ struct HomeView: View {
                 navButtons
             }
             Spacer()
-            gpsStatusIndicator(isCompact: true)
-                .padding(.bottom, 18)
+            VStack(spacing: 10) {
+                dataStatusIndicator(isCompact: true)
+                gpsStatusIndicator(isCompact: true)
+            }
+            .padding(.bottom, 18)
         }
         .frame(width: 92)
         .frame(maxHeight: .infinity)
@@ -564,7 +573,7 @@ struct HomeView: View {
         navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
         navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
         navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
-        navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { showSettings = true }
+        navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { pendingSettingsSection = nil; showSettings = true }
     }
 
     private func navButton(_ icon: String, _ label: String, tint: Color, badge: Int? = nil, action: @escaping () -> Void) -> some View {
@@ -942,6 +951,50 @@ struct HomeView: View {
     
     // MARK: - GPS Status Indicator
 
+    /// Ambient data-currency dot beside GPS: quiet green when fresh, amber/red when stale; tap opens the
+    /// Data & Storage hub. Per-state SF Symbols read the state without relying on colour. (v4.1.0)
+    private func dataStatusIndicator(isCompact: Bool) -> some View {
+        let health = dataStatusManager.overallHealth
+        return Button {
+            pendingSettingsSection = .dataStorage
+            showSettings = true
+        } label: {
+            Image(systemName: dataStatusIcon(health))
+                .font(.system(size: isCompact ? 12 : 14, weight: .semibold))
+                .foregroundColor(dataStatusColor(health))
+                .frame(width: 28, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(L10n.DataStorage.title)
+        .accessibilityValue(dataStatusAccessibilityValue(health))
+        .accessibilityHint(L10n.DataStorage.subtitle)
+    }
+
+    private func dataStatusIcon(_ health: DataHealth) -> String {
+        switch health {
+        case .ok: return "checkmark.seal.fill"
+        case .attention: return "exclamationmark.triangle.fill"
+        case .urgent: return "exclamationmark.octagon.fill"
+        }
+    }
+
+    private func dataStatusColor(_ health: DataHealth) -> Color {
+        switch health {
+        case .ok: return .aviationGreen
+        case .attention: return .aviationYellow
+        case .urgent: return .aviationRed
+        }
+    }
+
+    private func dataStatusAccessibilityValue(_ health: DataHealth) -> String {
+        switch health {
+        case .ok: return L10n.DataStorage.statusFresh
+        case .attention: return L10n.DataStorage.statusAging
+        case .urgent: return L10n.DataStorage.statusStale
+        }
+    }
+
     private func gpsStatusIndicator(isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 4 : 6) {
             Image(systemName: locationStatusIcon)
@@ -1037,5 +1090,6 @@ private extension View {
         .environmentObject(FlightPlanManager())
         .environmentObject(AircraftDataService(subscriptionManager: subManager))
         .environmentObject(subManager)
+        .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }
 

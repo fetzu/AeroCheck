@@ -20,6 +20,7 @@
 		A5000026111111110000002 /* NavaidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000026111111110000001 /* NavaidTests.swift */; };
 		A5000027111111110000002 /* ObstacleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000027111111110000001 /* ObstacleTests.swift */; };
 		A5000028111111110000002 /* ReportingPointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000028111111110000001 /* ReportingPointTests.swift */; };
+		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000025111111110000001 /* DataStatusManagerTests.swift */; };
 		A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000024111111110000001 /* NetworkMonitorTests.swift */; };
 		A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000010111111110000001 /* DatastoreMigrationTests.swift */; };
@@ -64,6 +65,7 @@
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
 		A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000066 /* OpenAIPObstacleDataService.swift */; };
 		A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */; };
+		A1000001211111110000068 /* RouteDataCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000068 /* RouteDataCalculator.swift */; };
 		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
 		A1000001211111110000063 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000063 /* NetworkMonitor.swift */; };
 		A1000001211111110000098 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000098 /* WidgetBridge.swift */; };
@@ -205,6 +207,7 @@
 		A5000026111111110000001 /* NavaidTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavaidTests.swift; sourceTree = "<group>"; };
 		A5000027111111110000001 /* ObstacleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObstacleTests.swift; sourceTree = "<group>"; };
 		A5000028111111110000001 /* ReportingPointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportingPointTests.swift; sourceTree = "<group>"; };
+		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A5000025111111110000001 /* DataStatusManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManagerTests.swift; sourceTree = "<group>"; };
 		A5000024111111110000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		A5000010111111110000001 /* DatastoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastoreMigrationTests.swift; sourceTree = "<group>"; };
@@ -252,6 +255,7 @@
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000066 /* OpenAIPObstacleDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPObstacleDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPReportingPointDataService.swift; sourceTree = "<group>"; };
+		A1000001111111110000068 /* RouteDataCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculator.swift; sourceTree = "<group>"; };
 		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000063 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A1000001111111110000098 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
@@ -375,6 +379,7 @@
 				A5000026111111110000001 /* NavaidTests.swift */,
 				A5000027111111110000001 /* ObstacleTests.swift */,
 				A5000028111111110000001 /* ReportingPointTests.swift */,
+				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A5000025111111110000001 /* DataStatusManagerTests.swift */,
 				A5000024111111110000001 /* NetworkMonitorTests.swift */,
 				A5000010111111110000001 /* DatastoreMigrationTests.swift */,
@@ -521,6 +526,7 @@
 				A1000001111111110000065 /* OpenAIPNavaidDataService.swift */,
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
+				A1000001111111110000068 /* RouteDataCalculator.swift */,
 				A1000001111111110000064 /* DataStatusManager.swift */,
 				A1000001111111110000063 /* NetworkMonitor.swift */,
 				A1000001111111110000098 /* WidgetBridge.swift */,
@@ -778,6 +784,7 @@
 				A5000026111111110000002 /* NavaidTests.swift in Sources */,
 				A5000027111111110000002 /* ObstacleTests.swift in Sources */,
 				A5000028111111110000002 /* ReportingPointTests.swift in Sources */,
+				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */,
 				A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */,
 				A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */,
@@ -825,6 +832,7 @@
 				A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */,
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
+				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,
 				A1000001211111110000064 /* DataStatusManager.swift in Sources */,
 				A1000001211111110000063 /* NetworkMonitor.swift in Sources */,
 				A1000001211111110000098 /* WidgetBridge.swift in Sources */,

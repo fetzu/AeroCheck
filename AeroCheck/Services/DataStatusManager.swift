@@ -113,6 +113,17 @@ protocol DataSetProvider {
     func refresh() async
     /// Delete the dataset's on-disk cache.
     func delete()
+    /// For per-country layers: the ISO-2 country codes currently cached, else nil (not country-scoped).
+    /// Drives trip-aware prefetch coverage diffing. (v4.1.0)
+    var perCountryCoverage: [String]? { get }
+    /// For per-country layers: download `countries` (merged with what's already cached) for trip-aware
+    /// prefetch. Default no-op for non-country-scoped or intentionally-excluded (e.g. heavy tile) layers.
+    func prefetch(countries: [String]) async
+}
+
+extension DataSetProvider {
+    var perCountryCoverage: [String]? { nil }
+    func prefetch(countries: [String]) async {}
 }
 
 // MARK: - Manager
@@ -203,6 +214,27 @@ final class DataStatusManager: ObservableObject {
         recompute()
     }
 
+    /// Trip-aware prefetch (v4.1.0): the route's countries that are NOT yet covered by at least one
+    /// per-country layer (airspace / navaids / obstacles / reporting points). Empty → nothing to offer.
+    func tripCountriesNeedingData(routeCountries: [String]) -> [String] {
+        let perCountry = providers.compactMap { $0.perCountryCoverage }
+        guard !perCountry.isEmpty else { return [] }
+        return routeCountries.filter { country in
+            perCountry.contains { !$0.contains(country) }
+        }
+    }
+
+    /// Download the given countries (merged with each layer's existing cache) across every per-country
+    /// layer, then recompute. Heavy tile layers opt out via the default no-op. This is an explicit,
+    /// user-initiated action, so it isn't subject to the silent-refresh network gate.
+    func prefetchTripData(countries: [String]) async {
+        guard !countries.isEmpty else { return }
+        for provider in providers {
+            await provider.prefetch(countries: countries)
+        }
+        recompute()
+    }
+
     /// Refresh every downloaded small-JSON dataset permitted on the current network (tiles are excluded
     /// — they need an explicit size-shown confirmation). Backs the hub's "Update all". No-op when the
     /// network gate forbids it.
@@ -246,6 +278,10 @@ final class DataStatusManager: ObservableObject {
 struct OpenAIPAirspaceProvider: DataSetProvider {
     let service: OpenAIPDataService
     var id: String { "openaip.airspace" }
+    var perCountryCoverage: [String]? { service.downloadedCountries }
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+    }
 
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
@@ -369,6 +405,10 @@ struct OpenAIPTilesProvider: DataSetProvider {
 struct OpenAIPNavaidProvider: DataSetProvider {
     let service: OpenAIPNavaidDataService
     var id: String { "openaip.navaids" }
+    var perCountryCoverage: [String]? { service.downloadedCountries }
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+    }
 
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
@@ -398,6 +438,10 @@ struct OpenAIPNavaidProvider: DataSetProvider {
 struct OpenAIPObstacleProvider: DataSetProvider {
     let service: OpenAIPObstacleDataService
     var id: String { "openaip.obstacles" }
+    var perCountryCoverage: [String]? { service.downloadedCountries }
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+    }
 
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
@@ -427,6 +471,10 @@ struct OpenAIPObstacleProvider: DataSetProvider {
 struct OpenAIPReportingPointProvider: DataSetProvider {
     let service: OpenAIPReportingPointDataService
     var id: String { "openaip.reportingpoints" }
+    var perCountryCoverage: [String]? { service.downloadedCountries }
+    func prefetch(countries: [String]) async {
+        await service.downloadData(for: Array(Set(service.downloadedCountries).union(countries)))
+    }
 
     func makeDataSet(now: Date) -> DataSet {
         DataSet(

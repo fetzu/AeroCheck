@@ -6,7 +6,9 @@ import SwiftUI
 struct DataStorageSettingsView: View {
     @EnvironmentObject private var dataStatusManager: DataStatusManager
     @EnvironmentObject private var aircraftDataService: AircraftDataService
+    @EnvironmentObject private var flightPlanManager: FlightPlanManager
 
+    @State private var isPrefetchingTrip = false
     @State private var refreshingIDs: Set<String> = []
     @State private var isSyncingChecklists = false
     @State private var isUpdatingAll = false
@@ -37,6 +39,7 @@ struct DataStorageSettingsView: View {
                 }
                 openAIPCredit   // OpenAIP map tiles
             }
+            tripPrefetchSection
             checklistsSection
             storageSection
         }
@@ -63,6 +66,35 @@ struct DataStorageSettingsView: View {
             Button(L10n.Button.cancel, role: .cancel) {}
         } message: {
             Text(L10n.DataStorage.deleteConfirmMessage)
+        }
+    }
+
+    // MARK: - Trip Prefetch (v4.1.0)
+
+    /// Offers to download the per-country layers the active flight plan's route crosses but doesn't yet
+    /// cover. Hidden when there's no active plan, the route is a single point, or coverage is complete.
+    @ViewBuilder
+    private var tripPrefetchSection: some View {
+        if let plan = flightPlanManager.activeFlightPlan, plan.waypoints.count >= 2 {
+            let routeCountries = RouteDataCalculator.countries(crossing: plan.waypoints.map { $0.coordinate })
+            let needed = dataStatusManager.tripCountriesNeedingData(routeCountries: routeCountries)
+            if !needed.isEmpty {
+                let neededNames = needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
+                SettingsGroup(title: L10n.DataStorage.tripSection, tint: tint,
+                              footer: "\(L10n.DataStorage.tripFooter) \(neededNames)") {
+                    SettingsButtonRow(icon: "arrow.down.circle",
+                                      title: isPrefetchingTrip ? L10n.DataStorage.tripDownloading : L10n.DataStorage.tripDownload,
+                                      tint: tint, showsChevron: false) {
+                        guard !isPrefetchingTrip else { return }
+                        Task {
+                            isPrefetchingTrip = true
+                            await dataStatusManager.prefetchTripData(countries: needed)
+                            recomputeSizes()
+                            isPrefetchingTrip = false
+                        }
+                    }
+                }
+            }
         }
     }
 

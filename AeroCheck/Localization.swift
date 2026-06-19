@@ -81,6 +81,10 @@ enum L10n {
         static let reportingPointsName = String(localized: "Reporting points")
         static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        static let tripSection = String(localized: "Trip data")
+        static let tripFooter = String(localized: "Your active flight plan crosses areas without downloaded data:")
+        static let tripDownload = String(localized: "Download data for this trip")
+        static let tripDownloading = String(localized: "Downloading…")
     }
 
     // MARK: - Buttons

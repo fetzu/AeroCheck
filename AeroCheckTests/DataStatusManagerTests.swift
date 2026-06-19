@@ -89,6 +89,42 @@ final class DataStatusManagerTests: XCTestCase {
         func delete() { deleteCount += 1 }
     }
 
+    /// Per-country mock for trip-aware prefetch: reports coverage + records the prefetch country list.
+    final class FakePerCountryProvider: DataSetProvider {
+        var dataSet: DataSet
+        var coverage: [String]
+        private(set) var prefetchedCountries: [String]?
+        var id: String { dataSet.id }
+        init(_ d: DataSet, coverage: [String]) { dataSet = d; self.coverage = coverage }
+        func makeDataSet(now: Date) -> DataSet { dataSet }
+        func refresh() async {}
+        func delete() {}
+        var perCountryCoverage: [String]? { coverage }
+        func prefetch(countries: [String]) async { prefetchedCountries = countries }
+    }
+
+    func testTripCountriesNeedingDataAndPrefetch() async {
+        let net = NetworkMonitor(stub: .disconnected)
+        // airspace covers CH only; navaids cover CH + FR. Route crosses CH + FR.
+        let asp = FakePerCountryProvider(dataSet(id: "asp", urgency: .primary, freshness: .fresh), coverage: ["CH"])
+        let nav = FakePerCountryProvider(dataSet(id: "nav", urgency: .primary, freshness: .fresh), coverage: ["CH", "FR"])
+        let manager = DataStatusManager(providers: [asp, nav], networkMonitor: net, now: { self.now })
+
+        // CH is covered by both; FR is missing from airspace → only FR is "needed".
+        XCTAssertEqual(manager.tripCountriesNeedingData(routeCountries: ["CH", "FR"]), ["FR"])
+
+        await manager.prefetchTripData(countries: ["FR"])
+        XCTAssertEqual(asp.prefetchedCountries, ["FR"])
+        XCTAssertEqual(nav.prefetchedCountries, ["FR"])   // both per-country layers get the country
+    }
+
+    func testTripCountriesNeedingDataEmptyWhenFullyCovered() {
+        let net = NetworkMonitor(stub: .disconnected)
+        let p = FakePerCountryProvider(dataSet(id: "asp", urgency: .primary, freshness: .fresh), coverage: ["CH", "FR"])
+        let manager = DataStatusManager(providers: [p], networkMonitor: net, now: { self.now })
+        XCTAssertTrue(manager.tripCountriesNeedingData(routeCountries: ["CH", "FR"]).isEmpty)
+    }
+
     func testRefreshDispatchesToMatchingProviderOnly() async {
         let net = NetworkMonitor(stub: .disconnected)
         let a = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale))

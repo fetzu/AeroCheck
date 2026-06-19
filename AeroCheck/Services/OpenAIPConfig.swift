@@ -4,9 +4,26 @@ import Foundation
 /// OpenAIP provides worldwide aviation data (airspaces, airports, navaids)
 /// License: CC BY-NC 4.0 - Attribution required
 enum OpenAIPConfig {
-    /// API key for OpenAIP services (bundled with app)
-    /// Register at https://www.openaip.net/ to obtain a key
-    static let apiKey = "b0965c26c7dcb7982530ed79f4a7cc2f"
+    /// API key for OpenAIP services.
+    ///
+    /// Injected at build time from the untracked `Secrets.xcconfig` — flowing
+    /// `OPENAIP_API_KEY` (build setting) → `OpenAIPAPIKey` (Info.plist) → here.
+    /// It is deliberately NOT hard-coded in tracked source; see
+    /// `Secrets.example.xcconfig` and the "OpenAIP API key" note in CLAUDE.md.
+    /// Register / rotate keys at https://www.openaip.net/.
+    ///
+    /// Resolves to an empty string when no key is configured (e.g. a fresh
+    /// open-source checkout without `Secrets.xcconfig`). Callers degrade
+    /// gracefully: tile/CTR requests get a 401 and the airspace overlay simply
+    /// doesn't render — the app does not crash.
+    static let apiKey: String = {
+        guard let key = Bundle.main.object(forInfoDictionaryKey: "OpenAIPAPIKey") as? String,
+              !key.isEmpty else {
+            AppLog.openAIP.debugLine("OpenAIP API key missing — set OPENAIP_API_KEY in Secrets.xcconfig (copy Secrets.example.xcconfig)")
+            return ""
+        }
+        return key
+    }()
 
     /// Core REST API base URL for structured data (airports, airspaces, navaids)
     static let coreAPIBaseURL = "https://api.core.openaip.net/api"

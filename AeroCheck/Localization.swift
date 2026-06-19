@@ -522,6 +522,7 @@ enum L10n {
 
         // Developer Options
         static let marketingMode = String(localized: "settings.developer.marketingMode")
+        static let openAIPPrimaryAirports = String(localized: "OpenAIP-primary airports")   // v4.1.0 dev/validation flag (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
         static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")

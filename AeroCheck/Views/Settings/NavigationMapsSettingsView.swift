@@ -529,6 +529,7 @@ struct OpenAIPDownloadSheet: View {
         appState.saveSettings()
         let obstacleService = OpenAIPObstacleDataService.shared
         let reportingPointService = OpenAIPReportingPointDataService.shared
+        let openAIPAirportService = OpenAIPAirportDataService.shared
 
         Task {
             if tilesAndData {
@@ -549,6 +550,9 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await reportingPointService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await openAIPAirportService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
@@ -565,6 +569,9 @@ struct OpenAIPDownloadSheet: View {
                     }
                     group.addTask {
                         await reportingPointService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPAirportService.downloadData(for: countries)
                     }
                     await group.waitForAll()
                 }

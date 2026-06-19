@@ -102,6 +102,26 @@ class AirportDataService: ObservableObject {
     func ensureLoaded() async {
         guard !isLoaded else { return }
         await loadFromLocal()
+        await applyOpenAIPMergeIfEnabled()
+    }
+
+    /// Reads `AppSettings.useOpenAIPPrimaryAirports`; set in `App.init`. Default OFF so the OpenAIP
+    /// merge stays inert (OurAirports remains the sole backbone) until validated. (v4.1.0, increment 9)
+    static var useOpenAIPPrimaryProvider: () -> Bool = { false }
+
+    /// Flag-gated: when enabled and OpenAIP airport data is downloaded, fold it into the loaded backbone
+    /// (identity + position; OpenAIP wins on ICAO match within tolerance, OurAirports gap-fills). Runs
+    /// once after load and re-sets `airports` (didSet rebuilds the spatial grid). Default OFF → no-op.
+    private func applyOpenAIPMergeIfEnabled() async {
+        guard AirportDataService.useOpenAIPPrimaryProvider(), !airports.isEmpty else { return }
+        await OpenAIPAirportDataService.shared.ensureLoaded()
+        let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
+        guard !oaip.isEmpty else { return }
+        let merged = AirportDataMergeEngine.merge(ourAirports: airports, openAIP: oaip)
+        airports = merged   // didSet rebuilds the spatial grid
+        airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
+        airportCount = merged.count
+        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports (was OurAirports-only)")
     }
 
     // MARK: - Public Methods
@@ -187,6 +207,8 @@ class AirportDataService: ObservableObject {
 
             downloadProgress = 1.0
             AppLog.airportData.debugLine("Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
+
+            await applyOpenAIPMergeIfEnabled()
 
         } catch {
             downloadError = error.localizedDescription

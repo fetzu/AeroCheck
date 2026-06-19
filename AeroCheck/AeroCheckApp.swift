@@ -95,6 +95,10 @@ struct AeroCheckApp: App {
                     guard !isInitialized else { return }
                     isInitialized = true
 
+                    // v4.1.0 (increment 9): wire the flag-gated OpenAIP-primary airport merge BEFORE any
+                    // airport load below. Default OFF — inert until the user enables it in Developer Options.
+                    AirportDataService.useOpenAIPPrimaryProvider = { appState.settings.useOpenAIPPrimaryAirports }
+
                     // Load subscription products and aircraft data in parallel with timeouts
                     // Use TaskGroup to handle errors gracefully and not block startup on network issues
                     await withTaskGroup(of: Void.self) { group in

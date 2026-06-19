@@ -203,6 +203,13 @@ struct AboutSettingsView: View {
                 SettingsToggleRow(icon: "clock.badge.xmark", title: L10n.DataStorage.simulateStaleData,
                                   tint: tint, isOn: $dataStatusManager.debugForceStale)
 
+                // v4.1.0 (increment 9): merge OpenAIP airports in as the primary source. Default OFF;
+                // applies on the next airport-data load (start a flight / open the map after enabling).
+                SettingsToggleRow(icon: "airplane.circle", title: L10n.Settings.openAIPPrimaryAirports,
+                                  tint: tint, isOn: Binding(
+                                    get: { appState.settings.useOpenAIPPrimaryAirports },
+                                    set: { appState.settings.useOpenAIPPrimaryAirports = $0; appState.saveSettings() }))
+
                 SettingsToggleRow(icon: "person.crop.circle.badge.xmark", title: L10n.Settings.forceNotSubscribed,
                                   tint: tint, isOn: $subscriptionManager.debugForceNotSubscribed)
 

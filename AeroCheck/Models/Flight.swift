@@ -558,15 +558,8 @@ struct GPSPoint: Codable, Identifiable {
 extension Flight {
     /// Export flight to GPX format with all timing data in extensions
     func toGPX() -> String {
-        // PR-18: escape user-controlled strings so a flight named "Touch & Go" (or with < > " ')
-        // doesn't produce malformed XML that XMLParser aborts on at import.
-        func esc(_ s: String) -> String {
-            s.replacingOccurrences(of: "&", with: "&amp;")
-             .replacingOccurrences(of: "<", with: "&lt;")
-             .replacingOccurrences(of: ">", with: "&gt;")
-             .replacingOccurrences(of: "\"", with: "&quot;")
-             .replacingOccurrences(of: "'", with: "&apos;")
-        }
+        // PR-18: user-controlled strings are XML-escaped (see String.xmlEscaped) so a flight
+        // named "Touch & Go" (or with < > " ') can't produce malformed XML that XMLParser aborts on.
         let dateFormatter = ISO8601DateFormatter()
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 
@@ -578,7 +571,7 @@ extension Flight {
              xmlns:pc="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
-            <name>\(esc(displayName)) - \(formattedDate)</name>
+            <name>\(displayName.xmlEscaped) - \(formattedDate)</name>
             <desc>Flight recorded with AéroCheck app</desc>
         """
 
@@ -590,13 +583,13 @@ extension Flight {
 
           </metadata>
           <trk>
-            <name>\(esc(airplane))</name>
+            <name>\(airplane.xmlEscaped)</name>
             <extensions>
               <pc:flightData>
                 <pc:formatVersion>\(currentExportFormatVersion)</pc:formatVersion>
                 <pc:appVersion>\(appVersion)</pc:appVersion>
-                <pc:name>\(esc(name))</pc:name>
-                <pc:airplane>\(esc(airplane))</pc:airplane>
+                <pc:name>\(name.xmlEscaped)</pc:name>
+                <pc:airplane>\(airplane.xmlEscaped)</pc:airplane>
         """
 
         if let aircraftType = aircraftType {
@@ -1129,6 +1122,21 @@ class GPXParser: NSObject, XMLParserDelegate {
         default:
             break
         }
+    }
+}
+
+// MARK: - XML escaping
+
+extension String {
+    /// Escapes the five XML predefined entities (`&` first) so user-controlled text can be
+    /// embedded in GPX/XML output without producing malformed markup. Single source of truth
+    /// for GPX (`Flight`/`FlightPlan`) and route export (`FlightPlanExportService`).
+    var xmlEscaped: String {
+        replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
     }
 }
 

@@ -551,7 +551,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 waypoints[i].distance = distanceNM
 
                 // Calculate true course
-                let trueCourse = calculateBearing(from: from, to: to)
+                let trueCourse = from.bearing(to: to)
 
                 // Convert to magnetic course
                 let magneticCourse = (trueCourse - magneticDeclination + 360).truncatingRemainder(dividingBy: 360)
@@ -601,21 +601,6 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         }
 
         updatedAt = Date()
-    }
-
-    /// Calculate bearing between two coordinates (in degrees, 0-360)
-    private func calculateBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
-        let lat1 = from.latitude * .pi / 180
-        let lat2 = to.latitude * .pi / 180
-        let dLon = (to.longitude - from.longitude) * .pi / 180
-
-        let y = sin(dLon) * cos(lat2)
-        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
-
-        var bearing = atan2(y, x) * 180 / .pi
-        bearing = (bearing + 360).truncatingRemainder(dividingBy: 360)
-
-        return bearing
     }
 
     /// The waypoint carrying the leg data (MC, distance, EET) for the leg ARRIVING at the
@@ -963,15 +948,8 @@ extension FlightPlan {
         return parser.parse()
     }
 
-    /// Escape XML special characters
-    private func escapeXML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "'", with: "&apos;")
-    }
+    /// Escape XML special characters (delegates to the shared `String.xmlEscaped`).
+    private func escapeXML(_ string: String) -> String { string.xmlEscaped }
 
     /// Export filename
     var exportFilename: String {
@@ -1128,6 +1106,23 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         default:
             break
         }
+    }
+}
+
+// MARK: - Geo helpers
+
+extension CLLocationCoordinate2D {
+    /// Initial great-circle bearing from this coordinate to another, in degrees (0–360).
+    func bearing(to other: CLLocationCoordinate2D) -> Double {
+        let lat1 = latitude * .pi / 180
+        let lat2 = other.latitude * .pi / 180
+        let dLon = (other.longitude - longitude) * .pi / 180
+
+        let y = sin(dLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+
+        let bearing = atan2(y, x) * 180 / .pi
+        return (bearing + 360).truncatingRemainder(dividingBy: 360)
     }
 }
 

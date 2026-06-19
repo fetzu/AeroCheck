@@ -109,7 +109,7 @@ struct FlightLogView: View {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
                 ShareSheet(activityItems: [
-                    ZIPFile(data: zipData, filename: filename)
+                    ShareFile(data: zipData, filename: filename, dataTypeIdentifier: "public.zip-archive")
                 ])
             }
         }
@@ -1527,9 +1527,9 @@ struct FlightDetailView: View {
             if let data = preparedExportData {
                 switch exportType {
                 case .gpx:
-                    ShareSheet(activityItems: [GPXFile(data: data, filename: "\(flight.exportFilename).gpx")])
+                    ShareSheet(activityItems: [ShareFile(data: data, filename: "\(flight.exportFilename).gpx", dataTypeIdentifier: "com.topografix.gpx")])
                 case .json:
-                    ShareSheet(activityItems: [JSONFile(data: data, filename: "\(flight.exportFilename).json")])
+                    ShareSheet(activityItems: [ShareFile(data: data, filename: "\(flight.exportFilename).json", dataTypeIdentifier: "public.json")])
                 }
             }
         }
@@ -2608,15 +2608,19 @@ func presentImageShareSheet(image: UIImage) {
     topVC.present(activityVC, animated: true)
 }
 
-// MARK: - GPX File for Sharing
+// MARK: - File for Sharing
 
-class GPXFile: NSObject, UIActivityItemSource {
+/// Wraps a `Data` blob so it can be shared via `UIActivityViewController` as a named temp file
+/// with an explicit type identifier. Replaces the former byte-identical GPXFile/JSONFile/ZIPFile.
+class ShareFile: NSObject, UIActivityItemSource {
     let data: Data
     let filename: String
+    let dataTypeIdentifier: String
 
-    init(data: Data, filename: String) {
+    init(data: Data, filename: String, dataTypeIdentifier: String) {
         self.data = data
         self.filename = filename
+        self.dataTypeIdentifier = dataTypeIdentifier
         super.init()
     }
 
@@ -2631,69 +2635,7 @@ class GPXFile: NSObject, UIActivityItemSource {
     }
 
     func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "com.topografix.gpx"
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return filename
-    }
-}
-
-// MARK: - JSON File for Sharing
-
-class JSONFile: NSObject, UIActivityItemSource {
-    let data: Data
-    let filename: String
-
-    init(data: Data, filename: String) {
-        self.data = data
-        self.filename = filename
-        super.init()
-    }
-
-    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return filename
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? data.write(to: tempURL)
-        return tempURL
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "public.json"
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return filename
-    }
-}
-
-// MARK: - ZIP File for Sharing
-
-class ZIPFile: NSObject, UIActivityItemSource {
-    let data: Data
-    let filename: String
-
-    init(data: Data, filename: String) {
-        self.data = data
-        self.filename = filename
-        super.init()
-    }
-
-    func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return filename
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? data.write(to: tempURL)
-        return tempURL
-    }
-
-    func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
-        return "public.zip-archive"
+        return dataTypeIdentifier
     }
 
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {

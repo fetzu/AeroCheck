@@ -737,12 +737,5 @@ class FlightPlanExportService {
         }
     }
 
-    private static func escapeXML(_ string: String) -> String {
-        string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "'", with: "&apos;")
-    }
+    private static func escapeXML(_ string: String) -> String { string.xmlEscaped }
 }

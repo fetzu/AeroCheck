@@ -99,6 +99,19 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertNotNil(freqs.first { $0.type == "ATIS" })
     }
 
+    func testMergeUppercasesOpenAIPOnlyIdent() throws {
+        // A lowercase OpenAIP icaoCode must be uppercased on the appended Airport so airportsByIdent /
+        // findAirport(byIdent:) (which uppercases the query) can find it. (review #6)
+        let lower = """
+        {"type":"FeatureCollection","features":[{"type":"Feature",
+          "properties":{"_id":"lc","name":"LOWER","icaoCode":"lszx","type":2,"country":"CH"},
+          "geometry":{"type":"Point","coordinates":[7.5,46.5]}}]}
+        """.data(using: .utf8)!
+        let merged = AirportDataMergeEngine.merge(ourAirports: [], openAIP: try OpenAIPAirport.parse(geoJSON: lower))
+        XCTAssertEqual(merged.count, 1)
+        XCTAssertEqual(merged[0].ident, "LSZX")
+    }
+
     func testStableNegativeIDIsDeterministicAndNegative() {
         XCTAssertEqual(AirportDataMergeEngine.stableNegativeID("626151975e9ded5710452de5"),
                        AirportDataMergeEngine.stableNegativeID("626151975e9ded5710452de5"))

@@ -127,6 +127,10 @@ final class OpenAIPObstacleDataService: ObservableObject {
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
         }
+        // Keep already-cached countries not re-requested this call in memory (review #5).
+        for country in metadata.counts.keys where !countries.contains(country) {
+            appendExistingCache(for: country, into: &allLoaded)
+        }
         obstacles = allLoaded
         obstacleCount = allLoaded.count
         downloadedCountries = metadata.counts.keys.sorted()

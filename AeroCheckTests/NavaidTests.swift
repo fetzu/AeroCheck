@@ -43,6 +43,20 @@ final class NavaidTests: XCTestCase {
         XCTAssertNil(dol.elevationFeet)  // no elevation object
     }
 
+    func testParseHandlesFractionalElevation() throws {
+        // OpenAIP serves fractional measured values — a fractional elevation must NOT abort the
+        // whole-country decode (regression: Elevation.value was Int). (review #1)
+        let json = """
+        {"type":"FeatureCollection","features":[{"type":"Feature",
+          "properties":{"_id":"z","name":"X","identifier":"X","type":0,
+            "elevation":{"value":412.5,"unit":0,"referenceDatum":1}},
+          "geometry":{"type":"Point","coordinates":[7,46]}}]}
+        """.data(using: .utf8)!
+        let navaids = try Navaid.parse(geoJSON: json)
+        XCTAssertEqual(navaids.count, 1)
+        XCTAssertEqual(navaids[0].elevationFeet, Int((412.5 * 3.28084).rounded()))
+    }
+
     func testUnknownTypeCodeFallsBackToUnknown() throws {
         let json = """
         {"type":"FeatureCollection","features":[{"type":"Feature",

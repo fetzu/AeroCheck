@@ -15,6 +15,11 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
+    // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
+    // completions (their @Published downloadedCountries) rather than only to airspace changes. (review #8)
+    @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -86,27 +91,30 @@ struct FlightPlanMapBuilderView: View {
         guard waypoints.count >= 2 else { return [] }
         let routeCountries = RouteDataCalculator.countries(crossing: waypoints.map { $0.coordinate })
         guard !routeCountries.isEmpty else { return [] }
+        // The SAME 4 per-country layers DataStatusManager.tripCountriesNeedingData checks (airspace +
+        // navaids + obstacles + reporting points). The OpenAIP airport layer is intentionally excluded:
+        // it's brand-new (existing downloads lack it, so it would nag forever) and it ships with the full
+        // Nav & Maps country bundle, not this lightweight route prefetch. Keep this in sync with the
+        // manager and with prefetchTripData below. (review #7)
         let coverage: [[String]] = [
             openAIPDataService.downloadedCountries,
-            OpenAIPNavaidDataService.shared.downloadedCountries,
-            OpenAIPObstacleDataService.shared.downloadedCountries,
-            OpenAIPReportingPointDataService.shared.downloadedCountries,
-            OpenAIPAirportDataService.shared.downloadedCountries,
+            navaidService.downloadedCountries,
+            obstacleService.downloadedCountries,
+            reportingPointService.downloadedCountries,
         ]
         return routeCountries.filter { country in coverage.contains { !$0.contains(country) } }
     }
 
-    /// Download every per-country layer for the route's missing countries (merged with what's cached).
+    /// Download the 4 per-country layers for the route's missing countries (merged with what's cached).
     private func prefetchTripData() async {
         let needed = tripNeededCountries
         guard !needed.isEmpty else { return }
         isPrefetchingTrip = true
         func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
         await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries))
-        await OpenAIPNavaidDataService.shared.downloadData(for: union(OpenAIPNavaidDataService.shared.downloadedCountries))
-        await OpenAIPObstacleDataService.shared.downloadData(for: union(OpenAIPObstacleDataService.shared.downloadedCountries))
-        await OpenAIPReportingPointDataService.shared.downloadData(for: union(OpenAIPReportingPointDataService.shared.downloadedCountries))
-        await OpenAIPAirportDataService.shared.downloadData(for: union(OpenAIPAirportDataService.shared.downloadedCountries))
+        await navaidService.downloadData(for: union(navaidService.downloadedCountries))
+        await obstacleService.downloadData(for: union(obstacleService.downloadedCountries))
+        await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries))
         isPrefetchingTrip = false
     }
 
@@ -1125,12 +1133,12 @@ struct FlightPlanMapBuilderView: View {
         let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
         let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
         let rp = reportingPointSnapCandidate(near: coordinate)
-        let aDist = airport?.distance(from: coordinate) ?? .infinity
-        let nDist = navaid?.distanceNM(from: coordinate) ?? .infinity
-        let rDist = rp?.distanceNM(from: coordinate) ?? .infinity
-        if let airport, aDist <= nDist, aDist <= rDist {
-            applyAirport(airport, to: &wp)              // priority airport > navaid > reporting point
-        } else if let navaid, nDist <= rDist {
+        // Priority airport > navaid > reporting point by TYPE (each candidate is already filtered to its
+        // own snap radius); airport wins a tie with a navaid by distance. A reporting point only snaps
+        // when there is no airfield/navaid in range — NOT just because it happens to be closer. (review #3)
+        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
+            applyAirport(airport, to: &wp)
+        } else if let navaid {
             applyNavaid(navaid, to: &wp)
         } else if let rp {
             applyReportingPoint(rp, to: &wp)
@@ -1148,17 +1156,16 @@ struct FlightPlanMapBuilderView: View {
         let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
         let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
         let rp = reportingPointSnapCandidate(near: coordinate)
-        let aDist = airport?.distance(from: coordinate) ?? .infinity
-        let nDist = navaid?.distanceNM(from: coordinate) ?? .infinity
-        let rDist = rp?.distanceNM(from: coordinate) ?? .infinity
-        if let airport, aDist <= nDist, aDist <= rDist {
+        // Priority airport > navaid > reporting point by TYPE (each already filtered to its own radius);
+        // airport wins a navaid tie by distance; RP only when no airfield/navaid in range. (review #3)
+        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: airport.coordinate, name: airport.ident)
             if let p = plan, index < p.waypoints.count {
                 var wp = p.waypoints[index]
                 applyAirport(airport, to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             }
-        } else if let navaid, nDist <= rDist {
+        } else if let navaid {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: navaid.coordinate, name: navaid.identifier)
             if let p = plan, index < p.waypoints.count {
                 var wp = p.waypoints[index]

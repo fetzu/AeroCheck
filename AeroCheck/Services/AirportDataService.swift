@@ -110,9 +110,10 @@ class AirportDataService: ObservableObject {
     static var useOpenAIPPrimaryProvider: () -> Bool = { false }
 
     /// Flag-gated: when enabled and OpenAIP airport data is downloaded, fold it into the loaded backbone
-    /// (identity + position; OpenAIP wins on ICAO match within tolerance, OurAirports gap-fills). Runs
-    /// once after load and re-sets `airports` (didSet rebuilds the spatial grid). Default OFF → no-op.
-    private func applyOpenAIPMergeIfEnabled() async {
+    /// (identity + position; OpenAIP wins on ICAO match within tolerance, OurAirports gap-fills). Re-sets
+    /// `airports` (didSet rebuilds the spatial grid). Default OFF → no-op. Idempotent — safe to call again
+    /// from `App.task` once the flag provider is wired, in case an early `ensureLoaded` ran first (review #4).
+    func applyOpenAIPMergeIfEnabled() async {
         guard AirportDataService.useOpenAIPPrimaryProvider(), !airports.isEmpty else { return }
         await OpenAIPAirportDataService.shared.ensureLoaded()
         let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
@@ -122,14 +123,15 @@ class AirportDataService: ObservableObject {
         airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
         airportCount = merged.count
 
-        // OpenAIP-primary frequencies: replace the OurAirports frequencies for every airport OpenAIP
-        // covers (so OpenAIP fields — incl. OpenAIP-only ones — get full callouts). OurAirports-only
-        // airports keep their frequencies. (v4.1.0)
+        // OpenAIP-primary frequencies: UNION per airport — OpenAIP wins on a frequency-type conflict, but
+        // OurAirports-only types (e.g. GND/ATIS the export omits) are kept rather than dropped. (review #2)
         let openAIPFreqsByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPFrequencies(from: oaip)) {
             $0.airportIdent
         }
-        for (ident, freqs) in openAIPFreqsByIdent {
-            frequenciesByAirport[ident] = freqs
+        for (ident, openAIPFreqs) in openAIPFreqsByIdent {
+            let openAIPTypes = Set(openAIPFreqs.map { $0.type })
+            let keptOurAirports = (frequenciesByAirport[ident] ?? []).filter { !openAIPTypes.contains($0.type) }
+            frequenciesByAirport[ident] = openAIPFreqs + keptOurAirports
         }
         AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies")
     }

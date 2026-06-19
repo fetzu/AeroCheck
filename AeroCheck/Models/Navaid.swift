@@ -120,10 +120,10 @@ private struct NavaidFeatureCollection: Decodable {
             let unit: Int?
         }
         struct Elevation: Decodable {
-            let value: Int
+            let value: Double         // OpenAIP serves fractional measured values — Int would abort the whole-country decode (review #1)
             let unit: Int             // 0 = meters (matches AltitudeLimit), 1 = feet
             let referenceDatum: Int?
-            var asFeetMSL: Int { unit == 0 ? Int((Double(value) * 3.28084).rounded()) : value }
+            var asFeetMSL: Int { unit == 0 ? Int((value * 3.28084).rounded()) : Int(value.rounded()) }
         }
     }
 

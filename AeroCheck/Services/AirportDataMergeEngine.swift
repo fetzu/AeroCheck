@@ -48,7 +48,9 @@ enum AirportDataMergeEngine {
     private static func makeAirport(from oa: OpenAIPAirport, preserving our: Airport?) -> Airport {
         Airport(
             id: our?.id ?? stableNegativeID(oa.id),
-            ident: oa.icaoCode ?? our?.ident ?? oa.id,
+            // Uppercase so an OpenAIP-only airport's ident matches the case-normalised airportsByIdent
+            // key + frequency keys + findAirport(byIdent:) (which uppercases the query). (review #6)
+            ident: oa.icaoCode?.uppercased() ?? our?.ident ?? oa.id,
             type: oa.airportType,
             name: oa.name,
             latitude: oa.latitude,

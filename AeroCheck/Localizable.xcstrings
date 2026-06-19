@@ -3667,40 +3667,6 @@
         }
       }
     },
-    "flightDetail.aircraft" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aircraft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avion"
-          }
-        }
-      }
-    },
-    "flightDetail.aircraftType" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aircraft Type"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type d'aéronef"
-          }
-        }
-      }
-    },
     "flightDetail.altitudeFtMSL" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3714,40 +3680,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Altitude (ft MSL)"
-          }
-        }
-      }
-    },
-    "flightDetail.altitudeProfile" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ALTITUDE PROFILE"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROFIL D'ALTITUDE"
-          }
-        }
-      }
-    },
-    "flightDetail.arrival" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrival"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrivée"
           }
         }
       }
@@ -3786,57 +3718,6 @@
         }
       }
     },
-    "flightDetail.checklistVersion" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checklist Version"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Version checklist"
-          }
-        }
-      }
-    },
-    "flightDetail.date" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Date"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Date"
-          }
-        }
-      }
-    },
-    "flightDetail.delete" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer"
-          }
-        }
-      }
-    },
     "flightDetail.delete.message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3867,40 +3748,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer le vol ?"
-          }
-        }
-      }
-    },
-    "flightDetail.departure" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Departure"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Départ"
-          }
-        }
-      }
-    },
-    "flightDetail.distance" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Distance"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Distance"
           }
         }
       }
@@ -4075,23 +3922,6 @@
         }
       }
     },
-    "flightDetail.flightDetails" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FLIGHT DETAILS"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DÉTAILS DU VOL"
-          }
-        }
-      }
-    },
     "flightDetail.flightName" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4109,40 +3939,6 @@
         }
       }
     },
-    "flightDetail.flightTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temps de vol"
-          }
-        }
-      }
-    },
-    "flightDetail.flightTimes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FLIGHT TIMES"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TEMPS DE VOL"
-          }
-        }
-      }
-    },
     "flightDetail.flightTrack" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4156,57 +3952,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TRACE DE VOL"
-          }
-        }
-      }
-    },
-    "flightDetail.fullStops" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Full Stops"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atterrissages complets"
-          }
-        }
-      }
-    },
-    "flightDetail.goArounds" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Go Arounds"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remises de gaz"
-          }
-        }
-      }
-    },
-    "flightDetail.gpsPoints" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GPS Points"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Points GPS"
           }
         }
       }
@@ -4296,23 +4041,6 @@
         }
       }
     },
-    "flightDetail.navPlan" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nav Plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan de nav"
-          }
-        }
-      }
-    },
     "flightDetail.noAltitudeData" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4364,23 +4092,6 @@
         }
       }
     },
-    "flightDetail.route" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        }
-      }
-    },
     "flightDetail.sessionEnd" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4428,23 +4139,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Décollage"
-          }
-        }
-      }
-    },
-    "flightDetail.touchAndGoes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Touch-and-goes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posés-décollés"
           }
         }
       }
@@ -4809,805 +4503,6 @@
         }
       }
     },
-    "flightLogDetail.aircraft" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aircraft"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aéronef"
-          }
-        }
-      }
-    },
-    "flightLogDetail.arrival" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrival"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrivée"
-          }
-        }
-      }
-    },
-    "flightLogDetail.blockOff" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block Off"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bloc départ"
-          }
-        }
-      }
-    },
-    "flightLogDetail.blockOn" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block On"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bloc arrivée"
-          }
-        }
-      }
-    },
-    "flightLogDetail.blockTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Block Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temps bloc"
-          }
-        }
-      }
-    },
-    "flightLogDetail.checklistVersion" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checklist Version"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Version checklist"
-          }
-        }
-      }
-    },
-    "flightLogDetail.date" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Date"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Date"
-          }
-        }
-      }
-    },
-    "flightLogDetail.departure" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Departure"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Départ"
-          }
-        }
-      }
-    },
-    "flightLogDetail.distance" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Distance"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Distance"
-          }
-        }
-      }
-    },
-    "flightLogDetail.durations" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Durations"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Durées"
-          }
-        }
-      }
-    },
-    "flightLogDetail.engineHours" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine Hours"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heures moteur"
-          }
-        }
-      }
-    },
-    "flightLogDetail.engineStart" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine Start"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Démarrage moteur"
-          }
-        }
-      }
-    },
-    "flightLogDetail.engineStop" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine Stop"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrêt moteur"
-          }
-        }
-      }
-    },
-    "flightLogDetail.engineTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temps moteur"
-          }
-        }
-      }
-    },
-    "flightLogDetail.events" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Events"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Événements"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportFlight" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Flight"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter le vol"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportFormat" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Format"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Format d'export"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportGPX" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export as GPX"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter en GPX"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportJSON" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export as JSON"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter en JSON"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter"
-          }
-        }
-      }
-    },
-    "flightLogDetail.exportZIP" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export as ZIP (GPX + JSON)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter en ZIP (GPX + JSON)"
-          }
-        }
-      }
-    },
-    "flightLogDetail.flight" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vol"
-          }
-        }
-      }
-    },
-    "flightLogDetail.flightTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temps de vol"
-          }
-        }
-      }
-    },
-    "flightLogDetail.fullStopLandings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Full Stop Landings"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atterrissages complets"
-          }
-        }
-      }
-    },
-    "flightLogDetail.goArounds" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Go-arounds"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remises de gaz"
-          }
-        }
-      }
-    },
-    "flightLogDetail.hoursAfter" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hours After"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heures après"
-          }
-        }
-      }
-    },
-    "flightLogDetail.hoursBefore" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hours Before"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heures avant"
-          }
-        }
-      }
-    },
-    "flightLogDetail.hoursFlown" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hours Flown"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heures volées"
-          }
-        }
-      }
-    },
-    "flightLogDetail.landing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Landing"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Atterrissage"
-          }
-        }
-      }
-    },
-    "flightLogDetail.notes" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notes"
-          }
-        }
-      }
-    },
-    "flightLogDetail.route" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        }
-      }
-    },
-    "flightLogDetail.takeOff" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Take-off"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Décollage"
-          }
-        }
-      }
-    },
-    "flightLogDetail.times" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Times"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Horaires"
-          }
-        }
-      }
-    },
-    "flightLogDetail.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight Details"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Détails du vol"
-          }
-        }
-      }
-    },
-    "flightLogDetail.totalLandings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Total Landings"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Total atterrissages"
-          }
-        }
-      }
-    },
-    "flightLogDetail.touchAndGos" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Touch-and-gos"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Touch-and-gos"
-          }
-        }
-      }
-    },
-    "flightLogDetail.track" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Track"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trace"
-          }
-        }
-      }
-    },
-    "flightLogDetail.trackEnd" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fin"
-          }
-        }
-      }
-    },
-    "flightLogDetail.trackStart" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Départ"
-          }
-        }
-      }
-    },
-    "flightLogDetail.type" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type"
-          }
-        }
-      }
-    },
-    "flightPlan.editor.altitudePlaceholder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altitude (ft)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altitude (ft)"
-          }
-        }
-      }
-    },
-    "flightPlan.editor.waypointNameHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name (e.g., LSZQ, JORAT)"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nom (ex. LSZQ, JORAT)"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.adjustDepartureTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjust Departure Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajuster l'heure de départ"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.adjustDepartureTimeDesc" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjust the planned departure time to recalculate all waypoint ETOs."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajustez l'heure de départ prévue pour recalculer les ETO de tous les waypoints."
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.chrono" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CHRONO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CHRONO"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.departure" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Departure"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Départ"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.departureTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Departure Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heure de départ"
-          }
-        }
-      }
-    },
     "flightPlan.overlay.fltTime" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5621,74 +4516,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TEMPS VOL :"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.plannedAlt" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Planned Alt:"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alt. prévue :"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.setDepartureTimeToNow" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set Departure Time To Now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heure de départ = maintenant"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FLIGHT PLAN"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PLAN DE VOL"
-          }
-        }
-      }
-    },
-    "flightPlan.overlay.updateDepartureTime" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Update Departure Time"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mettre à jour l'heure de départ"
           }
         }
       }
@@ -6793,74 +5620,6 @@
         }
       }
     },
-    "nav.add" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter"
-          }
-        }
-      }
-    },
-    "nav.addAirportToRoute" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Airport to Route?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter l'aérodrome à la route ?"
-          }
-        }
-      }
-    },
-    "nav.addFirstWaypoint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add First Waypoint"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter le premier waypoint"
-          }
-        }
-      }
-    },
-    "nav.addFromMap" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add from Map"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter depuis la carte"
-          }
-        }
-      }
-    },
     "nav.additionalFuel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6878,57 +5637,6 @@
         }
       }
     },
-    "nav.addWaypoint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Waypoint"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter un waypoint"
-          }
-        }
-      }
-    },
-    "nav.addWaypointAtCenter" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Waypoint at Center"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter le waypoint au centre"
-          }
-        }
-      }
-    },
-    "nav.addWaypointManually" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Waypoint Manually"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter un waypoint manuellement"
-          }
-        }
-      }
-    },
     "nav.addWaypoints" : {
       "localizations" : {
         "en" : {
@@ -6941,23 +5649,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter des points"
-          }
-        }
-      }
-    },
-    "nav.addWithICAO" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add with ICAO Code"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter par code OACI"
           }
         }
       }
@@ -7008,123 +5699,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Espace aérien"
-          }
-        }
-      }
-    },
-    "nav.airspaceAlongRoute" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Airspace along route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Espace aérien le long de la route"
-          }
-        }
-      }
-    },
-    "nav.airspaceAltitudeUncertain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altitude uncertain — verify vertical separation"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altitude incertaine — vérifiez la séparation verticale"
-          }
-        }
-      }
-    },
-    "nav.airspaceCheckFailed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unable to check airspace conflicts. Verify your internet connection or download airspace data for offline use."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de vérifier les conflits d'espace aérien. Vérifiez votre connexion internet ou téléchargez les données pour une utilisation hors ligne."
-          }
-        }
-      }
-    },
-    "nav.airspaceConflictsTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Airspace Conflicts"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conflits d'espace aérien"
-          }
-        }
-      }
-    },
-    "nav.airspaceDataRequired" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download airspace data in Settings → Navigation & Maps to see conflicts along your route."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Téléchargez les données d'espace aérien dans Réglages → Navigation & Cartes pour voir les conflits le long de votre route."
-          }
-        }
-      }
-    },
-    "nav.airspacePlural" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "airspaces on route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "espaces aériens sur la route"
-          }
-        }
-      }
-    },
-    "nav.airspaceSingular" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "airspace on route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "espace aérien sur la route"
           }
         }
       }
@@ -7180,40 +5754,6 @@
         }
       }
     },
-    "nav.allWaypoints" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All Waypoints"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tous les waypoints"
-          }
-        }
-      }
-    },
-    "nav.alt" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alt"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alt"
-          }
-        }
-      }
-    },
     "nav.alternateAerodrome" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7244,57 +5784,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Altitude (ft)"
-          }
-        }
-      }
-    },
-    "nav.appleMaps" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Maps"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Maps"
-          }
-        }
-      }
-    },
-    "nav.areaFrequencies" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AREA FREQUENCIES"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FRÉQUENCES DE ZONE"
-          }
-        }
-      }
-    },
-    "nav.ato" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ATO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ATO"
           }
         }
       }
@@ -7434,23 +5923,6 @@
         }
       }
     },
-    "nav.chronometer" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CHRONOMETER"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CHRONOMÈTRE"
-          }
-        }
-      }
-    },
     "nav.pauseChronometer" : {
       "localizations" : {
         "en" : {
@@ -7583,23 +6055,6 @@
         }
       }
     },
-    "nav.create" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Créer"
-          }
-        }
-      }
-    },
     "nav.cruise" : {
       "localizations" : {
         "en" : {
@@ -7612,40 +6067,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "CROISIÈRE"
-          }
-        }
-      }
-    },
-    "nav.cruiseCheckDue" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cruise check due"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contrôle de croisière dû"
-          }
-        }
-      }
-    },
-    "nav.cruiseCheckHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Run your cruise check — tap to acknowledge"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Effectuez votre contrôle de croisière — touchez pour confirmer"
           }
         }
       }
@@ -7803,23 +6224,6 @@
         }
       }
     },
-    "nav.details" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Details"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Détails"
-          }
-        }
-      }
-    },
     "nav.dist" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7867,23 +6271,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Distance jusqu'au suivant"
-          }
-        }
-      }
-    },
-    "nav.distTo" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DIST TO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DIST VERS"
           }
         }
       }
@@ -7988,23 +6375,6 @@
         }
       }
     },
-    "nav.eet" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "EET"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "EET"
-          }
-        }
-      }
-    },
     "nav.eetFromDeparture" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8018,23 +6388,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "EET (depuis le départ)"
-          }
-        }
-      }
-    },
-    "nav.emptyOnly" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empty Only"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vides uniquement"
           }
         }
       }
@@ -8174,23 +6527,6 @@
         }
       }
     },
-    "nav.exportFlightPlan" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Flight Plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exporter le plan de vol"
-          }
-        }
-      }
-    },
     "nav.exportGPX" : {
       "localizations" : {
         "en" : {
@@ -8203,23 +6539,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporter GPX"
-          }
-        }
-      }
-    },
-    "nav.exportReady" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export Ready"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export prêt"
           }
         }
       }
@@ -8258,22 +6577,6 @@
         }
       }
     },
-    "nav.fitRoute" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fit route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cadrer la route"
-          }
-        }
-      }
-    },
     "nav.flightPlan" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8291,23 +6594,6 @@
         }
       }
     },
-    "nav.flightPlanName" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight Plan Name"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nom du plan de vol"
-          }
-        }
-      }
-    },
     "nav.flightPlans" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8321,22 +6607,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Plans de vol"
-          }
-        }
-      }
-    },
-    "nav.flightPlanTitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flight plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plan de vol"
           }
         }
       }
@@ -8559,23 +6829,6 @@
         }
       }
     },
-    "nav.gs" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GS"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GS"
-          }
-        }
-      }
-    },
     "nav.hdgTo" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8643,23 +6896,6 @@
         }
       }
     },
-    "nav.icaoCopied" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copied!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copié !"
-          }
-        }
-      }
-    },
     "nav.icaoDetails" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8673,40 +6909,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Détails plan de vol OACI"
-          }
-        }
-      }
-    },
-    "nav.icaoSearchHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter an ICAO code or airport name to search"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrez un code OACI ou un nom d'aérodrome pour rechercher"
-          }
-        }
-      }
-    },
-    "nav.icaoSearchPlaceholder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search ICAO code or airport name..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rechercher un code OACI ou un aérodrome..."
           }
         }
       }
@@ -8880,23 +7082,6 @@
         }
       }
     },
-    "nav.legNumber" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leg %d"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Branche %d"
-          }
-        }
-      }
-    },
     "nav.loadingElevation" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9014,56 +7199,6 @@
         }
       }
     },
-    "nav.mil" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MIL"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MIL"
-          }
-        }
-      }
-    },
-    "nav.min" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "min"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "min"
-          }
-        }
-      }
-    },
-    "nav.moreActions" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More actions"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Plus d'actions"
-          }
-        }
-      }
-    },
     "nav.moveDown" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9165,40 +7300,6 @@
         }
       }
     },
-    "nav.nearbyAirportFrequencies" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NEARBY AIRPORT FREQUENCIES"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FRÉQUENCES AÉRODROMES PROCHES"
-          }
-        }
-      }
-    },
-    "nav.nearbyControlledAirspace" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NEARBY CONTROLLED AIRSPACE"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ESPACE AÉRIEN CONTRÔLÉ À PROXIMITÉ"
-          }
-        }
-      }
-    },
     "nav.newFlightPlan" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9229,57 +7330,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Suivant"
-          }
-        }
-      }
-    },
-    "nav.nextWaypoint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "NEXT WAYPOINT"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROCHAIN WAYPOINT"
-          }
-        }
-      }
-    },
-    "nav.noActiveFlightPlan" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No active flight plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun plan de vol actif"
-          }
-        }
-      }
-    },
-    "nav.noAirportsFound" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No airports found"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun aérodrome trouvé"
           }
         }
       }
@@ -9366,23 +7416,6 @@
         }
       }
     },
-    "nav.noFrequenciesInFlightPlan" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No frequencies in flight plan"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucune fréquence dans le plan de vol"
-          }
-        }
-      }
-    },
     "nav.notCached" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9413,23 +7446,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notes"
-          }
-        }
-      }
-    },
-    "nav.noWaypoints" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No waypoints added"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun waypoint ajouté"
           }
         }
       }
@@ -9620,23 +7636,6 @@
         }
       }
     },
-    "nav.recalculateRoute" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recalculate Route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recalculer la route"
-          }
-        }
-      }
-    },
     "nav.remarks" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9704,39 +7703,6 @@
         }
       }
     },
-    "nav.restricted" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "restricted"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "réglementé"
-          }
-        }
-      }
-    },
-    "nav.restrictedAirspaceOnRoute" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restricted airspace on route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Espace aérien restreint sur la route"
-          }
-        }
-      }
-    },
     "nav.resumeLeg" : {
       "localizations" : {
         "en" : {
@@ -9781,39 +7747,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Revenir à cette étape ?"
-          }
-        }
-      }
-    },
-    "nav.route" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route"
-          }
-        }
-      }
-    },
-    "nav.routeClear" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route clear"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route dégagée"
           }
         }
       }
@@ -9987,57 +7920,6 @@
         }
       }
     },
-    "nav.setAltitude" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set Altitude..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Définir l'altitude..."
-          }
-        }
-      }
-    },
-    "nav.setAltitudeMessage" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter altitude in feet to apply to waypoints."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrez l'altitude en pieds à appliquer aux waypoints."
-          }
-        }
-      }
-    },
-    "nav.share" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partager"
-          }
-        }
-      }
-    },
     "nav.showLess" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10068,23 +7950,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vitesses"
-          }
-        }
-      }
-    },
-    "nav.start" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "START"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DÉPART"
           }
         }
       }
@@ -10122,23 +7987,6 @@
         }
       }
     },
-    "nav.stop" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop"
-          }
-        }
-      }
-    },
     "nav.surveillanceCodes" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10172,39 +8020,6 @@
         }
       }
     },
-    "nav.swisstopo" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "swisstopo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "swisstopo"
-          }
-        }
-      }
-    },
-    "nav.tableEditor" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Table editor"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Éditeur tableau"
-          }
-        }
-      }
-    },
     "nav.tapToBuild" : {
       "localizations" : {
         "en" : {
@@ -10217,39 +8032,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Touchez pour tracer la route"
-          }
-        }
-      }
-    },
-    "nav.terrain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain"
-          }
-        }
-      }
-    },
-    "nav.terrainClose" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "terrain < 150 m"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "terrain < 150 m"
           }
         }
       }
@@ -10523,23 +8305,6 @@
         }
       }
     },
-    "nav.waypoint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waypoint"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waypoint"
-          }
-        }
-      }
-    },
     "nav.waypointName" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10570,40 +8335,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nom du waypoint"
-          }
-        }
-      }
-    },
-    "nav.waypoints" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "waypoints"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "waypoints"
-          }
-        }
-      }
-    },
-    "nav.waypointsCount" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%d waypoints"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%d waypoints"
           }
         }
       }
@@ -15280,210 +13011,6 @@
     },
     "TERRAIN" : {
 
-    },
-    "terrain.errorTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Error Loading Terrain"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erreur de chargement du terrain"
-          }
-        }
-      }
-    },
-    "terrain.legendPlannedAlt" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Planned Alt"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alt. prévue"
-          }
-        }
-      }
-    },
-    "terrain.legendTerrain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain"
-          }
-        }
-      }
-    },
-    "terrain.loading" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading terrain data..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chargement des données de terrain..."
-          }
-        }
-      }
-    },
-    "terrain.loadingSource" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fetching elevation from swisstopo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Récupération de l'altitude depuis swisstopo"
-          }
-        }
-      }
-    },
-    "terrain.noDataDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not fetch terrain data for this route."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Impossible de récupérer les données de terrain pour cette route."
-          }
-        }
-      }
-    },
-    "terrain.noDataTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Terrain Data"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucune donnée de terrain"
-          }
-        }
-      }
-    },
-    "terrain.retry" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retry"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Réessayer"
-          }
-        }
-      }
-    },
-    "terrain.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain Profile"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profil de terrain"
-          }
-        }
-      }
-    },
-    "terrain.unavailableDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain profile visualization is only available for routes within Switzerland using swisstopo data."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La visualisation du profil de terrain est disponible uniquement pour les routes en Suisse via les données swisstopo."
-          }
-        }
-      }
-    },
-    "terrain.unavailableHint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Route must be within Swiss boundaries"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La route doit être dans les limites suisses"
-          }
-        }
-      }
-    },
-    "terrain.unavailableTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terrain Data Unavailable"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Données de terrain indisponibles"
-          }
-        }
-      }
     },
     "TGT: %lld" : {
       "comment" : "A label indicating the target speed on an aviation instrument panel.",

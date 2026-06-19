@@ -57,11 +57,15 @@ enum DataSetRefreshPolicy { case smallSilentJSON, largeTilesConfirmCellular }
 struct DataSet: Identifiable, Equatable {
     let id: String
     let displayName: String
+    /// Source + what it contains (e.g. "OpenAIP · controlled airspace, sectors & frequencies"). The
+    /// source is named first so users can tell OpenAIP from OurAirports (esp. once both serve airports).
+    let detail: String
     let urgency: DataSetUrgency
     let provenance: DataProvenance
     let refreshPolicy: DataSetRefreshPolicy
     let lastUpdated: Date?
-    let freshness: DataFreshness
+    /// `var` so the developer "simulate stale data" toggle can override it to exercise the surfaces.
+    var freshness: DataFreshness
     let sizeOnDisk: Int64?        // bytes; nil if unknown / not computed yet
     let coverage: [String]        // region/country codes; empty == global or n/a
     let isDownloaded: Bool
@@ -231,7 +235,8 @@ struct OpenAIPAirspaceProvider: DataSetProvider {
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
             id: id,
-            displayName: "Airspace",
+            displayName: L10n.DataStorage.airspaceName,
+            detail: L10n.DataStorage.airspaceDetail,
             urgency: .primary,
             provenance: .community,
             refreshPolicy: .smallSilentJSON,
@@ -261,7 +266,8 @@ struct OurAirportsProvider: DataSetProvider {
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
             id: id,
-            displayName: "Airports",
+            displayName: L10n.DataStorage.airportsName,
+            detail: L10n.DataStorage.airportsDetail,
             urgency: .primary,
             provenance: .community,
             refreshPolicy: .smallSilentJSON,
@@ -291,7 +297,8 @@ struct SwissChartsProvider: DataSetProvider {
             : .missing
         return DataSet(
             id: id,
-            displayName: "Swiss ICAO Chart",
+            displayName: L10n.DataStorage.swissChartName,
+            detail: L10n.DataStorage.swissChartDetail,
             urgency: .imagery,
             provenance: .official,
             refreshPolicy: .largeTilesConfirmCellular,
@@ -304,5 +311,39 @@ struct SwissChartsProvider: DataSetProvider {
     }
 
     func refresh() async { await manager.downloadICAOChart() }
+    func delete() { manager.deleteCache() }
+}
+
+/// OpenAIP raster map TILES — cartographic IMAGERY, optional and cosmetic (the app draws its own
+/// airspace from the vector DATA above; tiles only add labels/navaid symbols). No TTL, so it's fresh
+/// when present, and it never drives the Home dot. Surfaced separately per the data-first/tiles-optional
+/// stance. (v4.1.0)
+@MainActor
+struct OpenAIPTilesProvider: DataSetProvider {
+    let manager: OpenAIPCacheManager
+    var id: String { "openaip.tiles" }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.openAIPTilesName,
+            detail: L10n.DataStorage.openAIPTilesDetail,
+            urgency: .imagery,
+            provenance: .community,
+            refreshPolicy: .largeTilesConfirmCellular,
+            lastUpdated: manager.cacheDate,
+            freshness: manager.isCacheAvailable ? .fresh : .missing,
+            sizeOnDisk: manager.cacheSizeBytes > 0 ? manager.cacheSizeBytes : nil,
+            coverage: manager.cachedCountries,
+            isDownloaded: manager.isCacheAvailable
+        )
+    }
+
+    func refresh() async {
+        let countries = manager.cachedCountries
+        guard !countries.isEmpty else { return }
+        await manager.downloadTiles(for: countries)
+    }
+
     func delete() { manager.deleteCache() }
 }

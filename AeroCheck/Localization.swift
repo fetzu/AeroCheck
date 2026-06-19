@@ -48,6 +48,22 @@ enum L10n {
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
         static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
+        static let homeLabel = String(localized: "Data")
+        // Per-dataset name + source/description — source named first (device-test feedback).
+        static let airspaceName = String(localized: "Airspace")
+        static let airspaceDetail = String(localized: "OpenAIP · controlled airspace, sectors & frequencies")
+        static let airportsName = String(localized: "Airports")
+        static let airportsDetail = String(localized: "OurAirports · global airfields · secondary / fallback source")
+        static let swissChartName = String(localized: "Swiss ICAO chart")
+        static let swissChartDetail = String(localized: "swisstopo · official VFR chart (imagery)")
+        static let openAIPTilesName = String(localized: "OpenAIP map tiles")
+        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery — airspace data above is what powers warnings")
+        static let openAIPAttribution = String(localized: "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)")
+        static let checklistsName = String(localized: "Checklists")
+        static let checklistsSection = String(localized: "Checklists")
+        static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
+        static let noChecklists = String(localized: "No checklists cached yet")
+        static let syncChecklists = String(localized: "Check for checklist updates")
     }
 
     // MARK: - Buttons
@@ -504,8 +520,8 @@ enum L10n {
         static let navigationAndMaps = String(localized: "settings.hub.navigationAndMaps")
         static let navigationAndMapsSubtitle = String(localized: "settings.hub.navigationAndMapsSubtitle")
         static let flightPlanningSubtitle = String(localized: "settings.hub.flightPlanningSubtitle")
-        static let syncAndData = String(localized: "settings.hub.syncAndData")
-        static let syncAndDataSubtitle = String(localized: "settings.hub.syncAndDataSubtitle")
+        static let syncAndData = String(localized: "iCloud & Backup")
+        static let syncAndDataSubtitle = String(localized: "iCloud sync, GPS recording & flight log")
         static let companionMode = String(localized: "settings.hub.companionMode")
         static let companionModeSubtitle = String(localized: "settings.hub.companionModeSubtitle")
         static let aboutSubtitle = String(localized: "settings.hub.aboutSubtitle")

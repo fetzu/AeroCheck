@@ -34,6 +34,7 @@ struct DataStorageSettingsView: View {
                 }
             }
             storageSection
+            attributionFooter
         }
         .navigationTitle(L10n.DataStorage.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -71,6 +72,10 @@ struct DataStorageSettingsView: View {
                 Text(dataSet.displayName)
                     .font(.subheadline)
                     .foregroundColor(.primaryText)
+                Text(dataSet.detail)
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle(for: dataSet, statusLabel: statusLabel))
                     .font(.caption)
                     .foregroundColor(.secondaryText)
@@ -150,6 +155,23 @@ struct DataStorageSettingsView: View {
         }
     }
 
+    /// License-required OpenAIP attribution, with a tappable link (rendered from markdown). (v4.1.0)
+    private var attributionFooter: some View {
+        Group {
+            if let attributed = try? AttributedString(markdown: L10n.DataStorage.openAIPAttribution) {
+                Text(attributed)
+            } else {
+                Text(L10n.DataStorage.openAIPAttribution)
+            }
+        }
+        .font(.caption2)
+        .foregroundColor(.dimText)
+        .tint(.aviationGold)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 6)
+        .padding(.top, 2)
+    }
+
     // MARK: - Actions
 
     private func refresh(_ dataSet: DataSet) async {
@@ -160,12 +182,18 @@ struct DataStorageSettingsView: View {
     }
 
     private func updateAll() async {
+        // The gate still blocks Low Data Mode / offline (cellularUpdatesEnabled defaults to true until
+        // PR 7's user toggle). Drive it per-dataset so each row shows its own spinner while refreshing.
+        guard DataRefreshGate.allowsSilentSmallRefresh(dataStatusManager.networkMonitor.conditions, cellularUpdatesEnabled: true) else { return }
         isUpdatingAll = true
-        // cellularUpdatesEnabled defaults to true (PR 7 adds the user toggle); the gate still blocks
-        // Low Data Mode and offline.
-        await dataStatusManager.refreshAllUpdatable(cellularUpdatesEnabled: true)
+        let updatable = dataStatusManager.dataSets.filter { $0.refreshPolicy == .smallSilentJSON && $0.isDownloaded }
+        for dataSet in updatable {
+            refreshingIDs.insert(dataSet.id)
+            await dataStatusManager.refresh(dataSet)
+            refreshingIDs.remove(dataSet.id)
+            recomputeSizes()
+        }
         isUpdatingAll = false
-        recomputeSizes()
     }
 
     // MARK: - Presentation helpers

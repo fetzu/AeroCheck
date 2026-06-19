@@ -959,13 +959,18 @@ struct HomeView: View {
             pendingSettingsSection = .dataStorage
             showSettings = true
         } label: {
-            Image(systemName: dataStatusIcon(health))
-                .font(.system(size: isCompact ? 12 : 14, weight: .semibold))
-                .foregroundColor(dataStatusColor(health))
-                .frame(width: 28, height: 22)
-                .contentShape(Rectangle())
+            HStack(spacing: isCompact ? 4 : 6) {
+                Image(systemName: dataStatusIcon(health))
+                    .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
+                    .foregroundColor(dataStatusColor(health))
+                Text(L10n.DataStorage.homeLabel)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(L10n.DataStorage.title)
         .accessibilityValue(dataStatusAccessibilityValue(health))
         .accessibilityHint(L10n.DataStorage.subtitle)

@@ -41,7 +41,7 @@ final class DataStatusManagerTests: XCTestCase {
     private func dataSet(id: String = "x", urgency: DataSetUrgency, freshness: DataFreshness,
                          refreshPolicy: DataSetRefreshPolicy = .smallSilentJSON,
                          isDownloaded: Bool? = nil) -> DataSet {
-        DataSet(id: id, displayName: id, urgency: urgency, provenance: .community,
+        DataSet(id: id, displayName: id, detail: id, urgency: urgency, provenance: .community,
                 refreshPolicy: refreshPolicy, lastUpdated: nil, freshness: freshness,
                 sizeOnDisk: nil, coverage: [], isDownloaded: isDownloaded ?? (freshness != .missing))
     }

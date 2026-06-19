@@ -237,6 +237,7 @@ enum OpenAIPConfig {
         Locale.current.localizedString(forRegionCode: code) ?? code
     }
 
-    /// Attribution text (required by CC BY-NC 4.0 license)
-    static let attributionText = "Aeronautical data © OpenAIP contributors"
+    /// Attribution text (required by CC BY-NC 4.0 license). Plain-text form for the concatenated map
+    /// "Data sources" line; the hub uses a tappable markdown variant (L10n.DataStorage.openAIPAttribution).
+    static let attributionText = "Airspace data from OpenAIP.net (© OpenAIP and contributors, CC BY-NC 4.0)"
 }

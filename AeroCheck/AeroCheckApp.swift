@@ -14,7 +14,7 @@ struct AeroCheckApp: App {
     @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
     @StateObject private var airportDataService: AirportDataService
-    @StateObject private var openAIPCacheManager = OpenAIPCacheManager()
+    @StateObject private var openAIPCacheManager: OpenAIPCacheManager
     @StateObject private var openAIPDataService: OpenAIPDataService
     @StateObject private var flightEventDetector = FlightEventDetector()
     /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
@@ -41,6 +41,8 @@ struct AeroCheckApp: App {
         _airportDataService = StateObject(wrappedValue: airports)
         let openAIP = OpenAIPDataService()
         _openAIPDataService = StateObject(wrappedValue: openAIP)
+        let openAIPCache = OpenAIPCacheManager()
+        _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)
         _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
@@ -48,6 +50,7 @@ struct AeroCheckApp: App {
                 OpenAIPAirspaceProvider(service: openAIP),
                 OurAirportsProvider(service: airports),
                 SwissChartsProvider(manager: offline),
+                OpenAIPTilesProvider(manager: openAIPCache),
             ],
             networkMonitor: net
         ))

@@ -786,7 +786,13 @@ enum MarketingSceneInjector {
         }
 
         // Show the leg chronometer mid-run (~1:37) so the nav map reads as an active navigation.
+        // marketingStartChronometer back-dates the start time and is compiled out of release builds
+        // (#if DEBUG in FlightPlanManager), so guard the call to match — mirrors the DEBUG-only
+        // premium override in injectHome2Aircraft. The injector is only ever invoked from the DEBUG
+        // launch task in ContentView, so release never reaches this branch.
+        #if DEBUG
         flightPlanManager.marketingStartChronometer(elapsedSeconds: 95)
+        #endif
     }
 
     // MARK: - Scene 4: Plan with a FULL conflict list (Geneva → Samedan)

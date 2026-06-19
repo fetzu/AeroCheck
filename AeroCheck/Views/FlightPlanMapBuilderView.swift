@@ -28,6 +28,8 @@ struct FlightPlanMapBuilderView: View {
     @State private var visibleAirports: [Airport] = []
     @State private var airportUpdateTask: Task<Void, Never>?
     @State private var visibleNavaids: [Navaid] = []
+    @State private var visibleReportingPoints: [ReportingPoint] = []   // v4.1.0 ③
+    @State private var visibleObstacles: [Obstacle] = []               // v4.1.0 ③
     @State private var navaidUpdateTask: Task<Void, Never>?
     @State private var fitRouteToken = 0
     @State private var didInitialFit = false
@@ -272,6 +274,8 @@ struct FlightPlanMapBuilderView: View {
             mapLayer: selectedLayer,
             airports: visibleAirports,
             navaids: visibleNavaids,
+            reportingPoints: visibleReportingPoints,
+            obstacles: visibleObstacles,
             airspacePolygons: airspacePolygons,
             selectedAirspaceId: selectedConflictId,
             focusRegion: focusRegion,
@@ -492,10 +496,33 @@ struct FlightPlanMapBuilderView: View {
         if wp.altitude == nil, let elevation = navaid.elevationFeet { wp.altitude = Double(elevation) }
     }
 
+    /// Name the waypoint after a VFR reporting point + adopt its position/elevation. (v4.1.0 ③)
+    private func applyReportingPoint(_ rp: ReportingPoint, to wp: inout FlightPlanWaypoint) {
+        if let name = rp.name, !name.isEmpty { wp.name = name }
+        wp.coordinate = rp.coordinate
+        if wp.altitude == nil, let elevation = rp.elevationFeetMSL { wp.altitude = Double(elevation) }
+    }
+
+    /// Nearest reporting point eligible for snap — only when the RP layer is shown, within a tighter
+    /// radius than airports/navaids (they're dense, so snap should be deliberate). (v4.1.0 ③)
+    private func reportingPointSnapCandidate(near coordinate: CLLocationCoordinate2D) -> ReportingPoint? {
+        guard appState.settings.showReportingPointsOnMap else { return nil }
+        return OpenAIPReportingPointDataService.shared
+            .reportingPointsNear(to: coordinate, maxDistanceNm: rpSnapRadiusNm, limit: 1).first
+    }
+
     private func swapEndpoints() {
         flightPlanManager.reverseRoute(planId: planId)
         syncEndpointText()
         fitRouteToken += 1
+    }
+
+    /// Binding to a builder map-data toggle that persists + refreshes the visible layers. (v4.1.0 ③)
+    private func dataLayerBinding(_ keyPath: WritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { appState.settings[keyPath: keyPath] },
+            set: { appState.settings[keyPath: keyPath] = $0; appState.saveSettings(); scheduleNavaidUpdate() }
+        )
     }
 
     private var layerPicker: some View {
@@ -504,6 +531,12 @@ struct FlightPlanMapBuilderView: View {
                 ForEach(WaypointPickerMapLayer.allCases) { layer in
                     Label(layer.rawValue, systemImage: layer.icon).tag(layer)
                 }
+            }
+            Divider()
+            Section(L10n.Nav.overlays) {
+                Toggle(L10n.DataStorage.navaidsName, isOn: dataLayerBinding(\.showNavaidsOnMap))
+                Toggle(L10n.DataStorage.reportingPointsName, isOn: dataLayerBinding(\.showReportingPointsOnMap))
+                Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
             }
         } label: {
             HStack(spacing: 6) {
@@ -1070,6 +1103,7 @@ struct FlightPlanMapBuilderView: View {
 
     /// Snap radius for releasing a dragged waypoint onto a nearby airfield. (flight-plan revamp #3)
     private let snapRadiusNm: Double = 2.5
+    private let rpSnapRadiusNm: Double = 1.2   // tighter — reporting points are dense (v4.1.0 ③)
 
     /// Commit a live waypoint move: snap to a nearby airfield if released within `snapRadiusNm`
     /// (carrying its ident + frequency + elevation), otherwise just reposition the point. (#3)
@@ -1078,10 +1112,16 @@ struct FlightPlanMapBuilderView: View {
         var wp = waypoints[index]
         let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
         let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
-        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
-            applyAirport(airport, to: &wp)              // airport wins ties with a navaid
-        } else if let navaid {
+        let rp = reportingPointSnapCandidate(near: coordinate)
+        let aDist = airport?.distance(from: coordinate) ?? .infinity
+        let nDist = navaid?.distanceNM(from: coordinate) ?? .infinity
+        let rDist = rp?.distanceNM(from: coordinate) ?? .infinity
+        if let airport, aDist <= nDist, aDist <= rDist {
+            applyAirport(airport, to: &wp)              // priority airport > navaid > reporting point
+        } else if let navaid, nDist <= rDist {
             applyNavaid(navaid, to: &wp)
+        } else if let rp {
+            applyReportingPoint(rp, to: &wp)
         } else {
             wp.coordinate = coordinate
         }
@@ -1095,18 +1135,29 @@ struct FlightPlanMapBuilderView: View {
         let index = FlightPlanManager.bestInsertionIndex(for: coordinate, in: waypoints)
         let airport = airportDataService.nearestAirport(to: coordinate, maxDistanceNm: snapRadiusNm, types: AirportType.fixedWing)
         let navaid = OpenAIPNavaidDataService.shared.nearestNavaid(to: coordinate, maxDistanceNm: snapRadiusNm)
-        if let airport, airport.distance(from: coordinate) <= (navaid?.distanceNM(from: coordinate) ?? .infinity) {
+        let rp = reportingPointSnapCandidate(near: coordinate)
+        let aDist = airport?.distance(from: coordinate) ?? .infinity
+        let nDist = navaid?.distanceNM(from: coordinate) ?? .infinity
+        let rDist = rp?.distanceNM(from: coordinate) ?? .infinity
+        if let airport, aDist <= nDist, aDist <= rDist {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: airport.coordinate, name: airport.ident)
             if let p = plan, index < p.waypoints.count {
                 var wp = p.waypoints[index]
                 applyAirport(airport, to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             }
-        } else if let navaid {
+        } else if let navaid, nDist <= rDist {
             flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: navaid.coordinate, name: navaid.identifier)
             if let p = plan, index < p.waypoints.count {
                 var wp = p.waypoints[index]
                 applyNavaid(navaid, to: &wp)
+                flightPlanManager.updateWaypoint(wp, in: planId)
+            }
+        } else if let rp {
+            flightPlanManager.insertWaypoint(to: planId, at: index, coordinate: rp.coordinate, name: rp.name ?? "")
+            if let p = plan, index < p.waypoints.count {
+                var wp = p.waypoints[index]
+                applyReportingPoint(rp, to: &wp)
                 flightPlanManager.updateWaypoint(wp, in: planId)
             }
         } else {
@@ -1205,24 +1256,43 @@ struct FlightPlanMapBuilderView: View {
         }
     }
 
+    /// Refresh the OpenAIP map-data layers shown in the builder (navaids / reporting points / obstacles),
+    /// each gated on its own toggle. Reporting points + obstacles are v4.1.0 ③. (Debounced.)
     private func scheduleNavaidUpdate() {
         navaidUpdateTask?.cancel()
+        let showNavaids = appState.settings.showNavaidsOnMap
+        let showRP = appState.settings.showReportingPointsOnMap
+        let showObstacles = appState.settings.showObstaclesOnMap
         navaidUpdateTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000) // 300 ms debounce
             guard !Task.isCancelled else { return }
-            guard OpenAIPNavaidDataService.shared.isDataAvailable else {
-                await MainActor.run { visibleNavaids = [] }
-                return
-            }
-            await OpenAIPNavaidDataService.shared.ensureLoaded()
             let r = region
             let halfLat = r.span.latitudeDelta / 2
             let halfLon = r.span.longitudeDelta / 2
-            let found = OpenAIPNavaidDataService.shared.navaidsInRegion(
-                latRange: (r.center.latitude - halfLat)...(r.center.latitude + halfLat),
-                lonRange: (r.center.longitude - halfLon)...(r.center.longitude + halfLon)
-            )
-            await MainActor.run { visibleNavaids = found }
+            let latRange = (r.center.latitude - halfLat)...(r.center.latitude + halfLat)
+            let lonRange = (r.center.longitude - halfLon)...(r.center.longitude + halfLon)
+
+            var navaids: [Navaid] = []
+            if showNavaids, OpenAIPNavaidDataService.shared.isDataAvailable {
+                await OpenAIPNavaidDataService.shared.ensureLoaded()
+                navaids = OpenAIPNavaidDataService.shared.navaidsInRegion(latRange: latRange, lonRange: lonRange)
+            }
+            var reportingPoints: [ReportingPoint] = []
+            if showRP, OpenAIPReportingPointDataService.shared.isDataAvailable {
+                await OpenAIPReportingPointDataService.shared.ensureLoaded()
+                reportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(latRange: latRange, lonRange: lonRange)
+            }
+            var obstacles: [Obstacle] = []
+            if showObstacles, OpenAIPObstacleDataService.shared.isDataAvailable {
+                await OpenAIPObstacleDataService.shared.ensureLoaded()
+                obstacles = OpenAIPObstacleDataService.shared.obstaclesInRegion(latRange: latRange, lonRange: lonRange)
+            }
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                visibleNavaids = navaids
+                visibleReportingPoints = reportingPoints
+                visibleObstacles = obstacles
+            }
         }
     }
 }
@@ -1331,6 +1401,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
     let mapLayer: WaypointPickerMapLayer
     var airports: [Airport]
     var navaids: [Navaid] = []
+    var reportingPoints: [ReportingPoint] = []     // v4.1.0 ③ (snap-enabled)
+    var obstacles: [Obstacle] = []                 // v4.1.0 ③ (display only, no snap)
     var airspacePolygons: [AirspacePolygon] = []   // highlight the airspaces the route crosses (#4)
     var selectedAirspaceId: String? = nil          // tapped conflict — emphasised on the map (#4)
     var focusRegion: MKCoordinateRegion? = nil     // hold a conflict → recenter the map on it (#4)
@@ -1383,6 +1455,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
 
         updateAirportAnnotations(mapView, context: context)
         updateNavaidAnnotations(mapView, context: context)
+        updateReportingPointAnnotations(mapView, context: context)
+        updateObstacleAnnotations(mapView, context: context)
         updateAirspaceOverlays(mapView, context: context)
         applyAirspaceSelection(mapView)
         updateRoute(mapView, context: context)
@@ -1468,6 +1542,26 @@ struct RouteBuilderMapView: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
         for navaid in navaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
+        }
+    }
+
+    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
+        let existingIds = Set(existing.map { $0.point.id })
+        let newIds = Set(reportingPoints.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
+        for point in reportingPoints where !existingIds.contains(point.id) {
+            mapView.addAnnotation(ReportingPointAnnotation(point: point))
+        }
+    }
+
+    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
+        let existingIds = Set(existing.map { $0.obstacle.id })
+        let newIds = Set(obstacles.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
+        for obstacle in obstacles where !existingIds.contains(obstacle.id) {
+            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
         }
     }
 
@@ -1642,6 +1736,35 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 navaidView.canShowCallout = true
                 navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
                 return navaidView
+            }
+
+            if let rpAnnotation = annotation as? ReportingPointAnnotation {
+                let id = "BuilderRP"
+                let rpView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = annotation
+                    rpView = reused
+                } else {
+                    rpView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+                }
+                rpView.canShowCallout = true
+                let symbol = rpAnnotation.point.compulsory ? "triangle.fill" : "triangle"
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 11)
+                return rpView
+            }
+
+            if annotation is ObstacleAnnotation {
+                let id = "BuilderObstacle"
+                let obstacleView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = annotation
+                    obstacleView = reused
+                } else {
+                    obstacleView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+                }
+                obstacleView.canShowCallout = true
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 12)
+                return obstacleView
             }
 
             return nil

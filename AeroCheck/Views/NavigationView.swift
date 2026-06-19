@@ -2,15 +2,20 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-/// Reliable coloured SF-Symbol image for map annotations: bakes the colour into the symbol via a palette
-/// configuration. `UIImage(systemName:).withTintColor(_:renderingMode:.alwaysOriginal)` on an
-/// `MKAnnotationView.image` renders BLACK on iOS 26 — so every airport/navaid/obstacle/RP marker came out
-/// black. The palette config colours the glyph at creation time and is unaffected. (v4.1.0 fix)
+/// Reliable coloured marker image for `MKAnnotationView`. On iOS 26 a *symbol* image assigned to
+/// `MKAnnotationView.image` renders BLACK no matter how it's tinted (`.withTintColor(…, .alwaysOriginal)`
+/// AND a palette `SymbolConfiguration` both fail) — the annotation view re-templates the glyph. The fix
+/// is to flatten the tinted symbol into a plain bitmap via `UIGraphicsImageRenderer` (a non-template
+/// image is shown as-is) — the same technique the aircraft marker uses. (v4.1.0 fix)
 func aeroMarkerSymbol(_ name: String, color: UIColor, pointSize: CGFloat,
                       weight: UIImage.SymbolWeight = .semibold) -> UIImage? {
     let config = UIImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
-        .applying(UIImage.SymbolConfiguration(paletteColors: [color]))
-    return UIImage(systemName: name, withConfiguration: config)
+    guard let symbol = UIImage(systemName: name, withConfiguration: config) else { return nil }
+    let tinted = symbol.withTintColor(color, renderingMode: .alwaysOriginal)
+    let renderer = UIGraphicsImageRenderer(size: tinted.size)
+    return renderer.image { _ in
+        tinted.draw(in: CGRect(origin: .zero, size: tinted.size))
+    }
 }
 
 

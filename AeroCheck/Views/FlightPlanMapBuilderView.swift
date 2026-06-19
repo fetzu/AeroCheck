@@ -293,10 +293,13 @@ struct FlightPlanMapBuilderView: View {
             fromToBar
                 .padding(12)
         }
-        // Layer switcher bottom-left, center/fit bottom-right. (feedback)
+        // Map-type + Layers buttons bottom-left, center/fit bottom-right. (v4.1.0 two-button)
         .overlay(alignment: .bottomLeading) {
-            layerPicker
-                .padding(12)
+            HStack(spacing: 10) {
+                mapTypeButton
+                dataLayersButton
+            }
+            .padding(12)
         }
         .overlay(alignment: .bottomTrailing) {
             fitRouteButton
@@ -525,29 +528,38 @@ struct FlightPlanMapBuilderView: View {
         )
     }
 
-    private var layerPicker: some View {
+    /// Map-type button — icon only (mirrors the nav view's two-button chrome). (v4.1.0)
+    private var mapTypeButton: some View {
         Menu {
             Picker("Map layer", selection: $selectedLayer) {
                 ForEach(WaypointPickerMapLayer.allCases) { layer in
                     Label(layer.rawValue, systemImage: layer.icon).tag(layer)
                 }
             }
-            Divider()
-            Section(L10n.Nav.overlays) {
-                Toggle(L10n.DataStorage.navaidsName, isOn: dataLayerBinding(\.showNavaidsOnMap))
-                Toggle(L10n.DataStorage.reportingPointsName, isOn: dataLayerBinding(\.showReportingPointsOnMap))
-                Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
-            }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: selectedLayer.icon).font(.system(size: 13, weight: .semibold))
-                Text(selectedLayer.rawValue).font(.system(size: 13, weight: .semibold))
-            }
-            .foregroundColor(.primaryText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
+            Image(systemName: selectedLayer.icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .frame(width: 44, height: 44)
+                .background(Color.panelBackground.opacity(0.92), in: Circle())
         }
+        .accessibilityLabel(L10n.MapLayer.title)
+    }
+
+    /// Layers button — toggles the OpenAIP map-data layers on/off. (v4.1.0)
+    private var dataLayersButton: some View {
+        Menu {
+            Toggle(L10n.DataStorage.navaidsName, isOn: dataLayerBinding(\.showNavaidsOnMap))
+            Toggle(L10n.DataStorage.reportingPointsName, isOn: dataLayerBinding(\.showReportingPointsOnMap))
+            Toggle(L10n.DataStorage.obstaclesName, isOn: dataLayerBinding(\.showObstaclesOnMap))
+        } label: {
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.primaryText)
+                .frame(width: 44, height: 44)
+                .background(Color.panelBackground.opacity(0.92), in: Circle())
+        }
+        .accessibilityLabel(L10n.Nav.layers)
     }
 
     private var fitRouteButton: some View {

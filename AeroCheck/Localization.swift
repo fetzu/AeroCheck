@@ -78,6 +78,9 @@ enum L10n {
         static let obstaclesName = String(localized: "Obstacles")
         static let obstaclesDetail = String(localized: "OpenAIP · towers, masts and wind turbines")
         static let showObstaclesOnMap = String(localized: "Show obstacles on map")
+        static let reportingPointsName = String(localized: "Reporting points")
+        static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
+        static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
     }
 
     // MARK: - Buttons

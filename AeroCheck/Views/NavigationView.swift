@@ -453,6 +453,7 @@ struct NavigationMapView: View {
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateCruiseCheck()
@@ -992,6 +993,7 @@ struct NavigationMapView: View {
     @State private var visibleAirports: [Airport] = []
     @State private var visibleNavaids: [Navaid] = []
     @State private var visibleObstacles: [Obstacle] = []
+    @State private var visibleReportingPoints: [ReportingPoint] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var lastSpatialRegion: MKCoordinateRegion?
@@ -1059,6 +1061,18 @@ struct NavigationMapView: View {
                 lonRange: (region.center.longitude - obsHalfLon)...(region.center.longitude + obsHalfLon))
         } else {
             visibleObstacles = []
+        }
+
+        // VFR reporting points — same gating as navaids (read-only markers; hidden under the OpenAIP overlay). (v4.1.0)
+        if appState.settings.showReportingPointsOnMap, !appState.settings.showOpenAIPOverlay,
+           OpenAIPReportingPointDataService.shared.isDataAvailable {
+            let rpHalfLat = region.span.latitudeDelta / 2
+            let rpHalfLon = region.span.longitudeDelta / 2
+            visibleReportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(
+                latRange: (region.center.latitude - rpHalfLat)...(region.center.latitude + rpHalfLat),
+                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon))
+        } else {
+            visibleReportingPoints = []
         }
 
         var freqLines: [String: String] = [:]
@@ -1137,6 +1151,7 @@ struct NavigationMapView: View {
                 visibleAirports: visibleAirports,
                 visibleNavaids: visibleNavaids,
                 visibleObstacles: visibleObstacles,
+                visibleReportingPoints: visibleReportingPoints,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 onWaypointATOTap: { index in
@@ -1157,6 +1172,7 @@ struct NavigationMapView: View {
                 visibleAirports: visibleAirports,
                 visibleNavaids: visibleNavaids,
                 visibleObstacles: visibleObstacles,
+                visibleReportingPoints: visibleReportingPoints,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
@@ -2725,6 +2741,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var visibleAirports: [Airport] = []  // Airports to display on map
     var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
     var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
+    var visibleReportingPoints: [ReportingPoint] = []  // VFR reporting points to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var showOpenAIPOverlay: Bool = false
@@ -2840,6 +2857,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         updateAirportAnnotations(mapView, context: context)
         updateNavaidAnnotations(mapView, context: context)
         updateObstacleAnnotations(mapView, context: context)
+        updateReportingPointAnnotations(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -2881,6 +2899,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
         for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
             mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
+        }
+    }
+
+    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
+        let existingIds = Set(existing.map { $0.point.id })
+        let newIds = Set(visibleReportingPoints.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
+        for point in visibleReportingPoints where !existingIds.contains(point.id) {
+            mapView.addAnnotation(ReportingPointAnnotation(point: point))
         }
     }
 
@@ -3187,6 +3215,26 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
                 }
                 return obstacleView
+            }
+
+            // Handle reporting-point annotation (v4.1.0)
+            if let reportingPointAnnotation = annotation as? ReportingPointAnnotation {
+                let id = "ReportingPointAnnotation"
+                let rpView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = reportingPointAnnotation
+                    rpView = reused
+                } else {
+                    rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
+                }
+                rpView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+                let color = UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 0.9)
+                let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
+                if let image = UIImage(systemName: symbol, withConfiguration: config) {
+                    rpView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return rpView
             }
 
             // Handle aircraft annotation
@@ -3611,6 +3659,7 @@ struct SwissMapView: UIViewRepresentable {
     var visibleAirports: [Airport] = []  // Airports to display on map
     var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
     var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
+    var visibleReportingPoints: [ReportingPoint] = []  // VFR reporting points to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
@@ -3909,6 +3958,7 @@ struct SwissMapView: UIViewRepresentable {
         updateAirportAnnotations(mapView, context: context)
         updateNavaidAnnotations(mapView, context: context)
         updateObstacleAnnotations(mapView, context: context)
+        updateReportingPointAnnotations(mapView, context: context)
     }
 
     private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
@@ -3946,6 +3996,16 @@ struct SwissMapView: UIViewRepresentable {
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
         for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
             mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
+        }
+    }
+
+    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
+        let existingIds = Set(existing.map { $0.point.id })
+        let newIds = Set(visibleReportingPoints.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
+        for point in visibleReportingPoints where !existingIds.contains(point.id) {
+            mapView.addAnnotation(ReportingPointAnnotation(point: point))
         }
     }
 
@@ -4317,6 +4377,26 @@ struct SwissMapView: UIViewRepresentable {
                     obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
                 }
                 return obstacleView
+            }
+
+            // Handle reporting-point annotation (v4.1.0)
+            if let reportingPointAnnotation = annotation as? ReportingPointAnnotation {
+                let id = "ReportingPointAnnotation"
+                let rpView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = reportingPointAnnotation
+                    rpView = reused
+                } else {
+                    rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
+                }
+                rpView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+                let color = UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 0.9)
+                let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
+                if let image = UIImage(systemName: symbol, withConfiguration: config) {
+                    rpView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return rpView
             }
 
             // Handle aircraft annotation

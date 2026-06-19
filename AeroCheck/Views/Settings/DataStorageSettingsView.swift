@@ -336,6 +336,7 @@ struct DataStorageSettingsView: View {
         "openaip.airspace": "OpenAIPData",
         "openaip.navaids": "OpenAIPNavaidData",
         "openaip.obstacles": "OpenAIPObstacleData",
+        "openaip.reportingpoints": "OpenAIPReportingPointData",
         "ourairports.airports": "AirportData",
     ]
 

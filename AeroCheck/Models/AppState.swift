@@ -93,6 +93,7 @@ struct AppSettings: Codable, Equatable {
     var showAirportsOnMap: Bool = true // When true, shows airports on navigation map (requires airport data download) — ON by default
     var showNavaidsOnMap: Bool = true // When true, shows navaids (VOR/DME/NDB) on navigation map (requires navaid data download) — ON by default (v4.1.0)
     var showObstaclesOnMap: Bool = false // When true, shows obstacles (towers/masts/turbines) on navigation map (requires obstacle data download) — OFF by default to avoid clutter (v4.1.0)
+    var showReportingPointsOnMap: Bool = true // When true, shows VFR reporting points on navigation map (requires reporting-point data download) — ON by default (v4.1.0)
     var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
@@ -179,6 +180,7 @@ struct AppSettings: Codable, Equatable {
         case showAirportsOnMap
         case showNavaidsOnMap
         case showObstaclesOnMap
+        case showReportingPointsOnMap
         case showTrackVector
         case logEngineHours
         case hasCompletedOnboarding
@@ -249,6 +251,7 @@ struct AppSettings: Codable, Equatable {
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
         showNavaidsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showNavaidsOnMap) ?? true
         showObstaclesOnMap = try container.decodeIfPresent(Bool.self, forKey: .showObstaclesOnMap) ?? false
+        showReportingPointsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showReportingPointsOnMap) ?? true
         showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false

@@ -14,6 +14,7 @@ struct NavigationMapsSettingsView: View {
     @State private var showAirportsOnMap: Bool = false
     @State private var showNavaidsOnMap: Bool = false
     @State private var showObstaclesOnMap: Bool = false
+    @State private var showReportingPointsOnMap: Bool = false
     @State private var showTrackVector: Bool = false
     @State private var showOpenAIPOverlay: Bool = false
     @State private var enableAirspaceStreaming: Bool = false
@@ -42,6 +43,7 @@ struct NavigationMapsSettingsView: View {
         .onChange(of: showAirportsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showNavaidsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showObstaclesOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: showReportingPointsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showTrackVector) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showOpenAIPOverlay) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: enableAirspaceStreaming) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -277,6 +279,7 @@ struct NavigationMapsSettingsView: View {
                 SettingsToggleRow(icon: "mappin.and.ellipse", title: L10n.Settings.showAirportsOnMap, tint: tint, isOn: $showAirportsOnMap)
                 SettingsToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.showNavaidsOnMap, tint: tint, isOn: $showNavaidsOnMap)
                 SettingsToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.showObstaclesOnMap, tint: tint, isOn: $showObstaclesOnMap)
+                SettingsToggleRow(icon: "triangle", title: L10n.DataStorage.showReportingPointsOnMap, tint: tint, isOn: $showReportingPointsOnMap)
 
                 SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.updateAirportData, tint: tint,
                                   showsChevron: false, action: { Task { await airportDataService.downloadData() } })
@@ -319,6 +322,7 @@ struct NavigationMapsSettingsView: View {
         showAirportsOnMap = appState.settings.showAirportsOnMap
         showNavaidsOnMap = appState.settings.showNavaidsOnMap
         showObstaclesOnMap = appState.settings.showObstaclesOnMap
+        showReportingPointsOnMap = appState.settings.showReportingPointsOnMap
         showTrackVector = appState.settings.showTrackVector
         showOpenAIPOverlay = appState.settings.showOpenAIPOverlay
         enableAirspaceStreaming = appState.settings.enableAirspaceStreaming
@@ -333,6 +337,7 @@ struct NavigationMapsSettingsView: View {
         appState.settings.showAirportsOnMap = showAirportsOnMap
         appState.settings.showNavaidsOnMap = showNavaidsOnMap
         appState.settings.showObstaclesOnMap = showObstaclesOnMap
+        appState.settings.showReportingPointsOnMap = showReportingPointsOnMap
         appState.settings.showTrackVector = showTrackVector
         appState.settings.showOpenAIPOverlay = showOpenAIPOverlay
         appState.settings.enableAirspaceStreaming = enableAirspaceStreaming
@@ -523,6 +528,7 @@ struct OpenAIPDownloadSheet: View {
         appState.settings.openAIPOfflineCountries = countries
         appState.saveSettings()
         let obstacleService = OpenAIPObstacleDataService.shared
+        let reportingPointService = OpenAIPReportingPointDataService.shared
 
         Task {
             if tilesAndData {
@@ -540,6 +546,9 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await obstacleService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await reportingPointService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
@@ -553,6 +562,9 @@ struct OpenAIPDownloadSheet: View {
                     }
                     group.addTask {
                         await obstacleService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await reportingPointService.downloadData(for: countries)
                     }
                     await group.waitForAll()
                 }

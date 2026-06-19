@@ -1,0 +1,16 @@
+// Config.xcconfig — base build configuration for the AéroCheck app target.
+//
+// Real secrets are NOT stored here. They live in the untracked Secrets.xcconfig
+// (gitignored), which this file optionally includes and which overrides the empty
+// defaults below. See Secrets.example.xcconfig for the template, and the
+// "OpenAIP API key" section in CLAUDE.md for full setup notes.
+
+// --- Secret defaults (overridden by Secrets.xcconfig when present) ---
+// An empty key degrades gracefully: OpenAIP tiles/CTR requests 401 and the
+// airspace overlay simply doesn't render — the app does not crash.
+OPENAIP_API_KEY =
+
+// Pull in untracked local secrets if the file exists (the "?" makes it optional,
+// so a fresh checkout without Secrets.xcconfig still builds). Later assignments
+// win, so a value here overrides the empty default above.
+#include? "Secrets.xcconfig"

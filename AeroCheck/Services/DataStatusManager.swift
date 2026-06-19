@@ -122,18 +122,26 @@ final class DataStatusManager: ObservableObject {
 
     @Published private(set) var dataSets: [DataSet] = []
     @Published private(set) var overallHealth: DataHealth = .ok
+    /// When true, ContentView shows a one-line, snoozable "your data is out of date" nudge. Set only
+    /// when a primary dataset is STALE (not merely aging) and the nudge isn't snoozed. (v4.1.0)
+    @Published private(set) var showStaleNudge = false
 
     private let providers: [DataSetProvider]
     private let now: () -> Date
+    private let userDefaults: UserDefaults
+    private let nudgeSnoozeKey = "dataFreshnessNudgeSnoozeUntil"
+    private let nudgeSnoozeInterval: TimeInterval = 7 * 24 * 60 * 60
 
     /// Held for the refresh increment (PR 7) and exposed so the hub can show connectivity and refresh
     /// decisions share one source of truth.
     let networkMonitor: NetworkMonitor
 
-    init(providers: [DataSetProvider], networkMonitor: NetworkMonitor, now: @escaping () -> Date = Date.init) {
+    init(providers: [DataSetProvider], networkMonitor: NetworkMonitor,
+         now: @escaping () -> Date = Date.init, userDefaults: UserDefaults = .standard) {
         self.providers = providers
         self.networkMonitor = networkMonitor
         self.now = now
+        self.userDefaults = userDefaults
         recompute()
     }
 
@@ -143,6 +151,25 @@ final class DataStatusManager: ObservableObject {
         let stamp = now()
         dataSets = providers.map { $0.makeDataSet(now: stamp) }
         overallHealth = DataHealth.reduce(dataSets)
+        evaluateNudge()
+    }
+
+    // MARK: - Stale-data nudge (snoozable; generalises the OfflineMapManager yearly reminder)
+
+    private var isNudgeSnoozed: Bool {
+        guard let until = userDefaults.object(forKey: nudgeSnoozeKey) as? Date else { return false }
+        return until > now()
+    }
+
+    private func evaluateNudge() {
+        // Only the assertive case (STALE primary data → .urgent) nudges; aging stays silent on the dot.
+        showStaleNudge = (overallHealth == .urgent) && !isNudgeSnoozed
+    }
+
+    /// Snooze the nudge for a week (the "remind me later" / tap-to-dismiss action).
+    func snoozeNudge() {
+        userDefaults.set(now().addingTimeInterval(nudgeSnoozeInterval), forKey: nudgeSnoozeKey)
+        showStaleNudge = false
     }
 
     /// Refresh a single dataset, then recompute the dot.

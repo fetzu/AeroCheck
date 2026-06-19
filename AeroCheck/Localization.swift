@@ -47,6 +47,7 @@ enum L10n {
         static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
         static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
+        static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
     }
 
     // MARK: - Buttons

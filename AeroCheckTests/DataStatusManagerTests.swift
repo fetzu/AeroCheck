@@ -131,6 +131,28 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertEqual(tile.refreshCount, 0)
     }
 
+    // MARK: - Stale-data nudge
+
+    func testStaleNudgeFiresOnUrgentAndSnoozeSilencesIt() {
+        let suite = UserDefaults(suiteName: "test.nudge.\(UUID().uuidString)")!
+        let net = NetworkMonitor(stub: .disconnected)
+        let stale = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale))
+        let manager = DataStatusManager(providers: [stale], networkMonitor: net, now: { self.now }, userDefaults: suite)
+        XCTAssertTrue(manager.showStaleNudge)    // stale primary → urgent → nudge
+        manager.snoozeNudge()
+        XCTAssertFalse(manager.showStaleNudge)
+        manager.recompute()
+        XCTAssertFalse(manager.showStaleNudge)   // stays snoozed across recompute
+    }
+
+    func testNoNudgeWhenOnlyAging() {
+        let suite = UserDefaults(suiteName: "test.nudge.\(UUID().uuidString)")!
+        let net = NetworkMonitor(stub: .disconnected)
+        let aging = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .aging))
+        let manager = DataStatusManager(providers: [aging], networkMonitor: net, now: { self.now }, userDefaults: suite)
+        XCTAssertFalse(manager.showStaleNudge)   // aging is silent (dot only)
+    }
+
     func testManagerAggregatesAndReducesOnInit() {
         let net = NetworkMonitor(stub: .disconnected)
         let p1 = FakeProvider(dataSet(urgency: .primary, freshness: .aging))

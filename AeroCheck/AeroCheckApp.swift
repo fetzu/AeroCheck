@@ -17,6 +17,8 @@ struct AeroCheckApp: App {
     @StateObject private var openAIPCacheManager = OpenAIPCacheManager()
     @StateObject private var openAIPDataService = OpenAIPDataService()
     @StateObject private var flightEventDetector = FlightEventDetector()
+    /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
+    @StateObject private var networkMonitor = NetworkMonitor()
     @State private var showUpdateReminder = false
     @State private var isInitialized = false
 
@@ -45,6 +47,7 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
+                .environmentObject(networkMonitor)
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -142,6 +145,7 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
+                .environmentObject(networkMonitor)
                 .preferredColorScheme(.dark)
         }
         #endif

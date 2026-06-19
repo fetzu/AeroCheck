@@ -918,7 +918,7 @@ extension FlightPlan {
         do {
             return try encoder.encode(self)
         } catch {
-            print("[AéroCheck] Failed to encode flight plan to JSON: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to encode flight plan to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -932,12 +932,12 @@ extension FlightPlan {
             // Reject NaN/Inf/out-of-range waypoint coordinates (e.g. a "1e999" overflow that
             // decodes to Infinity) before the route reaches the map/analyzer/export. (SEC-08)
             guard plan.waypoints.allSatisfy({ GeoValidation.isValidLatLon($0.latitude, $0.longitude) }) else {
-                print("[AéroCheck] Rejected flight plan import: invalid coordinates")
+                AppLog.general.debugLine("Rejected flight plan import: invalid coordinates")
                 return nil
             }
             return plan
         } catch {
-            print("[AéroCheck] Failed to decode flight plan from JSON: \(error)")
+            AppLog.general.debugLine("Failed to decode flight plan from JSON: \(error)")
             return nil
         }
     }

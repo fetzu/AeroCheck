@@ -94,7 +94,7 @@ class OpenAIPDataService: ObservableObject {
                     loadedAirspaces.append(contentsOf: countryAirspaces)
                     byCountry[entry.country] = countryAirspaces
                 } catch {
-                    print("[OpenAIP] Failed to load airspaces for \(entry.country): \(error)")
+                    AppLog.openAIP.debugLine("Failed to load airspaces for \(entry.country): \(error)")
                 }
             }
             return (loadedAirspaces, byCountry)
@@ -160,9 +160,9 @@ class OpenAIPDataService: ObservableObject {
                 metadata.lastSyncDates[country] = Date()
                 metadata.airspaceCounts[country] = countryAirspaces.count
 
-                print("[OpenAIP] Downloaded \(countryAirspaces.count) airspaces for \(country)")
+                AppLog.openAIP.debugLine("Downloaded \(countryAirspaces.count) airspaces for \(country)")
             } catch {
-                print("[OpenAIP] Failed to download airspaces for \(country): \(error)")
+                AppLog.openAIP.debugLine("Failed to download airspaces for \(country): \(error)")
                 downloadError = "Failed to download data for \(OpenAIPConfig.countryName(for: country)): \(error.localizedDescription)"
                 // PR-30: fall back to the existing on-disk file for this country so a failed refresh
                 // doesn't drop its airspaces from memory (the data is still valid on disk). Its
@@ -474,14 +474,14 @@ class OpenAIPDataService: ObservableObject {
             if httpResponse.statusCode == 429 {
                 // Rate limited — force maximum backoff
                 consecutiveStreamingErrors = max(consecutiveStreamingErrors, 3)
-                print("[OpenAIP Streaming] Rate limited (429), backing off")
+                AppLog.openAIP.debugLine("Rate limited (429), backing off")
                 isStreamingFetchInProgress = false
                 return
             }
 
             guard httpResponse.statusCode == 200 else {
                 consecutiveStreamingErrors += 1
-                print("[OpenAIP Streaming] API error: HTTP \(httpResponse.statusCode)")
+                AppLog.openAIP.debugLine("API error: HTTP \(httpResponse.statusCode)")
                 isStreamingFetchInProgress = false
                 return
             }
@@ -499,10 +499,10 @@ class OpenAIPDataService: ObservableObject {
             // Calculate distances and update published property
             updateStreamingDistances(from: coordinate)
 
-            print("[OpenAIP Streaming] Fetched \(decoded.items.count) CTRs near (\(String(format: "%.2f", coordinate.latitude)), \(String(format: "%.2f", coordinate.longitude)))")
+            AppLog.openAIP.debugLine("Fetched \(decoded.items.count) CTRs near (\(String(format: "%.2f", coordinate.latitude)), \(String(format: "%.2f", coordinate.longitude)))")
         } catch {
             consecutiveStreamingErrors += 1
-            print("[OpenAIP Streaming] Fetch failed: \(error.localizedDescription)")
+            AppLog.openAIP.debugLine("Fetch failed: \(error.localizedDescription)")
         }
 
         isStreamingFetchInProgress = false

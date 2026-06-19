@@ -55,7 +55,7 @@ enum BundledChecklistService {
     /// - Returns: The checklist if found and valid, nil otherwise
     static func loadBundledChecklist(for aircraftId: String, language: String? = nil) -> RemoteAircraftChecklist? {
         guard let config = bundledAircraftConfigs[aircraftId] else {
-            print("[BundledChecklistService] No bundled config for aircraft: \(aircraftId)")
+            AppLog.bundledChecklist.debugLine("No bundled config for aircraft: \(aircraftId)")
             return nil
         }
 
@@ -69,12 +69,12 @@ enum BundledChecklistService {
 
         // Get resource name for the language
         guard let resourceName = config.resourceNames[effectiveLanguage] else {
-            print("[BundledChecklistService] No resource name for language \(effectiveLanguage) on aircraft: \(aircraftId)")
+            AppLog.bundledChecklist.debugLine("No resource name for language \(effectiveLanguage) on aircraft: \(aircraftId)")
             return nil
         }
 
         guard let url = Bundle.main.url(forResource: resourceName, withExtension: "json") else {
-            print("[BundledChecklistService] Bundled resource not found: \(resourceName).json")
+            AppLog.bundledChecklist.debugLine("Bundled resource not found: \(resourceName).json")
             return nil
         }
 
@@ -82,10 +82,10 @@ enum BundledChecklistService {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             let checklist = try decoder.decode(RemoteAircraftChecklist.self, from: data)
-            print("[BundledChecklistService] Loaded bundled checklist: \(aircraftId) (\(effectiveLanguage)) v\(checklist.version)")
+            AppLog.bundledChecklist.debugLine("Loaded bundled checklist: \(aircraftId) (\(effectiveLanguage)) v\(checklist.version)")
             return checklist
         } catch {
-            print("[BundledChecklistService] Failed to decode bundled checklist: \(error)")
+            AppLog.bundledChecklist.debugLine("Failed to decode bundled checklist: \(error)")
             return nil
         }
     }

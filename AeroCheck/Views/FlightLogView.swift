@@ -3326,7 +3326,7 @@ struct ShareCardCustomizationView: View {
                 accentColor: cardColorScheme.accentColor
             )
         } catch {
-            print("Map snapshot error: \(error)")
+            AppLog.general.debugLine("Map snapshot error: \(error)")
             return nil
         }
     }

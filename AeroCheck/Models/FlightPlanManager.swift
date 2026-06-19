@@ -687,7 +687,7 @@ class FlightPlanManager: ObservableObject {
             let data = try encoder.encode(plan)
             UserDefaults.standard.set(data, forKey: activeFlightPlanKey)
         } catch {
-            print("[AéroCheck] Failed to save active flight plan: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save active flight plan: \(error.localizedDescription)")
         }
     }
 
@@ -698,7 +698,7 @@ class FlightPlanManager: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601
             activeFlightPlan = try decoder.decode(FlightPlan.self, from: data)
         } catch {
-            print("[AéroCheck] Failed to load active flight plan: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to load active flight plan: \(error.localizedDescription)")
         }
     }
 

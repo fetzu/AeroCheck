@@ -724,7 +724,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: nil)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AéroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to encode flight to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -740,7 +740,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: flightPlan)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AéroCheck] Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -819,19 +819,19 @@ extension Flight {
         let imported: Flight
         // Try v2 format first (FlightExportWrapper with metadata)
         if let wrapper = try? decoder.decode(FlightExportWrapper.self, from: data) {
-            print("[AéroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
+            AppLog.general.debugLine("Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
             imported = wrapper.flight
         } else if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
             // Legacy FlightWithNavigationExport format (no metadata)
-            print("[AéroCheck] Imported flight from legacy FlightWithNavigationExport format")
+            AppLog.general.debugLine("Imported flight from legacy FlightWithNavigationExport format")
             imported = legacyExport.flight
         } else {
             // v1 format (direct Flight object - oldest format)
             do {
                 imported = try decoder.decode(Flight.self, from: data)
-                print("[AéroCheck] Imported flight from v1 format (direct Flight object)")
+                AppLog.general.debugLine("Imported flight from v1 format (direct Flight object)")
             } catch {
-                print("[AéroCheck] Failed to decode flight from JSON: \(error)")
+                AppLog.general.debugLine("Failed to decode flight from JSON: \(error)")
                 throw ImportError.invalidJSON(underlying: error)
             }
         }
@@ -839,7 +839,7 @@ extension Flight {
         // Reject NaN/Inf/out-of-range coordinates (e.g. a "1e999" overflow that decodes to
         // Infinity) before the flight can reach the map, analyzer, or export. (SEC-08)
         guard imported.importedCoordinatesAreValid else {
-            print("[AéroCheck] Rejected flight import: invalid coordinates")
+            AppLog.general.debugLine("Rejected flight import: invalid coordinates")
             throw ImportError.invalidCoordinates
         }
         return imported

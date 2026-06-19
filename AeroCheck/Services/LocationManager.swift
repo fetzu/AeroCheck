@@ -253,7 +253,7 @@ class LocationManager: NSObject, ObservableObject {
         guard onGround != isGroundMode else { return }
         isGroundMode = onGround
         locationManager.distanceFilter = onGround ? groundModeDistanceFilter : flightModeDistanceFilter
-        print("[LocationManager] Distance filter: \(onGround ? "ground mode (\(Int(groundModeDistanceFilter))m)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
+        AppLog.location.debugLine("Distance filter: \(onGround ? "ground mode (\(Int(groundModeDistanceFilter))m)" : "flight mode (\(Int(flightModeDistanceFilter))m)")")
     }
 
     /// Start location updates without recording (for navigation view)

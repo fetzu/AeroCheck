@@ -18,7 +18,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     private func setupSession() {
         guard WCSession.isSupported() else {
-            print("[AéroCheck Watch] WatchConnectivity not supported")
+            AppLog.watch.debugLine("WatchConnectivity not supported")
             return
         }
 
@@ -103,7 +103,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     func sendCommand(_ command: WatchCommand) {
         guard let session = session, session.isReachable else { return }
         session.sendMessage([WatchConnectivityKeys.command: command.rawValue], replyHandler: nil) { error in
-            print("[AéroCheck Watch] Failed to send command: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Failed to send command: \(error.localizedDescription)")
         }
     }
 }
@@ -113,7 +113,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 extension WatchConnectivityManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error = error {
-            print("[AéroCheck Watch] Activation failed: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Activation failed: \(error.localizedDescription)")
             return
         }
 
@@ -121,7 +121,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
             // Connection reflects live reachability of the phone, not just activation state,
             // so the indicator goes red when the phone is gone. (UX-05)
             self.isConnected = activationState == .activated && session.isReachable
-            print("[AéroCheck Watch] Session activated: \(activationState == .activated), reachable: \(session.isReachable)")
+            AppLog.watch.debugLine("Session activated: \(activationState == .activated), reachable: \(session.isReachable)")
 
             // Load any existing application context
             if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
@@ -181,7 +181,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
             self.flightData = decoded
             self.lastUpdateTime = Date()
         } catch {
-            print("[v Watch] Failed to decode flight data: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Failed to decode flight data: \(error.localizedDescription)")
         }
     }
 }

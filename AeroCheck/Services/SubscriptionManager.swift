@@ -16,8 +16,8 @@ class SubscriptionDebugLogger: ObservableObject {
             logs = Array(logs.prefix(maxLogs))
         }
 
-        // Also print to console
-        print("[SubscriptionManager] \(message)")
+        // Also mirror to the unified log (os.Logger) for Console.app / Xcode visibility
+        AppLog.subscription.debugLine("\(message)")
     }
 
     func clear() {
@@ -190,7 +190,7 @@ class SubscriptionManager: ObservableObject {
             debugLogger.log("Loaded \(storeProducts.count) products", level: .success)
         } catch {
             debugLogger.log("Failed to load products: \(error.localizedDescription)", level: .error)
-            print("Failed to load products: \(error)")
+            AppLog.subscription.debugLine("Failed to load products: \(error)")
         }
     }
 
@@ -363,7 +363,7 @@ class SubscriptionManager: ObservableObject {
         // Re-check subscription status
         await updateSubscriptionStatus()
 
-        print("[SubscriptionManager] Subscription state reset")
+        AppLog.subscription.debugLine("Subscription state reset")
     }
 
     /// Manually syncs subscription with server

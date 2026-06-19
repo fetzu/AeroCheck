@@ -869,7 +869,7 @@ enum MarketingSceneInjector {
         let imported = importMarketingFlights(into: appState)
         // Flight Log hero highlights a REAL flight (Vol d'Alpes) on top of the marketing set.
         let real = importFlight(named: realHighlightFlightFile, into: appState)
-        print("[Marketing] Imported \(imported) marketing flights + \(real ? 1 : 0) real flight")
+        AppLog.marketing.debugLine("Imported \(imported) marketing flights + \(real ? 1 : 0) real flight")
     }
 
     /// Loads the bundled marketing flights into the real flight store (idempotent — skips ids already
@@ -888,7 +888,7 @@ enum MarketingSceneInjector {
         guard let url = bundledMarketingFlightURL(named: name),
               let data = try? Data(contentsOf: url),
               let flight = try? Flight.fromJSON(data) else {
-            print("[Marketing] Could not load bundled flight \(name)")
+            AppLog.marketing.debugLine("Could not load bundled flight \(name)")
             return false
         }
         guard !appState.flights.contains(where: { $0.id == flight.id }) else { return false }

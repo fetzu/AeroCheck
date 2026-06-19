@@ -282,7 +282,7 @@ class FlightEventDetector: ObservableObject {
     func configure(speeds: [SpeedReference], stallSpeed: Int, recordingInterval: TimeInterval = 5.0) {
         speedConfig = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
         self.recordingInterval = recordingInterval > 0 ? recordingInterval : 5.0
-        print("[FlightEventDetector] Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts; interval=\(self.recordingInterval)s → fullStop=\(requiredTaxiSpeedReadings) readings, touchdown=\(minTouchdownReadings), smoothing=\(speedSmoothingReadings)")
+        AppLog.flightEvents.debugLine("Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts; interval=\(self.recordingInterval)s → fullStop=\(requiredTaxiSpeedReadings) readings, touchdown=\(minTouchdownReadings), smoothing=\(speedSmoothingReadings)")
     }
 
     /// Set the takeoff time (call when line-up or first departure occurs)
@@ -315,7 +315,7 @@ class FlightEventDetector: ObservableObject {
         // Track whether aircraft has been airborne during this session
         if !hasBeenAirborne && speedKts > airborneEvidenceSpeedKts {
             hasBeenAirborne = true
-            print("[FlightEventDetector] Aircraft has been airborne (speed: \(Int(speedKts)) kts)")
+            AppLog.flightEvents.debugLine("Aircraft has been airborne (speed: \(Int(speedKts)) kts)")
         }
 
         // Track current altitude for use by emit functions
@@ -326,7 +326,7 @@ class FlightEventDetector: ObservableObject {
         // Requires both speed > 30 kts AND altitude gain > 200 ft above landing altitude.
         if !airborneAfterLanding && speedKts > airborneEvidenceSpeedKts && altMslFt > lastLandingAltMsl + 200.0 {
             airborneAfterLanding = true
-            print("[FlightEventDetector] Airborne after landing (speed: \(Int(speedKts)) kts, alt: \(Int(altMslFt)) ft MSL, landing was at \(Int(lastLandingAltMsl)) ft MSL)")
+            AppLog.flightEvents.debugLine("Airborne after landing (speed: \(Int(speedKts)) kts, alt: \(Int(altMslFt)) ft MSL, landing was at \(Int(lastLandingAltMsl)) ft MSL)")
         }
 
         // Check cooldown - skip detection if too soon after last event
@@ -452,14 +452,14 @@ class FlightEventDetector: ObservableObject {
             state = .airportZone
             stateAirport = airport
             stateEntryTime = now
-            print("[FlightEventDetector] Entered airport zone for \(airport.ident) (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
+            AppLog.flightEvents.debugLine("Entered airport zone for \(airport.ident) (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
         }
     }
 
     private func handleAirportZone(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
         // Check for exit (with hysteresis)
         if distanceNm > airportZoneExitDistanceNm || altAglFt > airportZoneExitAltAglFt {
-            print("[FlightEventDetector] Exited airport zone (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
+            AppLog.flightEvents.debugLine("Exited airport zone (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
             transitionToIdle()
             return
         }
@@ -470,7 +470,7 @@ class FlightEventDetector: ObservableObject {
             stateEntryTime = now
             minSpeedInLowApproach = speedKts
             minAltAglInLowApproach = altAglFt
-            print("[FlightEventDetector] Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
+            AppLog.flightEvents.debugLine("Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
             return
         }
 
@@ -485,7 +485,7 @@ class FlightEventDetector: ObservableObject {
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
             touchdownViaLowApproach = false  // Altitude not confirmed
-            print("[FlightEventDetector] Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
+            AppLog.flightEvents.debugLine("Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
         }
     }
 
@@ -504,7 +504,7 @@ class FlightEventDetector: ObservableObject {
             touchdownSpeedReadings = 1
             consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
             touchdownViaLowApproach = true  // Altitude confirmed < 100 ft AGL
-            print("[FlightEventDetector] Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
+            AppLog.flightEvents.debugLine("Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
             return
         }
 
@@ -548,7 +548,7 @@ class FlightEventDetector: ObservableObject {
         // during approach before the pilot applied full power.
         let altGainFt = altAglFt - touchdownAltAglFt
         if altGainFt > 150 && speedKts > speedConfig.goAroundMinSpeedKts {
-            print("[FlightEventDetector] Go-around from touchdown (alt gain: \(Int(altGainFt)) ft, speed: \(Int(speedKts)) kts)")
+            AppLog.flightEvents.debugLine("Go-around from touchdown (alt gain: \(Int(altGainFt)) ft, speed: \(Int(speedKts)) kts)")
             emitGoAround(airport: stateAirport)
             // Transition back to airport zone
             state = .airportZone
@@ -562,7 +562,7 @@ class FlightEventDetector: ObservableObject {
 
         // Full-stop detection: sustained very low speed = the plane has stopped
         if consecutiveTaxiSpeedReadings >= requiredTaxiSpeedReadings {
-            print("[FlightEventDetector] Full stop detected (speed < \(Int(speedConfig.taxiSpeedKts)) kts for \(consecutiveTaxiSpeedReadings) readings)")
+            AppLog.flightEvents.debugLine("Full stop detected (speed < \(Int(speedConfig.taxiSpeedKts)) kts for \(consecutiveTaxiSpeedReadings) readings)")
             emitFullStop(airport: stateAirport)
             fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
             transitionToIdle()
@@ -579,7 +579,7 @@ class FlightEventDetector: ObservableObject {
             && touchdownSpeedReadings >= minTouchdownReadings
             && !hasGroundEvidence
             && altGainFt > 50 {
-            print("[FlightEventDetector] Go-around (speed recovered, climbing \(Int(altGainFt)) ft, no ground evidence)")
+            AppLog.flightEvents.debugLine("Go-around (speed recovered, climbing \(Int(altGainFt)) ft, no ground evidence)")
             emitGoAround(airport: stateAirport)
             state = .airportZone
             stateEntryTime = now
@@ -616,7 +616,7 @@ class FlightEventDetector: ObservableObject {
 
         // Safety timeout: if in touchdown state for too long, it's likely a full stop
         if let entry = touchdownEntryTime, now.timeIntervalSince(entry) > touchdownTimeoutSeconds {
-            print("[FlightEventDetector] Touchdown timeout - likely full stop")
+            AppLog.flightEvents.debugLine("Touchdown timeout - likely full stop")
             emitFullStop(airport: stateAirport)
             fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
             transitionToIdle()
@@ -638,7 +638,7 @@ class FlightEventDetector: ObservableObject {
     private func emitGoAround(airport: Airport?) {
         // Suppress if aircraft has never been airborne in this session
         guard hasBeenAirborne else {
-            print("[FlightEventDetector] Go-around suppressed (aircraft has not been airborne)")
+            AppLog.flightEvents.debugLine("Go-around suppressed (aircraft has not been airborne)")
             return
         }
 
@@ -647,7 +647,7 @@ class FlightEventDetector: ObservableObject {
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
            clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            print("[FlightEventDetector] Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            AppLog.flightEvents.debugLine("Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
 
@@ -663,19 +663,19 @@ class FlightEventDetector: ObservableObject {
         pendingGoAround = event
         lastEventTime = now
         lastTakeoffTime = now
-        print("[FlightEventDetector] GO-AROUND: \(message)")
+        AppLog.flightEvents.debugLine("GO-AROUND: \(message)")
     }
 
     private func emitTouchAndGo(airport: Airport?) {
         // Suppress if aircraft has never been airborne in this session
         guard hasBeenAirborne else {
-            print("[FlightEventDetector] Touch-and-go suppressed (aircraft has not been airborne)")
+            AppLog.flightEvents.debugLine("Touch-and-go suppressed (aircraft has not been airborne)")
             return
         }
 
         // Suppress if aircraft hasn't been airborne since last landing event
         guard airborneAfterLanding else {
-            print("[FlightEventDetector] Touch-and-go suppressed (not airborne since last landing)")
+            AppLog.flightEvents.debugLine("Touch-and-go suppressed (not airborne since last landing)")
             return
         }
 
@@ -684,7 +684,7 @@ class FlightEventDetector: ObservableObject {
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
            clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            print("[FlightEventDetector] Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            AppLog.flightEvents.debugLine("Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
 
@@ -703,20 +703,20 @@ class FlightEventDetector: ObservableObject {
         // Record landing altitude and require airborne evidence before next landing event
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false
-        print("[FlightEventDetector] TOUCH-AND-GO: \(message)")
+        AppLog.flightEvents.debugLine("TOUCH-AND-GO: \(message)")
     }
 
     private func emitFullStop(airport: Airport?) {
         // Suppress full-stop if aircraft has never been airborne in this session
         guard hasBeenAirborne else {
-            print("[FlightEventDetector] Full stop suppressed (aircraft has not been airborne)")
+            AppLog.flightEvents.debugLine("Full stop suppressed (aircraft has not been airborne)")
             transitionToIdle()
             return
         }
 
         // Suppress if aircraft hasn't been airborne since last landing event
         guard airborneAfterLanding else {
-            print("[FlightEventDetector] Full stop suppressed (not airborne since last landing)")
+            AppLog.flightEvents.debugLine("Full stop suppressed (not airborne since last landing)")
             transitionToIdle()
             return
         }
@@ -726,7 +726,7 @@ class FlightEventDetector: ObservableObject {
         // Suppress events within the takeoff suppression window
         if let takeoffTime = lastTakeoffTime,
            clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            print("[FlightEventDetector] Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
+            AppLog.flightEvents.debugLine("Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
             return
         }
 
@@ -744,7 +744,7 @@ class FlightEventDetector: ObservableObject {
         lastLandingAltMsl = currentAltMslFt
         airborneAfterLanding = false
         hasBeenAirborne = false
-        print("[FlightEventDetector] FULL STOP: \(message)")
+        AppLog.flightEvents.debugLine("FULL STOP: \(message)")
     }
 
     // MARK: - State Transitions

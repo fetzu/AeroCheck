@@ -164,11 +164,11 @@ class DataPersistenceManager: ObservableObject {
                 try fileManager.moveItem(at: src, to: dst)
                 moved += 1
             } catch {
-                print("[AéroCheck] Datastore migration: failed to move \(item): \(error.localizedDescription)")
+                AppLog.general.debugLine("Datastore migration: failed to move \(item): \(error.localizedDescription)")
             }
         }
         if moved > 0 {
-            print("[AéroCheck] Datastore migration: moved \(moved) item(s) to Application Support")
+            AppLog.general.debugLine("Datastore migration: moved \(moved) item(s) to Application Support")
         }
         return moved
     }
@@ -193,12 +193,12 @@ class DataPersistenceManager: ObservableObject {
             try fileManager.createDirectory(at: navigationPlansDirectory, withIntermediateDirectories: true)
 
             if isICloudAvailable {
-                print("[AéroCheck] Directory structure created with iCloud at: \(flightsDirectory.path)")
+                AppLog.general.debugLine("Directory structure created with iCloud at: \(flightsDirectory.path)")
             } else {
-                print("[AéroCheck] Directory structure created locally at: \(localAppDirectory.path)")
+                AppLog.general.debugLine("Directory structure created locally at: \(localAppDirectory.path)")
             }
         } catch {
-            print("[AéroCheck] Failed to create directory structure: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to create directory structure: \(error.localizedDescription)")
         }
     }
 
@@ -211,9 +211,9 @@ class DataPersistenceManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(settings)
             try data.write(to: settingsFileURL, options: Self.protectedWriteOptions)
-            print("[AéroCheck] Settings saved to file")
+            AppLog.general.debugLine("Settings saved to file")
         } catch {
-            print("[AéroCheck] Failed to save settings: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save settings: \(error.localizedDescription)")
         }
     }
 
@@ -227,10 +227,10 @@ class DataPersistenceManager: ObservableObject {
             let data = try Data(contentsOf: settingsFileURL)
             let decoder = JSONDecoder()
             let settings = try decoder.decode(AppSettings.self, from: data)
-            print("[AéroCheck] Settings loaded from file")
+            AppLog.general.debugLine("Settings loaded from file")
             return settings
         } catch {
-            print("[AéroCheck] Failed to load settings: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to load settings: \(error.localizedDescription)")
             return nil
         }
     }
@@ -302,10 +302,10 @@ class DataPersistenceManager: ObservableObject {
             let data = try encoder.encode(flight)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
 
-            print("[AéroCheck] Flight saved: \(flightFilename(for: flight))")
+            AppLog.general.debugLine("Flight saved: \(flightFilename(for: flight))")
             return true
         } catch {
-            print("[AéroCheck] Failed to save flight: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save flight: \(error.localizedDescription)")
             return false
         }
     }
@@ -338,7 +338,7 @@ class DataPersistenceManager: ObservableObject {
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
             return true
         } catch {
-            print("[AéroCheck] Failed to save flights index: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save flights index: \(error.localizedDescription)")
             return false
         }
     }
@@ -382,7 +382,7 @@ class DataPersistenceManager: ObservableObject {
                     let flight = try decoder.decode(Flight.self, from: data)
                     flights.append(flight)
                 } catch {
-                    print("[AéroCheck] Failed to load flight \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                    AppLog.general.debugLine("Failed to load flight \(fileURL.lastPathComponent): \(error.localizedDescription)")
                 }
             }
 
@@ -398,9 +398,9 @@ class DataPersistenceManager: ObservableObject {
 
             // Sort by start time (newest first)
             flights.sort { ($0.startTime ?? .distantPast) > ($1.startTime ?? .distantPast) }
-            print("[AéroCheck] Loaded \(flights.count) flights from iCloud")
+            AppLog.general.debugLine("Loaded \(flights.count) flights from iCloud")
         } catch {
-            print("[AéroCheck] Failed to enumerate flights directory: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to enumerate flights directory: \(error.localizedDescription)")
         }
 
         return flights
@@ -413,10 +413,10 @@ class DataPersistenceManager: ObservableObject {
         do {
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.removeItem(at: fileURL)
-                print("[AéroCheck] Deleted flight: \(flightFilename(for: flight))")
+                AppLog.general.debugLine("Deleted flight: \(flightFilename(for: flight))")
             }
         } catch {
-            print("[AéroCheck] Failed to delete flight: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to delete flight: \(error.localizedDescription)")
         }
     }
 
@@ -445,9 +445,9 @@ class DataPersistenceManager: ObservableObject {
             let data = try encoder.encode(plan)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
             
-            print("[AéroCheck] Navigation plan saved: \(navigationPlanFilename(for: plan))")
+            AppLog.general.debugLine("Navigation plan saved: \(navigationPlanFilename(for: plan))")
         } catch {
-            print("[AéroCheck] Failed to save navigation plan: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save navigation plan: \(error.localizedDescription)")
         }
     }
 
@@ -473,7 +473,7 @@ class DataPersistenceManager: ObservableObject {
             let data = try encoder.encode(index)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
         } catch {
-            print("[AéroCheck] Failed to save navigation plans index: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to save navigation plans index: \(error.localizedDescription)")
         }
     }
 
@@ -500,15 +500,15 @@ class DataPersistenceManager: ObservableObject {
                     let plan = try decoder.decode(FlightPlan.self, from: data)
                     plans.append(plan)
                 } catch {
-                    print("[AéroCheck] Failed to load navigation plan \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                    AppLog.general.debugLine("Failed to load navigation plan \(fileURL.lastPathComponent): \(error.localizedDescription)")
                 }
             }
 
             // Sort by creation date (newest first)
             plans.sort { $0.createdAt > $1.createdAt }
-            print("[AéroCheck] Loaded \(plans.count) navigation plans from iCloud")
+            AppLog.general.debugLine("Loaded \(plans.count) navigation plans from iCloud")
         } catch {
-            print("[AéroCheck] Failed to enumerate navigation plans directory: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to enumerate navigation plans directory: \(error.localizedDescription)")
         }
 
         return plans
@@ -521,10 +521,10 @@ class DataPersistenceManager: ObservableObject {
         do {
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.removeItem(at: fileURL)
-                print("[AéroCheck] Deleted navigation plan: \(navigationPlanFilename(for: plan))")
+                AppLog.general.debugLine("Deleted navigation plan: \(navigationPlanFilename(for: plan))")
             }
         } catch {
-            print("[AéroCheck] Failed to delete navigation plan: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to delete navigation plan: \(error.localizedDescription)")
         }
     }
 

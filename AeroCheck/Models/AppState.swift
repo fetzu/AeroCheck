@@ -610,7 +610,7 @@ class AppState: ObservableObject {
                 // Save synced settings to file for future loads
                 self?.persistence.saveSettings(settings)
                 self?.syncAircraftType()
-                print("[AéroCheck] Settings updated from iCloud sync")
+                AppLog.general.debugLine("Settings updated from iCloud sync")
             }
         }
 
@@ -625,14 +625,14 @@ class AppState: ObservableObject {
                 for flight in flights where previousById[flight.id]?.modifiedAt != flight.modifiedAt {
                     self.persistence.saveFlight(flight)
                 }
-                print("[AéroCheck] Flights updated from iCloud sync")
+                AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }
 
         syncManager.onSyncConflict = { [weak self] message in
             Task { @MainActor in
                 self?.syncConflictNotice = message
-                print("[AéroCheck] Sync conflict: \(message)")
+                AppLog.general.debugLine("Sync conflict: \(message)")
             }
         }
     }
@@ -656,9 +656,9 @@ class AppState: ObservableObject {
             if let checklist = await aircraftDataService.fetchChecklist(for: remoteId, language: language) {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
-                print("[AéroCheck] Loaded remote checklist for \(remoteId) (\(language))")
+                AppLog.general.debugLine("Loaded remote checklist for \(remoteId) (\(language))")
             } else {
-                print("[AéroCheck] Failed to load remote checklist for \(remoteId)")
+                AppLog.general.debugLine("Failed to load remote checklist for \(remoteId)")
                 resolvedRemoteChecklist = nil
             }
             return
@@ -676,15 +676,15 @@ class AppState: ObservableObject {
             if let checklist = await aircraftDataService.fetchChecklist(for: bundledId, language: language) {
                 resolvedRemoteChecklist = checklist
                 noteLanguageFallback(for: checklist, requested: language)
-                print("[AéroCheck] Loaded checklist for bundled aircraft \(bundledId) (\(language))")
+                AppLog.general.debugLine("Loaded checklist for bundled aircraft \(bundledId) (\(language))")
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: bundledId, language: language) {
                 // Fall back to bundled resource
                 resolvedRemoteChecklist = bundled
-                print("[AéroCheck] Loaded bundled checklist for \(bundledId) (\(language))")
+                AppLog.general.debugLine("Loaded bundled checklist for \(bundledId) (\(language))")
             } else {
                 // No language-specific checklist available, use hardcoded default
                 resolvedRemoteChecklist = nil
-                print("[AéroCheck] Using default checklist for \(bundledId)")
+                AppLog.general.debugLine("Using default checklist for \(bundledId)")
             }
         } else {
             resolvedRemoteChecklist = nil
@@ -770,7 +770,7 @@ class AppState: ObservableObject {
         // blocked start surfaces an explicit error instead of silently showing WT9 content.
         if !isPremiumChecklistResolved {
             flightStartError = L10n.Alert.checklistNotReady
-            print("[AéroCheck] Flight start blocked: premium checklist not resolved")
+            AppLog.general.debugLine("Flight start blocked: premium checklist not resolved")
             return
         }
         flightStartError = nil
@@ -956,7 +956,7 @@ class AppState: ObservableObject {
                 currentFlight?.blockOnLatitude = lastPoint.latitude
                 currentFlight?.blockOnLongitude = lastPoint.longitude
             }
-            print("[AéroCheck] Block on time set from engine shutdown (fallback)")
+            AppLog.general.debugLine("Block on time set from engine shutdown (fallback)")
         }
         checkpointActiveFlight(force: true)
     }
@@ -1079,10 +1079,10 @@ class AppState: ObservableObject {
                     let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
                     if let nearest = nearestAirports.first {
                         currentFlight?.departureAirportIdent = nearest.ident
-                        print("[AéroCheck] Block off detected at \(nearest.ident) (\(nearest.name))")
+                        AppLog.general.debugLine("Block off detected at \(nearest.ident) (\(nearest.name))")
                     }
                 }
-                print("[AéroCheck] Block off time recorded: \(blockOffTime)")
+                AppLog.general.debugLine("Block off time recorded: \(blockOffTime)")
             }
         } else {
             consecutiveMovingReadings = 0
@@ -1119,7 +1119,7 @@ class AppState: ObservableObject {
                         // Only update if different from current or not set
                         if currentFlight?.arrivalAirportIdent != nearest.ident {
                             currentFlight?.arrivalAirportIdent = nearest.ident
-                            print("[AéroCheck] Block on location updated: \(nearest.ident) (\(nearest.name))")
+                            AppLog.general.debugLine("Block on location updated: \(nearest.ident) (\(nearest.name))")
                         }
                     }
                 }
@@ -1433,7 +1433,7 @@ class AppState: ObservableObject {
                 try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
                 UserDefaults.standard.set(savedAt, forKey: pointerKey)
             } catch {
-                print("[AéroCheck] Failed to checkpoint active flight: \(error.localizedDescription)")
+                AppLog.general.debugLine("Failed to checkpoint active flight: \(error.localizedDescription)")
             }
         }
 
@@ -1473,7 +1473,7 @@ class AppState: ObservableObject {
 
             // A snapshot from an incompatible build is discarded, not crashed on.
             guard state.schemaVersion == ActiveFlightState.currentSchemaVersion else {
-                print("[AéroCheck] Discarding active flight state with schema \(state.schemaVersion)")
+                AppLog.general.debugLine("Discarding active flight state with schema \(state.schemaVersion)")
                 clearActiveFlightState()
                 return false
             }
@@ -1487,11 +1487,11 @@ class AppState: ObservableObject {
 
             state.restore(to: self)
             lastCheckpointAt = state.savedAt
-            print("[AéroCheck] Restored active flight state from \(state.savedAt)")
+            AppLog.general.debugLine("Restored active flight state from \(state.savedAt)")
             return true
         } catch {
             // Unreadable / old-format snapshot: discard rather than crash. (ARCH-08)
-            print("[AéroCheck] Failed to restore active flight state: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to restore active flight state: \(error.localizedDescription)")
             clearActiveFlightState()
             return false
         }

@@ -197,6 +197,7 @@ struct NavigationMapView: View {
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
+    @State private var showOverlaysSheet: Bool = false   // v4.1.0 ② — the Layers sheet
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
@@ -873,8 +874,21 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Single map-display button → consolidated sheet (layers + airspace + track-vector toggles).
-            // The narrow top bar can't fit three separate buttons. (v4 UI/UX Revamp — iPhone)
+            // Layers button → grouped overlays sheet (airspace/tiles · markers + show-all · track vector).
+            // (v4.1.0 ② — iPhone reaches every layer toggle here; the map-type picker is its own button.)
+            Button(action: { showOverlaysSheet = true }) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primaryText)
+                    .frame(width: 44, height: 44)
+                    .floatingChromeCircle()
+            }
+            .accessibilityLabel(L10n.Nav.layers)
+            .sheet(isPresented: $showOverlaysSheet) {
+                OverlaysSheet().environmentObject(appState)
+            }
+
+            // Map-type picker button (shows the cache info modal in offline mode).
             Button(action: {
                 if isOfflineMode {
                     showCacheInfoModal = true
@@ -1155,6 +1169,7 @@ struct NavigationMapView: View {
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                showOpenAIPTiles: appState.settings.showOpenAIPTiles,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
@@ -1189,6 +1204,7 @@ struct NavigationMapView: View {
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                showOpenAIPTiles: appState.settings.showOpenAIPTiles,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
@@ -1358,18 +1374,20 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Track-vector toggle — grouped with the airspace/layer map-display controls. (v4 UI/UX Revamp C4)
-            Button(action: {
-                appState.settings.showTrackVector.toggle()
-                appState.saveSettings()
-            }) {
-                Image(systemName: "location.north.line")
+            // Layers button — opens the grouped overlays sheet (airspace/tiles · markers + show-all ·
+            // track vector). Replaces the standalone track-vector button so the on-map button count
+            // stays at two even as layers grow. (v4.1.0 ②)
+            Button(action: { showOverlaysSheet = true }) {
+                Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(appState.settings.showTrackVector ? .aviationGold : .secondaryText)
+                    .foregroundColor(.secondaryText)
                     .frame(width: 44, height: 44)
                     .background(Color.panelBackground.opacity(0.92), in: Circle())
             }
-            .accessibilityLabel(L10n.Nav.trackVector)
+            .accessibilityLabel(L10n.Nav.layers)
+            .sheet(isPresented: $showOverlaysSheet) {
+                OverlaysSheet().environmentObject(appState)
+            }
 
             // OpenAIP overlay toggle
             Button(action: {
@@ -2758,6 +2776,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var showOpenAIPOverlay: Bool = false
+    var showOpenAIPTiles: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
@@ -2775,8 +2794,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
 
-        // Add OpenAIP tile overlay if enabled
-        if showOpenAIPOverlay {
+        // Add OpenAIP raster tile overlay if enabled (separate from the airspace vector — v4.1.0)
+        if showOpenAIPTiles {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
             mapView.addOverlay(overlay, level: .aboveLabels)
         }
@@ -3056,10 +3075,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     private func updateOpenAIPOverlay(_ mapView: MKMapView, context: Context) {
         let hasOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
 
-        if showOpenAIPOverlay && !hasOverlay {
+        if showOpenAIPTiles && !hasOverlay {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
             mapView.addOverlay(overlay, level: .aboveLabels)
-        } else if !showOpenAIPOverlay && hasOverlay {
+        } else if !showOpenAIPTiles && hasOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
         }
@@ -3536,43 +3555,6 @@ struct LayerPickerSheet: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // Overlays — airspace + ground-track vector toggles, consolidated here so iPhone
-                    // needs only one map-display button in the top bar. (v4 UI/UX Revamp — iPhone)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L10n.Nav.overlays)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondaryText)
-                            .padding(.horizontal, 20)
-                        VStack(spacing: 0) {
-                            overlayToggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
-                                appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
-                                appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
-                                appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
-                                appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
-                                appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
-                                appState.settings.showTrackVector.toggle(); appState.saveSettings()
-                            }
-                        }
-                        .background(Color.panelBackground)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                    }
-
                     // Data-source attribution required by the providers' terms (swisstopo/BAZL,
                     // MeteoSwiss, Open-Meteo, OpenAIP). (SEC-16)
                     VStack(alignment: .leading, spacing: 4) {
@@ -3600,20 +3582,6 @@ struct LayerPickerSheet: View {
         }
         .presentationDetents([.height(620)])
         .preferredColorScheme(.dark)
-    }
-
-    private func overlayToggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon).font(.system(size: 18))
-                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
-                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
-                Spacer()
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isOn ? .aviationGold : .dimText)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-        }
     }
 
     private func layerRow(_ layer: MapLayerType) -> some View {
@@ -3652,6 +3620,127 @@ struct LayerPickerSheet: View {
 // MARK: - Swiss Map View (UIKit Wrapper)
 
 /// UIViewRepresentable wrapper for MKMapView with swisstopo tile overlays
+/// The grouped map-layers sheet opened by the "Layers" button: Airspace & charts (airspace vector +
+/// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
+/// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
+struct OverlaysSheet: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+
+    private var anyMarkerOn: Bool {
+        appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
+        appState.settings.showReportingPointsOnMap || appState.settings.showObstaclesOnMap
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    groupCard(L10n.Nav.airspaceCharts) {
+                        toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
+                            appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                        }
+                        Divider().padding(.leading, 56)
+                        toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
+                            appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(L10n.Nav.mapMarkers)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondaryText)
+                            Spacer()
+                            Button(anyMarkerOn ? L10n.Nav.hideAll : L10n.Nav.showAll) {
+                                setAllMarkers(!anyMarkerOn)
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.aviationGold)
+                        }
+                        .padding(.horizontal, 20)
+                        VStack(spacing: 0) {
+                            toggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
+                                appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
+                                appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
+                                appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
+                                appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
+                            }
+                        }
+                        .background(Color.panelBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                    }
+
+                    groupCard(L10n.Nav.flightSection) {
+                        toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                            appState.settings.showTrackVector.toggle(); appState.saveSettings()
+                        }
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Nav.layers)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(520)])
+        .preferredColorScheme(.dark)
+    }
+
+    private func setAllMarkers(_ on: Bool) {
+        appState.settings.showAirportsOnMap = on
+        appState.settings.showNavaidsOnMap = on
+        appState.settings.showReportingPointsOnMap = on
+        appState.settings.showObstaclesOnMap = on
+        appState.saveSettings()
+    }
+
+    @ViewBuilder
+    private func groupCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondaryText)
+                .padding(.horizontal, 20)
+            VStack(spacing: 0) { content() }
+                .background(Color.panelBackground)
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+        }
+    }
+
+    private func toggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon).font(.system(size: 18))
+                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
+                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
+                Spacer()
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isOn ? .aviationGold : .dimText)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct SwissMapView: UIViewRepresentable {
     let layerType: MapLayerType
     @ObservedObject var mapState: SharedMapState
@@ -3664,6 +3753,7 @@ struct SwissMapView: UIViewRepresentable {
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
     var showOpenAIPOverlay: Bool = false
+    var showOpenAIPTiles: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
@@ -3796,7 +3886,7 @@ struct SwissMapView: UIViewRepresentable {
                 }
 
                 // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
-                if self.showOpenAIPOverlay {
+                if self.showOpenAIPTiles {
                     let openAIPOverlay = OpenAIPTileOverlay(
                         cacheManager: self.openAIPCacheManager,
                         isStrictOfflineMode: self.isStrictOfflineMode
@@ -3864,13 +3954,13 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update OpenAIP tile overlay
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
-        if showOpenAIPOverlay && !hasOpenAIPOverlay {
+        if showOpenAIPTiles && !hasOpenAIPOverlay {
             let openAIPOverlay = OpenAIPTileOverlay(
                 cacheManager: openAIPCacheManager,
                 isStrictOfflineMode: isStrictOfflineMode
             )
             mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
-        } else if !showOpenAIPOverlay && hasOpenAIPOverlay {
+        } else if !showOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
         }

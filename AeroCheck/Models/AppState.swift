@@ -98,7 +98,8 @@ struct AppSettings: Codable, Equatable {
     var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
-    var showOpenAIPOverlay: Bool = true // When true, shows OpenAIP airspace tiles on navigation map — ON by default
+    var showOpenAIPOverlay: Bool = true // When true, draws OpenAIP airspace (vector CTRs from downloaded data) on the nav map — ON by default
+    var showOpenAIPTiles: Bool = false // When true, overlays the OpenAIP raster chart tiles (data-first: tiles are an opt-in, separate from the airspace vector) — OFF by default (v4.1.0)
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 
@@ -190,6 +191,7 @@ struct AppSettings: Codable, Equatable {
         case shareCardColorScheme
         case shareCardMapLayer
         case showOpenAIPOverlay
+        case showOpenAIPTiles
         case openAIPOfflineCountries
         case enableAirspaceStreaming
         case enableCompanionMode
@@ -262,6 +264,7 @@ struct AppSettings: Codable, Equatable {
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
         shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
         showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
+        showOpenAIPTiles = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPTiles) ?? false
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false

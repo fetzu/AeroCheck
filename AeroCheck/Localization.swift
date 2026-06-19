@@ -74,6 +74,7 @@ enum L10n {
         static let sourceElevation = String(localized: "Terrain elevation")
         static let navaidsName = String(localized: "Navaids")
         static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
+        static let showNavaidsOnMap = String(localized: "Show navaids on map")
     }
 
     // MARK: - Buttons

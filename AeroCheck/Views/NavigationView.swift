@@ -451,6 +451,7 @@ struct NavigationMapView: View {
             recomputeMapSpatialContent()
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateCruiseCheck()
@@ -988,6 +989,7 @@ struct NavigationMapView: View {
     // every body re-evaluation (e.g. every frame of a pan). `visibleAirports` is queried ONCE and
     // reused for the frequency lines, instead of being queried a second time.
     @State private var visibleAirports: [Airport] = []
+    @State private var visibleNavaids: [Navaid] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var lastSpatialRegion: MKCoordinateRegion?
@@ -1032,6 +1034,18 @@ struct NavigationMapView: View {
             airports = []
         }
         visibleAirports = airports
+
+        // Navaids — same gating as airports (hidden when the OpenAIP tile overlay already shows them). (v4.1.0)
+        if appState.settings.showNavaidsOnMap, !appState.settings.showOpenAIPOverlay,
+           OpenAIPNavaidDataService.shared.isDataAvailable {
+            let navHalfLat = region.span.latitudeDelta / 2
+            let navHalfLon = region.span.longitudeDelta / 2
+            visibleNavaids = OpenAIPNavaidDataService.shared.navaidsInRegion(
+                latRange: (region.center.latitude - navHalfLat)...(region.center.latitude + navHalfLat),
+                lonRange: (region.center.longitude - navHalfLon)...(region.center.longitude + navHalfLon))
+        } else {
+            visibleNavaids = []
+        }
 
         var freqLines: [String: String] = [:]
         if airportDataService.isDataAvailable {
@@ -1107,6 +1121,7 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
+                visibleNavaids: visibleNavaids,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 onWaypointATOTap: { index in
@@ -1125,6 +1140,7 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
+                visibleNavaids: visibleNavaids,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
@@ -2691,6 +2707,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var showOpenAIPOverlay: Bool = false
@@ -2804,6 +2821,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
+        updateNavaidAnnotations(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -2825,6 +2843,16 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
+        let existingIds = Set(existing.map { $0.navaid.id })
+        let newIds = Set(visibleNavaids.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
+        for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
+            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
         }
     }
 
@@ -3093,6 +3121,25 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Handle airport annotation
             if let airportAnnotation = annotation as? AirportAnnotation {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
+            // Handle navaid annotation (v4.1.0)
+            if let navaidAnnotation = annotation as? NavaidAnnotation {
+                let id = "NavaidAnnotation"
+                let navaidView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = navaidAnnotation
+                    navaidView = reused
+                } else {
+                    navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
+                }
+                navaidView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.9)
+                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
+                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return navaidView
             }
 
             // Handle aircraft annotation
@@ -3515,6 +3562,7 @@ struct SwissMapView: UIViewRepresentable {
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
@@ -3811,6 +3859,7 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
+        updateNavaidAnnotations(mapView, context: context)
     }
 
     private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
@@ -3828,6 +3877,16 @@ struct SwissMapView: UIViewRepresentable {
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
+        let existingIds = Set(existing.map { $0.navaid.id })
+        let newIds = Set(visibleNavaids.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
+        for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
+            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
         }
     }
 
@@ -4161,6 +4220,25 @@ struct SwissMapView: UIViewRepresentable {
             // Handle airport annotation
             if let airportAnnotation = annotation as? AirportAnnotation {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
+            // Handle navaid annotation (v4.1.0)
+            if let navaidAnnotation = annotation as? NavaidAnnotation {
+                let id = "NavaidAnnotation"
+                let navaidView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = navaidAnnotation
+                    navaidView = reused
+                } else {
+                    navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
+                }
+                navaidView.canShowCallout = true
+                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.9)
+                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
+                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
+                }
+                return navaidView
             }
 
             // Handle aircraft annotation

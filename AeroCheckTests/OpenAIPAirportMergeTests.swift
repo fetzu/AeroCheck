@@ -12,7 +12,9 @@ final class OpenAIPAirportMergeTests: XCTestCase {
     { "type": "FeatureCollection", "features": [
       { "type": "Feature",
         "properties": { "_id": "a1", "name": "BERN-BELP", "icaoCode": "LSZB", "type": 3, "country": "CH",
-          "magneticDeclination": 3, "elevation": { "value": 510, "unit": 0, "referenceDatum": 1 } },
+          "magneticDeclination": 3, "elevation": { "value": 510, "unit": 0, "referenceDatum": 1 },
+          "frequencies": [ { "name": "BERN TOWER", "value": "121.030", "type": 14 },
+                           { "name": "BERN ATIS", "value": "125.130", "type": 15 } ] },
         "geometry": { "type": "Point", "coordinates": [7.4971, 46.9141] } },
       { "type": "Feature",
         "properties": { "_id": "a2", "name": "GENEVA", "icaoCode": "LSGG", "type": 3, "country": "CH",
@@ -83,6 +85,18 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertEqual(merged.count, 1)
         XCTAssertEqual(merged[0].name, "Bern Belp")        // OurAirports kept; far OpenAIP record ignored
         XCTAssertEqual(merged[0].latitude, 46.914, accuracy: 0.0001)
+    }
+
+    func testOpenAIPFrequencyConversion() throws {
+        let airports = try OpenAIPAirport.parse(geoJSON: sampleGeoJSON)
+        let freqs = AirportDataMergeEngine.openAIPFrequencies(from: airports)
+        // Only LSZB has frequencies; GENEVA has none and the no-ICAO strip is skipped.
+        XCTAssertTrue(freqs.allSatisfy { $0.airportIdent == "LSZB" })
+        XCTAssertEqual(freqs.count, 2)
+        let twr = freqs.first { $0.type == "TWR" }
+        XCTAssertEqual(twr?.frequencyMhz ?? 0, 121.030, accuracy: 0.001)
+        XCTAssertEqual(twr?.description, "BERN TOWER")
+        XCTAssertNotNil(freqs.first { $0.type == "ATIS" })
     }
 
     func testStableNegativeIDIsDeterministicAndNegative() {

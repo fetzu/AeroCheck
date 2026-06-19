@@ -94,7 +94,7 @@ struct AppSettings: Codable, Equatable {
     var showNavaidsOnMap: Bool = true // When true, shows navaids (VOR/DME/NDB) on navigation map (requires navaid data download) — ON by default (v4.1.0)
     var showObstaclesOnMap: Bool = false // When true, shows obstacles (towers/masts/turbines) on navigation map (requires obstacle data download) — OFF by default to avoid clutter (v4.1.0)
     var showReportingPointsOnMap: Bool = true // When true, shows VFR reporting points on navigation map (requires reporting-point data download) — ON by default (v4.1.0)
-    var useOpenAIPPrimaryAirports: Bool = false // When true, OpenAIP airports are merged in as the primary source (OurAirports = fallback). DEFAULT OFF — flag-gated until validated (v4.1.0, increment 9)
+    var useOpenAIPPrimaryAirports: Bool = true // When true, OpenAIP airports + frequencies are merged in as the primary source (OurAirports = fallback). DEFAULT ON (v4.1.0, increment 9); toggle off in Developer Options to compare. Validate golden-CH before this branch merges to main.
     var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
@@ -254,7 +254,7 @@ struct AppSettings: Codable, Equatable {
         showNavaidsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showNavaidsOnMap) ?? true
         showObstaclesOnMap = try container.decodeIfPresent(Bool.self, forKey: .showObstaclesOnMap) ?? false
         showReportingPointsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showReportingPointsOnMap) ?? true
-        useOpenAIPPrimaryAirports = try container.decodeIfPresent(Bool.self, forKey: .useOpenAIPPrimaryAirports) ?? false
+        useOpenAIPPrimaryAirports = try container.decodeIfPresent(Bool.self, forKey: .useOpenAIPPrimaryAirports) ?? true
         showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false

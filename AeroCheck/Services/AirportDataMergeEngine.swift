@@ -65,6 +65,29 @@ enum AirportDataMergeEngine {
         )
     }
 
+    /// Convert OpenAIP airport frequencies into the app's `AirportFrequency` rows, keyed by ICAO (the
+    /// frequency store is looked up by ident). Skips airports without an ICAO or frequencies with a
+    /// non-numeric value. Used to give OpenAIP airports full callouts when the merge is on. (v4.1.0)
+    static func openAIPFrequencies(from airports: [OpenAIPAirport]) -> [AirportFrequency] {
+        var result: [AirportFrequency] = []
+        for apt in airports {
+            guard let icaoRaw = apt.icaoCode, !icaoRaw.isEmpty else { continue }
+            let icao = icaoRaw.uppercased()
+            let ref = stableNegativeID(apt.id)
+            for (i, freq) in apt.frequencies.enumerated() {
+                guard let mhz = Double(freq.value) else { continue }
+                result.append(AirportFrequency(
+                    id: stableNegativeID("\(apt.id)_freq_\(i)"),
+                    airportRef: ref,
+                    airportIdent: icao,
+                    type: freq.typeLabel,
+                    description: freq.name,
+                    frequencyMhz: mhz))
+            }
+        }
+        return result
+    }
+
     /// Deterministic, strictly-negative id from the OpenAIP `_id`, so OpenAIP-only airports never collide
     /// with positive OurAirports ids and stay stable across launches (FNV-1a — `Hasher` is per-run salted).
     static func stableNegativeID(_ s: String) -> Int {

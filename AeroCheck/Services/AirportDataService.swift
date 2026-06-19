@@ -121,7 +121,17 @@ class AirportDataService: ObservableObject {
         airports = merged   // didSet rebuilds the spatial grid
         airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
         airportCount = merged.count
-        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports (was OurAirports-only)")
+
+        // OpenAIP-primary frequencies: replace the OurAirports frequencies for every airport OpenAIP
+        // covers (so OpenAIP fields — incl. OpenAIP-only ones — get full callouts). OurAirports-only
+        // airports keep their frequencies. (v4.1.0)
+        let openAIPFreqsByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPFrequencies(from: oaip)) {
+            $0.airportIdent
+        }
+        for (ident, freqs) in openAIPFreqsByIdent {
+            frequenciesByAirport[ident] = freqs
+        }
+        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies")
     }
 
     // MARK: - Public Methods

@@ -142,6 +142,19 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         points.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
     }
 
+    /// Nearest reporting points to a coordinate (for briefings), within `maxDistanceNm`, closest first,
+    /// capped at `limit`. Compulsory points are surfaced ahead of on-request ones at equal distance.
+    func reportingPointsNear(to coord: CLLocationCoordinate2D, maxDistanceNm: Double, limit: Int) -> [ReportingPoint] {
+        points
+            .compactMap { p -> (ReportingPoint, Double)? in
+                let d = p.distanceNM(from: coord)
+                return d <= maxDistanceNm ? (p, d) : nil
+            }
+            .sorted { ($0.1, $0.0.compulsory ? 0 : 1) < ($1.1, $1.0.compulsory ? 0 : 1) }
+            .prefix(limit)
+            .map { $0.0 }
+    }
+
     func deleteData() {
         try? fileManager.removeItem(at: dataDirectory)
         points = []

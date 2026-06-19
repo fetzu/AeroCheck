@@ -269,6 +269,7 @@ enum L10n {
 
         // Departure procedure
         static let departureProcedure = String(localized: "briefing.departureProcedure")
+        static let reportingPoints = String(localized: "Reporting points")   // v4.1.0 (literal-keyed; FR in localization pass)
         static let firstTurn = String(localized: "briefing.firstTurn")
         static let levelOff = String(localized: "briefing.levelOff")
         static let toBeBriefed = String(localized: "briefing.toBeBriefed")

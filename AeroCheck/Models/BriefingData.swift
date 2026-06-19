@@ -102,6 +102,10 @@ struct BriefingContext {
     let destinationRunways: [Runway]
     let suggestedArrivalRunway: Runway?
 
+    // Nearby VFR reporting points (OpenAIP, v4.1.0) — empty when the layer isn't downloaded
+    let departureReportingPoints: [ReportingPoint]
+    let destinationReportingPoints: [ReportingPoint]
+
     // Wind data (if available)
     let currentWind: WindData?
 
@@ -129,6 +133,8 @@ struct BriefingContext {
             destinationAirport: nil,
             destinationRunways: [],
             suggestedArrivalRunway: nil,
+            departureReportingPoints: [],
+            destinationReportingPoints: [],
             currentWind: nil
         )
     }
@@ -190,6 +196,14 @@ struct BriefingContextBuilder {
             }
         }
 
+        // Nearby VFR reporting points around each field (OpenAIP, v4.1.0). Empty when the layer isn't
+        // downloaded; the briefing UI hides the section in that case.
+        let rpService = OpenAIPReportingPointDataService.shared
+        let departureReportingPoints = departureAirport
+            .map { rpService.reportingPointsNear(to: $0.coordinate, maxDistanceNm: 8, limit: 6) } ?? []
+        let destinationReportingPoints = destinationAirport
+            .map { rpService.reportingPointsNear(to: $0.coordinate, maxDistanceNm: 8, limit: 6) } ?? []
+
         // Build wind data if available
         var windData: BriefingContext.WindData?
         if let direction = windDirection, let speed = windSpeed {
@@ -207,6 +221,8 @@ struct BriefingContextBuilder {
             destinationAirport: destinationAirport,
             destinationRunways: destinationRunways,
             suggestedArrivalRunway: suggestedArrivalRunway,
+            departureReportingPoints: departureReportingPoints,
+            destinationReportingPoints: destinationReportingPoints,
             currentWind: windData
         )
     }

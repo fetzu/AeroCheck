@@ -38,10 +38,12 @@ final class DataStatusManagerTests: XCTestCase {
 
     // MARK: - Health contribution + reduction (weighting)
 
-    private func dataSet(urgency: DataSetUrgency, freshness: DataFreshness) -> DataSet {
-        DataSet(id: "x", displayName: "x", urgency: urgency, provenance: .community,
-                refreshPolicy: .smallSilentJSON, lastUpdated: nil, freshness: freshness,
-                sizeOnDisk: nil, coverage: [], isDownloaded: freshness != .missing)
+    private func dataSet(id: String = "x", urgency: DataSetUrgency, freshness: DataFreshness,
+                         refreshPolicy: DataSetRefreshPolicy = .smallSilentJSON,
+                         isDownloaded: Bool? = nil) -> DataSet {
+        DataSet(id: id, displayName: id, urgency: urgency, provenance: .community,
+                refreshPolicy: refreshPolicy, lastUpdated: nil, freshness: freshness,
+                sizeOnDisk: nil, coverage: [], isDownloaded: isDownloaded ?? (freshness != .missing))
     }
 
     func testPrimaryContributionMapping() {
@@ -78,8 +80,55 @@ final class DataStatusManagerTests: XCTestCase {
 
     final class FakeProvider: DataSetProvider {
         var dataSet: DataSet
+        var id: String { dataSet.id }
+        private(set) var refreshCount = 0
+        private(set) var deleteCount = 0
         init(_ d: DataSet) { dataSet = d }
         func makeDataSet(now: Date) -> DataSet { dataSet }
+        func refresh() async { refreshCount += 1 }
+        func delete() { deleteCount += 1 }
+    }
+
+    func testRefreshDispatchesToMatchingProviderOnly() async {
+        let net = NetworkMonitor(stub: .disconnected)
+        let a = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale))
+        let b = FakeProvider(dataSet(id: "b", urgency: .primary, freshness: .stale))
+        let manager = DataStatusManager(providers: [a, b], networkMonitor: net, now: { self.now })
+        await manager.refresh(manager.dataSets.first { $0.id == "a" }!)
+        XCTAssertEqual(a.refreshCount, 1)
+        XCTAssertEqual(b.refreshCount, 0)
+    }
+
+    func testDeleteAndRemoveAll() {
+        let net = NetworkMonitor(stub: .disconnected)
+        let a = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale))
+        let b = FakeProvider(dataSet(id: "b", urgency: .primary, freshness: .stale))
+        let manager = DataStatusManager(providers: [a, b], networkMonitor: net, now: { self.now })
+        manager.delete(manager.dataSets.first { $0.id == "b" }!)
+        XCTAssertEqual(b.deleteCount, 1)
+        XCTAssertEqual(a.deleteCount, 0)
+        manager.removeAll()
+        XCTAssertEqual(a.deleteCount, 1)
+        XCTAssertEqual(b.deleteCount, 2)
+    }
+
+    func testRefreshAllUpdatableRespectsGateAndSkipsTiles() async {
+        // Offline → gate forbids → nothing refreshes.
+        let offlineMon = NetworkMonitor(stub: .disconnected)
+        let p = FakeProvider(dataSet(id: "a", urgency: .primary, freshness: .stale, isDownloaded: true))
+        let m1 = DataStatusManager(providers: [p], networkMonitor: offlineMon, now: { self.now })
+        await m1.refreshAllUpdatable(cellularUpdatesEnabled: true)
+        XCTAssertEqual(p.refreshCount, 0)
+
+        // Wi-Fi → downloaded small-JSON refreshes; tiles are excluded from Update-all.
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+        let wifiMon = NetworkMonitor(stub: wifi)
+        let small = FakeProvider(dataSet(id: "small", urgency: .primary, freshness: .stale, refreshPolicy: .smallSilentJSON, isDownloaded: true))
+        let tile = FakeProvider(dataSet(id: "tile", urgency: .imagery, freshness: .stale, refreshPolicy: .largeTilesConfirmCellular, isDownloaded: true))
+        let m2 = DataStatusManager(providers: [small, tile], networkMonitor: wifiMon, now: { self.now })
+        await m2.refreshAllUpdatable(cellularUpdatesEnabled: true)
+        XCTAssertEqual(small.refreshCount, 1)
+        XCTAssertEqual(tile.refreshCount, 0)
     }
 
     func testManagerAggregatesAndReducesOnInit() {

@@ -22,6 +22,33 @@ enum L10n {
         static let tagline = String(localized: "app.tagline")
     }
 
+    // MARK: - Data & Storage (v4.1.0 Data Freshness)
+    // Literal-keyed strings: English renders immediately; FR translations are added in the
+    // localization pass (xcstrings), like other newly-introduced UI strings.
+    enum DataStorage {
+        static let title = String(localized: "Data & Storage")
+        static let subtitle = String(localized: "Currency & offline storage")
+        static let aeronauticalSection = String(localized: "Aeronautical data")
+        static let chartsSection = String(localized: "Offline charts")
+        static let storageSection = String(localized: "Storage")
+        static let statusFresh = String(localized: "Up to date")
+        static let statusAging = String(localized: "Update recommended")
+        static let statusStale = String(localized: "Out of date")
+        static let statusMissing = String(localized: "Not downloaded")
+        static func asOf(_ date: String) -> String { String(localized: "Data as of \(date)") }
+        static func coverage(_ regions: String) -> String { String(localized: "Coverage: \(regions)") }
+        static let coverageGlobal = String(localized: "Worldwide")
+        static let refresh = String(localized: "Refresh")
+        static let delete = String(localized: "Delete")
+        static let updateAll = String(localized: "Update all on Wi-Fi")
+        static let removeAll = String(localized: "Remove all downloads")
+        static func totalStorage(_ size: String) -> String { String(localized: "Total storage: \(size)") }
+        static let caveat = String(localized: "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight.")
+        static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
+        static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
+        static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
+    }
+
     // MARK: - Buttons
     enum Button {
         static let startFlight = String(localized: "button.startFlight")

@@ -56,7 +56,7 @@ enum DataSetRefreshPolicy { case smallSilentJSON, largeTilesConfirmCellular }
 /// trivially testable; refresh/delete live on the provider/service. (v4.1.0 Data Freshness)
 struct DataSet: Identifiable, Equatable {
     let id: String
-    let displayName: String       // TODO(PR3 hub): swap to L10n.DataFreshness.* keys
+    let displayName: String
     let urgency: DataSetUrgency
     let provenance: DataProvenance
     let refreshPolicy: DataSetRefreshPolicy
@@ -97,18 +97,26 @@ enum DataHealth: Int, Comparable {
 
 // MARK: - Provider
 
-/// A source that can describe its current dataset. Adapters wrap the existing services so the services
-/// themselves stay untouched in this increment. (v4.1.0 Data Freshness)
+/// A source that can describe AND act on its dataset. Adapters wrap the existing services so the
+/// services themselves stay untouched. (v4.1.0 Data Freshness)
 @MainActor
 protocol DataSetProvider {
+    /// Stable identifier; matches the `DataSet.id` this provider produces.
+    var id: String { get }
+    /// Snapshot the dataset's current currency/footprint.
     func makeDataSet(now: Date) -> DataSet
+    /// Refresh (download/update) the dataset, reusing the service's existing download path.
+    func refresh() async
+    /// Delete the dataset's on-disk cache.
+    func delete()
 }
 
 // MARK: - Manager
 
-/// The single freshness "brain": aggregates a `DataSet` per source and reduces them to the ambient
-/// Home-dot health. Foreground-only — `recompute()` runs at construction and (from a later increment)
-/// on launch / scenePhase `.active`; there are no background tasks. (v4.1.0 Data Freshness)
+/// The single freshness "brain": aggregates a `DataSet` per source, reduces them to the ambient
+/// Home-dot health, and dispatches refresh/delete to the owning provider. Foreground-only —
+/// `recompute()` runs at construction and (from PR 7) on launch / scenePhase `.active`; no background
+/// tasks. (v4.1.0 Data Freshness)
 @MainActor
 final class DataStatusManager: ObservableObject {
 
@@ -136,6 +144,38 @@ final class DataStatusManager: ObservableObject {
         dataSets = providers.map { $0.makeDataSet(now: stamp) }
         overallHealth = DataHealth.reduce(dataSets)
     }
+
+    /// Refresh a single dataset, then recompute the dot.
+    func refresh(_ dataSet: DataSet) async {
+        await providers.first { $0.id == dataSet.id }?.refresh()
+        recompute()
+    }
+
+    /// Delete a single dataset's cache, then recompute the dot.
+    func delete(_ dataSet: DataSet) {
+        providers.first { $0.id == dataSet.id }?.delete()
+        recompute()
+    }
+
+    /// Refresh every downloaded small-JSON dataset permitted on the current network (tiles are excluded
+    /// — they need an explicit size-shown confirmation). Backs the hub's "Update all". No-op when the
+    /// network gate forbids it.
+    func refreshAllUpdatable(cellularUpdatesEnabled: Bool) async {
+        guard DataRefreshGate.allowsSilentSmallRefresh(networkMonitor.conditions, cellularUpdatesEnabled: cellularUpdatesEnabled) else { return }
+        let stamp = now()
+        for provider in providers {
+            let set = provider.makeDataSet(now: stamp)
+            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded else { continue }
+            await provider.refresh()
+        }
+        recompute()
+    }
+
+    /// Delete every dataset's cache ("Remove all downloads"), then recompute.
+    func removeAll() {
+        providers.forEach { $0.delete() }
+        recompute()
+    }
 }
 
 // MARK: - Adapters for the existing services
@@ -144,9 +184,11 @@ final class DataStatusManager: ObservableObject {
 @MainActor
 struct OpenAIPAirspaceProvider: DataSetProvider {
     let service: OpenAIPDataService
+    var id: String { "openaip.airspace" }
+
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
-            id: "openaip.airspace",
+            id: id,
             displayName: "Airspace",
             urgency: .primary,
             provenance: .community,
@@ -158,15 +200,25 @@ struct OpenAIPAirspaceProvider: DataSetProvider {
             isDownloaded: service.isDataAvailable
         )
     }
+
+    func refresh() async {
+        let countries = service.downloadedCountries
+        guard !countries.isEmpty else { return }   // nothing downloaded → nothing to refresh
+        await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
 }
 
 /// OurAirports airport database — global, slower-moving.
 @MainActor
 struct OurAirportsProvider: DataSetProvider {
     let service: AirportDataService
+    var id: String { "ourairports.airports" }
+
     func makeDataSet(now: Date) -> DataSet {
         DataSet(
-            id: "ourairports.airports",
+            id: id,
             displayName: "Airports",
             urgency: .primary,
             provenance: .community,
@@ -178,6 +230,9 @@ struct OurAirportsProvider: DataSetProvider {
             isDownloaded: service.isDataAvailable
         )
     }
+
+    func refresh() async { await service.downloadData() }
+    func delete() { service.deleteData() }
 }
 
 /// Swiss ICAO chart tiles — cartographic IMAGERY on a yearly (April) cycle with its own update nudge,
@@ -186,12 +241,14 @@ struct OurAirportsProvider: DataSetProvider {
 @MainActor
 struct SwissChartsProvider: DataSetProvider {
     let manager: OfflineMapManager
+    var id: String { "swisstopo.icao" }
+
     func makeDataSet(now: Date) -> DataSet {
         let freshness: DataFreshness = manager.isCacheAvailable
             ? (manager.needsYearlyUpdate ? .aging : .fresh)
             : .missing
         return DataSet(
-            id: "swisstopo.icao",
+            id: id,
             displayName: "Swiss ICAO Chart",
             urgency: .imagery,
             provenance: .official,
@@ -203,4 +260,7 @@ struct SwissChartsProvider: DataSetProvider {
             isDownloaded: manager.isCacheAvailable
         )
     }
+
+    func refresh() async { await manager.downloadICAOChart() }
+    func delete() { manager.deleteCache() }
 }

@@ -114,6 +114,7 @@
 		I1000001211111110000001 /* AircraftSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000001 /* AircraftSettingsView.swift */; };
 		I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000002 /* ChecklistFlightSettingsView.swift */; };
 		I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* NavigationMapsSettingsView.swift */; };
+		I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000010 /* DataStorageSettingsView.swift */; };
 		I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000004 /* FlightPlanningSettingsView.swift */; };
 		I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000005 /* SyncDataSettingsView.swift */; };
 		I1000001211111110000006 /* AboutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000006 /* AboutSettingsView.swift */; };
@@ -286,6 +287,7 @@
 		I1000001111111110000001 /* AircraftSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000002 /* ChecklistFlightSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistFlightSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000003 /* NavigationMapsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapsSettingsView.swift; sourceTree = "<group>"; };
+		I1000001111111110000010 /* DataStorageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStorageSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000004 /* FlightPlanningSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanningSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000005 /* SyncDataSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncDataSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000006 /* AboutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsView.swift; sourceTree = "<group>"; };
@@ -460,6 +462,7 @@
 				I1000001111111110000002 /* ChecklistFlightSettingsView.swift */,
 				I1000001111111110000004 /* FlightPlanningSettingsView.swift */,
 				I1000001111111110000003 /* NavigationMapsSettingsView.swift */,
+				I1000001111111110000010 /* DataStorageSettingsView.swift */,
 				I1000001111111110000005 /* SyncDataSettingsView.swift */,
 				2E25D9E77A5545DFBFE6D89D /* CompanionSettingsView.swift */,
 			);
@@ -829,6 +832,7 @@
 				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,
 				I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */,
 				I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */,
+				I1000001211111110000010 /* DataStorageSettingsView.swift in Sources */,
 				I1000001211111110000004 /* FlightPlanningSettingsView.swift in Sources */,
 				I1000001211111110000005 /* SyncDataSettingsView.swift in Sources */,
 				I1000001211111110000006 /* AboutSettingsView.swift in Sources */,

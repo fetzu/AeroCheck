@@ -2,6 +2,17 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+/// Reliable coloured SF-Symbol image for map annotations: bakes the colour into the symbol via a palette
+/// configuration. `UIImage(systemName:).withTintColor(_:renderingMode:.alwaysOriginal)` on an
+/// `MKAnnotationView.image` renders BLACK on iOS 26 — so every airport/navaid/obstacle/RP marker came out
+/// black. The palette config colours the glyph at creation time and is unaffected. (v4.1.0 fix)
+func aeroMarkerSymbol(_ name: String, color: UIColor, pointSize: CGFloat,
+                      weight: UIImage.SymbolWeight = .semibold) -> UIImage? {
+    let config = UIImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
+        .applying(UIImage.SymbolConfiguration(paletteColors: [color]))
+    return UIImage(systemName: name, withConfiguration: config)
+}
+
 
 // MARK: - Map Layer Types
 
@@ -3192,11 +3203,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
                 }
                 navaidView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.9)
-                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
-                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
                 return navaidView
             }
 
@@ -3211,11 +3218,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
                 }
                 obstacleView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                let color = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.9)
-                if let image = UIImage(systemName: "exclamationmark.triangle.fill", withConfiguration: config) {
-                    obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
                 return obstacleView
             }
 
@@ -3230,12 +3233,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                     rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
                 }
                 rpView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-                let color = UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 0.9)
                 let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
-                if let image = UIImage(systemName: symbol, withConfiguration: config) {
-                    rpView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
             }
 
@@ -3394,10 +3393,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 color = UIColor.gray
             }
 
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
+            annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
@@ -4370,11 +4366,7 @@ struct SwissMapView: UIViewRepresentable {
                     navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
                 }
                 navaidView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.9)
-                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
-                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
                 return navaidView
             }
 
@@ -4389,11 +4381,7 @@ struct SwissMapView: UIViewRepresentable {
                     obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
                 }
                 obstacleView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                let color = UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 0.9)
-                if let image = UIImage(systemName: "exclamationmark.triangle.fill", withConfiguration: config) {
-                    obstacleView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
                 return obstacleView
             }
 
@@ -4408,12 +4396,8 @@ struct SwissMapView: UIViewRepresentable {
                     rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
                 }
                 rpView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-                let color = UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 0.9)
                 let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
-                if let image = UIImage(systemName: symbol, withConfiguration: config) {
-                    rpView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
             }
 
@@ -4574,10 +4558,7 @@ struct SwissMapView: UIViewRepresentable {
                 color = UIColor.gray
             }
 
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
+            annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil

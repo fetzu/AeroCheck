@@ -65,6 +65,8 @@ struct FlightPlanMapBuilderView: View {
     enum RightTab { case waypoints, conflicts }
     @State private var rightTab: RightTab = .waypoints
     @State private var profileCollapsed = false
+    @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
+    @State private var isPrefetchingTrip = false
 
     /// Live plan from the manager (single source of truth).
     private var plan: FlightPlan? {
@@ -72,6 +74,89 @@ struct FlightPlanMapBuilderView: View {
     }
 
     private var waypoints: [FlightPlanWaypoint] { plan?.waypoints ?? [] }
+
+    // MARK: - Trip-aware prefetch (v4.1.0)
+
+    /// Per-country OpenAIP layers the route crosses but that aren't fully downloaded. Computed from the
+    /// services directly (the builder reaches the singletons + the injected airspace service), avoiding
+    /// the fragile env-injection of DataStatusManager through this full-screen cover.
+    private var tripNeededCountries: [String] {
+        guard waypoints.count >= 2 else { return [] }
+        let routeCountries = RouteDataCalculator.countries(crossing: waypoints.map { $0.coordinate })
+        guard !routeCountries.isEmpty else { return [] }
+        let coverage: [[String]] = [
+            openAIPDataService.downloadedCountries,
+            OpenAIPNavaidDataService.shared.downloadedCountries,
+            OpenAIPObstacleDataService.shared.downloadedCountries,
+            OpenAIPReportingPointDataService.shared.downloadedCountries,
+            OpenAIPAirportDataService.shared.downloadedCountries,
+        ]
+        return routeCountries.filter { country in coverage.contains { !$0.contains(country) } }
+    }
+
+    /// Download every per-country layer for the route's missing countries (merged with what's cached).
+    private func prefetchTripData() async {
+        let needed = tripNeededCountries
+        guard !needed.isEmpty else { return }
+        isPrefetchingTrip = true
+        func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
+        await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries))
+        await OpenAIPNavaidDataService.shared.downloadData(for: union(OpenAIPNavaidDataService.shared.downloadedCountries))
+        await OpenAIPObstacleDataService.shared.downloadData(for: union(OpenAIPObstacleDataService.shared.downloadedCountries))
+        await OpenAIPReportingPointDataService.shared.downloadData(for: union(OpenAIPReportingPointDataService.shared.downloadedCountries))
+        await OpenAIPAirportDataService.shared.downloadData(for: union(OpenAIPAirportDataService.shared.downloadedCountries))
+        isPrefetchingTrip = false
+    }
+
+    /// Floating, dismissible banner offered when the route crosses areas without downloaded data.
+    @ViewBuilder
+    private var tripDataBanner: some View {
+        let needed = tripNeededCountries
+        if !tripBannerDismissed, !needed.isEmpty {
+            HStack(spacing: 10) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.aviationGold)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L10n.Nav.tripDataMissing)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primaryText)
+                    Text(needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", "))
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if isPrefetchingTrip {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button(L10n.Settings.downloadData) {
+                        Task { await prefetchTripData() }
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.aviationGold)
+                    Button {
+                        tripBannerDismissed = true
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(6)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.aviationGold.opacity(0.35), lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -98,6 +183,8 @@ struct FlightPlanMapBuilderView: View {
                 }
             }
             .background(Color.cockpitBackground)
+            .overlay(alignment: .top) { tripDataBanner }
+            .animation(.easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty)
             .navigationBarTitleDisplayMode(.inline)
             // Direction B: the bar stays, but the dead "Flight plan" title is replaced by the live
             // route summary, so the right column drops its summary row and starts at the toggle. (#4)
@@ -1537,11 +1624,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                     view = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
                 view.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-                let color = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.9)
-                if let image = UIImage(systemName: "airplane", withConfiguration: config) {
-                    view.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                view.image = aeroMarkerSymbol("airplane", color: UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0), pointSize: 13, weight: .medium)
                 let addButton = UIButton(type: .contactAdd)
                 view.rightCalloutAccessoryView = addButton
                 return view
@@ -1557,11 +1640,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                     navaidView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
                 navaidView.canShowCallout = true
-                let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                let color = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 0.95)   // aviation gold
-                if let image = UIImage(systemName: "hexagon", withConfiguration: config) {
-                    navaidView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-                }
+                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
                 return navaidView
             }
 

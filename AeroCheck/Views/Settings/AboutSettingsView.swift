@@ -1,10 +1,12 @@
 import SwiftUI
+import CoreLocation
 
 /// Settings sub-page for about info and developer options
 struct AboutSettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    @EnvironmentObject var locationManager: LocationManager
 
     @Environment(\.openURL) private var openURL
 
@@ -13,6 +15,7 @@ struct AboutSettingsView: View {
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
     @State private var marketingMode: Bool = false
+    @State private var simulateLSZS: Bool = false   // dev: hold a static fix at LSZS to test briefings
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
     private let tint: Color = .secondaryText
@@ -209,6 +212,21 @@ struct AboutSettingsView: View {
                                   tint: tint, isOn: Binding(
                                     get: { appState.settings.useOpenAIPPrimaryAirports },
                                     set: { appState.settings.useOpenAIPPrimaryAirports = $0; appState.saveSettings() }))
+
+                // v4.1.0: hold a static GPS fix at LSZS (Samedan) so the departure briefing can be tested
+                // without being at an airport. Reuses the marketing static-fix injector.
+                SettingsToggleRow(icon: "location.viewfinder", title: L10n.Settings.simulateLSZS,
+                                  tint: tint, isOn: Binding(
+                                    get: { simulateLSZS },
+                                    set: { on in
+                                        simulateLSZS = on
+                                        if on {
+                                            locationManager.injectMarketingStaticFix(
+                                                CLLocation(latitude: 46.533859, longitude: 9.883783))
+                                        } else {
+                                            locationManager.clearGPSStatusOverride()
+                                        }
+                                    }))
 
                 SettingsToggleRow(icon: "person.crop.circle.badge.xmark", title: L10n.Settings.forceNotSubscribed,
                                   tint: tint, isOn: $subscriptionManager.debugForceNotSubscribed)

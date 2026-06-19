@@ -525,6 +525,7 @@ enum L10n {
         // Developer Options
         static let marketingMode = String(localized: "settings.developer.marketingMode")
         static let openAIPPrimaryAirports = String(localized: "OpenAIP-primary airports")   // v4.1.0 dev/validation flag (literal-keyed)
+        static let simulateLSZS = String(localized: "Simulate position: LSZS (Samedan)")   // v4.1.0 dev (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
         static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")
@@ -1063,6 +1064,7 @@ enum L10n {
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
+        static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
         static let resumeLeg = String(localized: "nav.resumeLeg")
         static let resumeLegTitle = String(localized: "nav.resumeLegTitle")
         static let resumeLegMessage = String(localized: "nav.resumeLegMessage")

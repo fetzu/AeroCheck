@@ -394,3 +394,32 @@ struct OpenAIPNavaidProvider: DataSetProvider {
 
     func delete() { service.deleteData() }
 }
+
+struct OpenAIPObstacleProvider: DataSetProvider {
+    let service: OpenAIPObstacleDataService
+    var id: String { "openaip.obstacles" }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.obstaclesName,
+            detail: L10n.DataStorage.obstaclesDetail,
+            urgency: .primary,
+            provenance: .community,
+            refreshPolicy: .smallSilentJSON,
+            lastUpdated: service.lastUpdated,
+            freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
+            sizeOnDisk: nil,
+            coverage: service.downloadedCountries,
+            isDownloaded: service.isDataAvailable
+        )
+    }
+
+    func refresh() async {
+        let countries = service.downloadedCountries
+        guard !countries.isEmpty else { return }
+        await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
+}

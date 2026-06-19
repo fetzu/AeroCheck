@@ -517,10 +517,11 @@ struct OpenAIPDownloadSheet: View {
         let countries = Array(selectedCountries).sorted()
         appState.settings.openAIPOfflineCountries = countries
         appState.saveSettings()
+        let obstacleService = OpenAIPObstacleDataService.shared
 
         Task {
             if tilesAndData {
-                // Download tiles + airspace data + navaids in parallel
+                // Download tiles + airspace data + navaids + obstacles in parallel
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await openAIPCacheManager.downloadTiles(for: countries)
@@ -531,16 +532,22 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await openAIPNavaidDataService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await obstacleService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
-                // Download structured data only (airspace + navaids — small, ~100s KB)
+                // Download structured data only (airspace + navaids + obstacles — small, ~100s KB)
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await openAIPDataService.downloadData(for: countries)
                     }
                     group.addTask {
                         await openAIPNavaidDataService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await obstacleService.downloadData(for: countries)
                     }
                     await group.waitForAll()
                 }

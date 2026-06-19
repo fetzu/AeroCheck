@@ -57,6 +57,7 @@ struct AeroCheckApp: App {
             providers: [
                 OpenAIPAirspaceProvider(service: openAIP),
                 OpenAIPNavaidProvider(service: navaids),
+                OpenAIPObstacleProvider(service: OpenAIPObstacleDataService.shared),
                 OurAirportsProvider(service: airports),
                 SwissChartsProvider(manager: offline),
                 OpenAIPTilesProvider(manager: openAIPCache),
@@ -155,6 +156,8 @@ struct AeroCheckApp: App {
 
                     // v4.1.0: preload navaids so the flight-plan declination lookup has data in memory.
                     await openAIPNavaidDataService.ensureLoaded()
+                    // v4.1.0: preload obstacles so the nav-map markers have data in memory.
+                    await OpenAIPObstacleDataService.shared.ensureLoaded()
 
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {

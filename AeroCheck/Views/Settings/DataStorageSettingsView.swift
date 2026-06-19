@@ -335,6 +335,7 @@ struct DataStorageSettingsView: View {
     private static let directoryByDataSetID: [String: String] = [
         "openaip.airspace": "OpenAIPData",
         "openaip.navaids": "OpenAIPNavaidData",
+        "openaip.obstacles": "OpenAIPObstacleData",
         "ourairports.airports": "AirportData",
     ]
 

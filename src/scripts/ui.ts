@@ -4,14 +4,15 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 type Device = 'ipad' | 'iphone';
 
 function applyDevice(d: Device): void {
-  document.body.dataset.device = d;
+  document.documentElement.dataset.device = d;
   document.querySelectorAll<HTMLButtonElement>('.device-toggle button').forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.device === d));
   });
 }
 
-const saved = localStorage.getItem('ac-device') as Device | null;
-applyDevice(saved === 'iphone' ? 'iphone' : 'ipad');
+// The inline <head> script (Base.astro) already set the default on <html> before paint — a saved
+// choice, otherwise phone-width (≤600px) → iphone. Re-apply it so the toggle buttons reflect it.
+applyDevice(document.documentElement.dataset.device === 'iphone' ? 'iphone' : 'ipad');
 document.querySelectorAll<HTMLButtonElement>('.device-toggle button').forEach((b) => {
   b.addEventListener('click', () => {
     const d = (b.dataset.device as Device) || 'ipad';

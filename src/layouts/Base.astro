@@ -8,7 +8,7 @@ const { site, lang, title } = Astro.props;
 const pageTitle = title ? `${title} — ${site.brand}` : site.meta.title;
 ---
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} data-device="ipad">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -22,8 +22,21 @@ const pageTitle = title ? `${title} — ${site.brand}` : site.meta.title;
   <meta property="og:image" content="/assets/appicon.png" />
   <link rel="alternate" hreflang="en" href="https://aerocheck.app/" />
   <link rel="alternate" hreflang="fr" href="https://aerocheck.app/fr/" />
+  <script is:inline>
+    // Pick the default device mockup BEFORE first paint (no flash): a saved choice wins, otherwise
+    // phone-width visitors (≤600px) get the iPhone shots, everyone else the iPad shots.
+    (function () {
+      try {
+        var d = localStorage.getItem('ac-device');
+        if (d !== 'ipad' && d !== 'iphone') {
+          d = window.matchMedia('(max-width: 600px)').matches ? 'iphone' : 'ipad';
+        }
+        document.documentElement.dataset.device = d;
+      } catch (e) {}
+    })();
+  </script>
 </head>
-<body data-device="ipad">
+<body>
   <Nav site={site} lang={lang} />
   <main><slot /></main>
   <Footer site={site} />

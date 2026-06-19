@@ -124,11 +124,12 @@ section { padding: 64px 0; }
   padding: 2px 8px;
 }
 
-/* Global device toggle: one segmented control sets body[data-device]; every device pair
-   (hero + each feature row) follows it. Default is iPad. */
+/* Global device toggle: one segmented control sets :root[data-device]; every device pair
+   (hero + each feature row) follows it. Default is iPad, except phone-width visitors get iPhone
+   (set before first paint by the inline script in Base.astro <head>). */
 .dv-pair .dv--iphone { display: none; }
-body[data-device="iphone"] .dv-pair .dv--ipad { display: none; }
-body[data-device="iphone"] .dv-pair .dv--iphone { display: block; }
+:root[data-device="iphone"] .dv-pair .dv--ipad { display: none; }
+:root[data-device="iphone"] .dv-pair .dv--iphone { display: block; }
 
 .device-toggle { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px; gap: 2px; }
 .device-toggle button {

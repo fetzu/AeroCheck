@@ -9,8 +9,8 @@ struct OpenAIPAirportCacheMetadata: Codable {
 
 /// Manages OpenAIP AIRPORT data via the keyless, per-country GeoJSON exports
 /// (`storage.googleapis.com/.../{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
-/// Feeds the flag-gated `AirportDataMergeEngine`; on its own it changes nothing (the app stays on the
-/// OurAirports backbone until `useOpenAIPPrimaryAirports` is enabled). (v4.1.0, increment 9)
+/// Feeds `AirportDataMergeEngine` (OpenAIP is the primary airport source; OurAirports gap-fills). When
+/// no OpenAIP airport data is downloaded, the merge is a no-op and OurAirports remains the backbone. (v4.1.0)
 @MainActor
 final class OpenAIPAirportDataService: ObservableObject {
     static let shared = OpenAIPAirportDataService()

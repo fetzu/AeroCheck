@@ -74,6 +74,9 @@ struct FlightPlanMapBuilderView: View {
     @State private var profileCollapsed = false
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
     @State private var isPrefetchingTrip = false
+    /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
+    /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
+    @State private var routeCountriesCache: [String] = []
 
     /// Live plan from the manager (single source of truth).
     private var plan: FlightPlan? {
@@ -87,10 +90,16 @@ struct FlightPlanMapBuilderView: View {
     /// Per-country OpenAIP layers the route crosses but that aren't fully downloaded. Computed from the
     /// services directly (the builder reaches the singletons + the injected airspace service), avoiding
     /// the fragile env-injection of DataStatusManager through this full-screen cover.
+    /// Recompute the cached route→countries set (the expensive part). Call on appear + route change.
+    private func updateRouteCountriesCache() {
+        routeCountriesCache = waypoints.count >= 2
+            ? RouteDataCalculator.countries(crossing: waypoints.map { $0.coordinate })
+            : []
+    }
+
     private var tripNeededCountries: [String] {
-        guard waypoints.count >= 2 else { return [] }
-        let routeCountries = RouteDataCalculator.countries(crossing: waypoints.map { $0.coordinate })
-        guard !routeCountries.isEmpty else { return [] }
+        guard waypoints.count >= 2, !routeCountriesCache.isEmpty else { return [] }
+        let routeCountries = routeCountriesCache
         // The SAME 4 per-country layers DataStatusManager.tripCountriesNeedingData checks (airspace +
         // navaids + obstacles + reporting points). The OpenAIP airport layer is intentionally excluded:
         // it's brand-new (existing downloads lack it, so it would nag forever) and it ships with the full
@@ -254,13 +263,14 @@ struct FlightPlanMapBuilderView: View {
                 scheduleNavaidUpdate()
             }
             initialFitIfNeeded()
+            updateRouteCountriesCache()
             scheduleAirspaceUpdate()
             scheduleTerrainUpdate()
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
-        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate() }
+        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); updateRouteCountriesCache() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
     }
 
@@ -1768,7 +1778,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                 }
                 rpView.canShowCallout = true
                 let symbol = rpAnnotation.point.compulsory ? "triangle.fill" : "triangle"
-                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 11)
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
                 return rpView
             }
 
@@ -1782,7 +1792,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
                     obstacleView = MKAnnotationView(annotation: annotation, reuseIdentifier: id)
                 }
                 obstacleView.canShowCallout = true
-                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 12)
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
                 return obstacleView
             }
 

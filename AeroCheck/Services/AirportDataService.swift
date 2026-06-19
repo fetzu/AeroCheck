@@ -102,19 +102,15 @@ class AirportDataService: ObservableObject {
     func ensureLoaded() async {
         guard !isLoaded else { return }
         await loadFromLocal()
-        await applyOpenAIPMergeIfEnabled()
+        await applyOpenAIPMergeIfAvailable()
     }
 
-    /// Reads `AppSettings.useOpenAIPPrimaryAirports`; set in `App.init`. Default OFF so the OpenAIP
-    /// merge stays inert (OurAirports remains the sole backbone) until validated. (v4.1.0, increment 9)
-    static var useOpenAIPPrimaryProvider: () -> Bool = { false }
-
-    /// Flag-gated: when enabled and OpenAIP airport data is downloaded, fold it into the loaded backbone
-    /// (identity + position; OpenAIP wins on ICAO match within tolerance, OurAirports gap-fills). Re-sets
-    /// `airports` (didSet rebuilds the spatial grid). Default OFF → no-op. Idempotent — safe to call again
-    /// from `App.task` once the flag provider is wired, in case an early `ensureLoaded` ran first (review #4).
-    func applyOpenAIPMergeIfEnabled() async {
-        guard AirportDataService.useOpenAIPPrimaryProvider(), !airports.isEmpty else { return }
+    /// OpenAIP is the primary airport source: whenever OpenAIP airport data is downloaded, fold it into
+    /// the loaded backbone (identity + position + frequencies; OpenAIP wins on ICAO match within
+    /// tolerance, OurAirports gap-fills). No-op when OpenAIP airport data isn't downloaded → OurAirports
+    /// is the fallback. Re-sets `airports` (didSet rebuilds the spatial grid). Idempotent. (v4.1.0)
+    func applyOpenAIPMergeIfAvailable() async {
+        guard !airports.isEmpty else { return }
         await OpenAIPAirportDataService.shared.ensureLoaded()
         let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
         guard !oaip.isEmpty else { return }
@@ -220,7 +216,7 @@ class AirportDataService: ObservableObject {
             downloadProgress = 1.0
             AppLog.airportData.debugLine("Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
 
-            await applyOpenAIPMergeIfEnabled()
+            await applyOpenAIPMergeIfAvailable()
 
         } catch {
             downloadError = error.localizedDescription

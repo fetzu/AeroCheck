@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Pure, testable engine that folds OpenAIP airports into the OurAirports `Airport` backbone, behind the
-/// `useOpenAIPPrimaryAirports` flag. Computed ONCE at load (never per-query), then cached in
+/// OpenAIP-primary airport backbone. Computed ONCE at load (never per-query), then cached in
 /// `AirportDataService`. (v4.1.0, increment 9 — flag-gated; default OFF until validated.)
 ///
 /// Scope: airport IDENTITY + POSITION only (the `Airport` struct). OpenAIP's runways and frequencies

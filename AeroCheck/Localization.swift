@@ -273,7 +273,9 @@ enum L10n {
 
         // Departure procedure
         static let departureProcedure = String(localized: "briefing.departureProcedure")
-        static let reportingPoints = String(localized: "Reporting points")   // v4.1.0 (literal-keyed; FR in localization pass)
+        static let reportingPoints = String(localized: "Reporting points")   // v4.1.0 (literal-keyed)
+        static let compulsory = String(localized: "Compulsory")   // v4.1.0 (review #15)
+        static let onRequest = String(localized: "On request")
         static let firstTurn = String(localized: "briefing.firstTurn")
         static let levelOff = String(localized: "briefing.levelOff")
         static let toBeBriefed = String(localized: "briefing.toBeBriefed")
@@ -524,7 +526,6 @@ enum L10n {
 
         // Developer Options
         static let marketingMode = String(localized: "settings.developer.marketingMode")
-        static let openAIPPrimaryAirports = String(localized: "OpenAIP-primary airports")   // v4.1.0 dev/validation flag (literal-keyed)
         static let simulateLSZS = String(localized: "Simulate position: LSZS (Samedan)")   // v4.1.0 dev (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")

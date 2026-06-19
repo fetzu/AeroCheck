@@ -1066,7 +1066,7 @@ struct DepartureBriefingContent: View {
                         BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
                             ForEach(context.departureReportingPoints) { rp in
                                 BriefingItem(label: rp.name ?? "—",
-                                             value: rp.compulsory ? String(localized: "Compulsory") : String(localized: "On request"))
+                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
                             }
                         }
                     }
@@ -1139,7 +1139,7 @@ struct ApproachBriefingContent: View {
                         BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
                             ForEach(context.destinationReportingPoints) { rp in
                                 BriefingItem(label: rp.name ?? "—",
-                                             value: rp.compulsory ? String(localized: "Compulsory") : String(localized: "On request"))
+                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
                             }
                         }
                     }

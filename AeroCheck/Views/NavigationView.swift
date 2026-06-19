@@ -889,6 +889,19 @@ struct NavigationMapView: View {
                     .floatingChromeCircle()
             }
             .accessibilityLabel(L10n.Nav.layers)
+            .overlay(alignment: .topTrailing) {
+                // On-map staleness cue on iPhone: the airspace toggle lives in the Layers sheet here, so
+                // the amber "stale airspace" badge rides the Layers button. (review #10)
+                if airspaceDataNeedsAttention {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.aviationAmber)
+                        .padding(2)
+                        .background(Color.panelBackground, in: Circle())
+                        .offset(x: 4, y: -4)
+                        .accessibilityHidden(true)
+                }
+            }
             .sheet(isPresented: $showOverlaysSheet) {
                 OverlaysSheet().environmentObject(appState)
             }

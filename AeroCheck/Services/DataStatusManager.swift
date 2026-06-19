@@ -321,7 +321,9 @@ struct OurAirportsProvider: DataSetProvider {
             detail: L10n.DataStorage.airportsDetail,
             urgency: .primary,
             provenance: .community,
-            refreshPolicy: .smallSilentJSON,
+            // The OurAirports refresh re-downloads the full ~40K-airport CSV (multi-MB), so it must NOT be
+            // silently auto-refreshed on cellular — treat it like the large/manual tile downloads. (review #9)
+            refreshPolicy: .largeTilesConfirmCellular,
             lastUpdated: service.lastUpdated,
             freshness: FreshnessThresholds.airports.freshness(lastUpdated: service.lastUpdated, now: now),
             sizeOnDisk: nil,
@@ -435,6 +437,7 @@ struct OpenAIPNavaidProvider: DataSetProvider {
     func delete() { service.deleteData() }
 }
 
+@MainActor
 struct OpenAIPObstacleProvider: DataSetProvider {
     let service: OpenAIPObstacleDataService
     var id: String { "openaip.obstacles" }
@@ -468,6 +471,7 @@ struct OpenAIPObstacleProvider: DataSetProvider {
     func delete() { service.deleteData() }
 }
 
+@MainActor
 struct OpenAIPReportingPointProvider: DataSetProvider {
     let service: OpenAIPReportingPointDataService
     var id: String { "openaip.reportingpoints" }

@@ -49,7 +49,7 @@ final class ReportingPointAnnotation: NSObject, MKAnnotation {
     var title: String? { point.name ?? String(localized: "Reporting point") }
     var subtitle: String? {
         if let remarks = point.remarks, !remarks.isEmpty { return remarks }
-        return point.compulsory ? String(localized: "Compulsory") : String(localized: "On request")
+        return point.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest
     }
 }
 

@@ -95,12 +95,10 @@ struct AeroCheckApp: App {
                     guard !isInitialized else { return }
                     isInitialized = true
 
-                    // v4.1.0 (increment 9): wire the flag-gated OpenAIP-primary airport merge BEFORE any
-                    // airport load below. If an early ensureLoaded (widget/deep-link cold start via
-                    // FlightLauncher) already loaded airports with the default { false } provider, re-apply
-                    // the merge now that the real flag is wired — else it'd be skipped for the session (review #4).
-                    AirportDataService.useOpenAIPPrimaryProvider = { appState.settings.useOpenAIPPrimaryAirports }
-                    await airportDataService.applyOpenAIPMergeIfEnabled()
+                    // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
+                    // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
+                    // before OpenAIP airport data was ready; idempotent + a no-op without OpenAIP data.
+                    await airportDataService.applyOpenAIPMergeIfAvailable()
 
                     // Load subscription products and aircraft data in parallel with timeouts
                     // Use TaskGroup to handle errors gracefully and not block startup on network issues

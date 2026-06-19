@@ -206,13 +206,6 @@ struct AboutSettingsView: View {
                 SettingsToggleRow(icon: "clock.badge.xmark", title: L10n.DataStorage.simulateStaleData,
                                   tint: tint, isOn: $dataStatusManager.debugForceStale)
 
-                // v4.1.0 (increment 9): merge OpenAIP airports in as the primary source. Default OFF;
-                // applies on the next airport-data load (start a flight / open the map after enabling).
-                SettingsToggleRow(icon: "airplane.circle", title: L10n.Settings.openAIPPrimaryAirports,
-                                  tint: tint, isOn: Binding(
-                                    get: { appState.settings.useOpenAIPPrimaryAirports },
-                                    set: { appState.settings.useOpenAIPPrimaryAirports = $0; appState.saveSettings() }))
-
                 // v4.1.0: hold a static GPS fix at LSZS (Samedan) so the departure briefing can be tested
                 // without being at an airport. Reuses the marketing static-fix injector.
                 SettingsToggleRow(icon: "location.viewfinder", title: L10n.Settings.simulateLSZS,

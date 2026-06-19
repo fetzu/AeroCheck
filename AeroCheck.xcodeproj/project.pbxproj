@@ -17,6 +17,7 @@
 		A500000D111111110000002 /* ActiveFlightStatePersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000D111111110000001 /* ActiveFlightStatePersistenceTests.swift */; };
 		A500000E111111110000002 /* AirportCSVParseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000E111111110000001 /* AirportCSVParseTests.swift */; };
 		A500000F111111110000002 /* ExternalRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500000F111111110000001 /* ExternalRequestTests.swift */; };
+		A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000025111111110000001 /* DataStatusManagerTests.swift */; };
 		A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000024111111110000001 /* NetworkMonitorTests.swift */; };
 		A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000010111111110000001 /* DatastoreMigrationTests.swift */; };
 		A5000011111111110000002 /* FlightMergeValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000011111111110000001 /* FlightMergeValidationTests.swift */; };
@@ -57,6 +58,7 @@
 		A1000001211111110000010 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000010 /* LocationManager.swift */; };
 		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
+		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
 		A1000001211111110000063 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000063 /* NetworkMonitor.swift */; };
 		A1000001211111110000098 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000098 /* WidgetBridge.swift */; };
 		A1000001211111110000011 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000011 /* DesignSystem.swift */; };
@@ -190,6 +192,7 @@
 		A500000D111111110000001 /* ActiveFlightStatePersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveFlightStatePersistenceTests.swift; sourceTree = "<group>"; };
 		A500000E111111110000001 /* AirportCSVParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportCSVParseTests.swift; sourceTree = "<group>"; };
 		A500000F111111110000001 /* ExternalRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequestTests.swift; sourceTree = "<group>"; };
+		A5000025111111110000001 /* DataStatusManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManagerTests.swift; sourceTree = "<group>"; };
 		A5000024111111110000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		A5000010111111110000001 /* DatastoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastoreMigrationTests.swift; sourceTree = "<group>"; };
 		A5000011111111110000001 /* FlightMergeValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightMergeValidationTests.swift; sourceTree = "<group>"; };
@@ -233,6 +236,7 @@
 		A1000001111111110000010 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
+		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000063 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A1000001111111110000098 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		A1000001111111110000011 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
@@ -348,6 +352,7 @@
 				A500000D111111110000001 /* ActiveFlightStatePersistenceTests.swift */,
 				A500000E111111110000001 /* AirportCSVParseTests.swift */,
 				A500000F111111110000001 /* ExternalRequestTests.swift */,
+				A5000025111111110000001 /* DataStatusManagerTests.swift */,
 				A5000024111111110000001 /* NetworkMonitorTests.swift */,
 				A5000010111111110000001 /* DatastoreMigrationTests.swift */,
 				A5000011111111110000001 /* FlightMergeValidationTests.swift */,
@@ -486,6 +491,7 @@
 				A1000001111111110000010 /* LocationManager.swift */,
 				A1000001111111110000099 /* FlightLauncher.swift */,
 				A1000001111111110000050 /* ExternalRequest.swift */,
+				A1000001111111110000064 /* DataStatusManager.swift */,
 				A1000001111111110000063 /* NetworkMonitor.swift */,
 				A1000001111111110000098 /* WidgetBridge.swift */,
 				A1000001111111110000019 /* OfflineMapManager.swift */,
@@ -739,6 +745,7 @@
 				A500000D111111110000002 /* ActiveFlightStatePersistenceTests.swift in Sources */,
 				A500000E111111110000002 /* AirportCSVParseTests.swift in Sources */,
 				A500000F111111110000002 /* ExternalRequestTests.swift in Sources */,
+				A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */,
 				A5000024111111110000002 /* NetworkMonitorTests.swift in Sources */,
 				A5000010111111110000002 /* DatastoreMigrationTests.swift in Sources */,
 				A5000011111111110000002 /* FlightMergeValidationTests.swift in Sources */,
@@ -782,6 +789,7 @@
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000099 /* FlightLauncher.swift in Sources */,
 				A1000001211111110000050 /* ExternalRequest.swift in Sources */,
+				A1000001211111110000064 /* DataStatusManager.swift in Sources */,
 				A1000001211111110000063 /* NetworkMonitor.swift in Sources */,
 				A1000001211111110000098 /* WidgetBridge.swift in Sources */,
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,

@@ -6,19 +6,21 @@ import UIKit
 struct AeroCheckApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
-    @StateObject private var offlineMapManager = OfflineMapManager()
+    @StateObject private var offlineMapManager: OfflineMapManager
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
-    @StateObject private var airportDataService = AirportDataService()
+    @StateObject private var airportDataService: AirportDataService
     @StateObject private var openAIPCacheManager = OpenAIPCacheManager()
-    @StateObject private var openAIPDataService = OpenAIPDataService()
+    @StateObject private var openAIPDataService: OpenAIPDataService
     @StateObject private var flightEventDetector = FlightEventDetector()
     /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
-    @StateObject private var networkMonitor = NetworkMonitor()
+    @StateObject private var networkMonitor: NetworkMonitor
+    /// The single data-freshness "brain": aggregates per-source DataSets → ambient Home-dot health. (v4.1.0 Data Freshness)
+    @StateObject private var dataStatusManager: DataStatusManager
     @State private var showUpdateReminder = false
     @State private var isInitialized = false
 
@@ -28,6 +30,26 @@ struct AeroCheckApp: App {
         let subManager = SubscriptionManager(deferLoadProducts: true)
         _subscriptionManager = StateObject(wrappedValue: subManager)
         _aircraftDataService = StateObject(wrappedValue: AircraftDataService(subscriptionManager: subManager))
+
+        // Data-freshness backbone (v4.1.0): construct the external-data services here so the freshness
+        // brain can hold references to the same instances. Each service loads its on-disk metadata
+        // (last-updated dates) in its own init, so the brain's first reduction is already accurate.
+        let offline = OfflineMapManager()
+        _offlineMapManager = StateObject(wrappedValue: offline)
+        let airports = AirportDataService()
+        _airportDataService = StateObject(wrappedValue: airports)
+        let openAIP = OpenAIPDataService()
+        _openAIPDataService = StateObject(wrappedValue: openAIP)
+        let net = NetworkMonitor()
+        _networkMonitor = StateObject(wrappedValue: net)
+        _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
+            providers: [
+                OpenAIPAirspaceProvider(service: openAIP),
+                OurAirportsProvider(service: airports),
+                SwissChartsProvider(manager: offline),
+            ],
+            networkMonitor: net
+        ))
     }
 
     var body: some Scene {
@@ -48,6 +70,7 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
                 .environmentObject(networkMonitor)
+                .environmentObject(dataStatusManager)
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -146,6 +169,7 @@ struct AeroCheckApp: App {
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
                 .environmentObject(networkMonitor)
+                .environmentObject(dataStatusManager)
                 .preferredColorScheme(.dark)
         }
         #endif

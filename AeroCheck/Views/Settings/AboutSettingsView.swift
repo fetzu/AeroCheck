@@ -20,6 +20,7 @@ struct AboutSettingsView: View {
     var body: some View {
         SettingsPage {
             aboutSection
+            dataSourcesSection
             replayOnboardingSection
             developerOptionsSection
         }
@@ -89,6 +90,25 @@ struct AboutSettingsView: View {
             }
 
             openSourceRow
+        }
+    }
+
+    // MARK: - Data Sources
+
+    /// Credits every external data provider the app uses (also shown on the map and in Data & Storage). (v4.1.0)
+    private var dataSourcesSection: some View {
+        SettingsGroup(title: L10n.DataStorage.dataSourcesTitle, tint: tint) {
+            dataSourceRow(name: "swisstopo / BAZL", detail: L10n.DataStorage.sourceCharts, url: "https://www.swisstopo.admin.ch")
+            dataSourceRow(name: "OpenAIP", detail: L10n.DataStorage.sourceAirspace, url: "https://www.openaip.net")
+            dataSourceRow(name: "OurAirports", detail: L10n.DataStorage.sourceAirports, url: "https://ourairports.com")
+            dataSourceRow(name: "MeteoSwiss", detail: L10n.DataStorage.sourceWind, url: "https://www.meteoswiss.admin.ch")
+            dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
+        }
+    }
+
+    private func dataSourceRow(name: String, detail: String, url: String) -> some View {
+        SettingsButtonRow(icon: "link", title: name, subtitle: detail, tint: tint, showsChevron: false) {
+            if let link = URL(string: url) { openURL(link) }
         }
     }
 

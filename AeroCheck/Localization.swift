@@ -65,6 +65,13 @@ enum L10n {
         static let noChecklists = String(localized: "No checklists cached yet")
         static let syncChecklists = String(localized: "Check for checklist updates")
         static let simulateStaleData = String(localized: "Simulate stale data")
+        // About → Data sources credits
+        static let dataSourcesTitle = String(localized: "Data sources")
+        static let sourceCharts = String(localized: "Aeronautical charts")
+        static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
+        static let sourceAirports = String(localized: "Airport database · public domain")
+        static let sourceWind = String(localized: "Wind data")
+        static let sourceElevation = String(localized: "Terrain elevation")
     }
 
     // MARK: - Buttons
@@ -521,7 +528,7 @@ enum L10n {
         static let navigationAndMaps = String(localized: "settings.hub.navigationAndMaps")
         static let navigationAndMapsSubtitle = String(localized: "settings.hub.navigationAndMapsSubtitle")
         static let flightPlanningSubtitle = String(localized: "settings.hub.flightPlanningSubtitle")
-        static let syncAndData = String(localized: "iCloud & Backup")
+        static let syncAndData = String(localized: "iCloud & Log")
         static let syncAndDataSubtitle = String(localized: "iCloud sync, GPS recording & flight log")
         static let companionMode = String(localized: "settings.hub.companionMode")
         static let companionModeSubtitle = String(localized: "settings.hub.companionModeSubtitle")

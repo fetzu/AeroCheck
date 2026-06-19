@@ -29,15 +29,16 @@ struct DataStorageSettingsView: View {
                 SettingsGroup(title: L10n.DataStorage.aeronauticalSection, tint: tint, footer: L10n.DataStorage.caveat) {
                     ForEach(primaryDataSets) { dataRow($0) }
                 }
+                openAIPCredit   // airspace is OpenAIP data
             }
             if !imageryDataSets.isEmpty {
                 SettingsGroup(title: L10n.DataStorage.chartsSection, tint: tint) {
                     ForEach(imageryDataSets) { dataRow($0) }
                 }
+                openAIPCredit   // OpenAIP map tiles
             }
             checklistsSection
             storageSection
-            attributionFooter
         }
         .navigationTitle(L10n.DataStorage.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -158,8 +159,9 @@ struct DataStorageSettingsView: View {
         }
     }
 
-    /// License-required OpenAIP attribution, with a tappable link (rendered from markdown). (v4.1.0)
-    private var attributionFooter: some View {
+    /// License-required OpenAIP attribution, shown after each section that surfaces OpenAIP data, with a
+    /// tappable link (rendered from markdown). (v4.1.0)
+    private var openAIPCredit: some View {
         Group {
             if let attributed = try? AttributedString(markdown: L10n.DataStorage.openAIPAttribution) {
                 Text(attributed)

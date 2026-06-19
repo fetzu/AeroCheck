@@ -538,7 +538,7 @@ struct HomeView: View {
                 navButtons
             }
             Spacer()
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 10) {
                 dataStatusIndicator(isCompact: true)
                 gpsStatusIndicator(isCompact: true)
             }
@@ -963,6 +963,7 @@ struct HomeView: View {
                 Image(systemName: dataStatusIcon(health))
                     .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
                     .foregroundColor(dataStatusColor(health))
+                    .frame(width: isCompact ? 16 : 18, alignment: .center)
                 Text(L10n.DataStorage.homeLabel)
                     .font(.system(size: 12))
                     .foregroundColor(.secondaryText)
@@ -1005,6 +1006,7 @@ struct HomeView: View {
             Image(systemName: locationStatusIcon)
                 .font(.system(size: isCompact ? 11 : 13))
                 .foregroundColor(locationStatusColor)
+                .frame(width: isCompact ? 16 : 18, alignment: .center)
             Text(locationStatusText)
                 .font(.system(size: 12))
                 .foregroundColor(.secondaryText)

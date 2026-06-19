@@ -203,6 +203,21 @@ final class DataStatusManager: ObservableObject {
         providers.forEach { $0.delete() }
         recompute()
     }
+
+    /// Silent foreground auto-refresh (called on scenePhase `.active`): refresh every downloaded
+    /// small-JSON dataset that has gone STALE, when the network gate permits. Aging stays untouched
+    /// (the soft hint), and large tiles are never auto-refreshed. A successful refresh makes the
+    /// dataset fresh, so it won't re-download until it ages out again. (v4.1.0)
+    func autoRefreshIfNeeded(cellularUpdatesEnabled: Bool) async {
+        guard DataRefreshGate.allowsSilentSmallRefresh(networkMonitor.conditions, cellularUpdatesEnabled: cellularUpdatesEnabled) else { return }
+        let stamp = now()
+        for provider in providers {
+            let set = provider.makeDataSet(now: stamp)
+            guard set.refreshPolicy == .smallSilentJSON, set.isDownloaded, set.freshness == .stale else { continue }
+            await provider.refresh()
+        }
+        recompute()
+    }
 }
 
 // MARK: - Adapters for the existing services

@@ -153,6 +153,29 @@ final class DataStatusManagerTests: XCTestCase {
         XCTAssertFalse(manager.showStaleNudge)   // aging is silent (dot only)
     }
 
+    // MARK: - Foreground auto-refresh
+
+    func testAutoRefreshOnlyStaleSmallJSONWhenGatePermits() async {
+        let wifi = NetworkConditions(isConnected: true, isWiFi: true, isExpensive: false, isConstrained: false)
+        let net = NetworkMonitor(stub: wifi)
+        let staleSmall = FakeProvider(dataSet(id: "stale", urgency: .primary, freshness: .stale, isDownloaded: true))
+        let agingSmall = FakeProvider(dataSet(id: "aging", urgency: .primary, freshness: .aging, isDownloaded: true))
+        let staleTile = FakeProvider(dataSet(id: "tile", urgency: .imagery, freshness: .stale, refreshPolicy: .largeTilesConfirmCellular, isDownloaded: true))
+        let manager = DataStatusManager(providers: [staleSmall, agingSmall, staleTile], networkMonitor: net, now: { self.now })
+        await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(staleSmall.refreshCount, 1)
+        XCTAssertEqual(agingSmall.refreshCount, 0)   // aging is not auto-refreshed
+        XCTAssertEqual(staleTile.refreshCount, 0)    // tiles never auto-refresh
+    }
+
+    func testAutoRefreshSkippedWhenGateForbids() async {
+        let net = NetworkMonitor(stub: .disconnected)   // offline → gate forbids
+        let staleSmall = FakeProvider(dataSet(id: "stale", urgency: .primary, freshness: .stale, isDownloaded: true))
+        let manager = DataStatusManager(providers: [staleSmall], networkMonitor: net, now: { self.now })
+        await manager.autoRefreshIfNeeded(cellularUpdatesEnabled: true)
+        XCTAssertEqual(staleSmall.refreshCount, 0)
+    }
+
     func testManagerAggregatesAndReducesOnInit() {
         let net = NetworkMonitor(stub: .disconnected)
         let p1 = FakeProvider(dataSet(urgency: .primary, freshness: .aging))

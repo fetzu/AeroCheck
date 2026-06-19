@@ -23,6 +23,7 @@ struct AeroCheckApp: App {
     @StateObject private var dataStatusManager: DataStatusManager
     @State private var showUpdateReminder = false
     @State private var isInitialized = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Initialize subscription manager first, then aircraft data service
@@ -150,6 +151,13 @@ struct AeroCheckApp: App {
                 }
                 .onChange(of: appState.isFlightActive) { _, isActive in
                     handleFlightStateChange(isActive: isActive)
+                }
+                // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
+                // refresh any STALE small data the network gate permits. No background tasks.
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    dataStatusManager.recompute()
+                    Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
                 }
             }
         }

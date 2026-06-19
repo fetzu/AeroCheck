@@ -88,7 +88,6 @@ AeroCheck/
 │   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
 │   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
 │   ├── ElevationService.swift      # Terrain elevation (swisstopo CH + Open-Meteo worldwide) for route profiles
-│   ├── AirspaceAnalyzer.swift      # On-route airspace conflict + terrain-clearance analysis for the plan builder
 │   ├── SwisstopoTileOverlays.swift # Consolidated swisstopo tile overlays (ICAO / Segelflug / Landeskarte / SWISSIMAGE)
 │   ├── OpenAIPCacheManager.swift   # Atomic, crash-safe OpenAIP airspace cache writes
 │   ├── FlightPlanExportService.swift # GPX route export for avionics (Dynon/Garmin)
@@ -162,7 +161,7 @@ AeroCheckWatch/
 | iCloud Sync | Settings and flights sync across devices |
 | Multi-Language | English, French (via `Localization.swift`) |
 | Map-First Flight Planning | `FlightPlanMapBuilderView` + `FlightPlanManager` — live route drag, smart cheapest-insertion, auto-snap to airfields, interactive route-profile cross-section (drag-to-altitude, hold-to-add) |
-| Route Profile & Conflicts | `AirspaceAnalyzer` + `ElevationService` — on-route airspace conflicts and terrain-clearance warnings on the route cross-section |
+| Route Profile & Conflicts | `OpenAIPDataService.airspaceProfileBlocks` + `ElevationService` — on-route airspace conflicts and terrain-clearance warnings on the route cross-section |
 | Cockpit Theme Engine | `ThemePreference` (auto/day/sunlight/night) → `CockpitThemeMode`, injected as `@Environment(\.cockpitTheme)` |
 | Companion Mode | `CompanionConnectivityManager` — iPad (master) ↔ iPhone (viewer) synced second screen over Wi-Fi Aware (iOS 26+) |
 | Accessibility | VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion across the redesigned screens |

@@ -860,7 +860,7 @@ extension Flight {
 }
 
 /// Validation helpers for imported geographic data (SEC-08): reject NaN/Inf/out-of-range
-/// so AirspaceAnalyzer / ElevationService / export never operate on garbage coordinates.
+/// so ElevationService / export never operate on garbage coordinates.
 enum GeoValidation {
     static func isValidLatLon(_ lat: Double, _ lon: Double) -> Bool {
         lat.isFinite && lon.isFinite && (-90.0...90.0).contains(lat) && (-180.0...180.0).contains(lon)

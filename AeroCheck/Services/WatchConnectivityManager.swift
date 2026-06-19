@@ -7,10 +7,6 @@ import CoreLocation
 class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
 
-    @Published var isWatchReachable: Bool = false
-    @Published var isWatchPaired: Bool = false
-    @Published var isWatchAppInstalled: Bool = false
-
     private var session: WCSession?
     private var updateTimer: Timer?
 
@@ -301,12 +297,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
             return
         }
 
-        Task { @MainActor in
-            self.isWatchPaired = session.isPaired
-            self.isWatchAppInstalled = session.isWatchAppInstalled
-            self.isWatchReachable = session.isReachable
-            print("[AéroCheck Watch] Session activated - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
-        }
+        print("[AéroCheck Watch] Session activated - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
@@ -320,10 +311,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            self.isWatchReachable = session.isReachable
-            print("[AéroCheck Watch] Reachability changed: \(session.isReachable)")
-        }
+        print("[AéroCheck Watch] Reachability changed: \(session.isReachable)")
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
-		A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000003 /* AirspaceAnalyzerTests.swift */; };
 		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
 		A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000007 /* FlightEventDetectorTests.swift */; };
 		A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000009111111110000001 /* AppStateFlightStartTests.swift */; };
@@ -116,7 +115,6 @@
 		AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000002 /* OpenAIPTileOverlay.swift */; };
 		AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000003 /* OpenAIPCacheManager.swift */; };
 		AA000001211111110000004 /* OpenAIPDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000004 /* OpenAIPDataService.swift */; };
-		AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000005 /* AirspaceAnalyzer.swift */; };
 		AA000001211111110000006 /* Airspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000006 /* Airspace.swift */; };
 		EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */; };
 		62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */; };
@@ -178,7 +176,6 @@
 /* Begin PBXFileReference section */
 		A5000001111111110000000 /* AeroCheckTests.xctest */ = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = AeroCheckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5000008111111110000001 /* GeoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoValidationTests.swift; sourceTree = "<group>"; };
-		A5000008111111110000003 /* AirspaceAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzerTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000005 /* WindDataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataServiceTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000007 /* FlightEventDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightEventDetectorTests.swift; sourceTree = "<group>"; };
 		A5000009111111110000001 /* AppStateFlightStartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateFlightStartTests.swift; sourceTree = "<group>"; };
@@ -285,7 +282,6 @@
 		AA000001111111110000002 /* OpenAIPTileOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPTileOverlay.swift; sourceTree = "<group>"; };
 		AA000001111111110000003 /* OpenAIPCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPCacheManager.swift; sourceTree = "<group>"; };
 		AA000001111111110000004 /* OpenAIPDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPDataService.swift; sourceTree = "<group>"; };
-		AA000001111111110000005 /* AirspaceAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzer.swift; sourceTree = "<group>"; };
 		AA000001111111110000006 /* Airspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airspace.swift; sourceTree = "<group>"; };
 		92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityManager.swift; sourceTree = "<group>"; };
 		58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityData.swift; sourceTree = "<group>"; };
@@ -333,7 +329,6 @@
 			isa = PBXGroup;
 			children = (
 				A5000008111111110000001 /* GeoValidationTests.swift */,
-				A5000008111111110000003 /* AirspaceAnalyzerTests.swift */,
 				A5000008111111110000005 /* WindDataServiceTests.swift */,
 				A5000008111111110000007 /* FlightEventDetectorTests.swift */,
 				A5000009111111110000001 /* AppStateFlightStartTests.swift */,
@@ -498,7 +493,6 @@
 				AA000001111111110000002 /* OpenAIPTileOverlay.swift */,
 				AA000001111111110000003 /* OpenAIPCacheManager.swift */,
 				AA000001111111110000004 /* OpenAIPDataService.swift */,
-				AA000001111111110000005 /* AirspaceAnalyzer.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -721,7 +715,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
-				A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
 				A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */,
 				A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */,
@@ -818,7 +811,6 @@
 				AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */,
 				AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */,
 				AA000001211111110000004 /* OpenAIPDataService.swift in Sources */,
-				AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */,
 				AA000001211111110000006 /* Airspace.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

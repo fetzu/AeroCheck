@@ -168,6 +168,14 @@ struct NavigationMapView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+
+    /// True when the downloaded OpenAIP airspace data is aging/stale — drives the on-map staleness cue
+    /// (v4.1.0 Data Freshness), so stale airspace drawn on the map is visible in flight, not just in Settings.
+    private var airspaceDataNeedsAttention: Bool {
+        guard openAIPDataService.isDataAvailable, let lastUpdated = openAIPDataService.lastUpdated else { return false }
+        let freshness = FreshnessThresholds.aeronautical.freshness(lastUpdated: lastUpdated, now: Date())
+        return freshness == .aging || freshness == .stale
+    }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
@@ -1315,6 +1323,19 @@ struct NavigationMapView: View {
                                   ? Color.panelBackground.opacity(0.95)
                                   : Color.panelBackground.opacity(0.7))
                     )
+            }
+            .overlay(alignment: .topTrailing) {
+                // On-map staleness cue (v4.1.0): an amber badge when the downloaded airspace data is
+                // aging/stale, so stale airspace drawn on the map is visible in flight.
+                if airspaceDataNeedsAttention {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.aviationAmber)
+                        .padding(2)
+                        .background(Color.panelBackground, in: Circle())
+                        .offset(x: 5, y: -5)
+                        .accessibilityHidden(true)
+                }
             }
 
             // Layer picker button (shows info modal in offline mode)

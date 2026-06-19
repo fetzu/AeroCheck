@@ -743,8 +743,6 @@ struct ActiveFlightPlanRow: View {
     }
 }
 
-// MARK: - Flight Plan Detail Pane (read-only)
-
 // MARK: - Flight Plan Document (for export)
 
 struct FlightPlanDocument: FileDocument {

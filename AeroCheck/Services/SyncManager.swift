@@ -144,7 +144,7 @@ class SyncManager: ObservableObject {
         }
 
         if !completed {
-            print("[AéroCheck Sync] CloudKit initialization timed out - will retry later")
+            AppLog.sync.debugLine("CloudKit initialization timed out - will retry later")
         }
     }
 
@@ -163,19 +163,19 @@ class SyncManager: ObservableObject {
             self.recordZone = CKRecordZone(zoneName: zoneName)
             self.isCloudKitAvailable = true
 
-            print("[AéroCheck Sync] CloudKit initialized successfully, account status: \(status)")
+            AppLog.sync.debugLine("CloudKit initialized successfully, account status: \(status)")
 
             if status == .available {
                 initializeSyncEngine()
             } else {
                 syncError = "iCloud account not available"
-                print("[AéroCheck Sync] iCloud account not available: \(status)")
+                AppLog.sync.debugLine("iCloud account not available: \(status)")
             }
         } catch {
             isCloudKitAvailable = false
             syncError = "CloudKit not configured"
-            print("[AéroCheck Sync] CloudKit not available: \(error.localizedDescription)")
-            print("[AéroCheck Sync] To enable iCloud sync, configure CloudKit in Xcode's Signing & Capabilities")
+            AppLog.sync.debugLine("CloudKit not available: \(error.localizedDescription)")
+            AppLog.sync.debugLine("To enable iCloud sync, configure CloudKit in Xcode's Signing & Capabilities")
         }
     }
 
@@ -184,7 +184,7 @@ class SyncManager: ObservableObject {
     private func initializeSyncEngine() {
         guard syncEngine == nil, isCloudKitAvailable else { return }
         guard let container = container, let database = database else {
-            print("[AéroCheck Sync] Cannot initialize sync engine: CloudKit not available")
+            AppLog.sync.debugLine("Cannot initialize sync engine: CloudKit not available")
             return
         }
 
@@ -194,7 +194,7 @@ class SyncManager: ObservableObject {
                 let status = try await container.accountStatus()
                 guard status == .available else {
                     syncError = "iCloud account not available"
-                    print("[AéroCheck Sync] iCloud account not available: \(status)")
+                    AppLog.sync.debugLine("iCloud account not available: \(status)")
                     return
                 }
 
@@ -212,14 +212,14 @@ class SyncManager: ObservableObject {
                 let engine = CKSyncEngine(configuration)
                 self.syncEngine = engine
 
-                print("[AéroCheck Sync] Sync engine initialized")
+                AppLog.sync.debugLine("Sync engine initialized")
 
                 // Ensure zone exists
                 await ensureZoneExists()
 
             } catch {
                 syncError = "Failed to initialize sync: \(error.localizedDescription)"
-                print("[AéroCheck Sync] Failed to initialize: \(error)")
+                AppLog.sync.debugLine("Failed to initialize: \(error)")
             }
         }
     }
@@ -227,7 +227,7 @@ class SyncManager: ObservableObject {
     private func shutdownSyncEngine() {
         syncEngine = nil
         syncEngineDelegate = nil
-        print("[AéroCheck Sync] Sync engine shutdown")
+        AppLog.sync.debugLine("Sync engine shutdown")
     }
 
     private func createDelegate() -> SyncEngineDelegate {
@@ -254,10 +254,10 @@ class SyncManager: ObservableObject {
 
         do {
             let state = try JSONDecoder().decode(CKSyncEngine.State.Serialization.self, from: data)
-            print("[AéroCheck Sync] Loaded sync state")
+            AppLog.sync.debugLine("Loaded sync state")
             return state
         } catch {
-            print("[AéroCheck Sync] Failed to load sync state: \(error)")
+            AppLog.sync.debugLine("Failed to load sync state: \(error)")
             return nil
         }
     }
@@ -267,7 +267,7 @@ class SyncManager: ObservableObject {
             let data = try JSONEncoder().encode(state)
             UserDefaults.standard.set(data, forKey: syncStateKey)
         } catch {
-            print("[AéroCheck Sync] Failed to save sync state: \(error)")
+            AppLog.sync.debugLine("Failed to save sync state: \(error)")
         }
     }
 
@@ -282,7 +282,7 @@ class SyncManager: ObservableObject {
         let recordID = CKRecord.ID(recordName: "settings", zoneID: recordZone.zoneID)
         engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
 
-        print("[AéroCheck Sync] Queued settings for sync")
+        AppLog.sync.debugLine("Queued settings for sync")
         
         // Immediately trigger sync to ensure settings changes are pushed to other devices
         Task.detached {
@@ -300,7 +300,7 @@ class SyncManager: ObservableObject {
         let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
         engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
 
-        print("[AéroCheck Sync] Queued flight \(flight.id) for sync")
+        AppLog.sync.debugLine("Queued flight \(flight.id) for sync")
     }
 
     /// Sync all flights to iCloud
@@ -319,7 +319,7 @@ class SyncManager: ObservableObject {
 
         if !changes.isEmpty {
             engine.state.add(pendingRecordZoneChanges: changes)
-            print("[AéroCheck Sync] Queued \(flights.count) flights for sync")
+            AppLog.sync.debugLine("Queued \(flights.count) flights for sync")
         }
     }
 
@@ -332,7 +332,7 @@ class SyncManager: ObservableObject {
         let recordID = CKRecord.ID(recordName: flightId.uuidString, zoneID: recordZone.zoneID)
         engine.state.add(pendingRecordZoneChanges: [.deleteRecord(recordID)])
 
-        print("[AéroCheck Sync] Queued flight \(flightId) for deletion")
+        AppLog.sync.debugLine("Queued flight \(flightId) for deletion")
     }
 
     /// Force a sync now
@@ -347,10 +347,10 @@ class SyncManager: ObservableObject {
             try await engine.sendChanges()
             lastSyncDate = Date()
             UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
-            print("[AéroCheck Sync] Manual sync completed")
+            AppLog.sync.debugLine("Manual sync completed")
         } catch {
             syncError = "Sync failed: \(error.localizedDescription)"
-            print("[AéroCheck Sync] Manual sync failed: \(error)")
+            AppLog.sync.debugLine("Manual sync failed: \(error)")
         }
 
         isSyncing = false
@@ -382,7 +382,7 @@ class SyncManager: ObservableObject {
             
             return record
         } catch {
-            print("[AéroCheck Sync] Failed to encode settings: \(error)")
+            AppLog.sync.debugLine("Failed to encode settings: \(error)")
             return nil
         }
     }
@@ -409,17 +409,17 @@ class SyncManager: ObservableObject {
     nonisolated static func flightFromPayload(inline: Data?, asset: Data?) -> Flight? {
         guard let data = asset ?? inline else { return nil }
         guard data.count <= maxIngestRecordBytes else {
-            print("[AéroCheck Sync] Rejecting oversized flight record (\(data.count) bytes)")
+            AppLog.sync.debugLine("Rejecting oversized flight record (\(data.count) bytes)")
             return nil
         }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let flight = try? decoder.decode(Flight.self, from: data) else {
-            print("[AéroCheck Sync] Failed to decode flight payload")
+            AppLog.sync.debugLine("Failed to decode flight payload")
             return nil
         }
         guard let validated = flight.validatedForIngest() else {
-            print("[AéroCheck Sync] Rejecting invalid flight record: \(flight.id)")
+            AppLog.sync.debugLine("Rejecting invalid flight record: \(flight.id)")
             return nil
         }
         return validated
@@ -454,7 +454,7 @@ class SyncManager: ObservableObject {
             record["schemaVersion"] = flight.schemaVersion as CKRecordValue
             return record
         } catch {
-            print("[AéroCheck Sync] Failed to encode flight: \(error)")
+            AppLog.sync.debugLine("Failed to encode flight: \(error)")
             return nil
         }
     }
@@ -471,7 +471,7 @@ class SyncManager: ObservableObject {
             try data.write(to: url, options: .atomic)
             return url
         } catch {
-            print("[AéroCheck Sync] Failed to stage flight asset: \(error)")
+            AppLog.sync.debugLine("Failed to stage flight asset: \(error)")
             return nil
         }
     }
@@ -480,7 +480,7 @@ class SyncManager: ObservableObject {
         guard let data = record["data"] as? Data else { return nil }
         // Bound the payload before decoding so a corrupt/oversized record can't exhaust memory. (SEC-17)
         guard data.count <= Self.maxIngestRecordBytes else {
-            print("[AéroCheck Sync] Rejecting oversized settings record (\(data.count) bytes)")
+            AppLog.sync.debugLine("Rejecting oversized settings record (\(data.count) bytes)")
             return nil
         }
 
@@ -489,7 +489,7 @@ class SyncManager: ObservableObject {
             // Clamp flight-relevant numerics to sane ranges before applying. (SEC-17)
             return try decoder.decode(AppSettings.self, from: data).clampedForIngest()
         } catch {
-            print("[AéroCheck Sync] Failed to decode settings: \(error)")
+            AppLog.sync.debugLine("Failed to decode settings: \(error)")
             return nil
         }
     }
@@ -598,7 +598,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             break
 
         @unknown default:
-            print("[AéroCheck Sync] Unknown event type")
+            AppLog.sync.debugLine("Unknown event type")
         }
     }
 
@@ -696,11 +696,11 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     private func handleAccountChange(_ change: CKSyncEngine.Event.AccountChange) {
         switch change.changeType {
         case .signIn:
-            print("[AéroCheck Sync] User signed into iCloud")
+            AppLog.sync.debugLine("User signed into iCloud")
         case .signOut:
-            print("[AéroCheck Sync] User signed out of iCloud")
+            AppLog.sync.debugLine("User signed out of iCloud")
         case .switchAccounts:
-            print("[AéroCheck Sync] iCloud account switched")
+            AppLog.sync.debugLine("iCloud account switched")
         @unknown default:
             break
         }
@@ -709,7 +709,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     @MainActor
     private func handleDatabaseChanges(_ changes: CKSyncEngine.Event.FetchedDatabaseChanges) {
         for deletion in changes.deletions {
-            print("[AéroCheck Sync] Zone deleted: \(deletion.zoneID.zoneName)")
+            AppLog.sync.debugLine("Zone deleted: \(deletion.zoneID.zoneName)")
         }
     }
 
@@ -727,13 +727,13 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     // Cache the record to preserve change tag for future updates
                     manager?.cachedSettingsRecord = record
                     
-                    print("[AéroCheck Sync] Received settings update from cloud")
+                    AppLog.sync.debugLine("Received settings update from cloud")
                     manager?.onSettingsUpdated?(settings)
                 }
 
             case SyncRecordType.flight.rawValue:
                 if let flight = await manager?.flightFromRecord(record) {
-                    print("[AéroCheck Sync] Received flight update from cloud: \(flight.id)")
+                    AppLog.sync.debugLine("Received flight update from cloud: \(flight.id)")
                     updatedFlights.append(flight)
                 }
 
@@ -745,7 +745,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         for deletion in changes.deletions {
             if deletion.recordType == SyncRecordType.flight.rawValue,
                let flightId = UUID(uuidString: deletion.recordID.recordName) {
-                print("[AéroCheck Sync] Flight deleted from cloud: \(flightId)")
+                AppLog.sync.debugLine("Flight deleted from cloud: \(flightId)")
                 deletedFlightIds.append(flightId)
             }
         }
@@ -790,17 +790,17 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     @MainActor
     private func handleSentDatabaseChanges(_ changes: CKSyncEngine.Event.SentDatabaseChanges) {
         for zone in changes.savedZones {
-            print("[AéroCheck Sync] Zone saved: \(zone.zoneID.zoneName)")
+            AppLog.sync.debugLine("Zone saved: \(zone.zoneID.zoneName)")
         }
 
         if !changes.failedZoneSaves.isEmpty {
-            print("[AéroCheck Sync] Failed to save \(changes.failedZoneSaves.count) zones")
+            AppLog.sync.debugLine("Failed to save \(changes.failedZoneSaves.count) zones")
         }
     }
 
     @MainActor
     private func handleSentRecordZoneChanges(_ changes: CKSyncEngine.Event.SentRecordZoneChanges) async {
-        print("[AéroCheck Sync] Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
+        AppLog.sync.debugLine("Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
 
         // Clear pending data for successfully saved records
         for record in changes.savedRecords {
@@ -834,7 +834,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             if errorCode == CKError.serverRecordChanged.rawValue || nsError.userInfo["CKErrorServerErrorCode"] as? Int == 2004 {
                 // For settings record, this is OK - it means the record was already created
                 if recordName == "settings" {
-                    print("[AéroCheck Sync] Settings record conflict detected. Updating cache from server record.")
+                    AppLog.sync.debugLine("Settings record conflict detected. Updating cache from server record.")
                     manager?.settingsRecordExists = true
                     UserDefaults.standard.set(true, forKey: "settingsRecordExists")
                     
@@ -843,7 +843,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                         manager?.cachedSettingsRecord = serverRecord
                         // Re-queue the sync immediately with the updated change tag
                         if let pendingSettings = manager?.getPendingSettings() {
-                            print("[AéroCheck Sync] Re-queueing settings sync with updated change tag")
+                            AppLog.sync.debugLine("Re-queueing settings sync with updated change tag")
                             manager?.syncSettings(pendingSettings)
                         }
                     } else {
@@ -895,7 +895,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                 break
             }
 
-            print("[AéroCheck Sync] Failed to save record: \(recordName), error: \(error)")
+            AppLog.sync.debugLine("Failed to save record: \(recordName), error: \(error)")
         }
     }
 }

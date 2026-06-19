@@ -481,39 +481,3 @@ struct OpenAIPCacheMetadata: Codable {
         airspaceCounts = [:]
     }
 }
-
-// MARK: - Airspace Conflict (for flight planning)
-
-/// Represents a conflict between a flight plan route and an airspace
-struct AirspaceConflict: Identifiable {
-    let id = UUID()
-    let airspace: Airspace
-    let legIndex: Int                    // Which leg of the flight plan
-    let conflictType: ConflictType
-    let plannedAltitude: Double?         // Feet MSL, if available
-    /// True when vertical overlap could not be confirmed precisely (AGL/FL limits, or no
-    /// planned altitude) — the pilot must verify the vertical separation manually. (PERF-08)
-    var altitudeUncertain: Bool = false
-
-    enum ConflictType {
-        case transit                     // Route passes through airspace
-        case proximity                   // Route passes near boundary (< 1 NM)
-    }
-
-    /// Severity level for display
-    var severity: ConflictSeverity {
-        if airspace.isRestrictive {
-            return .high
-        }
-        switch conflictType {
-        case .transit: return .medium
-        case .proximity: return .low
-        }
-    }
-
-    enum ConflictSeverity {
-        case high    // Prohibited/Restricted
-        case medium  // Transit through controlled airspace
-        case low     // Near boundary
-    }
-}

@@ -7,10 +7,6 @@ import CoreLocation
 class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
 
-    @Published var isWatchReachable: Bool = false
-    @Published var isWatchPaired: Bool = false
-    @Published var isWatchAppInstalled: Bool = false
-
     private var session: WCSession?
     private var updateTimer: Timer?
 
@@ -36,7 +32,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     private func setupSession() {
         guard WCSession.isSupported() else {
-            print("[AéroCheck Watch] WatchConnectivity not supported on this device")
+            AppLog.watch.debugLine("WatchConnectivity not supported on this device")
             return
         }
 
@@ -82,7 +78,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let flightData = createFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
 
         guard let encodedData = try? JSONEncoder().encode(flightData) else {
-            print("[AéroCheck Watch] Failed to encode flight data")
+            AppLog.watch.debugLine("Failed to encode flight data")
             return
         }
 
@@ -93,7 +89,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         ]
 
         session.sendMessage(message, replyHandler: nil) { error in
-            print("[AéroCheck Watch] Failed to send flight started message: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Failed to send flight started message: \(error.localizedDescription)")
         }
 
         // Start periodic updates
@@ -117,7 +113,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
                 ])
             } catch {
-                print("[AéroCheck Watch] Failed to update context: \(error.localizedDescription)")
+                AppLog.watch.debugLine("Failed to update context: \(error.localizedDescription)")
             }
             return
         }
@@ -128,7 +124,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         ]
 
         session.sendMessage(message, replyHandler: nil) { error in
-            print("[AéroCheck Watch] Failed to send flight ended message: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Failed to send flight ended message: \(error.localizedDescription)")
         }
     }
 
@@ -140,7 +136,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         let flightData = createFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
 
         guard let encodedData = try? JSONEncoder().encode(flightData) else {
-            print("[AéroCheck Watch] Failed to encode flight data")
+            AppLog.watch.debugLine("Failed to encode flight data")
             return
         }
 
@@ -176,7 +172,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
             ])
         } catch {
-            print("[AéroCheck Watch] Failed to update application context: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Failed to update application context: \(error.localizedDescription)")
         }
     }
 
@@ -297,33 +293,25 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 extension WatchConnectivityManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if let error = error {
-            print("[AéroCheck Watch] Session activation failed: \(error.localizedDescription)")
+            AppLog.watch.debugLine("Session activation failed: \(error.localizedDescription)")
             return
         }
 
-        Task { @MainActor in
-            self.isWatchPaired = session.isPaired
-            self.isWatchAppInstalled = session.isWatchAppInstalled
-            self.isWatchReachable = session.isReachable
-            print("[AéroCheck Watch] Session activated - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
-        }
+        AppLog.watch.debugLine("Session activated - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
-        print("[AéroCheck Watch] Session became inactive")
+        AppLog.watch.debugLine("Session became inactive")
     }
 
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
-        print("[AéroCheck Watch] Session deactivated")
+        AppLog.watch.debugLine("Session deactivated")
         // Reactivate the session
         session.activate()
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            self.isWatchReachable = session.isReachable
-            print("[AéroCheck Watch] Reachability changed: \(session.isReachable)")
-        }
+        AppLog.watch.debugLine("Reachability changed: \(session.isReachable)")
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

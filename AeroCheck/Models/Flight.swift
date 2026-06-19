@@ -558,15 +558,8 @@ struct GPSPoint: Codable, Identifiable {
 extension Flight {
     /// Export flight to GPX format with all timing data in extensions
     func toGPX() -> String {
-        // PR-18: escape user-controlled strings so a flight named "Touch & Go" (or with < > " ')
-        // doesn't produce malformed XML that XMLParser aborts on at import.
-        func esc(_ s: String) -> String {
-            s.replacingOccurrences(of: "&", with: "&amp;")
-             .replacingOccurrences(of: "<", with: "&lt;")
-             .replacingOccurrences(of: ">", with: "&gt;")
-             .replacingOccurrences(of: "\"", with: "&quot;")
-             .replacingOccurrences(of: "'", with: "&apos;")
-        }
+        // PR-18: user-controlled strings are XML-escaped (see String.xmlEscaped) so a flight
+        // named "Touch & Go" (or with < > " ') can't produce malformed XML that XMLParser aborts on.
         let dateFormatter = ISO8601DateFormatter()
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 
@@ -578,7 +571,7 @@ extension Flight {
              xmlns:pc="http://aerocheck.app/gpx/1"
              xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
           <metadata>
-            <name>\(esc(displayName)) - \(formattedDate)</name>
+            <name>\(displayName.xmlEscaped) - \(formattedDate)</name>
             <desc>Flight recorded with AéroCheck app</desc>
         """
 
@@ -590,13 +583,13 @@ extension Flight {
 
           </metadata>
           <trk>
-            <name>\(esc(airplane))</name>
+            <name>\(airplane.xmlEscaped)</name>
             <extensions>
               <pc:flightData>
                 <pc:formatVersion>\(currentExportFormatVersion)</pc:formatVersion>
                 <pc:appVersion>\(appVersion)</pc:appVersion>
-                <pc:name>\(esc(name))</pc:name>
-                <pc:airplane>\(esc(airplane))</pc:airplane>
+                <pc:name>\(name.xmlEscaped)</pc:name>
+                <pc:airplane>\(airplane.xmlEscaped)</pc:airplane>
         """
 
         if let aircraftType = aircraftType {
@@ -731,7 +724,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: nil)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AéroCheck] Failed to encode flight to JSON: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to encode flight to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -747,7 +740,7 @@ extension Flight {
             let exportWrapper = FlightExportWrapper(flight: self, flightPlan: flightPlan)
             return try encoder.encode(exportWrapper)
         } catch {
-            print("[AéroCheck] Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
+            AppLog.general.debugLine("Failed to encode flight with navigation to JSON: \(error.localizedDescription)")
             return nil
         }
     }
@@ -826,19 +819,19 @@ extension Flight {
         let imported: Flight
         // Try v2 format first (FlightExportWrapper with metadata)
         if let wrapper = try? decoder.decode(FlightExportWrapper.self, from: data) {
-            print("[AéroCheck] Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
+            AppLog.general.debugLine("Imported flight from v2 format (formatVersion: \(wrapper.metadata.formatVersion))")
             imported = wrapper.flight
         } else if let legacyExport = try? decoder.decode(FlightWithNavigationExport.self, from: data) {
             // Legacy FlightWithNavigationExport format (no metadata)
-            print("[AéroCheck] Imported flight from legacy FlightWithNavigationExport format")
+            AppLog.general.debugLine("Imported flight from legacy FlightWithNavigationExport format")
             imported = legacyExport.flight
         } else {
             // v1 format (direct Flight object - oldest format)
             do {
                 imported = try decoder.decode(Flight.self, from: data)
-                print("[AéroCheck] Imported flight from v1 format (direct Flight object)")
+                AppLog.general.debugLine("Imported flight from v1 format (direct Flight object)")
             } catch {
-                print("[AéroCheck] Failed to decode flight from JSON: \(error)")
+                AppLog.general.debugLine("Failed to decode flight from JSON: \(error)")
                 throw ImportError.invalidJSON(underlying: error)
             }
         }
@@ -846,7 +839,7 @@ extension Flight {
         // Reject NaN/Inf/out-of-range coordinates (e.g. a "1e999" overflow that decodes to
         // Infinity) before the flight can reach the map, analyzer, or export. (SEC-08)
         guard imported.importedCoordinatesAreValid else {
-            print("[AéroCheck] Rejected flight import: invalid coordinates")
+            AppLog.general.debugLine("Rejected flight import: invalid coordinates")
             throw ImportError.invalidCoordinates
         }
         return imported
@@ -867,7 +860,7 @@ extension Flight {
 }
 
 /// Validation helpers for imported geographic data (SEC-08): reject NaN/Inf/out-of-range
-/// so AirspaceAnalyzer / ElevationService / export never operate on garbage coordinates.
+/// so ElevationService / export never operate on garbage coordinates.
 enum GeoValidation {
     static func isValidLatLon(_ lat: Double, _ lon: Double) -> Bool {
         lat.isFinite && lon.isFinite && (-90.0...90.0).contains(lat) && (-180.0...180.0).contains(lon)
@@ -1129,6 +1122,21 @@ class GPXParser: NSObject, XMLParserDelegate {
         default:
             break
         }
+    }
+}
+
+// MARK: - XML escaping
+
+extension String {
+    /// Escapes the five XML predefined entities (`&` first) so user-controlled text can be
+    /// embedded in GPX/XML output without producing malformed markup. Single source of truth
+    /// for GPX (`Flight`/`FlightPlan`) and route export (`FlightPlanExportService`).
+    var xmlEscaped: String {
+        replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
     }
 }
 

@@ -633,6 +633,7 @@ enum L10n {
         static let icaoAndSegelflug = String(localized: "download.icaoAndSegelflug")
         static let cached = String(localized: "download.cached")
         static let downloadingTiles = String(localized: "download.downloadingTiles")
+        static let throttled = String(localized: "download.throttled")
         static func downloadingLayer(_ name: String) -> String {
             String(format: String(localized: "download.downloadingLayer"), name)
         }
@@ -760,34 +761,16 @@ enum L10n {
         // Sections
         static let flightTrack = String(localized: "flightDetail.flightTrack")
         static let noGPSData = String(localized: "flightDetail.noGPSData")
-        static let altitudeProfile = String(localized: "flightDetail.altitudeProfile")
         static let noAltitudeData = String(localized: "flightDetail.noAltitudeData")
         static let altitudeFtMSL = String(localized: "flightDetail.altitudeFtMSL")
-        static let flightDetails = String(localized: "flightDetail.flightDetails")
-
-        // Details
-        static let aircraft = String(localized: "flightDetail.aircraft")
-        static let date = String(localized: "flightDetail.date")
-        static let flightTime = String(localized: "flightDetail.flightTime")
-        static let distance = String(localized: "flightDetail.distance")
-        static let gpsPoints = String(localized: "flightDetail.gpsPoints")
-        static let goArounds = String(localized: "flightDetail.goArounds")
-        static let touchAndGoes = String(localized: "flightDetail.touchAndGoes")
-        static let fullStops = String(localized: "flightDetail.fullStops")
 
         // Times
-        static let flightTimes = String(localized: "flightDetail.flightTimes")
         static let sessionStart = String(localized: "flightDetail.sessionStart")
         static let engineStart = String(localized: "flightDetail.engineStart")
         static let takeoff = String(localized: "flightDetail.takeoff")
         static let landing = String(localized: "flightDetail.landing")
         static let engineShutdown = String(localized: "flightDetail.engineShutdown")
         static let sessionEnd = String(localized: "flightDetail.sessionEnd")
-
-        // Route
-        static let route = String(localized: "flightDetail.route")
-        static let departure = String(localized: "flightDetail.departure")
-        static let arrival = String(localized: "flightDetail.arrival")
 
         // Engine Hours
         static let engineHours = String(localized: "flightDetail.engineHours")
@@ -799,19 +782,13 @@ enum L10n {
         static let blockOff = String(localized: "flightDetail.blockOff")
         static let blockOn = String(localized: "flightDetail.blockOn")
 
-        // Additional
-        static let aircraftType = String(localized: "flightDetail.aircraftType")
-        static let checklistVersion = String(localized: "flightDetail.checklistVersion")
-
         // Name/Notes
         static let flightName = String(localized: "flightDetail.flightName")
         static let namePlaceholder = String(localized: "flightDetail.namePlaceholder")
         static let notes = String(localized: "flightDetail.notes")
 
         // Actions
-        static let navPlan = String(localized: "flightDetail.navPlan")
         static let export = String(localized: "flightDetail.export")
-        static let delete = String(localized: "flightDetail.delete")
     }
 
     // MARK: - Event Confirmation
@@ -843,87 +820,10 @@ enum L10n {
         static let endBeforeStartMessage = String(localized: "hourMeter.endBeforeStart.message")
     }
 
-    // MARK: - Flight Log Detail
-    enum FlightLogDetail {
-        // Sections
-        static let flightSection = String(localized: "flightLogDetail.flight")
-        static let routeSection = String(localized: "flightLogDetail.route")
-        static let timesSection = String(localized: "flightLogDetail.times")
-        static let durationsSection = String(localized: "flightLogDetail.durations")
-        static let engineHoursSection = String(localized: "flightLogDetail.engineHours")
-        static let eventsSection = String(localized: "flightLogDetail.events")
-        static let trackSection = String(localized: "flightLogDetail.track")
-        static let notesSection = String(localized: "flightLogDetail.notes")
-        static let navigationTitle = String(localized: "flightLogDetail.title")
-
-        // Flight info
-        static let date = String(localized: "flightLogDetail.date")
-        static let aircraft = String(localized: "flightLogDetail.aircraft")
-        static let type = String(localized: "flightLogDetail.type")
-        static let checklistVersion = String(localized: "flightLogDetail.checklistVersion")
-
-        // Route
-        static let departure = String(localized: "flightLogDetail.departure")
-        static let arrival = String(localized: "flightLogDetail.arrival")
-        static let distance = String(localized: "flightLogDetail.distance")
-
-        // Times
-        static let blockOff = String(localized: "flightLogDetail.blockOff")
-        static let engineStart = String(localized: "flightLogDetail.engineStart")
-        static let takeOff = String(localized: "flightLogDetail.takeOff")
-        static let landing = String(localized: "flightLogDetail.landing")
-        static let engineStop = String(localized: "flightLogDetail.engineStop")
-        static let blockOn = String(localized: "flightLogDetail.blockOn")
-
-        // Durations
-        static let blockTime = String(localized: "flightLogDetail.blockTime")
-        static let flightTime = String(localized: "flightLogDetail.flightTime")
-        static let engineTime = String(localized: "flightLogDetail.engineTime")
-
-        // Engine Hours
-        static let hoursBefore = String(localized: "flightLogDetail.hoursBefore")
-        static let hoursAfter = String(localized: "flightLogDetail.hoursAfter")
-        static let hoursFlown = String(localized: "flightLogDetail.hoursFlown")
-
-        // Events
-        static let goArounds = String(localized: "flightLogDetail.goArounds")
-        static let touchAndGos = String(localized: "flightLogDetail.touchAndGos")
-        static let fullStopLandings = String(localized: "flightLogDetail.fullStopLandings")
-        static let totalLandings = String(localized: "flightLogDetail.totalLandings")
-
-        // Track
-        static let trackStart = String(localized: "flightLogDetail.trackStart")
-        static let trackEnd = String(localized: "flightLogDetail.trackEnd")
-
-        // Export
-        static let exportFlight = String(localized: "flightLogDetail.exportFlight")
-        static let exportFormat = String(localized: "flightLogDetail.exportFormat")
-        static let exportGPX = String(localized: "flightLogDetail.exportGPX")
-        static let exportJSON = String(localized: "flightLogDetail.exportJSON")
-        static let exportZIP = String(localized: "flightLogDetail.exportZIP")
-        static let exportTitle = String(localized: "flightLogDetail.exportTitle")
-    }
-
     // MARK: - Content View
     enum ContentViewStrings {
         static let rotateDevice = String(localized: "contentView.rotateDevice")
         static let portraitMode = String(localized: "contentView.portraitMode")
-    }
-
-    // MARK: - Terrain Profile
-    enum Terrain {
-        static let title = String(localized: "terrain.title")
-        static let loading = String(localized: "terrain.loading")
-        static let loadingSource = String(localized: "terrain.loadingSource")
-        static let unavailableTitle = String(localized: "terrain.unavailableTitle")
-        static let unavailableDescription = String(localized: "terrain.unavailableDescription")
-        static let unavailableHint = String(localized: "terrain.unavailableHint")
-        static let errorTitle = String(localized: "terrain.errorTitle")
-        static let retry = String(localized: "terrain.retry")
-        static let noDataTitle = String(localized: "terrain.noDataTitle")
-        static let noDataDescription = String(localized: "terrain.noDataDescription")
-        static let legendTerrain = String(localized: "terrain.legendTerrain")
-        static let legendPlannedAlt = String(localized: "terrain.legendPlannedAlt")
     }
 
     // MARK: - Map Layer Selector
@@ -933,25 +833,7 @@ enum L10n {
 
     // MARK: - Flight Plan Overlay
     enum FlightPlan {
-        // Overlay
-        static let overlayTitle = String(localized: "flightPlan.overlay.title")
-        static let chrono = String(localized: "flightPlan.overlay.chrono")
-        static let plannedAlt = String(localized: "flightPlan.overlay.plannedAlt")
         static let fltTime = String(localized: "flightPlan.overlay.fltTime")
-
-        // Departure Time
-        static let adjustDepartureTime = String(localized: "flightPlan.overlay.adjustDepartureTime")
-        static let adjustDepartureTimeDesc = String(localized: "flightPlan.overlay.adjustDepartureTimeDesc")
-        static let updateDepartureTime = String(localized: "flightPlan.overlay.updateDepartureTime")
-        static let setDepartureTimeToNow = String(localized: "flightPlan.overlay.setDepartureTimeToNow")
-        static let departureTime = String(localized: "flightPlan.overlay.departureTime")
-
-        // Chrono label for departure waypoint
-        static let departure = String(localized: "flightPlan.overlay.departure")
-
-        // Editor
-        static let waypointNameHint = String(localized: "flightPlan.editor.waypointNameHint")
-        static let altitudePlaceholder = String(localized: "flightPlan.editor.altitudePlaceholder")
     }
 
     // MARK: - Navigation / Flight Plans
@@ -974,8 +856,6 @@ enum L10n {
     }
 
     enum Nav {
-        // Airspace conflicts
-        static let airspaceAltitudeUncertain = String(localized: "nav.airspaceAltitudeUncertain")
         // Flight Plans List
         static let flightPlans = String(localized: "nav.flightPlans")
         static let allFlightPlans = String(localized: "nav.allFlightPlans")
@@ -990,10 +870,6 @@ enum L10n {
         static let importErrorMessage = String(localized: "nav.importErrorMessage")
         static let importErrorAccess = String(localized: "nav.importErrorAccess")
         static let importErrorFormat = String(localized: "nav.importErrorFormat")
-        static let waypoints = String(localized: "nav.waypoints")
-        static func waypointsCount(_ count: Int) -> String {
-            String(format: String(localized: "nav.waypointsCount"), count)
-        }
         static let unnamedPlan = String(localized: "nav.unnamedPlan")
         static let active = String(localized: "nav.active")
         static let duplicate = String(localized: "nav.duplicate")
@@ -1006,20 +882,11 @@ enum L10n {
         static let swapEndpoints = String(localized: "nav.swapEndpoints")
         static let reorderWaypoints = String(localized: "nav.reorderWaypoints")
         static let dragToReorder = String(localized: "nav.dragToReorder")
-        static let airspaceSingular = String(localized: "nav.airspaceSingular")
-        static let airspacePlural = String(localized: "nav.airspacePlural")
-        static let restricted = String(localized: "nav.restricted")
         static let airspaceNotChecked = String(localized: "nav.airspaceNotChecked")
         static let airspaceNotCheckedDetail = String(localized: "nav.airspaceNotCheckedDetail")
-        static let routeClear = String(localized: "nav.routeClear")
-        static let terrainClose = String(localized: "nav.terrainClose")
         static let terrainProximity = String(localized: "nav.terrainProximity")
         static let terrainProximityDetail = String(localized: "nav.terrainProximityDetail")
-        static let flightPlanTitle = String(localized: "nav.flightPlanTitle")
         static let exportGPX = String(localized: "nav.exportGPX")
-        static let tableEditor = String(localized: "nav.tableEditor")
-        static let fitRoute = String(localized: "nav.fitRoute")
-        static let moreActions = String(localized: "nav.moreActions")
         static let routeProfileTitle = String(localized: "nav.routeProfileTitle")
         static let editRoute = String(localized: "nav.editRoute")
         static let logbookTimes = String(localized: "nav.logbookTimes")
@@ -1040,12 +907,9 @@ enum L10n {
         static let dist = String(localized: "nav.dist")
 
         // Flight Plan Editor
-        static let flightPlanName = String(localized: "nav.flightPlanName")
         static let aircraft = String(localized: "nav.aircraft")
         static let allAircraft = String(localized: "nav.allAircraft")
         static let filterByAircraft = String(localized: "nav.filterByAircraft")
-        static let details = String(localized: "nav.details")
-        static let create = String(localized: "nav.create")
         static let save = String(localized: "nav.save")
         static let flightPlan = String(localized: "nav.flightPlan")
         static let navigationFlightPlan = String(localized: "nav.navigationFlightPlan")
@@ -1057,34 +921,13 @@ enum L10n {
         static let totalEET = String(localized: "nav.totalEET")
         static let distance = String(localized: "nav.distance")
         static let endurance = String(localized: "nav.endurance")
-        static let route = String(localized: "nav.route")
-        static let terrain = String(localized: "nav.terrain")
-        static let add = String(localized: "nav.add")
-        static let addWaypointManually = String(localized: "nav.addWaypointManually")
-        static let addFromMap = String(localized: "nav.addFromMap")
-        static let addWithICAO = String(localized: "nav.addWithICAO")
-        static let icaoSearchPlaceholder = String(localized: "nav.icaoSearchPlaceholder")
-        static let icaoSearchHint = String(localized: "nav.icaoSearchHint")
-        static let noAirportsFound = String(localized: "nav.noAirportsFound")
-        static let addAirportToRoute = String(localized: "nav.addAirportToRoute")
-        static let addFirstWaypoint = String(localized: "nav.addFirstWaypoint")
-        static let noWaypoints = String(localized: "nav.noWaypoints")
-        static let waypoint = String(localized: "nav.waypoint")
         static let freq = String(localized: "nav.freq")
         static let freqUnavailable = String(localized: "nav.freqUnavailable")
         static let noNearbyFreq = String(localized: "nav.noNearbyFreq")
-        static let alt = String(localized: "nav.alt")
-        static let gs = String(localized: "nav.gs")
-        static let eet = String(localized: "nav.eet")
         static let eto = String(localized: "nav.eto")
-        static let ato = String(localized: "nav.ato")
         static let mc = String(localized: "nav.mc")
         static let moveUp = String(localized: "nav.moveUp")
         static let moveDown = String(localized: "nav.moveDown")
-        static let setAltitude = String(localized: "nav.setAltitude")
-        static let allWaypoints = String(localized: "nav.allWaypoints")
-        static let emptyOnly = String(localized: "nav.emptyOnly")
-        static let setAltitudeMessage = String(localized: "nav.setAltitudeMessage")
 
         // Fuel Calculation
         static let fuelCalculation = String(localized: "nav.fuelCalculation")
@@ -1115,13 +958,8 @@ enum L10n {
         // Actions
         static let activateFlightPlan = String(localized: "nav.activateFlightPlan")
         static let deactivateFlightPlan = String(localized: "nav.deactivateFlightPlan")
-        static let recalculateRoute = String(localized: "nav.recalculateRoute")
-        static let exportFlightPlan = String(localized: "nav.exportFlightPlan")
-        static let exportReady = String(localized: "nav.exportReady")
-        static let share = String(localized: "nav.share")
 
         // Waypoint Editor
-        static let addWaypoint = String(localized: "nav.addWaypoint")
         static let waypointName = String(localized: "nav.waypointName")
         static let latitude = String(localized: "nav.latitude")
         static let longitude = String(localized: "nav.longitude")
@@ -1135,26 +973,18 @@ enum L10n {
         static let defaultAGL = String(localized: "nav.defaultAGL")
         static let selectLocation = String(localized: "nav.selectLocation")
         static let waypointNamePlaceholder = String(localized: "nav.waypointNamePlaceholder")
-        static let addWaypointAtCenter = String(localized: "nav.addWaypointAtCenter")
         static let layer = String(localized: "nav.layer")
         static let selectDate = String(localized: "nav.selectDate")
         static let selectTime = String(localized: "nav.selectTime")
         static let set = String(localized: "nav.set")
 
         // Navigation View - Frequencies
-        static let noActiveFlightPlan = String(localized: "nav.noActiveFlightPlan")
-        static let areaFrequencies = String(localized: "nav.areaFrequencies")
-        static let nearbyControlledAirspace = String(localized: "nav.nearbyControlledAirspace")
-        static let nearbyAirportFrequencies = String(localized: "nav.nearbyAirportFrequencies")
-        static let noFrequenciesInFlightPlan = String(localized: "nav.noFrequenciesInFlightPlan")
         static let radioFrequencies = String(localized: "nav.radioFrequencies")
         static let allFrequencies = String(localized: "nav.allFrequencies")
         static let showLess = String(localized: "nav.showLess")
         static let fredaCheck = String(localized: "nav.fredaCheck")
         static let trackVector = String(localized: "nav.trackVector")
         static let trackVectorDesc = String(localized: "nav.trackVectorDesc")
-        static let cruiseCheckDue = String(localized: "nav.cruiseCheckDue")
-        static let cruiseCheckHint = String(localized: "nav.cruiseCheckHint")
         static let cruise = String(localized: "nav.cruise")
         static let checkNow = String(localized: "nav.checkNow")
         static let holdToReset = String(localized: "nav.holdToReset")
@@ -1168,28 +998,12 @@ enum L10n {
         static let resumeLegTitle = String(localized: "nav.resumeLegTitle")
         static let resumeLegMessage = String(localized: "nav.resumeLegMessage")
 
-        // Airspace Conflicts
-        static let restrictedAirspaceOnRoute = String(localized: "nav.restrictedAirspaceOnRoute")
-        static let airspaceAlongRoute = String(localized: "nav.airspaceAlongRoute")
-        static let airspaceConflictsTitle = String(localized: "nav.airspaceConflictsTitle")
-        static let airspaceDataRequired = String(localized: "nav.airspaceDataRequired")
-        static let airspaceCheckFailed = String(localized: "nav.airspaceCheckFailed")
-        static func legNumber(_ n: Int) -> String {
-            String(format: String(localized: "nav.legNumber"), n)
-        }
-
         // Navigation View - Waypoint Info
-        static let nextWaypoint = String(localized: "nav.nextWaypoint")
         static let hdgTo = String(localized: "nav.hdgTo")
-        static let distTo = String(localized: "nav.distTo")
-        static let chronometer = String(localized: "nav.chronometer")
         static let pauseChronometer = String(localized: "nav.pauseChronometer")
         static let startChronometer = String(localized: "nav.startChronometer")
         static let resetChronometer = String(localized: "nav.resetChronometer")
-        static let start = String(localized: "nav.start")
-        static let stop = String(localized: "nav.stop")
         static let wpt = String(localized: "nav.wpt")
-        static let min = String(localized: "nav.min")
 
         // Offline/Cache
         static let offline = String(localized: "nav.offline")
@@ -1207,11 +1021,6 @@ enum L10n {
         static let totalSize = String(localized: "nav.totalSize")
         static let goOnline = String(localized: "nav.goOnline")
         static let stayOffline = String(localized: "nav.stayOffline")
-
-        // Map Layers
-        static let appleMaps = String(localized: "nav.appleMaps")
-        static let swisstopo = String(localized: "nav.swisstopo")
-        static let mil = String(localized: "nav.mil")
 
         // Waypoint Editor
         static let editWaypoint = String(localized: "nav.editWaypoint")
@@ -1248,7 +1057,6 @@ enum L10n {
         static let personsOnBoard = String(localized: "nav.personsOnBoard")
         static let aircraftColour = String(localized: "nav.aircraftColour")
         static let copyICAOFlightPlan = String(localized: "nav.copyICAOFlightPlan")
-        static let icaoCopied = String(localized: "nav.icaoCopied")
     }
 
     // MARK: - Companion Mode

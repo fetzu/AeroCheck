@@ -113,7 +113,7 @@ struct FlightPlanningView: View {
             defaultFilename: planToExport?.exportFilename ?? "FlightPlan"
         ) { result in
             if case .failure(let error) = result {
-                print("[AéroCheck] Export failed: \(error.localizedDescription)")
+                AppLog.general.debugLine("Export failed: \(error.localizedDescription)")
             }
         }
         .preferredColorScheme(.dark)
@@ -742,8 +742,6 @@ struct ActiveFlightPlanRow: View {
         }
     }
 }
-
-// MARK: - Flight Plan Detail Pane (read-only)
 
 // MARK: - Flight Plan Document (for export)
 

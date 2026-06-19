@@ -120,7 +120,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     }
                 }
             } catch {
-                print("[AéroCheck Companion] Paired devices monitoring error: \(error)")
+                AppLog.companion.debugLine("Paired devices monitoring error: \(error)")
             }
         }
     }
@@ -173,7 +173,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.sendHandler = send
                         self.connectionState = .connected
                         self.connectedDeviceName = L10n.Companion.companionDevice
-                        print("[AéroCheck Companion] Companion connected")
+                        AppLog.companion.debugLine("Companion connected")
                         return self.connectionGeneration
                     }
 
@@ -187,7 +187,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                             let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
 
                             guard length > 0 && length < 1_000_000 else {
-                                print("[AéroCheck Companion] Invalid message length: \(length)")
+                                AppLog.companion.debugLine("Invalid message length: \(length)")
                                 break
                             }
 
@@ -201,7 +201,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         }
                     } catch {
                         if !Task.isCancelled {
-                            print("[AéroCheck Companion] Receive error: \(error)")
+                            AppLog.companion.debugLine("Receive error: \(error)")
                         }
                     }
 
@@ -212,9 +212,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
 
-            print("[AéroCheck Companion] Started Wi-Fi Aware listener")
+            AppLog.companion.debugLine("Started Wi-Fi Aware listener")
         } catch {
-            print("[AéroCheck Companion] Failed to create listener: \(error)")
+            AppLog.companion.debugLine("Failed to create listener: \(error)")
             connectionState = .disconnected
         }
     }
@@ -300,7 +300,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     self?.sendHandler = send
                     self?.connectionState = .connected
                     self?.connectedDeviceName = self?.pairedDevices.first?.name ?? L10n.Companion.masterDevice
-                    print("[AéroCheck Companion] Connected to master")
+                    AppLog.companion.debugLine("Connected to master")
                 }
 
                 // Receive messages until connection ends
@@ -310,7 +310,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
 
                         guard length > 0 && length < 1_000_000 else {
-                            print("[AéroCheck Companion] Invalid message length: \(length)")
+                            AppLog.companion.debugLine("Invalid message length: \(length)")
                             break
                         }
 
@@ -324,7 +324,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     }
                 } catch {
                     if !Task.isCancelled {
-                        print("[AéroCheck Companion] Receive error: \(error)")
+                        AppLog.companion.debugLine("Receive error: \(error)")
                     }
                 }
 
@@ -335,7 +335,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             } catch {
                 await MainActor.run {
                     guard let self, self.connectionGeneration == myGeneration else { return }
-                    print("[AéroCheck Companion] Browser/connection error: \(error)")
+                    AppLog.companion.debugLine("Browser/connection error: \(error)")
                     self.connectionState = .reconnecting
                     // Auto-retry after delay, only while this attempt is still the current one. (PR-15)
                     Task { @MainActor in
@@ -349,7 +349,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
         }
 
-        print("[AéroCheck Companion] Browsing for paired master device...")
+        AppLog.companion.debugLine("Browsing for paired master device...")
     }
 
     /// Send a command to the master device
@@ -361,7 +361,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             let message = CompanionMessage(type: .command, payload: payload)
             sendMessage(message)
         } catch {
-            print("[AéroCheck Companion] Failed to encode command: \(error)")
+            AppLog.companion.debugLine("Failed to encode command: \(error)")
         }
     }
 
@@ -388,7 +388,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         currentRole = .none
         lastReceivedData = nil
         lastFlightPlanSnapshot = nil
-        print("[AéroCheck Companion] Disconnected")
+        AppLog.companion.debugLine("Disconnected")
     }
 
     /// Switch from companion mode back to standalone
@@ -403,7 +403,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // an explicit disconnect — otherwise a stale receive loop ending would clobber the live
         // connection's state and spawn a duplicate reconnect. (PR-15)
         guard generation == connectionGeneration else {
-            print("[AéroCheck Companion] Ignoring teardown from stale connection (gen \(generation))")
+            AppLog.companion.debugLine("Ignoring teardown from stale connection (gen \(generation))")
             return
         }
 
@@ -444,7 +444,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 try? await sendHandler(frame)
             }
         } catch {
-            print("[AéroCheck Companion] Failed to encode message: \(error)")
+            AppLog.companion.debugLine("Failed to encode message: \(error)")
         }
     }
 
@@ -468,7 +468,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             }
 
         case .disconnect:
-            print("[AéroCheck Companion] Received disconnect message")
+            AppLog.companion.debugLine("Received disconnect message")
             cleanupConnection()
             connectionState = .disconnected
             connectedDeviceName = nil
@@ -556,7 +556,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             let message = CompanionMessage(type: .flightData, payload: payload)
             sendMessage(message)
         } catch {
-            print("[AéroCheck Companion] Failed to encode flight data: \(error)")
+            AppLog.companion.debugLine("Failed to encode flight data: \(error)")
         }
     }
 
@@ -572,7 +572,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             sendMessage(message)
             lastSentFlightPlanId = plan.id
         } catch {
-            print("[AéroCheck Companion] Failed to encode flight plan: \(error)")
+            AppLog.companion.debugLine("Failed to encode flight plan: \(error)")
         }
     }
 

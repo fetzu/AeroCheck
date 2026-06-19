@@ -162,7 +162,7 @@ struct AeroCheckApp: App {
             // UX-11: resolve and select the requested aircraft (by id or registration); refuse an
             // unknown token rather than launching the wrong or an empty aircraft.
             guard appState.selectAircraft(id: aircraft, available: aircraftDataService.availableAircraft) else {
-                print("[AéroCheck] Deep link requested unknown aircraft: \(aircraft)")
+                AppLog.general.debugLine("Deep link requested unknown aircraft: \(aircraft)")
                 return
             }
             // Route through the same launcher as the home screen so the checklist is loaded, the

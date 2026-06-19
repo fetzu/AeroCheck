@@ -23,7 +23,6 @@ class OpenAIPCacheManager: ObservableObject {
     // MARK: - Private Properties
 
     private let fileManager = FileManager.default
-    private var downloadTask: Task<Void, Never>?
 
     /// Base directory for OpenAIP tile cache
     private var cacheDirectory: URL {
@@ -307,15 +306,6 @@ class OpenAIPCacheManager: ObservableObject {
         } catch {
             downloadError = "Failed to delete cache: \(error.localizedDescription)"
         }
-    }
-
-    /// Cancel an in-progress download
-    func cancelDownload() {
-        downloadTask?.cancel()
-        downloadTask = nil
-        isDownloading = false
-        downloadStartTime = nil
-        estimatedTimeRemaining = nil
     }
 
     /// Estimated download size for given countries (rough approximation)

@@ -127,11 +127,11 @@ class AirportDataService: ObservableObject {
 
             // Download and parse airports (largest file, ~10MB)
             downloadProgress = 0.05
-            print("[AirportData] Downloading airports...")
+            AppLog.airportData.debugLine("Downloading airports...")
             let airportsCSV = try await downloadCSV(from: OurAirportsURL.airports)
             downloadProgress = 0.35
 
-            print("[AirportData] Parsing airports...")
+            AppLog.airportData.debugLine("Parsing airports...")
             let parsedAirports = await Task.detached(priority: .userInitiated) {
                 AirportDataService.parseAirportsCSV(airportsCSV)
             }.value
@@ -148,29 +148,29 @@ class AirportDataService: ObservableObject {
             }
 
             // Download and parse frequencies (~2MB)
-            print("[AirportData] Downloading frequencies...")
+            AppLog.airportData.debugLine("Downloading frequencies...")
             let frequenciesCSV = try await downloadCSV(from: OurAirportsURL.frequencies)
             downloadProgress = 0.55
 
-            print("[AirportData] Parsing frequencies...")
+            AppLog.airportData.debugLine("Parsing frequencies...")
             let parsedFrequencies = await Task.detached(priority: .userInitiated) {
                 AirportDataService.parseFrequenciesCSV(frequenciesCSV)
             }.value
             downloadProgress = 0.65
 
             // Download and parse runways (~3MB)
-            print("[AirportData] Downloading runways...")
+            AppLog.airportData.debugLine("Downloading runways...")
             let runwaysCSV = try await downloadCSV(from: OurAirportsURL.runways)
             downloadProgress = 0.75
 
-            print("[AirportData] Parsing runways...")
+            AppLog.airportData.debugLine("Parsing runways...")
             let parsedRunways = await Task.detached(priority: .userInitiated) {
                 AirportDataService.parseRunwaysCSV(runwaysCSV)
             }.value
             downloadProgress = 0.85
 
             // Save to local storage
-            print("[AirportData] Saving to local storage...")
+            AppLog.airportData.debugLine("Saving to local storage...")
             try await saveToLocal(airports: parsedAirports, frequencies: parsedFrequencies, runways: parsedRunways)
             downloadProgress = 0.95
 
@@ -186,11 +186,11 @@ class AirportDataService: ObservableObject {
             self.isLoaded = true
 
             downloadProgress = 1.0
-            print("[AirportData] Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
+            AppLog.airportData.debugLine("Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
 
         } catch {
             downloadError = error.localizedDescription
-            print("[AirportData] Download failed: \(error)")
+            AppLog.airportData.debugLine("Download failed: \(error)")
         }
 
         isDownloading = false
@@ -199,7 +199,7 @@ class AirportDataService: ObservableObject {
     /// Load data from local cache
     func loadFromLocal() async {
         guard fileManager.fileExists(atPath: airportsFileURL.path) else {
-            print("[AirportData] No local data found")
+            AppLog.airportData.debugLine("No local data found")
             isLoaded = true // Mark as attempted to avoid repeated checks
             return
         }
@@ -230,7 +230,7 @@ class AirportDataService: ObservableObject {
                     runways: runways, lastUpdated: lastUpdated
                 )
             } catch {
-                print("[AirportData] Failed to load from cache: \(error)")
+                AppLog.airportData.debugLine("Failed to load from cache: \(error)")
                 return nil
             }
         }.value
@@ -243,7 +243,7 @@ class AirportDataService: ObservableObject {
             self.runwaysByAirport = Dictionary(grouping: loaded.runways) { $0.airportIdent }
             self.airportCount = loaded.airports.count
             self.isDataAvailable = true
-            print("[AirportData] Loaded from cache: \(loaded.airports.count) airports")
+            AppLog.airportData.debugLine("Loaded from cache: \(loaded.airports.count) airports")
         }
         self.isLoaded = true
     }
@@ -262,9 +262,9 @@ class AirportDataService: ObservableObject {
             lastUpdated = nil
             isDataAvailable = false
             isLoaded = false
-            print("[AirportData] Data deleted")
+            AppLog.airportData.debugLine("Data deleted")
         } catch {
-            print("[AirportData] Failed to delete data: \(error)")
+            AppLog.airportData.debugLine("Failed to delete data: \(error)")
         }
     }
 

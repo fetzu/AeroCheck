@@ -490,6 +490,16 @@ struct OfflineMapDownloadSheet: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(.dimText)
                         }
+
+                        // PERF-23: surface server rate-limiting so a throttled (HTTP 429)
+                        // download isn't mistaken for ordinary slowness or tile failures.
+                        if offlineMapManager.downloadWasThrottled {
+                            Label(L10n.Download.throttled, systemImage: "clock.badge.exclamationmark")
+                                .font(.system(size: 12))
+                                .foregroundColor(.aviationGold)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
                     }
                 } else if let error = offlineMapManager.downloadError {
                     VStack(spacing: 12) {

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		A5000008111111110000002 /* GeoValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000001 /* GeoValidationTests.swift */; };
-		A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000003 /* AirspaceAnalyzerTests.swift */; };
 		A5000008111111110000006 /* WindDataServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000005 /* WindDataServiceTests.swift */; };
 		A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000008111111110000007 /* FlightEventDetectorTests.swift */; };
 		A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000009111111110000001 /* AppStateFlightStartTests.swift */; };
@@ -85,6 +84,9 @@
 		A300000A211111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
 		A300000A311111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
 		A300000A411111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
+		A300000B211111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
+		A300000B311111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
+		A300000B411111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
 		A1000001211111110000062 /* AmbientCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000062 /* AmbientCelebration.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -116,7 +118,6 @@
 		AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000002 /* OpenAIPTileOverlay.swift */; };
 		AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000003 /* OpenAIPCacheManager.swift */; };
 		AA000001211111110000004 /* OpenAIPDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000004 /* OpenAIPDataService.swift */; };
-		AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000005 /* AirspaceAnalyzer.swift */; };
 		AA000001211111110000006 /* Airspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001111111110000006 /* Airspace.swift */; };
 		EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */; };
 		62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */; };
@@ -178,7 +179,6 @@
 /* Begin PBXFileReference section */
 		A5000001111111110000000 /* AeroCheckTests.xctest */ = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = AeroCheckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5000008111111110000001 /* GeoValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoValidationTests.swift; sourceTree = "<group>"; };
-		A5000008111111110000003 /* AirspaceAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzerTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000005 /* WindDataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindDataServiceTests.swift; sourceTree = "<group>"; };
 		A5000008111111110000007 /* FlightEventDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightEventDetectorTests.swift; sourceTree = "<group>"; };
 		A5000009111111110000001 /* AppStateFlightStartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateFlightStartTests.swift; sourceTree = "<group>"; };
@@ -250,6 +250,7 @@
 		A3000001111111110000002 /* WatchConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityData.swift; sourceTree = "<group>"; };
 		A3000009111111110000009 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		A300000A111111110000009 /* AmbientPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientPalette.swift; sourceTree = "<group>"; };
+		A300000B111111110000009 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
 		A4000001111111110000000 /* AeroCheckWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheckWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -285,7 +286,6 @@
 		AA000001111111110000002 /* OpenAIPTileOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPTileOverlay.swift; sourceTree = "<group>"; };
 		AA000001111111110000003 /* OpenAIPCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPCacheManager.swift; sourceTree = "<group>"; };
 		AA000001111111110000004 /* OpenAIPDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPDataService.swift; sourceTree = "<group>"; };
-		AA000001111111110000005 /* AirspaceAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceAnalyzer.swift; sourceTree = "<group>"; };
 		AA000001111111110000006 /* Airspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airspace.swift; sourceTree = "<group>"; };
 		92A08F72FE734613BD614D58 /* CompanionConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityManager.swift; sourceTree = "<group>"; };
 		58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionConnectivityData.swift; sourceTree = "<group>"; };
@@ -333,7 +333,6 @@
 			isa = PBXGroup;
 			children = (
 				A5000008111111110000001 /* GeoValidationTests.swift */,
-				A5000008111111110000003 /* AirspaceAnalyzerTests.swift */,
 				A5000008111111110000005 /* WindDataServiceTests.swift */,
 				A5000008111111110000007 /* FlightEventDetectorTests.swift */,
 				A5000009111111110000001 /* AppStateFlightStartTests.swift */,
@@ -498,7 +497,6 @@
 				AA000001111111110000002 /* OpenAIPTileOverlay.swift */,
 				AA000001111111110000003 /* OpenAIPCacheManager.swift */,
 				AA000001111111110000004 /* OpenAIPDataService.swift */,
-				AA000001111111110000005 /* AirspaceAnalyzer.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -537,6 +535,7 @@
 				A3000001111111110000002 /* WatchConnectivityData.swift */,
 				A3000009111111110000009 /* DesignTokens.swift */,
 				A300000A111111110000009 /* AmbientPalette.swift */,
+				A300000B111111110000009 /* AppLog.swift */,
 				58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */,
 			);
 			path = Shared;
@@ -721,7 +720,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A5000008111111110000002 /* GeoValidationTests.swift in Sources */,
-				A5000008111111110000004 /* AirspaceAnalyzerTests.swift in Sources */,
 				A5000008111111110000006 /* WindDataServiceTests.swift in Sources */,
 				A5000008111111110000008 /* FlightEventDetectorTests.swift in Sources */,
 				A5000009111111110000002 /* AppStateFlightStartTests.swift in Sources */,
@@ -789,6 +787,7 @@
 				A3000001211111110000002 /* WatchConnectivityData.swift in Sources */,
 				A3000009211111110000009 /* DesignTokens.swift in Sources */,
 				A300000A211111110000009 /* AmbientPalette.swift in Sources */,
+				A300000B211111110000009 /* AppLog.swift in Sources */,
 				A1000001211111110000062 /* AmbientCelebration.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
@@ -818,7 +817,6 @@
 				AA000001211111110000002 /* OpenAIPTileOverlay.swift in Sources */,
 				AA000001211111110000003 /* OpenAIPCacheManager.swift in Sources */,
 				AA000001211111110000004 /* OpenAIPDataService.swift in Sources */,
-				AA000001211111110000005 /* AirspaceAnalyzer.swift in Sources */,
 				AA000001211111110000006 /* Airspace.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -830,6 +828,7 @@
 				A2000001211111110000003 /* AeroCheckWidget.swift in Sources */,
 				A3000009311111110000009 /* DesignTokens.swift in Sources */,
 				A300000A311111110000009 /* AmbientPalette.swift in Sources */,
+				A300000B311111110000009 /* AppLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -843,6 +842,7 @@
 				A4000001211111110000004 /* WatchConnectivityData.swift in Sources */,
 				A3000009411111110000009 /* DesignTokens.swift in Sources */,
 				A300000A411111110000009 /* AmbientPalette.swift in Sources */,
+				A300000B411111110000009 /* AppLog.swift in Sources */,
 				0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

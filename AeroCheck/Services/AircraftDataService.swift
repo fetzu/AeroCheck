@@ -151,7 +151,7 @@ class AircraftDataService: ObservableObject {
 
         } catch {
             errorMessage = "Failed to fetch aircraft: \(error.localizedDescription)"
-            print("Failed to fetch aircraft list: \(error)")
+            AppLog.aircraftData.debugLine("Failed to fetch aircraft list: \(error)")
 
             // Fall back to cached data
             loadCachedMetadata()
@@ -186,7 +186,7 @@ class AircraftDataService: ObservableObject {
         // an uncertain status now serves the cached checklist instead of clearing it.
         if let meta = availableAircraft.first(where: { $0.id == aircraftId }), !meta.isFree,
            gating.isPremiumAccessDefinitivelyDenied() {
-            print("[AircraftDataService] Premium access definitively denied for \(aircraftId); withholding checklist and clearing cache")
+            AppLog.aircraftData.debugLine("Premium access definitively denied for \(aircraftId); withholding checklist and clearing cache")
             clearCache(for: cacheKey)
             return nil
         }
@@ -194,7 +194,7 @@ class AircraftDataService: ObservableObject {
         // Check cache first
         if let cached = loadCachedChecklist(aircraftId: cacheKey) {
             if isCacheValid(aircraftId: cacheKey) {
-                print("[AircraftDataService] Using cached checklist for \(cacheKey)")
+                AppLog.aircraftData.debugLine("Using cached checklist for \(cacheKey)")
 
                 // Check for updates in background - will increment checklistUpdateCount if found
                 Task { [weak self] in
@@ -202,7 +202,7 @@ class AircraftDataService: ObservableObject {
                 }
                 return cached
             } else {
-                print("[AircraftDataService] Cache expired for \(cacheKey), checking for updates")
+                AppLog.aircraftData.debugLine("Cache expired for \(cacheKey), checking for updates")
                 // Cache expired - do a blocking update check
                 await checkForUpdate(aircraftId: aircraftId, language: language)
                 // Return the (possibly updated) cached checklist
@@ -225,29 +225,29 @@ class AircraftDataService: ObservableObject {
                     if BundledChecklistService.isNewer(checklist.version, than: bundled.version) ||
                        checklist.version == bundled.version {
                         cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
-                        print("[AircraftDataService] API version (\(checklist.version)) cached for bundled aircraft \(cacheKey)")
+                        AppLog.aircraftData.debugLine("API version (\(checklist.version)) cached for bundled aircraft \(cacheKey)")
                         return checklist
                     } else {
                         // API version is older than bundled - use bundled
-                        print("[AircraftDataService] API version (\(checklist.version)) older than bundled (\(bundled.version)), using bundled")
+                        AppLog.aircraftData.debugLine("API version (\(checklist.version)) older than bundled (\(bundled.version)), using bundled")
                         return bundled
                     }
                 } else {
                     // Language not bundled but aircraft is bundled - this is a new language from API
                     // Cache it as it's new content not available in the bundle
                     cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
-                    print("[AircraftDataService] New language variant (\(language ?? "default")) from API for bundled aircraft \(aircraftId)")
+                    AppLog.aircraftData.debugLine("New language variant (\(language ?? "default")) from API for bundled aircraft \(aircraftId)")
                     return checklist
                 }
             }
 
             cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
-            print("[AircraftDataService] Cached fresh checklist for \(cacheKey)")
+            AppLog.aircraftData.debugLine("Cached fresh checklist for \(cacheKey)")
             return checklist
         } catch {
             // If offline and we have cached data (even if expired), use it
             if let cached = loadCachedChecklist(aircraftId: cacheKey) {
-                print("[AircraftDataService] Using expired cache for \(cacheKey) (offline)")
+                AppLog.aircraftData.debugLine("Using expired cache for \(cacheKey) (offline)")
                 errorMessage = "Using cached data (offline)"
                 return cached
             }
@@ -256,13 +256,13 @@ class AircraftDataService: ObservableObject {
             // Use language-aware fallback
             if BundledChecklistService.isBundled(aircraftId: aircraftId) {
                 if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language) {
-                    print("[AircraftDataService] Using bundled checklist for \(aircraftId) (\(language ?? "default")) (offline/error)")
+                    AppLog.aircraftData.debugLine("Using bundled checklist for \(aircraftId) (\(language ?? "default")) (offline/error)")
                     return bundled
                 }
             }
 
             errorMessage = "Failed to fetch checklist: \(error.localizedDescription)"
-            print("Failed to fetch checklist for \(cacheKey): \(error)")
+            AppLog.aircraftData.debugLine("Failed to fetch checklist for \(cacheKey): \(error)")
             return nil
         }
     }
@@ -313,12 +313,12 @@ class AircraftDataService: ObservableObject {
                 if isBundled, let bundled = bundledChecklist {
                     if !BundledChecklistService.isNewer(serverVersion.version, than: bundled.version) &&
                        serverVersion.version != bundled.version {
-                        print("[AircraftDataService] Server version (\(serverVersion.version)) not newer than bundled (\(bundled.version)), skipping update")
+                        AppLog.aircraftData.debugLine("Server version (\(serverVersion.version)) not newer than bundled (\(bundled.version)), skipping update")
                         return
                     }
                 }
 
-                print("[AircraftDataService] Update available for \(cacheKey), downloading...")
+                AppLog.aircraftData.debugLine("Update available for \(cacheKey), downloading...")
                 do {
                     let updated = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
                     cacheChecklist(updated, aircraftId: cacheKey, checksum: serverVersion.checksum)
@@ -329,15 +329,15 @@ class AircraftDataService: ObservableObject {
                         availableAircraft[index].lastUpdated = updated.lastUpdated
                     }
                     checklistUpdateCount += 1
-                    print("[AircraftDataService] Successfully updated checklist for \(cacheKey) to v\(updated.version)")
+                    AppLog.aircraftData.debugLine("Successfully updated checklist for \(cacheKey) to v\(updated.version)")
                 } catch {
-                    print("[AircraftDataService] Failed to download update for \(cacheKey): \(error.localizedDescription)")
+                    AppLog.aircraftData.debugLine("Failed to download update for \(cacheKey): \(error.localizedDescription)")
                 }
             } else {
-                print("[AircraftDataService] Checklist for \(cacheKey) is up to date")
+                AppLog.aircraftData.debugLine("Checklist for \(cacheKey) is up to date")
             }
         } catch {
-            print("[AircraftDataService] Failed to check for update for \(cacheKey): \(error.localizedDescription)")
+            AppLog.aircraftData.debugLine("Failed to check for update for \(cacheKey): \(error.localizedDescription)")
         }
     }
 
@@ -370,7 +370,7 @@ class AircraftDataService: ObservableObject {
                 let newLanguages = apiLanguages.subtracting(bundledLanguages)
 
                 for language in newLanguages {
-                    print("[AircraftDataService] Checking new API language '\(language)' for bundled aircraft \(aircraftId)")
+                    AppLog.aircraftData.debugLine("Checking new API language '\(language)' for bundled aircraft \(aircraftId)")
                     await checkForUpdate(aircraftId: aircraftId, language: language)
                 }
             }
@@ -490,16 +490,16 @@ class AircraftDataService: ObservableObject {
             if fileManager.fileExists(atPath: metadataPath.path) {
                 try fileManager.removeItem(at: metadataPath)
             }
-            print("[AircraftDataService] Cleared cache for \(aircraftId)")
+            AppLog.aircraftData.debugLine("Cleared cache for \(aircraftId)")
         } catch {
-            print("[AircraftDataService] Failed to clear cache for \(aircraftId): \(error)")
+            AppLog.aircraftData.debugLine("Failed to clear cache for \(aircraftId): \(error)")
         }
     }
 
     /// Clears all premium (non-free) cached checklists
     /// Called when subscription expires and grace period ends
     func clearPremiumCaches() {
-        print("[AircraftDataService] Clearing premium cached checklists")
+        AppLog.aircraftData.debugLine("Clearing premium cached checklists")
         for aircraft in availableAircraft where !aircraft.isFree {
             clearCache(for: aircraft.id)
         }
@@ -509,7 +509,7 @@ class AircraftDataService: ObservableObject {
     /// Returns true if premium caches are still valid, false if they were cleared
     func validatePremiumCaches(subscriptionManager: SubscriptionGating) -> Bool {
         guard subscriptionManager.shouldAllowPremiumAccess() else {
-            print("[AircraftDataService] Subscription access revoked, clearing premium caches")
+            AppLog.aircraftData.debugLine("Subscription access revoked, clearing premium caches")
             clearPremiumCaches()
             return false
         }
@@ -550,7 +550,7 @@ class AircraftDataService: ObservableObject {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let dataDict = json["data"] as? [String: Any],
               let aircraftArray = dataDict["aircraft"] as? [[String: Any]] else {
-            print("[AircraftDataService] Failed to parse aircraft list wrapper")
+            AppLog.aircraftData.debugLine("Failed to parse aircraft list wrapper")
             return []
         }
 
@@ -565,11 +565,11 @@ class AircraftDataService: ObservableObject {
             } catch {
                 // Log the error but continue processing other aircraft
                 let aircraftId = aircraftDict["id"] as? String ?? "unknown"
-                print("[AircraftDataService] Skipping malformed aircraft at index \(index) (id: \(aircraftId)): \(error.localizedDescription)")
+                AppLog.aircraftData.debugLine("Skipping malformed aircraft at index \(index) (id: \(aircraftId)): \(error.localizedDescription)")
             }
         }
 
-        print("[AircraftDataService] Parsed \(validAircraft.count)/\(aircraftArray.count) aircraft successfully")
+        AppLog.aircraftData.debugLine("Parsed \(validAircraft.count)/\(aircraftArray.count) aircraft successfully")
         return validAircraft
     }
 
@@ -655,7 +655,7 @@ class AircraftDataService: ObservableObject {
             let data = try encoder.encode(aircraft)
             try data.write(to: path)
         } catch {
-            print("Failed to cache metadata: \(error)")
+            AppLog.aircraftData.debugLine("Failed to cache metadata: \(error)")
         }
     }
 
@@ -674,7 +674,7 @@ class AircraftDataService: ObservableObject {
                 lastSyncDate = attributes[.modificationDate] as? Date
             }
         } catch {
-            print("Failed to load cached metadata: \(error)")
+            AppLog.aircraftData.debugLine("Failed to load cached metadata: \(error)")
         }
     }
 
@@ -698,7 +698,7 @@ class AircraftDataService: ObservableObject {
             let metadataData = try encoder.encode(metadata)
             try metadataData.write(to: metadataPath)
         } catch {
-            print("Failed to cache checklist: \(error)")
+            AppLog.aircraftData.debugLine("Failed to cache checklist: \(error)")
         }
     }
 
@@ -712,7 +712,7 @@ class AircraftDataService: ObservableObject {
             let decoder = JSONDecoder()
             return try decoder.decode(CacheMetadata.self, from: data)
         } catch {
-            print("Failed to load cache metadata: \(error)")
+            AppLog.aircraftData.debugLine("Failed to load cache metadata: \(error)")
             return nil
         }
     }
@@ -727,7 +727,7 @@ class AircraftDataService: ObservableObject {
             let decoder = JSONDecoder()
             return try decoder.decode(RemoteAircraftChecklist.self, from: data)
         } catch {
-            print("Failed to load cached checklist: \(error)")
+            AppLog.aircraftData.debugLine("Failed to load cached checklist: \(error)")
             return nil
         }
     }

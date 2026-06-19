@@ -81,7 +81,7 @@ actor ElevationService {
                 }
             }
         } catch {
-            print("[AéroCheck] Elevation fetch error: \(error.localizedDescription)")
+            AppLog.general.debugLine("Elevation fetch error: \(error.localizedDescription)")
         }
 
         return nil
@@ -177,7 +177,7 @@ actor ElevationService {
                 }
             }
         } catch {
-            print("[AéroCheck] Profile fetch error: \(error.localizedDescription)")
+            AppLog.general.debugLine("Profile fetch error: \(error.localizedDescription)")
         }
 
         return nil
@@ -242,7 +242,7 @@ actor ElevationService {
             let (data, httpResponse) = try await ExternalRequest.data(for: request)
 
             guard (200...203).contains(httpResponse.statusCode) else {
-                print("[AéroCheck] Swisstopo profile POST failed: \(String(describing: (try? JSONSerialization.jsonObject(with: data))))")
+                AppLog.general.debugLine("Swisstopo profile POST failed: \(String(describing: (try? JSONSerialization.jsonObject(with: data))))")
                 return []
             }
 
@@ -261,7 +261,7 @@ actor ElevationService {
             // Map distance-based results back to timestamps
             return mapProfileToTimestamps(profilePoints: profilePoints, gpsTrack: gpsTrack)
         } catch {
-            print("[AéroCheck] Swisstopo track terrain error: \(error.localizedDescription)")
+            AppLog.general.debugLine("Swisstopo track terrain error: \(error.localizedDescription)")
             return []
         }
     }
@@ -318,7 +318,7 @@ actor ElevationService {
                 }
                 allElevations.append(contentsOf: elevations)
             } catch {
-                print("[AéroCheck] Open-Meteo elevation error: \(error.localizedDescription)")
+                AppLog.general.debugLine("Open-Meteo elevation error: \(error.localizedDescription)")
                 return []
             }
         }

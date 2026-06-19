@@ -15,6 +15,7 @@ struct AeroCheckApp: App {
     @StateObject private var aircraftDataService: AircraftDataService
     @StateObject private var airportDataService: AirportDataService
     @StateObject private var openAIPCacheManager: OpenAIPCacheManager
+    @StateObject private var openAIPNavaidDataService: OpenAIPNavaidDataService
     @StateObject private var openAIPDataService: OpenAIPDataService
     @StateObject private var flightEventDetector = FlightEventDetector()
     /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
@@ -43,11 +44,14 @@ struct AeroCheckApp: App {
         _openAIPDataService = StateObject(wrappedValue: openAIP)
         let openAIPCache = OpenAIPCacheManager()
         _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
+        let navaids = OpenAIPNavaidDataService()
+        _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)
         _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
             providers: [
                 OpenAIPAirspaceProvider(service: openAIP),
+                OpenAIPNavaidProvider(service: navaids),
                 OurAirportsProvider(service: airports),
                 SwissChartsProvider(manager: offline),
                 OpenAIPTilesProvider(manager: openAIPCache),
@@ -71,6 +75,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPCacheManager)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
                 .environmentObject(networkMonitor)
@@ -177,6 +182,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPCacheManager)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
                 .environmentObject(networkMonitor)

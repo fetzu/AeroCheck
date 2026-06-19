@@ -72,6 +72,8 @@ enum L10n {
         static let sourceAirports = String(localized: "Airport database · public domain")
         static let sourceWind = String(localized: "Wind data")
         static let sourceElevation = String(localized: "Terrain elevation")
+        static let navaidsName = String(localized: "Navaids")
+        static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
     }
 
     // MARK: - Buttons

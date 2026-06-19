@@ -362,3 +362,35 @@ struct OpenAIPTilesProvider: DataSetProvider {
 
     func delete() { manager.deleteCache() }
 }
+
+/// OpenAIP navaids (VOR/DME/NDB) — structured, nav-relevant data, so it gets the data-first freshness
+/// class (primary, small-JSON), not the cosmetic-tile class. (v4.1.0)
+@MainActor
+struct OpenAIPNavaidProvider: DataSetProvider {
+    let service: OpenAIPNavaidDataService
+    var id: String { "openaip.navaids" }
+
+    func makeDataSet(now: Date) -> DataSet {
+        DataSet(
+            id: id,
+            displayName: L10n.DataStorage.navaidsName,
+            detail: L10n.DataStorage.navaidsDetail,
+            urgency: .primary,
+            provenance: .community,
+            refreshPolicy: .smallSilentJSON,
+            lastUpdated: service.lastUpdated,
+            freshness: FreshnessThresholds.aeronautical.freshness(lastUpdated: service.lastUpdated, now: now),
+            sizeOnDisk: nil,
+            coverage: service.downloadedCountries,
+            isDownloaded: service.isDataAvailable
+        )
+    }
+
+    func refresh() async {
+        let countries = service.downloadedCountries
+        guard !countries.isEmpty else { return }
+        await service.downloadData(for: countries)
+    }
+
+    func delete() { service.deleteData() }
+}

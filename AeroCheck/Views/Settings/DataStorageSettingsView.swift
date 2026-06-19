@@ -334,6 +334,7 @@ struct DataStorageSettingsView: View {
     /// charts carry their size in the descriptor (`cacheSizeBytes`), so they're not listed here.
     private static let directoryByDataSetID: [String: String] = [
         "openaip.airspace": "OpenAIPData",
+        "openaip.navaids": "OpenAIPNavaidData",
         "ourairports.airports": "AirportData",
     ]
 

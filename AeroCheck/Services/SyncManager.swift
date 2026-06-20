@@ -40,6 +40,11 @@ class SyncManager: ObservableObject {
     private let lastSyncDateKey = "lastSyncDate"
     private let settingsRecordExistsKey = "settingsRecordExists"
     private let settingsRecordKey = "cachedSettingsRecord"
+    private let lastSyncedModifiedAtKey = "lastSyncedFlightModifiedAt"
+
+    /// flightId → the `modifiedAt` last CONFIRMED-sent to CloudKit, so `syncAllFlights` can skip flights
+    /// that haven't changed (a miss only ever causes a harmless re-upload, never a skipped change).
+    private var lastSyncedModifiedAt: [String: Date] = [:]
 
     // MARK: - Private Properties
 
@@ -108,6 +113,12 @@ class SyncManager: ObservableObject {
 
         // Load whether settings record exists on server
         self.settingsRecordExists = UserDefaults.standard.bool(forKey: settingsRecordExistsKey)
+
+        // Load the synced-flight fingerprint map (skip-unchanged guard for syncAllFlights)
+        if let data = UserDefaults.standard.data(forKey: lastSyncedModifiedAtKey),
+           let map = try? JSONDecoder().decode([String: Date].self, from: data) {
+            self.lastSyncedModifiedAt = map
+        }
 
         // Defer CloudKit initialization to avoid blocking app startup
         // Use detached task with low priority to not compete with UI rendering
@@ -307,26 +318,28 @@ class SyncManager: ObservableObject {
     func syncAllFlights(_ flights: [Flight]) {
         guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
-        // Store all flight data so it's available when batches are created
-        for flight in flights {
+        // Only queue flights whose content changed since the last CONFIRMED sync — re-uploading every
+        // flight on each batch (e.g. importing one) is what made "sync all" slow. The fingerprint map is
+        // updated on confirmed send; a miss just re-uploads (safe), it never skips a real change.
+        let changed = flights.filter { lastSyncedModifiedAt[$0.id.uuidString] != $0.modifiedAt }
+        guard !changed.isEmpty else { return }
+
+        for flight in changed {
             pendingFlights[flight.id] = flight
         }
-
-        let changes: [CKSyncEngine.PendingRecordZoneChange] = flights.map { flight in
+        let changes: [CKSyncEngine.PendingRecordZoneChange] = changed.map { flight in
             let recordID = CKRecord.ID(recordName: flight.id.uuidString, zoneID: recordZone.zoneID)
             return .saveRecord(recordID)
         }
-
-        if !changes.isEmpty {
-            engine.state.add(pendingRecordZoneChanges: changes)
-            AppLog.sync.debugLine("Queued \(flights.count) flights for sync")
-        }
+        engine.state.add(pendingRecordZoneChanges: changes)
+        AppLog.sync.debugLine("Queued \(changed.count)/\(flights.count) changed flights for sync")
     }
 
     /// Delete a flight from iCloud
     func deleteFlight(_ flightId: UUID) {
         guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
+        unmarkFlightSynced(flightId)   // so a future flight reusing this id re-uploads
         pendingFlightDeletions.insert(flightId)
 
         let recordID = CKRecord.ID(recordName: flightId.uuidString, zoneID: recordZone.zoneID)
@@ -533,6 +546,25 @@ class SyncManager: ObservableObject {
         pendingFlightDeletions.remove(id)
     }
 
+    /// Record a flight's confirmed-synced fingerprint in memory (caller persists once per batch via
+    /// `persistSyncedFingerprints()`), so `syncAllFlights` can skip it next time. (sync optimization)
+    func markFlightSynced(_ id: UUID, modifiedAt: Date) {
+        lastSyncedModifiedAt[id.uuidString] = modifiedAt
+    }
+
+    /// Drop a deleted flight's fingerprint (+ persist) so a future flight reusing the id re-uploads.
+    func unmarkFlightSynced(_ id: UUID) {
+        if lastSyncedModifiedAt.removeValue(forKey: id.uuidString) != nil {
+            persistSyncedFingerprints()
+        }
+    }
+
+    func persistSyncedFingerprints() {
+        if let data = try? JSONEncoder().encode(lastSyncedModifiedAt) {
+            UserDefaults.standard.set(data, forKey: lastSyncedModifiedAtKey)
+        }
+    }
+
     /// Applies a conflict-merged flight to local state and re-queues it so the cloud converges on
     /// the merged result. Best-effort CloudKit conflict resolution. (ARCH-02)
     func resolveFlightConflict(_ merged: Flight) {
@@ -715,31 +747,41 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
     @MainActor
     private func handleRecordZoneChanges(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) async {
-        var updatedFlights: [Flight] = []
         var deletedFlightIds: [UUID] = []
 
+        // Settings records are handled inline on the main actor (cheap). Flight records are decoded
+        // CONCURRENTLY off the main actor below — their asset disk read + GPS-track JSON decode is the
+        // expensive part, and decoding 50+ inbound flights serially is what made the initial sync slow.
+        var flightPayloads: [(inline: Data?, assetURL: URL?)] = []
         for modification in changes.modifications {
             let record = modification.record
-
             switch record.recordType {
             case SyncRecordType.settings.rawValue:
                 if let settings = manager?.settingsFromRecord(record) {
-                    // Cache the record to preserve change tag for future updates
-                    manager?.cachedSettingsRecord = record
-                    
+                    manager?.cachedSettingsRecord = record   // preserve the change tag
                     AppLog.sync.debugLine("Received settings update from cloud")
                     manager?.onSettingsUpdated?(settings)
                 }
-
             case SyncRecordType.flight.rawValue:
-                if let flight = await manager?.flightFromRecord(record) {
-                    AppLog.sync.debugLine("Received flight update from cloud: \(flight.id)")
-                    updatedFlights.append(flight)
-                }
-
+                // Pull the Sendable payload (Data + asset URL) on the main actor; decode it off-main below.
+                flightPayloads.append((record["data"] as? Data, (record["dataAsset"] as? CKAsset)?.fileURL))
             default:
                 break
             }
+        }
+
+        // Decode the inbound flights concurrently off the main actor (asset read + track JSON decode).
+        let updatedFlights: [Flight] = await withTaskGroup(of: Flight?.self) { group in
+            for payload in flightPayloads {
+                group.addTask {
+                    var assetData: Data?
+                    if let url = payload.assetURL { assetData = try? Data(contentsOf: url) }
+                    return SyncManager.flightFromPayload(inline: payload.inline, asset: assetData)
+                }
+            }
+            var decoded: [Flight] = []
+            for await flight in group { if let flight { decoded.append(flight) } }
+            return decoded
         }
 
         for deletion in changes.deletions {
@@ -752,9 +794,10 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
         // Notify about flight updates
         if !updatedFlights.isEmpty || !deletedFlightIds.isEmpty {
-            // Get current flights and merge changes
-            let persistence = DataPersistenceManager.shared
-            var currentFlights = persistence.loadFlights()
+            // Load the current set OFF the main actor (decoding a 50-flight logbook is heavy); merge on
+            // the main actor where the conflict callback runs. The persistence write is batched off-main
+            // in the onFlightsUpdated handler, not per-flight on the main actor.
+            var currentFlights = await DataPersistenceManager.shared.loadFlightsOffMain()
 
             // Apply updates. Merge rather than blindly overwrite, so a concurrent local edit (or a
             // longer locally-recorded track) is never silently dropped by an inbound record. (ARCH-02)
@@ -803,14 +846,21 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         AppLog.sync.debugLine("Saved \(changes.savedRecords.count) records, deleted \(changes.deletedRecordIDs.count)")
 
         // Clear pending data for successfully saved records
+        var didMarkSynced = false
         for record in changes.savedRecords {
             if record.recordID.recordName == "settings" {
                 manager?.clearPendingSettings()
                 manager?.cachedSettingsRecord = record // Update cache with new change tag
             } else if let flightId = UUID(uuidString: record.recordID.recordName) {
+                // Fingerprint the confirmed-synced flight so syncAllFlights can skip it next time.
+                if let modAt = record["modifiedAt"] as? Date {
+                    manager?.markFlightSynced(flightId, modifiedAt: modAt)
+                    didMarkSynced = true
+                }
                 manager?.clearPendingFlight(flightId)
             }
         }
+        if didMarkSynced { manager?.persistSyncedFingerprints() }
 
         // Clear pending deletions for successfully deleted records
         for recordID in changes.deletedRecordIDs {

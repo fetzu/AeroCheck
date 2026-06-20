@@ -630,13 +630,12 @@ class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 // PR-09: persist only the flights whose content actually changed (by modifiedAt),
-                // instead of rewriting EVERY flight file on the main actor on each inbound sync
-                // batch — which previously happened even while a flight was active.
+                // instead of rewriting EVERY flight file. Batched OFF the main actor (was a per-flight
+                // saveFlight on the main actor — a visible hitch when a large initial sync landed).
                 let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
                 self.flights = flights
-                for flight in flights where previousById[flight.id]?.modifiedAt != flight.modifiedAt {
-                    self.persistence.saveFlight(flight)
-                }
+                let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
+                await self.persistence.saveFlightsOffMain(changed)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }

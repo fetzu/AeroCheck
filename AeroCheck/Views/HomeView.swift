@@ -271,6 +271,9 @@ struct HomeView: View {
         .onAppear {
             syncSelectedAircraftIndex()
             updateCachedItemCount()
+            // Refresh the data-currency status: a download made during onboarding (or in the data hub)
+            // happens without a scenePhase change, so the Home indicator would otherwise stay stale. (bug)
+            dataStatusManager.recompute()
         }
         .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
             get: { appState.flightStartError != nil },

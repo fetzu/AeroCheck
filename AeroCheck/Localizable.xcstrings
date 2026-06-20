@@ -10432,13 +10432,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Replay intro"
+            "value" : "Replay onboarding"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Revoir l'intro"
+            "value" : "Revoir l'intégration"
           }
         }
       }

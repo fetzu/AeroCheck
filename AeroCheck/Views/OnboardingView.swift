@@ -56,7 +56,10 @@ struct OnboardingView: View {
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var currentPage = 0
+    @State private var showSkipConfirm = false
+    @State private var showNoDownloadWarning = false
 
     /// GPS-reverse-geocoded home country (ISO-2); nil until/unless a fix resolves. (onboarding revamp)
     @State private var detectedCountry: String?
@@ -68,7 +71,21 @@ struct OnboardingView: View {
     /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
     private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
 
-    private let toggleColumns = [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
+    /// One full-width column on iPhone (compact), two on iPad — a 2-up grid is unreadable at phone width.
+    private var toggleColumns: [GridItem] {
+        horizontalSizeClass == .compact
+            ? [GridItem(.flexible(), spacing: 11)]
+            : [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
+    }
+
+    /// True when every selected country's airspace is already cached — drives the "Downloaded" state so
+    /// it reflects the CURRENT selection (selecting a new country flips it back to needing a download).
+    private var openAIPFullyDownloaded: Bool {
+        let downloaded = Set(openAIPDataService.downloadedCountries.map { $0.uppercased() })
+        var wanted = selectedCountries
+        wanted.insert(effectiveHome)
+        return !wanted.isEmpty && wanted.isSubset(of: downloaded)
+    }
 
     var body: some View {
         ZStack {
@@ -78,7 +95,7 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
-                    Button(action: completeOnboarding) {
+                    Button(action: { showSkipConfirm = true }) {
                         Text(L10n.Onboarding.skip)
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(.secondaryText)
@@ -102,6 +119,20 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .confirmationDialog(String(localized: "Skip setup?"),
+                            isPresented: $showSkipConfirm, titleVisibility: .visible) {
+            Button(String(localized: "Skip anyway"), role: .destructive) { completeOnboarding() }
+            Button(String(localized: "Keep setting up"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data."))
+        }
+        .confirmationDialog(String(localized: "No airspace data downloaded"),
+                            isPresented: $showNoDownloadWarning, titleVisibility: .visible) {
+            Button(String(localized: "Continue anyway")) { withAnimation { currentPage = 3 } }
+            Button(String(localized: "Go back"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Select your countries and tap Download to get the recommended airspace, navaid and reporting-point data for navigation."))
+        }
     }
 
     // MARK: - 1: Welcome
@@ -184,7 +215,7 @@ struct OnboardingView: View {
                     .background(RoundedRectangle(cornerRadius: 15).fill(Color.aviationGreen.opacity(0.14)))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(String(localized: "Maps & data"))
+                    Text(String(localized: "Maps & Data"))
                         .font(.title3.weight(.semibold))
                         .foregroundColor(.primaryText)
                     Text(String(localized: "Download what you'll fly over — offline-ready."))
@@ -232,7 +263,11 @@ struct OnboardingView: View {
                 pageDots
                 Spacer()
                 inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
-                    withAnimation { currentPage = 3 }
+                    if openAIPDataService.isDataAvailable {
+                        withAnimation { currentPage = 3 }
+                    } else {
+                        showNoDownloadWarning = true
+                    }
                 }
             }
         }
@@ -263,12 +298,12 @@ struct OnboardingView: View {
     private var openAIPDownloadCard: some View {
         let anyDownloading = openAIPDataService.isDownloading || navaidService.isDownloading
             || obstacleService.isDownloading || reportingPointService.isDownloading
-        let available = openAIPDataService.isDataAvailable
+        let done = openAIPFullyDownloaded
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
-                Image(systemName: available ? "checkmark.circle.fill" : "shield.lefthalf.filled")
+                Image(systemName: done ? "checkmark.circle.fill" : "shield.lefthalf.filled")
                     .font(.system(size: 19))
-                    .foregroundColor(available ? .aviationGreen : .aviationGold)
+                    .foregroundColor(done ? .aviationGreen : .aviationGold)
                     .accessibilityHidden(true)
                 Text(String(localized: "Airspace, navaids & reporting points"))
                     .font(.subheadline.weight(.medium))
@@ -287,23 +322,22 @@ struct OnboardingView: View {
                     ProgressView(value: openAIPDataService.downloadProgress)
                         .tint(.aviationGold)
                         .frame(maxWidth: 160)
-                } else if available {
-                    Text(L10n.Onboarding.downloaded)
-                        .font(.caption)
-                        .foregroundColor(.aviationGreen)
                 }
                 Spacer()
+                // Green "Downloaded" only when EVERY selected country is cached; selecting a new
+                // country flips it back to a gold "Download". (Maps & Data UX fix)
                 Button(action: downloadOpenAIP) {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.circle").font(.system(size: 14))
-                        Text(String(localized: "Download")).font(.subheadline.weight(.medium))
+                        Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").font(.system(size: 14))
+                        Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
+                            .font(.subheadline.weight(.medium))
                     }
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGold))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.aviationGreen : Color.aviationGold))
                 }
-                .disabled(anyDownloading)
+                .disabled(anyDownloading || done)
                 .opacity(anyDownloading ? 0.5 : 1)
             }
         }
@@ -311,7 +345,8 @@ struct OnboardingView: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold.opacity(0.35), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke((done ? Color.aviationGreen : Color.aviationGold).opacity(0.35), lineWidth: 1))
         )
     }
 
@@ -583,12 +618,15 @@ struct OnboardingView: View {
                 Text(title)
                     .font(.subheadline.weight(.medium))
                     .foregroundColor(.primaryText)
+                    .lineLimit(2)
                 Text(subtitle)
                     .font(.caption2)
                     .foregroundColor(.dimText)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 4)
+            // Claim the remaining width instead of an expanding Spacer, which squeezes the text to a
+            // single character per line on a narrow (iPhone) row. (iPhone layout fix)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Toggle("", isOn: isOn)
                 .labelsHidden()
                 .tint(.aviationGold)
@@ -618,8 +656,9 @@ struct OnboardingView: View {
                 Text(String(localized: "Auto follows your device language"))
                     .font(.caption2)
                     .foregroundColor(.dimText)
+                    .lineLimit(1)
             }
-            Spacer(minLength: 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 2) {
                 ForEach(ChecklistLanguage.availableLanguages) { lang in
                     Button { appState.settings.checklistLanguage = lang } label: {

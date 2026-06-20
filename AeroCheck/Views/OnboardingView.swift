@@ -158,35 +158,69 @@ struct OnboardingView: View {
     // MARK: - 1: Welcome
 
     private var welcomePage: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 18) {
             Spacer()
 
             Image("AppIconImage")
                 .resizable()
-                .frame(width: 116, height: 116)
-                .clipShape(RoundedRectangle(cornerRadius: 26))
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 26)
+                    RoundedRectangle(cornerRadius: 22)
                         .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
                 )
                 .accessibilityHidden(true)
 
-            Text(L10n.Onboarding.welcomeTitle)
-                .font(.largeTitle.weight(.bold))
-                .foregroundColor(.primaryText)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Text(L10n.Onboarding.welcomeTitle)
+                    .font(.title.weight(.bold))
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
+                Text(L10n.Onboarding.welcomeSubtitle)
+                    .font(.callout)
+                    .foregroundColor(.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
 
-            Text(L10n.Onboarding.welcomeSubtitle)
-                .font(.body)
-                .foregroundColor(.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            // The flight told as a story: PLAN · FLY · NAVIGATE · LOG.
+            VStack(alignment: .leading, spacing: 13) {
+                welcomePhase("point.3.connected.trianglepath.dotted",
+                             String(localized: "Plan|Build your route on the map — airspace and terrain in view."))
+                welcomePhase("checklist",
+                             String(localized: "Fly|Work the checklists through all 16 phases, preflight to shutdown."))
+                welcomePhase("location.north.line",
+                             String(localized: "Navigate|A moving map with airspace, frequencies and your live track."))
+                welcomePhase("book.closed",
+                             String(localized: "Log|Every flight recorded automatically — times, track and landings."))
+            }
+            .padding(.horizontal, 36)
+            .padding(.top, 4)
 
             Spacer()
 
             pageDots
             primaryButton(L10n.Onboarding.getStarted, icon: "arrow.right") { withAnimation { currentPage = 1 } }
-                .padding(.bottom, 44)
+                .padding(.bottom, 40)
+        }
+    }
+
+    /// One PLAN/FLY/NAVIGATE/LOG line on the Welcome screen. `combined` is "PHASE|one-liner"; the phase
+    /// word renders gold-bold, the rest in secondary. One key per phase keeps the FR translation tidy.
+    private func welcomePhase(_ icon: String, _ combined: String) -> some View {
+        let parts = combined.split(separator: "|", maxSplits: 1).map(String.init)
+        let phase = (parts.first ?? "").uppercased()
+        let text = parts.count > 1 ? parts[1] : ""
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 17))
+                .foregroundColor(.aviationGold)
+                .frame(width: 24, height: 20)
+                .accessibilityHidden(true)
+            (Text(phase + "  ").font(.footnote.weight(.bold)).foregroundColor(.aviationGold)
+                + Text(text).font(.footnote).foregroundColor(.secondaryText))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
     }
 

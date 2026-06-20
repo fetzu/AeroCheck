@@ -1,6 +1,46 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Plan|Build your route on the map — airspace and terrain in view." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planifier|Construisez votre route sur la carte — espaces aériens et relief en vue."
+          }
+        }
+      }
+    },
+    "Fly|Work the checklists through all 16 phases, preflight to shutdown." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler|Déroulez les checklists des 16 phases, du prévol à l'arrêt moteur."
+          }
+        }
+      }
+    },
+    "Navigate|A moving map with airspace, frequencies and your live track." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naviguer|Une carte mobile avec espaces aériens, fréquences et votre trace en direct."
+          }
+        }
+      }
+    },
+    "Log|Every flight recorded automatically — times, track and landings." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer|Chaque vol enregistré automatiquement — heures, trace et atterrissages."
+          }
+        }
+      }
+    },
     "Add more countries anytime in Settings → Data." : {
       "localizations" : {
         "fr" : {
@@ -10082,13 +10122,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your cockpit companion for every phase of flight"
+            "value" : "Follow your flight from first plan to final logbook entry:"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre compagnon de cockpit pour chaque phase de vol"
+            "value" : "Suivez votre vol, du premier plan à la dernière entrée du journal :"
           }
         }
       }
@@ -10098,13 +10138,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Welcome to AeroCheck"
+            "value" : "Welcome to AéroCheck"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bienvenue sur AeroCheck"
+            "value" : "Bienvenue dans AéroCheck"
           }
         }
       }

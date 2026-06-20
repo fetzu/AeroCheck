@@ -634,6 +634,9 @@ class AppState: ObservableObject {
                 // saveFlight on the main actor — a visible hitch when a large initial sync landed).
                 let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
                 self.flights = flights
+                // Sync delivered the logbook — clear the launch spinner in case the initial local
+                // load found nothing (e.g. a fresh install whose flights only exist in CloudKit). (fresh-install fix)
+                self.isLoadingFlights = false
                 let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
                 await self.persistence.saveFlightsOffMain(changed)
                 AppLog.general.debugLine("Flights updated from iCloud sync")

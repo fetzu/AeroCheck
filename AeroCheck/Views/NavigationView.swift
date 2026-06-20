@@ -3770,7 +3770,7 @@ struct OverlaysSheet: View {
                     Text(String(localized: "Airspace data is out of date"))
                         .font(.system(size: 13.5, weight: .semibold))
                         .foregroundColor(.aviationAmber)
-                    Text(String(localized: "Your offline airspace was downloaded a while ago and may no longer be current. Update to refresh it for your downloaded regions."))
+                    Text(String(localized: "It may not reflect recent airspace changes."))
                         .font(.system(size: 12))
                         .foregroundColor(.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)

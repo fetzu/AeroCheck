@@ -288,7 +288,6 @@ struct OnboardingView: View {
     // MARK: - Actions
 
     private func completeOnboarding() {
-        appState.settings.hasCompletedOnboarding = true
-        appState.saveSettings()
+        appState.completeOnboarding()
     }
 }

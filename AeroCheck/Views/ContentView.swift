@@ -23,7 +23,7 @@ struct ContentView: View {
             let isLandscape = geometry.size.width > geometry.size.height
 
             ZStack {
-                if !appState.settings.hasCompletedOnboarding {
+                if !appState.hasSeenOnboarding {
                     OnboardingView()
                         .transition(.opacity)
                 } else if companionConnectivityManager.currentRole == .viewer &&

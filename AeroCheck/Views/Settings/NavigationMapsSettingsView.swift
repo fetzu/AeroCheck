@@ -7,10 +7,14 @@ struct NavigationMapsSettingsView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
 
     @State private var forceICAOChartLayer: Bool = false
     @State private var offlineMode: Bool = false
     @State private var showAirportsOnMap: Bool = false
+    @State private var showNavaidsOnMap: Bool = false
+    @State private var showObstaclesOnMap: Bool = false
+    @State private var showReportingPointsOnMap: Bool = false
     @State private var showTrackVector: Bool = false
     @State private var showOpenAIPOverlay: Bool = false
     @State private var enableAirspaceStreaming: Bool = false
@@ -37,6 +41,9 @@ struct NavigationMapsSettingsView: View {
         .onChange(of: forceICAOChartLayer) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: offlineMode) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showAirportsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: showNavaidsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: showObstaclesOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: showReportingPointsOnMap) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showTrackVector) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: showOpenAIPOverlay) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: enableAirspaceStreaming) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -54,6 +61,7 @@ struct NavigationMapsSettingsView: View {
             OpenAIPDownloadSheet()
                 .environmentObject(openAIPCacheManager)
                 .environmentObject(openAIPDataService)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(appState)
         }
         .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
@@ -269,6 +277,9 @@ struct NavigationMapsSettingsView: View {
                 .padding(.vertical, 11)
 
                 SettingsToggleRow(icon: "mappin.and.ellipse", title: L10n.Settings.showAirportsOnMap, tint: tint, isOn: $showAirportsOnMap)
+                SettingsToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.showNavaidsOnMap, tint: tint, isOn: $showNavaidsOnMap)
+                SettingsToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.showObstaclesOnMap, tint: tint, isOn: $showObstaclesOnMap)
+                SettingsToggleRow(icon: "triangle", title: L10n.DataStorage.showReportingPointsOnMap, tint: tint, isOn: $showReportingPointsOnMap)
 
                 SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.updateAirportData, tint: tint,
                                   showsChevron: false, action: { Task { await airportDataService.downloadData() } })
@@ -309,6 +320,9 @@ struct NavigationMapsSettingsView: View {
         forceICAOChartLayer = appState.settings.forceICAOChartLayer
         offlineMode = appState.settings.offlineMode
         showAirportsOnMap = appState.settings.showAirportsOnMap
+        showNavaidsOnMap = appState.settings.showNavaidsOnMap
+        showObstaclesOnMap = appState.settings.showObstaclesOnMap
+        showReportingPointsOnMap = appState.settings.showReportingPointsOnMap
         showTrackVector = appState.settings.showTrackVector
         showOpenAIPOverlay = appState.settings.showOpenAIPOverlay
         enableAirspaceStreaming = appState.settings.enableAirspaceStreaming
@@ -321,6 +335,9 @@ struct NavigationMapsSettingsView: View {
         appState.settings.forceICAOChartLayer = forceICAOChartLayer
         appState.settings.offlineMode = offlineMode
         appState.settings.showAirportsOnMap = showAirportsOnMap
+        appState.settings.showNavaidsOnMap = showNavaidsOnMap
+        appState.settings.showObstaclesOnMap = showObstaclesOnMap
+        appState.settings.showReportingPointsOnMap = showReportingPointsOnMap
         appState.settings.showTrackVector = showTrackVector
         appState.settings.showOpenAIPOverlay = showOpenAIPOverlay
         appState.settings.enableAirspaceStreaming = enableAirspaceStreaming
@@ -334,6 +351,7 @@ struct NavigationMapsSettingsView: View {
 struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
@@ -390,14 +408,22 @@ struct OpenAIPDownloadSheet: View {
                     downloadProgressView
                 }
 
-                // Download buttons
+                // Download buttons — DATA-FIRST: the structured data (small) is the primary action;
+                // the heavy raster map tiles are an explicit opt-in. (v4.1.0 feedback)
                 if !openAIPCacheManager.isDownloading && !openAIPDataService.isDownloading {
                     VStack(spacing: 8) {
-                        Button(action: { startDownload(tilesAndData: true) }) {
+                        Text(L10n.Settings.openAIPDownloadHint)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 2)
+
+                        // Primary: structured data only (airspace + navaids + obstacles + RP + airports).
+                        Button(action: { startDownload(tilesAndData: false) }) {
                             HStack {
-                                Image(systemName: "square.and.arrow.down.on.square")
+                                Image(systemName: "square.and.arrow.down")
                                     .font(.system(size: 14))
-                                Text(L10n.Settings.downloadAll)
+                                Text(L10n.Settings.downloadData)
                             }
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
@@ -410,11 +436,12 @@ struct OpenAIPDownloadSheet: View {
                         }
                         .disabled(selectedCountries.isEmpty)
 
-                        Button(action: { startDownload(tilesAndData: false) }) {
+                        // Secondary: optionally add the large raster map tiles on top of the data.
+                        Button(action: { startDownload(tilesAndData: true) }) {
                             HStack {
-                                Image(systemName: "shield.checkered")
+                                Image(systemName: "square.2.layers.3d")
                                     .font(.system(size: 14))
-                                Text(L10n.Settings.downloadAirspaceOnly)
+                                Text(L10n.Settings.downloadWithTiles)
                             }
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(.aviationGold)
@@ -509,10 +536,13 @@ struct OpenAIPDownloadSheet: View {
         let countries = Array(selectedCountries).sorted()
         appState.settings.openAIPOfflineCountries = countries
         appState.saveSettings()
+        let obstacleService = OpenAIPObstacleDataService.shared
+        let reportingPointService = OpenAIPReportingPointDataService.shared
+        let openAIPAirportService = OpenAIPAirportDataService.shared
 
         Task {
             if tilesAndData {
-                // Download both tiles and airspace data in parallel
+                // Download tiles + airspace data + navaids + obstacles in parallel
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {
                         await openAIPCacheManager.downloadTiles(for: countries)
@@ -520,11 +550,40 @@ struct OpenAIPDownloadSheet: View {
                     group.addTask {
                         await openAIPDataService.downloadData(for: countries)
                     }
+                    group.addTask {
+                        await openAIPNavaidDataService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await obstacleService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await reportingPointService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPAirportService.downloadData(for: countries)
+                    }
                     await group.waitForAll()
                 }
             } else {
-                // Download airspace data only (much faster, ~100 KB)
-                await openAIPDataService.downloadData(for: countries)
+                // Download structured data only (airspace + navaids + obstacles — small, ~100s KB)
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        await openAIPDataService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPNavaidDataService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await obstacleService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await reportingPointService.downloadData(for: countries)
+                    }
+                    group.addTask {
+                        await openAIPAirportService.downloadData(for: countries)
+                    }
+                    await group.waitForAll()
+                }
             }
         }
     }

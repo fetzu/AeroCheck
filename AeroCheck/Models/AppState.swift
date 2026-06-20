@@ -91,10 +91,14 @@ struct AppSettings: Codable, Equatable {
 
     // Airport data overlay
     var showAirportsOnMap: Bool = true // When true, shows airports on navigation map (requires airport data download) — ON by default
+    var showNavaidsOnMap: Bool = true // When true, shows navaids (VOR/DME/NDB) on navigation map (requires navaid data download) — ON by default (v4.1.0)
+    var showObstaclesOnMap: Bool = false // When true, shows obstacles (towers/masts/turbines) on navigation map (requires obstacle data download) — OFF by default to avoid clutter (v4.1.0)
+    var showReportingPointsOnMap: Bool = true // When true, shows VFR reporting points on navigation map (requires reporting-point data download) — ON by default (v4.1.0)
     var showTrackVector: Bool = true // When true, draws a ground-track trend vector ahead of the aircraft (v4 UI/UX Revamp) — ON by default
 
     // OpenAIP aviation data overlay
-    var showOpenAIPOverlay: Bool = true // When true, shows OpenAIP airspace tiles on navigation map — ON by default
+    var showOpenAIPOverlay: Bool = true // When true, draws OpenAIP airspace (vector CTRs from downloaded data) on the nav map — ON by default
+    var showOpenAIPTiles: Bool = false // When true, overlays the OpenAIP raster chart tiles (data-first: tiles are an opt-in, separate from the airspace vector) — OFF by default (v4.1.0)
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 
@@ -175,6 +179,9 @@ struct AppSettings: Codable, Equatable {
         case iCloudSyncEnabled
         case checklistLanguage
         case showAirportsOnMap
+        case showNavaidsOnMap
+        case showObstaclesOnMap
+        case showReportingPointsOnMap
         case showTrackVector
         case logEngineHours
         case hasCompletedOnboarding
@@ -182,6 +189,7 @@ struct AppSettings: Codable, Equatable {
         case shareCardColorScheme
         case shareCardMapLayer
         case showOpenAIPOverlay
+        case showOpenAIPTiles
         case openAIPOfflineCountries
         case enableAirspaceStreaming
         case enableCompanionMode
@@ -243,6 +251,9 @@ struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .iCloudSyncEnabled) ?? true
         checklistLanguage = try container.decodeIfPresent(ChecklistLanguage.self, forKey: .checklistLanguage) ?? .auto
         showAirportsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showAirportsOnMap) ?? false
+        showNavaidsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showNavaidsOnMap) ?? true
+        showObstaclesOnMap = try container.decodeIfPresent(Bool.self, forKey: .showObstaclesOnMap) ?? false
+        showReportingPointsOnMap = try container.decodeIfPresent(Bool.self, forKey: .showReportingPointsOnMap) ?? true
         showTrackVector = try container.decodeIfPresent(Bool.self, forKey: .showTrackVector) ?? false
         logEngineHours = try container.decodeIfPresent(Bool.self, forKey: .logEngineHours) ?? true
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
@@ -250,6 +261,7 @@ struct AppSettings: Codable, Equatable {
         shareCardColorScheme = try container.decodeIfPresent(ShareCardColorScheme.self, forKey: .shareCardColorScheme) ?? .darkBlue
         shareCardMapLayer = try container.decodeIfPresent(ShareCardMapLayer.self, forKey: .shareCardMapLayer) ?? .standard
         showOpenAIPOverlay = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPOverlay) ?? false
+        showOpenAIPTiles = try container.decodeIfPresent(Bool.self, forKey: .showOpenAIPTiles) ?? false
         openAIPOfflineCountries = try container.decodeIfPresent([String].self, forKey: .openAIPOfflineCountries) ?? []
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
@@ -618,13 +630,12 @@ class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 // PR-09: persist only the flights whose content actually changed (by modifiedAt),
-                // instead of rewriting EVERY flight file on the main actor on each inbound sync
-                // batch — which previously happened even while a flight was active.
+                // instead of rewriting EVERY flight file. Batched OFF the main actor (was a per-flight
+                // saveFlight on the main actor — a visible hitch when a large initial sync landed).
                 let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
                 self.flights = flights
-                for flight in flights where previousById[flight.id]?.modifiedAt != flight.modifiedAt {
-                    self.persistence.saveFlight(flight)
-                }
+                let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
+                await self.persistence.saveFlightsOffMain(changed)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }

@@ -1061,6 +1061,16 @@ struct DepartureBriefingContent: View {
                         }
                     }
 
+                    // VFR Reporting Points Section (v4.1.0) — only when the OpenAIP layer is downloaded
+                    if !context.departureReportingPoints.isEmpty {
+                        BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
+                            ForEach(context.departureReportingPoints) { rp in
+                                BriefingItem(label: rp.name ?? "—",
+                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
+                            }
+                        }
+                    }
+
                     // Departure Procedure Section
                     BriefingSection(title: L10n.Briefing.departureProcedure.uppercased()) {
                         BriefingItem(label: L10n.Briefing.firstTurn, value: L10n.Briefing.toBeBriefed)
@@ -1120,6 +1130,16 @@ struct ApproachBriefingContent: View {
                             }
                             ForEach(context.destinationRunways.filter { $0.id != context.suggestedArrivalRunway?.id }) { runway in
                                 RunwayRowView(runway: runway, isSuggested: false)
+                            }
+                        }
+                    }
+
+                    // VFR Reporting Points Section (v4.1.0) — only when the OpenAIP layer is downloaded
+                    if !context.destinationReportingPoints.isEmpty {
+                        BriefingSection(title: L10n.Briefing.reportingPoints.uppercased()) {
+                            ForEach(context.destinationReportingPoints) { rp in
+                                BriefingItem(label: rp.name ?? "—",
+                                             value: rp.compulsory ? L10n.Briefing.compulsory : L10n.Briefing.onRequest)
                             }
                         }
                     }

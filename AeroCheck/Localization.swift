@@ -22,6 +22,71 @@ enum L10n {
         static let tagline = String(localized: "app.tagline")
     }
 
+    // MARK: - Data & Storage (v4.1.0 Data Freshness)
+    // Literal-keyed strings: English renders immediately; FR translations are added in the
+    // localization pass (xcstrings), like other newly-introduced UI strings.
+    enum DataStorage {
+        static let title = String(localized: "Data & Storage")
+        static let subtitle = String(localized: "Currency & offline storage")
+        static let aeronauticalSection = String(localized: "Aeronautical data")
+        static let chartsSection = String(localized: "Offline charts")
+        static let storageSection = String(localized: "Storage")
+        static let statusFresh = String(localized: "Up to date")
+        static let statusAging = String(localized: "Update recommended")
+        static let statusStale = String(localized: "Out of date")
+        static let statusMissing = String(localized: "Not downloaded")
+        static func asOf(_ date: String) -> String { String(localized: "Data as of \(date)") }
+        static func coverage(_ regions: String) -> String { String(localized: "Coverage: \(regions)") }
+        static let coverageGlobal = String(localized: "Worldwide")
+        static let refresh = String(localized: "Refresh")
+        static let delete = String(localized: "Delete")
+        static let updateAll = String(localized: "Update all on Wi-Fi")
+        static let removeAll = String(localized: "Remove all downloads")
+        static func totalStorage(_ size: String) -> String { String(localized: "Total storage: \(size)") }
+        static let caveat = String(localized: "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight.")
+        static let deleteConfirmTitle = String(localized: "Delete downloaded data?")
+        static let deleteConfirmMessage = String(localized: "This removes the cached data from this device. You can download it again later.")
+        static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
+        static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
+        static let homeLabel = String(localized: "Data")
+        // Per-dataset name + source/description — source named first (device-test feedback).
+        static let airspaceName = String(localized: "Airspace")
+        static let airspaceDetail = String(localized: "OpenAIP · controlled airspace, sectors & frequencies")
+        static let airportsName = String(localized: "Airports")
+        static let airportsDetail = String(localized: "OurAirports · global airfields · secondary / fallback source")
+        static let swissChartName = String(localized: "Swiss ICAO chart")
+        static let swissChartDetail = String(localized: "swisstopo · official VFR chart (imagery)")
+        static let openAIPTilesName = String(localized: "OpenAIP map tiles")
+        static let openAIPTilesDetail = String(localized: "OpenAIP · optional chart imagery — airspace data above is what powers warnings")
+        static let openAIPAttribution = String(localized: "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)")
+        static let checklistsName = String(localized: "Checklists")
+        static let checklistsSection = String(localized: "Checklists")
+        static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
+        static let noChecklists = String(localized: "No checklists cached yet")
+        static let syncChecklists = String(localized: "Check for checklist updates")
+        static let simulateStaleData = String(localized: "Simulate stale data")
+        // About → Data sources credits
+        static let dataSourcesTitle = String(localized: "Data sources")
+        static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
+        static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
+        static let sourceAirports = String(localized: "Airport database · public domain")
+        static let sourceWind = String(localized: "Wind data · © MeteoSwiss")
+        static let sourceElevation = String(localized: "Terrain elevation · Open-Meteo (CC BY 4.0), © swisstopo")
+        static let navaidsName = String(localized: "Navaids")
+        static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
+        static let showNavaidsOnMap = String(localized: "Show navaids on map")
+        static let obstaclesName = String(localized: "Obstacles")
+        static let obstaclesDetail = String(localized: "OpenAIP · towers, masts and wind turbines")
+        static let showObstaclesOnMap = String(localized: "Show obstacles on map")
+        static let reportingPointsName = String(localized: "Reporting points")
+        static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
+        static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        static let tripSection = String(localized: "Trip data")
+        static let tripFooter = String(localized: "Your active flight plan crosses areas without downloaded data:")
+        static let tripDownload = String(localized: "Download data for this trip")
+        static let tripDownloading = String(localized: "Downloading…")
+    }
+
     // MARK: - Buttons
     enum Button {
         static let startFlight = String(localized: "button.startFlight")
@@ -208,6 +273,9 @@ enum L10n {
 
         // Departure procedure
         static let departureProcedure = String(localized: "briefing.departureProcedure")
+        static let reportingPoints = String(localized: "Reporting points")   // v4.1.0 (literal-keyed)
+        static let compulsory = String(localized: "Compulsory")   // v4.1.0 (review #15)
+        static let onRequest = String(localized: "On request")
         static let firstTurn = String(localized: "briefing.firstTurn")
         static let levelOff = String(localized: "briefing.levelOff")
         static let toBeBriefed = String(localized: "briefing.toBeBriefed")
@@ -401,6 +469,8 @@ enum L10n {
         static let download = String(localized: "settings.openAIP.download")
         static let downloadAll = String(localized: "settings.openAIP.downloadAll")
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
+        static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
+        static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
         }
@@ -456,6 +526,7 @@ enum L10n {
 
         // Developer Options
         static let marketingMode = String(localized: "settings.developer.marketingMode")
+        static let simulateLSZS = String(localized: "Simulate position: LSZS (Samedan)")   // v4.1.0 dev (literal-keyed)
         static let forceNotSubscribed = String(localized: "settings.developer.forceNotSubscribed")
         static let showAllTransactions = String(localized: "settings.developer.showAllTransactions")
         static let showSubscriptionLogs = String(localized: "settings.developer.showSubscriptionLogs")
@@ -476,8 +547,8 @@ enum L10n {
         static let navigationAndMaps = String(localized: "settings.hub.navigationAndMaps")
         static let navigationAndMapsSubtitle = String(localized: "settings.hub.navigationAndMapsSubtitle")
         static let flightPlanningSubtitle = String(localized: "settings.hub.flightPlanningSubtitle")
-        static let syncAndData = String(localized: "settings.hub.syncAndData")
-        static let syncAndDataSubtitle = String(localized: "settings.hub.syncAndDataSubtitle")
+        static let syncAndData = String(localized: "iCloud & Log")
+        static let syncAndDataSubtitle = String(localized: "iCloud sync, GPS recording & flight log")
         static let companionMode = String(localized: "settings.hub.companionMode")
         static let companionModeSubtitle = String(localized: "settings.hub.companionModeSubtitle")
         static let aboutSubtitle = String(localized: "settings.hub.aboutSubtitle")
@@ -994,6 +1065,14 @@ enum L10n {
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
+        static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
+        static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
+        static let airspaceCharts = String(localized: "Airspace & charts")
+        static let mapTiles = String(localized: "Map tiles")
+        static let mapMarkers = String(localized: "Map markers")
+        static let flightSection = String(localized: "Flight")
+        static let showAll = String(localized: "Show all")
+        static let hideAll = String(localized: "Hide all")
         static let resumeLeg = String(localized: "nav.resumeLeg")
         static let resumeLegTitle = String(localized: "nav.resumeLegTitle")
         static let resumeLegMessage = String(localized: "nav.resumeLegMessage")

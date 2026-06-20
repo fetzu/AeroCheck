@@ -6,19 +6,25 @@ import UIKit
 struct AeroCheckApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
-    @StateObject private var offlineMapManager = OfflineMapManager()
+    @StateObject private var offlineMapManager: OfflineMapManager
     @StateObject private var windDataService = WindDataService()
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
     @StateObject private var aircraftDataService: AircraftDataService
-    @StateObject private var airportDataService = AirportDataService()
-    @StateObject private var openAIPCacheManager = OpenAIPCacheManager()
-    @StateObject private var openAIPDataService = OpenAIPDataService()
+    @StateObject private var airportDataService: AirportDataService
+    @StateObject private var openAIPCacheManager: OpenAIPCacheManager
+    @StateObject private var openAIPNavaidDataService: OpenAIPNavaidDataService
+    @StateObject private var openAIPDataService: OpenAIPDataService
     @StateObject private var flightEventDetector = FlightEventDetector()
+    /// Network reachability (Wi-Fi vs cellular, Low Data Mode) for data-refresh decisions. (v4.1.0 Data Freshness)
+    @StateObject private var networkMonitor: NetworkMonitor
+    /// The single data-freshness "brain": aggregates per-source DataSets → ambient Home-dot health. (v4.1.0 Data Freshness)
+    @StateObject private var dataStatusManager: DataStatusManager
     @State private var showUpdateReminder = false
     @State private var isInitialized = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Initialize subscription manager first, then aircraft data service
@@ -26,6 +32,39 @@ struct AeroCheckApp: App {
         let subManager = SubscriptionManager(deferLoadProducts: true)
         _subscriptionManager = StateObject(wrappedValue: subManager)
         _aircraftDataService = StateObject(wrappedValue: AircraftDataService(subscriptionManager: subManager))
+
+        // Data-freshness backbone (v4.1.0): construct the external-data services here so the freshness
+        // brain can hold references to the same instances. Each service loads its on-disk metadata
+        // (last-updated dates) in its own init, so the brain's first reduction is already accurate.
+        let offline = OfflineMapManager()
+        _offlineMapManager = StateObject(wrappedValue: offline)
+        let airports = AirportDataService()
+        _airportDataService = StateObject(wrappedValue: airports)
+        let openAIP = OpenAIPDataService()
+        _openAIPDataService = StateObject(wrappedValue: openAIP)
+        let openAIPCache = OpenAIPCacheManager()
+        _openAIPCacheManager = StateObject(wrappedValue: openAIPCache)
+        let navaids = OpenAIPNavaidDataService.shared
+        _openAIPNavaidDataService = StateObject(wrappedValue: navaids)
+        // Per-location magnetic declination for flight-plan course calc, sourced from navaid data
+        // (falls back to the Switzerland constant when no navaid is near). (v4.1.0 — declination fix)
+        FlightPlan.magneticDeclinationProvider = { [weak navaids] coordinate in
+            navaids?.nearestNavaid(to: coordinate, maxDistanceNm: 250)?.magneticDeclination ?? FlightPlan.defaultMagneticDeclination
+        }
+        let net = NetworkMonitor()
+        _networkMonitor = StateObject(wrappedValue: net)
+        _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
+            providers: [
+                OpenAIPAirspaceProvider(service: openAIP),
+                OpenAIPNavaidProvider(service: navaids),
+                OpenAIPObstacleProvider(service: OpenAIPObstacleDataService.shared),
+                OpenAIPReportingPointProvider(service: OpenAIPReportingPointDataService.shared),
+                OurAirportsProvider(service: airports),
+                SwissChartsProvider(manager: offline),
+                OpenAIPTilesProvider(manager: openAIPCache),
+            ],
+            networkMonitor: net
+        ))
     }
 
     var body: some Scene {
@@ -43,8 +82,11 @@ struct AeroCheckApp: App {
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPCacheManager)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
+                .environmentObject(networkMonitor)
+                .environmentObject(dataStatusManager)
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -52,6 +94,11 @@ struct AeroCheckApp: App {
                     // Perform deferred initialization in background after initial render
                     guard !isInitialized else { return }
                     isInitialized = true
+
+                    // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
+                    // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
+                    // before OpenAIP airport data was ready; idempotent + a no-op without OpenAIP data.
+                    await airportDataService.applyOpenAIPMergeIfAvailable()
 
                     // Load subscription products and aircraft data in parallel with timeouts
                     // Use TaskGroup to handle errors gracefully and not block startup on network issues
@@ -113,6 +160,13 @@ struct AeroCheckApp: App {
                         await aircraftDataService.syncBundledAircraft()
                     }
 
+                    // v4.1.0: preload navaids so the flight-plan declination lookup has data in memory.
+                    await openAIPNavaidDataService.ensureLoaded()
+                    // v4.1.0: preload obstacles so the nav-map markers have data in memory.
+                    await OpenAIPObstacleDataService.shared.ensureLoaded()
+                    // v4.1.0: preload reporting points so the nav-map markers have data in memory.
+                    await OpenAIPReportingPointDataService.shared.ensureLoaded()
+
                     // Check for yearly map update reminder (after main content loads)
                     if offlineMapManager.shouldShowUpdateReminder {
                         showUpdateReminder = true
@@ -124,6 +178,13 @@ struct AeroCheckApp: App {
                 }
                 .onChange(of: appState.isFlightActive) { _, isActive in
                     handleFlightStateChange(isActive: isActive)
+                }
+                // v4.1.0 Data Freshness: foreground-only refresh — recompute the status and silently
+                // refresh any STALE small data the network gate permits. No background tasks.
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    dataStatusManager.recompute()
+                    Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
                 }
             }
         }
@@ -140,8 +201,11 @@ struct AeroCheckApp: App {
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPCacheManager)
+                .environmentObject(openAIPNavaidDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(flightEventDetector)
+                .environmentObject(networkMonitor)
+                .environmentObject(dataStatusManager)
                 .preferredColorScheme(.dark)
         }
         #endif

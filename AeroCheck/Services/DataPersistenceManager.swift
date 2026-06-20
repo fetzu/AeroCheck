@@ -273,7 +273,7 @@ class DataPersistenceManager: ObservableObject {
     // MARK: - Flight Persistence (Individual Files)
 
     /// Generate filename for a flight: YYYYMMDD-HHMM_PLANE.json
-    func flightFilename(for flight: Flight) -> String {
+    nonisolated static func flightFilename(for flight: Flight) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
         let dateStr = formatter.string(from: flight.startTime ?? flight.stopTime ?? Date())
@@ -291,7 +291,7 @@ class DataPersistenceManager: ObservableObject {
     /// (e.g. the crash-recovery checkpoint) must not discard it on `false`. (PR-14)
     @discardableResult
     func saveFlight(_ flight: Flight) -> Bool {
-        let fileURL = flightsDirectory.appendingPathComponent(flightFilename(for: flight))
+        let fileURL = flightsDirectory.appendingPathComponent(Self.flightFilename(for: flight))
 
         do {
             let encoder = JSONEncoder()
@@ -302,7 +302,7 @@ class DataPersistenceManager: ObservableObject {
             let data = try encoder.encode(flight)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
 
-            AppLog.general.debugLine("Flight saved: \(flightFilename(for: flight))")
+            AppLog.general.debugLine("Flight saved: \(Self.flightFilename(for: flight))")
             return true
         } catch {
             AppLog.general.debugLine("Failed to save flight: \(error.localizedDescription)")
@@ -325,10 +325,33 @@ class DataPersistenceManager: ObservableObject {
         return allSucceeded
     }
 
+    /// Encode + write the given flight files on the calling executor (no main-actor state). The flights
+    /// index is intentionally not touched — it's write-only (`decodeFlights` enumerates the directory).
+    /// (iCloud-sync optimization: write an inbound sync batch off-main instead of per-flight on main.)
+    nonisolated static func writeFlightFiles(_ flights: [Flight], to directory: URL) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        for flight in flights {
+            let url = directory.appendingPathComponent(Self.flightFilename(for: flight))
+            if let data = try? encoder.encode(flight) {
+                try? data.write(to: url, options: Self.protectedWriteOptions)
+            }
+        }
+    }
+
+    /// Save the given flights OFF the main actor (encode + write on a background executor). (iCloud-sync opt)
+    func saveFlightsOffMain(_ flights: [Flight]) async {
+        guard !flights.isEmpty else { return }
+        let directory = flightsDirectory
+        await Task.detached(priority: .utility) {
+            Self.writeFlightFiles(flights, to: directory)
+        }.value
+    }
+
     /// Save flights index (list of flight IDs and filenames). Returns `true` on a confirmed write.
     @discardableResult
     private func saveFlightsIndex(_ flights: [Flight]) -> Bool {
-        let index = flights.map { FlightIndexEntry(id: $0.id, filename: flightFilename(for: $0)) }
+        let index = flights.map { FlightIndexEntry(id: $0.id, filename: Self.flightFilename(for: $0)) }
         let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
 
         do {
@@ -408,12 +431,12 @@ class DataPersistenceManager: ObservableObject {
 
     /// Delete a flight file
     func deleteFlight(_ flight: Flight) {
-        let fileURL = flightsDirectory.appendingPathComponent(flightFilename(for: flight))
+        let fileURL = flightsDirectory.appendingPathComponent(Self.flightFilename(for: flight))
 
         do {
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.removeItem(at: fileURL)
-                AppLog.general.debugLine("Deleted flight: \(flightFilename(for: flight))")
+                AppLog.general.debugLine("Deleted flight: \(Self.flightFilename(for: flight))")
             }
         } catch {
             AppLog.general.debugLine("Failed to delete flight: \(error.localizedDescription)")

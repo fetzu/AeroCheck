@@ -102,6 +102,34 @@ class AirportDataService: ObservableObject {
     func ensureLoaded() async {
         guard !isLoaded else { return }
         await loadFromLocal()
+        await applyOpenAIPMergeIfAvailable()
+    }
+
+    /// OpenAIP is the primary airport source: whenever OpenAIP airport data is downloaded, fold it into
+    /// the loaded backbone (identity + position + frequencies; OpenAIP wins on ICAO match within
+    /// tolerance, OurAirports gap-fills). No-op when OpenAIP airport data isn't downloaded → OurAirports
+    /// is the fallback. Re-sets `airports` (didSet rebuilds the spatial grid). Idempotent. (v4.1.0)
+    func applyOpenAIPMergeIfAvailable() async {
+        guard !airports.isEmpty else { return }
+        await OpenAIPAirportDataService.shared.ensureLoaded()
+        let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
+        guard !oaip.isEmpty else { return }
+        let merged = AirportDataMergeEngine.merge(ourAirports: airports, openAIP: oaip)
+        airports = merged   // didSet rebuilds the spatial grid
+        airportsByIdent = Dictionary(merged.map { ($0.ident, $0) }, uniquingKeysWith: { first, _ in first })
+        airportCount = merged.count
+
+        // OpenAIP-primary frequencies: UNION per airport — OpenAIP wins on a frequency-type conflict, but
+        // OurAirports-only types (e.g. GND/ATIS the export omits) are kept rather than dropped. (review #2)
+        let openAIPFreqsByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPFrequencies(from: oaip)) {
+            $0.airportIdent
+        }
+        for (ident, openAIPFreqs) in openAIPFreqsByIdent {
+            let openAIPTypes = Set(openAIPFreqs.map { $0.type })
+            let keptOurAirports = (frequenciesByAirport[ident] ?? []).filter { !openAIPTypes.contains($0.type) }
+            frequenciesByAirport[ident] = openAIPFreqs + keptOurAirports
+        }
+        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies")
     }
 
     // MARK: - Public Methods
@@ -187,6 +215,8 @@ class AirportDataService: ObservableObject {
 
             downloadProgress = 1.0
             AppLog.airportData.debugLine("Download complete. \(parsedAirports.count) airports, \(parsedFrequencies.count) frequencies, \(parsedRunways.count) runways")
+
+            await applyOpenAIPMergeIfAvailable()
 
         } catch {
             downloadError = error.localizedDescription

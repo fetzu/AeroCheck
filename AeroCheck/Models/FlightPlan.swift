@@ -526,12 +526,17 @@ struct FlightPlan: Identifiable, Codable, Equatable {
 
     // MARK: - Route Calculations
 
+    /// Fallback magnetic declination (°E) for true↔magnetic course when no navaid is near. Switzerland
+    /// ≈ 2°E; superseded per-leg by `magneticDeclinationProvider` once navaid data is downloaded.
+    static let defaultMagneticDeclination = 2.0
+
+    /// App-injected per-location declination lookup (set at launch from the OpenAIP navaid data). Returns
+    /// the nearest navaid's `magneticDeclination`, or the fallback when unset / nothing in range. (v4.1.0)
+    static var magneticDeclinationProvider: ((CLLocationCoordinate2D) -> Double)?
+
     /// Calculate magnetic course and distance between consecutive waypoints
     mutating func calculateRouteData() {
         guard waypoints.count >= 2 else { return }
-
-        // Magnetic declination for Switzerland (approximately 2° East as of 2024)
-        let magneticDeclination = 2.0
 
         // Extra time to add to first and last waypoint (5 minutes = 300 seconds)
         let extraTimeForTerminalWaypoints: TimeInterval = 300
@@ -553,8 +558,10 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 // Calculate true course
                 let trueCourse = from.bearing(to: to)
 
-                // Convert to magnetic course
-                let magneticCourse = (trueCourse - magneticDeclination + 360).truncatingRemainder(dividingBy: 360)
+                // Convert to magnetic course — per-leg declination from the nearest navaid (v4.1.0),
+                // falling back to the Switzerland constant when no navaid data is near.
+                let declination = FlightPlan.magneticDeclinationProvider?(from) ?? FlightPlan.defaultMagneticDeclination
+                let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
                 waypoints[i].magneticCourse = magneticCourse
 
                 // Calculate EET for this leg (time to next waypoint only)

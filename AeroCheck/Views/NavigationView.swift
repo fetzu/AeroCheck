@@ -2,6 +2,22 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
+/// Reliable coloured marker image for `MKAnnotationView`. On iOS 26 a *symbol* image assigned to
+/// `MKAnnotationView.image` renders BLACK no matter how it's tinted (`.withTintColor(…, .alwaysOriginal)`
+/// AND a palette `SymbolConfiguration` both fail) — the annotation view re-templates the glyph. The fix
+/// is to flatten the tinted symbol into a plain bitmap via `UIGraphicsImageRenderer` (a non-template
+/// image is shown as-is) — the same technique the aircraft marker uses. (v4.1.0 fix)
+func aeroMarkerSymbol(_ name: String, color: UIColor, pointSize: CGFloat,
+                      weight: UIImage.SymbolWeight = .semibold) -> UIImage? {
+    let config = UIImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
+    guard let symbol = UIImage(systemName: name, withConfiguration: config) else { return nil }
+    let tinted = symbol.withTintColor(color, renderingMode: .alwaysOriginal)
+    let renderer = UIGraphicsImageRenderer(size: tinted.size)
+    return renderer.image { _ in
+        tinted.draw(in: CGRect(origin: .zero, size: tinted.size))
+    }
+}
+
 
 // MARK: - Map Layer Types
 
@@ -168,6 +184,17 @@ struct NavigationMapView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
+
+    /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
+    /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
+    /// drawn on the map is visible in flight, not just in Settings.
+    private var airspaceDataNeedsAttention: Bool {
+        if dataStatusManager.debugForceStale { return true }
+        guard openAIPDataService.isDataAvailable, let lastUpdated = openAIPDataService.lastUpdated else { return false }
+        let freshness = FreshnessThresholds.aeronautical.freshness(lastUpdated: lastUpdated, now: Date())
+        return freshness == .aging || freshness == .stale
+    }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
@@ -175,6 +202,7 @@ struct NavigationMapView: View {
     @State private var selectedLayer: MapLayerType = .icao
     @State private var isFollowingAircraft: Bool = true
     @State private var showLayerPicker: Bool = false
+    @State private var showOverlaysSheet: Bool = false   // v4.1.0 ② — the Layers sheet
     @State private var showCacheInfoModal: Bool = false
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
@@ -440,6 +468,9 @@ struct NavigationMapView: View {
             recomputeMapSpatialContent()
         }
         .onChange(of: appState.settings.showAirportsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showNavaidsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showObstaclesOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: appState.settings.showReportingPointsOnMap) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: appState.currentPhase) { _, _ in
             recomputePhaseFrequencies()
             appState.evaluateCruiseCheck()
@@ -848,8 +879,34 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Single map-display button → consolidated sheet (layers + airspace + track-vector toggles).
-            // The narrow top bar can't fit three separate buttons. (v4 UI/UX Revamp — iPhone)
+            // Layers button → grouped overlays sheet (airspace/tiles · markers + show-all · track vector).
+            // (v4.1.0 ② — iPhone reaches every layer toggle here; the map-type picker is its own button.)
+            Button(action: { showOverlaysSheet = true }) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primaryText)
+                    .frame(width: 44, height: 44)
+                    .floatingChromeCircle()
+            }
+            .accessibilityLabel(L10n.Nav.layers)
+            .overlay(alignment: .topTrailing) {
+                // On-map staleness cue on iPhone: the airspace toggle lives in the Layers sheet here, so
+                // the amber "stale airspace" badge rides the Layers button. (review #10)
+                if airspaceDataNeedsAttention {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.aviationAmber)
+                        .padding(2)
+                        .background(Color.panelBackground, in: Circle())
+                        .offset(x: 4, y: -4)
+                        .accessibilityHidden(true)
+                }
+            }
+            .sheet(isPresented: $showOverlaysSheet) {
+                OverlaysSheet().environmentObject(appState)
+            }
+
+            // Map-type picker button (shows the cache info modal in offline mode).
             Button(action: {
                 if isOfflineMode {
                     showCacheInfoModal = true
@@ -977,6 +1034,9 @@ struct NavigationMapView: View {
     // every body re-evaluation (e.g. every frame of a pan). `visibleAirports` is queried ONCE and
     // reused for the frequency lines, instead of being queried a second time.
     @State private var visibleAirports: [Airport] = []
+    @State private var visibleNavaids: [Navaid] = []
+    @State private var visibleObstacles: [Obstacle] = []
+    @State private var visibleReportingPoints: [ReportingPoint] = []
     @State private var airportFrequencyLines: [String: String] = [:]
     @State private var visibleAirspacePolygons: [AirspacePolygon] = []
     @State private var lastSpatialRegion: MKCoordinateRegion?
@@ -1007,9 +1067,10 @@ struct NavigationMapView: View {
         // Phase-aware frequencies depend on the nearest airport, so refresh them on a real move. (v4 UI/UX Revamp C2)
         recomputePhaseFrequencies()
 
-        // Airports — queried once and reused below for the frequency lines.
+        // Airports — queried once and reused below for the frequency lines. Independent layer,
+        // controlled solely by `showAirportsOnMap` (decoupled from the airspace overlay — v4.1.0 fix).
         let airports: [Airport]
-        if appState.settings.showAirportsOnMap, !appState.settings.showOpenAIPOverlay,
+        if appState.settings.showAirportsOnMap,
            airportDataService.isDataAvailable {
             let halfLat = region.span.latitudeDelta / 2
             let halfLon = region.span.longitudeDelta / 2
@@ -1021,6 +1082,43 @@ struct NavigationMapView: View {
             airports = []
         }
         visibleAirports = airports
+
+        // Navaids — independent layer, controlled solely by its toggle (v4.1.0; decoupled from the
+        // airspace overlay, which draws vector CTRs from data, never the navaid symbols).
+        if appState.settings.showNavaidsOnMap,
+           OpenAIPNavaidDataService.shared.isDataAvailable {
+            let navHalfLat = region.span.latitudeDelta / 2
+            let navHalfLon = region.span.longitudeDelta / 2
+            visibleNavaids = OpenAIPNavaidDataService.shared.navaidsInRegion(
+                latRange: (region.center.latitude - navHalfLat)...(region.center.latitude + navHalfLat),
+                lonRange: (region.center.longitude - navHalfLon)...(region.center.longitude + navHalfLon))
+        } else {
+            visibleNavaids = []
+        }
+
+        // Obstacles — independent layer, controlled solely by its toggle (v4.1.0; decoupled from overlay).
+        if appState.settings.showObstaclesOnMap,
+           OpenAIPObstacleDataService.shared.isDataAvailable {
+            let obsHalfLat = region.span.latitudeDelta / 2
+            let obsHalfLon = region.span.longitudeDelta / 2
+            visibleObstacles = OpenAIPObstacleDataService.shared.obstaclesInRegion(
+                latRange: (region.center.latitude - obsHalfLat)...(region.center.latitude + obsHalfLat),
+                lonRange: (region.center.longitude - obsHalfLon)...(region.center.longitude + obsHalfLon))
+        } else {
+            visibleObstacles = []
+        }
+
+        // VFR reporting points — independent layer, controlled solely by its toggle (v4.1.0; decoupled).
+        if appState.settings.showReportingPointsOnMap,
+           OpenAIPReportingPointDataService.shared.isDataAvailable {
+            let rpHalfLat = region.span.latitudeDelta / 2
+            let rpHalfLon = region.span.longitudeDelta / 2
+            visibleReportingPoints = OpenAIPReportingPointDataService.shared.reportingPointsInRegion(
+                latRange: (region.center.latitude - rpHalfLat)...(region.center.latitude + rpHalfLat),
+                lonRange: (region.center.longitude - rpHalfLon)...(region.center.longitude + rpHalfLon))
+        } else {
+            visibleReportingPoints = []
+        }
 
         var freqLines: [String: String] = [:]
         if airportDataService.isDataAvailable {
@@ -1089,6 +1187,7 @@ struct NavigationMapView: View {
                 hasSegelflugCache: offlineMapManager.isSegelflugCacheAvailable,
                 activeFlightPlan: flightPlanManager.activeFlightPlan,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                showOpenAIPTiles: appState.settings.showOpenAIPTiles,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
@@ -1096,6 +1195,9 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
+                visibleNavaids: visibleNavaids,
+                visibleObstacles: visibleObstacles,
+                visibleReportingPoints: visibleReportingPoints,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 onWaypointATOTap: { index in
@@ -1114,9 +1216,13 @@ struct NavigationMapView: View {
                 currentWaypointIndex: currentWaypointIndex,
                 locationUpdateCounter: locationUpdateCounter,
                 visibleAirports: visibleAirports,
+                visibleNavaids: visibleNavaids,
+                visibleObstacles: visibleObstacles,
+                visibleReportingPoints: visibleReportingPoints,
                 airportFrequencyLines: airportFrequencyLines,
                 cachedHeading: locationManager.currentCourseDegrees,
                 showOpenAIPOverlay: appState.settings.showOpenAIPOverlay,
+                showOpenAIPTiles: appState.settings.showOpenAIPTiles,
                 openAIPCacheManager: openAIPCacheManager,
                 airspacePolygons: visibleAirspacePolygons,
                 trackVectorOverlays: trackVectorOverlays,
@@ -1286,18 +1392,20 @@ struct NavigationMapView: View {
 
             Spacer()
 
-            // Track-vector toggle — grouped with the airspace/layer map-display controls. (v4 UI/UX Revamp C4)
-            Button(action: {
-                appState.settings.showTrackVector.toggle()
-                appState.saveSettings()
-            }) {
-                Image(systemName: "location.north.line")
+            // Layers button — opens the grouped overlays sheet (airspace/tiles · markers + show-all ·
+            // track vector). Replaces the standalone track-vector button so the on-map button count
+            // stays at two even as layers grow. (v4.1.0 ②)
+            Button(action: { showOverlaysSheet = true }) {
+                Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(appState.settings.showTrackVector ? .aviationGold : .secondaryText)
+                    .foregroundColor(.secondaryText)
                     .frame(width: 44, height: 44)
                     .background(Color.panelBackground.opacity(0.92), in: Circle())
             }
-            .accessibilityLabel(L10n.Nav.trackVector)
+            .accessibilityLabel(L10n.Nav.layers)
+            .sheet(isPresented: $showOverlaysSheet) {
+                OverlaysSheet().environmentObject(appState)
+            }
 
             // OpenAIP overlay toggle
             Button(action: {
@@ -1315,6 +1423,19 @@ struct NavigationMapView: View {
                                   ? Color.panelBackground.opacity(0.95)
                                   : Color.panelBackground.opacity(0.7))
                     )
+            }
+            .overlay(alignment: .topTrailing) {
+                // On-map staleness cue (v4.1.0): an amber badge when the downloaded airspace data is
+                // aging/stale, so stale airspace drawn on the map is visible in flight.
+                if airspaceDataNeedsAttention {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.aviationAmber)
+                        .padding(2)
+                        .background(Color.panelBackground, in: Circle())
+                        .offset(x: 5, y: -5)
+                        .accessibilityHidden(true)
+                }
             }
 
             // Layer picker button (shows info modal in offline mode)
@@ -2667,9 +2788,13 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
+    var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
+    var visibleReportingPoints: [ReportingPoint] = []  // VFR reporting points to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var showOpenAIPOverlay: Bool = false
+    var showOpenAIPTiles: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []  // Airspace overlays to display
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
@@ -2687,8 +2812,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Set map type
         mapView.mapType = selectedLayer == .satellite ? .satellite : .standard
 
-        // Add OpenAIP tile overlay if enabled
-        if showOpenAIPOverlay {
+        // Add OpenAIP raster tile overlay if enabled (separate from the airspace vector — v4.1.0)
+        if showOpenAIPTiles {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
             mapView.addOverlay(overlay, level: .aboveLabels)
         }
@@ -2780,6 +2905,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
+        updateNavaidAnnotations(mapView, context: context)
+        updateObstacleAnnotations(mapView, context: context)
+        updateReportingPointAnnotations(mapView, context: context)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -2801,6 +2929,36 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
+        let existingIds = Set(existing.map { $0.navaid.id })
+        let newIds = Set(visibleNavaids.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
+        for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
+            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
+        }
+    }
+
+    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
+        let existingIds = Set(existing.map { $0.obstacle.id })
+        let newIds = Set(visibleObstacles.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
+        for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
+            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
+        }
+    }
+
+    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
+        let existingIds = Set(existing.map { $0.point.id })
+        let newIds = Set(visibleReportingPoints.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
+        for point in visibleReportingPoints where !existingIds.contains(point.id) {
+            mapView.addAnnotation(ReportingPointAnnotation(point: point))
         }
     }
 
@@ -2935,10 +3093,10 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     private func updateOpenAIPOverlay(_ mapView: MKMapView, context: Context) {
         let hasOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
 
-        if showOpenAIPOverlay && !hasOverlay {
+        if showOpenAIPTiles && !hasOverlay {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
             mapView.addOverlay(overlay, level: .aboveLabels)
-        } else if !showOpenAIPOverlay && hasOverlay {
+        } else if !showOpenAIPTiles && hasOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
         }
@@ -3069,6 +3227,52 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             // Handle airport annotation
             if let airportAnnotation = annotation as? AirportAnnotation {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
+            }
+
+            // Handle navaid annotation (v4.1.0)
+            if let navaidAnnotation = annotation as? NavaidAnnotation {
+                let id = "NavaidAnnotation"
+                let navaidView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = navaidAnnotation
+                    navaidView = reused
+                } else {
+                    navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
+                }
+                navaidView.canShowCallout = true
+                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+                return navaidView
+            }
+
+            // Handle obstacle annotation (v4.1.0)
+            if let obstacleAnnotation = annotation as? ObstacleAnnotation {
+                let id = "ObstacleAnnotation"
+                let obstacleView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = obstacleAnnotation
+                    obstacleView = reused
+                } else {
+                    obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
+                }
+                obstacleView.canShowCallout = true
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
+                return obstacleView
+            }
+
+            // Handle reporting-point annotation (v4.1.0)
+            if let reportingPointAnnotation = annotation as? ReportingPointAnnotation {
+                let id = "ReportingPointAnnotation"
+                let rpView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = reportingPointAnnotation
+                    rpView = reused
+                } else {
+                    rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
+                }
+                rpView.canShowCallout = true
+                let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
+                return rpView
             }
 
             // Handle aircraft annotation
@@ -3226,10 +3430,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 color = UIColor.gray
             }
 
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
+            annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
@@ -3372,27 +3573,6 @@ struct LayerPickerSheet: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // Overlays — airspace + ground-track vector toggles, consolidated here so iPhone
-                    // needs only one map-display button in the top bar. (v4 UI/UX Revamp — iPhone)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L10n.Nav.overlays)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondaryText)
-                            .padding(.horizontal, 20)
-                        VStack(spacing: 0) {
-                            overlayToggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
-                                appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
-                            }
-                            Divider().padding(.leading, 56)
-                            overlayToggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
-                                appState.settings.showTrackVector.toggle(); appState.saveSettings()
-                            }
-                        }
-                        .background(Color.panelBackground)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
-                    }
-
                     // Data-source attribution required by the providers' terms (swisstopo/BAZL,
                     // MeteoSwiss, Open-Meteo, OpenAIP). (SEC-16)
                     VStack(alignment: .leading, spacing: 4) {
@@ -3420,20 +3600,6 @@ struct LayerPickerSheet: View {
         }
         .presentationDetents([.height(620)])
         .preferredColorScheme(.dark)
-    }
-
-    private func overlayToggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon).font(.system(size: 18))
-                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
-                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
-                Spacer()
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isOn ? .aviationGold : .dimText)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-        }
     }
 
     private func layerRow(_ layer: MapLayerType) -> some View {
@@ -3472,6 +3638,127 @@ struct LayerPickerSheet: View {
 // MARK: - Swiss Map View (UIKit Wrapper)
 
 /// UIViewRepresentable wrapper for MKMapView with swisstopo tile overlays
+/// The grouped map-layers sheet opened by the "Layers" button: Airspace & charts (airspace vector +
+/// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
+/// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
+struct OverlaysSheet: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) var dismiss
+
+    private var anyMarkerOn: Bool {
+        appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
+        appState.settings.showReportingPointsOnMap || appState.settings.showObstaclesOnMap
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    groupCard(L10n.Nav.airspaceCharts) {
+                        toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
+                            appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                        }
+                        Divider().padding(.leading, 56)
+                        toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
+                            appState.settings.showOpenAIPTiles.toggle(); appState.saveSettings()
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(L10n.Nav.mapMarkers)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondaryText)
+                            Spacer()
+                            Button(anyMarkerOn ? L10n.Nav.hideAll : L10n.Nav.showAll) {
+                                setAllMarkers(!anyMarkerOn)
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.aviationGold)
+                        }
+                        .padding(.horizontal, 20)
+                        VStack(spacing: 0) {
+                            toggleRow(icon: "mappin.and.ellipse", title: L10n.DataStorage.airportsName, isOn: appState.settings.showAirportsOnMap) {
+                                appState.settings.showAirportsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.navaidsName, isOn: appState.settings.showNavaidsOnMap) {
+                                appState.settings.showNavaidsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "triangle", title: L10n.DataStorage.reportingPointsName, isOn: appState.settings.showReportingPointsOnMap) {
+                                appState.settings.showReportingPointsOnMap.toggle(); appState.saveSettings()
+                            }
+                            Divider().padding(.leading, 56)
+                            toggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.obstaclesName, isOn: appState.settings.showObstaclesOnMap) {
+                                appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
+                            }
+                        }
+                        .background(Color.panelBackground)
+                        .cornerRadius(12)
+                        .padding(.horizontal, 16)
+                    }
+
+                    groupCard(L10n.Nav.flightSection) {
+                        toggleRow(icon: "location.north.line", title: L10n.Nav.trackVector, isOn: appState.settings.showTrackVector) {
+                            appState.settings.showTrackVector.toggle(); appState.saveSettings()
+                        }
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Nav.layers)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.Button.done) { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(520)])
+        .preferredColorScheme(.dark)
+    }
+
+    private func setAllMarkers(_ on: Bool) {
+        appState.settings.showAirportsOnMap = on
+        appState.settings.showNavaidsOnMap = on
+        appState.settings.showReportingPointsOnMap = on
+        appState.settings.showObstaclesOnMap = on
+        appState.saveSettings()
+    }
+
+    @ViewBuilder
+    private func groupCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondaryText)
+                .padding(.horizontal, 20)
+            VStack(spacing: 0) { content() }
+                .background(Color.panelBackground)
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+        }
+    }
+
+    private func toggleRow(icon: String, title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon).font(.system(size: 18))
+                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
+                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
+                Spacer()
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isOn ? .aviationGold : .dimText)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct SwissMapView: UIViewRepresentable {
     let layerType: MapLayerType
     @ObservedObject var mapState: SharedMapState
@@ -3484,6 +3771,7 @@ struct SwissMapView: UIViewRepresentable {
     var hasSegelflugCache: Bool = false
     var activeFlightPlan: FlightPlan?
     var showOpenAIPOverlay: Bool = false
+    var showOpenAIPTiles: Bool = false
     var openAIPCacheManager: OpenAIPCacheManager?
     var airspacePolygons: [AirspacePolygon] = []
     var trackVectorOverlays: [MKPolyline] = []  // Ground-track trend vector (line + ticks)
@@ -3491,6 +3779,9 @@ struct SwissMapView: UIViewRepresentable {
     var currentWaypointIndex: Int = 0  // Track separately to force updates
     var locationUpdateCounter: Int = 0  // Forces updateUIView on every location change
     var visibleAirports: [Airport] = []  // Airports to display on map
+    var visibleNavaids: [Navaid] = []  // Navaids to display on map (v4.1.0)
+    var visibleObstacles: [Obstacle] = []  // Obstacles to display on map (v4.1.0)
+    var visibleReportingPoints: [ReportingPoint] = []  // VFR reporting points to display on map (v4.1.0)
     var airportFrequencyLines: [String: String] = [:]  // ICAO -> all frequencies (newline-separated)
     var cachedHeading: Double?  // Cached course from LocationManager (survives GPS gaps)
     var onWaypointATOTap: ((Int) -> Void)?  // Callback when user taps/long-presses a waypoint to set ATO
@@ -3613,7 +3904,7 @@ struct SwissMapView: UIViewRepresentable {
                 }
 
                 // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
-                if self.showOpenAIPOverlay {
+                if self.showOpenAIPTiles {
                     let openAIPOverlay = OpenAIPTileOverlay(
                         cacheManager: self.openAIPCacheManager,
                         isStrictOfflineMode: self.isStrictOfflineMode
@@ -3681,13 +3972,13 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update OpenAIP tile overlay
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
-        if showOpenAIPOverlay && !hasOpenAIPOverlay {
+        if showOpenAIPTiles && !hasOpenAIPOverlay {
             let openAIPOverlay = OpenAIPTileOverlay(
                 cacheManager: openAIPCacheManager,
                 isStrictOfflineMode: isStrictOfflineMode
             )
             mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
-        } else if !showOpenAIPOverlay && hasOpenAIPOverlay {
+        } else if !showOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
         }
@@ -3787,6 +4078,9 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update airport annotations
         updateAirportAnnotations(mapView, context: context)
+        updateNavaidAnnotations(mapView, context: context)
+        updateObstacleAnnotations(mapView, context: context)
+        updateReportingPointAnnotations(mapView, context: context)
     }
 
     private func updateAirportAnnotations(_ mapView: MKMapView, context: Context) {
@@ -3804,6 +4098,36 @@ struct SwissMapView: UIViewRepresentable {
         for airport in toAdd {
             let annotation = AirportAnnotation(airport: airport, frequencyLines: airportFrequencyLines[airport.ident])
             mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func updateNavaidAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
+        let existingIds = Set(existing.map { $0.navaid.id })
+        let newIds = Set(visibleNavaids.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
+        for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
+            mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
+        }
+    }
+
+    private func updateObstacleAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
+        let existingIds = Set(existing.map { $0.obstacle.id })
+        let newIds = Set(visibleObstacles.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
+        for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
+            mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
+        }
+    }
+
+    private func updateReportingPointAnnotations(_ mapView: MKMapView, context: Context) {
+        let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
+        let existingIds = Set(existing.map { $0.point.id })
+        let newIds = Set(visibleReportingPoints.map { $0.id })
+        mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
+        for point in visibleReportingPoints where !existingIds.contains(point.id) {
+            mapView.addAnnotation(ReportingPointAnnotation(point: point))
         }
     }
 
@@ -4139,6 +4463,52 @@ struct SwissMapView: UIViewRepresentable {
                 return createAirportAnnotationView(mapView, annotation: airportAnnotation)
             }
 
+            // Handle navaid annotation (v4.1.0)
+            if let navaidAnnotation = annotation as? NavaidAnnotation {
+                let id = "NavaidAnnotation"
+                let navaidView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = navaidAnnotation
+                    navaidView = reused
+                } else {
+                    navaidView = MKAnnotationView(annotation: navaidAnnotation, reuseIdentifier: id)
+                }
+                navaidView.canShowCallout = true
+                navaidView.image = aeroMarkerSymbol("hexagon", color: UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1.0), pointSize: 13)
+                return navaidView
+            }
+
+            // Handle obstacle annotation (v4.1.0)
+            if let obstacleAnnotation = annotation as? ObstacleAnnotation {
+                let id = "ObstacleAnnotation"
+                let obstacleView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = obstacleAnnotation
+                    obstacleView = reused
+                } else {
+                    obstacleView = MKAnnotationView(annotation: obstacleAnnotation, reuseIdentifier: id)
+                }
+                obstacleView.canShowCallout = true
+                obstacleView.image = aeroMarkerSymbol("exclamationmark.triangle.fill", color: UIColor(red: 0.95, green: 0.5, blue: 0.1, alpha: 1.0), pointSize: 13)
+                return obstacleView
+            }
+
+            // Handle reporting-point annotation (v4.1.0)
+            if let reportingPointAnnotation = annotation as? ReportingPointAnnotation {
+                let id = "ReportingPointAnnotation"
+                let rpView: MKAnnotationView
+                if let reused = mapView.dequeueReusableAnnotationView(withIdentifier: id) {
+                    reused.annotation = reportingPointAnnotation
+                    rpView = reused
+                } else {
+                    rpView = MKAnnotationView(annotation: reportingPointAnnotation, reuseIdentifier: id)
+                }
+                rpView.canShowCallout = true
+                let symbol = reportingPointAnnotation.point.compulsory ? "triangle.fill" : "triangle"
+                rpView.image = aeroMarkerSymbol(symbol, color: UIColor(red: 0.85, green: 0.2, blue: 0.6, alpha: 1.0), pointSize: 12)
+                return rpView
+            }
+
             // Handle aircraft annotation
             guard let aircraftAnnotation = annotation as? AircraftAnnotation else {
                 return nil
@@ -4296,10 +4666,7 @@ struct SwissMapView: UIViewRepresentable {
                 color = UIColor.gray
             }
 
-            let config = UIImage.SymbolConfiguration(pointSize: size, weight: .medium)
-            if let image = UIImage(systemName: iconName, withConfiguration: config) {
-                annotationView.image = image.withTintColor(color, renderingMode: .alwaysOriginal)
-            }
+            annotationView.image = aeroMarkerSymbol(iconName, color: color, pointSize: size, weight: .medium)
 
             // Configure callout with multi-line frequency detail
             annotationView.rightCalloutAccessoryView = nil
@@ -4842,4 +5209,5 @@ private struct NavClockText: View {
         .environmentObject(OpenAIPCacheManager())
         .environmentObject(OpenAIPDataService())
         .environmentObject(FlightEventDetector())
+        .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }

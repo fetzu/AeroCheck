@@ -11,6 +11,7 @@ struct ContentView: View {
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -73,6 +74,17 @@ struct ContentView: View {
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
+
+                // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
+                if dataStatusManager.showStaleNudge && !appState.isFlightActive && appState.settings.hasCompletedOnboarding {
+                    VStack {
+                        DataFreshnessNudgeBanner(message: L10n.DataStorage.nudgeMessage) {
+                            dataStatusManager.snoozeNudge()
+                        }
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
             .animation(.easeInOut(duration: 0.3), value: appState.settings.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
@@ -81,6 +93,7 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
             .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
+            .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
         }
         .onAppear {
             // Request location permission on app launch
@@ -230,6 +243,36 @@ struct LanguageFallbackBanner: View {
     }
 }
 
+/// Snoozable "your data is out of date" nudge (v4.1.0 Data Freshness). Mirrors LanguageFallbackBanner
+/// but persists until tapped — currency is a deliberate action, so there's no auto-dismiss.
+struct DataFreshnessNudgeBanner: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 15, weight: .semibold))
+            Text(message)
+                .font(.system(size: 14, weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundColor(.cockpitBackground)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(message)
+        .accessibilityHint(Text(L10n.Button.close))
+    }
+}
+
 // MARK: - Shake Gesture Detection
 
 /// Notification name for shake gesture
@@ -328,4 +371,5 @@ struct RotateToPortraitView: View {
         .environmentObject(AppState())
         .environmentObject(LocationManager())
         .environmentObject(FlightPlanManager())
+        .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))
 }

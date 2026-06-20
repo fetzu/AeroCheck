@@ -10,16 +10,21 @@ struct SettingsView: View {
     /// close action; otherwise `nil` and the standard `@Environment(\.dismiss)` is used. (v4 UI/UX Revamp)
     var onClose: (() -> Void)? = nil
 
+    /// When set, the hub opens directly to this section (e.g. the Home data-status dot → Data & Storage). (v4.1.0)
+    var initialSection: Section? = nil
+
     /// iPad two-column selection (defaults to the first section so the detail pane is never empty).
     @State private var selection: Section? = .aircraft
     /// iPhone push-navigation path.
     @State private var path: [Section] = []
+    /// Guards `initialSection` so it seeds the selection once, not on every re-appear.
+    @State private var didApplyInitialSection = false
 
     /// The settings sections. On iPad regular width `NavigationSplitView` shows them as a sidebar
     /// with the chosen section in the detail pane; on iPhone/compact it automatically collapses to
     /// the previous single-column push navigation. (UX-22)
     enum Section: Hashable, CaseIterable, Identifiable {
-        case aircraft, checklist, navigation, flightPlanning, sync, companion, about
+        case aircraft, checklist, navigation, flightPlanning, sync, dataStorage, companion, about
         var id: Self { self }
 
         var icon: String {
@@ -29,6 +34,7 @@ struct SettingsView: View {
             case .navigation: return "map"
             case .flightPlanning: return "point.topleft.down.to.point.bottomright.curvepath"
             case .sync: return "icloud"
+            case .dataStorage: return "internaldrive"
             case .companion: return "ipad.and.iphone"
             case .about: return "info.circle"
             }
@@ -40,6 +46,7 @@ struct SettingsView: View {
             case .navigation: return L10n.Settings.navigationAndMaps
             case .flightPlanning: return L10n.Settings.flightPlanning
             case .sync: return L10n.Settings.syncAndData
+            case .dataStorage: return L10n.DataStorage.title
             case .companion: return L10n.Settings.companionMode
             case .about: return L10n.Settings.about
             }
@@ -51,6 +58,7 @@ struct SettingsView: View {
             case .navigation: return L10n.Settings.navigationAndMapsSubtitle
             case .flightPlanning: return L10n.Settings.flightPlanningSubtitle
             case .sync: return L10n.Settings.syncAndDataSubtitle
+            case .dataStorage: return L10n.DataStorage.subtitle
             case .companion: return L10n.Settings.companionModeSubtitle
             case .about: return L10n.Settings.aboutSubtitle
             }
@@ -63,6 +71,7 @@ struct SettingsView: View {
             case .navigation: return .aviationGreen
             case .flightPlanning: return .orange
             case .sync: return .altimeterBlue
+            case .dataStorage: return .aviationGreen
             case .companion: return .aviationGold
             case .about: return .secondaryText
             }
@@ -101,6 +110,12 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            guard !didApplyInitialSection, let initialSection else { return }
+            didApplyInitialSection = true
+            selection = initialSection
+            path = [initialSection]
+        }
         // A Plus/Max iPhone flips compact↔regular when rotated, which swaps push-nav (`path`) for the
         // two-column `selection`. Bridge the two so you stay on the same section instead of snapping
         // back to the top. (iPad is always regular, so this is a no-op there.) (orientation audit)
@@ -189,6 +204,7 @@ struct SettingsView: View {
         case .navigation: NavigationMapsSettingsView()
         case .flightPlanning: FlightPlanningSettingsView()
         case .sync: SyncDataSettingsView()
+        case .dataStorage: DataStorageSettingsView()
         case .companion: CompanionSettingsView()
         case .about: AboutSettingsView()
         case nil:

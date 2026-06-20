@@ -237,6 +237,11 @@ enum OpenAIPConfig {
         Locale.current.localizedString(forRegionCode: code) ?? code
     }
 
-    /// Attribution text (required by CC BY-NC 4.0 license)
-    static let attributionText = "Aeronautical data © OpenAIP contributors"
+    /// Attribution text (required by CC BY-NC 4.0 license). Plain-text form for the concatenated map
+    /// "Data sources" line; the hub uses a tappable markdown variant (L10n.DataStorage.openAIPAttribution).
+    static let attributionText = "Airspace data from OpenAIP.net (© OpenAIP and contributors, CC BY-NC 4.0)"
+
+    /// Public, keyless GeoJSON exports bucket (per-country `{cc}_<layer>.geojson`). Used for the new
+    /// structured layers (navaids / obstacles / reporting points) — no API key required. (v4.1.0)
+    static let geoJSONExportBaseURL = "https://storage.googleapis.com/29f98e10-a489-4c82-ae5e-489dbcd4912f"
 }

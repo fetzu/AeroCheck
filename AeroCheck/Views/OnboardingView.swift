@@ -60,13 +60,18 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var showSkipConfirm = false
     @State private var showNoDownloadWarning = false
+    @State private var showEstimatedAirspeedWarning = false
+    @State private var showSubscription = false
+    /// True while the location step is waiting for the user to answer the system permission prompt, so
+    /// we advance to the next step only AFTER they've responded. (device-test feedback)
+    @State private var awaitingLocationResponse = false
 
     /// GPS-reverse-geocoded home country (ISO-2); nil until/unless a fix resolves. (onboarding revamp)
     @State private var detectedCountry: String?
     /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
     @State private var selectedCountries: Set<String> = []
 
-    private let totalPages = 7
+    private let totalPages = 8
 
     /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
     private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
@@ -86,6 +91,9 @@ struct OnboardingView: View {
         wanted.insert(effectiveHome)
         return !wanted.isEmpty && wanted.isSubset(of: downloaded)
     }
+
+    /// Rough size estimate for the OpenAIP download — the four GeoJSON layers run ~5 MB per country.
+    private var openAIPEstimateMB: Int { max(1, selectedCountries.union([effectiveHome]).count) * 5 }
 
     var body: some View {
         ZStack {
@@ -113,7 +121,8 @@ struct OnboardingView: View {
                     checklistsPage.tag(3)
                     yourMapPage.tag(4)
                     inFlightFeaturesPage.tag(5)
-                    readyPage.tag(6)
+                    premiumPage.tag(6)
+                    readyPage.tag(7)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
@@ -126,12 +135,23 @@ struct OnboardingView: View {
         } message: {
             Text(String(localized: "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data."))
         }
-        .confirmationDialog(String(localized: "No airspace data downloaded"),
-                            isPresented: $showNoDownloadWarning, titleVisibility: .visible) {
+        .alert(String(localized: "No airspace data downloaded"), isPresented: $showNoDownloadWarning) {
+            Button(String(localized: "Select countries"), role: .cancel) {}
             Button(String(localized: "Continue anyway")) { withAnimation { currentPage = 3 } }
-            Button(String(localized: "Go back"), role: .cancel) {}
         } message: {
-            Text(String(localized: "Select your countries and tap Download to get the recommended airspace, navaid and reporting-point data for navigation."))
+            Text(String(localized: "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first."))
+        }
+        .sheet(isPresented: $showEstimatedAirspeedWarning) {
+            EstimatedAirspeedWarningSheet(isPresented: $showEstimatedAirspeedWarning,
+                                          showEstimatedAirspeed: $appState.settings.showEstimatedAirspeed)
+        }
+        .sheet(isPresented: $showSubscription) { SubscriptionView() }
+        // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
+        .onChange(of: locationManager.authorizationStatus) { _, status in
+            if awaitingLocationResponse && status != .notDetermined {
+                awaitingLocationResponse = false
+                withAnimation { currentPage = 2 }
+            }
         }
     }
 
@@ -191,8 +211,13 @@ struct OnboardingView: View {
             pageDots
             VStack(spacing: 10) {
                 primaryButton(String(localized: "Enable location"), icon: "location.fill") {
-                    locationManager.requestAuthorization()
-                    withAnimation { currentPage = 2 }
+                    if locationManager.authorizationStatus == .notDetermined {
+                        // Show the system prompt and wait for the answer; the .onChange advances us.
+                        awaitingLocationResponse = true
+                        locationManager.requestAuthorization()
+                    } else {
+                        withAnimation { currentPage = 2 }
+                    }
                 }
                 Button(String(localized: "Not now")) { withAnimation { currentPage = 2 } }
                     .font(.subheadline)
@@ -237,6 +262,7 @@ struct OnboardingView: View {
                 isDownloading: airportDataService.isDownloading,
                 progress: airportDataService.downloadProgress,
                 isCompleted: airportDataService.isDataAvailable,
+                detail: String(localized: "Worldwide · ≈ 12 MB"),
                 action: { Task { await airportDataService.downloadData() } }
             )
 
@@ -247,6 +273,7 @@ struct OnboardingView: View {
                     isDownloading: offlineMapManager.isDownloading,
                     progress: offlineMapManager.downloadProgress,
                     isCompleted: offlineMapManager.isCacheAvailable,
+                    detail: String(localized: "ICAO + glider · up to ≈ 250 MB"),
                     action: { Task { await offlineMapManager.downloadCharts(option: .icaoAndSegelflug) } }
                 )
                 .padding(.top, 11)
@@ -322,6 +349,10 @@ struct OnboardingView: View {
                     ProgressView(value: openAIPDataService.downloadProgress)
                         .tint(.aviationGold)
                         .frame(maxWidth: 160)
+                } else if !done {
+                    Text(String(localized: "≈ \(openAIPEstimateMB) MB"))
+                        .font(.caption2)
+                        .foregroundColor(.dimText)
                 }
                 Spacer()
                 // Green "Downloaded" only when EVERY selected country is cached; selecting a new
@@ -485,8 +516,15 @@ struct OnboardingView: View {
                           $appState.settings.enableFlightPlanning)
                 toggleRow("wind", .altimeterBlue,
                           String(localized: "Estimated airspeed"),
-                          String(localized: "MeteoSwiss wind estimate — beta (Switzerland)"),
-                          $appState.settings.showEstimatedAirspeed)
+                          String(localized: "MeteoSwiss wind estimate — experimental (Switzerland)"),
+                          // Enabling shows the same experimental-feature warning as Settings. (feedback)
+                          Binding(
+                              get: { appState.settings.showEstimatedAirspeed },
+                              set: { newValue in
+                                  if newValue { showEstimatedAirspeedWarning = true }
+                                  else { appState.settings.showEstimatedAirspeed = false }
+                              }
+                          ))
                 toggleRow("gauge.with.needle", .aviationGold,
                           String(localized: "Log engine hours"),
                           String(localized: "Prompt for the hour meter"),
@@ -499,7 +537,28 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - 7: Ready
+    // MARK: - 7: Premium
+
+    private var premiumPage: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
+            pageTitle(String(localized: "One aircraft free — unlock the rest"))
+            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AeroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
+            Spacer()
+            pageDots
+            VStack(spacing: 10) {
+                primaryButton(String(localized: "See AeroCheck Pro"), icon: "sparkles") { showSubscription = true }
+                Button(String(localized: "Continue")) { withAnimation { currentPage = 7 } }
+                    .font(.subheadline)
+                    .foregroundColor(.secondaryText)
+                    .padding(.vertical, 4)
+            }
+            .padding(.bottom, 40)
+        }
+    }
+
+    // MARK: - 8: Ready
 
     private var readyPage: some View {
         VStack(spacing: 22) {
@@ -664,8 +723,10 @@ struct OnboardingView: View {
                     Button { appState.settings.checklistLanguage = lang } label: {
                         Text(langShort(lang))
                             .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                            .fixedSize()
                             .foregroundColor(appState.settings.checklistLanguage == lang ? .black : .secondaryText)
-                            .padding(.horizontal, 13)
+                            .padding(.horizontal, 11)
                             .padding(.vertical, 6)
                             .background(appState.settings.checklistLanguage == lang ? Color.aviationGold : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 7))
@@ -676,6 +737,9 @@ struct OnboardingView: View {
             .padding(3)
             .background(Color.cockpitBackground)
             .clipShape(RoundedRectangle(cornerRadius: 9))
+            // Keep the whole segmented control at its natural width so the title VStack yields space to
+            // it instead of squeezing the segments into "Au/to". (iPhone language-selector fix)
+            .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -747,6 +811,7 @@ struct OnboardingView: View {
         isDownloading: Bool,
         progress: Double,
         isCompleted: Bool,
+        detail: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: {
@@ -773,6 +838,10 @@ struct OnboardingView: View {
                         Text(L10n.Onboarding.downloaded)
                             .font(.caption)
                             .foregroundColor(.aviationGreen)
+                    } else if let detail {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundColor(.dimText)
                     }
                 }
 

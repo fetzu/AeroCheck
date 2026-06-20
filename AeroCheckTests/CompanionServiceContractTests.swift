@@ -27,9 +27,14 @@ final class CompanionServiceContractTests: XCTestCase {
             "WiFiAwareServices must declare '\(companionWiFiAwareServiceName)' — the exact name the code looks up via WAPublishableService/WASubscribableService.aerocheck")
 
         // The same universal binary publishes (iPad master) and subscribes (iPhone viewer), so the
-        // single declared service must advertise both roles.
-        XCTAssertEqual(entry["Publishable"] as? Bool, true, "companion service must be Publishable (iPad master)")
-        XCTAssertEqual(entry["Subscribable"] as? Bool, true, "companion service must be Subscribable (iPhone viewer)")
+        // single declared service must advertise both roles. Each role value MUST be a DICTIONARY
+        // (empty is fine, per Apple's "Adopting Wi-Fi Aware") — a Bool makes WiFiAware trap with
+        // "'Publishable' key ... is malformed (not a dictionary)", which crashed 100% on Pair New
+        // Device on iOS/iPadOS 26. (v4.1 fix)
+        XCTAssertNotNil(entry["Publishable"] as? [String: Any],
+                        "companion service 'Publishable' must be a dictionary (iPad master) — a Bool crashes WiFiAware")
+        XCTAssertNotNil(entry["Subscribable"] as? [String: Any],
+                        "companion service 'Subscribable' must be a dictionary (iPhone viewer) — a Bool crashes WiFiAware")
     }
 
     func testNoStaleTcpServiceNameRemains() {

@@ -1,14 +1,99 @@
 import SwiftUI
+import CoreLocation
 
-/// Onboarding flow shown to new users on first launch. Cockpit language: a tinted rounded-square
-/// page icon, semantic Dynamic-Type fonts, gold primary action, and custom gold page dots. (v4 UI/UX Revamp)
+/// Curated land-border adjacency for the onboarding "download my region" suggestions. Major bordering
+/// countries only — micro-states (LI/MC/SM/AD/VA) are omitted to keep the suggestion list tidy. ISO-2,
+/// uppercase. Not exhaustive: a country absent from the table simply gets no neighbour suggestions.
+enum CountryNeighbors {
+    static func neighbors(of country: String) -> [String] {
+        table[country.uppercased()] ?? []
+    }
+
+    static let table: [String: [String]] = [
+        "CH": ["FR", "DE", "IT", "AT"],
+        "FR": ["BE", "LU", "DE", "CH", "IT", "ES"],
+        "DE": ["DK", "PL", "CZ", "AT", "CH", "FR", "LU", "BE", "NL"],
+        "IT": ["FR", "CH", "AT", "SI"],
+        "AT": ["DE", "CZ", "SK", "HU", "SI", "IT", "CH"],
+        "BE": ["FR", "LU", "DE", "NL"],
+        "NL": ["BE", "DE"],
+        "LU": ["BE", "FR", "DE"],
+        "ES": ["PT", "FR"],
+        "PT": ["ES"],
+        "GB": ["IE"],
+        "IE": ["GB"],
+        "DK": ["DE"],
+        "PL": ["DE", "CZ", "SK", "LT"],
+        "CZ": ["DE", "PL", "SK", "AT"],
+        "SK": ["CZ", "PL", "HU", "AT"],
+        "HU": ["SK", "RO", "RS", "HR", "SI", "AT"],
+        "SI": ["AT", "IT", "HU", "HR"],
+        "HR": ["SI", "HU", "RS", "BA"],
+        "NO": ["SE", "FI"],
+        "SE": ["NO", "FI"],
+        "FI": ["SE", "NO"],
+        "RO": ["HU", "BG", "RS"],
+        "BG": ["RO", "RS", "GR"],
+        "GR": ["BG"],
+        "US": ["CA", "MX"],
+        "CA": ["US"],
+        "MX": ["US"],
+    ]
+}
+
+/// First-run onboarding (v4.1.0 revamp). Seven steps: welcome → location priming → maps & data
+/// downloads → checklists → your map → in flight & features → ready. The three middle "config" steps
+/// fold a one-line intro into a header and let the pilot tune the default-off/on features up front; the
+/// toggles bind straight to `AppSettings` and persist when onboarding completes. Cockpit language:
+/// tinted page icons, gold primary actions, custom gold page dots. (onboarding revamp)
 struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var offlineMapManager: OfflineMapManager
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    // The other OpenAIP layers download alongside airspace; observed so the card reflects all of them.
+    @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var currentPage = 0
+    @State private var showSkipConfirm = false
+    @State private var showNoDownloadWarning = false
+    @State private var showEstimatedAirspeedWarning = false
+    @State private var showSubscription = false
+    /// True while the location step is waiting for the user to answer the system permission prompt, so
+    /// we advance to the next step only AFTER they've responded. (device-test feedback)
+    @State private var awaitingLocationResponse = false
 
-    private let totalPages = 5
+    /// GPS-reverse-geocoded home country (ISO-2); nil until/unless a fix resolves. (onboarding revamp)
+    @State private var detectedCountry: String?
+    /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
+    @State private var selectedCountries: Set<String> = []
+
+    private let totalPages = 8
+
+    /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
+    private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
+
+    /// One full-width column on iPhone (compact), two on iPad — a 2-up grid is unreadable at phone width.
+    private var toggleColumns: [GridItem] {
+        horizontalSizeClass == .compact
+            ? [GridItem(.flexible(), spacing: 11)]
+            : [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
+    }
+
+    /// True when every selected country's airspace is already cached — drives the "Downloaded" state so
+    /// it reflects the CURRENT selection (selecting a new country flips it back to needing a download).
+    private var openAIPFullyDownloaded: Bool {
+        let downloaded = Set(openAIPDataService.downloadedCountries.map { $0.uppercased() })
+        var wanted = selectedCountries
+        wanted.insert(effectiveHome)
+        return !wanted.isEmpty && wanted.isSubset(of: downloaded)
+    }
+
+    /// Rough size estimate for the OpenAIP download — the four GeoJSON layers run ~5 MB per country.
+    private var openAIPEstimateMB: Int { max(1, selectedCountries.union([effectiveHome]).count) * 5 }
 
     var body: some View {
         ZStack {
@@ -16,10 +101,9 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Skip button
                 HStack {
                     Spacer()
-                    Button(action: completeOnboarding) {
+                    Button(action: { showSkipConfirm = true }) {
                         Text(L10n.Onboarding.skip)
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(.secondaryText)
@@ -30,120 +114,482 @@ struct OnboardingView: View {
                 .padding(.top, 8)
                 .padding(.trailing, 8)
 
-                // Page content (custom gold dots below, system index hidden)
                 TabView(selection: $currentPage) {
                     welcomePage.tag(0)
-                    checklistsPage.tag(1)
-                    navigationPage.tag(2)
-                    briefingsPage.tag(3)
-                    readyPage.tag(4)
+                    locationPage.tag(1)
+                    mapsDataPage.tag(2)
+                    checklistsPage.tag(3)
+                    yourMapPage.tag(4)
+                    inFlightFeaturesPage.tag(5)
+                    premiumPage.tag(6)
+                    readyPage.tag(7)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
         }
         .preferredColorScheme(.dark)
+        .confirmationDialog(String(localized: "Skip setup?"),
+                            isPresented: $showSkipConfirm, titleVisibility: .visible) {
+            Button(String(localized: "Skip anyway"), role: .destructive) { completeOnboarding() }
+            Button(String(localized: "Keep setting up"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data."))
+        }
+        .alert(String(localized: "No airspace data downloaded"), isPresented: $showNoDownloadWarning) {
+            Button(String(localized: "Select countries"), role: .cancel) {}
+            Button(String(localized: "Continue anyway")) { withAnimation { currentPage = 3 } }
+        } message: {
+            Text(String(localized: "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first."))
+        }
+        .sheet(isPresented: $showEstimatedAirspeedWarning) {
+            EstimatedAirspeedWarningSheet(isPresented: $showEstimatedAirspeedWarning,
+                                          showEstimatedAirspeed: $appState.settings.showEstimatedAirspeed)
+        }
+        .sheet(isPresented: $showSubscription) { SubscriptionView() }
+        // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
+        .onChange(of: locationManager.authorizationStatus) { _, status in
+            if awaitingLocationResponse && status != .notDetermined {
+                awaitingLocationResponse = false
+                withAnimation { currentPage = 2 }
+            }
+        }
     }
 
-    // MARK: - Page 1: Welcome
+    // MARK: - 1: Welcome
 
     private var welcomePage: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 18) {
             Spacer()
 
             Image("AppIconImage")
                 .resizable()
-                .frame(width: 116, height: 116)
-                .clipShape(RoundedRectangle(cornerRadius: 26))
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 26)
+                    RoundedRectangle(cornerRadius: 22)
                         .stroke(Color.aviationGold.opacity(0.3), lineWidth: 1)
                 )
                 .accessibilityHidden(true)
 
-            Text(L10n.Onboarding.welcomeTitle)
-                .font(.largeTitle.weight(.bold))
-                .foregroundColor(.primaryText)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Text(L10n.Onboarding.welcomeTitle)
+                    .font(.title.weight(.bold))
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
+                Text(L10n.Onboarding.welcomeSubtitle)
+                    .font(.callout)
+                    .foregroundColor(.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
 
-            Text(L10n.Onboarding.welcomeSubtitle)
-                .font(.body)
-                .foregroundColor(.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            // The flight told as a story: PLAN · FLY · NAVIGATE · LOG.
+            VStack(alignment: .leading, spacing: 13) {
+                welcomePhase("point.3.connected.trianglepath.dotted",
+                             String(localized: "Plan|Build your route on the map — airspace and terrain in view."))
+                welcomePhase("checklist",
+                             String(localized: "Fly|Work the checklists through all 16 phases, preflight to shutdown."))
+                welcomePhase("location.north.line",
+                             String(localized: "Navigate|A moving map with airspace, frequencies and your live track."))
+                welcomePhase("book.closed",
+                             String(localized: "Log|Every flight recorded automatically — times, track and landings."))
+            }
+            .padding(.horizontal, 36)
+            .padding(.top, 4)
 
             Spacer()
 
             pageDots
             primaryButton(L10n.Onboarding.getStarted, icon: "arrow.right") { withAnimation { currentPage = 1 } }
-                .padding(.bottom, 44)
+                .padding(.bottom, 40)
         }
     }
 
-    // MARK: - Page 2: Checklists
+    /// One PLAN/FLY/NAVIGATE/LOG line on the Welcome screen. `combined` is "PHASE|one-liner"; the phase
+    /// word renders gold-bold, the rest in secondary. One key per phase keeps the FR translation tidy.
+    private func welcomePhase(_ icon: String, _ combined: String) -> some View {
+        let parts = combined.split(separator: "|", maxSplits: 1).map(String.init)
+        let phase = (parts.first ?? "").uppercased()
+        let text = parts.count > 1 ? parts[1] : ""
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 17))
+                .foregroundColor(.aviationGold)
+                .frame(width: 24, height: 20)
+                .accessibilityHidden(true)
+            (Text(phase + "  ").font(.footnote.weight(.bold)).foregroundColor(.aviationGold)
+                + Text(text).font(.footnote).foregroundColor(.secondaryText))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+    }
 
-    private var checklistsPage: some View {
-        VStack(spacing: 22) {
+    // MARK: - 2: Location priming
+
+    private var locationPage: some View {
+        VStack(spacing: 20) {
             Spacer()
-            pageIcon("checklist", tint: .altimeterBlue)
-            pageTitle(L10n.Onboarding.checklistsTitle)
-            pageBody(L10n.Onboarding.checklistsBody)
+
+            pageIcon("location.fill", tint: .aviationGreen, iconSize: 46)
+            pageTitle(String(localized: "Use your location"))
+
+            VStack(alignment: .leading, spacing: 11) {
+                locationBullet("location.fill", String(localized: "Record your GPS flight track"))
+                locationBullet("antenna.radiowaves.left.and.right", String(localized: "Show nearby airspace & frequencies"))
+                locationBullet("square.and.arrow.down", String(localized: "Suggest the right maps to download next"))
+            }
+            .padding(.horizontal, 50)
+
             Spacer()
+
             pageDots
-            nextButton(page: 2).padding(.bottom, 44)
+            VStack(spacing: 10) {
+                primaryButton(String(localized: "Enable location"), icon: "location.fill") {
+                    if locationManager.authorizationStatus == .notDetermined {
+                        // Show the system prompt and wait for the answer; the .onChange advances us.
+                        awaitingLocationResponse = true
+                        locationManager.requestAuthorization()
+                    } else {
+                        withAnimation { currentPage = 2 }
+                    }
+                }
+                Button(String(localized: "Not now")) { withAnimation { currentPage = 2 } }
+                    .font(.subheadline)
+                    .foregroundColor(.secondaryText)
+                    .padding(.vertical, 4)
+            }
+            .padding(.bottom, 40)
         }
     }
 
-    // MARK: - Page 3: Navigation & Downloads
+    // MARK: - 3: Maps & data
 
-    private var navigationPage: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            pageIcon("map", tint: .aviationGreen)
-            pageTitle(L10n.Onboarding.navigationTitle)
-            pageBody(L10n.Onboarding.navigationBody)
+    private var mapsDataPage: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 13) {
+                Image(systemName: "map.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.aviationGreen)
+                    .frame(width: 50, height: 50)
+                    .background(RoundedRectangle(cornerRadius: 15).fill(Color.aviationGreen.opacity(0.14)))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "Maps & Data"))
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primaryText)
+                    Text(String(localized: "Download what you'll fly over — offline-ready."))
+                        .font(.footnote)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                regionPill
+            }
+            .padding(.bottom, 16)
 
-            VStack(spacing: 12) {
+            openAIPDownloadCard
+                .padding(.bottom, 11)
+
+            downloadButton(
+                title: String(localized: "Airports & frequencies"),
+                icon: "building.2",
+                isDownloading: airportDataService.isDownloading,
+                progress: airportDataService.downloadProgress,
+                isCompleted: airportDataService.isDataAvailable,
+                detail: String(localized: "Worldwide · ≈ 12 MB"),
+                action: { Task { await airportDataService.downloadData() } }
+            )
+
+            if effectiveHome == "CH" {
                 downloadButton(
-                    title: L10n.Onboarding.downloadAirports,
-                    icon: "building.2",
-                    isDownloading: airportDataService.isDownloading,
-                    progress: airportDataService.downloadProgress,
-                    isCompleted: airportDataService.isDataAvailable,
-                    action: { Task { await airportDataService.downloadData() } }
-                )
-                downloadButton(
-                    title: L10n.Onboarding.downloadCharts,
-                    icon: "map.fill",
+                    title: String(localized: "Swiss charts"),
+                    icon: "map",
                     isDownloading: offlineMapManager.isDownloading,
                     progress: offlineMapManager.downloadProgress,
                     isCompleted: offlineMapManager.isCacheAvailable,
+                    detail: String(localized: "ICAO + glider · up to ≈ 250 MB"),
                     action: { Task { await offlineMapManager.downloadCharts(option: .icaoAndSegelflug) } }
                 )
+                .padding(.top, 11)
             }
-            .padding(.horizontal, 32)
-            .padding(.top, 8)
 
-            Spacer()
-            pageDots
-            nextButton(page: 3).padding(.bottom, 44)
+            Text(String(localized: "Add more countries anytime in Settings → Data."))
+                .font(.caption2)
+                .foregroundColor(.dimText)
+                .padding(.top, 10)
+
+            Spacer(minLength: 16)
+
+            HStack {
+                pageDots
+                Spacer()
+                inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
+                    if openAIPDataService.isDataAvailable {
+                        withAnimation { currentPage = 3 }
+                    } else {
+                        showNoDownloadWarning = true
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 24)
+        .padding(.bottom, 40)
+        .task {
+            if selectedCountries.isEmpty { selectedCountries = [effectiveHome] }
+            await detectRegion()
         }
     }
 
-    // MARK: - Page 4: Briefings & Flight Log
+    private var regionPill: some View {
+        let name = Locale.current.localizedString(forRegionCode: effectiveHome) ?? effectiveHome
+        return HStack(spacing: 6) {
+            Image(systemName: "location.fill").font(.system(size: 11, weight: .semibold))
+            Text(name).font(.caption.weight(.medium)).lineLimit(1)
+        }
+        .foregroundColor(.aviationGreen)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.aviationGreen.opacity(0.16)))
+        .accessibilityLabel(Text(String(localized: "Detected region")) + Text(": \(name)"))
+    }
 
-    private var briefingsPage: some View {
-        VStack(spacing: 22) {
-            Spacer()
-            pageIcon("doc.text.magnifyingglass", tint: .aviationGold)
-            pageTitle(L10n.Onboarding.briefingsTitle)
-            pageBody(L10n.Onboarding.briefingsBody)
-            Spacer()
-            pageDots
-            nextButton(page: 4).padding(.bottom, 44)
+    /// Recommended OpenAIP card — downloads airspace + navaids + obstacles + reporting points for the
+    /// selected countries (home pre-selected, neighbours opt-in). (onboarding revamp)
+    private var openAIPDownloadCard: some View {
+        let anyDownloading = openAIPDataService.isDownloading || navaidService.isDownloading
+            || obstacleService.isDownloading || reportingPointService.isDownloading
+        let done = openAIPFullyDownloaded
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                Image(systemName: done ? "checkmark.circle.fill" : "shield.lefthalf.filled")
+                    .font(.system(size: 19))
+                    .foregroundColor(done ? .aviationGreen : .aviationGold)
+                    .accessibilityHidden(true)
+                Text(String(localized: "Airspace, navaids & reporting points"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primaryText)
+                Spacer()
+                Text(String(localized: "Recommended"))
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.aviationGold))
+            }
+            countryChipRow
+            HStack {
+                if anyDownloading {
+                    ProgressView(value: openAIPDataService.downloadProgress)
+                        .tint(.aviationGold)
+                        .frame(maxWidth: 160)
+                } else if !done {
+                    Text(String(localized: "≈ \(openAIPEstimateMB) MB"))
+                        .font(.caption2)
+                        .foregroundColor(.dimText)
+                }
+                Spacer()
+                // Green "Downloaded" only when EVERY selected country is cached; selecting a new
+                // country flips it back to a gold "Download". (Maps & Data UX fix)
+                Button(action: downloadOpenAIP) {
+                    HStack(spacing: 6) {
+                        Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").font(.system(size: 14))
+                        Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.aviationGreen : Color.aviationGold))
+                }
+                .disabled(anyDownloading || done)
+                .opacity(anyDownloading ? 0.5 : 1)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke((done ? Color.aviationGreen : Color.aviationGold).opacity(0.35), lineWidth: 1))
+        )
+    }
+
+    private var countryChipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                countryChip(effectiveHome, isHome: true)
+                ForEach(CountryNeighbors.neighbors(of: effectiveHome), id: \.self) { code in
+                    Button { toggleCountry(code) } label: { countryChip(code, isHome: false) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 1)
         }
     }
 
-    // MARK: - Page 5: Ready to Fly
+    private func countryChip(_ code: String, isHome: Bool) -> some View {
+        let selected = isHome || selectedCountries.contains(code)
+        return Text(isHome ? "\(code) ✓" : (selected ? code : "+ \(code)"))
+            .font(.caption.weight(.medium))
+            .foregroundColor(selected ? .black : .secondaryText)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(selected ? Color.aviationGold : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .strokeBorder(selected ? Color.clear : Color.white.opacity(0.22),
+                                          style: StrokeStyle(lineWidth: 1, dash: isHome ? [] : [3]))
+                    )
+            )
+    }
+
+    private func toggleCountry(_ code: String) {
+        if selectedCountries.contains(code) {
+            selectedCountries.remove(code)
+        } else {
+            selectedCountries.insert(code)
+        }
+    }
+
+    private func downloadOpenAIP() {
+        var countries = selectedCountries
+        countries.insert(effectiveHome)   // home is always included
+        let list = Array(countries)
+        Task {
+            await openAIPDataService.downloadData(for: list)
+            await navaidService.downloadData(for: list)
+            await obstacleService.downloadData(for: list)
+            await reportingPointService.downloadData(for: list)
+        }
+    }
+
+    /// Best-effort GPS → ISO country (reverse geocode). Falls back silently to the device region when
+    /// there's no fix or the lookup fails. (onboarding revamp)
+    private func detectRegion() async {
+        guard let location = locationManager.currentLocation else { return }
+        let geocoder = CLGeocoder()
+        guard let placemarks = try? await geocoder.reverseGeocodeLocation(location),
+              let code = placemarks.first?.isoCountryCode?.uppercased() else { return }
+        if code != detectedCountry {
+            detectedCountry = code
+            selectedCountries = [code]
+        }
+    }
+
+    // MARK: - 4: Checklists
+
+    private var checklistsPage: some View {
+        configContainer(
+            icon: "checklist", tint: .altimeterBlue,
+            title: String(localized: "Checklists"),
+            subtitle: String(localized: "Interactive checklists for all 16 flight phases — set how you run them."),
+            page: 3
+        ) {
+            VStack(spacing: 11) {
+                LazyVGrid(columns: toggleColumns, spacing: 11) {
+                    toggleRow("graduationcap", .altimeterBlue,
+                              String(localized: "Learning mode"),
+                              String(localized: "Show memorised items while you learn"),
+                              $appState.settings.learningMode)
+                    toggleRow("arrow.triangle.2.circlepath", .altimeterBlue,
+                              String(localized: "Circuit mode"),
+                              String(localized: "Streamlined pattern-training flow"),
+                              $appState.settings.enableCircuitMode)
+                }
+                languageRow
+            }
+        }
+    }
+
+    // MARK: - 5: Your map
+
+    private var yourMapPage: some View {
+        configContainer(
+            icon: "map.fill", tint: .aviationGreen,
+            title: String(localized: "Your map"),
+            subtitle: String(localized: "Swiss & worldwide layers on the moving map — pick what's drawn."),
+            page: 4
+        ) {
+            LazyVGrid(columns: toggleColumns, spacing: 11) {
+                toggleRow("shield.lefthalf.filled", .aviationGreen,
+                          String(localized: "Airspace overlay"),
+                          String(localized: "CTRs & zones from OpenAIP"),
+                          $appState.settings.showOpenAIPOverlay)
+                toggleRow("location.north.line", .aviationGreen,
+                          String(localized: "Track vector"),
+                          String(localized: "Trend line ahead of the aircraft"),
+                          $appState.settings.showTrackVector)
+                toggleRow("exclamationmark.triangle", .aviationGreen,
+                          String(localized: "Obstacles"),
+                          String(localized: "Masts, towers & wires"),
+                          $appState.settings.showObstaclesOnMap)
+                toggleRow("map", .aviationGreen,
+                          String(localized: "Force ICAO chart"),
+                          String(localized: "Keep the chart at all zoom levels"),
+                          $appState.settings.forceICAOChartLayer)
+            }
+        }
+    }
+
+    // MARK: - 6: In flight & features
+
+    private var inFlightFeaturesPage: some View {
+        configContainer(
+            icon: "airplane", tint: .aviationGold,
+            title: String(localized: "In flight & features"),
+            subtitle: String(localized: "How the app behaves in the air, plus the bigger features and your data."),
+            page: 5
+        ) {
+            LazyVGrid(columns: toggleColumns, spacing: 11) {
+                toggleRow("point.3.connected.trianglepath.dotted", .aviationGreen,
+                          String(localized: "Flight planning"),
+                          String(localized: "Map-first route builder"),
+                          $appState.settings.enableFlightPlanning)
+                toggleRow("wind", .altimeterBlue,
+                          String(localized: "Estimated airspeed"),
+                          String(localized: "MeteoSwiss wind estimate — experimental (Switzerland)"),
+                          // Enabling shows the same experimental-feature warning as Settings. (feedback)
+                          Binding(
+                              get: { appState.settings.showEstimatedAirspeed },
+                              set: { newValue in
+                                  if newValue { showEstimatedAirspeedWarning = true }
+                                  else { appState.settings.showEstimatedAirspeed = false }
+                              }
+                          ))
+                toggleRow("gauge.with.needle", .aviationGold,
+                          String(localized: "Log engine hours"),
+                          String(localized: "Prompt for the hour meter"),
+                          $appState.settings.logEngineHours)
+                toggleRow("icloud", .altimeterBlue,
+                          String(localized: "Sync to iCloud"),
+                          String(localized: "Flights & settings across devices"),
+                          $appState.settings.iCloudSyncEnabled)
+            }
+        }
+    }
+
+    // MARK: - 7: Premium
+
+    private var premiumPage: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
+            pageTitle(String(localized: "One aircraft free — unlock the rest"))
+            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
+            Spacer()
+            pageDots
+            VStack(spacing: 10) {
+                primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
+                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 7 } }
+            }
+            .padding(.bottom, 40)
+        }
+    }
+
+    // MARK: - 8: Ready
 
     private var readyPage: some View {
         VStack(spacing: 22) {
@@ -161,7 +607,53 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Reusable Components
+    // MARK: - Config page scaffold
+
+    /// A "config" step: a left-aligned header (icon + folded-in intro) over its content, with the page
+    /// dots + a gold Continue button pinned to the foot. Used by the three setup steps + Maps & data.
+    private func configContainer<Content: View>(
+        icon: String, tint: Color, title: String, subtitle: String, page: Int,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(tint)
+                    .frame(width: 50, height: 50)
+                    .background(RoundedRectangle(cornerRadius: 15).fill(tint.opacity(0.14)))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primaryText)
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+            .padding(.bottom, 18)
+
+            content()
+
+            Spacer(minLength: 16)
+
+            HStack {
+                pageDots
+                Spacer()
+                inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
+                    withAnimation { currentPage = page + 1 }
+                }
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 24)
+        .padding(.bottom, 40)
+    }
+
+    // MARK: - Reusable components
 
     /// A tinted rounded-square page icon (cockpit language).
     private func pageIcon(_ name: String, tint: Color, iconSize: CGFloat = 40) -> some View {
@@ -189,18 +681,111 @@ struct OnboardingView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Custom gold page indicator (active dot elongates), replacing the system index dots.
-    private var pageDots: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<totalPages, id: \.self) { i in
-                Capsule()
-                    .fill(i == currentPage ? Color.aviationGold : Color.dimText.opacity(0.5))
-                    .frame(width: i == currentPage ? 20 : 7, height: 7)
-                    .animation(.easeInOut(duration: 0.2), value: currentPage)
-            }
+    private func locationBullet(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .font(.system(size: 17))
+                .foregroundColor(.aviationGreen)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.callout)
+                .foregroundColor(.primaryText)
+            Spacer(minLength: 0)
         }
-        .accessibilityElement()
-        .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
+    }
+
+    /// A feature toggle card (icon + title + subtitle + switch) bound straight to an `AppSettings` flag.
+    private func toggleRow(_ icon: String, _ iconTint: Color, _ title: String, _ subtitle: String,
+                           _ isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .font(.system(size: 19))
+                .foregroundColor(iconTint)
+                .frame(width: 26)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primaryText)
+                    .lineLimit(2)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // Claim the remaining width instead of an expanding Spacer, which squeezes the text to a
+            // single character per line on a narrow (iPhone) row. (iPhone layout fix)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(.aviationGold)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Full-width checklist-language row with a compact Auto / EN / FR segmented control.
+    private var languageRow: some View {
+        HStack(spacing: 11) {
+            Image(systemName: "globe")
+                .font(.system(size: 19))
+                .foregroundColor(.altimeterBlue)
+                .frame(width: 26)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "Checklist language"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primaryText)
+                Text(String(localized: "Auto follows your device language"))
+                    .font(.caption2)
+                    .foregroundColor(.dimText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 2) {
+                ForEach(ChecklistLanguage.availableLanguages) { lang in
+                    Button { appState.settings.checklistLanguage = lang } label: {
+                        Text(langShort(lang))
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                            .fixedSize()
+                            .foregroundColor(appState.settings.checklistLanguage == lang ? .black : .secondaryText)
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 6)
+                            .background(appState.settings.checklistLanguage == lang ? Color.aviationGold : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(3)
+            .background(Color.cockpitBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            // Keep the whole segmented control at its natural width so the title VStack yields space to
+            // it instead of squeezing the segments into "Au/to". (iPhone language-selector fix)
+            .fixedSize()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        )
+    }
+
+    private func langShort(_ lang: ChecklistLanguage) -> String {
+        switch lang {
+        case .auto: return String(localized: "Auto")
+        default: return lang.rawValue.uppercased()
+        }
     }
 
     private func primaryButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -220,8 +805,58 @@ struct OnboardingView: View {
         .padding(.horizontal, 40)
     }
 
-    private func nextButton(page: Int) -> some View {
-        primaryButton(L10n.Onboarding.next, icon: "arrow.right") { withAnimation { currentPage = page } }
+    /// Full-width grey button — same size as `primaryButton`, for a neutral secondary action (no
+    /// dark-pattern tiny "skip"). (device-test feedback)
+    private func secondaryButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundColor(.primaryText)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+            )
+        }
+        .padding(.horizontal, 40)
+    }
+
+    /// Compact gold button for the config steps' footer.
+    private func inlinePrimary(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundColor(.black)
+            .padding(.vertical, 11)
+            .padding(.horizontal, 24)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.aviationGold))
+        }
+    }
+
+    /// Custom gold page indicator (active dot elongates), replacing the system index dots.
+    private var pageDots: some View {
+        HStack(spacing: 7) {
+            ForEach(0..<totalPages, id: \.self) { i in
+                Capsule()
+                    .fill(i == currentPage ? Color.aviationGold : Color.dimText.opacity(0.5))
+                    .frame(width: i == currentPage ? 20 : 7, height: 7)
+                    .animation(.easeInOut(duration: 0.2), value: currentPage)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
     }
 
     private func downloadButton(
@@ -230,6 +865,7 @@ struct OnboardingView: View {
         isDownloading: Bool,
         progress: Double,
         isCompleted: Bool,
+        detail: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: {
@@ -256,6 +892,10 @@ struct OnboardingView: View {
                         Text(L10n.Onboarding.downloaded)
                             .font(.caption)
                             .foregroundColor(.aviationGreen)
+                    } else if let detail {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundColor(.dimText)
                     }
                 }
 

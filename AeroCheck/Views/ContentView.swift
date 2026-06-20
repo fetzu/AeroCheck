@@ -96,8 +96,12 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
         }
         .onAppear {
-            // Request location permission on app launch
-            locationManager.requestAuthorization()
+            // Only ask for location at launch for users who've already been through onboarding — a fresh
+            // install requests it during the onboarding "Location" step instead. A skipped or revoked
+            // permission is still caught at flight start (FlightLauncher UX-13). (onboarding revamp)
+            if appState.hasSeenOnboarding {
+                locationManager.requestAuthorization()
+            }
 
             // Apply screen setting
             UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn

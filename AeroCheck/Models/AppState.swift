@@ -1404,13 +1404,12 @@ class AppState: ObservableObject {
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
 
     /// Mark onboarding finished on THIS device (the gate) and record completion in the synced settings.
+    /// Always persists — onboarding (incl. a replay from Settings) can change the feature toggles.
     func completeOnboarding() {
         hasSeenOnboarding = true
         UserDefaults.standard.set(true, forKey: hasSeenOnboardingKey)
-        if !settings.hasCompletedOnboarding {
-            settings.hasCompletedOnboarding = true
-            saveSettings()
-        }
+        settings.hasCompletedOnboarding = true
+        saveSettings()
     }
 
     /// Re-show onboarding from Settings. Device-local — replaying it here doesn't reset other devices.

@@ -1,6 +1,616 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Plan|Build your route on the map — airspace and terrain in view." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planifier|Construisez votre route sur la carte — espaces aériens et relief en vue."
+          }
+        }
+      }
+    },
+    "Fly|Work the checklists through all 16 phases, preflight to shutdown." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler|Déroulez les checklists des 16 phases, du prévol à l'arrêt moteur."
+          }
+        }
+      }
+    },
+    "Navigate|A moving map with airspace, frequencies and your live track." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Naviguer|Une carte mobile avec espaces aériens, fréquences et votre trace en direct."
+          }
+        }
+      }
+    },
+    "Log|Every flight recorded automatically — times, track and landings." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer|Chaque vol enregistré automatiquement — heures, trace et atterrissages."
+          }
+        }
+      }
+    },
+    "Add more countries anytime in Settings → Data." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez d'autres pays à tout moment dans Réglages → Données."
+          }
+        }
+      }
+    },
+    "Airports & frequencies" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aéroports et fréquences"
+          }
+        }
+      }
+    },
+    "Airspace overlay" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calque des espaces aériens"
+          }
+        }
+      }
+    },
+    "Airspace, navaids & reporting points" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espaces aériens, balises et points de report"
+          }
+        }
+      }
+    },
+    "Auto follows your device language" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto suit la langue de votre appareil"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
+          }
+        }
+      }
+    },
+    "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AéroCheck est entièrement fonctionnelle dès le départ, avec le WT9 Dynamic inclus gratuitement. AéroCheck Pro débloque tous les autres avions — la flotte complète des deux aéroclubs, listée sur aerocheck.app."
+          }
+        }
+      }
+    },
+    "CTRs & zones from OpenAIP" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CTR et zones depuis OpenAIP"
+          }
+        }
+      }
+    },
+    "Checklist language" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langue des checklists"
+          }
+        }
+      }
+    },
+    "Circuit mode" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode circuit"
+          }
+        }
+      }
+    },
+    "Continue anyway" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer quand même"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer"
+          }
+        }
+      }
+    },
+    "Detected region" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Région détectée"
+          }
+        }
+      }
+    },
+    "Download what you'll fly over — offline-ready." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargez ce que vous survolerez — prêt hors ligne."
+          }
+        }
+      }
+    },
+    "Download" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger"
+          }
+        }
+      }
+    },
+    "Enable location" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer la localisation"
+          }
+        }
+      }
+    },
+    "Flight planning" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planification de vol"
+          }
+        }
+      }
+    },
+    "Flights & settings across devices" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vols et réglages sur tous vos appareils"
+          }
+        }
+      }
+    },
+    "Force ICAO chart" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forcer la carte ICAO"
+          }
+        }
+      }
+    },
+    "How the app behaves in the air, plus the bigger features and your data." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le comportement de l'app en vol, plus les grandes fonctionnalités et vos données."
+          }
+        }
+      }
+    },
+    "ICAO + glider · up to ≈ 250 MB" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ICAO + planeur · jusqu'à ≈ 250 Mo"
+          }
+        }
+      }
+    },
+    "In flight & features" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En vol et fonctionnalités"
+          }
+        }
+      }
+    },
+    "Interactive checklists for all 16 flight phases — set how you run them." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Des checklists interactives pour les 16 phases de vol — choisissez comment les utiliser."
+          }
+        }
+      }
+    },
+    "Keep setting up" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer la configuration"
+          }
+        }
+      }
+    },
+    "Keep the chart at all zoom levels" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garder la carte à tous les niveaux de zoom"
+          }
+        }
+      }
+    },
+    "Learning mode" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode apprentissage"
+          }
+        }
+      }
+    },
+    "Log engine hours" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer les heures moteur"
+          }
+        }
+      }
+    },
+    "Map-first route builder" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Constructeur d'itinéraire sur carte"
+          }
+        }
+      }
+    },
+    "Maps & Data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartes et données"
+          }
+        }
+      }
+    },
+    "Masts, towers & wires" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pylônes, tours et câbles"
+          }
+        }
+      }
+    },
+    "MeteoSwiss wind estimate — experimental (Switzerland)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimation du vent MeteoSwiss — expérimental (Suisse)"
+          }
+        }
+      }
+    },
+    "No airspace data downloaded" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune donnée d'espace aérien téléchargée"
+          }
+        }
+      }
+    },
+    "No data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune donnée"
+          }
+        }
+      }
+    },
+    "Not now" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "One aircraft free — unlock the rest" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un avion gratuit — débloquez les autres"
+          }
+        }
+      }
+    },
+    "Prompt for the hour meter" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demander le compteur horaire"
+          }
+        }
+      }
+    },
+    "Recommended" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommandé"
+          }
+        }
+      }
+    },
+    "Record your GPS flight track" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer votre trace GPS de vol"
+          }
+        }
+      }
+    },
+    "See AéroCheck Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir AéroCheck Pro"
+          }
+        }
+      }
+    },
+    "Select countries" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir les pays"
+          }
+        }
+      }
+    },
+    "Show memorised items while you learn" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les éléments à mémoriser pendant l'apprentissage"
+          }
+        }
+      }
+    },
+    "Show nearby airspace & frequencies" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les espaces aériens et fréquences à proximité"
+          }
+        }
+      }
+    },
+    "Skip anyway" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignorer quand même"
+          }
+        }
+      }
+    },
+    "Skip setup?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignorer la configuration ?"
+          }
+        }
+      }
+    },
+    "Streamlined pattern-training flow" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déroulé simplifié pour l'entraînement aux tours de piste"
+          }
+        }
+      }
+    },
+    "Suggest the right maps to download next" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggérer les bonnes cartes à télécharger"
+          }
+        }
+      }
+    },
+    "Swiss & worldwide layers on the moving map — pick what's drawn." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calques suisses et mondiaux sur la carte mobile — choisissez ce qui s'affiche."
+          }
+        }
+      }
+    },
+    "Swiss charts" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartes suisses"
+          }
+        }
+      }
+    },
+    "Sync to iCloud" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchroniser avec iCloud"
+          }
+        }
+      }
+    },
+    "Track vector" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vecteur de trajectoire"
+          }
+        }
+      }
+    },
+    "Trend line ahead of the aircraft" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne de tendance devant l'avion"
+          }
+        }
+      }
+    },
+    "Use your location" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser votre position"
+          }
+        }
+      }
+    },
+    "Without downloading airspace data you won't see airspace or frequencies while navigating. You can set this up later in Settings → Data." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sans télécharger les données d'espace aérien, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Vous pourrez le configurer plus tard dans Réglages → Données."
+          }
+        }
+      }
+    },
+    "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sans les données recommandées d'espaces aériens, de balises et de points de report, vous ne verrez ni les espaces aériens ni les fréquences en navigation. Choisissez vos pays et appuyez d'abord sur Télécharger."
+          }
+        }
+      }
+    },
+    "Worldwide · ≈ 12 MB" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mondial · ≈ 12 Mo"
+          }
+        }
+      }
+    },
+    "Your map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre carte"
+          }
+        }
+      }
+    },
+    "≈ %lld MB" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "≈ %lld Mo"
+          }
+        }
+      }
+    },
     "Aeronautical charts · © swisstopo / BAZL" : {
       "localizations" : {
         "fr" : {
@@ -9512,13 +10122,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your cockpit companion for every phase of flight"
+            "value" : "Follow your flight from first plan to final logbook entry:"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre compagnon de cockpit pour chaque phase de vol"
+            "value" : "Suivez votre vol, du premier plan à la dernière entrée du journal :"
           }
         }
       }
@@ -9528,13 +10138,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Welcome to AeroCheck"
+            "value" : "Welcome to AéroCheck"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bienvenue sur AeroCheck"
+            "value" : "Bienvenue dans AéroCheck"
           }
         }
       }
@@ -10432,13 +11042,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Replay intro"
+            "value" : "Replay onboarding"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Revoir l'intro"
+            "value" : "Revoir l'intégration"
           }
         }
       }

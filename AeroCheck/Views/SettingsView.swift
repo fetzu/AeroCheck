@@ -102,10 +102,24 @@ struct SettingsView: View {
                 }
                 .background(Color.cockpitBackground.ignoresSafeArea())
             } else {
-                // iPhone: single column with push navigation.
+                // iPhone: single column. When opened via a deep link from Home (the data-status chip
+                // sets initialSection), present that section as the NavigationStack ROOT with a Close
+                // button, so dismissing returns to Home rather than the settings sidebar. (data-status nav fix)
                 NavigationStack(path: $path) {
-                    sidebar(twoColumn: false)
-                        .navigationDestination(for: Section.self) { detailView(for: $0) }
+                    Group {
+                        if let deepLink = initialSection {
+                            detailView(for: deepLink)
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) {
+                                        Button(L10n.Settings.done) { if let onClose { onClose() } else { dismiss() } }
+                                    }
+                                }
+                        } else {
+                            sidebar(twoColumn: false)
+                        }
+                    }
+                    .navigationDestination(for: Section.self) { detailView(for: $0) }
                 }
             }
         }
@@ -113,13 +127,17 @@ struct SettingsView: View {
         .onAppear {
             guard !didApplyInitialSection, let initialSection else { return }
             didApplyInitialSection = true
+            // iPad two-column uses `selection`; compact renders the deep-link as the stack ROOT (above),
+            // so it must NOT also be pushed onto `path`. (data-status nav fix)
             selection = initialSection
-            path = [initialSection]
         }
         // A Plus/Max iPhone flips compact↔regular when rotated, which swaps push-nav (`path`) for the
         // two-column `selection`. Bridge the two so you stay on the same section instead of snapping
         // back to the top. (iPad is always regular, so this is a no-op there.) (orientation audit)
         .onChange(of: horizontalSizeClass) { _, newClass in
+            // A deep-link renders as the compact stack root and manages itself — don't bridge it onto
+            // `path`, or a rotation would stack a second copy of the same section. (data-status nav fix)
+            guard initialSection == nil else { return }
             if newClass == .regular {
                 if let last = path.last { selection = last }
             } else if let sel = selection {

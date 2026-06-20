@@ -240,10 +240,32 @@ class SyncManager: ObservableObject {
                 // Ensure zone exists
                 await ensureZoneExists()
 
+                // Pull existing records on launch. CKSyncEngine only auto-syncs to SEND pending local
+                // changes (and to fetch in response to a remote push); a fresh install has an empty
+                // local store and nothing to send, so without this explicit fetch the logbook stays
+                // empty until a push happens to arrive — or the user taps Sync Now. (fresh-install fix)
+                await performInitialFetch(using: engine)
+
             } catch {
                 syncError = "Failed to initialize sync: \(error.localizedDescription)"
                 AppLog.sync.debugLine("Failed to initialize: \(error)")
             }
+        }
+    }
+
+    /// One-shot fetch when the engine comes up, so records that already exist on the server (e.g. a
+    /// logbook synced from another device, or this device's own pre-reinstall data) land without
+    /// waiting for a remote push or a manual Sync Now. (fresh-install fix)
+    private func performInitialFetch(using engine: CKSyncEngine) async {
+        isSyncing = true
+        defer { isSyncing = false }
+        do {
+            try await engine.fetchChanges()
+            lastSyncDate = Date()
+            UserDefaults.standard.set(lastSyncDate, forKey: lastSyncDateKey)
+            AppLog.sync.debugLine("Initial fetch on launch completed")
+        } catch {
+            AppLog.sync.debugLine("Initial fetch on launch failed: \(error)")
         }
     }
 

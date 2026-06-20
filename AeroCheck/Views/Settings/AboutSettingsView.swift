@@ -68,8 +68,7 @@ struct AboutSettingsView: View {
         SettingsGroup(tint: tint, footer: L10n.Settings.replayIntroFooter) {
             SettingsButtonRow(icon: "play.circle", title: L10n.Settings.replayIntro,
                               tint: .aviationGold, showsChevron: false) {
-                appState.settings.hasCompletedOnboarding = false
-                appState.saveSettings()
+                appState.replayOnboarding()
             }
         }
     }
@@ -241,8 +240,7 @@ struct AboutSettingsView: View {
 
                 SettingsButtonRow(icon: "arrow.counterclockwise", title: L10n.Settings.resetOnboarding,
                                   tint: tint, showsChevron: false, destructive: true) {
-                    appState.settings.hasCompletedOnboarding = false
-                    appState.saveSettings()
+                    appState.replayOnboarding()
                 }
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be

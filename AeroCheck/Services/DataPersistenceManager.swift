@@ -112,14 +112,36 @@ class DataPersistenceManager: ObservableObject {
         let appSupportRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
         self.applicationSupportDirectory = appSupportRoot.appendingPathComponent(appFolderName, isDirectory: true)
-        self.iCloudContainerURL = FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.fetzu.aerocheck")
-        self.iCloudDocumentsURL = self.iCloudContainerURL?.appendingPathComponent("Documents", isDirectory: true)
+        // `url(forUbiquityContainerIdentifier:)` can block the calling thread for MANY seconds while
+        // iCloud initializes on a fresh install — long enough for the launch watchdog to kill the app
+        // (a 0x8badf00d crash) and to make a cold start crawl. Resolve it off-thread with a short cap;
+        // a timeout falls back to local storage for this session (the CloudKit sync path still delivers
+        // data) and the container resolves on a later, warmer launch. (launch perf / fresh-install fix)
+        let container = Self.resolveUbiquityContainer(identifier: "iCloud.com.fetzu.aerocheck", timeout: 2.0)
+        self.iCloudContainerURL = container
+        self.iCloudDocumentsURL = container?.appendingPathComponent("Documents", isDirectory: true)
 
         // One-time relocation of any existing local-fallback data out of the exposed Documents
         // root into Application Support, BEFORE creating the (possibly-overlapping) new dirs. (SEC-12)
         migrateLocalDatastoreIfNeeded()
 
         createDirectoryStructure()
+    }
+
+    /// Resolves the iCloud ubiquity container off the main thread, waiting at most `timeout` seconds.
+    /// Caps the documented multi-second block of `url(forUbiquityContainerIdentifier:)` so a cold/fresh
+    /// install can't stall (and watchdog-crash) the launch. On a timeout, returns nil → local fallback
+    /// for this session; the container resolves on a later launch. (launch perf / fresh-install fix)
+    nonisolated static func resolveUbiquityContainer(identifier: String, timeout: TimeInterval) -> URL? {
+        final class Box: @unchecked Sendable { var value: URL? }
+        let box = Box()
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            box.value = FileManager.default.url(forUbiquityContainerIdentifier: identifier)
+            semaphore.signal()
+        }
+        // Read box.value only on a confirmed signal (the write happens-before it); a timeout returns nil.
+        return semaphore.wait(timeout: .now() + timeout) == .success ? box.value : nil
     }
 
     /// Migration flag key. Bump the suffix if the datastore layout changes again.

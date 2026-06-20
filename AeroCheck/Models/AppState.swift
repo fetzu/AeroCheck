@@ -472,6 +472,10 @@ class AppState: ObservableObject {
     }
     @Published var flights: [Flight] = []
     @Published var isLoadingFlights: Bool = true
+    /// Device-local onboarding gate (NOT the iCloud-synced `settings.hasCompletedOnboarding`). Onboarding
+    /// offers per-device setup (data downloads, location), so it must show once per device — including a
+    /// reinstall, where the synced flag would otherwise restore from iCloud and suppress it. (bug 1)
+    @Published var hasSeenOnboarding: Bool = false
     @Published var settings: AppSettings = AppSettings()
     @Published var showFlightLog: Bool = false
 
@@ -581,6 +585,18 @@ class AppState: ObservableObject {
     init() {
         // Load settings synchronously (fast, needed for initial UI)
         loadSettings()
+
+        // Seed the device-local onboarding gate. We read it from the LOCAL settings BEFORE any iCloud
+        // sync can run, so an in-place UPGRADE that already finished onboarding (local flag true) skips
+        // it, while a fresh install / reinstall (no local settings → false) shows it — even though the
+        // synced flag will later arrive as true on a reinstall. (bug 1)
+        if UserDefaults.standard.object(forKey: hasSeenOnboardingKey) == nil {
+            hasSeenOnboarding = settings.hasCompletedOnboarding
+            UserDefaults.standard.set(hasSeenOnboarding, forKey: hasSeenOnboardingKey)
+        } else {
+            hasSeenOnboarding = UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
+        }
+
         syncAircraftType()
         setupSyncCallbacks()
 
@@ -634,6 +650,9 @@ class AppState: ObservableObject {
                 // saveFlight on the main actor — a visible hitch when a large initial sync landed).
                 let previousById = Dictionary(self.flights.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
                 self.flights = flights
+                // Sync delivered the logbook — clear the launch spinner in case the initial local
+                // load found nothing (e.g. a fresh install whose flights only exist in CloudKit). (fresh-install fix)
+                self.isLoadingFlights = false
                 let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
                 await self.persistence.saveFlightsOffMain(changed)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
@@ -1377,6 +1396,27 @@ class AppState: ObservableObject {
         }
 
         syncAircraftType()
+    }
+
+    // MARK: - Onboarding gate
+
+    /// Device-local key backing `hasSeenOnboarding` (see that property).
+    private let hasSeenOnboardingKey = "hasSeenOnboarding"
+
+    /// Mark onboarding finished on THIS device (the gate) and record completion in the synced settings.
+    func completeOnboarding() {
+        hasSeenOnboarding = true
+        UserDefaults.standard.set(true, forKey: hasSeenOnboardingKey)
+        if !settings.hasCompletedOnboarding {
+            settings.hasCompletedOnboarding = true
+            saveSettings()
+        }
+    }
+
+    /// Re-show onboarding from Settings. Device-local — replaying it here doesn't reset other devices.
+    func replayOnboarding() {
+        hasSeenOnboarding = false
+        UserDefaults.standard.set(false, forKey: hasSeenOnboardingKey)
     }
 
     private func loadSettings() {

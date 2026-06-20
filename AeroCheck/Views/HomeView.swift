@@ -953,22 +953,31 @@ struct HomeView: View {
 
     /// Ambient data-currency dot beside GPS: quiet green when fresh, amber/red when stale; tap opens the
     /// Data & Storage hub. Per-state SF Symbols read the state without relying on colour. (v4.1.0)
+    /// A small status chip — a tinted capsule with a state icon + short label, both in the state colour.
+    /// Shared look for the Home GPS + data-currency indicators. (v4.1.0)
+    private func statusChip(icon: String, label: String, tint: Color, isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 4 : 5) {
+            Image(systemName: icon)
+                .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
+            Text(label)
+                .font(.system(size: isCompact ? 11 : 12, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundColor(tint)
+        .padding(.horizontal, isCompact ? 7 : 9)
+        .padding(.vertical, isCompact ? 3 : 4)
+        .background(Capsule().fill(tint.opacity(0.16)))
+    }
+
     private func dataStatusIndicator(isCompact: Bool) -> some View {
         let health = dataStatusManager.overallHealth
         return Button {
             pendingSettingsSection = .dataStorage
             showSettings = true
         } label: {
-            HStack(spacing: isCompact ? 4 : 6) {
-                Image(systemName: dataStatusIcon(health))
-                    .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
-                    .foregroundColor(dataStatusColor(health))
-                    .frame(width: isCompact ? 16 : 18, alignment: .center)
-                Text(L10n.DataStorage.homeLabel)
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
-            }
-            .contentShape(Rectangle())
+            statusChip(icon: dataStatusIcon(health), label: dataStatusLabel(health),
+                       tint: dataStatusColor(health), isCompact: isCompact)
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -979,6 +988,7 @@ struct HomeView: View {
 
     private func dataStatusIcon(_ health: DataHealth) -> String {
         switch health {
+        case .noData: return "externaldrive.badge.xmark"
         case .ok: return "checkmark.seal.fill"
         case .attention: return "exclamationmark.triangle.fill"
         case .urgent: return "exclamationmark.octagon.fill"
@@ -987,14 +997,25 @@ struct HomeView: View {
 
     private func dataStatusColor(_ health: DataHealth) -> Color {
         switch health {
+        case .noData: return .secondaryText   // neutral grey — nothing downloaded
         case .ok: return .aviationGreen
         case .attention: return .aviationYellow
         case .urgent: return .aviationRed
         }
     }
 
+    /// Short chip label. Only the "no data" case overrides the generic "Data" label — colour carries
+    /// fresh/aging/stale, while "No data" replaces the previously-misleading green "OK". (v4.1.0)
+    private func dataStatusLabel(_ health: DataHealth) -> String {
+        switch health {
+        case .noData: return L10n.DataStorage.statusNoData
+        case .ok, .attention, .urgent: return L10n.DataStorage.homeLabel
+        }
+    }
+
     private func dataStatusAccessibilityValue(_ health: DataHealth) -> String {
         switch health {
+        case .noData: return L10n.DataStorage.statusNoData
         case .ok: return L10n.DataStorage.statusFresh
         case .attention: return L10n.DataStorage.statusAging
         case .urgent: return L10n.DataStorage.statusStale
@@ -1002,15 +1023,8 @@ struct HomeView: View {
     }
 
     private func gpsStatusIndicator(isCompact: Bool) -> some View {
-        HStack(spacing: isCompact ? 4 : 6) {
-            Image(systemName: locationStatusIcon)
-                .font(.system(size: isCompact ? 11 : 13))
-                .foregroundColor(locationStatusColor)
-                .frame(width: isCompact ? 16 : 18, alignment: .center)
-            Text(locationStatusText)
-                .font(.system(size: 12))
-                .foregroundColor(.secondaryText)
-        }
+        statusChip(icon: locationStatusIcon, label: locationStatusText,
+                   tint: locationStatusColor, isCompact: isCompact)
     }
     
     // MARK: - Helpers

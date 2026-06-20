@@ -1,4 +1,5 @@
 import XCTest
+import CloudKit
 @testable import AeroCheck
 
 /// Tests the CloudKit conflict-merge and ingest-validation logic that protect the pilot's logbook
@@ -137,6 +138,90 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertNil(SyncManager.flightFromPayload(inline: nil, asset: nil), "No payload → nil")
         XCTAssertNil(SyncManager.flightFromPayload(inline: Data("not json".utf8), asset: nil),
                      "Undecodable payload → nil, never a partial flight")
+    }
+
+    // MARK: - Payload compression (sync optimization)
+
+    func testPayloadIsCompressedAndRoundTrips() throws {
+        let track = (0..<2_000).map { point(47.0 + Double($0) * 0.0001, 8.0) }
+        let f = flight(modifiedAt: Date(), track: track)
+        let payload = try SyncManager.flightRecordPayload(f)
+
+        XCTAssertEqual(payload.inline.first, 0x01, "The inline blob is tagged compressed")
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let rawJSON = try encoder.encode(f)
+        XCTAssertLessThan(payload.inline.count, rawJSON.count / 2,
+                          "Compression meaningfully shrinks a GPS-track payload on the wire")
+        XCTAssertEqual(SyncManager.flightFromPayload(inline: payload.inline, asset: nil)?.gpsTrack.count, 2_000,
+                       "The compressed blob round-trips the full track")
+    }
+
+    func testLegacyUncompressedPayloadStillDecodes() throws {
+        // A record written before compression existed: raw JSON, no 0x01 marker.
+        let f = flight(modifiedAt: Date(timeIntervalSince1970: 300), name: "Legacy", track: [point(47, 8)])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let rawJSON = try encoder.encode(f)
+        XCTAssertNotEqual(rawJSON.first, 0x01, "Legacy blob is raw JSON, not marked compressed")
+
+        let decoded = SyncManager.flightFromPayload(inline: rawJSON, asset: nil)
+        XCTAssertEqual(decoded?.name, "Legacy")
+        XCTAssertEqual(decoded?.gpsTrack.count, 1, "A pre-compression record still decodes (backward compatible)")
+    }
+
+    // MARK: - Split metadata / track records (sync optimization)
+
+    func testTrackRecordNameRoundTrips() {
+        let id = UUID()
+        let name = SyncManager.trackRecordName(id)
+        XCTAssertTrue(name.hasPrefix("track-"))
+        XCTAssertEqual(SyncManager.flightId(fromTrackRecordName: name), id)
+        XCTAssertNil(SyncManager.flightId(fromTrackRecordName: id.uuidString),
+                     "A plain flight id is not a track-record name")
+    }
+
+    func testSplitRecordsRoundTripToFullFlight() throws {
+        let track = [point(47, 8), point(47.1, 8.1), point(47.2, 8.2)]
+        let f = flight(modifiedAt: Date(timeIntervalSince1970: 500), name: "Split", notes: "n",
+                       track: track, fullStop: 1)
+
+        let metaRecord = try XCTUnwrap(SyncManager.buildFlightRecord(
+            f, recordID: CKRecord.ID(recordName: f.id.uuidString)))
+        let trackRecord = try XCTUnwrap(SyncManager.buildFlightTrackRecord(
+            f, recordID: CKRecord.ID(recordName: SyncManager.trackRecordName(f.id))))
+
+        XCTAssertEqual(metaRecord.recordType, "Flight")
+        XCTAssertEqual(trackRecord.recordType, "FlightTrack")
+        XCTAssertEqual(trackRecord["trackCount"] as? Int, 3, "Track record carries its point-count fingerprint")
+
+        let metaFlight = try XCTUnwrap(SyncManager.flightFromPayload(inline: metaRecord["data"] as? Data, asset: nil))
+        XCTAssertEqual(metaFlight.gpsTrack.count, 0, "Metadata record is track-stripped")
+        XCTAssertEqual(metaFlight.name, "Split", "Metadata record keeps the editable fields")
+
+        let trackFlight = try XCTUnwrap(SyncManager.flightFromPayload(inline: trackRecord["data"] as? Data, asset: nil))
+        XCTAssertEqual(trackFlight.gpsTrack.count, 3, "Track record carries the full track")
+
+        // The two records fold back into the complete flight.
+        let merged = Flight.merge(metaFlight, trackFlight)
+        XCTAssertEqual(merged.gpsTrack.count, 3)
+        XCTAssertEqual(merged.name, "Split")
+        XCTAssertEqual(merged.fullStopCount, 1)
+    }
+
+    func testInboundMetadataEditDoesNotDropLocalTrack() throws {
+        let id = UUID()
+        let track = (0..<10).map { point(47.0 + Double($0) * 0.01, 8.0) }
+        // Local flight already holds the track (from a previously-synced track record).
+        let local = flight(id: id, modifiedAt: Date(timeIntervalSince1970: 100), name: "Local", track: track)
+        // Inbound: a renamed, track-stripped metadata record from another device (newer).
+        let renamed = flight(id: id, modifiedAt: Date(timeIntervalSince1970: 200), name: "Renamed", track: [])
+        let metaRecord = try XCTUnwrap(SyncManager.buildFlightRecord(
+            renamed, recordID: CKRecord.ID(recordName: id.uuidString)))
+        let inbound = try XCTUnwrap(SyncManager.flightFromPayload(inline: metaRecord["data"] as? Data, asset: nil))
+
+        let merged = Flight.merge(local, inbound)
+        XCTAssertEqual(merged.name, "Renamed", "The metadata edit is applied")
+        XCTAssertEqual(merged.gpsTrack.count, 10,
+                       "A track-stripped metadata record never drops the local track")
     }
 
     // MARK: - Settings clamping

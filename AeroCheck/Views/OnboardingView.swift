@@ -1,4 +1,45 @@
 import SwiftUI
+import CoreLocation
+
+/// Curated land-border adjacency for the onboarding "download my region" suggestions. Major bordering
+/// countries only — micro-states (LI/MC/SM/AD/VA) are omitted to keep the suggestion list tidy. ISO-2,
+/// uppercase. Not exhaustive: a country absent from the table simply gets no neighbour suggestions.
+enum CountryNeighbors {
+    static func neighbors(of country: String) -> [String] {
+        table[country.uppercased()] ?? []
+    }
+
+    static let table: [String: [String]] = [
+        "CH": ["FR", "DE", "IT", "AT"],
+        "FR": ["BE", "LU", "DE", "CH", "IT", "ES"],
+        "DE": ["DK", "PL", "CZ", "AT", "CH", "FR", "LU", "BE", "NL"],
+        "IT": ["FR", "CH", "AT", "SI"],
+        "AT": ["DE", "CZ", "SK", "HU", "SI", "IT", "CH"],
+        "BE": ["FR", "LU", "DE", "NL"],
+        "NL": ["BE", "DE"],
+        "LU": ["BE", "FR", "DE"],
+        "ES": ["PT", "FR"],
+        "PT": ["ES"],
+        "GB": ["IE"],
+        "IE": ["GB"],
+        "DK": ["DE"],
+        "PL": ["DE", "CZ", "SK", "LT"],
+        "CZ": ["DE", "PL", "SK", "AT"],
+        "SK": ["CZ", "PL", "HU", "AT"],
+        "HU": ["SK", "RO", "RS", "HR", "SI", "AT"],
+        "SI": ["AT", "IT", "HU", "HR"],
+        "HR": ["SI", "HU", "RS", "BA"],
+        "NO": ["SE", "FI"],
+        "SE": ["NO", "FI"],
+        "FI": ["SE", "NO"],
+        "RO": ["HU", "BG", "RS"],
+        "BG": ["RO", "RS", "GR"],
+        "GR": ["BG"],
+        "US": ["CA", "MX"],
+        "CA": ["US"],
+        "MX": ["US"],
+    ]
+}
 
 /// First-run onboarding (v4.1.0 revamp). Seven steps: welcome → location priming → maps & data
 /// downloads → checklists → your map → in flight & features → ready. The three middle "config" steps
@@ -11,13 +52,21 @@ struct OnboardingView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    // The other OpenAIP layers download alongside airspace; observed so the card reflects all of them.
+    @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @State private var currentPage = 0
+
+    /// GPS-reverse-geocoded home country (ISO-2); nil until/unless a fix resolves. (onboarding revamp)
+    @State private var detectedCountry: String?
+    /// Countries selected for the OpenAIP download — seeded with the home country, neighbours opt-in.
+    @State private var selectedCountries: Set<String> = []
 
     private let totalPages = 7
 
-    /// Home country (ISO-2) from the device region — the default for the data-download suggestions.
-    /// GPS refinement + neighbouring countries land in a follow-up increment. (onboarding revamp)
-    private var homeCountry: String { Locale.current.region?.identifier ?? "US" }
+    /// Effective home country: the GPS-detected one if available, else the device region. (onboarding revamp)
+    private var effectiveHome: String { detectedCountry ?? (Locale.current.region?.identifier ?? "US") }
 
     private let toggleColumns = [GridItem(.flexible(), spacing: 11), GridItem(.flexible(), spacing: 11)]
 
@@ -126,29 +175,41 @@ struct OnboardingView: View {
     // MARK: - 3: Maps & data
 
     private var mapsDataPage: some View {
-        configContainer(
-            icon: "map.fill", tint: .aviationGreen,
-            title: String(localized: "Maps & data"),
-            subtitle: String(localized: "Download what you'll fly over — offline-ready."),
-            page: 2
-        ) {
-            VStack(spacing: 12) {
-                downloadButton(
-                    title: String(localized: "Airspace, navaids & reporting points"),
-                    icon: "shield.lefthalf.filled",
-                    isDownloading: openAIPDataService.isDownloading,
-                    progress: openAIPDataService.downloadProgress,
-                    isCompleted: openAIPDataService.isDataAvailable,
-                    action: { Task { await openAIPDataService.downloadData(for: [homeCountry]) } }
-                )
-                downloadButton(
-                    title: String(localized: "Airports & frequencies"),
-                    icon: "building.2",
-                    isDownloading: airportDataService.isDownloading,
-                    progress: airportDataService.downloadProgress,
-                    isCompleted: airportDataService.isDataAvailable,
-                    action: { Task { await airportDataService.downloadData() } }
-                )
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 13) {
+                Image(systemName: "map.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.aviationGreen)
+                    .frame(width: 50, height: 50)
+                    .background(RoundedRectangle(cornerRadius: 15).fill(Color.aviationGreen.opacity(0.14)))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "Maps & data"))
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primaryText)
+                    Text(String(localized: "Download what you'll fly over — offline-ready."))
+                        .font(.footnote)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                regionPill
+            }
+            .padding(.bottom, 16)
+
+            openAIPDownloadCard
+                .padding(.bottom, 11)
+
+            downloadButton(
+                title: String(localized: "Airports & frequencies"),
+                icon: "building.2",
+                isDownloading: airportDataService.isDownloading,
+                progress: airportDataService.downloadProgress,
+                isCompleted: airportDataService.isDataAvailable,
+                action: { Task { await airportDataService.downloadData() } }
+            )
+
+            if effectiveHome == "CH" {
                 downloadButton(
                     title: String(localized: "Swiss charts"),
                     icon: "map",
@@ -157,12 +218,164 @@ struct OnboardingView: View {
                     isCompleted: offlineMapManager.isCacheAvailable,
                     action: { Task { await offlineMapManager.downloadCharts(option: .icaoAndSegelflug) } }
                 )
-                Text(String(localized: "Add more countries anytime in Settings → Data."))
-                    .font(.caption2)
-                    .foregroundColor(.dimText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 2)
+                .padding(.top, 11)
             }
+
+            Text(String(localized: "Add more countries anytime in Settings → Data."))
+                .font(.caption2)
+                .foregroundColor(.dimText)
+                .padding(.top, 10)
+
+            Spacer(minLength: 16)
+
+            HStack {
+                pageDots
+                Spacer()
+                inlinePrimary(String(localized: "Continue"), icon: "arrow.right") {
+                    withAnimation { currentPage = 3 }
+                }
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 24)
+        .padding(.bottom, 40)
+        .task {
+            if selectedCountries.isEmpty { selectedCountries = [effectiveHome] }
+            await detectRegion()
+        }
+    }
+
+    private var regionPill: some View {
+        let name = Locale.current.localizedString(forRegionCode: effectiveHome) ?? effectiveHome
+        return HStack(spacing: 6) {
+            Image(systemName: "location.fill").font(.system(size: 11, weight: .semibold))
+            Text(name).font(.caption.weight(.medium)).lineLimit(1)
+        }
+        .foregroundColor(.aviationGreen)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.aviationGreen.opacity(0.16)))
+        .accessibilityLabel(Text(String(localized: "Detected region")) + Text(": \(name)"))
+    }
+
+    /// Recommended OpenAIP card — downloads airspace + navaids + obstacles + reporting points for the
+    /// selected countries (home pre-selected, neighbours opt-in). (onboarding revamp)
+    private var openAIPDownloadCard: some View {
+        let anyDownloading = openAIPDataService.isDownloading || navaidService.isDownloading
+            || obstacleService.isDownloading || reportingPointService.isDownloading
+        let available = openAIPDataService.isDataAvailable
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                Image(systemName: available ? "checkmark.circle.fill" : "shield.lefthalf.filled")
+                    .font(.system(size: 19))
+                    .foregroundColor(available ? .aviationGreen : .aviationGold)
+                    .accessibilityHidden(true)
+                Text(String(localized: "Airspace, navaids & reporting points"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primaryText)
+                Spacer()
+                Text(String(localized: "Recommended"))
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.aviationGold))
+            }
+            countryChipRow
+            HStack {
+                if anyDownloading {
+                    ProgressView(value: openAIPDataService.downloadProgress)
+                        .tint(.aviationGold)
+                        .frame(maxWidth: 160)
+                } else if available {
+                    Text(L10n.Onboarding.downloaded)
+                        .font(.caption)
+                        .foregroundColor(.aviationGreen)
+                }
+                Spacer()
+                Button(action: downloadOpenAIP) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.circle").font(.system(size: 14))
+                        Text(String(localized: "Download")).font(.subheadline.weight(.medium))
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGold))
+                }
+                .disabled(anyDownloading)
+                .opacity(anyDownloading ? 0.5 : 1)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.cardBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold.opacity(0.35), lineWidth: 1))
+        )
+    }
+
+    private var countryChipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                countryChip(effectiveHome, isHome: true)
+                ForEach(CountryNeighbors.neighbors(of: effectiveHome), id: \.self) { code in
+                    Button { toggleCountry(code) } label: { countryChip(code, isHome: false) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 1)
+        }
+    }
+
+    private func countryChip(_ code: String, isHome: Bool) -> some View {
+        let selected = isHome || selectedCountries.contains(code)
+        return Text(isHome ? "\(code) ✓" : (selected ? code : "+ \(code)"))
+            .font(.caption.weight(.medium))
+            .foregroundColor(selected ? .black : .secondaryText)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(selected ? Color.aviationGold : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .strokeBorder(selected ? Color.clear : Color.white.opacity(0.22),
+                                          style: StrokeStyle(lineWidth: 1, dash: isHome ? [] : [3]))
+                    )
+            )
+    }
+
+    private func toggleCountry(_ code: String) {
+        if selectedCountries.contains(code) {
+            selectedCountries.remove(code)
+        } else {
+            selectedCountries.insert(code)
+        }
+    }
+
+    private func downloadOpenAIP() {
+        var countries = selectedCountries
+        countries.insert(effectiveHome)   // home is always included
+        let list = Array(countries)
+        Task {
+            await openAIPDataService.downloadData(for: list)
+            await navaidService.downloadData(for: list)
+            await obstacleService.downloadData(for: list)
+            await reportingPointService.downloadData(for: list)
+        }
+    }
+
+    /// Best-effort GPS → ISO country (reverse geocode). Falls back silently to the device region when
+    /// there's no fix or the lookup fails. (onboarding revamp)
+    private func detectRegion() async {
+        guard let location = locationManager.currentLocation else { return }
+        let geocoder = CLGeocoder()
+        guard let placemarks = try? await geocoder.reverseGeocodeLocation(location),
+              let code = placemarks.first?.isoCountryCode?.uppercased() else { return }
+        if code != detectedCountry {
+            detectedCountry = code
+            selectedCountries = [code]
         }
     }
 

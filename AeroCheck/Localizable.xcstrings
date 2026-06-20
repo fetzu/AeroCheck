@@ -1,6 +1,726 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Aeronautical charts · © swisstopo / BAZL" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartes aéronautiques · © swisstopo / BAZL"
+          }
+        }
+      }
+    },
+    "Aeronautical data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données aéronautiques"
+          }
+        }
+      }
+    },
+    "Airport database · public domain" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Base de données d’aéroports · domaine public"
+          }
+        }
+      }
+    },
+    "Airports" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aéroports"
+          }
+        }
+      }
+    },
+    "Airspace" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espace aérien"
+          }
+        }
+      }
+    },
+    "Airspace & charts" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espace aérien et cartes"
+          }
+        }
+      }
+    },
+    "Airspace data from [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données d’espace aérien de [OpenAIP.net](https://www.openaip.net) (© OpenAIP and contributors, CC BY-NC 4.0)"
+          }
+        }
+      }
+    },
+    "Airspace · © OpenAIP and contributors, CC BY-NC 4.0" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espace aérien · © OpenAIP and contributors, CC BY-NC 4.0"
+          }
+        }
+      }
+    },
+    "Auto-updating · aircraft checklists from aerocheck.app" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour automatique · listes de vérification des aéronefs depuis aerocheck.app"
+          }
+        }
+      }
+    },
+    "Check for checklist updates" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher des mises à jour des listes"
+          }
+        }
+      }
+    },
+    "Checklists" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listes de vérification"
+          }
+        }
+      }
+    },
+    "Community-sourced data — keep it current. This is not official aeronautical information; always verify currency before flight." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données issues de la communauté — gardez-les à jour. Ce ne sont pas des informations aéronautiques officielles ; vérifiez toujours leur actualité avant le vol."
+          }
+        }
+      }
+    },
+    "Compulsory" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obligatoire"
+          }
+        }
+      }
+    },
+    "Coverage: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couverture : %@"
+          }
+        }
+      }
+    },
+    "Currency & offline storage" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualité et stockage hors ligne"
+          }
+        }
+      }
+    },
+    "Data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données"
+          }
+        }
+      }
+    },
+    "Data & Storage" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données et stockage"
+          }
+        }
+      }
+    },
+    "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les données (espace aérien, aides à la navigation, obstacles, points de report, aéroports) sont légères. Les tuiles de carte ajoutent l’imagerie matricielle et sont bien plus volumineuses."
+          }
+        }
+      }
+    },
+    "Data as of %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données du %@"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        }
+      }
+    },
+    "Delete downloaded data?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer les données téléchargées ?"
+          }
+        }
+      }
+    },
+    "Download data + map tiles" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les données + tuiles de carte"
+          }
+        }
+      }
+    },
+    "Download data for this trip" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les données pour ce vol"
+          }
+        }
+      }
+    },
+    "Downloading…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargement…"
+          }
+        }
+      }
+    },
+    "Flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vol"
+          }
+        }
+      }
+    },
+    "Hide all" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout masquer"
+          }
+        }
+      }
+    },
+    "Layers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calques"
+          }
+        }
+      }
+    },
+    "Map markers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repères de carte"
+          }
+        }
+      }
+    },
+    "Map tiles" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuiles de carte"
+          }
+        }
+      }
+    },
+    "Missing data for this trip" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données manquantes pour ce vol"
+          }
+        }
+      }
+    },
+    "Navaids" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aides à la navigation"
+          }
+        }
+      }
+    },
+    "No checklists cached yet" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune liste de vérification en cache"
+          }
+        }
+      }
+    },
+    "Not downloaded" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non téléchargé"
+          }
+        }
+      }
+    },
+    "Obstacle" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obstacle"
+          }
+        }
+      }
+    },
+    "Obstacles" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obstacles"
+          }
+        }
+      }
+    },
+    "Offline charts" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartes hors ligne"
+          }
+        }
+      }
+    },
+    "On request" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur demande"
+          }
+        }
+      }
+    },
+    "OpenAIP map tiles" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuiles de carte OpenAIP"
+          }
+        }
+      }
+    },
+    "OpenAIP · VFR reporting points" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAIP · points de report VFR"
+          }
+        }
+      }
+    },
+    "OpenAIP · VOR / DME / NDB radio navigation aids" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAIP · aides à la navigation radio VOR / DME / NDB"
+          }
+        }
+      }
+    },
+    "OpenAIP · controlled airspace, sectors & frequencies" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAIP · espace aérien contrôlé, secteurs et fréquences"
+          }
+        }
+      }
+    },
+    "OpenAIP · optional chart imagery — airspace data above is what powers warnings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAIP · imagerie de carte optionnelle — ce sont les données d’espace aérien ci-dessus qui génèrent les alertes"
+          }
+        }
+      }
+    },
+    "OpenAIP · towers, masts and wind turbines" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAIP · pylônes, mâts et éoliennes"
+          }
+        }
+      }
+    },
+    "OurAirports · global airfields · secondary / fallback source" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OurAirports · aérodromes mondiaux · source secondaire / de secours"
+          }
+        }
+      }
+    },
+    "Out of date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Périmé"
+          }
+        }
+      }
+    },
+    "Refresh" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiser"
+          }
+        }
+      }
+    },
+    "Remove all downloads" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer tous les téléchargements"
+          }
+        }
+      }
+    },
+    "Remove all downloads?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer tous les téléchargements ?"
+          }
+        }
+      }
+    },
+    "Reporting point" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Point de report"
+          }
+        }
+      }
+    },
+    "Reporting points" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Points de report"
+          }
+        }
+      }
+    },
+    "Show all" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout afficher"
+          }
+        }
+      }
+    },
+    "Show navaids on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les aides à la navigation sur la carte"
+          }
+        }
+      }
+    },
+    "Show obstacles on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les obstacles sur la carte"
+          }
+        }
+      }
+    },
+    "Show reporting points on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher les points de report sur la carte"
+          }
+        }
+      }
+    },
+    "Simulate position: LSZS (Samedan)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simuler la position : LSZS (Samedan)"
+          }
+        }
+      }
+    },
+    "Simulate stale data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simuler des données périmées"
+          }
+        }
+      }
+    },
+    "Some aeronautical data is out of date. Open Data & Storage to update." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certaines données aéronautiques sont périmées. Ouvrez Données et stockage pour les mettre à jour."
+          }
+        }
+      }
+    },
+    "Storage" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stockage"
+          }
+        }
+      }
+    },
+    "Swiss ICAO chart" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carte ICAO suisse"
+          }
+        }
+      }
+    },
+    "Terrain elevation · Open-Meteo (CC BY 4.0), © swisstopo" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altitude du terrain · Open-Meteo (CC BY 4.0), © swisstopo"
+          }
+        }
+      }
+    },
+    "This removes the cached data from this device. You can download it again later." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette action supprime les données en cache de cet appareil. Vous pourrez les télécharger à nouveau plus tard."
+          }
+        }
+      }
+    },
+    "Total storage: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stockage total : %@"
+          }
+        }
+      }
+    },
+    "Trip data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données du vol"
+          }
+        }
+      }
+    },
+    "Up to date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À jour"
+          }
+        }
+      }
+    },
+    "Update all on Wi-Fi" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout mettre à jour en Wi-Fi"
+          }
+        }
+      }
+    },
+    "Update recommended" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour recommandée"
+          }
+        }
+      }
+    },
+    "Wind data · © MeteoSwiss" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données de vent · © MeteoSwiss"
+          }
+        }
+      }
+    },
+    "Worldwide" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monde entier"
+          }
+        }
+      }
+    },
+    "Your active flight plan crosses areas without downloaded data:" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre plan de vol actif traverse des zones sans données téléchargées :"
+          }
+        }
+      }
+    },
+    "iCloud & Log" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud et journal"
+          }
+        }
+      }
+    },
+    "iCloud sync, GPS recording & flight log" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchronisation iCloud, enregistrement GPS et journal de vol"
+          }
+        }
+      }
+    },
+    "swisstopo · official VFR chart (imagery)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "swisstopo · carte VFR officielle (imagerie)"
+          }
+        }
+      }
+    },
     "nav.freqUnavailable" : {
       "localizations" : {
         "en" : {

@@ -75,6 +75,7 @@ struct DataSet: Identifiable, Equatable {
 
 /// The reduced, ambient health shown by the Home status dot. Green (`ok`) is silent — the common case.
 enum DataHealth: Int, Comparable {
+    case noData = -1    // grey — no primary dataset has ever been downloaded (distinct from "fresh")
     case ok = 0         // green / silent
     case attention = 1  // amber
     case urgent = 2     // red
@@ -179,7 +180,14 @@ final class DataStatusManager: ObservableObject {
             }
         }
         dataSets = sets
-        overallHealth = debugForceStale ? .urgent : DataHealth.reduce(dataSets)
+        if debugForceStale {
+            overallHealth = .urgent
+        } else if !sets.contains(where: { $0.urgency == .primary && $0.isDownloaded }) {
+            // Nothing downloaded yet → a distinct grey "No data", not a misleading green "OK". (v4.1.0 fix)
+            overallHealth = .noData
+        } else {
+            overallHealth = DataHealth.reduce(dataSets)
+        }
         evaluateNudge()
     }
 

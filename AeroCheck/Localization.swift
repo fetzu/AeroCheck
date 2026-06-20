@@ -49,6 +49,7 @@ enum L10n {
         static let removeAllConfirmTitle = String(localized: "Remove all downloads?")
         static let nudgeMessage = String(localized: "Some aeronautical data is out of date. Open Data & Storage to update.")
         static let homeLabel = String(localized: "Data")
+        static let statusNoData = String(localized: "No data")
         // Per-dataset name + source/description — source named first (device-test feedback).
         static let airspaceName = String(localized: "Airspace")
         static let airspaceDetail = String(localized: "OpenAIP · controlled airspace, sectors & frequencies")

@@ -544,15 +544,12 @@ struct OnboardingView: View {
             Spacer()
             pageIcon("airplane.circle.fill", tint: .aviationGold, iconSize: 46)
             pageTitle(String(localized: "One aircraft free — unlock the rest"))
-            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AeroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
+            pageBody(String(localized: "AéroCheck is fully featured out of the box, with the WT9 Dynamic included free. AéroCheck Pro unlocks every other aircraft — the full fleet from both flying clubs, listed on aerocheck.app."))
             Spacer()
             pageDots
             VStack(spacing: 10) {
-                primaryButton(String(localized: "See AeroCheck Pro"), icon: "sparkles") { showSubscription = true }
-                Button(String(localized: "Continue")) { withAnimation { currentPage = 7 } }
-                    .font(.subheadline)
-                    .foregroundColor(.secondaryText)
-                    .padding(.vertical, 4)
+                primaryButton(String(localized: "See AéroCheck Pro"), icon: "sparkles") { showSubscription = true }
+                secondaryButton(String(localized: "Continue"), icon: "arrow.right") { withAnimation { currentPage = 7 } }
             }
             .padding(.bottom, 40)
         }
@@ -770,6 +767,29 @@ struct OnboardingView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationGold))
+        }
+        .padding(.horizontal, 40)
+    }
+
+    /// Full-width grey button — same size as `primaryButton`, for a neutral secondary action (no
+    /// dark-pattern tiny "skip"). (device-test feedback)
+    private func secondaryButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundColor(.primaryText)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+            )
         }
         .padding(.horizontal, 40)
     }

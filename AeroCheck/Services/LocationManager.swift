@@ -33,6 +33,14 @@ class LocationManager: NSObject, ObservableObject {
     private var recordingInterval: TimeInterval = 5.0
     private var lastRecordedTime: Date?
 
+    /// Wall-clock time of the last usable *own* (real device) GPS fix. Companion shared-GPS reads this
+    /// to know whether this device still has its own GPS — borrowing a peer fix never updates it, so
+    /// the `ownGPSAvailable` flag the master broadcasts can't flap. (shared-GPS, v4.1)
+    private var lastOwnFixTime: Date?
+    /// A bit over the GPSSourceElection 5 s freshness window, so own-fix liveness keeps a touch of
+    /// hysteresis before the master starts borrowing the peer's GPS. (shared-GPS, v4.1)
+    private let ownFixStaleAfter: TimeInterval = 6.0
+
     /// Rolling (time, altitude-ft) samples over the last ~12 s, for the smoothed vertical speed.
     private var altitudeSamples: [(time: Date, altFt: Double)] = []
     private let verticalSpeedWindow: TimeInterval = 12.0
@@ -587,6 +595,125 @@ class LocationManager: NSObject, ObservableObject {
         // Seed a flat vertical-speed reading so the VSI shows a value rather than "---".
         verticalSpeedFpm = 0
     }
+
+    // MARK: - Companion Shared GPS (v4.1)
+
+    /// True when this device produced a usable OWN GPS fix within the last few seconds. Independent of
+    /// `currentLocation`, which may hold a *borrowed* companion fix. Drives the `ownGPSAvailable` flag
+    /// the master broadcasts (so borrowing never flips it back) and gates borrowing. (shared-GPS)
+    var ownFixIsLive: Bool {
+        guard let t = lastOwnFixTime else { return false }
+        return Date().timeIntervalSince(t) <= ownFixStaleAfter
+    }
+
+    /// Feed a borrowed companion (peer) GPS fix through the SAME pipeline as a real fix, so nav, the
+    /// HUD instrument strip, the recorded track and event detection all consume it transparently.
+    /// Applied only when this device has no live own fix — a real own fix always wins. (shared-GPS)
+    func injectCompanionLocation(_ location: CLLocation) {
+        guard !marketingModeActive else { return }
+        guard !ownFixIsLive else { return }
+        processLocation(location, isOwnFix: false)
+    }
+
+    /// The single GPS-processing pipeline, shared by real device fixes (`isOwnFix == true`) and
+    /// borrowed companion fixes (`isOwnFix == false`). Updates the displayed location, smoothed
+    /// instruments, signal quality, the recorded track and event detection, so a borrowed fix is
+    /// indistinguishable downstream from a real one. (shared-GPS, v4.1)
+    func processLocation(_ location: CLLocation, isOwnFix: Bool) {
+        // When marketing mode is active, ignore real GPS updates
+        // (marketing location is injected directly via currentLocation property)
+        guard !marketingModeActive else { return }
+
+        let now = Date()
+
+        // Track own-fix liveness from real device fixes only, so companion borrowing can't flip it.
+        if isOwnFix && location.horizontalAccuracy >= 0 {
+            lastOwnFixTime = now
+        }
+
+        // Update current location
+        currentLocation = location
+
+        // Update smoothed speed and cached heading
+        updateSmoothedValues(from: location)
+
+        // Update smoothed vertical speed from the GPS altitude trend
+        updateVerticalSpeed(altitudeFt: location.altitude * 3.28084)
+
+        // Update signal quality based on accuracy
+        updateSignalQuality(from: location)
+
+        // Check if we should record this point
+        let shouldRecord: Bool
+        if let lastTime = lastRecordedTime {
+            shouldRecord = now.timeIntervalSince(lastTime) >= recordingInterval
+        } else {
+            shouldRecord = true
+        }
+
+        // Auto-switch ground/flight mode based on speed for battery optimization
+        // Ground mode: no distance filter (precise low-speed tracking for block on detection)
+        // Flight mode: 50m filter (battery-efficient during airborne phases)
+        if isTracking && location.speed >= 0 {
+            let speedKts = location.speed * 1.94384
+            if isGroundMode && speedKts > 40 {
+                setGroundMode(false)
+            } else if !isGroundMode && speedKts < 20 {
+                setGroundMode(true)
+            }
+        }
+
+        // PR-37: skip recording AND event detection for a stale or invalid fix. CoreLocation routinely
+        // delivers a cached (possibly minutes-old) fix right after startUpdatingLocation, and a negative
+        // horizontalAccuracy is invalid — either would otherwise become a track point (e.g. a hangar fix
+        // as the first point of every flight) and feed the detector. currentLocation is still updated
+        // above for display.
+        //
+        // A *borrowed* companion fix carries the peer device's clock, so its embedded timestamp can't be
+        // compared to our clock — its freshness was already validated on the sender and re-checked by the
+        // election before injection, so we treat it as fresh (age 0) to avoid spurious clock-skew rejection.
+        let fixAge = isOwnFix ? abs(location.timestamp.timeIntervalSinceNow) : 0
+        let fixIsUsable = fixAge <= 10 && location.horizontalAccuracy >= 0
+        if shouldRecord, fixIsUsable, let appState = appState {
+            let point = GPSPoint(from: location)
+            appState.addGPSPoint(point, airportDataService: airportDataService)
+            lastRecordedTime = now
+        }
+
+        // Event detection runs independently of recording so it isn't starved at slow recording
+        // intervals — feed the detector every fix, capped at `detectionIntervalCapSeconds`. (PR-23)
+        let detectionInterval = min(recordingInterval, Self.detectionIntervalCapSeconds)
+        let shouldDetect = lastDetectionTime.map { now.timeIntervalSince($0) >= detectionInterval } ?? true
+        if shouldDetect, fixIsUsable, let appState = appState,
+           let detector = flightEventDetector,
+           let airportService = airportDataService,
+           (appState.engineStartTime != nil || currentSpeedKnots > 30) {
+            lastDetectionTime = now
+
+            // Auto-configure the detector with aircraft speeds + the DETECTION cadence (so its
+            // reading-count thresholds scale to how often it's actually fed, not the recording
+            // interval). Re-configure if the effective detection interval changed. (PR-23)
+            if !hasConfiguredDetector {
+                let checklist = activeChecklist ?? .bundledDefault
+                detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: detectionInterval)
+                hasConfiguredDetector = true
+            }
+
+            // Notify detector of takeoff time once for initial suppression
+            if !hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
+                detector.setTakeoffTime(lineUpTime)
+                hasNotifiedTakeoffTime = true
+            }
+
+            // Get nearby airports for event detection
+            let nearbyAirports = airportService.findNearestAirports(
+                to: location.coordinate,
+                limit: 3,
+                maxDistanceNm: 5.0
+            )
+            detector.processLocation(location, nearbyAirports: nearbyAirports)
+        }
+    }
 }
 
 // MARK: - CLLocationManagerDelegate
@@ -594,94 +721,11 @@ class LocationManager: NSObject, ObservableObject {
 extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-
         Task { @MainActor in
-            // When marketing mode is active, ignore real GPS updates
-            // (marketing location is injected directly via currentLocation property)
-            guard !self.marketingModeActive else { return }
-
-            // Update current location
-            self.currentLocation = location
-
-            // Update smoothed speed and cached heading
-            self.updateSmoothedValues(from: location)
-
-            // Update smoothed vertical speed from the GPS altitude trend
-            self.updateVerticalSpeed(altitudeFt: location.altitude * 3.28084)
-
-            // Update signal quality based on accuracy
-            self.updateSignalQuality(from: location)
-
-            // Check if we should record this point
-            let now = Date()
-            let shouldRecord: Bool
-
-            if let lastTime = self.lastRecordedTime {
-                shouldRecord = now.timeIntervalSince(lastTime) >= self.recordingInterval
-            } else {
-                shouldRecord = true
-            }
-
-            // Auto-switch ground/flight mode based on speed for battery optimization
-            // Ground mode: no distance filter (precise low-speed tracking for block on detection)
-            // Flight mode: 50m filter (battery-efficient during airborne phases)
-            if self.isTracking && location.speed >= 0 {
-                let speedKts = location.speed * 1.94384
-                if self.isGroundMode && speedKts > 40 {
-                    self.setGroundMode(false)
-                } else if !self.isGroundMode && speedKts < 20 {
-                    self.setGroundMode(true)
-                }
-            }
-
-            // PR-37: skip recording AND event detection for a stale or invalid fix. CoreLocation
-            // routinely delivers a cached (possibly minutes-old) fix right after startUpdatingLocation,
-            // and a negative horizontalAccuracy is invalid — either would otherwise become a track
-            // point (e.g. a hangar fix as the first point of every flight) and feed the detector.
-            // currentLocation is still updated above for display.
-            let fixIsUsable = abs(location.timestamp.timeIntervalSinceNow) <= 10 && location.horizontalAccuracy >= 0
-            if shouldRecord, fixIsUsable, let appState = self.appState {
-                let point = GPSPoint(from: location)
-                appState.addGPSPoint(point, airportDataService: self.airportDataService)
-                self.lastRecordedTime = now
-            }
-
-            // Event detection runs independently of recording so it isn't starved at slow recording
-            // intervals — feed the detector every fix, capped at `detectionIntervalCapSeconds`. (PR-23)
-            let detectionInterval = min(self.recordingInterval, Self.detectionIntervalCapSeconds)
-            let shouldDetect = self.lastDetectionTime.map { now.timeIntervalSince($0) >= detectionInterval } ?? true
-            if shouldDetect, fixIsUsable, let appState = self.appState,
-               let detector = self.flightEventDetector,
-               let airportService = self.airportDataService,
-               (appState.engineStartTime != nil || self.currentSpeedKnots > 30) {
-                self.lastDetectionTime = now
-
-                // Auto-configure the detector with aircraft speeds + the DETECTION cadence (so its
-                // reading-count thresholds scale to how often it's actually fed, not the recording
-                // interval). Re-configure if the effective detection interval changed. (PR-23)
-                if !self.hasConfiguredDetector {
-                    let checklist = self.activeChecklist ?? .bundledDefault
-                    detector.configure(speeds: checklist.speeds, stallSpeed: checklist.stallSpeed, recordingInterval: detectionInterval)
-                    self.hasConfiguredDetector = true
-                }
-
-                // Notify detector of takeoff time once for initial suppression
-                if !self.hasNotifiedTakeoffTime, let lineUpTime = appState.lineUpTime {
-                    detector.setTakeoffTime(lineUpTime)
-                    self.hasNotifiedTakeoffTime = true
-                }
-
-                // Get nearby airports for event detection
-                let nearbyAirports = airportService.findNearestAirports(
-                    to: location.coordinate,
-                    limit: 3,
-                    maxDistanceNm: 5.0
-                )
-                detector.processLocation(location, nearbyAirports: nearbyAirports)
-            }
+            self.processLocation(location, isOwnFix: true)
         }
     }
-    
+
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         Task { @MainActor in
             self.locationError = error.localizedDescription

@@ -44,4 +44,48 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertEqual(status(44.99, accuracy: 10, current: .good), .degraded)
         XCTAssertEqual(status(45.0, accuracy: 10, current: .good), .lost)
     }
+
+    // MARK: - Companion shared GPS: borrowed-fix injection (v4.1)
+
+    private func fix(lat: Double = 47, lon: Double = 8, accuracy: CLLocationAccuracy = 10,
+                     ageSeconds: TimeInterval = 0) -> CLLocation {
+        CLLocation(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+                   altitude: 500, horizontalAccuracy: accuracy, verticalAccuracy: 10,
+                   course: 90, speed: 30, timestamp: Date(timeIntervalSinceNow: -ageSeconds))
+    }
+
+    @MainActor
+    func testBorrowedFixIsAdoptedWhenNoOwnFix() {
+        let lm = LocationManager()
+        XCTAssertFalse(lm.ownFixIsLive, "no own fix yet")
+        lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 46.5, accuracy: 1e-6,
+                       "a borrowed peer fix becomes the current location when the device has no own GPS")
+    }
+
+    @MainActor
+    func testOwnFixWinsOverBorrowedFix() {
+        let lm = LocationManager()
+        lm.processLocation(fix(lat: 47.0, lon: 8.0), isOwnFix: true)
+        XCTAssertTrue(lm.ownFixIsLive, "a real device fix marks own GPS live")
+        lm.injectCompanionLocation(fix(lat: 46.5, lon: 6.6))
+        XCTAssertEqual(lm.currentLocation?.coordinate.latitude ?? 0, 47.0, accuracy: 1e-6,
+                       "a live own fix is preserved; the borrowed fix is ignored")
+    }
+
+    @MainActor
+    func testBorrowingNeverMarksOwnGPSLive() {
+        let lm = LocationManager()
+        lm.injectCompanionLocation(fix())
+        XCTAssertFalse(lm.ownFixIsLive,
+                       "borrowing must not report own GPS as live — that would flap the master/viewer feed")
+    }
+
+    @MainActor
+    func testCompanionInjectionIsInertDuringMarketingMode() {
+        let lm = LocationManager()
+        lm.overrideGPSStatus(.good)   // activates marketing mode
+        lm.injectCompanionLocation(fix(lat: 45.0, lon: 7.0))
+        XCTAssertNil(lm.currentLocation, "marketing mode is authoritative — companion injection is ignored")
+    }
 }

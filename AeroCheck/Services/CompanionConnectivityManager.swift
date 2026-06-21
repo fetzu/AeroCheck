@@ -75,6 +75,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     /// The source-election policy (own fix preferred, peer as fallback). (shared-GPS)
     private let gpsElection = GPSSourceElection()
+    /// Local (this-device) wall-clock time the most recent peer fix arrived. Peer freshness is judged
+    /// by THIS, not the fix's embedded timestamp, which carries the peer's clock and would be unsafe to
+    /// compare across devices. The viewer already validated the fix's own-clock age before sending. (shared-GPS)
+    private var lastPeerGPSReceivedAt: Date?
     @Published var latencyMs: Int?
     @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
@@ -497,7 +501,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             if currentRole == .master,
                let gps = try? JSONDecoder().decode(CompanionPeerGPS.self, from: message.payload) {
                 receivedPeerGPS = gps
+                lastPeerGPSReceivedAt = Date()
                 updateEffectiveGPSSource()
+                // Feed the borrowed fix into the flight pipeline the moment it lands (once per received
+                // fix → ~1 Hz, matching the viewer's send cadence), but only while we've actually elected
+                // the peer. injectCompanionLocation itself no-ops if our own GPS is live. (shared-GPS)
+                if effectiveGPSSource == .peer, let borrowed = effectiveLocation {
+                    locationManager?.injectCompanionLocation(borrowed)
+                }
             }
 
         case .disconnect:
@@ -652,8 +663,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             altitudeFeet: location != nil ? location!.altitude * 3.28084 : nil,
             courseDegrees: location?.course ?? 0 >= 0 ? location?.course : nil,
             gpsSignalStatus: locationManager.gpsSignalStatus.description,
-            // Whether the master has its OWN fix — drives the viewer's decision to source GPS. (shared-GPS)
-            ownGPSAvailable: location != nil,
+            // Whether the master has its OWN (real device) fix — drives the viewer's decision to source
+            // GPS. Reads own-fix liveness, NOT `currentLocation`, which may already hold a borrowed peer
+            // fix; otherwise borrowing would mark the master "has GPS" and stop the feed it depends on. (shared-GPS)
+            ownGPSAvailable: locationManager.ownFixIsLive,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,
@@ -690,11 +703,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func updateEffectiveGPSSource() {
         guard currentRole == .master else { effectiveGPSSource = .own; return }
         let now = Date()
-        let own = locationManager?.currentLocation
-        let ownValid = gpsElection.isValid(accuracy: own?.horizontalAccuracy,
-                                           age: own.map { now.timeIntervalSince($0.timestamp) })
+        // Own validity reads own-fix LIVENESS, never `currentLocation` — once we borrow, currentLocation
+        // holds the peer fix and would masquerade as "own", pinning the election to .own and starving the
+        // very feed we depend on. `ownFixIsLive` reflects real device fixes only. (shared-GPS)
+        let ownValid = locationManager?.ownFixIsLive ?? false
+        // Peer freshness is judged by local receive time, not the peer's embedded timestamp (its clock). (shared-GPS)
         let peerValid = gpsElection.isValid(accuracy: receivedPeerGPS?.horizontalAccuracy,
-                                            age: receivedPeerGPS.map { now.timeIntervalSince($0.timestamp) })
+                                            age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
         effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
     }
 

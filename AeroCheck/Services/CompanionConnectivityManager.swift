@@ -480,6 +480,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     if flightData.ownGPSAvailable {
                         isProvidingGPS = false
                     } else {
+                        // The viewer isn't running its own flight, so its GPS may be idle — spin it up the
+                        // moment the master asks for a fix, otherwise there's nothing to share. (shared-GPS)
+                        ensureViewerLocationActive()
                         sendPeerGPSIfAvailable()
                     }
                 }
@@ -677,6 +680,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     }
 
     // MARK: - Shared GPS (v4.1)
+
+    /// Viewer: make sure our own GPS is delivering fixes so we have something to stream to a GPS-less
+    /// master. The viewer isn't running a flight, so its location is otherwise idle. Idempotent and
+    /// foreground-reliable; background sourcing (Always + background updates surviving WiFiAware
+    /// suspension) is a best-effort follow-up to validate on-device. (shared-GPS)
+    private func ensureViewerLocationActive() {
+        guard let lm = locationManager, !lm.isLocationUpdatesActive else { return }
+        lm.startLocationUpdates()
+    }
 
     /// Viewer: stream this device's current fix up to the master, if it's usable. (shared-GPS)
     private func sendPeerGPSIfAvailable() {

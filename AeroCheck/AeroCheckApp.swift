@@ -95,6 +95,14 @@ struct AeroCheckApp: App {
                     guard !isInitialized else { return }
                     isInitialized = true
 
+                    // Wire the companion manager's data sources for BOTH roles, so a viewer (iPhone) can
+                    // read its own GPS to stream up to a GPS-less master (iPad). (shared-GPS)
+                    companionConnectivityManager.configure(
+                        appState: appState,
+                        locationManager: locationManager,
+                        flightPlanManager: flightPlanManager
+                    )
+
                     // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
                     // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
                     // before OpenAIP airport data was ready; idempotent + a no-op without OpenAIP data.

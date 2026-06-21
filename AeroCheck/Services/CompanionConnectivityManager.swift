@@ -68,6 +68,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var lastFlightPlanSnapshot: CompanionFlightPlanSnapshot?
     /// The peer's most recent GPS fix (master side), used when this device has no own fix. (shared-GPS)
     @Published var receivedPeerGPS: CompanionPeerGPS?
+    /// Which GPS the flight owner (master) is currently using — own, a borrowed peer fix, or none. (shared-GPS)
+    @Published private(set) var effectiveGPSSource: CompanionGPSSource = .own
+    /// True on the viewer while it is actively streaming its fix up to a GPS-less master. (shared-GPS)
+    @Published private(set) var isProvidingGPS = false
+
+    /// The source-election policy (own fix preferred, peer as fallback). (shared-GPS)
+    private let gpsElection = GPSSourceElection()
     @Published var latencyMs: Int?
     @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
@@ -227,11 +234,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         listenerTask = nil
     }
 
-    /// Start sending periodic updates to the companion
-    func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+    /// Wire the data sources (idempotent, no timer). Needed on BOTH roles, so the viewer can read its
+    /// own GPS to stream upstream when the master has none. (shared-GPS)
+    func configure(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         self.appState = appState
         self.locationManager = locationManager
         self.flightPlanManager = flightPlanManager
+    }
+
+    /// Start sending periodic updates to the companion (master)
+    func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+        configure(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
 
         stopUpdates()
 
@@ -457,6 +470,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .flightData:
             if let flightData = try? JSONDecoder().decode(CompanionFlightData.self, from: message.payload) {
                 lastReceivedData = flightData
+                // Viewer: when the master has no fix of its own, stream ours up so it can run the flight
+                // off our GPS; stop once the master regains its own fix. (shared-GPS)
+                if currentRole == .viewer {
+                    if flightData.ownGPSAvailable {
+                        isProvidingGPS = false
+                    } else {
+                        sendPeerGPSIfAvailable()
+                    }
+                }
             }
 
         case .flightPlanUpdate:
@@ -475,6 +497,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             if currentRole == .master,
                let gps = try? JSONDecoder().decode(CompanionPeerGPS.self, from: message.payload) {
                 receivedPeerGPS = gps
+                updateEffectiveGPSSource()
             }
 
         case .disconnect:
@@ -555,6 +578,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         guard sendHandler != nil, connectionState == .connected,
               let appState, let locationManager, let flightPlanManager else { return }
 
+        updateEffectiveGPSSource()   // re-elect own-vs-peer each tick (shared-GPS)
         let data = createCompanionFlightData(
             appState: appState,
             locationManager: locationManager,
@@ -637,6 +661,64 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             aircraftType: flightPlanManager.activeFlightPlan?.aircraftModelName ?? "",
             timestamp: Date()
         )
+    }
+
+    // MARK: - Shared GPS (v4.1)
+
+    /// Viewer: stream this device's current fix up to the master, if it's usable. (shared-GPS)
+    private func sendPeerGPSIfAvailable() {
+        guard currentRole == .viewer, sendHandler != nil, connectionState == .connected,
+              let loc = locationManager?.currentLocation else { return }
+        let accuracy = loc.horizontalAccuracy
+        guard gpsElection.isValid(accuracy: accuracy, age: Date().timeIntervalSince(loc.timestamp)) else { return }
+        let gps = CompanionPeerGPS(
+            latitude: loc.coordinate.latitude,
+            longitude: loc.coordinate.longitude,
+            speedMPS: loc.speed >= 0 ? loc.speed : nil,
+            altitudeMeters: loc.altitude,
+            courseDegrees: loc.course >= 0 ? loc.course : nil,
+            horizontalAccuracy: accuracy,
+            signalStatus: locationManager?.gpsSignalStatus.description ?? "unknown",
+            timestamp: loc.timestamp
+        )
+        guard let payload = try? JSONEncoder().encode(gps) else { return }
+        sendMessage(CompanionMessage(type: .peerGPS, payload: payload))
+        isProvidingGPS = true
+    }
+
+    /// Master: re-elect which GPS feeds the flight (own preferred, peer as fallback). (shared-GPS)
+    private func updateEffectiveGPSSource() {
+        guard currentRole == .master else { effectiveGPSSource = .own; return }
+        let now = Date()
+        let own = locationManager?.currentLocation
+        let ownValid = gpsElection.isValid(accuracy: own?.horizontalAccuracy,
+                                           age: own.map { now.timeIntervalSince($0.timestamp) })
+        let peerValid = gpsElection.isValid(accuracy: receivedPeerGPS?.horizontalAccuracy,
+                                            age: receivedPeerGPS.map { now.timeIntervalSince($0.timestamp) })
+        effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
+    }
+
+    /// The location the flight owner should record/navigate from: its own fix, or a borrowed peer fix
+    /// when its own GPS is unavailable. nil when neither is usable. Consumed by the flight pipeline in a
+    /// later increment. (shared-GPS)
+    var effectiveLocation: CLLocation? {
+        switch effectiveGPSSource {
+        case .own:
+            return locationManager?.currentLocation
+        case .peer:
+            guard let p = receivedPeerGPS else { return nil }
+            return CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: p.latitude, longitude: p.longitude),
+                altitude: p.altitudeMeters ?? 0,
+                horizontalAccuracy: p.horizontalAccuracy,
+                verticalAccuracy: -1,
+                course: p.courseDegrees ?? -1,
+                speed: p.speedMPS ?? -1,
+                timestamp: p.timestamp
+            )
+        case .none:
+            return nil
+        }
     }
 
     private func createFlightPlanSnapshot(_ plan: FlightPlan) -> CompanionFlightPlanSnapshot {

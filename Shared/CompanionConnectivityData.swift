@@ -55,6 +55,7 @@ struct CompanionMessage: Codable {
         case flightPlanUpdate // Master -> Viewer (on change)
         case command          // Viewer -> Master
         case disconnect       // Either direction (graceful)
+        case peerGPS          // Viewer -> Master (the peer's GPS fix, when the master has none) — shared-GPS
     }
 
     /// Current wire-format version produced by this build.
@@ -101,13 +102,17 @@ struct CompanionFlightData: Codable {
     // Settings
     let alwaysUseUTC: Bool
 
-    // GPS data (from iPad's LocationManager)
+    // GPS data (the master's EFFECTIVE location — its own fix, or a companion's when borrowing)
     let latitude: Double?
     let longitude: Double?
     let speedMPS: Double?
     let altitudeFeet: Double?
     let courseDegrees: Double?
     let gpsSignalStatus: String
+
+    /// Whether the master has its OWN valid GPS fix. When false, a viewer that has a fix streams a
+    /// `peerGPS` message up so the master can run the flight off the companion's location. (v4.1 shared-GPS)
+    let ownGPSAvailable: Bool
 
     // Navigation state (lightweight -- full plan sent separately)
     let currentWaypointIndex: Int
@@ -142,6 +147,9 @@ extension CompanionFlightData {
         altitudeFeet = try c.decodeIfPresent(Double.self, forKey: .altitudeFeet)
         courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
         gpsSignalStatus = try c.decodeIfPresent(String.self, forKey: .gpsSignalStatus) ?? "unknown"
+        // Default true: a pre-shared-GPS master is assumed to have its own fix, so a viewer won't try to
+        // source GPS for it. (v4.1 shared-GPS — backward-compatible)
+        ownGPSAvailable = try c.decodeIfPresent(Bool.self, forKey: .ownGPSAvailable) ?? true
         // Clamp a peer-supplied index to >= 0 so it can never become a negative array subscript on
         // the receiver (the upper bound is checked per-use against the actual waypoint count).
         currentWaypointIndex = max(0, try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)
@@ -151,6 +159,80 @@ extension CompanionFlightData {
         aircraftType = try c.decodeIfPresent(String.self, forKey: .aircraftType) ?? ""
         // Absent timestamp -> distantPast so a malformed update reads as stale, never as "fresh now".
         timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
+    }
+}
+
+// MARK: - Peer GPS (Viewer -> Master, when the master has no fix) — shared-GPS
+
+/// A GPS fix streamed from the peer (the device that HAS a fix) up to the flight owner, so an owner
+/// with no GPS of its own (e.g. a Wi-Fi-only iPad) can run the flight off the companion's location.
+/// Raw sensor units (metres, m/s, degrees); the master converts for display. (v4.1 shared-GPS)
+struct CompanionPeerGPS: Codable, Equatable {
+    let latitude: Double
+    let longitude: Double
+    let speedMPS: Double?
+    let altitudeMeters: Double?
+    let courseDegrees: Double?
+    let horizontalAccuracy: Double   // metres; < 0 means invalid
+    let signalStatus: String
+    let timestamp: Date
+
+    init(latitude: Double, longitude: Double, speedMPS: Double?, altitudeMeters: Double?,
+         courseDegrees: Double?, horizontalAccuracy: Double, signalStatus: String, timestamp: Date) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.speedMPS = speedMPS
+        self.altitudeMeters = altitudeMeters
+        self.courseDegrees = courseDegrees
+        self.horizontalAccuracy = horizontalAccuracy
+        self.signalStatus = signalStatus
+        self.timestamp = timestamp
+    }
+
+    /// Tolerant decoder so a field skew between independently-updated builds never drops the fix.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude) ?? 0
+        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude) ?? 0
+        speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
+        altitudeMeters = try c.decodeIfPresent(Double.self, forKey: .altitudeMeters)
+        courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
+        horizontalAccuracy = try c.decodeIfPresent(Double.self, forKey: .horizontalAccuracy) ?? -1
+        signalStatus = try c.decodeIfPresent(String.self, forKey: .signalStatus) ?? "unknown"
+        timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
+    }
+}
+
+// MARK: - GPS source election — shared-GPS
+
+/// Which GPS feeds the flight owner.
+enum CompanionGPSSource: String, Equatable {
+    case own    // the owner's own device fix
+    case peer   // a companion's fix, borrowed over the link
+    case none   // no usable fix anywhere
+}
+
+/// Pure, testable policy deciding the owner's effective GPS source: prefer the owner's OWN fix when it
+/// is valid + fresh, otherwise a recent peer fix. The freshness window doubles as hysteresis — a fix
+/// "stays valid" across a few missed updates, so the source doesn't flap on a momentary blip.
+/// (v4.1 shared-GPS — runs below iOS 26, hence testable.)
+struct GPSSourceElection {
+    /// Max age (seconds) for a fix to still count as fresh.
+    var maxFixAge: TimeInterval = 5
+    /// Max horizontal accuracy (metres) for a fix to count as valid (a negative accuracy is invalid).
+    var maxAccuracy: Double = 100
+
+    func isValid(accuracy: Double?, age: TimeInterval?) -> Bool {
+        guard let accuracy, accuracy >= 0, accuracy <= maxAccuracy,
+              let age, age >= 0, age <= maxFixAge else { return false }
+        return true
+    }
+
+    /// Elect the source from the current validity of each side. Own always wins when valid.
+    func elect(ownValid: Bool, peerValid: Bool) -> CompanionGPSSource {
+        if ownValid { return .own }
+        if peerValid { return .peer }
+        return .none
     }
 }
 

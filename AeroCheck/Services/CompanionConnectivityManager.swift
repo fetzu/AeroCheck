@@ -66,6 +66,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var connectedDeviceName: String?
     @Published var lastReceivedData: CompanionFlightData?
     @Published var lastFlightPlanSnapshot: CompanionFlightPlanSnapshot?
+    /// The peer's most recent GPS fix (master side), used when this device has no own fix. (shared-GPS)
+    @Published var receivedPeerGPS: CompanionPeerGPS?
     @Published var latencyMs: Int?
     @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
@@ -467,6 +469,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 handleCommand(command)
             }
 
+        case .peerGPS:
+            // The flight owner (master) receives the peer's fix to run the flight off it when it has no
+            // own GPS. Ignored on the viewer — GPS only flows up to the owner. (shared-GPS)
+            if currentRole == .master,
+               let gps = try? JSONDecoder().decode(CompanionPeerGPS.self, from: message.payload) {
+                receivedPeerGPS = gps
+            }
+
         case .disconnect:
             AppLog.companion.debugLine("Received disconnect message")
             cleanupConnection()
@@ -618,6 +628,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             altitudeFeet: location != nil ? location!.altitude * 3.28084 : nil,
             courseDegrees: location?.course ?? 0 >= 0 ? location?.course : nil,
             gpsSignalStatus: locationManager.gpsSignalStatus.description,
+            // Whether the master has its OWN fix — drives the viewer's decision to source GPS. (shared-GPS)
+            ownGPSAvailable: location != nil,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,

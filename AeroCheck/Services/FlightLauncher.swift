@@ -97,7 +97,9 @@ struct FlightLauncher {
         // or a companion's borrowed over Wi-Fi Aware. The first three guards have already passed, so
         // evaluate() here reduces to the location/GPS decision.
         let authorization = locationManager.authorizationStatus
-        let hasOwnFix = locationManager.ownFixIsLive
+        // Use the lenient start-fix check (valid position + GPS active), NOT ownFixIsLive's tight few-second
+        // window — a stationary aircraft on the ramp stops producing fresh fixes but its position is valid.
+        let hasOwnFix = locationManager.hasRecentUsableFix
         let hasPeerFix = CompanionConnectivityManager.shared.hasUsablePeerFix
         switch FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
                                        authorization: authorization, hasOwnFix: hasOwnFix, hasPeerFix: hasPeerFix) {

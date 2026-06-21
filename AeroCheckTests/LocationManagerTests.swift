@@ -119,4 +119,37 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertTrue(lm.isSharedGPSProviderActive,
                       "closing the nav-map session must not tear down the companion GPS provider")
     }
+
+    // MARK: - Flight-start fix check (v4.1 — stationary-start regression fix)
+
+    @MainActor
+    func testHasRecentUsableFixNeedsActiveGPSAndValidFix() {
+        let lm = LocationManager()
+        XCTAssertFalse(lm.hasRecentUsableFix, "no GPS running, no fix")
+        lm.authorizationStatus = .authorizedAlways
+        lm.startSharedGPSProvider()   // GPS now active
+        XCTAssertFalse(lm.hasRecentUsableFix, "GPS active but no fix yet")
+        lm.processLocation(fix(), isOwnFix: true)
+        XCTAssertTrue(lm.hasRecentUsableFix, "active GPS + valid fix is startable")
+    }
+
+    @MainActor
+    func testHasRecentUsableFixIgnoresFixAge() {
+        // The whole point: a stationary aircraft stops producing fresh fixes, but its last position is
+        // still valid to start from — hasRecentUsableFix doesn't reject on the fix's timestamp age.
+        let lm = LocationManager()
+        lm.authorizationStatus = .authorizedAlways
+        lm.startSharedGPSProvider()
+        lm.processLocation(fix(ageSeconds: 300), isOwnFix: true)
+        XCTAssertTrue(lm.hasRecentUsableFix, "an old (stationary) fix is still usable to start")
+    }
+
+    @MainActor
+    func testHasRecentUsableFixRejectsInvalidAccuracy() {
+        let lm = LocationManager()
+        lm.authorizationStatus = .authorizedAlways
+        lm.startSharedGPSProvider()
+        lm.processLocation(fix(accuracy: -1), isOwnFix: true)   // invalid fix
+        XCTAssertFalse(lm.hasRecentUsableFix, "a negative-accuracy fix is not a usable position")
+    }
 }

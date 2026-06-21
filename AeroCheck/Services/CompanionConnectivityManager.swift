@@ -160,8 +160,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         pairedDevicesTask = Task { [weak self] in
             do {
                 for try await devices in WAPairedDevice.allDevices {
-                    let mapped = devices.values.map {
-                        CompanionPairedDevice(name: $0.name, pairingName: $0.pairingInfo?.pairingName)
+                    // De-dupe by identity: a flaky/retried pairing can leave several system records for the
+                    // SAME device (e.g. "FlyPad" twice), which would show duplicates and warn in ForEach.
+                    var seen = Set<String>()
+                    let mapped = devices.values.compactMap { dev -> CompanionPairedDevice? in
+                        let d = CompanionPairedDevice(name: dev.name, pairingName: dev.pairingInfo?.pairingName)
+                        return seen.insert(d.id).inserted ? d : nil
                     }
                     await MainActor.run {
                         guard let self else { return }

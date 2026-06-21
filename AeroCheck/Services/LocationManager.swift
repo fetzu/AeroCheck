@@ -662,6 +662,18 @@ class LocationManager: NSObject, ObservableObject {
         return Date().timeIntervalSince(t) <= ownFixStaleAfter
     }
 
+    /// Whether there's a usable fix to START a flight from: GPS is actively running and we hold a valid
+    /// position. Deliberately NOT gated on fix AGE (unlike `ownFixIsLive`'s tight window) — a stationary
+    /// aircraft on the ramp legitimately stops producing new fixes (the ground-mode distance filter
+    /// suppresses updates when not moving), but its last known position is still valid to begin recording
+    /// from. Gating the start on a seconds-fresh fix wrongly blocked a stationary start with
+    /// "Acquiring GPS…" even with a green GPS indicator. (v4.1 flight-start fix)
+    var hasRecentUsableFix: Bool {
+        guard isLocationUpdatesActive || isTracking || isSharedGPSProviderActive else { return false }
+        guard let loc = currentLocation else { return false }
+        return loc.horizontalAccuracy >= 0
+    }
+
     /// Feed a borrowed companion (peer) GPS fix through the SAME pipeline as a real fix, so nav, the
     /// HUD instrument strip, the recorded track and event detection all consume it transparently.
     /// Applied only when this device has no live own fix — a real own fix always wins. (shared-GPS)

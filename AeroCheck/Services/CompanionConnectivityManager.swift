@@ -245,7 +245,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.connectionGeneration += 1
                         self.sendHandler = send
                         self.connectionState = .connected
-                        self.connectedDeviceName = self.pairedDevices.first?.name ?? L10n.Companion.companionDevice
+                        self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.companionDevice
                         self.sendFailureCount = 0
                         self.lastReceivedAt = Date()
                         self.startSendTimer()              // stream state 1 Hz while connected (flight or not)
@@ -441,7 +441,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     guard let self else { return }
                     self.sendHandler = send
                     self.connectionState = .connected
-                    self.connectedDeviceName = self.pairedDevices.first?.name ?? L10n.Companion.masterDevice
+                    self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.masterDevice
                     self.sendFailureCount = 0
                     self.lastReceivedAt = Date()
                     self.startConnectionHealthTimer()

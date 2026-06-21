@@ -216,10 +216,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         }
 
         do {
-            let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
-
             let listener = try NetworkListener(
-                for: .wifiAware(.connecting(to: .aerocheck, from: .matching(deviceFilter))),
+                // Accept connections from any already-paired device — the connection phase uses
+                // .allPairedDevices (matches Apple's sample), not the pairing-only .userSpecifiedDevices.
+                for: .wifiAware(.connecting(to: .aerocheck, from: .allPairedDevices)),
                 using: .parameters {
                     // JSON messages over UDP — matches the ._udp Wi-Fi Aware service and Apple's sample.
                     Coder(receiving: CompanionMessage.self, sending: CompanionMessage.self, using: NetworkJSONCoder()) {
@@ -356,16 +356,24 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         connectionHealthTimer = nil
     }
 
-    /// Viewer: if the master's ~1 Hz stream stops, the master quit/backgrounded — drop so the UI shows
-    /// the interrupted state and the auto-reconnect can take over (rather than showing "Connected" for
-    /// minutes while the OS-level drop slowly surfaces). The master uses send-failure (noteSendFailure).
+    /// Bidirectional heartbeat + staleness, every 2 s. UDP is connectionless, so (a) the viewer must keep
+    /// sending or the master's flow goes idle and it can't tell we're alive, and (b) send-failure can't
+    /// detect a drop (UDP sends never fail). So: the viewer pings each tick (the master streams 1 Hz the
+    /// other way), and EITHER side drops the link if the peer's traffic goes silent for >5 s. (v4.1)
     private func checkConnectionHealth() {
         guard connectionState == .connected else { stopConnectionHealthTimer(); return }
-        if currentRole == .viewer, let last = lastReceivedAt,
-           Date().timeIntervalSince(last) > Self.receiveStaleAfter {
-            diag("Viewer: no data for \(Int(Date().timeIntervalSince(last)))s — dropping (will reconnect)")
+        if currentRole == .viewer { sendPing() }   // keep the UDP flow open + prove liveness to the master
+        if let last = lastReceivedAt, Date().timeIntervalSince(last) > Self.receiveStaleAfter {
+            diag("\(currentRole == .master ? "Master" : "Viewer"): no data for \(Int(Date().timeIntervalSince(last)))s — dropping")
             handleDisconnection(generation: connectionGeneration)
         }
+    }
+
+    /// Viewer → master keep-alive. Also the FIRST one (sent on connect) is what opens the UDP flow so the
+    /// master's listener actually accepts the connection (it never fires until it receives a datagram).
+    private func sendPing() {
+        guard let payload = try? JSONEncoder().encode(CompanionCommand.ping) else { return }
+        sendMessage(CompanionMessage(type: .command, payload: payload))
     }
 
     /// Master/viewer: repeated send failures mean the peer is gone — drop the connection.
@@ -400,12 +408,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return
         }
 
-        let deviceFilter = #Predicate<WAPairedDevice> { _ in true }
-
         browserTask = Task { [weak self] in
             do {
                 let browser = NetworkBrowser(
-                    for: .wifiAware(.connecting(to: .matching(deviceFilter), from: .aerocheck))
+                    // Browse for any paired master — .allPairedDevices for the connection phase (sample-matched).
+                    for: .wifiAware(.connecting(to: .allPairedDevices, from: .aerocheck))
                 )
 
                 // Browse for the master device
@@ -438,6 +445,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     self.sendFailureCount = 0
                     self.lastReceivedAt = Date()
                     self.startConnectionHealthTimer()
+                    // Open the UDP flow immediately — until the master receives a datagram from us, its
+                    // listener never accepts and it never streams back. (v4.1)
+                    self.sendPing()
                     self.diag("Viewer: connected to iPad")
                 }
 

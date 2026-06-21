@@ -4,8 +4,13 @@ import DeviceDiscoveryUI
 #endif
 import WiFiAware
 
-/// Device pairing sheet for companion mode using Wi-Fi Aware
-/// Shows the system pairing UI: DevicePairingView for master (iPad), DevicePicker for viewer (iPhone)
+/// Device pairing sheet for companion mode using Wi-Fi Aware.
+///
+/// Both roles present a TAPPABLE button (DevicePairingView on the iPad, DevicePicker on the iPhone) —
+/// the button's label is what presents Apple's system pairing/picker sheet. The user must tap it on
+/// BOTH devices so each starts advertising/browsing; then they discover each other and confirm a code.
+/// (A passive "waiting" label that the user never taps means that side never advertises — which is
+/// exactly why pairing silently found nothing. Matches Apple's "Building peer-to-peer apps" sample.)
 struct CompanionPairingView: View {
     @Environment(\.dismiss) var dismiss
 
@@ -70,38 +75,59 @@ struct CompanionPairingView: View {
             .foregroundColor(.dimText)
     }
 
+    /// The gold pill that serves as the DevicePairingView/DevicePicker LABEL. Tapping it is what
+    /// presents Apple's system pairing/picker sheet (and starts advertising/browsing) — so it must read
+    /// as an obvious button on both roles, not a passive status line.
+    private func pairButtonLabel(icon: String, title: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+            Text(title)
+        }
+        .font(.body.weight(.semibold))
+        .foregroundColor(.black)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationGold))
+    }
+
     #if canImport(DeviceDiscoveryUI)
     // MARK: - Master (iPad) Pairing
 
-    /// iPad shows DevicePairingView — waits for a companion to discover and pair
+    /// iPad shows DevicePairingView — its LABEL is a tappable button; tapping it presents the system
+    /// pairing sheet and starts advertising. The user must tap it (and the matching button on the iPhone).
     @available(iOS 26.0, *)
     private var masterPairingContent: some View {
-        // `.userSpecifiedDevices` is the PAIRING mode (the user picks a NEW device through the system UI).
-        // `.selected([])` (an empty set of ALREADY-paired devices) advertises for nothing, so the iPhone
-        // never discovers the iPad — the cause of the "No Devices Found / Paired devices: 0" failure.
-        // (v4.1 — verified against the WiFiAware SDK + Apple's pairing sample)
-        DevicePairingView(
-            .wifiAware(.connecting(to: .aerocheck, from: .userSpecifiedDevices))
-        ) {
-            VStack(spacing: 18) {
-                companionIcon("antenna.radiowaves.left.and.right")
+        VStack(spacing: 18) {
+            Spacer()
 
-                Text(L10n.Companion.waitingForPairing)
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.primaryText)
+            companionIcon("antenna.radiowaves.left.and.right")
 
-                Text(L10n.Companion.pairingMasterDescription)
-                    .font(.subheadline)
-                    .foregroundColor(.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+            Text(L10n.Companion.pairWithiPhone)
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primaryText)
 
-                wifiAwareFootnote.padding(.top, 4)
+            Text(L10n.Companion.pairBothDevices)
+                .font(.subheadline)
+                .foregroundColor(.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            // `.userSpecifiedDevices` = pair a NEW device via the system UI. The label below is the
+            // tappable button that presents that system pairing sheet (and begins advertising).
+            DevicePairingView(
+                .wifiAware(.connecting(to: .aerocheck, from: .userSpecifiedDevices))
+            ) {
+                pairButtonLabel(icon: "antenna.radiowaves.left.and.right", title: L10n.Companion.makeDiscoverable)
+            } fallback: {
+                wifiAwareUnavailableContent
             }
-        } fallback: {
-            wifiAwareUnavailableContent
+            .padding(.top, 6)
+
+            wifiAwareFootnote
+
+            Spacer()
         }
-        .onAppear { companionConnectivityManager.logPairing("Pairing: iPad advertising for a new device") }
+        .onAppear { companionConnectivityManager.logPairing("Pairing: iPad screen open — tap '\(L10n.Companion.makeDiscoverable)'") }
         .onDisappear { companionConnectivityManager.logPairing("Pairing: iPad pairing screen closed") }
     }
 
@@ -119,15 +145,15 @@ struct CompanionPairingView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundColor(.primaryText)
 
-            Text(L10n.Companion.pairingViewerDescription)
+            Text(L10n.Companion.pairBothDevices)
                 .font(.subheadline)
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
             DevicePicker(
-                // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). `.selected([])`
-                // browses for an empty set of already-paired devices → finds nothing. (v4.1 — SDK-verified fix)
+                // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). The label
+                // below is the tappable button that presents the system picker (and begins browsing).
                 .wifiAware(.connecting(to: .userSpecifiedDevices, from: .aerocheck))
             ) { endpoint in
                 // Pairing complete — dismiss the sheet
@@ -135,15 +161,7 @@ struct CompanionPairingView: View {
                 companionConnectivityManager.logPairing("Pairing: iPhone paired with a device")
                 dismiss()
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                    Text(L10n.Companion.scanForDevices)
-                }
-                .font(.body.weight(.semibold))
-                .foregroundColor(.black)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Color.aviationGold))
+                pairButtonLabel(icon: "magnifyingglass", title: L10n.Companion.scanForDevices)
             } fallback: {
                 wifiAwareUnavailableContent
             }
@@ -153,7 +171,7 @@ struct CompanionPairingView: View {
 
             Spacer()
         }
-        .onAppear { companionConnectivityManager.logPairing("Pairing: iPhone ready to scan — tap Scan for devices") }
+        .onAppear { companionConnectivityManager.logPairing("Pairing: iPhone screen open — tap '\(L10n.Companion.scanForDevices)'") }
         .onDisappear { companionConnectivityManager.logPairing("Pairing: iPhone pairing screen closed") }
     }
     #endif

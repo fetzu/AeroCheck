@@ -1,6 +1,57 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "companion.pairWithiPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with your iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Associer votre iPhone"
+          }
+        }
+      }
+    },
+    "companion.makeDiscoverable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make discoverable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendre détectable"
+          }
+        }
+      }
+    },
+    "companion.pairBothDevices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do this on both devices: tap below, then select each other and confirm the code shown."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À faire sur les deux appareils : touchez ci-dessous, puis sélectionnez-vous mutuellement et confirmez le code affiché."
+          }
+        }
+      }
+    },
     "companion.pairingGuidanceMaster" : {
       "extractionState" : "manual",
       "localizations" : {

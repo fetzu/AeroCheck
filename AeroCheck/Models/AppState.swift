@@ -119,12 +119,13 @@ struct AppSettings: Codable, Equatable {
     var enableCompanionMode: Bool = false // When true, companion connectivity is available
     var companionRole: CompanionRoleSetting = .auto // DEPRECATED (v4.1): role is now auto by device type; retained for decode compat only
 
-    // Developer mode: revealed by tapping the version 5× in About. Persisted so it survives launches
-    // and gates developer-only surfaces app-wide (e.g. the Companion diagnostics panel). (v4.1)
-    var developerMode: Bool = false
-
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
+
+    // Developer mode is NOT persisted - revealed by tapping the version 5× in About, it resets to false
+    // on app restart. Gates developer-only surfaces for the current run (e.g. the Companion diagnostics
+    // panel). (v4.1)
+    var developerMode: Bool = false
 
     /// Whether a remote aircraft is selected
     var isRemoteAircraftSelected: Bool {
@@ -198,8 +199,7 @@ struct AppSettings: Codable, Equatable {
         case enableAirspaceStreaming
         case enableCompanionMode
         case companionRole
-        case developerMode
-        // marketingMode is intentionally excluded
+        // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
     /// Legacy keys read only for backward-compatible migration (not encoded).
@@ -271,8 +271,7 @@ struct AppSettings: Codable, Equatable {
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
-        developerMode = try container.decodeIfPresent(Bool.self, forKey: .developerMode) ?? false
-        // marketingMode intentionally excluded - always defaults to false
+        // marketingMode and developerMode intentionally excluded - always default to false each launch
     }
 
     /// Returns a copy with flight-relevant numeric settings clamped to sane ranges, for applying

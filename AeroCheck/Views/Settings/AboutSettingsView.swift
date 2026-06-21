@@ -31,7 +31,8 @@ struct AboutSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             marketingMode = appState.settings.marketingMode
-            // Developer mode persists across launches, so reveal the section if it was enabled before.
+            // Keep the section revealed if developer mode was already enabled this run (it resets on
+            // relaunch), e.g. after navigating away from About and back.
             if appState.settings.developerMode { showDeveloperOptions = true }
         }
         .onChange(of: marketingMode) { _, newValue in
@@ -145,12 +146,9 @@ struct AboutSettingsView: View {
                 withAnimation {
                     showDeveloperOptions = true
                 }
-                // Persist so developer-only surfaces app-wide (e.g. the Companion diagnostics panel)
-                // stay available across launches until explicitly turned off. (v4.1)
-                if !appState.settings.developerMode {
-                    appState.settings.developerMode = true
-                    appState.saveSettings()
-                }
+                // Enable developer mode for this run (non-persisted; resets on relaunch). Gates
+                // developer-only surfaces app-wide, e.g. the Companion diagnostics panel. (v4.1)
+                appState.settings.developerMode = true
             }
         }
     }
@@ -263,7 +261,6 @@ struct AboutSettingsView: View {
                 SettingsButtonRow(icon: "xmark.circle", title: "Disable developer mode",
                                   tint: tint, showsChevron: false, destructive: true) {
                     appState.settings.developerMode = false
-                    appState.saveSettings()
                     withAnimation { showDeveloperOptions = false }
                 }
             }

@@ -713,6 +713,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
     }
 
+    /// True when a connected companion is currently supplying a usable fix this device could borrow —
+    /// i.e. we are the master and hold a fresh, accurate peer fix. Lets the flight-start guard allow a
+    /// GPS-less device (e.g. a Wi-Fi iPad) to launch off the companion's GPS. (shared-GPS)
+    var hasUsablePeerFix: Bool {
+        guard currentRole == .master, let peer = receivedPeerGPS, let at = lastPeerGPSReceivedAt else { return false }
+        return gpsElection.isValid(accuracy: peer.horizontalAccuracy, age: Date().timeIntervalSince(at))
+    }
+
     /// The location the flight owner should record/navigate from: its own fix, or a borrowed peer fix
     /// when its own GPS is unavailable. nil when neither is usable. Consumed by the flight pipeline in a
     /// later increment. (shared-GPS)

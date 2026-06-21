@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "gps.source.companion" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPS source: companion iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source GPS : iPhone compagnon"
+          }
+        }
+      }
+    },
+    "alert.acquiringGPS.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a GPS fix. Once GPS is acquired, try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente d’un signal GPS. Une fois le GPS acquis, réessayez."
+          }
+        }
+      }
+    },
     "Airspace data is out of date" : {
       "localizations" : {
         "fr" : {

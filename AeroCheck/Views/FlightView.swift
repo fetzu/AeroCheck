@@ -241,19 +241,20 @@ struct FlightView: View {
                 .id(timerTrigger)
 
             // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
-            // popup (status guide + advanced fix info). (v4 UI/UX Revamp feedback)
+            // popup (status guide + advanced fix info). When the flight is running off a borrowed
+            // companion fix, the label shows "GPS · iPhone" so the source is unmistakable. (shared-GPS)
             Button(action: { openReference(.gps) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 12))
-                    Text("GPS")
+                    Text(gpsSourceLabel)
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundColor(gpsStatusColor)
             }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityLabel(L10n.GPS.status)
+            .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
             .accessibilityHint(L10n.Flight.info)
 
             // Flight details / options (consolidates the GPS/points/times panel)
@@ -1625,6 +1626,18 @@ struct FlightView: View {
         case .degraded: return .orange
         case .lost: return .aviationRed
         }
+    }
+
+    /// True when this device is running the flight off a borrowed companion (iPhone) GPS fix rather
+    /// than its own. (shared-GPS)
+    private var isBorrowingCompanionGPS: Bool {
+        companionConnectivityManager.effectiveGPSSource == .peer
+    }
+
+    /// The cockpit GPS label: "GPS", or "GPS · iPhone" when position is sourced from the paired
+    /// companion. (Both verbatim — aviation abbreviation + brand — so no localization.) (shared-GPS)
+    private var gpsSourceLabel: String {
+        isBorrowingCompanionGPS ? "GPS · iPhone" : "GPS"
     }
 
 }

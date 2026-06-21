@@ -73,6 +73,47 @@ final class FlightLauncherTests: XCTestCase {
         }
     }
 
+    // MARK: - Shared-GPS fix requirement (option b)
+
+    func testEvaluateAuthorizedButNoFixBlocksAcquiringGPS() {
+        // Permission granted but no fix has locked yet — block (transient) rather than start blind.
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                    authorization: .authorizedWhenInUse, hasOwnFix: false, hasPeerFix: false),
+            .blockedAcquiringGPS)
+    }
+
+    func testEvaluateNotDeterminedWithoutFixDefersToStart() {
+        // The prompt hasn't been answered, so a fix can't exist yet — defer to startTracking.
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                    authorization: .notDetermined, hasOwnFix: false, hasPeerFix: false),
+            .started)
+    }
+
+    func testEvaluateCompanionFixStartsWhenOwnGPSDenied() {
+        // A GPS-less device (e.g. a Wi-Fi iPad) launches off the companion's borrowed GPS.
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                    authorization: .denied, hasOwnFix: false, hasPeerFix: true),
+            .started)
+    }
+
+    func testEvaluateCompanionFixStartsWhenOwnGPSMissing() {
+        // Permission granted but no own lock — a companion fix alone is enough to start.
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                    authorization: .authorizedWhenInUse, hasOwnFix: false, hasPeerFix: true),
+            .started)
+    }
+
+    func testEvaluateOwnFixStartsWithoutCompanion() {
+        XCTAssertEqual(
+            FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+                                    authorization: .authorizedAlways, hasOwnFix: true, hasPeerFix: false),
+            .started)
+    }
+
     // MARK: - begin() integration for the early-return guards
 
     func testBeginDoesNotOverwriteRunningFlight() async {

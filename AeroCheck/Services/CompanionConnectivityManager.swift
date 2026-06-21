@@ -400,6 +400,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         cleanupConnection()
         stopListening()
         stopUpdates()
+        // Release the companion GPS provider session if we were sourcing GPS for the master. (shared-GPS)
+        stopProvidingGPS()
         browserTask?.cancel()
         browserTask = nil
         connectionState = .disconnected
@@ -478,7 +480,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 // off our GPS; stop once the master regains its own fix. (shared-GPS)
                 if currentRole == .viewer {
                     if flightData.ownGPSAvailable {
-                        isProvidingGPS = false
+                        stopProvidingGPS()
                     } else {
                         // The viewer isn't running its own flight, so its GPS may be idle — spin it up the
                         // moment the master asks for a fix, otherwise there's nothing to share. (shared-GPS)
@@ -682,12 +684,18 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // MARK: - Shared GPS (v4.1)
 
     /// Viewer: make sure our own GPS is delivering fixes so we have something to stream to a GPS-less
-    /// master. The viewer isn't running a flight, so its location is otherwise idle. Idempotent and
-    /// foreground-reliable; background sourcing (Always + background updates surviving WiFiAware
-    /// suspension) is a best-effort follow-up to validate on-device. (shared-GPS)
+    /// master. The viewer isn't running a flight, so its location is otherwise idle. Starts a dedicated
+    /// background-capable provider session (requests Always) so the feed can survive the viewer being
+    /// backgrounded — best-effort, since the Wi-Fi Aware link itself may suspend. Idempotent. (shared-GPS)
     private func ensureViewerLocationActive() {
-        guard let lm = locationManager, !lm.isLocationUpdatesActive else { return }
-        lm.startLocationUpdates()
+        locationManager?.startSharedGPSProvider()
+    }
+
+    /// Viewer: we no longer need to source GPS for the master (it regained its own fix, or we
+    /// disconnected). Stop streaming and release the provider session. (shared-GPS)
+    private func stopProvidingGPS() {
+        isProvidingGPS = false
+        locationManager?.stopSharedGPSProvider()
     }
 
     /// Viewer: stream this device's current fix up to the master, if it's usable. (shared-GPS)

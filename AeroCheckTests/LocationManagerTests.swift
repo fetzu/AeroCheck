@@ -88,4 +88,35 @@ final class LocationManagerTests: XCTestCase {
         lm.injectCompanionLocation(fix(lat: 45.0, lon: 7.0))
         XCTAssertNil(lm.currentLocation, "marketing mode is authoritative — companion injection is ignored")
     }
+
+    // MARK: - Companion GPS provider (viewer background sourcing, v4.1)
+
+    @MainActor
+    func testSharedGPSProviderActivatesAndDeactivates() {
+        let lm = LocationManager()
+        lm.authorizationStatus = .authorizedAlways   // bypass the deferral path
+        lm.startSharedGPSProvider()
+        XCTAssertTrue(lm.isSharedGPSProviderActive, "provider should be active once permitted")
+        lm.stopSharedGPSProvider()
+        XCTAssertFalse(lm.isSharedGPSProviderActive, "provider should release on stop")
+    }
+
+    @MainActor
+    func testSharedGPSProviderDefersWithoutAuthorization() {
+        let lm = LocationManager()
+        lm.authorizationStatus = .notDetermined
+        lm.startSharedGPSProvider()
+        XCTAssertFalse(lm.isSharedGPSProviderActive,
+                       "without permission the provider stays inactive until authorization is granted")
+    }
+
+    @MainActor
+    func testClosingNavMapKeepsProviderAlive() {
+        let lm = LocationManager()
+        lm.authorizationStatus = .authorizedAlways
+        lm.startSharedGPSProvider()
+        lm.stopLocationUpdates()   // simulate the nav map closing
+        XCTAssertTrue(lm.isSharedGPSProviderActive,
+                      "closing the nav-map session must not tear down the companion GPS provider")
+    }
 }

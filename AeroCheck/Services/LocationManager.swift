@@ -78,6 +78,13 @@ class LocationManager: NSObject, ObservableObject {
     /// the start completes automatically once permission is granted. (PERF-03)
     private var pendingTrackingStart = false
     private var pendingLocationUpdatesStart = false
+    private var pendingSharedGPSProviderStart = false
+
+    /// True while this device is acting as a companion GPS provider — delivering background-capable
+    /// fixes to a paired GPS-less master WITHOUT recording its own flight. Tracked separately from
+    /// `isTracking` (no flight) and `isLocationUpdatesActive` (the nav-map session) so the three
+    /// independent reasons to keep GPS on don't tear each other down. (shared-GPS, v4.1)
+    @Published private(set) var isSharedGPSProviderActive: Bool = false
     /// Set when an ACTIVE tracking/map session's updates were stopped because location permission
     /// was revoked mid-session. On re-authorization the session resumes itself instead of staying
     /// dead with isTracking still true. (PR-39)
@@ -215,7 +222,7 @@ class LocationManager: NSObject, ObservableObject {
 
     /// Reflects whether background tracking is currently limited (GPS active under WhenInUse only).
     private func updateBackgroundTrackingLimited() {
-        backgroundTrackingLimited = (isTracking || isLocationUpdatesActive)
+        backgroundTrackingLimited = (isTracking || isLocationUpdatesActive || isSharedGPSProviderActive)
             && authorizationStatus == .authorizedWhenInUse
     }
 
@@ -295,13 +302,62 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     /// Stop location updates when navigation view is closed
-    /// Only stops if not currently tracking a flight
+    /// Only stops if not currently tracking a flight or feeding a companion master
     func stopLocationUpdates() {
-        if !isTracking {
+        // Keep GPS running if a flight is tracking OR we're still sourcing GPS for a companion master.
+        if !isTracking && !isSharedGPSProviderActive {
             locationManager.stopUpdatingLocation()
             stopSignalCheckTimer()
             isLocationUpdatesActive = false
+        } else {
+            // The nav map no longer needs GPS, but a flight/provider still does — just drop the
+            // map-session flag and leave the hardware running for them.
+            isLocationUpdatesActive = false
         }
+    }
+
+    // MARK: - Companion GPS Provider (shared-GPS, v4.1)
+
+    /// Start delivering GPS fixes so this device can act as a companion GPS provider for a paired master
+    /// that has no GPS of its own — WITHOUT recording a flight. Arms Always + background updates so the
+    /// feed survives the viewer being backgrounded (best-effort: the Wi-Fi Aware link itself may suspend
+    /// in the background). Idempotent; defers until permission is granted, like a flight start. (shared-GPS)
+    func startSharedGPSProvider() {
+        guard !isSharedGPSProviderActive else { return }
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            // Remember the intent and start once permission is granted. (mirrors PERF-03)
+            pendingSharedGPSProviderStart = true
+            requestAuthorization()
+            return
+        }
+        pendingSharedGPSProviderStart = false
+        isSharedGPSProviderActive = true
+        // Arm background updates so the feed keeps going when the viewer is backgrounded (needs Always).
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.startUpdatingLocation()
+        lastLocationUpdateTime = Date()
+        gpsSignalStatus = .good
+        startSignalCheckTimer()
+        // Upgrade WhenInUse → Always so the feed isn't suspended the moment the viewer backgrounds.
+        requestAlwaysUpgradeIfNeeded()
+        updateBackgroundTrackingLimited()
+    }
+
+    /// Stop acting as a companion GPS provider. Leaves a running flight or nav-map GPS session untouched.
+    func stopSharedGPSProvider() {
+        guard isSharedGPSProviderActive else { return }
+        isSharedGPSProviderActive = false
+        pendingSharedGPSProviderStart = false
+        // Disarm background updates unless a flight still needs them (a flight re-arms via beginTrackingNow).
+        if !isTracking {
+            locationManager.allowsBackgroundLocationUpdates = false
+        }
+        // Only stop the GPS hardware if nothing else still needs it (no flight, no nav-map session).
+        if !isTracking && !isLocationUpdatesActive {
+            locationManager.stopUpdatingLocation()
+            stopSignalCheckTimer()
+        }
+        updateBackgroundTrackingLimited()
     }
 
     // MARK: - Signal Quality Monitoring
@@ -354,7 +410,7 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     private func checkSignalStatus() {
-        guard isTracking || isLocationUpdatesActive else { return }
+        guard isTracking || isLocationUpdatesActive || isSharedGPSProviderActive else { return }
 
         // If GPS status is overridden (marketing mode), don't check real signal
         if let override = gpsStatusOverride {
@@ -747,10 +803,13 @@ extension LocationManager: CLLocationManagerDelegate {
                 if self.pendingLocationUpdatesStart {
                     self.startLocationUpdates()
                 }
+                if self.pendingSharedGPSProviderStart {
+                    self.startSharedGPSProvider()
+                }
                 // PR-39: resume a session whose updates we stopped on a prior revocation. The
                 // deferred-start flags above only cover sessions that never started; one already
-                // active (isTracking/isLocationUpdatesActive still true) was previously left dead.
-                if self.wasStoppedByRevocation && (self.isTracking || self.isLocationUpdatesActive) {
+                // active (isTracking/isLocationUpdatesActive/provider still true) was previously left dead.
+                if self.wasStoppedByRevocation && (self.isTracking || self.isLocationUpdatesActive || self.isSharedGPSProviderActive) {
                     self.wasStoppedByRevocation = false
                     self.locationManager.startUpdatingLocation()
                     self.lastLocationUpdateTime = Date()
@@ -764,10 +823,11 @@ extension LocationManager: CLLocationManagerDelegate {
                     : "Location access restricted."
                 self.pendingTrackingStart = false
                 self.pendingLocationUpdatesStart = false
+                self.pendingSharedGPSProviderStart = false
                 self.backgroundTrackingLimited = false
                 // Permission revoked while active — stop the now-useless updates and surface a
                 // GPS-lost state so the indicator never looks green on a revoked permission. (UX-01)
-                if self.isTracking || self.isLocationUpdatesActive {
+                if self.isTracking || self.isLocationUpdatesActive || self.isSharedGPSProviderActive {
                     self.gpsSignalStatus = .lost
                     self.locationManager.stopUpdatingLocation()
                     self.wasStoppedByRevocation = true // PR-39: remember to resume on re-authorization

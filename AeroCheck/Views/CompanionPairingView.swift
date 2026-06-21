@@ -69,8 +69,12 @@ struct CompanionPairingView: View {
     /// iPad shows DevicePairingView — waits for a companion to discover and pair
     @available(iOS 26.0, *)
     private var masterPairingContent: some View {
+        // `.userSpecifiedDevices` is the PAIRING mode (the user picks a NEW device through the system UI).
+        // `.selected([])` (an empty set of ALREADY-paired devices) advertises for nothing, so the iPhone
+        // never discovers the iPad — the cause of the "No Devices Found / Paired devices: 0" failure.
+        // (v4.1 — verified against the WiFiAware SDK + Apple's pairing sample)
         DevicePairingView(
-            .wifiAware(.connecting(to: .aerocheck, from: .selected([])))
+            .wifiAware(.connecting(to: .aerocheck, from: .userSpecifiedDevices))
         ) {
             VStack(spacing: 18) {
                 companionIcon("antenna.radiowaves.left.and.right")
@@ -90,6 +94,8 @@ struct CompanionPairingView: View {
         } fallback: {
             wifiAwareUnavailableContent
         }
+        .onAppear { companionConnectivityManager.logPairing("Pairing: iPad advertising for a new device") }
+        .onDisappear { companionConnectivityManager.logPairing("Pairing: iPad pairing screen closed") }
     }
 
     // MARK: - Viewer (iPhone) Pairing
@@ -113,10 +119,13 @@ struct CompanionPairingView: View {
                 .padding(.horizontal, 40)
 
             DevicePicker(
-                .wifiAware(.connecting(to: .selected([]), from: .aerocheck))
+                // `.userSpecifiedDevices` = browse for a NEW device to pair (the pairing flow). `.selected([])`
+                // browses for an empty set of already-paired devices → finds nothing. (v4.1 — SDK-verified fix)
+                .wifiAware(.connecting(to: .userSpecifiedDevices, from: .aerocheck))
             ) { endpoint in
                 // Pairing complete — dismiss the sheet
                 // The paired device is now remembered by the system
+                companionConnectivityManager.logPairing("Pairing: iPhone paired with a device")
                 dismiss()
             } label: {
                 HStack(spacing: 8) {
@@ -137,6 +146,8 @@ struct CompanionPairingView: View {
 
             Spacer()
         }
+        .onAppear { companionConnectivityManager.logPairing("Pairing: iPhone ready to scan — tap Scan for devices") }
+        .onDisappear { companionConnectivityManager.logPairing("Pairing: iPhone pairing screen closed") }
     }
     #endif
 

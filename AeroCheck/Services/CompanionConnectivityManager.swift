@@ -138,6 +138,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         return f
     }()
 
+    /// Log a pairing-phase event from the DeviceDiscoveryUI pairing views, which run as system UI
+    /// outside this manager — so the diagnostics panel shows the pairing attempt, not just connection. (v4.1)
+    func logPairing(_ message: String) { diag(message) }
+
     /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
     private func diag(_ message: String) {
         let line = "\(Self.diagTimeFormatter.string(from: Date()))  \(message)"

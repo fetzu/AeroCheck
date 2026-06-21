@@ -7,10 +7,17 @@ import WiFiAware
 /// Device pairing sheet for companion mode using Wi-Fi Aware
 /// Shows the system pairing UI: DevicePairingView for master (iPad), DevicePicker for viewer (iPhone)
 struct CompanionPairingView: View {
-    @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
     @Environment(\.dismiss) var dismiss
 
     let role: CompanionRole
+
+    /// Access the shared manager DIRECTLY (not `@EnvironmentObject`), so this view does NOT re-render on
+    /// the manager's `@Published` churn. The `.wifiAware(.connecting(...))` provider passed to
+    /// DevicePairingView/DevicePicker IS the live advertise/browse session — re-evaluating this body
+    /// recreates that provider and restarts discovery before pairing can complete. Observing the manager
+    /// (whose diagnostics/state publish frequently) would do exactly that. The view only CALLS the
+    /// manager (logPairing), it never displays its state, so it has no reason to observe it. (v4.1 pairing fix)
+    private var companionConnectivityManager: CompanionConnectivityManager { .shared }
 
     var body: some View {
         NavigationStack {

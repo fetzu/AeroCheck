@@ -639,10 +639,17 @@ class AppState: ObservableObject {
 
         syncManager.onSettingsUpdated = { [weak self] settings in
             Task { @MainActor in
-                self?.settings = settings
+                guard let self else { return }
+                // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
+                // always has them at their defaults); a wholesale assign would reset them on every sync —
+                // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
+                var merged = settings
+                merged.developerMode = self.settings.developerMode
+                merged.marketingMode = self.settings.marketingMode
+                self.settings = merged
                 // Save synced settings to file for future loads
-                self?.persistence.saveSettings(settings)
-                self?.syncAircraftType()
+                self.persistence.saveSettings(merged)
+                self.syncAircraftType()
                 AppLog.general.debugLine("Settings updated from iCloud sync")
             }
         }

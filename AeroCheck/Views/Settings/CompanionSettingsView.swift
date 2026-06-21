@@ -38,9 +38,10 @@ struct CompanionSettingsView: View {
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { loadSettings() }
         .onChange(of: enableCompanionMode) { if !isLoadingSettings { saveSettings() } }
-        .sheet(isPresented: $showPairingSheet) {
+        // Full-screen modal per Apple's DevicePicker hosting rule, and so the pairing UI lives in its own
+        // presentation that a settings re-render can't tear down / restart mid-discovery. (v4.1 pairing fix)
+        .fullScreenCover(isPresented: $showPairingSheet) {
             CompanionPairingView(role: deviceRole)
-                .environmentObject(companionConnectivityManager)
         }
     }
 

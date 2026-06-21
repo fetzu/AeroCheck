@@ -37,14 +37,14 @@ struct CompanionSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadSettings()
-            companionConnectivityManager.autoConnectIfReady()
+            companionConnectivityManager.autoConnectIfReady(force: true)   // opening the screen = user wants it on
         }
         .onChange(of: appState.settings) { loadSettings() }
         .onChange(of: enableCompanionMode) { _, on in
             guard !isLoadingSettings else { return }
             saveSettings()
             // Connect automatically when turned on; tear down when turned off. (v4.1 companion UX)
-            if on { companionConnectivityManager.autoConnectIfReady() }
+            if on { companionConnectivityManager.autoConnectIfReady(force: true) }
             else { companionConnectivityManager.disconnect() }
         }
         // Auto-close the pairing modal once pairing succeeds (a new paired device appears), returning to

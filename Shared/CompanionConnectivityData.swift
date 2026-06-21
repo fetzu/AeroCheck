@@ -66,6 +66,7 @@ struct CompanionMessage: Codable {
     enum MessageType: String, Codable {
         case flightData       // Master -> Viewer (periodic 1Hz)
         case flightPlanUpdate // Master -> Viewer (on change)
+        case checklistUpdate  // Master -> Viewer (current phase's items + highlight) — companion v2
         case command          // Viewer -> Master
         case disconnect       // Either direction (graceful)
         case peerGPS          // Viewer -> Master (the peer's GPS fix, when the master has none) — shared-GPS
@@ -299,4 +300,29 @@ enum CompanionCommand: Codable {
     case startChronometer
     case resetChronometer
     case ping
+    // Companion v2 — synced checklist control (the iPhone drives the iPad's shared checklist).
+    case advanceChecklistItem
+    case nextChecklistPhase
+    case previousChecklistPhase
+}
+
+// MARK: - Checklist Snapshot (Master -> Viewer)
+
+/// A single checklist line, mirrored to the viewer for display.
+struct CompanionChecklistItem: Codable, Identifiable, Equatable {
+    let id: String
+    let challenge: String
+    let response: String
+    let isHeader: Bool
+}
+
+/// The master's current checklist phase + its visible items + which item is highlighted, so the iPhone
+/// can show and advance the same checklist the iPad is on. (companion v2 — synced checklist)
+struct CompanionChecklistSnapshot: Codable, Equatable {
+    let phaseTitle: String        // e.g. "Preflight Check"
+    let phaseRawValue: Int        // ChecklistPhase.rawValue, for ordering/skip awareness
+    let highlightedIndex: Int     // index into `items` of the currently highlighted line
+    let visibleCount: Int         // number of non-header items (for "x / y" progress)
+    let completedCount: Int       // how many items have been worked through
+    let items: [CompanionChecklistItem]
 }

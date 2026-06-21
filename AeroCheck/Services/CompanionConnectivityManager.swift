@@ -66,6 +66,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var connectedDeviceName: String?
     @Published var lastReceivedData: CompanionFlightData?
     @Published var lastFlightPlanSnapshot: CompanionFlightPlanSnapshot?
+    /// The master's current checklist (phase + items + highlight), mirrored to the viewer so the iPhone
+    /// can show and drive the same checklist. (companion v2)
+    @Published var lastReceivedChecklist: CompanionChecklistSnapshot?
     /// The peer's most recent GPS fix (master side), used when this device has no own fix. (shared-GPS)
     @Published var receivedPeerGPS: CompanionPeerGPS?
     /// Which GPS the flight owner (master) is currently using — own, a borrowed peer fix, or none. (shared-GPS)
@@ -111,6 +114,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var sendFailureCount = 0
     private static let receiveStaleAfter: TimeInterval = 5.0
     private static let maxConsecutiveSendFailures = 3
+
+    /// Battery: drop the hot Wi-Fi Aware link if it's been connected with NO active flight for a while
+    /// (e.g. companion left on in the hangar). It re-establishes automatically on flight start or when
+    /// the user opens the Companion screen — but a passive foreground/launch won't silently re-arm it.
+    private var idleSince: Date?
+    private var idleDisconnected = false
+    private static let idleDisconnectAfter: TimeInterval = 600   // 10 min connected + no flight
 
     /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
     /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
@@ -313,6 +323,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             Task { @MainActor in
                 guard let self, self.connectionState == .connected, self.currentRole == .master else { return }
                 self.sendFlightData()
+                self.sendChecklistSnapshot()
                 self.checkForFlightPlanChanges()
             }
         }
@@ -330,8 +341,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// has to start it on BOTH devices. The iPad listens (always ready), the iPhone connects. Idempotent:
     /// a no-op unless currently disconnected with a paired device. Call at launch, on foreground, on
     /// enabling companion mode, and after pairing. (v4.1 companion UX)
-    func autoConnectIfReady() {
+    func autoConnectIfReady(force: Bool = false) {
         guard #available(iOS 26.0, *) else { return }
+        // `force` (flight start, or the user opening the Companion screen) clears an idle-disconnect; a
+        // passive foreground/launch (force == false) leaves it dropped so the battery saving sticks.
+        if force { idleDisconnected = false }
+        guard !idleDisconnected else { return }
         guard let appState, appState.settings.enableCompanionMode, hasPairedDevices else { return }
         guard connectionState == .disconnected else { return }
         switch CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom) {
@@ -366,6 +381,18 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         if let last = lastReceivedAt, Date().timeIntervalSince(last) > Self.receiveStaleAfter {
             diag("\(currentRole == .master ? "Master" : "Viewer"): no data for \(Int(Date().timeIntervalSince(last)))s — dropping")
             handleDisconnection(generation: connectionGeneration)
+            return
+        }
+        // Battery: master drops the hot link after a long idle stretch with no active flight. (v4.1)
+        if currentRole == .master, let appState, !appState.isFlightActive {
+            if idleSince == nil { idleSince = Date() }
+            else if Date().timeIntervalSince(idleSince!) > Self.idleDisconnectAfter {
+                diag("Master: idle \(Int(Self.idleDisconnectAfter/60)) min with no flight — disconnecting (battery)")
+                idleDisconnected = true
+                disconnect()
+            }
+        } else {
+            idleSince = nil
         }
     }
 
@@ -526,6 +553,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         currentRole = .none
         lastReceivedData = nil
         lastFlightPlanSnapshot = nil
+        lastReceivedChecklist = nil
         diag("Disconnected (user)")
     }
 
@@ -568,6 +596,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         stopConnectionHealthTimer()
         stopUpdates()
         sendFailureCount = 0
+        idleSince = nil
     }
 
     // MARK: - Message Sending (Length-Prefixed JSON)
@@ -611,6 +640,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         case .flightPlanUpdate:
             if let snapshot = try? JSONDecoder().decode(CompanionFlightPlanSnapshot.self, from: message.payload) {
                 lastFlightPlanSnapshot = snapshot
+            }
+
+        case .checklistUpdate:
+            if let snapshot = try? JSONDecoder().decode(CompanionChecklistSnapshot.self, from: message.payload) {
+                lastReceivedChecklist = snapshot
             }
 
         case .command:
@@ -670,24 +704,36 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         case .ping:
             break
+
+        // Companion v2 — synced checklist: drive the iPad's shared checklist from the iPhone. The iPad
+        // stays the source of truth; these mirror exactly what tapping on the iPad would do.
+        case .advanceChecklistItem:
+            if let appState { appState.advanceHighlightedItem(learningMode: appState.settings.learningMode) }
+
+        case .nextChecklistPhase:
+            appState?.nextPhase()
+
+        case .previousChecklistPhase:
+            appState?.previousPhase()
         }
     }
 
     // MARK: - Data Sending (Master)
 
-    /// Send initial flight data and plan when a companion first connects
+    /// Send initial flight data, plan, and checklist when a companion first connects
     private nonisolated func sendInitialData(send: @Sendable (CompanionMessage) async throws -> Void) async {
         // Create snapshots on main actor
-        let (flightData, planSnapshot) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?) in
-            guard let self else { return (nil, nil) }
-            let fd = self.createCurrentFlightData()
-            let ps = self.createCurrentFlightPlanSnapshot()
-            return (fd, ps)
+        let (flightData, planSnapshot, checklist) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?, CompanionChecklistSnapshot?) in
+            guard let self else { return (nil, nil, nil) }
+            return (self.createCurrentFlightData(), self.createCurrentFlightPlanSnapshot(), self.createChecklistSnapshot())
         }
 
-        // Send flight plan snapshot first, then current flight data (the Coder encodes each message).
+        // Send flight plan snapshot first, then checklist, then current flight data (the Coder encodes each).
         if let planSnapshot, let payload = try? JSONEncoder().encode(planSnapshot) {
             try? await send(CompanionMessage(type: .flightPlanUpdate, payload: payload))
+        }
+        if let checklist, let payload = try? JSONEncoder().encode(checklist) {
+            try? await send(CompanionMessage(type: .checklistUpdate, payload: payload))
         }
         if let flightData, let payload = try? JSONEncoder().encode(flightData) {
             try? await send(CompanionMessage(type: .flightData, payload: payload))
@@ -752,6 +798,41 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func createCurrentFlightPlanSnapshot() -> CompanionFlightPlanSnapshot? {
         guard let flightPlanManager, let plan = flightPlanManager.activeFlightPlan else { return nil }
         return createFlightPlanSnapshot(plan)
+    }
+
+    /// Master: snapshot the current checklist phase + its visible items + highlight, for the viewer to
+    /// show and drive. (companion v2 — synced checklist)
+    private func createChecklistSnapshot() -> CompanionChecklistSnapshot? {
+        guard let appState else { return nil }
+        let phase = appState.currentPhase
+        let learning = appState.settings.learningMode
+        let visible = appState.activeChecklist.visibleItems(for: phase, learningMode: learning)
+        let items = visible.map {
+            CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
+        }
+        let visibleCount = appState.activeChecklist.visibleItemCount(for: phase, learningMode: learning)
+        let highlighted = appState.getHighlightedItem(for: phase)
+        return CompanionChecklistSnapshot(
+            phaseTitle: phase.title,
+            phaseRawValue: phase.rawValue,
+            highlightedIndex: highlighted,
+            visibleCount: visibleCount,
+            completedCount: min(highlighted, visibleCount),
+            items: items
+        )
+    }
+
+    /// Master: stream the current checklist to the viewer (sent each tick alongside flight data — the
+    /// payload is small and the viewer needs it to stay in sync as items/phase advance).
+    private func sendChecklistSnapshot() {
+        guard sendHandler != nil, connectionState == .connected, currentRole == .master,
+              let snapshot = createChecklistSnapshot() else { return }
+        do {
+            let payload = try JSONEncoder().encode(snapshot)
+            sendMessage(CompanionMessage(type: .checklistUpdate, payload: payload))
+        } catch {
+            AppLog.companion.debugLine("Failed to encode checklist: \(error)")
+        }
     }
 
     private func createCompanionFlightData(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) -> CompanionFlightData {

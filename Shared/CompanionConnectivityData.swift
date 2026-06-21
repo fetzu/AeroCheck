@@ -19,9 +19,22 @@ enum CompanionRole: String, Codable {
     case none            // Not in companion mode
     case master          // iPad: broadcasting data
     case viewer          // iPhone: receiving data
+
+    /// The companion role for this device, derived purely from device type. There is NO user setting:
+    /// Wi-Fi Aware pairing is inherently asymmetric (one device must advertise, the other must browse),
+    /// so the role is assigned automatically — the iPad drives (master/advertises), the iPhone views
+    /// (viewer/browses). This matches the cockpit workflow and removes the footgun where two devices
+    /// could pick the same role and never discover each other. (v4.1 — pairing UX simplification)
+    static func automatic(for idiom: UIUserInterfaceIdiom) -> CompanionRole {
+        idiom == .pad ? .master : .viewer
+    }
 }
 
-/// User-facing role setting
+/// User-facing role setting.
+///
+/// DEPRECATED (v4.1): the role is now resolved automatically by device type via
+/// `CompanionRole.automatic(for:)` and is no longer user-selectable. This enum is retained only so the
+/// persisted `AppSettings.companionRole` field keeps decoding old saves; it is otherwise unused.
 enum CompanionRoleSetting: String, Codable, CaseIterable, Identifiable {
     case auto = "Auto"
     case primary = "Primary"
@@ -32,7 +45,7 @@ enum CompanionRoleSetting: String, Codable, CaseIterable, Identifiable {
     func resolvedRole(for idiom: UIUserInterfaceIdiom) -> CompanionRole {
         switch self {
         case .auto:
-            return idiom == .pad ? .master : .viewer
+            return CompanionRole.automatic(for: idiom)
         case .primary:
             return .master
         case .companion:

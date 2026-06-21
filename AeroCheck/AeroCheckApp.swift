@@ -267,7 +267,7 @@ struct AeroCheckApp: App {
 
             // Start companion listening/updates if enabled
             if appState.settings.enableCompanionMode {
-                let role = appState.settings.companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
+                let role = CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom)
                 if role == .master {
                     companionConnectivityManager.startListening()
                     companionConnectivityManager.startUpdates(

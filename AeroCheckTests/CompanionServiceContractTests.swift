@@ -44,6 +44,15 @@ final class CompanionServiceContractTests: XCTestCase {
             "A ._tcp service name must never reappear in WiFiAwareServices — it traps the WiFiAware parser on flight start")
     }
 
+    // MARK: - Automatic pairing role (v4.1 — pairing UX simplification)
+
+    func testCompanionRoleIsAutomaticByDeviceType() {
+        // Wi-Fi Aware pairing is asymmetric; the role is derived from device type, not a user setting,
+        // so two devices can never accidentally take the same role and fail to discover each other.
+        XCTAssertEqual(CompanionRole.automatic(for: .pad), .master, "iPad drives / advertises")
+        XCTAssertEqual(CompanionRole.automatic(for: .phone), .viewer, "iPhone connects / browses")
+    }
+
     // MARK: - Shared GPS: source election (v4.1)
 
     func testElectionPrefersOwnGPS() {

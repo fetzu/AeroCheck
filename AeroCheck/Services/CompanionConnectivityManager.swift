@@ -83,6 +83,16 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     @Published var pairedDevices: [CompanionPairedDevice] = []
     @Published var isWiFiAwareSupported: Bool = false
 
+    /// Rolling, newest-first log of companion lifecycle events (advertise/browse/connect/disconnect/
+    /// errors), surfaced in the dev-only diagnostics panel so a failed pairing/connection can be
+    /// inspected on-device without a debugger. Capped to the most recent entries. (v4.1 diagnostics)
+    @Published private(set) var diagnostics: [String] = []
+    private static let diagnosticsCap = 50
+
+    /// The Wi-Fi Aware service name both roles advertise/browse — surfaced in diagnostics so a service
+    /// mismatch (e.g. an old build on one device) is visible. (v4.1 diagnostics)
+    var serviceName: String { companionWiFiAwareServiceName }
+
     // MARK: - Private Properties
 
     /// Closure to send framed data over the active connection (avoids storing generic NetworkConnection)
@@ -113,8 +123,29 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // object) but stays inert: no Wi-Fi Aware symbol is ever touched. (ARCH-09)
         if #available(iOS 26.0, *) {
             isWiFiAwareSupported = WACapabilities.supportedFeatures.contains(.wifiAware)
+            diag("Wi-Fi Aware supported: \(isWiFiAwareSupported)")
             startMonitoringPairedDevices()
+        } else {
+            diag("Wi-Fi Aware unavailable (needs iOS/iPadOS 26)")
         }
+    }
+
+    // MARK: - Diagnostics (v4.1)
+
+    private static let diagTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    /// Record a companion lifecycle event for the dev diagnostics panel (newest first) and the log.
+    private func diag(_ message: String) {
+        let line = "\(Self.diagTimeFormatter.string(from: Date()))  \(message)"
+        diagnostics.insert(line, at: 0)
+        if diagnostics.count > Self.diagnosticsCap {
+            diagnostics.removeLast(diagnostics.count - Self.diagnosticsCap)
+        }
+        AppLog.companion.debugLine(message)
     }
 
     // MARK: - Paired Device Monitoring
@@ -129,11 +160,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         CompanionPairedDevice(name: $0.name, pairingName: $0.pairingInfo?.pairingName)
                     }
                     await MainActor.run {
-                        self?.pairedDevices = mapped
+                        guard let self else { return }
+                        if self.pairedDevices.count != mapped.count {
+                            self.diag("Paired devices: \(mapped.count) (\(mapped.compactMap(\.name).joined(separator: ", ")))")
+                        }
+                        self.pairedDevices = mapped
                     }
                 }
             } catch {
-                AppLog.companion.debugLine("Paired devices monitoring error: \(error)")
+                await MainActor.run { self?.diag("Paired-devices monitor error — \(error.localizedDescription)") }
             }
         }
     }
@@ -151,10 +186,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         currentRole = .master
         connectionState = .connecting
+        diag("Master: start listening (advertising '\(serviceName)')")
 
         // Wi-Fi Aware listening requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
+            diag("Master: aborted — Wi-Fi Aware needs iOS 26")
             return
         }
 
@@ -186,7 +223,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.sendHandler = send
                         self.connectionState = .connected
                         self.connectedDeviceName = L10n.Companion.companionDevice
-                        AppLog.companion.debugLine("Companion connected")
+                        self.diag("Master: companion connected")
                         return self.connectionGeneration
                     }
 
@@ -225,9 +262,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
 
-            AppLog.companion.debugLine("Started Wi-Fi Aware listener")
+            diag("Master: listener started, awaiting companion")
         } catch {
-            AppLog.companion.debugLine("Failed to create listener: \(error)")
+            diag("Master: listener FAILED — \(error.localizedDescription)")
             connectionState = .disconnected
         }
     }
@@ -280,10 +317,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
         currentRole = .viewer
         connectionState = .connecting
+        diag("Viewer: browsing for iPad ('\(serviceName)')")
 
         // Wi-Fi Aware browsing requires iOS 26+. Below that, stay inert. (ARCH-09)
         guard #available(iOS 26.0, *) else {
             connectionState = .disconnected
+            diag("Viewer: aborted — Wi-Fi Aware needs iOS 26")
             return
         }
 
@@ -319,7 +358,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     self?.sendHandler = send
                     self?.connectionState = .connected
                     self?.connectedDeviceName = self?.pairedDevices.first?.name ?? L10n.Companion.masterDevice
-                    AppLog.companion.debugLine("Connected to master")
+                    self?.diag("Viewer: connected to iPad")
                 }
 
                 // Receive messages until connection ends
@@ -354,7 +393,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             } catch {
                 await MainActor.run {
                     guard let self, self.connectionGeneration == myGeneration else { return }
-                    AppLog.companion.debugLine("Browser/connection error: \(error)")
+                    self.diag("Viewer: browse/connect error — \(error.localizedDescription); retrying")
                     self.connectionState = .reconnecting
                     // Auto-retry after delay, only while this attempt is still the current one. (PR-15)
                     Task { @MainActor in
@@ -409,7 +448,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         currentRole = .none
         lastReceivedData = nil
         lastFlightPlanSnapshot = nil
-        AppLog.companion.debugLine("Disconnected")
+        diag("Disconnected (user)")
     }
 
     /// Switch from companion mode back to standalone

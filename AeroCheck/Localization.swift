@@ -1184,11 +1184,29 @@ enum L10n {
         static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
         static let scanForDevices = String(localized: "companion.scanForDevices")
 
+        // Pairing guidance (role is automatic by device type)
+        static let pairingGuidanceMaster = String(localized: "companion.pairingGuidanceMaster")
+        static let pairingGuidanceViewer = String(localized: "companion.pairingGuidanceViewer")
+
         // Wi-Fi Aware
         static let wifiAwareUnavailable = String(localized: "companion.wifiAwareUnavailable")
         static let wifiAwareRequirement = String(localized: "companion.wifiAwareRequirement")
         static let wifiAwareInfo = String(localized: "companion.wifiAwareInfo")
         static let noNetworkRequired = String(localized: "companion.noNetworkRequired")
+
+        // Diagnostics (developer mode)
+        static let diagnostics = String(localized: "companion.diagnostics")
+        static let diagnosticsFooter = String(localized: "companion.diagnosticsFooter")
+        static let diagWifiAware = String(localized: "companion.diagWifiAware")
+        static let diagSupported = String(localized: "companion.diagSupported")
+        static let diagUnsupported = String(localized: "companion.diagUnsupported")
+        static let diagThisDevice = String(localized: "companion.diagThisDevice")
+        static let diagConnection = String(localized: "companion.diagConnection")
+        static let diagService = String(localized: "companion.diagService")
+        static let diagRoleMaster = String(localized: "companion.diagRoleMaster")
+        static let diagRoleViewer = String(localized: "companion.diagRoleViewer")
+        static let diagNoEvents = String(localized: "companion.diagNoEvents")
+        static let diagCopy = String(localized: "companion.diagCopy")
 
         // Flight view
         static let connectionLost = String(localized: "companion.connectionLost")

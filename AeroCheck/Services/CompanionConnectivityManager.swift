@@ -95,8 +95,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Private Properties
 
-    /// Closure to send framed data over the active connection (avoids storing generic NetworkConnection)
-    private var sendHandler: (@Sendable (Data) async throws -> Void)?
+    /// Closure to send a typed message over the active connection. The connection uses a JSON Coder over
+    /// UDP (matching the `._udp` Wi-Fi Aware service + Apple's sample), so we hand it a `CompanionMessage`
+    /// and the Coder frames/encodes it — no manual length-prefix framing. (v4.1 — was TLS/TCP, which
+    /// never carried data over the UDP datapath.)
+    private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
     private var updateTimer: Timer?
     private var lastSentFlightPlanId: UUID?
 
@@ -218,7 +221,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             let listener = try NetworkListener(
                 for: .wifiAware(.connecting(to: .aerocheck, from: .matching(deviceFilter))),
                 using: .parameters {
-                    TLS()
+                    // JSON messages over UDP — matches the ._udp Wi-Fi Aware service and Apple's sample.
+                    Coder(receiving: CompanionMessage.self, sending: CompanionMessage.self, using: NetworkJSONCoder()) {
+                        UDP()
+                    }
                 }
                 .wifiAware { $0.performanceMode = .realtime }
                 .serviceClass(.interactiveVideo)
@@ -229,8 +235,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     guard let self else { return }
 
                     // Capture send capability before entering main actor
-                    let send: @Sendable (Data) async throws -> Void = { data in
-                        try await connection.send(data)
+                    let send: @Sendable (CompanionMessage) async throws -> Void = { msg in
+                        try await connection.send(msg)
                     }
 
                     // New companion connected — update state on main actor and capture this
@@ -251,23 +257,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     // Send initial flight data and plan
                     await self.sendInitialData(send: send)
 
-                    // Receive messages until connection ends
+                    // Receive typed messages until the connection ends (the Coder decodes each one).
                     do {
-                        while !Task.isCancelled {
-                            let lengthData = try await connection.receive(exactly: 4).content
-                            let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-
-                            guard length > 0 && length < 1_000_000 else {
-                                AppLog.companion.debugLine("Invalid message length: \(length)")
-                                break
-                            }
-
-                            let messageData = try await connection.receive(exactly: Int(length)).content
-
-                            if let message = try? JSONDecoder().decode(CompanionMessage.self, from: messageData) {
-                                await MainActor.run {
-                                    self.handleReceivedMessage(message)
-                                }
+                        for try await (message, _) in connection.messages {
+                            await MainActor.run {
+                                self.handleReceivedMessage(message)
                             }
                         }
                     } catch {
@@ -422,16 +416,18 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     return .continue
                 }
 
-                // Create connection to the master
+                // Create connection to the master — JSON messages over UDP (matches the listener + service).
                 let connection = NetworkConnection(to: endpoint, using: .parameters {
-                    TLS()
+                    Coder(receiving: CompanionMessage.self, sending: CompanionMessage.self, using: NetworkJSONCoder()) {
+                        UDP()
+                    }
                 }
                 .wifiAware { $0.performanceMode = .realtime }
                 .serviceClass(.interactiveVideo))
 
                 // Capture send capability
-                let send: @Sendable (Data) async throws -> Void = { data in
-                    try await connection.send(data)
+                let send: @Sendable (CompanionMessage) async throws -> Void = { msg in
+                    try await connection.send(msg)
                 }
 
                 await MainActor.run {
@@ -445,23 +441,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     self.diag("Viewer: connected to iPad")
                 }
 
-                // Receive messages until connection ends
+                // Receive typed messages until the connection ends (the Coder decodes each one).
                 do {
-                    while !Task.isCancelled {
-                        let lengthData = try await connection.receive(exactly: 4).content
-                        let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-
-                        guard length > 0 && length < 1_000_000 else {
-                            AppLog.companion.debugLine("Invalid message length: \(length)")
-                            break
-                        }
-
-                        let messageData = try await connection.receive(exactly: Int(length)).content
-
-                        if let message = try? JSONDecoder().decode(CompanionMessage.self, from: messageData) {
-                            await MainActor.run { [weak self] in
-                                self?.handleReceivedMessage(message)
-                            }
+                    for try await (message, _) in connection.messages {
+                        await MainActor.run { [weak self] in
+                            self?.handleReceivedMessage(message)
                         }
                     }
                 } catch {
@@ -580,25 +564,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     private func sendMessage(_ message: CompanionMessage) {
         guard let sendHandler else { return }
-
-        do {
-            let data = try JSONEncoder().encode(message)
-            var length = UInt32(data.count).bigEndian
-            var frame = Data(bytes: &length, count: 4)
-            frame.append(data)
-
-            let gen = connectionGeneration
-            Task {
-                do {
-                    try await sendHandler(frame)
-                    await MainActor.run { self.sendFailureCount = 0 }
-                } catch {
-                    // A failing send means the peer is gone — surface it instead of swallowing. (v4.1)
-                    await MainActor.run { self.noteSendFailure(generation: gen) }
-                }
+        let gen = connectionGeneration
+        Task {
+            do {
+                try await sendHandler(message)   // the Coder encodes/frames it
+                await MainActor.run { self.sendFailureCount = 0 }
+            } catch {
+                // A failing send means the peer is gone — surface it instead of swallowing. (v4.1)
+                await MainActor.run { self.noteSendFailure(generation: gen) }
             }
-        } catch {
-            AppLog.companion.debugLine("Failed to encode message: \(error)")
         }
     }
 
@@ -692,7 +666,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // MARK: - Data Sending (Master)
 
     /// Send initial flight data and plan when a companion first connects
-    private nonisolated func sendInitialData(send: @Sendable (Data) async throws -> Void) async {
+    private nonisolated func sendInitialData(send: @Sendable (CompanionMessage) async throws -> Void) async {
         // Create snapshots on main actor
         let (flightData, planSnapshot) = await MainActor.run { [weak self] () -> (CompanionFlightData?, CompanionFlightPlanSnapshot?) in
             guard let self else { return (nil, nil) }
@@ -701,26 +675,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             return (fd, ps)
         }
 
-        // Send flight plan snapshot first
+        // Send flight plan snapshot first, then current flight data (the Coder encodes each message).
         if let planSnapshot, let payload = try? JSONEncoder().encode(planSnapshot) {
-            let message = CompanionMessage(type: .flightPlanUpdate, payload: payload)
-            if let data = try? JSONEncoder().encode(message) {
-                var length = UInt32(data.count).bigEndian
-                var frame = Data(bytes: &length, count: 4)
-                frame.append(data)
-                try? await send(frame)
-            }
+            try? await send(CompanionMessage(type: .flightPlanUpdate, payload: payload))
         }
-
-        // Send current flight data
         if let flightData, let payload = try? JSONEncoder().encode(flightData) {
-            let message = CompanionMessage(type: .flightData, payload: payload)
-            if let data = try? JSONEncoder().encode(message) {
-                var length = UInt32(data.count).bigEndian
-                var frame = Data(bytes: &length, count: 4)
-                frame.append(data)
-                try? await send(frame)
-            }
+            try? await send(CompanionMessage(type: .flightData, payload: payload))
         }
     }
 

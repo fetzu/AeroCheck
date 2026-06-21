@@ -102,6 +102,9 @@ struct AeroCheckApp: App {
                         locationManager: locationManager,
                         flightPlanManager: flightPlanManager
                     )
+                    // Auto-connect if companion mode is on and a device is paired — the user shouldn't
+                    // have to start it on both devices. (v4.1 companion UX)
+                    companionConnectivityManager.autoConnectIfReady()
 
                     // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
                     // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
@@ -193,6 +196,8 @@ struct AeroCheckApp: App {
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
+                    // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
+                    companionConnectivityManager.autoConnectIfReady()
                 }
             }
         }
@@ -265,27 +270,17 @@ struct AeroCheckApp: App {
                 flightPlanManager: flightPlanManager
             )
 
-            // Start companion listening/updates if enabled
-            if appState.settings.enableCompanionMode {
-                let role = CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom)
-                if role == .master {
-                    companionConnectivityManager.startListening()
-                    companionConnectivityManager.startUpdates(
-                        appState: appState,
-                        locationManager: locationManager,
-                        flightPlanManager: flightPlanManager
-                    )
-                }
-            }
+            // Ensure the companion link is up (no-op if already connected). The connection is now tied to
+            // companion-mode-enabled + paired, NOT to the flight — it's a persistent second screen that
+            // shows the flight when one is running and an idle state otherwise. The master streams on
+            // connect, so starting a flight just changes WHAT is streamed. (v4.1 companion)
+            companionConnectivityManager.autoConnectIfReady()
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()
 
-            // End companion mode gracefully: disconnect() sends a .disconnect message to a connected
-            // viewer (which drops it to .disconnected) BEFORE teardown, so the viewer doesn't sit in
-            // an unbounded reconnect loop against a master that has stopped listening. Also stops the
-            // update timer + listener. Inert no-op when no companion session is active.
-            companionConnectivityManager.disconnect()
+            // Companion mode deliberately STAYS connected across flights (persistent second screen). It is
+            // torn down only by disabling companion mode, tapping Disconnect, or quitting — not here.
         }
     }
 }

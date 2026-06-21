@@ -35,9 +35,23 @@ struct CompanionSettingsView: View {
         }
         .navigationTitle(L10n.Companion.companionMode)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadSettings() }
+        .onAppear {
+            loadSettings()
+            companionConnectivityManager.autoConnectIfReady()
+        }
         .onChange(of: appState.settings) { loadSettings() }
-        .onChange(of: enableCompanionMode) { if !isLoadingSettings { saveSettings() } }
+        .onChange(of: enableCompanionMode) { _, on in
+            guard !isLoadingSettings else { return }
+            saveSettings()
+            // Connect automatically when turned on; tear down when turned off. (v4.1 companion UX)
+            if on { companionConnectivityManager.autoConnectIfReady() }
+            else { companionConnectivityManager.disconnect() }
+        }
+        // Auto-close the pairing modal once pairing succeeds (a new paired device appears), returning to
+        // this screen instead of leaving the user stranded on the system "paired" sheet. (v4.1)
+        .onChange(of: companionConnectivityManager.pairedDevices.count) { old, new in
+            if new > old && showPairingSheet { showPairingSheet = false }
+        }
         // Full-screen modal per Apple's DevicePicker hosting rule, and so the pairing UI lives in its own
         // presentation that a settings re-render can't tear down / restart mid-discovery. (v4.1 pairing fix)
         .fullScreenCover(isPresented: $showPairingSheet) {
@@ -70,9 +84,10 @@ struct CompanionSettingsView: View {
                                  tint: tint, value: "")
             } else {
                 ForEach(companionConnectivityManager.pairedDevices) { device in
+                    // Single line: `name` and `pairingName` are usually identical, so showing both is
+                    // redundant. Prefer whichever is present. (v4.1)
                     SettingsRowLabel(icon: "checkmark.circle.fill",
-                                     title: device.name ?? L10n.Companion.unknownDevice,
-                                     subtitle: device.pairingName,
+                                     title: device.name ?? device.pairingName ?? L10n.Companion.unknownDevice,
                                      tint: .aviationGreen)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)

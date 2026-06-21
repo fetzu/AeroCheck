@@ -7,6 +7,7 @@ struct CompanionFlightView: View {
 
     @State private var editingGSWaypointIndex: Int? = nil
     @State private var gsEditText: String = ""
+    @State private var isHoldingExit = false   // hold COMPANION badge to leave companion mode
     @State private var now = Date()
     private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -79,6 +80,17 @@ struct CompanionFlightView: View {
                     .padding(.vertical, 2)
                     .background(Color.aviationGold)
                     .clipShape(RoundedRectangle(cornerRadius: 3))
+                    .scaleEffect(isHoldingExit ? 0.9 : 1.0)
+                    .opacity(isHoldingExit ? 0.6 : 1.0)
+                    // Hold to leave companion mode (mirrors the hold-to-abandon-flight gesture). (v4.1)
+                    .onLongPressGesture(minimumDuration: 1.0, pressing: { pressing in
+                        withAnimation(.easeInOut(duration: 0.15)) { isHoldingExit = pressing }
+                    }, perform: {
+                        isHoldingExit = false
+                        companionConnectivityManager.switchToStandalone()
+                    })
+                    .accessibilityLabel(L10n.Companion.companionMode)
+                    .accessibilityHint(L10n.Companion.holdToExit)
 
                 Text(flightData?.aircraftRegistration ?? "---")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
@@ -89,16 +101,18 @@ struct CompanionFlightView: View {
                 gpsIndicator
             }
 
-            if let deviceName = companionConnectivityManager.connectedDeviceName {
-                HStack {
+            HStack {
+                if let deviceName = companionConnectivityManager.connectedDeviceName {
                     Image(systemName: "link")
                         .font(.system(size: 9))
                     Text(deviceName)
                         .font(.system(size: 11))
-                    Spacer()
                 }
-                .foregroundColor(.secondaryText)
+                Spacer()
+                Text(L10n.Companion.holdToExit)
+                    .font(.system(size: 10))
             }
+            .foregroundColor(.secondaryText)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

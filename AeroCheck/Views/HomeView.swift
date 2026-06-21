@@ -274,6 +274,13 @@ struct HomeView: View {
             // Refresh the data-currency status: a download made during onboarding (or in the data hub)
             // happens without a scenePhase change, so the Home indicator would otherwise stay stale. (bug)
             dataStatusManager.recompute()
+            // Warm up GPS on the pre-flight screen so the FIRST flight-start tap already has a fix and
+            // doesn't bounce off "Acquiring GPS…". No-op until authorized (startTracking still prompts).
+            // (v4.1 — fixes the systematic first-try GPS warning)
+            if locationManager.authorizationStatus == .authorizedWhenInUse
+                || locationManager.authorizationStatus == .authorizedAlways {
+                locationManager.startLocationUpdates()
+            }
         }
         .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
             get: { appState.flightStartError != nil },

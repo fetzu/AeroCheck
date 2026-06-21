@@ -1215,6 +1215,7 @@ enum L10n {
         // Flight view
         static let connectionLost = String(localized: "companion.connectionLost")
         static let switchToStandalone = String(localized: "companion.switchToStandalone")
+        static let holdToExit = String(localized: "companion.holdToExit")
         static let keepTrying = String(localized: "companion.keepTrying")
         static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")

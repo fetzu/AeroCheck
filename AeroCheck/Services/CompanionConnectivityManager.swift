@@ -100,6 +100,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var updateTimer: Timer?
     private var lastSentFlightPlanId: UUID?
 
+    /// Connection-health watchdog (v4.1): without it, a peer that quit/backgrounded leaves the other side
+    /// showing "Connected" for minutes (the TCP/Wi-Fi Aware drop is slow to surface). The viewer treats a
+    /// gap in the master's ~1 Hz stream as a drop; the master treats repeated send failures as a drop.
+    private var connectionHealthTimer: Timer?
+    private var lastReceivedAt: Date?
+    private var sendFailureCount = 0
+    private static let receiveStaleAfter: TimeInterval = 5.0
+    private static let maxConsecutiveSendFailures = 3
+
     /// Monotonic token identifying the current connection attempt. Each new connect/accept bumps it
     /// and captures the value; a stale connection's teardown (its receive loop ending *after* a
     /// newer connection has already taken over) carries an older token and is ignored — so it can't
@@ -230,8 +239,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                         self.connectionGeneration += 1
                         self.sendHandler = send
                         self.connectionState = .connected
-                        self.connectedDeviceName = L10n.Companion.companionDevice
-                        self.diag("Master: companion connected")
+                        self.connectedDeviceName = self.pairedDevices.first?.name ?? L10n.Companion.companionDevice
+                        self.sendFailureCount = 0
+                        self.lastReceivedAt = Date()
+                        self.startSendTimer()              // stream state 1 Hz while connected (flight or not)
+                        self.startConnectionHealthTimer()
+                        self.diag("Master: companion connected (\(self.connectedDeviceName ?? "?"))")
                         return self.connectionGeneration
                     }
 
@@ -291,16 +304,20 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         self.flightPlanManager = flightPlanManager
     }
 
-    /// Start sending periodic updates to the companion (master)
+    /// Wire data sources + ensure the master is streaming if already connected. The 1 Hz stream now
+    /// starts on CONNECT (startSendTimer), not on flight start, so the viewer stays in sync the whole
+    /// time the link is up — flight or not. (v4.1 companion)
     func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         configure(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+        if connectionState == .connected, currentRole == .master { startSendTimer() }
+    }
 
+    /// Master: push current state to the viewer every second while connected (flight or not).
+    private func startSendTimer() {
         stopUpdates()
-
-        // Start periodic updates (every 1 second)
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.connectionState == .connected else { return }
+                guard let self, self.connectionState == .connected, self.currentRole == .master else { return }
                 self.sendFlightData()
                 self.checkForFlightPlanChanges()
             }
@@ -311,6 +328,61 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     func stopUpdates() {
         updateTimer?.invalidate()
         updateTimer = nil
+    }
+
+    // MARK: - Auto-connect & connection health (v4.1)
+
+    /// Connect automatically when companion mode is enabled and a device is paired — so the user never
+    /// has to start it on BOTH devices. The iPad listens (always ready), the iPhone connects. Idempotent:
+    /// a no-op unless currently disconnected with a paired device. Call at launch, on foreground, on
+    /// enabling companion mode, and after pairing. (v4.1 companion UX)
+    func autoConnectIfReady() {
+        guard #available(iOS 26.0, *) else { return }
+        guard let appState, appState.settings.enableCompanionMode, hasPairedDevices else { return }
+        guard connectionState == .disconnected else { return }
+        switch CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom) {
+        case .master: startListening()
+        case .viewer: connectToPairedDevice()
+        case .none: break
+        }
+    }
+
+    private func startConnectionHealthTimer() {
+        connectionHealthTimer?.invalidate()
+        // .common mode so it keeps firing during scroll/gesture tracking. (cf. PR-21)
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkConnectionHealth() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        connectionHealthTimer = timer
+    }
+
+    private func stopConnectionHealthTimer() {
+        connectionHealthTimer?.invalidate()
+        connectionHealthTimer = nil
+    }
+
+    /// Viewer: if the master's ~1 Hz stream stops, the master quit/backgrounded — drop so the UI shows
+    /// the interrupted state and the auto-reconnect can take over (rather than showing "Connected" for
+    /// minutes while the OS-level drop slowly surfaces). The master uses send-failure (noteSendFailure).
+    private func checkConnectionHealth() {
+        guard connectionState == .connected else { stopConnectionHealthTimer(); return }
+        if currentRole == .viewer, let last = lastReceivedAt,
+           Date().timeIntervalSince(last) > Self.receiveStaleAfter {
+            diag("Viewer: no data for \(Int(Date().timeIntervalSince(last)))s — dropping (will reconnect)")
+            handleDisconnection(generation: connectionGeneration)
+        }
+    }
+
+    /// Master/viewer: repeated send failures mean the peer is gone — drop the connection.
+    private func noteSendFailure(generation: Int) {
+        guard generation == connectionGeneration, connectionState == .connected else { return }
+        sendFailureCount += 1
+        if sendFailureCount >= Self.maxConsecutiveSendFailures {
+            diag("\(currentRole == .master ? "Master" : "Viewer"): send failing — dropping connection")
+            sendFailureCount = 0
+            handleDisconnection(generation: generation)
+        }
     }
 
     // MARK: - Viewer (iPhone) Methods
@@ -363,10 +435,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
 
                 await MainActor.run {
-                    self?.sendHandler = send
-                    self?.connectionState = .connected
-                    self?.connectedDeviceName = self?.pairedDevices.first?.name ?? L10n.Companion.masterDevice
-                    self?.diag("Viewer: connected to iPad")
+                    guard let self else { return }
+                    self.sendHandler = send
+                    self.connectionState = .connected
+                    self.connectedDeviceName = self.pairedDevices.first?.name ?? L10n.Companion.masterDevice
+                    self.sendFailureCount = 0
+                    self.lastReceivedAt = Date()
+                    self.startConnectionHealthTimer()
+                    self.diag("Viewer: connected to iPad")
                 }
 
                 // Receive messages until connection ends
@@ -495,6 +571,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     private func cleanupConnection() {
         sendHandler = nil
+        stopConnectionHealthTimer()
+        stopUpdates()
+        sendFailureCount = 0
     }
 
     // MARK: - Message Sending (Length-Prefixed JSON)
@@ -508,8 +587,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             var frame = Data(bytes: &length, count: 4)
             frame.append(data)
 
+            let gen = connectionGeneration
             Task {
-                try? await sendHandler(frame)
+                do {
+                    try await sendHandler(frame)
+                    await MainActor.run { self.sendFailureCount = 0 }
+                } catch {
+                    // A failing send means the peer is gone — surface it instead of swallowing. (v4.1)
+                    await MainActor.run { self.noteSendFailure(generation: gen) }
+                }
             }
         } catch {
             AppLog.companion.debugLine("Failed to encode message: \(error)")
@@ -519,6 +605,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     // MARK: - Message Handling
 
     private func handleReceivedMessage(_ message: CompanionMessage) {
+        lastReceivedAt = Date()   // any inbound traffic = the link is alive (connection-health watchdog)
         switch message.type {
         case .flightData:
             if let flightData = try? JSONDecoder().decode(CompanionFlightData.self, from: message.payload) {

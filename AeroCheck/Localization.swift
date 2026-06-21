@@ -1216,6 +1216,11 @@ enum L10n {
         static let connectionLost = String(localized: "companion.connectionLost")
         static let switchToStandalone = String(localized: "companion.switchToStandalone")
         static let holdToExit = String(localized: "companion.holdToExit")
+        // Companion v2 wingman
+        static let providingGPS = String(localized: "companion.providingGPS")
+        static let checklistUnavailable = String(localized: "companion.checklistUnavailable")
+        static let checkAndNext = String(localized: "companion.checkAndNext")
+        static let nextPhase = String(localized: "companion.nextPhase")
         static let keepTrying = String(localized: "companion.keepTrying")
         static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")

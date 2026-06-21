@@ -1,35 +1,41 @@
 import SwiftUI
 
-/// Full-screen iPhone companion view — digital navigation log
-/// Shows route table with live ETOs, ATO recording, instrument data from the master iPad
+/// Full-screen iPhone companion — the "wingman" second screen. Two glanceable modes the pilot swipes
+/// between (NAV | CHECKLIST), defaulting by flight phase: CHECKLIST on the ground, NAV in the air.
+/// - NAV: the next checkpoint as a track-up turn arrow + bearing/distance/ETE, with the plan, freqs and
+///   chronometer on progressive disclosure.
+/// - CHECKLIST: the current item with a CHECK & NEXT that drives the iPad's shared checklist (synced).
 struct CompanionFlightView: View {
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
 
-    @State private var editingGSWaypointIndex: Int? = nil
-    @State private var gsEditText: String = ""
-    @State private var isHoldingExit = false   // hold COMPANION badge to leave companion mode
+    enum Mode: Hashable { case nav, checklist }
+    @State private var mode: Mode = .checklist
+    @State private var userPickedMode = false   // once the pilot swipes/taps, stop auto-switching by phase
+    @State private var autoSetting = false       // guards the programmatic mode change from being read as a user pick
+    @State private var showFullPlan = false
+    @State private var isHoldingExit = false
     @State private var now = Date()
-    private let staleTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    private var flightData: CompanionFlightData? {
-        companionConnectivityManager.lastReceivedData
+    private var flightData: CompanionFlightData? { companionConnectivityManager.lastReceivedData }
+    private var flightPlan: CompanionFlightPlanSnapshot? { companionConnectivityManager.lastFlightPlanSnapshot }
+    private var checklist: CompanionChecklistSnapshot? { companionConnectivityManager.lastReceivedChecklist }
+
+    /// In the air = lined up and not yet landed. Drives the auto NAV/CHECKLIST default.
+    private var isAirborne: Bool {
+        guard let d = flightData else { return false }
+        return d.lineUpTime != nil && d.landingTime == nil
     }
 
-    /// True when an active flight's live data hasn't refreshed within the stale window — i.e. the
-    /// link is nominally connected but the values are frozen. Re-evaluated each second. (UX-05)
     private var isDataStale: Bool {
-        guard let data = flightData, data.isFlightActive else { return false }
-        return now.timeIntervalSince(data.timestamp) > 5
-    }
-
-    private var flightPlan: CompanionFlightPlanSnapshot? {
-        companionConnectivityManager.lastFlightPlanSnapshot
+        guard let d = flightData, d.isFlightActive else { return false }
+        return now.timeIntervalSince(d.timestamp) > 5
     }
 
     var body: some View {
         VStack(spacing: 0) {
             headerBar
-            statusStrip
+            modeSwitcher
 
             if companionConnectivityManager.connectionState == .reconnecting ||
                companionConnectivityManager.connectionState == .disconnected {
@@ -38,37 +44,29 @@ struct CompanionFlightView: View {
                 staleBanner
             }
 
-            if let plan = flightPlan {
-                routeTable(plan)
-            } else {
-                noFlightPlanContent
+            TabView(selection: $mode) {
+                navMode.tag(Mode.nav)
+                checklistMode.tag(Mode.checklist)
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
 
-            nextWaypointSummary
-            actionBar
-            instrumentsStrip
-                .opacity(isDataStale ? 0.4 : 1)
+            instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
         }
         .background(Color.cockpitBackground)
         .preferredColorScheme(.dark)
-        .onReceive(staleTimer) { now = $0 }
+        .onReceive(tick) { now = $0 }
+        .onAppear { applyAutoMode() }
+        .onChange(of: isAirborne) { applyAutoMode() }
+        .onChange(of: mode) { if autoSetting { autoSetting = false } else { userPickedMode = true } }
     }
 
-    /// Shown when the link is connected but live data has gone stale (frozen). (UX-05)
-    private var staleBanner: some View {
-        HStack {
-            Image(systemName: "wifi.exclamationmark")
-            Text(L10n.Companion.dataStale)
-                .font(.system(size: 13, weight: .semibold))
-            Spacer()
-        }
-        .foregroundColor(.black)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.aviationAmber)
+    private func applyAutoMode() {
+        guard !userPickedMode else { return }
+        let target: Mode = isAirborne ? .nav : .checklist
+        if mode != target { autoSetting = true; mode = target }
     }
 
-    // MARK: - Header Bar
+    // MARK: - Header
 
     private var headerBar: some View {
         VStack(spacing: 2) {
@@ -76,15 +74,13 @@ struct CompanionFlightView: View {
                 Text("COMPANION")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.cockpitBackground)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Color.aviationGold)
                     .clipShape(RoundedRectangle(cornerRadius: 3))
                     .scaleEffect(isHoldingExit ? 0.9 : 1.0)
                     .opacity(isHoldingExit ? 0.6 : 1.0)
-                    // Hold to leave companion mode (mirrors the hold-to-abandon-flight gesture). (v4.1)
-                    .onLongPressGesture(minimumDuration: 1.0, pressing: { pressing in
-                        withAnimation(.easeInOut(duration: 0.15)) { isHoldingExit = pressing }
+                    .onLongPressGesture(minimumDuration: 1.0, pressing: { p in
+                        withAnimation(.easeInOut(duration: 0.15)) { isHoldingExit = p }
                     }, perform: {
                         isHoldingExit = false
                         companionConnectivityManager.switchToStandalone()
@@ -97,42 +93,37 @@ struct CompanionFlightView: View {
                     .foregroundColor(.primaryText)
 
                 Spacer()
-
                 gpsIndicator
             }
 
-            HStack {
+            HStack(spacing: 6) {
                 if let deviceName = companionConnectivityManager.connectedDeviceName {
-                    Image(systemName: "link")
-                        .font(.system(size: 9))
-                    Text(deviceName)
-                        .font(.system(size: 11))
+                    Image(systemName: "link").font(.system(size: 9))
+                    Text(deviceName).font(.system(size: 11))
+                }
+                if companionConnectivityManager.isProvidingGPS {
+                    Text(L10n.Companion.providingGPS)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.aviationGreen)
                 }
                 Spacer()
-                Text(L10n.Companion.holdToExit)
-                    .font(.system(size: 10))
+                Text(L10n.Companion.holdToExit).font(.system(size: 10))
             }
             .foregroundColor(.secondaryText)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12).padding(.vertical, 6)
         .background(Color.cockpitBackground.opacity(0.95))
     }
 
     private var gpsIndicator: some View {
         HStack(spacing: 4) {
-            Text("GPS")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondaryText)
-            Circle()
-                .fill(gpsColor)
-                .frame(width: 8, height: 8)
+            Text("GPS").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundColor(.secondaryText)
+            Circle().fill(gpsColor).frame(width: 8, height: 8)
         }
     }
 
     private var gpsColor: Color {
-        guard let status = flightData?.gpsSignalStatus else { return .gray }
-        switch status {
+        switch flightData?.gpsSignalStatus {
         case "good": return .aviationGreen
         case "degraded": return .orange
         case "lost": return .aviationRed
@@ -140,380 +131,433 @@ struct CompanionFlightView: View {
         }
     }
 
-    // MARK: - Status Strip
+    // MARK: - Mode switcher
 
-    private var statusStrip: some View {
-        HStack {
-            Text(flightData?.currentPhase ?? "---")
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .foregroundColor(.aviationGold)
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                Text("FLT")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondaryText)
-                Text(formattedFlightTime)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundColor(.primaryText)
-            }
+    private var modeSwitcher: some View {
+        HStack(spacing: 4) {
+            modeButton(.nav, "NAV", "location.north.line")
+            modeButton(.checklist, "CHECKLIST", "checklist")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(3)
         .background(Color.black.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
-    private var formattedFlightTime: String {
-        guard let lineUp = flightData?.lineUpTime else { return "--:--:--" }
-        let elapsed = Date().timeIntervalSince(lineUp)
-        let hours = Int(elapsed) / 3600
-        let minutes = (Int(elapsed) % 3600) / 60
-        let seconds = Int(elapsed) % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-    }
-
-    // MARK: - Disconnected Banner
-
-    private var disconnectedBanner: some View {
-        HStack {
-            Image(systemName: "wifi.slash")
-            Text(L10n.Companion.connectionLost)
-                .font(.system(size: 13, weight: .semibold))
-            Spacer()
-            Button(L10n.Companion.switchToStandalone) {
-                companionConnectivityManager.switchToStandalone()
+    private func modeButton(_ m: Mode, _ title: String, _ icon: String) -> some View {
+        Button { withAnimation { mode = m } } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 11))
+                Text(title).font(.system(size: 12, weight: .bold, design: .monospaced))
             }
-            .font(.system(size: 12, weight: .medium))
-            .foregroundColor(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Color.white.opacity(0.2))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.orange)
-    }
-
-    // MARK: - Route Table
-
-    private func routeTable(_ plan: CompanionFlightPlanSnapshot) -> some View {
-        VStack(spacing: 0) {
-            routeTableHeader
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, waypoint in
-                            routeTableRow(index: index, waypoint: waypoint, plan: plan)
-                                .id(index)
-                        }
-                    }
-                }
-                .onAppear {
-                    proxy.scrollTo(plan.currentWaypointIndex, anchor: .center)
-                }
-                .onChange(of: flightData?.currentWaypointIndex) {
-                    if let idx = flightData?.currentWaypointIndex {
-                        withAnimation {
-                            proxy.scrollTo(idx, anchor: .center)
-                        }
-                    }
-                }
-            }
+            .foregroundColor(mode == m ? .cockpitBackground : .secondaryText)
+            .frame(maxWidth: .infinity).padding(.vertical, 6)
+            .background(mode == m ? Color.aviationGold : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 
-    private var routeTableHeader: some View {
-        HStack(spacing: 0) {
-            tableHeaderCell("#", width: 28)
-            tableHeaderCell("WPT", width: 70, alignment: .leading)
-            tableHeaderCell("MC", width: 40)
-            tableHeaderCell("DIST", width: 45)
-            tableHeaderCell("EET", width: 42)
-            tableHeaderCell("ETO", width: 48)
-            tableHeaderCell("ATO", width: 48)
-        }
-        .background(Color.aviationGold.opacity(0.15))
-    }
+    // MARK: - NAV mode
 
-    private func tableHeaderCell(_ text: String, width: CGFloat, alignment: Alignment = .center) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundColor(.aviationGold)
-            .frame(width: width, alignment: alignment)
-            .padding(.vertical, 4)
-    }
-
-    private func routeTableRow(index: Int, waypoint: CompanionWaypoint, plan: CompanionFlightPlanSnapshot) -> some View {
-        let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
-        let isCurrent = index == currentIdx
-        let isPast = index < currentIdx
-        let textColor: Color = isPast ? .secondaryText : (isCurrent ? .primaryText : .primaryText.opacity(0.8))
-
-        return HStack(spacing: 0) {
-            // Status indicator
-            Group {
-                if isPast {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 9))
-                        .foregroundColor(.aviationGreen)
-                } else if isCurrent {
-                    Image(systemName: "arrowtriangle.right.fill")
-                        .font(.system(size: 9))
-                        .foregroundColor(.aviationGold)
+    private var navMode: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                if let (idx, wp) = nextWaypoint {
+                    nextWaypointHero(index: idx, waypoint: wp)
+                    metricsRow(waypoint: wp)
                 } else {
-                    Text("\(index + 1)")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondaryText)
+                    noFlightPlanContent.frame(height: 160)
                 }
+                planSection
+                freqChronoRow
+                recordATOButton
             }
-            .frame(width: 28)
-
-            // Waypoint name
-            Text(waypoint.name.isEmpty ? "WP\(index)" : waypoint.name)
-                .font(.system(size: 12, weight: isCurrent ? .bold : .regular, design: .monospaced))
-                .foregroundColor(textColor)
-                .lineLimit(1)
-                .frame(width: 70, alignment: .leading)
-
-            // MC
-            Text(waypoint.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(textColor)
-                .frame(width: 40)
-
-            // Distance
-            Text(waypoint.distance.map { String(format: "%.1f", $0) } ?? "---")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(textColor)
-                .frame(width: 45)
-
-            // EET
-            Text(formattedEET(waypoint))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(textColor)
-                .frame(width: 42)
-
-            // ETO
-            Text(formattedTime(waypoint.estimatedTimeOver))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(textColor)
-                .frame(width: 48)
-
-            // ATO — tappable to record
-            Button(action: {
-                if waypoint.actualTimeOver == nil {
-                    companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index))
-                }
-            }) {
-                Text(formattedTime(waypoint.actualTimeOver))
-                    .font(.system(size: 11, weight: waypoint.actualTimeOver != nil ? .bold : .regular, design: .monospaced))
-                    .foregroundColor(waypoint.actualTimeOver != nil ? .aviationGreen : .secondary)
-                    .frame(width: 48)
-            }
-            .disabled(waypoint.actualTimeOver != nil)
-        }
-        .padding(.vertical, 6)
-        .background(
-            isCurrent
-                ? Color.aviationGold.opacity(0.1)
-                : (isPast ? Color.black.opacity(0.1) : Color.clear)
-        )
-        .overlay(alignment: .leading) {
-            if isCurrent {
-                Rectangle()
-                    .fill(Color.aviationGold)
-                    .frame(width: 3)
-            }
+            .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
         }
     }
 
-    // MARK: - No Flight Plan Content
-
-    private var noFlightPlanContent: some View {
-        VStack {
-            Spacer()
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 40))
-                .foregroundColor(.secondaryText)
-            Text(L10n.Companion.noFlightPlan)
-                .font(.subheadline)
-                .foregroundColor(.secondaryText)
-                .padding(.top, 8)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+    private var nextWaypoint: (index: Int, wp: CompanionWaypoint)? {
+        guard let plan = flightPlan else { return nil }
+        let idx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
+        guard plan.waypoints.indices.contains(idx) else { return nil }
+        return (idx, plan.waypoints[idx])
     }
 
-    // MARK: - Next Waypoint Summary
+    /// Arrow rotation relative to current track (turn cue). 0 = straight ahead.
+    private func relativeBearing(_ wp: CompanionWaypoint) -> Double {
+        guard let mc = wp.magneticCourse, let track = flightData?.courseDegrees else { return 0 }
+        var rel = mc - track
+        while rel > 180 { rel -= 360 }
+        while rel < -180 { rel += 360 }
+        return rel
+    }
 
-    private var nextWaypointSummary: some View {
+    private func nextWaypointHero(index: Int, waypoint wp: CompanionWaypoint) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle().stroke(Color.aviationGold, lineWidth: 2).frame(width: 72, height: 72)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundColor(.aviationGold)
+                    .rotationEffect(.degrees(relativeBearing(wp)))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("NEXT").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.secondaryText)
+                Text(wp.name.isEmpty ? "WP\(index + 1)" : wp.name)
+                    .font(.system(size: 28, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                if let mc = wp.magneticCourse {
+                    Text(String(format: "%03.0f° mag", mc)).font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGold)
+                }
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(Color.aviationGold.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func metricsRow(waypoint wp: CompanionWaypoint) -> some View {
+        HStack(spacing: 8) {
+            metricCell("DIST", wp.distance.map { String(format: "%.1f", $0) } ?? "---", "NM")
+            metricCell("ETE", formattedEET(wp), "")
+            metricCell("ETO", formattedTime(wp.estimatedTimeOver), "")
+        }
+    }
+
+    private func metricCell(_ label: String, _ value: String, _ unit: String) -> some View {
+        VStack(spacing: 2) {
+            Text(label).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                if !unit.isEmpty { Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText) }
+            }
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 8)
+        .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var planSection: some View {
         Group {
             if let plan = flightPlan {
-                let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
-                if plan.waypoints.indices.contains(currentIdx) {
-                    let wp = plan.waypoints[currentIdx]
-                    HStack {
-                        Text("NEXT")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundColor(.aviationGold)
-                        Text(wp.name.isEmpty ? "WP\(currentIdx)" : wp.name)
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundColor(.primaryText)
-                        Spacer()
-                        if let mc = wp.magneticCourse {
-                            Text(String(format: "%03.0f°", mc))
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(.primaryText)
+                VStack(spacing: 0) {
+                    Button { withAnimation { showFullPlan.toggle() } } label: {
+                        HStack {
+                            Text("PLAN").font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(.aviationGold)
+                            Spacer()
+                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.system(size: 11)).foregroundColor(.secondaryText)
                         }
-                        if let dist = wp.distance {
-                            Text(String(format: "%.1f NM", dist))
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                        }
+                        .padding(.horizontal, 10).padding(.vertical, 8)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.aviationGold.opacity(0.08))
+                    if showFullPlan {
+                        routeTable(plan).frame(maxHeight: 260)
+                    } else {
+                        upcomingStrip(plan)
+                    }
+                }
+                .background(Color.black.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    private func upcomingStrip(_ plan: CompanionFlightPlanSnapshot) -> some View {
+        let start = (flightData?.currentWaypointIndex ?? plan.currentWaypointIndex) + 1
+        let upcoming = Array(plan.waypoints.enumerated()).filter { $0.offset >= start }.prefix(2)
+        return VStack(spacing: 0) {
+            if upcoming.isEmpty {
+                Text("—").font(.system(size: 12, design: .monospaced)).foregroundColor(.secondaryText)
+                    .frame(maxWidth: .infinity).padding(.vertical, 6)
+            } else {
+                ForEach(Array(upcoming), id: \.element.id) { i, wp in
+                    HStack {
+                        Text("\(i + 1) · \(wp.name.isEmpty ? "WP" : wp.name)").lineLimit(1)
+                        Spacer()
+                        Text(wp.magneticCourse.map { String(format: "%03.0f°", $0) } ?? "---")
+                        Text(wp.distance.map { String(format: "%.1f NM", $0) } ?? "---").frame(width: 70, alignment: .trailing)
+                    }
+                    .font(.system(size: 12, design: .monospaced)).foregroundColor(.primaryText.opacity(0.85))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
                 }
             }
         }
     }
 
-    // MARK: - Action Bar
-
-    private var actionBar: some View {
-        HStack(spacing: 12) {
-            // Chronometer
-            HStack(spacing: 6) {
-                Image(systemName: "stopwatch")
-                    .font(.system(size: 14))
-                    .foregroundColor(.aviationGold)
-                Text(formattedChronometer)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
+    private var freqChronoRow: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("FREQ").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+                Text(nextWaypoint?.wp.frequency?.isEmpty == false ? nextWaypoint!.wp.frequency! : "121.50")
+                    .font(.system(size: 14, design: .monospaced)).foregroundColor(.primaryText)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.3))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .onTapGesture {
+            .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Button {
                 if flightData?.chronometerStartTime != nil || (flightData?.chronometerElapsed ?? 0) > 0 {
                     companionConnectivityManager.sendCommand(.resetChronometer)
                 } else {
                     companionConnectivityManager.sendCommand(.startChronometer)
                 }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stopwatch").font(.system(size: 10)).foregroundColor(.aviationGold)
+                        Text("CHRONO").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+                    }
+                    Text(formattedChronometer).font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
+        }
+    }
 
-            // Record ATO button
-            Button(action: {
-                if let plan = flightPlan, let currentIdx = flightData?.currentWaypointIndex,
-                   plan.waypoints.indices.contains(currentIdx),
-                   plan.waypoints[currentIdx].actualTimeOver == nil {
-                    companionConnectivityManager.sendCommand(.recordATO(waypointIndex: currentIdx))
+    private var recordATOButton: some View {
+        Button {
+            if let plan = flightPlan, let idx = flightData?.currentWaypointIndex,
+               plan.waypoints.indices.contains(idx), plan.waypoints[idx].actualTimeOver == nil {
+                companionConnectivityManager.sendCommand(.recordATO(waypointIndex: idx))
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "clock.badge.checkmark").font(.system(size: 14))
+                Text(L10n.Companion.recordATO).font(.system(size: 14, weight: .bold))
+            }
+            .foregroundColor(.cockpitBackground).frame(maxWidth: .infinity).padding(.vertical, 12)
+            .background(Color.aviationGold).clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    // MARK: - CHECKLIST mode
+
+    private var checklistMode: some View {
+        Group {
+            if let cl = checklist {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        checklistPhaseHeader(cl)
+                        checklistCurrentItem(cl)
+                        checkAndNextButton(cl)
+                        checklistUpcoming(cl)
+                    }
+                    .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
                 }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.badge.checkmark")
-                        .font(.system(size: 14))
-                    Text(L10n.Companion.recordATO)
-                        .font(.system(size: 13, weight: .bold))
+            } else {
+                VStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: "checklist").font(.system(size: 40)).foregroundColor(.secondaryText)
+                    Text(L10n.Companion.checklistUnavailable).font(.subheadline).foregroundColor(.secondaryText)
+                        .multilineTextAlignment(.center).padding(.horizontal, 30)
+                    Spacer()
                 }
-                .foregroundColor(.cockpitBackground)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.aviationGold)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
     }
 
-    private var formattedChronometer: String {
-        let elapsed = flightData?.chronometerElapsed ?? 0
-        let hours = Int(elapsed) / 3600
-        let minutes = (Int(elapsed) % 3600) / 60
-        let seconds = Int(elapsed) % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-    }
-
-    // MARK: - Instruments Strip
-
-    private var instrumentsStrip: some View {
+    private func checklistPhaseHeader(_ cl: CompanionChecklistSnapshot) -> some View {
         HStack {
-            instrumentItem(label: "GS", value: formattedSpeed, unit: "kt")
-            Divider().frame(height: 20)
-            instrumentItem(label: "ALT", value: formattedAltitude, unit: "ft")
-            Divider().frame(height: 20)
-            instrumentItem(label: "TRK", value: formattedTrack, unit: "°")
+            Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
+                Image(systemName: "chevron.left").font(.system(size: 16)).foregroundColor(.aviationGold).frame(width: 36, height: 36)
+            }
+            VStack(spacing: 1) {
+                Text(cl.phaseTitle).font(.system(size: 15, weight: .bold, design: .monospaced)).foregroundColor(.aviationGold).lineLimit(1)
+                Text("\(min(cl.completedCount, cl.visibleCount)) / \(cl.visibleCount)").font(.system(size: 11, design: .monospaced)).foregroundColor(.secondaryText)
+            }
+            .frame(maxWidth: .infinity)
+            Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
+                Image(systemName: "chevron.right").font(.system(size: 16)).foregroundColor(.aviationGold).frame(width: 36, height: 36)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(0.4))
     }
 
-    private func instrumentItem(label: String, value: String, unit: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondaryText)
-            Text(value)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-            Text(unit)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondaryText)
+    private func checklistCurrentItem(_ cl: CompanionChecklistSnapshot) -> some View {
+        let item = cl.items.indices.contains(cl.highlightedIndex) ? cl.items[cl.highlightedIndex] : nil
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("ITEM \(min(cl.highlightedIndex + 1, max(cl.visibleCount, 1)))")
+                .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(item?.challenge ?? "—")
+                .font(.system(size: 22, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+            if let r = item?.response, !r.isEmpty {
+                Text(r.uppercased()).font(.system(size: 16, design: .monospaced)).foregroundColor(.aviationGold)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
+        .background(Color.black.opacity(0.25))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func checkAndNextButton(_ cl: CompanionChecklistSnapshot) -> some View {
+        let allDone = cl.completedCount >= cl.visibleCount && cl.visibleCount > 0
+        Button {
+            companionConnectivityManager.sendCommand(allDone ? .nextChecklistPhase : .advanceChecklistItem)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: allDone ? "arrow.right.circle" : "checkmark").font(.system(size: 18))
+                Text(allDone ? L10n.Companion.nextPhase : L10n.Companion.checkAndNext).font(.system(size: 15, weight: .bold))
+            }
+            .foregroundColor(allDone ? .cockpitBackground : Color(red: 0.02, green: 0.13, blue: 0.05))
+            .frame(maxWidth: .infinity).padding(.vertical, 13)
+            .background(allDone ? Color.aviationGold : Color.aviationGreen)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    private func checklistUpcoming(_ cl: CompanionChecklistSnapshot) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(cl.items.enumerated()), id: \.element.id) { i, item in
+                if i != cl.highlightedIndex {
+                    HStack(spacing: 8) {
+                        Image(systemName: i < cl.highlightedIndex ? "checkmark" : "circle")
+                            .font(.system(size: 12))
+                            .foregroundColor(i < cl.highlightedIndex ? .aviationGreen : .secondaryText)
+                        Text(item.isHeader ? item.challenge.uppercased() : "\(item.challenge)\(item.response.isEmpty ? "" : " — \(item.response)")")
+                            .font(.system(size: 13, weight: item.isHeader ? .bold : .regular, design: .monospaced))
+                            .foregroundColor(i < cl.highlightedIndex ? .secondaryText.opacity(0.6) : .primaryText.opacity(0.85))
+                            .strikethrough(i < cl.highlightedIndex)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.vertical, 5).padding(.horizontal, 4)
+                }
+            }
+        }
+    }
+
+    // MARK: - Route table (full plan, inside the PLAN disclosure)
+
+    private func routeTable(_ plan: CompanionFlightPlanSnapshot) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(plan.waypoints.enumerated()), id: \.element.id) { index, wp in
+                        routeTableRow(index: index, waypoint: wp, plan: plan).id(index)
+                    }
+                }
+            }
+            .onChange(of: flightData?.currentWaypointIndex) {
+                if let idx = flightData?.currentWaypointIndex { withAnimation { proxy.scrollTo(idx, anchor: .center) } }
+            }
+        }
+    }
+
+    private func routeTableRow(index: Int, waypoint wp: CompanionWaypoint, plan: CompanionFlightPlanSnapshot) -> some View {
+        let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
+        let isCurrent = index == currentIdx
+        let isPast = index < currentIdx
+        let textColor: Color = isPast ? .secondaryText : .primaryText.opacity(isCurrent ? 1 : 0.8)
+        return HStack(spacing: 0) {
+            Group {
+                if isPast { Image(systemName: "checkmark").font(.system(size: 9)).foregroundColor(.aviationGreen) }
+                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.system(size: 9)).foregroundColor(.aviationGold) }
+                else { Text("\(index + 1)").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText) }
+            }.frame(width: 24)
+            Text(wp.name.isEmpty ? "WP\(index)" : wp.name).font(.system(size: 12, weight: isCurrent ? .bold : .regular, design: .monospaced)).foregroundColor(textColor).lineLimit(1).frame(width: 64, alignment: .leading)
+            Text(wp.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---").font(.system(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 40)
+            Text(wp.distance.map { String(format: "%.1f", $0) } ?? "---").font(.system(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 46)
+            Text(formattedTime(wp.estimatedTimeOver)).font(.system(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 48)
+            Button {
+                if wp.actualTimeOver == nil { companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index)) }
+            } label: {
+                Text(formattedTime(wp.actualTimeOver)).font(.system(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? .aviationGreen : .secondary).frame(width: 48)
+            }.disabled(wp.actualTimeOver != nil)
+        }
+        .padding(.vertical, 6)
+        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+    }
+
+    // MARK: - Shared chrome
+
+    private var noFlightPlanContent: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: "doc.text.magnifyingglass").font(.system(size: 36)).foregroundColor(.secondaryText)
+            Text(L10n.Companion.noFlightPlan).font(.subheadline).foregroundColor(.secondaryText)
+            Spacer()
         }
         .frame(maxWidth: .infinity)
     }
 
+    private var disconnectedBanner: some View {
+        HStack {
+            Image(systemName: "wifi.slash")
+            Text(L10n.Companion.connectionLost).font(.system(size: 13, weight: .semibold))
+            Spacer()
+            Button(L10n.Companion.switchToStandalone) { companionConnectivityManager.switchToStandalone() }
+                .font(.system(size: 12, weight: .medium)).foregroundColor(.white)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(Color.white.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .foregroundColor(.white).padding(.horizontal, 12).padding(.vertical, 8).background(Color.orange)
+    }
+
+    private var staleBanner: some View {
+        HStack {
+            Image(systemName: "wifi.exclamationmark")
+            Text(L10n.Companion.dataStale).font(.system(size: 13, weight: .semibold))
+            Spacer()
+        }
+        .foregroundColor(.black).padding(.horizontal, 12).padding(.vertical, 8).background(Color.aviationAmber)
+    }
+
+    private var instrumentsStrip: some View {
+        HStack {
+            instrumentItem("GS", formattedSpeed, "kt")
+            Divider().frame(height: 20)
+            instrumentItem("ALT", formattedAltitude, "ft")
+            Divider().frame(height: 20)
+            instrumentItem("TRK", formattedTrack, "°")
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8).background(Color.black.opacity(0.4))
+    }
+
+    private func instrumentItem(_ label: String, _ value: String, _ unit: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(value).font(.system(size: 16, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+            Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Formatting
+
     private var formattedSpeed: String {
-        guard let speedMPS = flightData?.speedMPS else { return "---" }
-        let knots = speedMPS * 1.94384
-        return String(format: "%.0f", knots)
+        guard let s = flightData?.speedMPS else { return "---" }
+        return String(format: "%.0f", s * 1.94384)
     }
-
     private var formattedAltitude: String {
-        guard let alt = flightData?.altitudeFeet else { return "---" }
-        return String(format: "%.0f", alt)
+        guard let a = flightData?.altitudeFeet else { return "---" }
+        return String(format: "%.0f", a)
     }
-
     private var formattedTrack: String {
-        guard let course = flightData?.courseDegrees else { return "---" }
-        return String(format: "%03.0f", course)
+        guard let c = flightData?.courseDegrees else { return "---" }
+        return String(format: "%03.0f", c)
+    }
+    private var formattedChronometer: String {
+        let e = flightData?.chronometerElapsed ?? 0
+        return String(format: "%02d:%02d:%02d", Int(e) / 3600, (Int(e) % 3600) / 60, Int(e) % 60)
     }
 
-    // MARK: - Formatting Helpers
-
-    private func formattedEET(_ waypoint: CompanionWaypoint) -> String {
-        let hasLegEET = waypoint.estimatedElapsedTime != nil && waypoint.estimatedElapsedTime! > 0
-        let hasExtra = waypoint.legEETExtra != nil && waypoint.legEETExtra! > 0
-
-        if !hasLegEET && !hasExtra { return "---" }
-
-        let minutes = hasLegEET ? Int(waypoint.estimatedElapsedTime! / 60) : 0
+    private func formattedEET(_ wp: CompanionWaypoint) -> String {
+        let hasLeg = (wp.estimatedElapsedTime ?? 0) > 0
+        let hasExtra = (wp.legEETExtra ?? 0) > 0
+        if !hasLeg && !hasExtra { return "---" }
+        let minutes = hasLeg ? Int(wp.estimatedElapsedTime! / 60) : 0
         if hasExtra {
-            let extra = Int(waypoint.legEETExtra! / 60)
-            if hasLegEET {
-                return "\(minutes)+\(extra)"
-            } else {
-                return "+\(extra)"
-            }
+            let extra = Int(wp.legEETExtra! / 60)
+            return hasLeg ? "\(minutes)+\(extra)" : "+\(extra)"
         }
         return "\(minutes)"
     }
 
     private func formattedTime(_ date: Date?) -> String {
         guard let date else { return "--:--" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        if flightData?.alwaysUseUTC == true {
-            formatter.timeZone = TimeZone(identifier: "UTC")
-        }
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        if flightData?.alwaysUseUTC == true { f.timeZone = TimeZone(identifier: "UTC") }
+        return f.string(from: date)
     }
 }

@@ -419,6 +419,8 @@ struct OfflineMapDownloadSheet: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
     @Binding var offlineMode: Bool
+    /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
+    var asPage: Bool = false
     @State private var selectedCacheOption: CacheOption = .icaoOnly
 
     private func storageEstimate(for option: CacheOption) -> String {
@@ -429,8 +431,42 @@ struct OfflineMapDownloadSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
+        Group {
+            if asPage {
+                sheetContent
+            } else {
+                NavigationStack {
+                    sheetContent
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                if !offlineMapManager.isDownloading {
+                                    Button(L10n.Button.cancel) {
+                                        if !offlineMapManager.isCacheAvailable { offlineMode = false }
+                                        dismiss()
+                                    }
+                                }
+                            }
+                        }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .interactiveDismissDisabled(offlineMapManager.isDownloading)
+        .onAppear {
+            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
+                selectedCacheOption = .icaoAndSegelflug
+            }
+        }
+        .onDisappear {
+            // As a pushed page, backing out without a cache reverts Offline Mode (mirrors the sheet's Cancel).
+            if asPage && !offlineMapManager.isDownloading && !offlineMapManager.isCacheAvailable {
+                offlineMode = false
+            }
+        }
+    }
+
+    private var sheetContent: some View {
+        VStack(spacing: 20) {
                 Image(systemName: "map.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.aviationGold)
@@ -565,27 +601,8 @@ struct OfflineMapDownloadSheet: View {
                 .padding(.bottom, 24)
             }
             .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Settings.downloadCharts)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if !offlineMapManager.isDownloading {
-                        Button(L10n.Button.cancel) {
-                            if !offlineMapManager.isCacheAvailable {
-                                offlineMode = false
-                            }
-                            dismiss()
-                        }
-                    }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(offlineMapManager.isDownloading)
-        .onAppear {
-            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
-                selectedCacheOption = .icaoAndSegelflug
-            }
-        }
     }
 
     private var downloadButtonText: String {

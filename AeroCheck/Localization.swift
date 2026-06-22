@@ -282,6 +282,8 @@ enum L10n {
         static let firstTurn = String(localized: "briefing.firstTurn")
         static let levelOff = String(localized: "briefing.levelOff")
         static let toBeBriefed = String(localized: "briefing.toBeBriefed")
+        static let initialTrack = String(localized: "briefing.initialTrack")
+        static let climbTo = String(localized: "briefing.climbTo")
         static let windCheckHint = String(localized: "briefing.windCheckHint")
 
         // Emergency items
@@ -465,6 +467,15 @@ enum L10n {
         static func estimatedTileCache(_ size: String) -> String {
             String(format: String(localized: "settings.openAIP.estimatedTileCache"), size)
         }
+        static func estimatedDataSize(_ size: String) -> String {
+            String(format: String(localized: "settings.openAIP.estimatedDataSize"), size)
+        }
+        static let downloadTilesConfirmTitle = String(localized: "settings.openAIP.downloadTilesConfirmTitle")
+        static func downloadTilesConfirmMessage(_ data: String, _ tiles: String) -> String {
+            String(format: String(localized: "settings.openAIP.downloadTilesConfirmMessage"), data, tiles)
+        }
+        static let downloadDataOnly = String(localized: "settings.openAIP.downloadDataOnly")
+        static let downloadTilesAnyway = String(localized: "settings.openAIP.downloadTilesAnyway")
         static func tileCountLabel(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.tileCount"), count)
         }

@@ -184,7 +184,9 @@ struct HomeView: View {
                         // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
                         VStack(spacing: 0) {
                             brandHeader(isCompact: isCompact)
-                                .padding(.horizontal, isCompact ? 16 : 24)
+                                // Align with the hero content below (32 on iPad portrait) so the brand
+                                // and the Data/GPS chips aren't hugging the screen edges. (UX feedback)
+                                .padding(.horizontal, isCompact ? 16 : 32)
                                 .padding(.top, isCompact ? 12 : 20)
                             heroCanvas(landscape: isLandscape, isCompact: isCompact)
                             navTabBar

@@ -1071,10 +1071,21 @@ struct DepartureBriefingContent: View {
                         }
                     }
 
-                    // Departure Procedure Section
+                    // Departure Procedure Section — derived from the active flight plan's first leg when
+                    // available; "To be briefed" otherwise. (v4.1.0 — was a static placeholder.)
                     BriefingSection(title: L10n.Briefing.departureProcedure.uppercased()) {
-                        BriefingItem(label: L10n.Briefing.firstTurn, value: L10n.Briefing.toBeBriefed)
-                        BriefingItem(label: L10n.Briefing.levelOff, value: L10n.Briefing.toBeBriefed)
+                        if let track = context.departureInitialTrack {
+                            let fix = context.departureFirstFix.map { " → \($0)" } ?? ""
+                            BriefingItem(label: L10n.Briefing.initialTrack,
+                                         value: String(format: "%03.0f°", track) + fix)
+                        } else {
+                            BriefingItem(label: L10n.Briefing.firstTurn, value: L10n.Briefing.toBeBriefed)
+                        }
+                        if let alt = context.departureCruiseAltitude {
+                            BriefingItem(label: L10n.Briefing.climbTo, value: "\(alt) \(L10n.Unit.ft)")
+                        } else {
+                            BriefingItem(label: L10n.Briefing.levelOff, value: L10n.Briefing.toBeBriefed)
+                        }
                     }
 
                     // Airspeeds Section - Dynamic from aircraft

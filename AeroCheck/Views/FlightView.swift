@@ -137,7 +137,8 @@ struct FlightView: View {
             airportDataService: airportDataService,
             windDirection: windDirection,
             windSpeed: windSpeed,
-            destinationIdent: destinationIdent
+            destinationIdent: destinationIdent,
+            flightPlan: flightPlanManager.activeFlightPlan
         )
     }
 

@@ -19,11 +19,14 @@ struct NavigationMapsSettingsView: View {
     @State private var showOpenAIPOverlay: Bool = false
     @State private var enableAirspaceStreaming: Bool = false
     @State private var showAirspaceStreamingWarning: Bool = false
-    @State private var showDownloadModal: Bool = false
     @State private var showDeleteConfirmation: Bool = false
-    @State private var showOpenAIPDownloadSheet: Bool = false
     @State private var showOpenAIPDeleteConfirmation: Bool = false
     @State private var isLoadingSettings: Bool = false
+
+    /// The two offline-data downloads are pushed into the settings detail column as pages (v4 UI/UX),
+    /// not popped as sheets. One destination drives both the row taps and the Offline-Mode toggle.
+    private enum DataDownloadRoute: Hashable { case offlineCharts, openAIP }
+    @State private var dataRoute: DataDownloadRoute?
 
     private let tint: Color = .aviationGreen
 
@@ -53,16 +56,18 @@ struct NavigationMapsSettingsView: View {
                 enableAirspaceStreaming: $enableAirspaceStreaming
             )
         }
-        .sheet(isPresented: $showDownloadModal) {
-            OfflineMapDownloadSheet(offlineMode: $offlineMode)
-                .environmentObject(offlineMapManager)
-        }
-        .sheet(isPresented: $showOpenAIPDownloadSheet) {
-            OpenAIPDownloadSheet()
-                .environmentObject(openAIPCacheManager)
-                .environmentObject(openAIPDataService)
-                .environmentObject(openAIPNavaidDataService)
-                .environmentObject(appState)
+        .navigationDestination(item: $dataRoute) { route in
+            switch route {
+            case .offlineCharts:
+                OfflineMapDownloadSheet(offlineMode: $offlineMode, asPage: true)
+                    .environmentObject(offlineMapManager)
+            case .openAIP:
+                OpenAIPDownloadSheet(asPage: true)
+                    .environmentObject(openAIPCacheManager)
+                    .environmentObject(openAIPDataService)
+                    .environmentObject(openAIPNavaidDataService)
+                    .environmentObject(appState)
+            }
         }
         .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -103,7 +108,7 @@ struct NavigationMapsSettingsView: View {
             SettingsToggleRow(icon: "arrow.down.circle", title: L10n.Settings.offlineMode, tint: tint, isOn: $offlineMode)
                 .onChange(of: offlineMode) { _, newValue in
                     if newValue && !offlineMapManager.isCacheAvailable {
-                        showDownloadModal = true
+                        dataRoute = .offlineCharts
                     }
                 }
 
@@ -119,13 +124,13 @@ struct NavigationMapsSettingsView: View {
                 SettingsValueRow(title: L10n.Settings.totalCacheSize, tint: tint, value: offlineMapManager.formattedCacheSize)
 
                 SettingsButtonRow(icon: "arrow.clockwise", title: L10n.Settings.updateCharts, tint: tint,
-                                  showsChevron: false, action: { showDownloadModal = true })
+                                  showsChevron: false, action: { dataRoute = .offlineCharts })
 
                 SettingsButtonRow(icon: "trash", title: L10n.Settings.deleteCache, tint: tint,
                                   showsChevron: false, destructive: true, action: { showDeleteConfirmation = true })
             } else {
                 SettingsButtonRow(icon: "arrow.down.circle", title: L10n.Settings.downloadCharts, tint: tint,
-                                  showsChevron: false, action: { showDownloadModal = true })
+                                  showsChevron: false, action: { dataRoute = .offlineCharts })
             }
         }
     }
@@ -212,7 +217,7 @@ struct NavigationMapsSettingsView: View {
 
             SettingsButtonRow(icon: openAIPDataService.isDataAvailable ? "arrow.triangle.2.circlepath" : "arrow.down.circle",
                               title: openAIPDataService.isDataAvailable ? L10n.Settings.updateData : L10n.Settings.downloadData,
-                              tint: tint, showsChevron: false, action: { showOpenAIPDownloadSheet = true })
+                              tint: tint, showsChevron: false, action: { dataRoute = .openAIP })
 
             if openAIPDataService.isDataAvailable || openAIPCacheManager.isCacheAvailable {
                 SettingsButtonRow(icon: "trash", title: L10n.Settings.deleteOpenAIPData, tint: tint,
@@ -355,11 +360,47 @@ struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
 
+    /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
+    var asPage: Bool = false
+
     @State private var selectedCountries: Set<String> = []
+    @State private var showTilesConfirm = false
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        Group {
+            if asPage {
+                downloadContent
+            } else {
+                NavigationStack {
+                    downloadContent
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(L10n.Button.done) { dismiss() }
+                            }
+                        }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            selectedCountries = Set(appState.settings.openAIPOfflineCountries)
+            if selectedCountries.isEmpty { selectedCountries = ["CH"] }
+        }
+        // Warn before adding the heavy raster tiles; recommend data-only. (v4.1.0 feedback)
+        .alert(L10n.Settings.downloadTilesConfirmTitle, isPresented: $showTilesConfirm) {
+            Button(L10n.Settings.downloadDataOnly) { startDownload(tilesAndData: false) }
+            Button(L10n.Settings.downloadTilesAnyway, role: .destructive) { startDownload(tilesAndData: true) }
+            Button(L10n.Button.cancel, role: .cancel) { }
+        } message: {
+            let selected = Array(selectedCountries)
+            Text(L10n.Settings.downloadTilesConfirmMessage(
+                OpenAIPDataService.estimatedDataSize(for: selected),
+                openAIPCacheManager.estimatedDownloadSize(for: selected)))
+        }
+    }
+
+    private var downloadContent: some View {
+        VStack(spacing: 0) {
                 List {
                     // Summary of current selection
                     if !selectedCountries.isEmpty {
@@ -370,7 +411,8 @@ struct OpenAIPDownloadSheet: View {
                                     Text(L10n.Settings.openAIPCountriesSelected(selectedCountries.count))
                                         .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(.primaryText)
-                                    Text(L10n.Settings.estimatedTileCache(openAIPCacheManager.estimatedDownloadSize(for: countries)))
+                                    // Data-first: show the JSON data estimate (the primary download), not tiles.
+                                    Text(L10n.Settings.estimatedDataSize(OpenAIPDataService.estimatedDataSize(for: countries)))
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondaryText)
                                 }
@@ -436,8 +478,8 @@ struct OpenAIPDownloadSheet: View {
                         }
                         .disabled(selectedCountries.isEmpty)
 
-                        // Secondary: optionally add the large raster map tiles on top of the data.
-                        Button(action: { startDownload(tilesAndData: true) }) {
+                        // Secondary: optionally add the large raster map tiles — confirm first.
+                        Button(action: { showTilesConfirm = true }) {
                             HStack {
                                 Image(systemName: "square.2.layers.3d")
                                     .font(.system(size: 14))
@@ -457,19 +499,6 @@ struct OpenAIPDownloadSheet: View {
             .background(Color.cockpitBackground)
             .navigationTitle(L10n.Settings.openAIPDataTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .onAppear {
-            selectedCountries = Set(appState.settings.openAIPOfflineCountries)
-            if selectedCountries.isEmpty {
-                selectedCountries = ["CH"]
-            }
-        }
     }
 
     // MARK: - Continent Row
@@ -633,8 +662,8 @@ struct ContinentCountryListView: View {
                 let continentCountries = continent.countries
                 let selected = continentCountries.filter { selectedCountries.contains($0) }
                 if !selected.isEmpty {
-                    Text(L10n.Settings.estimatedTileCache(
-                        openAIPCacheManager.estimatedDownloadSize(for: selected)
+                    Text(L10n.Settings.estimatedDataSize(
+                        OpenAIPDataService.estimatedDataSize(for: selected)
                     ))
                 }
             }

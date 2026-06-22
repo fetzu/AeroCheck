@@ -3266,6 +3266,40 @@
         }
       }
     },
+    "briefing.initialTrack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initial track"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap initial"
+          }
+        }
+      }
+    },
+    "briefing.climbTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Climb to"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Montée vers"
+          }
+        }
+      }
+    },
     "briefing.goAround.procedure" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14071,6 +14105,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cache estimé : %@"
+          }
+        }
+      }
+    },
+    "settings.openAIP.estimatedDataSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated data size: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taille des données estimée : %@"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadDataOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download data only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les données seules"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesAnyway" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download tiles anyway"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les tuiles quand même"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesConfirmTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download map tiles too?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger aussi les tuiles ?"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesConfirmMessage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The data (≈%1$@) is what powers AéroCheck. Map tiles add ≈%2$@ of raster chart imagery — a heavy, secondary layer. Downloading data only is recommended."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les données (≈%1$@) sont l'essentiel pour AéroCheck. Les tuiles ajoutent ≈%2$@ d'imagerie raster — une couche lourde et secondaire. Il est recommandé de ne télécharger que les données."
           }
         }
       }

@@ -113,6 +113,14 @@ class OpenAIPDataService: ObservableObject {
         return Date().timeIntervalSince(lastUpdate) > OpenAIPConfig.airspaceCacheExpirationInterval
     }
 
+    /// Rough estimate of the structured-data (GeoJSON) download size for a set of countries — the five
+    /// keyless layers (airspace + navaids + obstacles + reporting points + airports) run ~5 MB/country.
+    /// Approximate; the data is far smaller than the raster map tiles, which is the point. (v4.1.0)
+    nonisolated static func estimatedDataSize(for countries: [String]) -> String {
+        let bytes = Int64(max(1, countries.count)) * 5_000_000
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
     /// Download airspace data for selected countries from OpenAIP Core API
     func downloadData(for countries: [String]) async {
         guard !isDownloading else { return }

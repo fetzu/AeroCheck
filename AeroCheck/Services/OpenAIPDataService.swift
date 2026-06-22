@@ -123,7 +123,10 @@ class OpenAIPDataService: ObservableObject {
 
     /// Download airspace data for selected countries from OpenAIP Core API
     func downloadData(for countries: [String]) async {
-        guard !isDownloading else { return }
+        // Mirror the navaid/obstacle/RP/airport services: an empty set is a no-op, NOT a signal to prune
+        // (the removal loop below would otherwise treat subtracting([]) as "remove everything" and wipe all
+        // cached airspace). Callers that prune a country pass the full remaining set.
+        guard !isDownloading, !countries.isEmpty else { return }
 
         isDownloading = true
         downloadProgress = 0
@@ -185,13 +188,10 @@ class OpenAIPDataService: ObservableObject {
             if Task.isCancelled { break }
         }
 
-        // Remove countries that are no longer selected
-        let removedCountries = Set(metadata.lastSyncDates.keys).subtracting(countries)
-        for country in removedCountries {
-            metadata.lastSyncDates.removeValue(forKey: country)
-            metadata.airspaceCounts.removeValue(forKey: country)
-            try? fileManager.removeItem(at: airspaceFileURL(for: country))
-        }
+        // Remove countries that are no longer selected (shared with the other four OpenAIP layers).
+        OpenAIPConfig.pruneDeselectedCountries(
+            keeping: countries, counts: &metadata.airspaceCounts, lastSyncDates: &metadata.lastSyncDates,
+            fileURL: { airspaceFileURL(for: $0) }, fileManager: fileManager)
 
         // Save metadata
         metadata.lastFullRefresh = Date()

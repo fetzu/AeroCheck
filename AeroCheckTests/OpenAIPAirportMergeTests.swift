@@ -220,4 +220,23 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertNil(AirportDataMergeEngine.parseDesignator("XYZ"))
         XCTAssertNil(AirportDataMergeEngine.parseDesignator("99"))   // out of 1...36
     }
+
+    /// OpenAIP exports a single-digit designator ("9"); OurAirports zero-pads ("09"). They are the SAME
+    /// physical runway, so unionRunways must dedupe them via the normalised key, not list it twice.
+    func testRunwayUnionNormalizesZeroPaddedDesignators() {
+        let mk = { (id: Int, le: String, he: String, pcn: String?) -> Runway in
+            Runway(id: id, airportRef: 1, airportIdent: "LSZX", lengthFt: 2000, widthFt: 80,
+                   surface: "ASP", lighted: false, closed: false,
+                   leIdent: le, leLatitude: nil, leLongitude: nil, leElevationFt: nil,
+                   leHeadingDegT: nil, leDisplacedThresholdFt: nil,
+                   heIdent: he, heLatitude: nil, heLongitude: nil, heElevationFt: nil,
+                   heHeadingDegT: nil, heDisplacedThresholdFt: nil,
+                   pcn: pcn, leToraFt: nil, leLdaFt: nil, heToraFt: nil, heLdaFt: nil)
+        }
+        let our = [mk(1, "09", "27", nil)]
+        let openAIP = [mk(-1, "9", "27", "30/F/A/X/T")]
+        let merged = AirportDataMergeEngine.unionRunways(our: our, openAIP: openAIP)
+        XCTAssertEqual(merged.count, 1, "Single-digit and zero-padded forms must dedupe to one runway")
+        XCTAssertEqual(merged.first?.pcn, "30/F/A/X/T", "OpenAIP wins on the normalised match")
+    }
 }

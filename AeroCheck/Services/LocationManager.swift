@@ -40,6 +40,10 @@ class LocationManager: NSObject, ObservableObject {
     /// A bit over the GPSSourceElection 5 s freshness window, so own-fix liveness keeps a touch of
     /// hysteresis before the master starts borrowing the peer's GPS. (shared-GPS, v4.1)
     private let ownFixStaleAfter: TimeInterval = 6.0
+    /// Max horizontal accuracy (m) for an own fix to count as "live" for borrowing — mirrors
+    /// GPSSourceElection.maxAccuracy, so a coarse own fix (e.g. 500 m) doesn't masquerade as live and
+    /// starve a better borrowed peer fix. (shared-GPS, v4.1)
+    private let ownFixMaxAccuracy: Double = 100
 
     /// Rolling (time, altitude-ft) samples over the last ~12 s, for the smoothed vertical speed.
     private var altitudeSamples: [(time: Date, altFt: Double)] = []
@@ -695,7 +699,9 @@ class LocationManager: NSObject, ObservableObject {
         let now = Date()
 
         // Track own-fix liveness from real device fixes only, so companion borrowing can't flip it.
-        if isOwnFix && location.horizontalAccuracy >= 0 {
+        // Require usable accuracy (not just a valid sign) so a coarse own fix doesn't suppress a better
+        // borrowed peer fix — matches the election's accuracy bar. (shared-GPS)
+        if isOwnFix && location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= ownFixMaxAccuracy {
             lastOwnFixTime = now
         }
 

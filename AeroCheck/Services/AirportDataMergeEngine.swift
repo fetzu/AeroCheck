@@ -139,13 +139,25 @@ enum AirportDataMergeEngine {
     }
 
     /// Normalised match key for a runway: the sorted pair of end designators (case/order-insensitive),
-    /// so "10/28" and "28/10" collide. Single-ended runways key on their one designator.
+    /// so "10/28" and "28/10" collide. Designators are zero-padded to two digits so the OpenAIP form ("9")
+    /// and the OurAirports form ("09") of the same runway also collide — otherwise unionRunways would keep
+    /// both and the airport would show one physical runway twice. Single-ended runways key on their one end.
     static func runwayKey(_ r: Runway) -> String {
         [r.leIdent, r.heIdent]
-            .compactMap { $0?.uppercased() }
+            .compactMap { $0 }
+            .map { canonicalRunwayIdent($0) }
             .filter { !$0.isEmpty }
             .sorted()
             .joined(separator: "/")
+    }
+
+    /// Canonical runway-end form: number zero-padded to two digits + any L/C/R suffix (e.g. "9"→"09",
+    /// "16l"→"16L"). Falls back to the trimmed/uppercased raw string when it isn't a parseable designator.
+    private static func canonicalRunwayIdent(_ ident: String) -> String {
+        if let (number, suffix) = parseDesignator(ident) {
+            return String(format: "%02d", number) + suffix
+        }
+        return ident.trimmingCharacters(in: .whitespaces).uppercased()
     }
 
     /// Build one `Runway` from a paired (or single) OpenAIP direction. Physical fields (length/width/

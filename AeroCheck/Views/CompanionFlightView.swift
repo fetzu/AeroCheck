@@ -14,7 +14,6 @@ struct CompanionFlightView: View {
     enum Mode: Hashable { case nav, checklist }
     @State private var mode: Mode = .checklist
     @State private var userPickedMode = false
-    @State private var autoSetting = false
     @State private var showFullPlan = false
     @State private var isHoldingExit = false
     @State private var showExitConfirm = false
@@ -33,7 +32,7 @@ struct CompanionFlightView: View {
     private var isConnected: Bool { companionConnectivityManager.connectionState == .connected }
     private var isDataStale: Bool {
         guard let d = flightData, d.isFlightActive else { return false }
-        return now.timeIntervalSince(d.timestamp) > 5
+        return now.timeIntervalSince(d.timestamp) > CompanionTiming.streamStaleAfter
     }
 
     // MARK: - Theme parity (mirror the iPad's day/sunlight/night cockpit theme)
@@ -49,7 +48,15 @@ struct CompanionFlightView: View {
 
             if isFlightActive {
                 modeSwitcher
-                if isDataStale { staleBanner }
+                // A mid-flight link drop keeps the last (frozen) flight data, so isFlightActive stays true.
+                // Surface the "connection lost / switch to standalone" escape here too — not only on the
+                // not-flying screen — falling back to the amber stale banner when merely connected-but-stale.
+                if companionConnectivityManager.connectionState == .reconnecting ||
+                   companionConnectivityManager.connectionState == .disconnected {
+                    disconnectedBanner
+                } else if isDataStale {
+                    staleBanner
+                }
                 TabView(selection: $mode) {
                     navMode.tag(Mode.nav)
                     checklistMode.tag(Mode.checklist)
@@ -72,7 +79,6 @@ struct CompanionFlightView: View {
         .onReceive(tick) { now = $0 }
         .onAppear { applyAutoMode() }
         .onChange(of: isAirborne) { applyAutoMode() }
-        .onChange(of: mode) { if autoSetting { autoSetting = false } else { userPickedMode = true } }
         .alert(L10n.Companion.exitConfirmTitle, isPresented: $showExitConfirm) {
             Button(L10n.Companion.exitConfirmLeave, role: .destructive) {
                 companionConnectivityManager.switchToStandalone()
@@ -86,7 +92,7 @@ struct CompanionFlightView: View {
     private func applyAutoMode() {
         guard !userPickedMode else { return }
         let target: Mode = isAirborne ? .nav : .checklist
-        if mode != target { autoSetting = true; mode = target }
+        if mode != target { withAnimation { mode = target } }
     }
 
     // MARK: - Header
@@ -209,7 +215,9 @@ struct CompanionFlightView: View {
     }
 
     private func modeButton(_ m: Mode, _ title: String, _ icon: String) -> some View {
-        Button { withAnimation { mode = m } } label: {
+        // Tapping either mode is a deliberate manual choice — latch it directly (even when re-selecting the
+        // already-active mode, which wouldn't fire an .onChange) so auto-by-phase stops overriding the pilot.
+        Button { userPickedMode = true; withAnimation { mode = m } } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 11))
                 Text(title).font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -701,11 +709,18 @@ struct CompanionFlightView: View {
         return "\(minutes)"
     }
 
+    // Cached formatters — formattedTime is called per route-table row while the view re-renders at 1 Hz,
+    // and allocating a DateFormatter each call is among the most expensive Foundation allocations. (efficiency)
+    private static let timeFormatterLocal: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
+    }()
+    private static let timeFormatterUTC: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm"; f.timeZone = TimeZone(identifier: "UTC"); return f
+    }()
+
     private func formattedTime(_ date: Date?) -> String {
         guard let date else { return "--:--" }
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        if flightData?.alwaysUseUTC == true { f.timeZone = TimeZone(identifier: "UTC") }
+        let f = flightData?.alwaysUseUTC == true ? Self.timeFormatterUTC : Self.timeFormatterLocal
         return f.string(from: date)
     }
 }

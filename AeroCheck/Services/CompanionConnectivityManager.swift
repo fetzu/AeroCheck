@@ -105,6 +105,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var sendHandler: (@Sendable (CompanionMessage) async throws -> Void)?
     private var updateTimer: Timer?
     private var lastSentFlightPlanId: UUID?
+    /// The last checklist snapshot actually streamed, so the 1 Hz timer only re-encodes/sends when the
+    /// phase/highlight/items change instead of every tick (a phase is static for seconds-to-minutes).
+    /// Cleared on teardown so a fresh connection re-sends. (efficiency)
+    private var lastSentChecklist: CompanionChecklistSnapshot?
 
     /// Connection-health watchdog (v4.1): without it, a peer that quit/backgrounded leaves the other side
     /// showing "Connected" for minutes (the TCP/Wi-Fi Aware drop is slow to surface). The viewer treats a
@@ -112,7 +116,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private var connectionHealthTimer: Timer?
     private var lastReceivedAt: Date?
     private var sendFailureCount = 0
-    private static let receiveStaleAfter: TimeInterval = 5.0
+    private static let receiveStaleAfter: TimeInterval = CompanionTiming.streamStaleAfter
     private static let maxConsecutiveSendFailures = 3
 
     /// Battery: drop the hot Wi-Fi Aware link if it's been connected with NO active flight for a while
@@ -541,11 +545,9 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             sendMessage(message)
         }
 
-        cleanupConnection()
+        cleanupConnection()   // also releases the GPS provider + clears peer-fix state (shared-GPS)
         stopListening()
         stopUpdates()
-        // Release the companion GPS provider session if we were sourcing GPS for the master. (shared-GPS)
-        stopProvidingGPS()
         browserTask?.cancel()
         browserTask = nil
         connectionState = .disconnected
@@ -609,6 +611,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         stopUpdates()
         sendFailureCount = 0
         idleSince = nil
+        lastSentChecklist = nil
+        // Reset the shared-GPS state on EVERY teardown (graceful or not), so a stale peer fix can't keep
+        // the source election pinned to .peer, can't masquerade as a usable fix to the flight-start guard
+        // (hasUsablePeerFix), and the viewer's background GPS provider isn't stranded. (shared-GPS)
+        stopProvidingGPS()
+        receivedPeerGPS = nil
+        lastPeerGPSReceivedAt = nil
+        effectiveGPSSource = .own
     }
 
     // MARK: - Message Sending (Length-Prefixed JSON)
@@ -862,9 +872,13 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func sendChecklistSnapshot() {
         guard sendHandler != nil, connectionState == .connected, currentRole == .master,
               let snapshot = createChecklistSnapshot() else { return }
+        // Skip the encode + radio send when nothing changed since the last send (CompanionChecklistSnapshot
+        // is Equatable). Mirrors the flight-plan path's lastSentFlightPlanId guard. (efficiency)
+        guard snapshot != lastSentChecklist else { return }
         do {
             let payload = try JSONEncoder().encode(snapshot)
             sendMessage(CompanionMessage(type: .checklistUpdate, payload: payload))
+            lastSentChecklist = snapshot
         } catch {
             AppLog.companion.debugLine("Failed to encode checklist: \(error)")
         }
@@ -964,7 +978,8 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// i.e. we are the master and hold a fresh, accurate peer fix. Lets the flight-start guard allow a
     /// GPS-less device (e.g. a Wi-Fi iPad) to launch off the companion's GPS. (shared-GPS)
     var hasUsablePeerFix: Bool {
-        guard currentRole == .master, let peer = receivedPeerGPS, let at = lastPeerGPSReceivedAt else { return false }
+        guard currentRole == .master, connectionState == .connected,
+              let peer = receivedPeerGPS, let at = lastPeerGPSReceivedAt else { return false }
         return gpsElection.isValid(accuracy: peer.horizontalAccuracy, age: Date().timeIntervalSince(at))
     }
 

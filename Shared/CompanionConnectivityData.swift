@@ -214,11 +214,14 @@ struct CompanionPeerGPS: Codable, Equatable {
         self.timestamp = timestamp
     }
 
-    /// Tolerant decoder so a field skew between independently-updated builds never drops the fix.
+    /// Tolerant decoder so a field skew between independently-updated builds never drops the fix — EXCEPT
+    /// latitude/longitude, which are required: a fix with no coordinates is useless, and defaulting them to
+    /// 0 would inject a (0,0) "Null Island" position. Missing coordinates throw, so the call-site `try?`
+    /// drops the message rather than borrowing a bogus fix. (shared-GPS)
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude) ?? 0
-        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude) ?? 0
+        latitude = try c.decode(Double.self, forKey: .latitude)
+        longitude = try c.decode(Double.self, forKey: .longitude)
         speedMPS = try c.decodeIfPresent(Double.self, forKey: .speedMPS)
         altitudeMeters = try c.decodeIfPresent(Double.self, forKey: .altitudeMeters)
         courseDegrees = try c.decodeIfPresent(Double.self, forKey: .courseDegrees)
@@ -226,6 +229,17 @@ struct CompanionPeerGPS: Codable, Equatable {
         signalStatus = try c.decodeIfPresent(String.self, forKey: .signalStatus) ?? "unknown"
         timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
     }
+}
+
+// MARK: - Companion stream timing
+
+/// One knob for the ~1 Hz companion stream's freshness/liveness window (seconds). The three uses are
+/// intentionally coupled to that cadence so they can't drift apart: a borrowed peer GPS fix older than
+/// this is stale (GPSSourceElection.maxFixAge), the link is treated as dropped if no traffic arrives
+/// within it (CompanionConnectivityManager.receiveStaleAfter), and the viewer shows frozen-data once the
+/// last flight-data is this old (CompanionFlightView.isDataStale). (companion v2)
+enum CompanionTiming {
+    static let streamStaleAfter: TimeInterval = 5
 }
 
 // MARK: - GPS source election — shared-GPS
@@ -242,8 +256,8 @@ enum CompanionGPSSource: String, Equatable {
 /// "stays valid" across a few missed updates, so the source doesn't flap on a momentary blip.
 /// (v4.1 shared-GPS — runs below iOS 26, hence testable.)
 struct GPSSourceElection {
-    /// Max age (seconds) for a fix to still count as fresh.
-    var maxFixAge: TimeInterval = 5
+    /// Max age (seconds) for a fix to still count as fresh — the shared companion-stream window.
+    var maxFixAge: TimeInterval = CompanionTiming.streamStaleAfter
     /// Max horizontal accuracy (metres) for a fix to count as valid (a negative accuracy is invalid).
     var maxAccuracy: Double = 100
 

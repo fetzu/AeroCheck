@@ -7,6 +7,25 @@ import XCTest
 @MainActor
 final class SubscriptionReconcileTests: XCTestCase {
 
+    /// These tests drive grace/verification state through UserDefaults.standard (startGracePeriod,
+    /// confirmNoActiveSubscription). Clear those keys before AND after each test so state can't leak
+    /// between tests here or into any other suite that reads the same keys.
+    private func clearSubscriptionDefaults() {
+        let d = UserDefaults.standard
+        d.removeObject(forKey: "subscriptionLastVerificationDate")
+        d.removeObject(forKey: "subscriptionGracePeriodStart")
+    }
+
+    override func setUp() {
+        super.setUp()
+        clearSubscriptionDefaults()
+    }
+
+    override func tearDown() {
+        clearSubscriptionDefaults()
+        super.tearDown()
+    }
+
     func testConfirmNoActiveSubscriptionClosesGraceWindow() {
         // The init's async work is queued on the main actor; this fully-synchronous test body runs
         // before it can fire, so the assertions are deterministic.

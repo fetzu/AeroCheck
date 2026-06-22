@@ -419,7 +419,14 @@ class SubscriptionManager: ObservableObject {
                             debugLogger.log("Transaction expired", level: .warning)
                         }
                     } else {
-                        debugLogger.log("Transaction has no expiration date", level: .warning)
+                        // No expiration date → a non-consumable (lifetime) entitlement. Verify it with the
+                        // server too, otherwise a restore on a NEW device re-establishes only the LOCAL
+                        // .lifetime status and never (re)creates the server-side entitlement that gates
+                        // premium checklist downloads — locking a paid lifetime owner out of the content.
+                        debugLogger.log("Found lifetime (non-expiring) entitlement, verifying with server", level: .success)
+                        foundActiveSubscription = true
+                        await verifyWithServer(verificationResult: result)
+                        return
                     }
                 } else {
                     debugLogger.log("Transaction is not for our product (found: \(transaction.productID))", level: .warning)

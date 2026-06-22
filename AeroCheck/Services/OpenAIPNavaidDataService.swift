@@ -148,11 +148,9 @@ final class OpenAIPNavaidDataService: ObservableObject {
         // De-selected countries are pruned (file + metadata) so this layer matches the requested set —
         // consistent with the airspace layer. Additive callers (trip-prefetch, builder, refresh) union
         // before calling, so they pass the full set and lose nothing. (download-integrity fix)
-        for country in Set(metadata.counts.keys).subtracting(countries) {
-            metadata.counts.removeValue(forKey: country)
-            metadata.lastSyncDates.removeValue(forKey: country)
-            try? fileManager.removeItem(at: navaidFileURL(for: country))
-        }
+        OpenAIPConfig.pruneDeselectedCountries(
+            keeping: countries, counts: &metadata.counts, lastSyncDates: &metadata.lastSyncDates,
+            fileURL: { navaidFileURL(for: $0) }, fileManager: fileManager)
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
         }

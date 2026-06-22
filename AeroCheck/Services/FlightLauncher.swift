@@ -110,6 +110,12 @@ struct FlightLauncher {
             // Transient: permission is granted but no fix has locked yet. Kick the GPS pipeline (no-op if
             // already running) so a fix arrives, tell the pilot to retry, and don't start a blind flight.
             locationManager.startLocationUpdates()
+            // If companion mode is on, also re-arm the link (force clears an idle-disconnect) so a GPS-less
+            // master can pull a peer fix to retry with — otherwise a master whose link idle-dropped is
+            // locked out of starting until the user reopens the Companion screen. (shared-GPS)
+            if appState.settings.enableCompanionMode {
+                CompanionConnectivityManager.shared.autoConnectIfReady(force: true)
+            }
             appState.flightStartError = L10n.Alert.acquiringGPS
             return .blockedAcquiringGPS
         default:

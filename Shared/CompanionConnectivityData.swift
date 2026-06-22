@@ -128,6 +128,11 @@ struct CompanionFlightData: Codable {
     /// `peerGPS` message up so the master can run the flight off the companion's location. (v4.1 shared-GPS)
     let ownGPSAvailable: Bool
 
+    /// Which GPS the flight is actually running on, from the master's view: "own" (the iPad's),
+    /// "peer" (a borrowed companion fix), or "none". Lets the viewer show WHICH device's GPS is in use.
+    /// (companion v2 — GPS clarity)
+    let gpsSource: String
+
     // Navigation state (lightweight -- full plan sent separately)
     let currentWaypointIndex: Int
     let chronometerStartTime: Date?
@@ -164,6 +169,7 @@ extension CompanionFlightData {
         // Default true: a pre-shared-GPS master is assumed to have its own fix, so a viewer won't try to
         // source GPS for it. (v4.1 shared-GPS — backward-compatible)
         ownGPSAvailable = try c.decodeIfPresent(Bool.self, forKey: .ownGPSAvailable) ?? true
+        gpsSource = try c.decodeIfPresent(String.self, forKey: .gpsSource) ?? "own"
         // Clamp a peer-supplied index to >= 0 so it can never become a negative array subscript on
         // the receiver (the upper bound is checked per-use against the actual waypoint count).
         currentWaypointIndex = max(0, try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)

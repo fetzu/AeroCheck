@@ -585,9 +585,17 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
         } else if currentRole == .master {
-            // Master stays in connecting state, listener continues accepting
             connectionState = .connecting
             connectedDeviceName = nil
+            // Re-arm a FRESH listener. Keeping the old one running wedges it — after a drop it won't
+            // accept the viewer's reconnect (observed on device: only an iPad app restart recovered).
+            // startListening() cancels + recreates the listener; deferred a tick so we don't cancel the
+            // listener task from inside its own teardown. (v4.1)
+            diag("Master: re-arming listener after drop")
+            Task { @MainActor in
+                guard self.currentRole == .master, self.connectionState == .connecting else { return }
+                self.startListening()
+            }
         }
     }
 
@@ -857,6 +865,7 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // GPS. Reads own-fix liveness, NOT `currentLocation`, which may already hold a borrowed peer
             // fix; otherwise borrowing would mark the master "has GPS" and stop the feed it depends on. (shared-GPS)
             ownGPSAvailable: locationManager.ownFixIsLive,
+            gpsSource: effectiveGPSSource.rawValue,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,

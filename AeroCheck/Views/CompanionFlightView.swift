@@ -2,16 +2,16 @@ import SwiftUI
 
 /// Full-screen iPhone companion — the "wingman" second screen. Two glanceable modes the pilot swipes
 /// between (NAV | CHECKLIST), defaulting by flight phase: CHECKLIST on the ground, NAV in the air.
-/// - NAV: the next checkpoint as a track-up turn arrow + bearing/distance/ETE, with the plan, freqs and
-///   chronometer on progressive disclosure.
-/// - CHECKLIST: the current item with a CHECK & NEXT that drives the iPad's shared checklist (synced).
+/// Only shown once a flight is active on the iPad; otherwise a "start a flight" prompt.
+/// - NAV: next checkpoint as a track-up turn arrow + bearing/distance/ETE, plan/freqs/chrono below.
+/// - CHECKLIST: the SAME hero + rows as the iPad checklist; tap to advance + NEXT, driving the iPad.
 struct CompanionFlightView: View {
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
 
     enum Mode: Hashable { case nav, checklist }
     @State private var mode: Mode = .checklist
-    @State private var userPickedMode = false   // once the pilot swipes/taps, stop auto-switching by phase
-    @State private var autoSetting = false       // guards the programmatic mode change from being read as a user pick
+    @State private var userPickedMode = false
+    @State private var autoSetting = false
     @State private var showFullPlan = false
     @State private var isHoldingExit = false
     @State private var now = Date()
@@ -21,12 +21,12 @@ struct CompanionFlightView: View {
     private var flightPlan: CompanionFlightPlanSnapshot? { companionConnectivityManager.lastFlightPlanSnapshot }
     private var checklist: CompanionChecklistSnapshot? { companionConnectivityManager.lastReceivedChecklist }
 
-    /// In the air = lined up and not yet landed. Drives the auto NAV/CHECKLIST default.
+    private var isFlightActive: Bool { flightData?.isFlightActive == true }
     private var isAirborne: Bool {
         guard let d = flightData else { return false }
         return d.lineUpTime != nil && d.landingTime == nil
     }
-
+    private var isConnected: Bool { companionConnectivityManager.connectionState == .connected }
     private var isDataStale: Bool {
         guard let d = flightData, d.isFlightActive else { return false }
         return now.timeIntervalSince(d.timestamp) > 5
@@ -35,22 +35,23 @@ struct CompanionFlightView: View {
     var body: some View {
         VStack(spacing: 0) {
             headerBar
-            modeSwitcher
 
-            if companionConnectivityManager.connectionState == .reconnecting ||
-               companionConnectivityManager.connectionState == .disconnected {
-                disconnectedBanner
-            } else if isDataStale {
-                staleBanner
+            if isFlightActive {
+                modeSwitcher
+                if isDataStale { staleBanner }
+                TabView(selection: $mode) {
+                    navMode.tag(Mode.nav)
+                    checklistMode.tag(Mode.checklist)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
+            } else {
+                if companionConnectivityManager.connectionState == .reconnecting ||
+                   companionConnectivityManager.connectionState == .disconnected {
+                    disconnectedBanner
+                }
+                waitingScreen
             }
-
-            TabView(selection: $mode) {
-                navMode.tag(Mode.nav)
-                checklistMode.tag(Mode.checklist)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-
-            instrumentsStrip.opacity(isDataStale ? 0.4 : 1)
         }
         .background(Color.cockpitBackground)
         .preferredColorScheme(.dark)
@@ -69,8 +70,8 @@ struct CompanionFlightView: View {
     // MARK: - Header
 
     private var headerBar: some View {
-        VStack(spacing: 2) {
-            HStack {
+        HStack(alignment: .top) {
+            HStack(spacing: 7) {
                 Text("COMPANION")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.cockpitBackground)
@@ -91,34 +92,53 @@ struct CompanionFlightView: View {
                 Text(flightData?.aircraftRegistration ?? "---")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(.primaryText)
-
-                Spacer()
-                gpsIndicator
             }
 
-            HStack(spacing: 6) {
-                if let deviceName = companionConnectivityManager.connectedDeviceName {
-                    Image(systemName: "link").font(.system(size: 9))
-                    Text(deviceName).font(.system(size: 11))
-                }
-                if companionConnectivityManager.isProvidingGPS {
-                    Text(L10n.Companion.providingGPS)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.aviationGreen)
-                }
-                Spacer()
-                Text(L10n.Companion.holdToExit).font(.system(size: 10))
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 5) {
+                gpsChip
+                connectionStatusRow
             }
-            .foregroundColor(.secondaryText)
         }
-        .padding(.horizontal, 12).padding(.vertical, 6)
+        .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Color.cockpitBackground.opacity(0.95))
     }
 
-    private var gpsIndicator: some View {
-        HStack(spacing: 4) {
+    /// Connection status using the app's StatusIndicator design language + the connected device name.
+    private var connectionStatusRow: some View {
+        HStack(spacing: 5) {
+            if let name = companionConnectivityManager.connectedDeviceName {
+                Text(name).font(.system(size: 11)).foregroundColor(.secondaryText)
+            }
+            StatusIndicator(connectionStatus, size: 8)
+        }
+    }
+
+    private var connectionStatus: StatusIndicator.Status {
+        switch companionConnectivityManager.connectionState {
+        case .connected: return .active
+        case .connecting, .reconnecting, .pairing: return .warning
+        case .disconnected: return .error
+        }
+    }
+
+    /// GPS chip — shows WHICH device's GPS the flight is on (iPad's own, or this iPhone's borrowed) and
+    /// the signal status, in the app's design language. (companion v2 — GPS clarity)
+    private var gpsChip: some View {
+        HStack(spacing: 5) {
             Text("GPS").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(gpsSourceLabel).font(.system(size: 11, design: .monospaced)).foregroundColor(.primaryText)
             Circle().fill(gpsColor).frame(width: 8, height: 8)
+        }
+    }
+
+    /// On the viewer: "own" = the iPad's GPS, "peer" = THIS iPhone's GPS borrowed by the iPad.
+    private var gpsSourceLabel: String {
+        switch flightData?.gpsSource {
+        case "peer": return "iPhone"
+        case "own": return "iPad"
+        default: return "—"
         }
     }
 
@@ -131,6 +151,29 @@ struct CompanionFlightView: View {
         }
     }
 
+    // MARK: - Waiting (connected, no flight yet)
+
+    private var waitingScreen: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            Image(systemName: isConnected ? "airplane.circle" : "antenna.radiowaves.left.and.right")
+                .font(.system(size: 52)).foregroundColor(.aviationGold.opacity(0.85))
+            let name = companionConnectivityManager.connectedDeviceName ?? L10n.Companion.masterDevice
+            if isConnected {
+                Text(String(format: L10n.Companion.connectedWith, name))
+                    .font(.system(size: 17, weight: .semibold)).foregroundColor(.primaryText)
+                Text(String(format: L10n.Companion.startFlightOnMaster, name))
+                    .font(.subheadline).foregroundColor(.secondaryText)
+                    .multilineTextAlignment(.center).padding(.horizontal, 36)
+            } else {
+                Text(String(format: L10n.Companion.connectingTo, name))
+                    .font(.system(size: 16)).foregroundColor(.secondaryText)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     // MARK: - Mode switcher
 
     private var modeSwitcher: some View {
@@ -138,8 +181,7 @@ struct CompanionFlightView: View {
             modeButton(.nav, "NAV", "location.north.line")
             modeButton(.checklist, "CHECKLIST", "checklist")
         }
-        .padding(3)
-        .background(Color.black.opacity(0.3))
+        .padding(3).background(Color.black.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
@@ -183,7 +225,6 @@ struct CompanionFlightView: View {
         return (idx, plan.waypoints[idx])
     }
 
-    /// Arrow rotation relative to current track (turn cue). 0 = straight ahead.
     private func relativeBearing(_ wp: CompanionWaypoint) -> Double {
         guard let mc = wp.magneticCourse, let track = flightData?.courseDegrees else { return 0 }
         var rel = mc - track
@@ -196,9 +237,7 @@ struct CompanionFlightView: View {
         HStack(spacing: 16) {
             ZStack {
                 Circle().stroke(Color.aviationGold, lineWidth: 2).frame(width: 72, height: 72)
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundColor(.aviationGold)
+                Image(systemName: "arrow.up").font(.system(size: 34, weight: .semibold)).foregroundColor(.aviationGold)
                     .rotationEffect(.degrees(relativeBearing(wp)))
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -212,9 +251,7 @@ struct CompanionFlightView: View {
             }
             Spacer()
         }
-        .padding(14)
-        .background(Color.aviationGold.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(14).background(Color.aviationGold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func metricsRow(waypoint wp: CompanionWaypoint) -> some View {
@@ -249,11 +286,7 @@ struct CompanionFlightView: View {
                         }
                         .padding(.horizontal, 10).padding(.vertical, 8)
                     }
-                    if showFullPlan {
-                        routeTable(plan).frame(maxHeight: 260)
-                    } else {
-                        upcomingStrip(plan)
-                    }
+                    if showFullPlan { routeTable(plan).frame(maxHeight: 260) } else { upcomingStrip(plan) }
                 }
                 .background(Color.black.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
@@ -328,19 +361,37 @@ struct CompanionFlightView: View {
         }
     }
 
-    // MARK: - CHECKLIST mode
+    // MARK: - CHECKLIST mode (mirrors the iPad checklist: hero + rows + tap-to-advance + NEXT)
 
     private var checklistMode: some View {
         Group {
             if let cl = checklist {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        checklistPhaseHeader(cl)
-                        checklistCurrentItem(cl)
-                        checkAndNextButton(cl)
-                        checklistUpcoming(cl)
+                VStack(spacing: 0) {
+                    checklistPhaseHeader(cl)
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(cl.items.enumerated()), id: \.element.id) { index, item in
+                                    checklistRow(cl, index: index, item: item).id(index)
+                                }
+                                if let completion = phaseCompletionText(cl), !completion.isEmpty {
+                                    Rectangle().fill(Color.subtleOverlay(0.12)).frame(height: 1).padding(.vertical, 12)
+                                    HStack { Spacer()
+                                        Text(completion).font(.system(size: 16, weight: .bold, design: .monospaced)).foregroundColor(.aviationGreen)
+                                        Spacer() }
+                                }
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                        }
+                        .onChange(of: cl.highlightedIndex) { _, idx in
+                            withAnimation { proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.12)) }
+                        }
                     }
-                    .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
+                    // Tap anywhere on the list to advance the highlighted item (mirrors the iPad).
+                    .contentShape(Rectangle())
+                    .onTapGesture { companionConnectivityManager.sendCommand(.advanceChecklistItem) }
+
+                    nextButton
                 }
             } else {
                 VStack(spacing: 8) {
@@ -356,74 +407,65 @@ struct CompanionFlightView: View {
     }
 
     private func checklistPhaseHeader(_ cl: CompanionChecklistSnapshot) -> some View {
-        HStack {
-            Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
-                Image(systemName: "chevron.left").font(.system(size: 16)).foregroundColor(.aviationGold).frame(width: 36, height: 36)
+        VStack(spacing: 2) {
+            HStack {
+                Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 15)).foregroundColor(.aviationGold).frame(width: 34, height: 30)
+                }
+                Spacer()
+                Text(cl.phaseTitle).font(.system(size: 16, weight: .bold)).foregroundColor(.aviationGold)
+                    .textCase(.uppercase).tracking(1).lineLimit(1)
+                Spacer()
+                Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
+                    Image(systemName: "chevron.right").font(.system(size: 15)).foregroundColor(.aviationGold).frame(width: 34, height: 30)
+                }
             }
-            VStack(spacing: 1) {
-                Text(cl.phaseTitle).font(.system(size: 15, weight: .bold, design: .monospaced)).foregroundColor(.aviationGold).lineLimit(1)
-                Text("\(min(cl.completedCount, cl.visibleCount)) / \(cl.visibleCount)").font(.system(size: 11, design: .monospaced)).foregroundColor(.secondaryText)
+            HStack(spacing: 4) {
+                Image(systemName: "hand.tap.fill").font(.system(size: 9))
+                Text(L10n.ChecklistAction.tapToAdvance).font(.system(size: 10))
             }
-            .frame(maxWidth: .infinity)
-            Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
-                Image(systemName: "chevron.right").font(.system(size: 16)).foregroundColor(.aviationGold).frame(width: 36, height: 36)
-            }
+            .foregroundColor(.dimText)
         }
-    }
-
-    private func checklistCurrentItem(_ cl: CompanionChecklistSnapshot) -> some View {
-        let item = cl.items.indices.contains(cl.highlightedIndex) ? cl.items[cl.highlightedIndex] : nil
-        return VStack(alignment: .leading, spacing: 4) {
-            Text("ITEM \(min(cl.highlightedIndex + 1, max(cl.visibleCount, 1)))")
-                .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.secondaryText)
-            Text(item?.challenge ?? "—")
-                .font(.system(size: 22, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
-            if let r = item?.response, !r.isEmpty {
-                Text(r.uppercased()).font(.system(size: 16, design: .monospaced)).foregroundColor(.aviationGold)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
-        .background(Color.black.opacity(0.25))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationGold, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
     @ViewBuilder
-    private func checkAndNextButton(_ cl: CompanionChecklistSnapshot) -> some View {
-        let allDone = cl.completedCount >= cl.visibleCount && cl.visibleCount > 0
-        Button {
-            companionConnectivityManager.sendCommand(allDone ? .nextChecklistPhase : .advanceChecklistItem)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: allDone ? "arrow.right.circle" : "checkmark").font(.system(size: 18))
-                Text(allDone ? L10n.Companion.nextPhase : L10n.Companion.checkAndNext).font(.system(size: 15, weight: .bold))
-            }
-            .foregroundColor(allDone ? .cockpitBackground : Color(red: 0.02, green: 0.13, blue: 0.05))
-            .frame(maxWidth: .infinity).padding(.vertical, 13)
-            .background(allDone ? Color.aviationGold : Color.aviationGreen)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+    private func checklistRow(_ cl: CompanionChecklistSnapshot, index: Int, item: CompanionChecklistItem) -> some View {
+        if index == cl.highlightedIndex {
+            CockpitHeroChecklistItem(
+                challenge: item.challenge,
+                response: item.response,
+                progressText: "\(index + 1) / \(cl.items.count)",
+                showAdvanceHint: false,
+                isCompact: true
+            ).padding(.vertical, 4)
+        } else {
+            ChecklistItemRow(
+                item: ChecklistItem(challenge: item.challenge, response: item.response, isHeader: item.isHeader),
+                showSeparator: index < cl.items.count - 1,
+                isHighlighted: false,
+                isCompleted: index < cl.highlightedIndex,
+                isCompact: true
+            )
         }
     }
 
-    private func checklistUpcoming(_ cl: CompanionChecklistSnapshot) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(cl.items.enumerated()), id: \.element.id) { i, item in
-                if i != cl.highlightedIndex {
-                    HStack(spacing: 8) {
-                        Image(systemName: i < cl.highlightedIndex ? "checkmark" : "circle")
-                            .font(.system(size: 12))
-                            .foregroundColor(i < cl.highlightedIndex ? .aviationGreen : .secondaryText)
-                        Text(item.isHeader ? item.challenge.uppercased() : "\(item.challenge)\(item.response.isEmpty ? "" : " — \(item.response)")")
-                            .font(.system(size: 13, weight: item.isHeader ? .bold : .regular, design: .monospaced))
-                            .foregroundColor(i < cl.highlightedIndex ? .secondaryText.opacity(0.6) : .primaryText.opacity(0.85))
-                            .strikethrough(i < cl.highlightedIndex)
-                            .lineLimit(1)
-                        Spacer()
-                    }
-                    .padding(.vertical, 5).padding(.horizontal, 4)
-                }
+    private func phaseCompletionText(_ cl: CompanionChecklistSnapshot) -> String? {
+        guard cl.completedCount >= cl.visibleCount, cl.visibleCount > 0,
+              let phase = ChecklistPhase(rawValue: cl.phaseRawValue) else { return nil }
+        return phase.completionText
+    }
+
+    private var nextButton: some View {
+        Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
+            HStack(spacing: 8) {
+                Text("NEXT").font(.system(size: 16, weight: .bold))
+                Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
             }
+            .foregroundColor(.cockpitBackground).frame(maxWidth: .infinity).padding(.vertical, 14)
+            .background(Color.aviationGold).clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .padding(.horizontal, 12).padding(.bottom, 8)
     }
 
     // MARK: - Route table (full plan, inside the PLAN disclosure)

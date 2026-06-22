@@ -120,6 +120,57 @@
         }
       }
     },
+    "companion.exitConfirmLeave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter"
+          }
+        }
+      }
+    },
+    "companion.exitConfirmMessage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device will turn off Companion mode and return to the app. You can turn it back on in Settings."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil va désactiver le mode Companion et revenir à l'application. Vous pourrez le réactiver dans les Réglages."
+          }
+        }
+      }
+    },
+    "companion.exitConfirmTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Companion mode?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter le mode Companion ?"
+          }
+        }
+      }
+    },
     "companion.holdToExit" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -2527,6 +2527,19 @@ struct FlightInfoSheet: View {
                             .pickerStyle(.segmented)
                             .labelsHidden()
                         }
+                        rowDivider
+                        // Toggle the second screen on/off without leaving the flight (e.g. the iPad
+                        // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
+                        // toggle: enabling auto-connects to a paired device, disabling tears down.
+                        toggleRow(L10n.Companion.enableCompanionMode, Binding(
+                            get: { appState.settings.enableCompanionMode },
+                            set: { on in
+                                appState.settings.enableCompanionMode = on
+                                appState.saveSettings()
+                                if on { CompanionConnectivityManager.shared.autoConnectIfReady(force: true) }
+                                else { CompanionConnectivityManager.shared.disconnect() }
+                            }
+                        ))
                     }
 
                     settingsCard(title: L10n.GPS.status) {

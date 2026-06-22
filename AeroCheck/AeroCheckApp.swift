@@ -501,5 +501,9 @@ struct AppRootView<Content: View>: View {
             // materials and any default/semantic text render correctly on the light surfaces.
             .environment(\.colorScheme, AmbientPalette.isActive ? .light : .dark)
             .ambientCelebrationOverlay()
+            // Publish the DEVICE's real appearance so the companion master streams the same theme the
+            // iPad actually displays (not the force-dark window trait). (companion v2 — theme default fix)
+            .onAppear { appState.deviceIsDark = systemIsDark }
+            .onChange(of: systemColorScheme) { _, scheme in appState.deviceIsDark = (scheme == .dark) }
     }
 }

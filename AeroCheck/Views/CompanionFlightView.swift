@@ -17,6 +17,7 @@ struct CompanionFlightView: View {
     @State private var autoSetting = false
     @State private var showFullPlan = false
     @State private var isHoldingExit = false
+    @State private var showExitConfirm = false
     @State private var now = Date()
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -72,6 +73,14 @@ struct CompanionFlightView: View {
         .onAppear { applyAutoMode() }
         .onChange(of: isAirborne) { applyAutoMode() }
         .onChange(of: mode) { if autoSetting { autoSetting = false } else { userPickedMode = true } }
+        .alert(L10n.Companion.exitConfirmTitle, isPresented: $showExitConfirm) {
+            Button(L10n.Companion.exitConfirmLeave, role: .destructive) {
+                companionConnectivityManager.switchToStandalone()
+            }
+            Button(L10n.Button.cancel, role: .cancel) { }
+        } message: {
+            Text(L10n.Companion.exitConfirmMessage)
+        }
     }
 
     private func applyAutoMode() {
@@ -97,7 +106,7 @@ struct CompanionFlightView: View {
                         withAnimation(.easeInOut(duration: 0.15)) { isHoldingExit = p }
                     }, perform: {
                         isHoldingExit = false
-                        companionConnectivityManager.switchToStandalone()
+                        showExitConfirm = true
                     })
                     .accessibilityLabel(L10n.Companion.companionMode)
                     .accessibilityHint(L10n.Companion.holdToExit)

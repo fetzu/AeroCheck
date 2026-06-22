@@ -557,8 +557,12 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         diag("Disconnected (user)")
     }
 
-    /// Switch from companion mode back to standalone
+    /// Leave companion mode entirely: turn the setting OFF (so auto-connect can't re-arm it seconds
+    /// later) and tear down the link. Used by the viewer's hold-to-exit and the "switch to standalone"
+    /// banner button. (companion v2 — leave-companion fix)
     func switchToStandalone() {
+        appState?.settings.enableCompanionMode = false
+        appState?.saveSettings()
         disconnect()
     }
 
@@ -891,9 +895,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             gpsSource: effectiveGPSSource.rawValue,
             // The master's resolved cockpit theme, so the viewer renders the SAME day/sunlight/night
             // styling as the iPad rather than its own device theme. (companion v2 — theme parity)
-            cockpitThemeMode: appState.settings.cockpitThemeMode(
-                systemIsDark: UITraitCollection.current.userInterfaceStyle == .dark
-            ).rawValue,
+            // Resolve against the DEVICE's real appearance (published from AppRootView) so the viewer
+            // mirrors what the iPad displays. The window trait is force-dark, which made `.auto` always
+            // stream night. (companion v2 — theme default fix)
+            cockpitThemeMode: appState.settings.cockpitThemeMode(systemIsDark: appState.deviceIsDark).rawValue,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,

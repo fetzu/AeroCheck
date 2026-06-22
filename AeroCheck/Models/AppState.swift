@@ -412,6 +412,12 @@ class AppState: ObservableObject {
     /// companion path.)
     var effectiveLearningMode: Bool { settings.learningMode || hiddenItemsRevealed }
 
+    /// The DEVICE's real light/dark appearance, published from `AppRootView` (which reads it before the
+    /// app forces its dark presentation). The companion manager streams the theme resolved against THIS
+    /// so the viewer mirrors exactly what the iPad displays — using the force-dark window trait instead
+    /// made `.auto` always resolve to night on the companion. (companion v2 — theme default fix)
+    @Published var deviceIsDark: Bool = false
+
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
 

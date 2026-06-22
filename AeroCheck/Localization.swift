@@ -1228,6 +1228,9 @@ enum L10n {
         static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")
         static let holdToReveal = String(localized: "companion.holdToReveal")
+        static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")
+        static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
+        static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
     }
 }
 

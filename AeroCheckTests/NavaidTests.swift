@@ -77,6 +77,37 @@ final class NavaidTests: XCTestCase {
         XCTAssertTrue(try Navaid.parse(geoJSON: json).isEmpty)   // single coordinate → skipped, not fatal
     }
 
+    func testParseSkipsFeatureMissingRequiredPropertyWithoutAbortingRest() throws {
+        // A feature missing a REQUIRED property (here `identifier`) must be skipped, not abort the whole
+        // FeatureCollection decode — which used to yield 0 navaids (and disable the region's declination
+        // provider). (v4.1.0 pre-tag fix — M1)
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"ok1","name":"ALPHA","identifier":"ALF","type":3},
+            "geometry":{"type":"Point","coordinates":[7.0,46.8]}},
+          {"type":"Feature","properties":{"_id":"bad","name":"NO IDENT","type":3},
+            "geometry":{"type":"Point","coordinates":[7.1,46.9]}},
+          {"type":"Feature","properties":{"_id":"ok2","name":"BRAVO","identifier":"BRV","type":7},
+            "geometry":{"type":"Point","coordinates":[6.1,46.4]}}
+        ]}
+        """.data(using: .utf8)!
+        XCTAssertEqual(try Navaid.parse(geoJSON: json).map(\.identifier), ["ALF", "BRV"])   // middle skipped, rest survive
+    }
+
+    func testParseSkipsInvalidCoordinate() throws {
+        // A finite-but-out-of-range coordinate (here longitude 1e30) is unusable for distance/snap math
+        // and would overflow downstream Int conversions; it must be dropped, not kept. (v4.1.0 hardening)
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"bad","name":"BAD","identifier":"BAD","type":3},
+            "geometry":{"type":"Point","coordinates":[1e30,46.5]}},
+          {"type":"Feature","properties":{"_id":"ok","name":"GOOD","identifier":"GUD","type":3},
+            "geometry":{"type":"Point","coordinates":[7.0,46.8]}}
+        ]}
+        """.data(using: .utf8)!
+        XCTAssertEqual(try Navaid.parse(geoJSON: json).map(\.identifier), ["GUD"])
+    }
+
     @MainActor
     func testNearestNavaidWithinRadius() throws {
         let service = OpenAIPNavaidDataService()

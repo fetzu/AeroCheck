@@ -50,6 +50,19 @@ final class ObstacleTests: XCTestCase {
         XCTAssertTrue(try Obstacle.parse(geoJSON: json).isEmpty)   // single coordinate → skipped, not fatal
     }
 
+    func testParseSkipsFeatureMissingRequiredPropertyWithoutAbortingRest() throws {
+        // A feature missing a REQUIRED property (here `_id`) must be skipped, not abort the whole
+        // FeatureCollection decode. (v4.1.0 pre-tag fix — M1)
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"ok1","type":0},"geometry":{"type":"Point","coordinates":[7.0,46.8]}},
+          {"type":"Feature","properties":{"type":0},"geometry":{"type":"Point","coordinates":[7.1,46.9]}},
+          {"type":"Feature","properties":{"_id":"ok2","type":2},"geometry":{"type":"Point","coordinates":[6.1,46.4]}}
+        ]}
+        """.data(using: .utf8)!
+        XCTAssertEqual(try Obstacle.parse(geoJSON: json).map(\.id), ["ok1", "ok2"])   // middle skipped, rest survive
+    }
+
     @MainActor
     func testObstaclesInRegion() throws {
         let service = OpenAIPObstacleDataService()

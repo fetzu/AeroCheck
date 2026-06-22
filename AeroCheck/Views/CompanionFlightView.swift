@@ -5,6 +5,9 @@ import SwiftUI
 /// Only shown once a flight is active on the iPad; otherwise a "start a flight" prompt.
 /// - NAV: next checkpoint as a track-up turn arrow + bearing/distance/ETE, plan/freqs/chrono below.
 /// - CHECKLIST: the SAME hero + rows as the iPad checklist; tap to advance + NEXT, driving the iPad.
+///
+/// Theming: the view renders in the MASTER's resolved day/sunlight/night cockpit theme (streamed in the
+/// flight data), overriding this device's own theme so the two screens match. (companion v2)
 struct CompanionFlightView: View {
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
 
@@ -32,6 +35,13 @@ struct CompanionFlightView: View {
         return now.timeIntervalSince(d.timestamp) > 5
     }
 
+    // MARK: - Theme parity (mirror the iPad's day/sunlight/night cockpit theme)
+
+    private var themeMode: CockpitThemeMode {
+        CockpitThemeMode(rawValue: flightData?.cockpitThemeMode ?? "day") ?? .day
+    }
+    private var theme: CockpitTheme { CockpitTheme.resolve(themeMode) }
+
     var body: some View {
         VStack(spacing: 0) {
             headerBar
@@ -53,8 +63,11 @@ struct CompanionFlightView: View {
                 waitingScreen
             }
         }
-        .background(Color.cockpitBackground)
+        .background(theme.background)
         .preferredColorScheme(.dark)
+        // Render the reused checklist hero/rows in the SAME theme as the iPad, not this device's theme.
+        .environment(\.cockpitTheme, theme)
+        .environment(\.isNightMode, themeMode == .night)
         .onReceive(tick) { now = $0 }
         .onAppear { applyAutoMode() }
         .onChange(of: isAirborne) { applyAutoMode() }
@@ -74,9 +87,9 @@ struct CompanionFlightView: View {
             HStack(spacing: 7) {
                 Text("COMPANION")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(.cockpitBackground)
+                    .foregroundColor(theme.actionText)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.aviationGold)
+                    .background(theme.action)
                     .clipShape(RoundedRectangle(cornerRadius: 3))
                     .scaleEffect(isHoldingExit ? 0.9 : 1.0)
                     .opacity(isHoldingExit ? 0.6 : 1.0)
@@ -91,7 +104,7 @@ struct CompanionFlightView: View {
 
                 Text(flightData?.aircraftRegistration ?? "---")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
             }
 
             Spacer()
@@ -102,14 +115,14 @@ struct CompanionFlightView: View {
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(Color.cockpitBackground.opacity(0.95))
+        .background(theme.background.opacity(0.95))
     }
 
     /// Connection status using the app's StatusIndicator design language + the connected device name.
     private var connectionStatusRow: some View {
         HStack(spacing: 5) {
             if let name = companionConnectivityManager.connectedDeviceName {
-                Text(name).font(.system(size: 11)).foregroundColor(.secondaryText)
+                Text(name).font(.system(size: 11)).foregroundColor(theme.textSecondary)
             }
             StatusIndicator(connectionStatus, size: 8)
         }
@@ -127,8 +140,8 @@ struct CompanionFlightView: View {
     /// the signal status, in the app's design language. (companion v2 — GPS clarity)
     private var gpsChip: some View {
         HStack(spacing: 5) {
-            Text("GPS").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundColor(.secondaryText)
-            Text(gpsSourceLabel).font(.system(size: 11, design: .monospaced)).foregroundColor(.primaryText)
+            Text("GPS").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
+            Text(gpsSourceLabel).font(.system(size: 11, design: .monospaced)).foregroundColor(theme.textPrimary)
             Circle().fill(gpsColor).frame(width: 8, height: 8)
         }
     }
@@ -157,17 +170,17 @@ struct CompanionFlightView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: isConnected ? "airplane.circle" : "antenna.radiowaves.left.and.right")
-                .font(.system(size: 52)).foregroundColor(.aviationGold.opacity(0.85))
+                .font(.system(size: 52)).foregroundColor(theme.action.opacity(0.85))
             let name = companionConnectivityManager.connectedDeviceName ?? L10n.Companion.masterDevice
             if isConnected {
                 Text(String(format: L10n.Companion.connectedWith, name))
-                    .font(.system(size: 17, weight: .semibold)).foregroundColor(.primaryText)
+                    .font(.system(size: 17, weight: .semibold)).foregroundColor(theme.textPrimary)
                 Text(String(format: L10n.Companion.startFlightOnMaster, name))
-                    .font(.subheadline).foregroundColor(.secondaryText)
+                    .font(.subheadline).foregroundColor(theme.textSecondary)
                     .multilineTextAlignment(.center).padding(.horizontal, 36)
             } else {
                 Text(String(format: L10n.Companion.connectingTo, name))
-                    .font(.system(size: 16)).foregroundColor(.secondaryText)
+                    .font(.system(size: 16)).foregroundColor(theme.textSecondary)
             }
             Spacer()
         }
@@ -192,9 +205,9 @@ struct CompanionFlightView: View {
                 Image(systemName: icon).font(.system(size: 11))
                 Text(title).font(.system(size: 12, weight: .bold, design: .monospaced))
             }
-            .foregroundColor(mode == m ? .cockpitBackground : .secondaryText)
+            .foregroundColor(mode == m ? theme.actionText : theme.textSecondary)
             .frame(maxWidth: .infinity).padding(.vertical, 6)
-            .background(mode == m ? Color.aviationGold : Color.clear)
+            .background(mode == m ? theme.action : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
@@ -225,7 +238,30 @@ struct CompanionFlightView: View {
         return (idx, plan.waypoints[idx])
     }
 
-    private func relativeBearing(_ wp: CompanionWaypoint) -> Double {
+    /// True geographic bearing (0–360°) from the current GPS position to the waypoint, or nil with no fix.
+    private func bearingToWaypoint(_ wp: CompanionWaypoint) -> Double? {
+        guard let lat1 = flightData?.latitude, let lon1 = flightData?.longitude else { return nil }
+        let lat1r = lat1 * .pi / 180, lat2r = wp.latitude * .pi / 180
+        let dLon = (wp.longitude - lon1) * .pi / 180
+        let y = sin(dLon) * cos(lat2r)
+        let x = cos(lat1r) * sin(lat2r) - sin(lat1r) * cos(lat2r) * cos(dLon)
+        let brng = atan2(y, x) * 180 / .pi
+        return (brng + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    /// Arrow rotation for the track-up turn arrow: where the waypoint is relative to the direction of
+    /// travel. Computed from the real bearing-to-waypoint (so it actually points at the checkpoint)
+    /// minus the current track. Falls back to the planned leg course when there is no position fix.
+    /// (item 2 — the arrow was stuck pointing up because it used leg-course − track.)
+    private func arrowRotation(_ wp: CompanionWaypoint) -> Double {
+        if let brg = bearingToWaypoint(wp) {
+            let track = flightData?.courseDegrees ?? 0
+            var rel = brg - track
+            while rel > 180 { rel -= 360 }
+            while rel < -180 { rel += 360 }
+            return rel
+        }
+        // No fix: best-effort using the planned magnetic course vs current track.
         guard let mc = wp.magneticCourse, let track = flightData?.courseDegrees else { return 0 }
         var rel = mc - track
         while rel > 180 { rel -= 360 }
@@ -236,22 +272,23 @@ struct CompanionFlightView: View {
     private func nextWaypointHero(index: Int, waypoint wp: CompanionWaypoint) -> some View {
         HStack(spacing: 16) {
             ZStack {
-                Circle().stroke(Color.aviationGold, lineWidth: 2).frame(width: 72, height: 72)
-                Image(systemName: "arrow.up").font(.system(size: 34, weight: .semibold)).foregroundColor(.aviationGold)
-                    .rotationEffect(.degrees(relativeBearing(wp)))
+                Circle().stroke(theme.action, lineWidth: 2).frame(width: 72, height: 72)
+                Image(systemName: "arrow.up").font(.system(size: 34, weight: .semibold)).foregroundColor(theme.action)
+                    .rotationEffect(.degrees(arrowRotation(wp)))
+                    .animation(.easeInOut(duration: 0.4), value: arrowRotation(wp))
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("NEXT").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(.secondaryText)
+                Text("NEXT").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
                 Text(wp.name.isEmpty ? "WP\(index + 1)" : wp.name)
-                    .font(.system(size: 28, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                    .font(.system(size: 28, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
                     .lineLimit(1).minimumScaleFactor(0.6)
                 if let mc = wp.magneticCourse {
-                    Text(String(format: "%03.0f° mag", mc)).font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGold)
+                    Text(String(format: "%03.0f° mag", mc)).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.action)
                 }
             }
             Spacer()
         }
-        .padding(14).background(Color.aviationGold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(14).background(theme.action.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func metricsRow(waypoint wp: CompanionWaypoint) -> some View {
@@ -264,10 +301,10 @@ struct CompanionFlightView: View {
 
     private func metricCell(_ label: String, _ value: String, _ unit: String) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(label).font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
-                if !unit.isEmpty { Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText) }
+                Text(value).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+                if !unit.isEmpty { Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary) }
             }
         }
         .frame(maxWidth: .infinity).padding(.vertical, 8)
@@ -280,9 +317,9 @@ struct CompanionFlightView: View {
                 VStack(spacing: 0) {
                     Button { withAnimation { showFullPlan.toggle() } } label: {
                         HStack {
-                            Text("PLAN").font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(.aviationGold)
+                            Text("PLAN").font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(theme.action)
                             Spacer()
-                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.system(size: 11)).foregroundColor(.secondaryText)
+                            Image(systemName: showFullPlan ? "chevron.up" : "chevron.down").font(.system(size: 11)).foregroundColor(theme.textSecondary)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 8)
                     }
@@ -298,7 +335,7 @@ struct CompanionFlightView: View {
         let upcoming = Array(plan.waypoints.enumerated()).filter { $0.offset >= start }.prefix(2)
         return VStack(spacing: 0) {
             if upcoming.isEmpty {
-                Text("—").font(.system(size: 12, design: .monospaced)).foregroundColor(.secondaryText)
+                Text("—").font(.system(size: 12, design: .monospaced)).foregroundColor(theme.textSecondary)
                     .frame(maxWidth: .infinity).padding(.vertical, 6)
             } else {
                 ForEach(Array(upcoming), id: \.element.id) { i, wp in
@@ -308,7 +345,7 @@ struct CompanionFlightView: View {
                         Text(wp.magneticCourse.map { String(format: "%03.0f°", $0) } ?? "---")
                         Text(wp.distance.map { String(format: "%.1f NM", $0) } ?? "---").frame(width: 70, alignment: .trailing)
                     }
-                    .font(.system(size: 12, design: .monospaced)).foregroundColor(.primaryText.opacity(0.85))
+                    .font(.system(size: 12, design: .monospaced)).foregroundColor(theme.textPrimary.opacity(0.85))
                     .padding(.horizontal, 10).padding(.vertical, 5)
                 }
             }
@@ -318,9 +355,13 @@ struct CompanionFlightView: View {
     private var freqChronoRow: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("FREQ").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
-                Text(nextWaypoint?.wp.frequency?.isEmpty == false ? nextWaypoint!.wp.frequency! : "121.50")
-                    .font(.system(size: 14, design: .monospaced)).foregroundColor(.primaryText)
+                // FREQ + a descriptor of WHAT the frequency is (the waypoint it belongs to, or GUARD for
+                // the 121.50 emergency fallback). (item 3)
+                HStack(spacing: 4) {
+                    Text("FREQ").font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
+                    Text(freqDescriptor).font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundColor(theme.action).lineLimit(1)
+                }
+                Text(freqValue).font(.system(size: 14, design: .monospaced)).foregroundColor(theme.textPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(10)
             .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -334,15 +375,28 @@ struct CompanionFlightView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Image(systemName: "stopwatch").font(.system(size: 10)).foregroundColor(.aviationGold)
-                        Text("CHRONO").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+                        Image(systemName: "stopwatch").font(.system(size: 10)).foregroundColor(theme.action)
+                        Text("CHRONO").font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
                     }
-                    Text(formattedChronometer).font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                    Text(formattedChronometer).font(.system(size: 14, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                 .background(Color.black.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
+    }
+
+    /// What the FREQ box's frequency is: the next waypoint's name, or GUARD for the 121.50 fallback.
+    private var freqDescriptor: String {
+        if let wp = nextWaypoint?.wp, let f = wp.frequency, !f.isEmpty {
+            return wp.name.isEmpty ? "WPT" : wp.name
+        }
+        return "GUARD"
+    }
+
+    private var freqValue: String {
+        if let f = nextWaypoint?.wp.frequency, !f.isEmpty { return f }
+        return "121.50"
     }
 
     private var recordATOButton: some View {
@@ -356,12 +410,19 @@ struct CompanionFlightView: View {
                 Image(systemName: "clock.badge.checkmark").font(.system(size: 14))
                 Text(L10n.Companion.recordATO).font(.system(size: 14, weight: .bold))
             }
-            .foregroundColor(.cockpitBackground).frame(maxWidth: .infinity).padding(.vertical, 12)
-            .background(Color.aviationGold).clipShape(RoundedRectangle(cornerRadius: 10))
+            .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 12)
+            .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
 
     // MARK: - CHECKLIST mode (mirrors the iPad checklist: hero + rows + tap-to-advance + NEXT)
+
+    /// Whether the current phase is fully worked through (so the NEXT button gets the attention pulse,
+    /// like the iPad). Same condition that shows the green completion text.
+    private var phaseComplete: Bool {
+        guard let cl = checklist else { return false }
+        return cl.visibleCount > 0 && cl.completedCount >= cl.visibleCount
+    }
 
     private var checklistMode: some View {
         Group {
@@ -373,6 +434,11 @@ struct CompanionFlightView: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 ForEach(Array(cl.items.enumerated()), id: \.element.id) { index, item in
                                     checklistRow(cl, index: index, item: item).id(index)
+                                }
+                                // Hidden (memorizable) content placeholder, mirroring the iPad. Hold to
+                                // reveal — reveals on BOTH devices. (item 1c)
+                                if cl.hiddenItemCount > 0 {
+                                    hiddenContentPlaceholder(count: cl.hiddenItemCount)
                                 }
                                 if let completion = phaseCompletionText(cl), !completion.isEmpty {
                                     Rectangle().fill(Color.subtleOverlay(0.12)).frame(height: 1).padding(.vertical, 12)
@@ -396,8 +462,8 @@ struct CompanionFlightView: View {
             } else {
                 VStack(spacing: 8) {
                     Spacer()
-                    Image(systemName: "checklist").font(.system(size: 40)).foregroundColor(.secondaryText)
-                    Text(L10n.Companion.checklistUnavailable).font(.subheadline).foregroundColor(.secondaryText)
+                    Image(systemName: "checklist").font(.system(size: 40)).foregroundColor(theme.textSecondary)
+                    Text(L10n.Companion.checklistUnavailable).font(.subheadline).foregroundColor(theme.textSecondary)
                         .multilineTextAlignment(.center).padding(.horizontal, 30)
                     Spacer()
                 }
@@ -410,21 +476,21 @@ struct CompanionFlightView: View {
         VStack(spacing: 2) {
             HStack {
                 Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 15)).foregroundColor(.aviationGold).frame(width: 34, height: 30)
+                    Image(systemName: "chevron.left").font(.system(size: 15)).foregroundColor(theme.action).frame(width: 34, height: 30)
                 }
                 Spacer()
-                Text(cl.phaseTitle).font(.system(size: 16, weight: .bold)).foregroundColor(.aviationGold)
+                Text(cl.phaseTitle).font(.system(size: 16, weight: .bold)).foregroundColor(theme.action)
                     .textCase(.uppercase).tracking(1).lineLimit(1)
                 Spacer()
                 Button { companionConnectivityManager.sendCommand(.nextChecklistPhase) } label: {
-                    Image(systemName: "chevron.right").font(.system(size: 15)).foregroundColor(.aviationGold).frame(width: 34, height: 30)
+                    Image(systemName: "chevron.right").font(.system(size: 15)).foregroundColor(theme.action).frame(width: 34, height: 30)
                 }
             }
             HStack(spacing: 4) {
                 Image(systemName: "hand.tap.fill").font(.system(size: 9))
                 Text(L10n.ChecklistAction.tapToAdvance).font(.system(size: 10))
             }
-            .foregroundColor(.dimText)
+            .foregroundColor(theme.textDim)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
@@ -450,6 +516,35 @@ struct CompanionFlightView: View {
         }
     }
 
+    /// "Hidden Checklist Content" placeholder — matches the iPad's learning-mode indicator. Hold to
+    /// reveal; the reveal command flips the master's reveal state, which streams the items to BOTH.
+    private func hiddenContentPlaceholder(count: Int) -> some View {
+        VStack(spacing: 8) {
+            Rectangle().fill(Color.aviationAmber.opacity(0.3)).frame(height: 1).padding(.top, 12)
+            HStack(spacing: 10) {
+                Image(systemName: "eye.slash.fill").font(.system(size: 18)).foregroundColor(.aviationAmber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.ChecklistAction.hiddenItemsTitle)
+                        .font(.system(size: 13, weight: .bold)).foregroundColor(.aviationAmber)
+                    Text(L10n.ChecklistAction.hiddenItemsCount(count, count == 1 ? "" : "s"))
+                        .font(.system(size: 11)).foregroundColor(theme.textSecondary)
+                }
+                Spacer()
+                Text(L10n.Companion.holdToReveal).font(.system(size: 10, weight: .medium)).foregroundColor(theme.textDim)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8).fill(Color.aviationAmber.opacity(0.1))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1))
+            )
+            .onLongPressGesture(minimumDuration: 0.4) {
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                companionConnectivityManager.sendCommand(.revealHiddenItems)
+            }
+        }
+    }
+
     private func phaseCompletionText(_ cl: CompanionChecklistSnapshot) -> String? {
         guard cl.completedCount >= cl.visibleCount, cl.visibleCount > 0,
               let phase = ChecklistPhase(rawValue: cl.phaseRawValue) else { return nil }
@@ -462,9 +557,11 @@ struct CompanionFlightView: View {
                 Text("NEXT").font(.system(size: 16, weight: .bold))
                 Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
             }
-            .foregroundColor(.cockpitBackground).frame(maxWidth: .infinity).padding(.vertical, 14)
-            .background(Color.aviationGold).clipShape(RoundedRectangle(cornerRadius: 12))
+            .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 14)
+            .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        // Pulse the NEXT button once the phase is complete, exactly like the iPad checklist. (item 1b)
+        .modifier(PulseModifier(isActive: phaseComplete))
         .padding(.horizontal, 12).padding(.bottom, 8)
     }
 
@@ -489,12 +586,12 @@ struct CompanionFlightView: View {
         let currentIdx = flightData?.currentWaypointIndex ?? plan.currentWaypointIndex
         let isCurrent = index == currentIdx
         let isPast = index < currentIdx
-        let textColor: Color = isPast ? .secondaryText : .primaryText.opacity(isCurrent ? 1 : 0.8)
+        let textColor: Color = isPast ? theme.textSecondary : theme.textPrimary.opacity(isCurrent ? 1 : 0.8)
         return HStack(spacing: 0) {
             Group {
                 if isPast { Image(systemName: "checkmark").font(.system(size: 9)).foregroundColor(.aviationGreen) }
-                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.system(size: 9)).foregroundColor(.aviationGold) }
-                else { Text("\(index + 1)").font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText) }
+                else if isCurrent { Image(systemName: "arrowtriangle.right.fill").font(.system(size: 9)).foregroundColor(theme.action) }
+                else { Text("\(index + 1)").font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary) }
             }.frame(width: 24)
             Text(wp.name.isEmpty ? "WP\(index)" : wp.name).font(.system(size: 12, weight: isCurrent ? .bold : .regular, design: .monospaced)).foregroundColor(textColor).lineLimit(1).frame(width: 64, alignment: .leading)
             Text(wp.magneticCourse.map { String(format: "%03.0f", $0) } ?? "---").font(.system(size: 11, design: .monospaced)).foregroundColor(textColor).frame(width: 40)
@@ -503,11 +600,11 @@ struct CompanionFlightView: View {
             Button {
                 if wp.actualTimeOver == nil { companionConnectivityManager.sendCommand(.recordATO(waypointIndex: index)) }
             } label: {
-                Text(formattedTime(wp.actualTimeOver)).font(.system(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? .aviationGreen : .secondary).frame(width: 48)
+                Text(formattedTime(wp.actualTimeOver)).font(.system(size: 11, weight: wp.actualTimeOver != nil ? .bold : .regular, design: .monospaced)).foregroundColor(wp.actualTimeOver != nil ? .aviationGreen : theme.textSecondary).frame(width: 48)
             }.disabled(wp.actualTimeOver != nil)
         }
         .padding(.vertical, 6)
-        .background(isCurrent ? Color.aviationGold.opacity(0.1) : Color.clear)
+        .background(isCurrent ? theme.action.opacity(0.1) : Color.clear)
     }
 
     // MARK: - Shared chrome
@@ -515,8 +612,8 @@ struct CompanionFlightView: View {
     private var noFlightPlanContent: some View {
         VStack(spacing: 8) {
             Spacer()
-            Image(systemName: "doc.text.magnifyingglass").font(.system(size: 36)).foregroundColor(.secondaryText)
-            Text(L10n.Companion.noFlightPlan).font(.subheadline).foregroundColor(.secondaryText)
+            Image(systemName: "doc.text.magnifyingglass").font(.system(size: 36)).foregroundColor(theme.textSecondary)
+            Text(L10n.Companion.noFlightPlan).font(.subheadline).foregroundColor(theme.textSecondary)
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -557,9 +654,9 @@ struct CompanionFlightView: View {
 
     private func instrumentItem(_ label: String, _ value: String, _ unit: String) -> some View {
         HStack(spacing: 4) {
-            Text(label).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundColor(.secondaryText)
-            Text(value).font(.system(size: 16, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
-            Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(label).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundColor(theme.textSecondary)
+            Text(value).font(.system(size: 16, weight: .bold, design: .monospaced)).foregroundColor(theme.textPrimary)
+            Text(unit).font(.system(size: 10, design: .monospaced)).foregroundColor(theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }

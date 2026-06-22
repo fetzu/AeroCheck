@@ -137,6 +137,23 @@
         }
       }
     },
+    "companion.holdToReveal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to reveal"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir pour révéler"
+          }
+        }
+      }
+    },
     "companion.pairWithiPhone" : {
       "extractionState" : "manual",
       "localizations" : {

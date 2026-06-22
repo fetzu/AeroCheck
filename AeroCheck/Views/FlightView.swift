@@ -30,9 +30,11 @@ struct FlightView: View {
     @State private var allItemsChecked = false
     @State private var scrollToBottom = false
     @State private var nearestFreqText: String?
-    /// Whether the current phase's hidden (memorizable) items have been temporarily revealed (owned here
-    /// so tap-to-advance can step through them). Reset on phase change. (v4 UI/UX Revamp feedback)
-    @State private var hiddenItemsRevealed = false
+    /// Binding to the hidden-items reveal state, now owned by `AppState` so a companion's hold-to-reveal
+    /// syncs to both devices. Reset on phase change in AppState. (companion v2 — hidden-content parity)
+    private var hiddenItemsRevealed: Binding<Bool> {
+        Binding(get: { appState.hiddenItemsRevealed }, set: { appState.hiddenItemsRevealed = $0 })
+    }
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
@@ -74,7 +76,7 @@ struct FlightView: View {
     /// Learning mode OR temporarily-revealed hidden items — the set of items the checklist is showing,
     /// so tap-to-advance and completion stay in sync with what's on screen. (v4 UI/UX Revamp feedback)
     private var effectiveLearningMode: Bool {
-        appState.settings.learningMode || hiddenItemsRevealed
+        appState.effectiveLearningMode
     }
 
     /// Determine if we're on an iPhone-sized device
@@ -548,7 +550,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
-                            hiddenItemsRevealed: $hiddenItemsRevealed
+                            hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(24)
                         .id("checklistContent")
@@ -1172,7 +1174,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
-                            hiddenItemsRevealed: $hiddenItemsRevealed
+                            hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)

@@ -716,13 +716,30 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // Companion v2 — synced checklist: drive the iPad's shared checklist from the iPhone. The iPad
         // stays the source of truth; these mirror exactly what tapping on the iPad would do.
         case .advanceChecklistItem:
-            if let appState { appState.advanceHighlightedItem(learningMode: appState.settings.learningMode) }
+            if let appState {
+                // Mirror FlightView.handleChecklistTap: on the LAST item, mark the phase complete
+                // (so the viewer's NEXT button lights up); otherwise step to the next item. Using
+                // only advanceHighlightedItem here meant tapping the last item was a no-op. (item 1b)
+                let learning = appState.effectiveLearningMode
+                let visibleCount = appState.activeChecklist.visibleItemCount(for: appState.currentPhase, learningMode: learning)
+                let currentIndex = appState.getHighlightedItem(for: appState.currentPhase)
+                if currentIndex >= visibleCount - 1 {
+                    appState.markLastItemComplete(learningMode: learning)
+                } else {
+                    appState.advanceHighlightedItem(learningMode: learning)
+                }
+            }
 
         case .nextChecklistPhase:
             appState?.nextPhase()
 
         case .previousChecklistPhase:
             appState?.previousPhase()
+
+        case .revealHiddenItems:
+            // Hold-to-reveal on the viewer reveals hidden items on BOTH devices (single source of truth
+            // in AppState; the iPad's FlightView binds to it). (item 1c)
+            appState?.hiddenItemsRevealed = true
         }
     }
 
@@ -813,20 +830,26 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func createChecklistSnapshot() -> CompanionChecklistSnapshot? {
         guard let appState else { return nil }
         let phase = appState.currentPhase
-        let learning = appState.settings.learningMode
+        // Effective learning mode includes a hold-to-reveal, so revealing on either device streams the
+        // hidden items to the viewer (and vice-versa). (companion v2 — hidden-content parity)
+        let learning = appState.effectiveLearningMode
         let visible = appState.activeChecklist.visibleItems(for: phase, learningMode: learning)
         let items = visible.map {
             CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
         }
         let visibleCount = appState.activeChecklist.visibleItemCount(for: phase, learningMode: learning)
         let highlighted = appState.getHighlightedItem(for: phase)
+        // How many memorizable items are still hidden (0 once revealed/learning mode) — drives the
+        // viewer's "Hidden Checklist Content" placeholder, mirroring the iPad.
+        let hiddenCount = max(0, appState.activeChecklist.items(for: phase).count - visible.count)
         return CompanionChecklistSnapshot(
             phaseTitle: phase.title,
             phaseRawValue: phase.rawValue,
             highlightedIndex: highlighted,
             visibleCount: visibleCount,
             completedCount: min(highlighted, visibleCount),
-            items: items
+            items: items,
+            hiddenItemCount: hiddenCount
         )
     }
 
@@ -866,6 +889,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // fix; otherwise borrowing would mark the master "has GPS" and stop the feed it depends on. (shared-GPS)
             ownGPSAvailable: locationManager.ownFixIsLive,
             gpsSource: effectiveGPSSource.rawValue,
+            // The master's resolved cockpit theme, so the viewer renders the SAME day/sunlight/night
+            // styling as the iPad rather than its own device theme. (companion v2 — theme parity)
+            cockpitThemeMode: appState.settings.cockpitThemeMode(
+                systemIsDark: UITraitCollection.current.userInterfaceStyle == .dark
+            ).rawValue,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,

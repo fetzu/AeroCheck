@@ -393,8 +393,25 @@ class AppState: ObservableObject {
 
     var currentPhase: ChecklistPhase {
         get { checklistProgress.currentPhase }
-        set { checklistProgress.currentPhase = newValue }
+        set {
+            // Changing phase clears any temporary hidden-items reveal (matches the per-phase reset the
+            // checklist view used to own — now centralised so a companion-driven phase change resets too).
+            if checklistProgress.currentPhase != newValue { hiddenItemsRevealed = false }
+            checklistProgress.currentPhase = newValue
+        }
     }
+
+    /// Whether the current phase's memorizable items are temporarily revealed (hold-to-reveal). Lifted
+    /// out of `FlightView`'s local @State so it is a single source of truth: the checklist snapshot
+    /// streamed to a companion reflects it, and a companion's hold-to-reveal sets it here — so revealing
+    /// on either device reveals on BOTH. Transient (never persisted); reset on phase change above.
+    @Published var hiddenItemsRevealed: Bool = false
+
+    /// The effective learning mode = the user's learning-mode setting OR a temporary reveal. Drives which
+    /// checklist items are visible/stepped-through. (Was computed in FlightView; centralised for the
+    /// companion path.)
+    var effectiveLearningMode: Bool { settings.learningMode || hiddenItemsRevealed }
+
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
 

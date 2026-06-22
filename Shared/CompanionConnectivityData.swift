@@ -133,6 +133,10 @@ struct CompanionFlightData: Codable {
     /// (companion v2 — GPS clarity)
     let gpsSource: String
 
+    /// The master's resolved cockpit theme ("day" / "sunlight" / "night") so the viewer renders the SAME
+    /// day/sunlight/night styling as the iPad, instead of its own device theme. (companion v2 — theme parity)
+    let cockpitThemeMode: String
+
     // Navigation state (lightweight -- full plan sent separately)
     let currentWaypointIndex: Int
     let chronometerStartTime: Date?
@@ -170,6 +174,7 @@ extension CompanionFlightData {
         // source GPS for it. (v4.1 shared-GPS — backward-compatible)
         ownGPSAvailable = try c.decodeIfPresent(Bool.self, forKey: .ownGPSAvailable) ?? true
         gpsSource = try c.decodeIfPresent(String.self, forKey: .gpsSource) ?? "own"
+        cockpitThemeMode = try c.decodeIfPresent(String.self, forKey: .cockpitThemeMode) ?? "day"
         // Clamp a peer-supplied index to >= 0 so it can never become a negative array subscript on
         // the receiver (the upper bound is checked per-use against the actual waypoint count).
         currentWaypointIndex = max(0, try c.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0)
@@ -310,6 +315,7 @@ enum CompanionCommand: Codable {
     case advanceChecklistItem
     case nextChecklistPhase
     case previousChecklistPhase
+    case revealHiddenItems   // hold-to-reveal hidden (memorizable) items — reveals on BOTH devices
 }
 
 // MARK: - Checklist Snapshot (Master -> Viewer)
@@ -331,4 +337,32 @@ struct CompanionChecklistSnapshot: Codable, Equatable {
     let visibleCount: Int         // number of non-header items (for "x / y" progress)
     let completedCount: Int       // how many items have been worked through
     let items: [CompanionChecklistItem]
+    /// Count of memorizable items currently HIDDEN (learning mode off, not yet revealed). > 0 → the
+    /// viewer shows the same "Hidden Checklist Content" placeholder as the iPad. 0 once revealed.
+    /// (companion v2 — hidden-content parity)
+    let hiddenItemCount: Int
+
+    init(phaseTitle: String, phaseRawValue: Int, highlightedIndex: Int, visibleCount: Int,
+         completedCount: Int, items: [CompanionChecklistItem], hiddenItemCount: Int) {
+        self.phaseTitle = phaseTitle
+        self.phaseRawValue = phaseRawValue
+        self.highlightedIndex = highlightedIndex
+        self.visibleCount = visibleCount
+        self.completedCount = completedCount
+        self.items = items
+        self.hiddenItemCount = hiddenItemCount
+    }
+
+    /// Tolerant decoder: every field defaults so a field skew between independently-updated builds never
+    /// drops the checklist update. (ARCH — versioned contract)
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        phaseTitle = try c.decodeIfPresent(String.self, forKey: .phaseTitle) ?? ""
+        phaseRawValue = try c.decodeIfPresent(Int.self, forKey: .phaseRawValue) ?? 0
+        highlightedIndex = try c.decodeIfPresent(Int.self, forKey: .highlightedIndex) ?? 0
+        visibleCount = try c.decodeIfPresent(Int.self, forKey: .visibleCount) ?? 0
+        completedCount = try c.decodeIfPresent(Int.self, forKey: .completedCount) ?? 0
+        items = try c.decodeIfPresent([CompanionChecklistItem].self, forKey: .items) ?? []
+        hiddenItemCount = try c.decodeIfPresent(Int.self, forKey: .hiddenItemCount) ?? 0
+    }
 }

@@ -113,9 +113,20 @@ class OpenAIPDataService: ObservableObject {
         return Date().timeIntervalSince(lastUpdate) > OpenAIPConfig.airspaceCacheExpirationInterval
     }
 
+    /// Rough estimate of the structured-data (GeoJSON) download size for a set of countries — the five
+    /// keyless layers (airspace + navaids + obstacles + reporting points + airports) run ~5 MB/country.
+    /// Approximate; the data is far smaller than the raster map tiles, which is the point. (v4.1.0)
+    nonisolated static func estimatedDataSize(for countries: [String]) -> String {
+        let bytes = Int64(max(1, countries.count)) * 5_000_000
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
     /// Download airspace data for selected countries from OpenAIP Core API
     func downloadData(for countries: [String]) async {
-        guard !isDownloading else { return }
+        // Mirror the navaid/obstacle/RP/airport services: an empty set is a no-op, NOT a signal to prune
+        // (the removal loop below would otherwise treat subtracting([]) as "remove everything" and wipe all
+        // cached airspace). Callers that prune a country pass the full remaining set.
+        guard !isDownloading, !countries.isEmpty else { return }
 
         isDownloading = true
         downloadProgress = 0
@@ -177,13 +188,10 @@ class OpenAIPDataService: ObservableObject {
             if Task.isCancelled { break }
         }
 
-        // Remove countries that are no longer selected
-        let removedCountries = Set(metadata.lastSyncDates.keys).subtracting(countries)
-        for country in removedCountries {
-            metadata.lastSyncDates.removeValue(forKey: country)
-            metadata.airspaceCounts.removeValue(forKey: country)
-            try? fileManager.removeItem(at: airspaceFileURL(for: country))
-        }
+        // Remove countries that are no longer selected (shared with the other four OpenAIP layers).
+        OpenAIPConfig.pruneDeselectedCountries(
+            keeping: countries, counts: &metadata.airspaceCounts, lastSyncDates: &metadata.lastSyncDates,
+            fileURL: { airspaceFileURL(for: $0) }, fileManager: fileManager)
 
         // Save metadata
         metadata.lastFullRefresh = Date()

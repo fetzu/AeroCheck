@@ -1,12 +1,13 @@
 import Foundation
 import CoreLocation
 
-/// Pure, testable engine that folds OpenAIP airports into the OurAirports `Airport` backbone, behind the
-/// OpenAIP-primary airport backbone. Computed ONCE at load (never per-query), then cached in
-/// `AirportDataService`. (v4.1.0, increment 9 — flag-gated; default OFF until validated.)
+/// Pure, testable engine that folds OpenAIP airports into the OurAirports `Airport` backbone. Computed
+/// ONCE at load (never per-query), then cached in `AirportDataService`. (v4.1.0)
 ///
-/// Scope: airport IDENTITY + POSITION only (the `Airport` struct). OpenAIP's runways and frequencies
-/// live in separate stores and are a deliberate fast-follow — this engine does not touch them.
+/// Produces three outputs, each UNION-merged by `AirportDataService` (OpenAIP wins on a match, OurAirports
+/// gap-fills): airport identity+position (`merge`), frequencies (`openAIPFrequencies`), and runways
+/// (`openAIPRunways` — pairs OpenAIP's per-direction entries into le/he `Runway`s with PCN + declared
+/// distances).
 enum AirportDataMergeEngine {
     /// Two airports sharing an ICAO but more than this far apart are treated as DISTINCT fields
     /// (closed/moved/relocated), not the same airport — so neither overwrites the other.
@@ -88,6 +89,122 @@ enum AirportDataMergeEngine {
             }
         }
         return result
+    }
+
+    /// Convert OpenAIP airport runways into the app's `Runway` rows, keyed by ICAO. OpenAIP lists each
+    /// runway DIRECTION separately (e.g. "10" and "28"); this pairs opposite directions into one le/he
+    /// `Runway`, carrying OpenAIP's richer data (PCN + per-direction declared distances). A direction with
+    /// no opposite present becomes an LE-only runway. Skips airports without an ICAO. (v4.1.0 runway merge)
+    static func openAIPRunways(from airports: [OpenAIPAirport]) -> [Runway] {
+        var result: [Runway] = []
+        for apt in airports {
+            guard let icaoRaw = apt.icaoCode, !icaoRaw.isEmpty else { continue }
+            let icao = icaoRaw.uppercased()
+            let ref = stableNegativeID(apt.id)
+
+            // Index this airport's directions by canonical "<number><suffix>" key (e.g. "10", "16L").
+            var byKey: [String: (entry: OpenAIPRunway, number: Int, suffix: String)] = [:]
+            var order: [String] = []
+            for rwy in apt.runways {
+                guard let (num, suffix) = parseDesignator(rwy.designator) else { continue }
+                let key = "\(num)\(suffix)"
+                if byKey[key] == nil { byKey[key] = (rwy, num, suffix); order.append(key) }
+            }
+
+            var consumed = Set<String>()
+            for key in order {
+                guard !consumed.contains(key), let this = byKey[key] else { continue }
+                consumed.insert(key)
+                let (oppNum, oppSuffix) = oppositeDesignator(number: this.number, suffix: this.suffix)
+                let oppKey = "\(oppNum)\(oppSuffix)"
+                if let opp = byKey[oppKey], !consumed.contains(oppKey) {
+                    consumed.insert(oppKey)
+                    // Lower runway number is the LE end (e.g. "10" before "28", "16L" before "34R").
+                    let (le, he) = this.number <= opp.number ? (this.entry, opp.entry) : (opp.entry, this.entry)
+                    result.append(makeRunway(aptId: apt.id, ref: ref, icao: icao, le: le, he: he))
+                } else {
+                    result.append(makeRunway(aptId: apt.id, ref: ref, icao: icao, le: this.entry, he: nil))
+                }
+            }
+        }
+        return result
+    }
+
+    /// UNION an airport's runways: OpenAIP wins on a runway-identifier match, OurAirports-only runways
+    /// (the ~62% of airports OpenAIP lacks) are kept. Pure + testable; used by `AirportDataService`.
+    static func unionRunways(our: [Runway], openAIP: [Runway]) -> [Runway] {
+        let openAIPKeys = Set(openAIP.map { runwayKey($0) })
+        let keptOur = our.filter { !openAIPKeys.contains(runwayKey($0)) }
+        return openAIP + keptOur
+    }
+
+    /// Normalised match key for a runway: the sorted pair of end designators (case/order-insensitive),
+    /// so "10/28" and "28/10" collide. Designators are zero-padded to two digits so the OpenAIP form ("9")
+    /// and the OurAirports form ("09") of the same runway also collide — otherwise unionRunways would keep
+    /// both and the airport would show one physical runway twice. Single-ended runways key on their one end.
+    static func runwayKey(_ r: Runway) -> String {
+        [r.leIdent, r.heIdent]
+            .compactMap { $0 }
+            .map { canonicalRunwayIdent($0) }
+            .filter { !$0.isEmpty }
+            .sorted()
+            .joined(separator: "/")
+    }
+
+    /// Canonical runway-end form: number zero-padded to two digits + any L/C/R suffix (e.g. "9"→"09",
+    /// "16l"→"16L"). Falls back to the trimmed/uppercased raw string when it isn't a parseable designator.
+    private static func canonicalRunwayIdent(_ ident: String) -> String {
+        if let (number, suffix) = parseDesignator(ident) {
+            return String(format: "%02d", number) + suffix
+        }
+        return ident.trimmingCharacters(in: .whitespaces).uppercased()
+    }
+
+    /// Build one `Runway` from a paired (or single) OpenAIP direction. Physical fields (length/width/
+    /// surface/PCN) are shared by both ends — taken from the `mainRunway` entry when known, else the LE.
+    private static func makeRunway(aptId: String, ref: Int, icao: String, le: OpenAIPRunway, he: OpenAIPRunway?) -> Runway {
+        let primary: OpenAIPRunway = (he?.mainRunway == true && !le.mainRunway) ? he! : le
+        let heIdent = he?.designator
+        return Runway(
+            id: stableNegativeID("\(aptId)_rwy_\(le.designator)_\(heIdent ?? "")"),
+            airportRef: ref,
+            airportIdent: icao,
+            lengthFt: primary.lengthFeet,
+            widthFt: primary.widthFeet,
+            surface: primary.surfaceLabel,
+            lighted: le.lighted || (he?.lighted ?? false),
+            closed: false,
+            leIdent: le.designator,
+            leLatitude: nil, leLongitude: nil, leElevationFt: nil,
+            leHeadingDegT: le.trueHeading, leDisplacedThresholdFt: nil,
+            heIdent: heIdent,
+            heLatitude: nil, heLongitude: nil, heElevationFt: nil,
+            heHeadingDegT: he?.trueHeading, heDisplacedThresholdFt: nil,
+            pcn: primary.pcn,
+            leToraFt: le.toraFeet, leLdaFt: le.ldaFeet,
+            heToraFt: he?.toraFeet, heLdaFt: he?.ldaFeet
+        )
+    }
+
+    /// Parse a runway designator into (number 1–36, suffix L/C/R/""). Nil if it has no valid number.
+    static func parseDesignator(_ d: String) -> (number: Int, suffix: String)? {
+        let trimmed = d.trimmingCharacters(in: .whitespaces).uppercased()
+        let digits = String(trimmed.prefix { $0.isNumber })
+        let suffix = String(trimmed.drop { $0.isNumber })
+        guard let n = Int(digits), (1...36).contains(n) else { return nil }
+        return (n, suffix)
+    }
+
+    /// The reciprocal designator: number + 18 (mod 36), with L↔R swapped (C and "" unchanged).
+    private static func oppositeDesignator(number: Int, suffix: String) -> (number: Int, suffix: String) {
+        let oppNum = ((number - 1 + 18) % 36) + 1
+        let oppSuffix: String
+        switch suffix {
+        case "L": oppSuffix = "R"
+        case "R": oppSuffix = "L"
+        default: oppSuffix = suffix
+        }
+        return (oppNum, oppSuffix)
     }
 
     /// Deterministic, strictly-negative id from the OpenAIP `_id`, so OpenAIP-only airports never collide

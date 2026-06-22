@@ -75,10 +75,16 @@ class SubscriptionManager: ObservableObject {
 
     // MARK: - Private Properties
 
-    /// Product identifiers for subscriptions
+    /// The one-time lifetime (non-consumable) product. Grants permanent premium access — no expiry,
+    /// no server re-verification window.
+    let lifetimeProductID = "aerocheck.pro.lifetime"
+
+    /// Product identifiers we recognise (the two subscriptions + the lifetime non-consumable). Used to
+    /// load products and to filter relevant StoreKit transactions.
     private let productIdentifiers: Set<String> = [
         "aerocheck.pro.monthly",
-        "aerocheck.pro.yearly"
+        "aerocheck.pro.yearly",
+        "aerocheck.pro.lifetime"
     ]
 
     /// API base URL
@@ -182,11 +188,14 @@ class SubscriptionManager: ObservableObject {
 
     /// Loads available subscription products from App Store
     func loadProducts() async {
+        isLoading = true
+        defer { isLoading = false }
         do {
             let storeProducts = try await Product.products(for: productIdentifiers)
 
-            // Sort by price (monthly first, yearly second)
+            // Sort by price (monthly, yearly, then lifetime).
             products = storeProducts.sorted { $0.price < $1.price }
+            errorMessage = nil
             debugLogger.log("Loaded \(storeProducts.count) products", level: .success)
         } catch {
             debugLogger.log("Failed to load products: \(error.localizedDescription)", level: .error)
@@ -265,6 +274,12 @@ class SubscriptionManager: ObservableObject {
             if subscriptionStatus.isSubscribed {
                 await syncWithServer()
                 debugLogger.log("Restore successful - subscription active", level: .success)
+            } else if isInGracePeriod && !hasGracePeriodExpired() {
+                // Restore found nothing, but a still-valid grace window is open (billing retry, or the
+                // user dismissed the Apple auth sheet). Don't nuke grace — keep access alive and let the
+                // periodic check reconcile. Downgrading here would lock out a user mid-grace. (premium reliability)
+                subscriptionStatus = .notSubscribed
+                debugLogger.log("Restore found nothing but grace is still open — keeping grace", level: .warning)
             } else {
                 confirmNoActiveSubscription()
                 debugLogger.log("Restore completed - no active subscription; downgraded locally", level: .warning)
@@ -291,6 +306,13 @@ class SubscriptionManager: ObservableObject {
 
             // Skip revoked transactions
             if transaction.revocationDate != nil { continue }
+
+            // Lifetime (non-consumable): no expiration → permanent entitlement, wins over any sub.
+            if transaction.productID == lifetimeProductID {
+                subscriptionStatus = .lifetime
+                debugLogger.log("Lifetime entitlement found", level: .success)
+                return
+            }
 
             if let expirationDate = transaction.expirationDate, expirationDate > Date() {
                 subscriptionStatus = .subscribed(
@@ -397,7 +419,14 @@ class SubscriptionManager: ObservableObject {
                             debugLogger.log("Transaction expired", level: .warning)
                         }
                     } else {
-                        debugLogger.log("Transaction has no expiration date", level: .warning)
+                        // No expiration date → a non-consumable (lifetime) entitlement. Verify it with the
+                        // server too, otherwise a restore on a NEW device re-establishes only the LOCAL
+                        // .lifetime status and never (re)creates the server-side entitlement that gates
+                        // premium checklist downloads — locking a paid lifetime owner out of the content.
+                        debugLogger.log("Found lifetime (non-expiring) entitlement, verifying with server", level: .success)
+                        foundActiveSubscription = true
+                        await verifyWithServer(verificationResult: result)
+                        return
                     }
                 } else {
                     debugLogger.log("Transaction is not for our product (found: \(transaction.productID))", level: .warning)
@@ -519,13 +548,18 @@ class SubscriptionManager: ObservableObject {
         // Update grace period status from stored values
         updateGracePeriodStatus()
 
+        // Lifetime is permanent — re-resolve the local entitlement but never run the subscription
+        // verification/grace machinery against it.
+        await updateSubscriptionStatus()
+        if subscriptionStatus.isLifetime {
+            return true
+        }
+
         // Check if verification is needed
         if needsVerification() {
             debugLogger.log("Subscription verification needed (24h elapsed)", level: .info)
 
-            // Try to verify with StoreKit
-            await updateSubscriptionStatus()
-
+            // (status already re-resolved above)
             if subscriptionStatus.isSubscribed {
                 // Subscription is active - verify with server
                 await syncWithServer()
@@ -571,6 +605,12 @@ class SubscriptionManager: ObservableObject {
         // Debug mode check
         if debugForceNotSubscribed {
             return false
+        }
+
+        // Lifetime is a permanent, one-time purchase — never gate it on the offline re-verification
+        // window (there is nothing to renew/re-verify). The local StoreKit entitlement is authoritative.
+        if subscriptionStatus.isLifetime {
+            return true
         }
 
         // Active subscription
@@ -838,9 +878,9 @@ class SubscriptionManager: ObservableObject {
                 return true // unparseable expiry → don't reject on expiry alone
             }()
 
-            if decoded?.success == true && status == "active" && expiresAtOK {
+            if decoded?.success == true && (status == "active" || status == "lifetime") && expiresAtOK {
                 recordSuccessfulVerification()
-                debugLogger.log("Server verification: active", level: .success)
+                debugLogger.log("Server verification: \(status)", level: .success)
             } else {
                 debugLogger.log("Server verification did not confirm entitlement (status=\(status)); not recording success", level: .warning)
             }
@@ -857,11 +897,21 @@ enum SubscriptionStatus: Equatable {
     case unknown
     case notSubscribed
     case subscribed(expiresAt: Date, productID: String)
+    /// One-time lifetime purchase — permanent premium access, no expiry.
+    case lifetime
 
+    /// True whenever the user is entitled to premium (an active subscription OR a lifetime purchase).
     var isSubscribed: Bool {
-        if case .subscribed = self {
-            return true
+        switch self {
+        case .subscribed, .lifetime: return true
+        case .unknown, .notSubscribed: return false
         }
+    }
+
+    /// True for the one-time lifetime purchase (used to skip subscription-only logic like the offline
+    /// re-verification window and renewal UI).
+    var isLifetime: Bool {
+        if case .lifetime = self { return true }
         return false
     }
 
@@ -875,14 +925,17 @@ enum SubscriptionStatus: Equatable {
             let formatter = DateFormatter()
             formatter.dateStyle = .medium
             return "Subscribed until \(formatter.string(from: expiresAt))"
+        case .lifetime:
+            return "Lifetime access"
         }
     }
 
     var productID: String? {
-        if case .subscribed(_, let productID) = self {
-            return productID
+        switch self {
+        case .subscribed(_, let productID): return productID
+        case .lifetime: return "aerocheck.pro.lifetime"
+        case .unknown, .notSubscribed: return nil
         }
-        return nil
     }
 }
 
@@ -976,5 +1029,24 @@ extension Product {
     /// Whether this is the yearly subscription (for showing discount)
     var isYearly: Bool {
         return id == "aerocheck.pro.yearly"
+    }
+
+    /// Whether this is the one-time lifetime (non-consumable) product.
+    var isLifetime: Bool {
+        return id == "aerocheck.pro.lifetime"
+    }
+
+    /// Number of free-trial days if this product carries a free-trial introductory offer, else nil.
+    /// (Eligibility — Apple grants the trial only once per account — is checked separately.)
+    var freeTrialDays: Int? {
+        guard let offer = subscription?.introductoryOffer, offer.paymentMode == .freeTrial else { return nil }
+        let period = offer.period
+        switch period.unit {
+        case .day: return period.value
+        case .week: return period.value * 7
+        case .month: return period.value * 30
+        case .year: return period.value * 365
+        @unknown default: return nil
+        }
     }
 }

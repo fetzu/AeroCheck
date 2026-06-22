@@ -129,7 +129,18 @@ class AirportDataService: ObservableObject {
             let keptOurAirports = (frequenciesByAirport[ident] ?? []).filter { !openAIPTypes.contains($0.type) }
             frequenciesByAirport[ident] = openAIPFreqs + keptOurAirports
         }
-        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies")
+
+        // OpenAIP-primary runways: UNION per airport — OpenAIP wins on a runway-identifier match (e.g.
+        // "10/28"), but OurAirports-only runways (the ~62% of airports OpenAIP lacks) are kept. Mirrors
+        // the frequency merge, so no runway data is ever lost. (v4.1.0 runway merge)
+        let openAIPRwysByIdent = Dictionary(grouping: AirportDataMergeEngine.openAIPRunways(from: oaip)) {
+            $0.airportIdent
+        }
+        for (ident, openAIPRwys) in openAIPRwysByIdent {
+            runwaysByAirport[ident] = AirportDataMergeEngine.unionRunways(
+                our: runwaysByAirport[ident] ?? [], openAIP: openAIPRwys)
+        }
+        AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRwysByIdent.count) got OpenAIP runways")
     }
 
     // MARK: - Public Methods

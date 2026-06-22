@@ -117,10 +117,15 @@ struct AppSettings: Codable, Equatable {
 
     // Companion mode
     var enableCompanionMode: Bool = false // When true, companion connectivity is available
-    var companionRole: CompanionRoleSetting = .auto // Device role for companion mode
+    var companionRole: CompanionRoleSetting = .auto // DEPRECATED (v4.1): role is now auto by device type; retained for decode compat only
 
     // Marketing mode is NOT persisted - it resets to false on app restart
     var marketingMode: Bool = false // When true, enables shake gesture to show marketing location controls
+
+    // Developer mode is NOT persisted - revealed by tapping the version 5× in About, it resets to false
+    // on app restart. Gates developer-only surfaces for the current run (e.g. the Companion diagnostics
+    // panel). (v4.1)
+    var developerMode: Bool = false
 
     /// Whether a remote aircraft is selected
     var isRemoteAircraftSelected: Bool {
@@ -194,7 +199,7 @@ struct AppSettings: Codable, Equatable {
         case enableAirspaceStreaming
         case enableCompanionMode
         case companionRole
-        // marketingMode is intentionally excluded
+        // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
     /// Legacy keys read only for backward-compatible migration (not encoded).
@@ -266,7 +271,7 @@ struct AppSettings: Codable, Equatable {
         enableAirspaceStreaming = try container.decodeIfPresent(Bool.self, forKey: .enableAirspaceStreaming) ?? false
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
-        // marketingMode intentionally excluded - always defaults to false
+        // marketingMode and developerMode intentionally excluded - always default to false each launch
     }
 
     /// Returns a copy with flight-relevant numeric settings clamped to sane ranges, for applying
@@ -388,8 +393,31 @@ class AppState: ObservableObject {
 
     var currentPhase: ChecklistPhase {
         get { checklistProgress.currentPhase }
-        set { checklistProgress.currentPhase = newValue }
+        set {
+            // Changing phase clears any temporary hidden-items reveal (matches the per-phase reset the
+            // checklist view used to own — now centralised so a companion-driven phase change resets too).
+            if checklistProgress.currentPhase != newValue { hiddenItemsRevealed = false }
+            checklistProgress.currentPhase = newValue
+        }
     }
+
+    /// Whether the current phase's memorizable items are temporarily revealed (hold-to-reveal). Lifted
+    /// out of `FlightView`'s local @State so it is a single source of truth: the checklist snapshot
+    /// streamed to a companion reflects it, and a companion's hold-to-reveal sets it here — so revealing
+    /// on either device reveals on BOTH. Transient (never persisted); reset on phase change above.
+    @Published var hiddenItemsRevealed: Bool = false
+
+    /// The effective learning mode = the user's learning-mode setting OR a temporary reveal. Drives which
+    /// checklist items are visible/stepped-through. (Was computed in FlightView; centralised for the
+    /// companion path.)
+    var effectiveLearningMode: Bool { settings.learningMode || hiddenItemsRevealed }
+
+    /// The DEVICE's real light/dark appearance, published from `AppRootView` (which reads it before the
+    /// app forces its dark presentation). The companion manager streams the theme resolved against THIS
+    /// so the viewer mirrors exactly what the iPad displays — using the force-dark window trait instead
+    /// made `.auto` always resolve to night on the companion. (companion v2 — theme default fix)
+    @Published var deviceIsDark: Bool = false
+
     @Published var isFlightActive: Bool = false
     @Published var currentFlight: Flight?
 
@@ -634,10 +662,17 @@ class AppState: ObservableObject {
 
         syncManager.onSettingsUpdated = { [weak self] settings in
             Task { @MainActor in
-                self?.settings = settings
+                guard let self else { return }
+                // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
+                // always has them at their defaults); a wholesale assign would reset them on every sync —
+                // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
+                var merged = settings
+                merged.developerMode = self.settings.developerMode
+                merged.marketingMode = self.settings.marketingMode
+                self.settings = merged
                 // Save synced settings to file for future loads
-                self?.persistence.saveSettings(settings)
-                self?.syncAircraftType()
+                self.persistence.saveSettings(merged)
+                self.syncAircraftType()
                 AppLog.general.debugLine("Settings updated from iCloud sync")
             }
         }

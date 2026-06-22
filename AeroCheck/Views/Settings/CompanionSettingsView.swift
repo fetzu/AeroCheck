@@ -1,36 +1,61 @@
 import SwiftUI
 
-/// Settings sub-page for companion device mode configuration
+/// Settings sub-page for companion device mode configuration.
+///
+/// The pairing role (which device advertises vs browses) is derived automatically from the device
+/// type — iPad drives, iPhone connects — so there is no user-facing role setting. Wi-Fi Aware pairing
+/// is inherently asymmetric, so this removes the footgun where two devices could pick the same role
+/// and never discover each other. (v4.1 — pairing UX simplification)
 struct CompanionSettingsView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
 
     @State private var enableCompanionMode: Bool = false
-    @State private var companionRole: CompanionRoleSetting = .auto
     @State private var isLoadingSettings: Bool = false
     @State private var showPairingSheet: Bool = false
 
     private let tint: Color = .aviationGold
 
+    /// This device's automatic companion role (iPad = master/advertises, iPhone = viewer/browses).
+    private var deviceRole: CompanionRole {
+        CompanionRole.automatic(for: UIDevice.current.userInterfaceIdiom)
+    }
+
     var body: some View {
         SettingsPage {
             enableSection
             if enableCompanionMode {
-                roleSection
                 pairingSection
                 connectionSection
             }
             infoSection
+            if appState.settings.developerMode {
+                diagnosticsSection
+            }
         }
         .navigationTitle(L10n.Companion.companionMode)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadSettings() }
+        .onAppear {
+            loadSettings()
+            companionConnectivityManager.autoConnectIfReady(force: true)   // opening the screen = user wants it on
+        }
         .onChange(of: appState.settings) { loadSettings() }
-        .onChange(of: enableCompanionMode) { if !isLoadingSettings { saveSettings() } }
-        .onChange(of: companionRole) { if !isLoadingSettings { saveSettings() } }
-        .sheet(isPresented: $showPairingSheet) {
-            CompanionPairingView(role: companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom))
-                .environmentObject(companionConnectivityManager)
+        .onChange(of: enableCompanionMode) { _, on in
+            guard !isLoadingSettings else { return }
+            saveSettings()
+            // Connect automatically when turned on; tear down when turned off. (v4.1 companion UX)
+            if on { companionConnectivityManager.autoConnectIfReady(force: true) }
+            else { companionConnectivityManager.disconnect() }
+        }
+        // Auto-close the pairing modal once pairing succeeds (a new paired device appears), returning to
+        // this screen instead of leaving the user stranded on the system "paired" sheet. (v4.1)
+        .onChange(of: companionConnectivityManager.pairedDevices.count) { old, new in
+            if new > old && showPairingSheet { showPairingSheet = false }
+        }
+        // Full-screen modal per Apple's DevicePicker hosting rule, and so the pairing UI lives in its own
+        // presentation that a settings re-render can't tear down / restart mid-discovery. (v4.1 pairing fix)
+        .fullScreenCover(isPresented: $showPairingSheet) {
+            CompanionPairingView(role: deviceRole)
         }
     }
 
@@ -48,31 +73,21 @@ struct CompanionSettingsView: View {
         }
     }
 
-    // MARK: - Role Section
-
-    private var roleSection: some View {
-        SettingsGroup(title: nil, tint: tint, footer: resolvedRoleDescription.isEmpty ? nil : resolvedRoleDescription) {
-            SettingsMenuRow(icon: "person.2", title: L10n.Companion.deviceRole,
-                            tint: tint, selection: $companionRole) {
-                ForEach(CompanionRoleSetting.allCases) { role in
-                    Text(role.displayName).tag(role)
-                }
-            }
-        }
-    }
-
     // MARK: - Pairing Section
 
     private var pairingSection: some View {
-        SettingsGroup(title: L10n.Companion.pairedDevices, tint: tint) {
+        // The role is automatic, so the footer just tells the user what THIS device does and what to do
+        // on the other one — no role to choose.
+        SettingsGroup(title: L10n.Companion.pairedDevices, tint: tint, footer: pairingGuidance) {
             if companionConnectivityManager.pairedDevices.isEmpty {
                 SettingsValueRow(icon: "ipad.and.iphone", title: L10n.Companion.noPairedDevices,
                                  tint: tint, value: "")
             } else {
                 ForEach(companionConnectivityManager.pairedDevices) { device in
+                    // Single line: `name` and `pairingName` are usually identical, so showing both is
+                    // redundant. Prefer whichever is present. (v4.1)
                     SettingsRowLabel(icon: "checkmark.circle.fill",
-                                     title: device.name ?? L10n.Companion.unknownDevice,
-                                     subtitle: device.pairingName,
+                                     title: device.name ?? device.pairingName ?? L10n.Companion.unknownDevice,
                                      tint: .aviationGreen)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -86,6 +101,11 @@ struct CompanionSettingsView: View {
         }
     }
 
+    /// One-line guidance naming what this device does and what to do on the other one.
+    private var pairingGuidance: String {
+        deviceRole == .master ? L10n.Companion.pairingGuidanceMaster : L10n.Companion.pairingGuidanceViewer
+    }
+
     // MARK: - Connection Section
 
     private var connectionSection: some View {
@@ -95,49 +115,36 @@ struct CompanionSettingsView: View {
                 disconnectedRow
 
             case .pairing:
-                HStack {
-                    ProgressView()
-                        .padding(.trailing, 8)
-                    Text(L10n.Companion.pairing)
-                        .foregroundColor(.secondary)
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                progressRow(L10n.Companion.pairing, color: .secondary)
 
             case .connecting:
-                HStack {
-                    ProgressView()
-                        .padding(.trailing, 8)
-                    Text(L10n.Companion.connecting)
-                        .foregroundColor(.secondary)
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                progressRow(L10n.Companion.connecting, color: .secondary)
 
             case .connected:
                 connectedRow
 
             case .reconnecting:
-                HStack {
-                    ProgressView()
-                        .padding(.trailing, 8)
-                    Text(L10n.Companion.reconnecting)
-                        .foregroundColor(.orange)
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                progressRow(L10n.Companion.reconnecting, color: .orange)
             }
         }
     }
 
+    private func progressRow(_ text: String, color: Color) -> some View {
+        HStack {
+            ProgressView()
+                .padding(.trailing, 8)
+            Text(text)
+                .foregroundColor(color)
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
     private var disconnectedRow: some View {
         Group {
-            let resolvedRole = companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
             if companionConnectivityManager.hasPairedDevices {
-                if resolvedRole == .viewer {
+                if deviceRole == .viewer {
                     SettingsButtonRow(icon: "link", title: L10n.Companion.connectToiPad,
                                       tint: tint, showsChevron: false,
                                       action: { companionConnectivityManager.connectToPairedDevice() })
@@ -183,42 +190,90 @@ struct CompanionSettingsView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Diagnostics Section (developer mode)
 
-    private var resolvedRoleDescription: String {
-        let resolved = companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
-        switch resolved {
-        case .master:
-            return L10n.Companion.roleDescriptionMaster
-        case .viewer:
-            return L10n.Companion.roleDescriptionViewer
-        case .none:
-            return ""
+    private var diagnosticsSection: some View {
+        SettingsGroup(title: "\(L10n.Companion.diagnostics) · \(L10n.Tag.dev)", tint: tint,
+                      footer: L10n.Companion.diagnosticsFooter) {
+            SettingsValueRow(icon: "wifi", title: L10n.Companion.diagWifiAware, tint: tint,
+                             value: companionConnectivityManager.isWiFiAwareSupported ? L10n.Companion.diagSupported : L10n.Companion.diagUnsupported)
+            SettingsValueRow(icon: deviceRole == .master ? "ipad" : "iphone",
+                             title: L10n.Companion.diagThisDevice, tint: tint,
+                             value: deviceRoleDescription)
+            SettingsValueRow(icon: "point.3.connected.trianglepath.dotted",
+                             title: L10n.Companion.diagConnection, tint: tint,
+                             value: connectionStateDescription)
+            SettingsValueRow(icon: "ipad.and.iphone", title: L10n.Companion.pairedDevices, tint: tint,
+                             value: "\(companionConnectivityManager.pairedDevices.count)")
+            SettingsValueRow(icon: "number", title: L10n.Companion.diagService, tint: tint,
+                             value: companionConnectivityManager.serviceName)
+
+            eventLog
+
+            SettingsButtonRow(icon: "doc.on.doc", title: L10n.Companion.diagCopy,
+                              tint: tint, showsChevron: false,
+                              action: copyDiagnostics)
         }
     }
+
+    private var eventLog: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if companionConnectivityManager.diagnostics.isEmpty {
+                Text(L10n.Companion.diagNoEvents)
+                    .font(.caption)
+                    .foregroundColor(.secondaryText)
+            } else {
+                ForEach(Array(companionConnectivityManager.diagnostics.enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var deviceRoleDescription: String {
+        deviceRole == .master ? L10n.Companion.diagRoleMaster : L10n.Companion.diagRoleViewer
+    }
+
+    private var connectionStateDescription: String {
+        switch companionConnectivityManager.connectionState {
+        case .disconnected: return L10n.Companion.disconnected
+        case .pairing: return L10n.Companion.pairing
+        case .connecting: return L10n.Companion.connecting
+        case .connected: return L10n.Companion.connected
+        case .reconnecting: return L10n.Companion.reconnecting
+        }
+    }
+
+    private func copyDiagnostics() {
+        let header = """
+        AéroCheck companion diagnostics
+        Wi-Fi Aware supported: \(companionConnectivityManager.isWiFiAwareSupported)
+        This device: \(deviceRoleDescription)
+        Connection: \(connectionStateDescription)
+        Paired devices: \(companionConnectivityManager.pairedDevices.count)
+        Service: \(companionConnectivityManager.serviceName)
+        ---
+        """
+        UIPasteboard.general.string = header + "\n" + companionConnectivityManager.diagnostics.joined(separator: "\n")
+    }
+
+    // MARK: - Helpers
 
     private func loadSettings() {
         isLoadingSettings = true
         enableCompanionMode = appState.settings.enableCompanionMode
-        companionRole = appState.settings.companionRole
         isLoadingSettings = false
     }
 
     private func saveSettings() {
         appState.settings.enableCompanionMode = enableCompanionMode
-        appState.settings.companionRole = companionRole
         appState.saveSettings()
-    }
-}
-
-// MARK: - CompanionRoleSetting Display
-
-extension CompanionRoleSetting {
-    var displayName: String {
-        switch self {
-        case .auto: return L10n.Companion.roleAuto
-        case .primary: return L10n.Companion.rolePrimary
-        case .companion: return L10n.Companion.roleCompanion
-        }
     }
 }

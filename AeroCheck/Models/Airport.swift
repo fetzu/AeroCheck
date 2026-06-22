@@ -133,6 +133,15 @@ struct Runway: Codable, Identifiable, Equatable, Sendable {
     let heHeadingDegT: Double?
     let heDisplacedThresholdFt: Int?
 
+    // Richer data available from OpenAIP (nil for OurAirports runways). Additive optionals → cached
+    // OurAirports records (encoded without these keys) decode as nil, so no migration. Declared
+    // distances are PER-DIRECTION (TORA/LDA for the LE end differ from the HE end). (v4.1.0 runway merge)
+    let pcn: String?                // Pavement Classification Number, e.g. "35/F/B/X/T" (shared pavement)
+    let leToraFt: Int?              // Take-off run / landing distance available, LE end (feet)
+    let leLdaFt: Int?
+    let heToraFt: Int?              // HE end
+    let heLdaFt: Int?
+
     /// Combined runway identifier (e.g., "09/27")
     var identifier: String {
         let le = leIdent ?? "?"
@@ -177,6 +186,34 @@ struct Runway: Codable, Identifiable, Equatable, Sendable {
         return parts.joined(separator: " - ")
     }
 
+    /// Declared distances line (feet). Collapses to one value when both ends match, else labels per end.
+    /// e.g. "TORA 1120 · LDA 1120 ft" or "10 TORA 1120 LDA 1120 · 28 TORA 1300 LDA 1300 ft". Nil if none.
+    var declaredDistancesString: String? {
+        func line(_ tora: Int?, _ lda: Int?) -> String? {
+            var p: [String] = []
+            if let t = tora { p.append("TORA \(t)") }
+            if let l = lda { p.append("LDA \(l)") }
+            return p.isEmpty ? nil : p.joined(separator: " · ")
+        }
+        let le = line(leToraFt, leLdaFt)
+        let he = line(heToraFt, heLdaFt)
+        switch (le, he) {
+        case let (l?, r?) where l == r: return "\(l) ft"
+        case let (l?, r?): return "\(leIdent ?? "LE") \(l) · \(heIdent ?? "HE") \(r) ft"
+        case let (l?, nil): return "\(l) ft"
+        case let (nil, r?): return "\(r) ft"
+        default: return nil
+        }
+    }
+
+    /// Secondary briefing line combining the OpenAIP-only extras (PCN + declared distances), or nil.
+    /// Abbreviations (PCN/TORA/LDA…) are ICAO-standard and shown verbatim in every language.
+    var extraInfoLine: String? {
+        var parts: [String] = []
+        if let pcn, !pcn.isEmpty { parts.append("PCN \(pcn)") }
+        if let dd = declaredDistancesString { parts.append(dd) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 }
 
 // MARK: - CSV Parsing Extensions
@@ -267,6 +304,13 @@ extension Runway {
         self.heElevationFt = csvRow["he_elevation_ft"].flatMap { Int($0) }
         self.heHeadingDegT = csvRow["he_heading_degT"].flatMap { Double($0) }
         self.heDisplacedThresholdFt = csvRow["he_displaced_threshold_ft"].flatMap { Int($0) }
+
+        // OurAirports CSV has no PCN / declared distances — those come from OpenAIP.
+        self.pcn = nil
+        self.leToraFt = nil
+        self.leLdaFt = nil
+        self.heToraFt = nil
+        self.heLdaFt = nil
     }
 }
 

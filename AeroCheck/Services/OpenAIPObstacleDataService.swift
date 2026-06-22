@@ -124,12 +124,14 @@ final class OpenAIPObstacleDataService: ObservableObject {
             downloadProgress = Double(index + 1) / Double(countries.count)
         }
 
+        // De-selected countries are pruned (file + metadata) so this layer matches the requested set —
+        // consistent with the airspace layer; additive callers union first, so they lose nothing.
+        // (download-integrity fix)
+        OpenAIPConfig.pruneDeselectedCountries(
+            keeping: countries, counts: &metadata.counts, lastSyncDates: &metadata.lastSyncDates,
+            fileURL: { obstacleFileURL(for: $0) }, fileManager: fileManager)
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
-        }
-        // Keep already-cached countries not re-requested this call in memory (review #5).
-        for country in metadata.counts.keys where !countries.contains(country) {
-            appendExistingCache(for: country, into: &allLoaded)
         }
         obstacles = allLoaded
         obstacleCount = allLoaded.count

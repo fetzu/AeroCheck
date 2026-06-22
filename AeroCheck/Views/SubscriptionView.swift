@@ -1,66 +1,62 @@
 import SwiftUI
 import StoreKit
 
-/// View for managing subscriptions
+/// The AéroCheck Pro paywall. Shows a contextual header (naming the aircraft the pilot tried to unlock,
+/// when provided), the available plans (yearly with its free trial, monthly, and the one-time lifetime),
+/// the benefits, and restore/legal links.
 struct SubscriptionView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) var dismiss
 
+    /// When the paywall is opened from a specific locked aircraft (e.g. trying to start a flight on it),
+    /// its name personalises the header. Nil → the generic header.
+    var contextAircraftName: String? = nil
+
+    /// `true` (default) when shown as a sheet (flight-start, onboarding) — wraps itself in a
+    /// NavigationStack with a Done button. `false` when pushed into an existing stack (the iPad
+    /// settings detail column / iPhone settings push) — renders bare so the parent supplies the
+    /// navigation bar + back button and it fills the detail column instead of a popup.
+    var presentedAsSheet: Bool = true
+
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isLoadingProducts = false
+    /// Free-trial length (days) of the yearly plan, set only when this account is actually eligible.
+    @State private var yearlyTrialDays: Int? = nil
+
+    private let yearlyID = "aerocheck.pro.yearly"
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerSection
-
-                    // Benefits
-                    benefitsSection
-
-                    // Current Status
-                    statusSection
-
-                    // Products
-                    if !subscriptionManager.subscriptionStatus.isSubscribed {
-                        productsSection
-                    }
-
-                    // Restore Purchases
-                    restoreSection
-
-                    // Terms
-                    termsSection
+        Group {
+            if presentedAsSheet {
+                NavigationStack {
+                    scrollContent
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(L10n.Button.done) { dismiss() }
+                                    .foregroundColor(Color.aviationGold)
+                            }
+                        }
                 }
-                .padding()
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Settings.aeroCheckPro)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) {
-                        dismiss()
-                    }
-                    .foregroundColor(Color.aviationGold)
-                }
+            } else {
+                // Pushed into the settings stack — the parent provides the bar + back button, so it
+                // fills the iPad detail column rather than presenting as a sheet.
+                scrollContent
             }
         }
         .onAppear {
-            // Ensure products are loaded when the view appears
-            if subscriptionManager.products.isEmpty {
-                isLoadingProducts = true
-                Task {
+            Task {
+                if subscriptionManager.products.isEmpty {
+                    isLoadingProducts = true
                     await subscriptionManager.loadProducts()
                     isLoadingProducts = false
                 }
-            }
-            // Refresh subscription status
-            Task {
                 await subscriptionManager.updateSubscriptionStatus()
+                await refreshTrialEligibility()
             }
+        }
+        .onChange(of: subscriptionManager.products) { _, _ in
+            Task { await refreshTrialEligibility() }
         }
         .alert(L10n.Subscription.error, isPresented: $showingError) {
             Button(L10n.Subscription.ok, role: .cancel) { }
@@ -75,7 +71,52 @@ struct SubscriptionView: View {
         }
     }
 
-    // MARK: - Sections
+    /// The paywall body, shared by the sheet and pushed presentations.
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                headerSection
+
+                if !subscriptionManager.subscriptionStatus.isSubscribed, let days = yearlyTrialDays {
+                    trialBanner(days: days)
+                }
+
+                if !subscriptionManager.subscriptionStatus.isSubscribed {
+                    productsSection
+                }
+
+                benefitsSection
+                statusSection
+                restoreSection
+                termsSection
+            }
+            .padding()
+        }
+        .background(Color.cockpitBackground)
+        .navigationTitle(L10n.Settings.aeroCheckPro)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Resolve whether THIS account is eligible for the yearly free trial (Apple only grants it once),
+    /// so we don't promise a trial a returning subscriber won't actually get.
+    private func refreshTrialEligibility() async {
+        guard let yearly = subscriptionManager.products.first(where: { $0.id == yearlyID }),
+              let days = yearly.freeTrialDays,
+              let sub = yearly.subscription else {
+            yearlyTrialDays = nil
+            return
+        }
+        let eligible = await sub.isEligibleForIntroOffer
+        yearlyTrialDays = eligible ? days : nil
+    }
+
+    /// Products in paywall order: yearly (recommended) first, then monthly, then the one-time lifetime.
+    private var orderedProducts: [Product] {
+        let rank: [String: Int] = [yearlyID: 0, "aerocheck.pro.monthly": 1, "aerocheck.pro.lifetime": 2]
+        return subscriptionManager.products.sorted { (rank[$0.id] ?? 99) < (rank[$1.id] ?? 99) }
+    }
+
+    // MARK: - Header
 
     private var headerSection: some View {
         VStack(spacing: 14) {
@@ -86,7 +127,7 @@ struct SubscriptionView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(Color.aviationGold.opacity(0.16)))
                 .accessibilityHidden(true)
 
-            Text(L10n.Subscription.unlockPremiumAircraft)
+            Text(headerTitle)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(Color.primaryText)
@@ -99,6 +140,80 @@ struct SubscriptionView: View {
         }
         .padding(.vertical)
     }
+
+    private var headerTitle: String {
+        if let name = contextAircraftName, !name.isEmpty {
+            return L10n.Subscription.unlockAircraft(name)
+        }
+        return L10n.Subscription.unlockPremiumAircraft
+    }
+
+    // MARK: - Free-trial banner
+
+    private func trialBanner(days: Int) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: "gift.fill")
+                .font(.system(size: 18))
+                .foregroundColor(Color.aviationGreen)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.Subscription.freeTrialDays(days))
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundColor(Color.aviationGreen)
+                Text(L10n.Subscription.freeTrialNote)
+                    .font(.caption)
+                    .foregroundColor(Color.secondaryText)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.aviationGreen.opacity(0.10))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.aviationGreen.opacity(0.35), lineWidth: 1))
+        )
+    }
+
+    // MARK: - Products
+
+    private var productsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.Subscription.choosePlan)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(Color.secondaryText)
+
+            if subscriptionManager.products.isEmpty {
+                if isLoadingProducts {
+                    ProgressView().frame(maxWidth: .infinity).padding()
+                } else {
+                    Text(L10n.Subscription.unableToLoad)
+                        .font(.subheadline)
+                        .foregroundColor(Color.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    Button(L10n.Subscription.retry) {
+                        isLoadingProducts = true
+                        Task {
+                            await subscriptionManager.loadProducts()
+                            isLoadingProducts = false
+                            await refreshTrialEligibility()
+                        }
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                }
+            } else {
+                ForEach(orderedProducts) { product in
+                    ProductCard(
+                        product: product,
+                        trialDays: product.id == yearlyID ? yearlyTrialDays : nil
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Benefits
 
     private var benefitsSection: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -124,11 +239,9 @@ struct SubscriptionView: View {
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(tint.opacity(0.16)))
                     .accessibilityHidden(true)
-
                 Text(text)
                     .font(.subheadline)
                     .foregroundColor(Color.primaryText)
-
                 Spacer()
             }
             .padding(.vertical, 9)
@@ -138,23 +251,21 @@ struct SubscriptionView: View {
         }
     }
 
+    // MARK: - Status
+
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L10n.Subscription.currentStatus)
                 .font(.caption)
                 .fontWeight(.semibold)
-                .tracking(1.2)
-                .textCase(.uppercase)
                 .foregroundColor(Color.secondaryText)
 
             HStack {
                 Image(systemName: subscriptionManager.subscriptionStatus.isSubscribed ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .foregroundColor(subscriptionManager.subscriptionStatus.isSubscribed ? Color.aviationGreen : Color.secondaryText)
-
                 Text(subscriptionManager.subscriptionStatus.displayText)
                     .font(.subheadline)
                     .foregroundColor(Color.primaryText)
-
                 Spacer()
             }
             .padding()
@@ -162,55 +273,16 @@ struct SubscriptionView: View {
         }
     }
 
-    private var productsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.Subscription.choosePlan)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundColor(Color.secondaryText)
-
-            if subscriptionManager.products.isEmpty {
-                if isLoadingProducts {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                } else {
-                    Text(L10n.Subscription.unableToLoad)
-                        .font(.subheadline)
-                        .foregroundColor(Color.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-
-                    Button(L10n.Subscription.retry) {
-                        isLoadingProducts = true
-                        Task {
-                            await subscriptionManager.loadProducts()
-                            isLoadingProducts = false
-                        }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                }
-            } else {
-                ForEach(subscriptionManager.products) { product in
-                    ProductCard(product: product)
-                }
-            }
-        }
-    }
+    // MARK: - Restore & terms
 
     private var restoreSection: some View {
         VStack(spacing: 8) {
-            Button(action: {
-                Task {
-                    await subscriptionManager.restorePurchases()
-                }
-            }) {
+            Button {
+                Task { await subscriptionManager.restorePurchases() }
+            } label: {
                 if subscriptionManager.isLoading {
                     HStack(spacing: 8) {
-                        ProgressView()
-                            .tint(Color.aviationBlue)
+                        ProgressView().tint(Color.aviationBlue)
                         Text(L10n.Subscription.restorePurchases)
                             .font(.subheadline)
                             .foregroundColor(Color.aviationBlue.opacity(0.5))
@@ -218,7 +290,7 @@ struct SubscriptionView: View {
                 } else {
                     Text(L10n.Subscription.restorePurchases)
                         .font(.subheadline)
-                        .foregroundColor(Color.aviationBlue)
+                        .foregroundColor(Color.altimeterBlue)
                 }
             }
             .disabled(subscriptionManager.isLoading || subscriptionManager.isPurchasing)
@@ -234,8 +306,6 @@ struct SubscriptionView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
-                // altimeterBlue (light) instead of aviationBlue (very dark, ~1.5:1 on the dark
-                // background); plus a 44pt touch target for the legal links. (v4.0.0 review P2)
                 Link(L10n.Subscription.termsOfService, destination: URL(string: "https://aerocheck.app/terms")!)
                     .font(.caption2)
                     .foregroundColor(Color.altimeterBlue)
@@ -257,35 +327,41 @@ struct SubscriptionView: View {
 
 struct ProductCard: View {
     let product: Product
+    /// When non-nil (the eligible yearly plan), shows a "N-day free trial" badge.
+    var trialDays: Int? = nil
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
+    private var isRecommended: Bool { product.isYearly }
+
     var body: some View {
-        Button(action: {
-            Task {
-                try? await subscriptionManager.purchase(product)
-            }
-        }) {
+        Button {
+            Task { try? await subscriptionManager.purchase(product) }
+        } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Text(product.displayName)
                             .font(.headline)
                             .foregroundColor(Color.primaryText)
-
-                        if product.isYearly {
-                            Text(L10n.Subscription.bestValue)
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.onAccent)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(RoundedRectangle(cornerRadius: 5).fill(Color.aviationGold))
+                        if isRecommended {
+                            tag(L10n.Subscription.bestValue, color: .aviationGold)
                         }
                     }
 
-                    Text(product.description)
-                        .font(.caption)
-                        .foregroundColor(Color.secondaryText)
+                    if let days = trialDays {
+                        Text(L10n.Subscription.freeTrialDays(days))
+                            .font(.caption).fontWeight(.semibold)
+                            .foregroundColor(Color.aviationGreen)
+                    } else if product.isLifetime {
+                        Text(L10n.Subscription.lifetimeTagline)
+                            .font(.caption)
+                            .foregroundColor(Color.secondaryText)
+                    } else {
+                        Text(product.description)
+                            .font(.caption)
+                            .foregroundColor(Color.secondaryText)
+                            .lineLimit(2)
+                    }
                 }
 
                 Spacer()
@@ -294,8 +370,7 @@ struct ProductCard: View {
                     Text(product.displayPrice)
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(Color.aviationGold)
-
-                    Text(product.subscriptionPeriodText)
+                    Text(product.isLifetime ? L10n.Subscription.oneTime : product.subscriptionPeriodText)
                         .font(.caption2)
                         .foregroundColor(Color.secondaryText)
                 }
@@ -304,11 +379,19 @@ struct ProductCard: View {
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.cardBackground)
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(product.isYearly ? Color.aviationGold : Color.subtleOverlay(0.08), lineWidth: product.isYearly ? 2 : 1))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(isRecommended ? Color.aviationGold : Color.subtleOverlay(0.08), lineWidth: isRecommended ? 2 : 1))
             )
         }
         .disabled(subscriptionManager.isPurchasing)
         .opacity(subscriptionManager.isPurchasing ? 0.6 : 1.0)
+    }
+
+    private func tag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2).fontWeight(.bold)
+            .foregroundColor(.onAccent)
+            .padding(.horizontal, 8).padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(color))
     }
 }
 

@@ -184,7 +184,9 @@ struct HomeView: View {
                         // Portrait / iPhone: brand header, hero canvas, then the nav as a bottom tab bar.
                         VStack(spacing: 0) {
                             brandHeader(isCompact: isCompact)
-                                .padding(.horizontal, isCompact ? 16 : 24)
+                                // Align with the hero content below (32 on iPad portrait) so the brand
+                                // and the Data/GPS chips aren't hugging the screen edges. (UX feedback)
+                                .padding(.horizontal, isCompact ? 16 : 32)
                                 .padding(.top, isCompact ? 12 : 20)
                             heroCanvas(landscape: isLandscape, isCompact: isCompact)
                             navTabBar
@@ -274,6 +276,13 @@ struct HomeView: View {
             // Refresh the data-currency status: a download made during onboarding (or in the data hub)
             // happens without a scenePhase change, so the Home indicator would otherwise stay stale. (bug)
             dataStatusManager.recompute()
+            // Warm up GPS on the pre-flight screen so the FIRST flight-start tap already has a fix and
+            // doesn't bounce off "Acquiring GPS…". No-op until authorized (startTracking still prompts).
+            // (v4.1 — fixes the systematic first-try GPS warning)
+            if locationManager.authorizationStatus == .authorizedWhenInUse
+                || locationManager.authorizationStatus == .authorizedAlways {
+                locationManager.startLocationUpdates()
+            }
         }
         .alert(L10n.Alert.cannotStartFlightTitle, isPresented: Binding(
             get: { appState.flightStartError != nil },
@@ -298,7 +307,8 @@ struct HomeView: View {
             get: { appState.flightStartPaywallRequest },
             set: { if !$0 { appState.flightStartPaywallRequest = false } }
         )) {
-            SubscriptionView()
+            // Personalise the paywall with the aircraft the pilot just tried to fly.
+            SubscriptionView(contextAircraftName: selectedAircraft?.modelName)
                 .environmentObject(subscriptionManager)
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in
@@ -309,7 +319,9 @@ struct HomeView: View {
             // where the initial fetch completed before the server-side subscription was verified
             if newValue.isSubscribed && !oldValue.isSubscribed {
                 Task {
-                    await aircraftDataService.fetchAvailableAircraft()
+                    // Bounded retry: the server entitlement write can lag the StoreKit confirmation, so
+                    // a single fetch may still come back locked. (premium reliability)
+                    await aircraftDataService.refetchUntilPremiumUnlocked()
                 }
             }
         }

@@ -7,7 +7,6 @@ struct AircraftSettingsView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
 
     @State private var selectedAircraft: AircraftType = .wt9Dynamic
-    @State private var showSubscriptionView = false
     @State private var isSyncingAircraftData = false
     @State private var isLoadingSettings = false
 
@@ -21,10 +20,6 @@ struct AircraftSettingsView: View {
         }
         .navigationTitle(L10n.Settings.aircraftAndSubscription)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showSubscriptionView) {
-            SubscriptionView()
-                .environmentObject(subscriptionManager)
-        }
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }
         .onChange(of: selectedAircraft) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -44,7 +39,11 @@ struct AircraftSettingsView: View {
 
     private var subscriptionSection: some View {
         SettingsGroup(title: L10n.Settings.subscription, tint: tint, footer: subscriptionFooter) {
-            Button(action: { showSubscriptionView = true }) {
+            // Push the paywall into the settings stack (fills the iPad detail column / pushes on
+            // iPhone) instead of presenting a sheet. (premium — iPad layout)
+            NavigationLink(destination: SubscriptionView(presentedAsSheet: false)
+                .environmentObject(subscriptionManager)
+            ) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L10n.Settings.aeroCheckPro)
@@ -133,7 +132,7 @@ struct AircraftSettingsView: View {
             }
 
             // Premium Aircrafts navigation link
-            NavigationLink(destination: PremiumAircraftListView(showSubscriptionView: $showSubscriptionView)
+            NavigationLink(destination: PremiumAircraftListView()
                 .environmentObject(appState)
                 .environmentObject(aircraftDataService)
                 .environmentObject(subscriptionManager)

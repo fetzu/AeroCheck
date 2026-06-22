@@ -37,6 +37,52 @@ enum OpenAIPFrequencyType {
     }
 }
 
+/// A single runway DIRECTION from an OpenAIP airport (OpenAIP lists each end separately, e.g. "10" and
+/// "28"). The `AirportDataMergeEngine` pairs opposite directions into one OurAirports-shaped `Runway`.
+/// (v4.1.0 runway merge)
+struct OpenAIPRunway: Codable, Equatable {
+    let designator: String          // e.g. "10", "16L"
+    let trueHeading: Double?
+    let mainRunway: Bool
+    let surfaceLabel: String?       // mapped from the composition code
+    let pcn: String?
+    let lengthFeet: Int?
+    let widthFeet: Int?
+    let toraFeet: Int?              // this direction's declared TORA/LDA (feet)
+    let ldaFeet: Int?
+    let lighted: Bool
+}
+
+/// Best-effort mapping of OpenAIP runway surface `composition`/`mainComposite` codes to a display string.
+enum OpenAIPRunwaySurface {
+    static func label(for code: Int?) -> String? {
+        guard let code else { return nil }
+        switch code {
+        case 0: return "Asphalt"
+        case 1: return "Concrete"
+        case 2: return "Grass"
+        case 3: return "Sand"
+        case 4: return "Water"
+        case 5: return "Bituminous"
+        case 6: return "Brick"
+        case 7: return "Macadam"
+        case 8: return "Stone"
+        case 9: return "Coral"
+        case 10: return "Clay"
+        case 11: return "Laterite"
+        case 12: return "Gravel"
+        case 13: return "Earth"
+        case 14: return "Ice"
+        case 15: return "Snow"
+        case 17: return "Metal"
+        case 18: return "Landing mat"
+        case 19: return "Pierced steel planking"
+        case 20: return "Wood"
+        default: return nil
+        }
+    }
+}
+
 /// An airport from OpenAIP's keyless per-country GeoJSON export (`{cc}_apt.geojson`). Distinct from the
 /// OurAirports-shaped `Airport` struct — this is the raw OpenAIP record that the
 /// `AirportDataMergeEngine` folds into the `Airport` backbone. (v4.1.0, increment 9)
@@ -49,6 +95,7 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
     let magneticDeclination: Double?
     let country: String?        // ISO-2, for the merge's OpenAIP-only airports
     let frequencies: [OpenAIPFrequency]
+    let runways: [OpenAIPRunway]
     let latitude: Double
     let longitude: Double
 
@@ -86,6 +133,21 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
         self.frequencies = (p.frequencies ?? []).map {
             OpenAIPFrequency(name: $0.name, value: $0.value, typeRaw: $0.type)
         }
+        self.runways = (p.runways ?? []).compactMap { rwy in
+            guard let designator = rwy.designator, !designator.isEmpty else { return nil }
+            return OpenAIPRunway(
+                designator: designator,
+                trueHeading: rwy.trueHeading,
+                mainRunway: rwy.mainRunway ?? false,
+                surfaceLabel: OpenAIPRunwaySurface.label(for: rwy.surface?.mainComposite),
+                pcn: rwy.surface?.pcn,
+                lengthFeet: rwy.dimension?.length?.asFeet,
+                widthFeet: rwy.dimension?.width?.asFeet,
+                toraFeet: rwy.declaredDistance?.tora?.asFeet,
+                ldaFeet: rwy.declaredDistance?.lda?.asFeet,
+                lighted: rwy.pilotCtrlLighting ?? false
+            )
+        }
         self.longitude = feature.geometry.coordinates[0]   // GeoJSON is [lon, lat]
         self.latitude = feature.geometry.coordinates[1]
     }
@@ -107,9 +169,10 @@ private struct AirportFeatureCollection: Decodable {
         let magneticDeclination: Double?
         let country: String?
         let frequencies: [FrequencyJSON]?
+        let runways: [RunwayJSON]?
         enum CodingKeys: String, CodingKey {
             case oaipId = "_id"
-            case name, icaoCode, type, elevation, magneticDeclination, country, frequencies
+            case name, icaoCode, type, elevation, magneticDeclination, country, frequencies, runways
         }
     }
     struct FrequencyJSON: Decodable {
@@ -117,11 +180,37 @@ private struct AirportFeatureCollection: Decodable {
         let value: String
         let type: Int
     }
+    struct RunwayJSON: Decodable {
+        let designator: String?
+        let trueHeading: Double?
+        let mainRunway: Bool?
+        let surface: SurfaceJSON?
+        let dimension: DimensionJSON?
+        let declaredDistance: DeclaredDistanceJSON?
+        let pilotCtrlLighting: Bool?
+    }
+    struct SurfaceJSON: Decodable {
+        let mainComposite: Int?
+        let pcn: String?
+    }
+    struct DimensionJSON: Decodable {
+        let length: MeasuredValue?
+        let width: MeasuredValue?
+    }
+    struct DeclaredDistanceJSON: Decodable {
+        let tora: MeasuredValue?
+        let toda: MeasuredValue?
+        let asda: MeasuredValue?
+        let lda: MeasuredValue?
+    }
     struct Geometry: Decodable { let coordinates: [Double] }
 
     struct MeasuredValue: Decodable {
         let value: Double
         let unit: Int
-        var asFeetMSL: Int { unit == 0 ? Int((value * 3.28084).rounded()) : Int(value.rounded()) }
+        // unit 0 = metres → feet; unit 1 = already feet. (Same convention as elevation.)
+        private var asFeetValue: Int { unit == 0 ? Int((value * 3.28084).rounded()) : Int(value.rounded()) }
+        var asFeetMSL: Int { asFeetValue }
+        var asFeet: Int { asFeetValue }
     }
 }

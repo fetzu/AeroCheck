@@ -244,4 +244,26 @@ enum OpenAIPConfig {
     /// Public, keyless GeoJSON exports bucket (per-country `{cc}_<layer>.geojson`). Used for the new
     /// structured layers (navaids / obstacles / reporting points) — no API key required. (v4.1.0)
     static let geoJSONExportBaseURL = "https://storage.googleapis.com/29f98e10-a489-4c82-ae5e-489dbcd4912f"
+
+    /// After a country-set download, drop every country NOT in `keep` from the per-country cache: its
+    /// metadata (counts + lastSyncDates) and its on-disk file. Shared by all five OpenAIP layers
+    /// (airspace + navaids + obstacles + reporting points + airports), which previously each carried a
+    /// byte-identical copy of this loop. Callers union before downloading, so a pruned country is one the
+    /// user genuinely de-selected. (v4.1.0 — download-integrity)
+    static func pruneDeselectedCountries(
+        keeping keep: [String],
+        counts: inout [String: Int],
+        lastSyncDates: inout [String: Date],
+        fileURL: (String) -> URL,
+        fileManager: FileManager
+    ) {
+        let kept = Set(keep)
+        // Union both key sets so a layer keyed on either dict is fully pruned (they're written together).
+        let removed = Set(counts.keys).union(lastSyncDates.keys).subtracting(kept)
+        for country in removed {
+            counts.removeValue(forKey: country)
+            lastSyncDates.removeValue(forKey: country)
+            try? fileManager.removeItem(at: fileURL(country))
+        }
+    }
 }

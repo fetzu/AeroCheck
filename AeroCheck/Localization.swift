@@ -137,6 +137,7 @@ enum L10n {
         static let restricted = String(localized: "gps.restricted")
         static let notSet = String(localized: "gps.notSet")
         static let status = String(localized: "gps.status")
+        static let sourceCompanion = String(localized: "gps.source.companion")
         static let authorized = String(localized: "gps.authorized")
         static let notDetermined = String(localized: "gps.notDetermined")
         static let unknown = String(localized: "gps.unknown")
@@ -201,6 +202,7 @@ enum L10n {
         static let checklistNotReady = String(localized: "alert.checklistNotReady.message")
         static let cannotStartFlightTitle = String(localized: "alert.cannotStartFlight.title")
         static let locationRequired = String(localized: "alert.locationRequired.message")
+        static let acquiringGPS = String(localized: "alert.acquiringGPS.message")
         static let flightSaveFailedTitle = String(localized: "alert.flightSaveFailed.title")
         static let flightSaveFailed = String(localized: "alert.flightSaveFailed.message")
         static let flightRestoredTitle = String(localized: "alert.flightRestored.title")
@@ -280,6 +282,8 @@ enum L10n {
         static let firstTurn = String(localized: "briefing.firstTurn")
         static let levelOff = String(localized: "briefing.levelOff")
         static let toBeBriefed = String(localized: "briefing.toBeBriefed")
+        static let initialTrack = String(localized: "briefing.initialTrack")
+        static let climbTo = String(localized: "briefing.climbTo")
         static let windCheckHint = String(localized: "briefing.windCheckHint")
 
         // Emergency items
@@ -463,6 +467,15 @@ enum L10n {
         static func estimatedTileCache(_ size: String) -> String {
             String(format: String(localized: "settings.openAIP.estimatedTileCache"), size)
         }
+        static func estimatedDataSize(_ size: String) -> String {
+            String(format: String(localized: "settings.openAIP.estimatedDataSize"), size)
+        }
+        static let downloadTilesConfirmTitle = String(localized: "settings.openAIP.downloadTilesConfirmTitle")
+        static func downloadTilesConfirmMessage(_ data: String, _ tiles: String) -> String {
+            String(format: String(localized: "settings.openAIP.downloadTilesConfirmMessage"), data, tiles)
+        }
+        static let downloadDataOnly = String(localized: "settings.openAIP.downloadDataOnly")
+        static let downloadTilesAnyway = String(localized: "settings.openAIP.downloadTilesAnyway")
         static func tileCountLabel(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.tileCount"), count)
         }
@@ -472,6 +485,7 @@ enum L10n {
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
         static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
         static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
+        static let openAIPSelectionChanged = String(localized: "settings.openAIP.selectionChanged")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
         }
@@ -668,6 +682,16 @@ enum L10n {
         static let bestValue = String(localized: "subscription.bestValue")
         static let error = String(localized: "subscription.error")
         static let ok = String(localized: "subscription.ok")
+        // Premium revamp: contextual header, free trial, lifetime.
+        static func unlockAircraft(_ name: String) -> String {
+            String(format: String(localized: "subscription.unlockAircraft"), name)
+        }
+        static func freeTrialDays(_ days: Int) -> String {
+            String(format: String(localized: "subscription.freeTrialDayFormat"), days)
+        }
+        static let freeTrialNote = String(localized: "subscription.freeTrialNote")
+        static let lifetimeTagline = String(localized: "subscription.lifetimeTagline")
+        static let oneTime = String(localized: "subscription.oneTime")
     }
 
     // MARK: - Warnings
@@ -1179,8 +1203,16 @@ enum L10n {
         static let waitingForPairing = String(localized: "companion.waitingForPairing")
         static let pairingMasterDescription = String(localized: "companion.pairingMasterDescription")
         static let pairWithiPad = String(localized: "companion.pairWithiPad")
+        static let pairWithiPhone = String(localized: "companion.pairWithiPhone")
         static let pairingViewerDescription = String(localized: "companion.pairingViewerDescription")
         static let scanForDevices = String(localized: "companion.scanForDevices")
+        static let makeDiscoverable = String(localized: "companion.makeDiscoverable")
+        // Shared pairing guidance: the user must tap the button on BOTH devices for discovery to work.
+        static let pairBothDevices = String(localized: "companion.pairBothDevices")
+
+        // Pairing guidance (role is automatic by device type)
+        static let pairingGuidanceMaster = String(localized: "companion.pairingGuidanceMaster")
+        static let pairingGuidanceViewer = String(localized: "companion.pairingGuidanceViewer")
 
         // Wi-Fi Aware
         static let wifiAwareUnavailable = String(localized: "companion.wifiAwareUnavailable")
@@ -1188,12 +1220,40 @@ enum L10n {
         static let wifiAwareInfo = String(localized: "companion.wifiAwareInfo")
         static let noNetworkRequired = String(localized: "companion.noNetworkRequired")
 
+        // Diagnostics (developer mode)
+        static let diagnostics = String(localized: "companion.diagnostics")
+        static let diagnosticsFooter = String(localized: "companion.diagnosticsFooter")
+        static let diagWifiAware = String(localized: "companion.diagWifiAware")
+        static let diagSupported = String(localized: "companion.diagSupported")
+        static let diagUnsupported = String(localized: "companion.diagUnsupported")
+        static let diagThisDevice = String(localized: "companion.diagThisDevice")
+        static let diagConnection = String(localized: "companion.diagConnection")
+        static let diagService = String(localized: "companion.diagService")
+        static let diagRoleMaster = String(localized: "companion.diagRoleMaster")
+        static let diagRoleViewer = String(localized: "companion.diagRoleViewer")
+        static let diagNoEvents = String(localized: "companion.diagNoEvents")
+        static let diagCopy = String(localized: "companion.diagCopy")
+
         // Flight view
         static let connectionLost = String(localized: "companion.connectionLost")
         static let switchToStandalone = String(localized: "companion.switchToStandalone")
+        static let holdToExit = String(localized: "companion.holdToExit")
+        // Companion v2 wingman
+        static let providingGPS = String(localized: "companion.providingGPS")
+        static let checklistUnavailable = String(localized: "companion.checklistUnavailable")
+        static let checkAndNext = String(localized: "companion.checkAndNext")
+        static let nextPhase = String(localized: "companion.nextPhase")
+        static let connectedWith = String(localized: "companion.connectedWith")
+        static let startFlightOnMaster = String(localized: "companion.startFlightOnMaster")
+        static let connectingTo = String(localized: "companion.connectingTo")
         static let keepTrying = String(localized: "companion.keepTrying")
         static let recordATO = String(localized: "companion.recordATO")
         static let noFlightPlan = String(localized: "companion.noFlightPlan")
+        static let holdToReveal = String(localized: "companion.holdToReveal")
+        static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")
+        static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
+        static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
+        static let pairInSettings = String(localized: "companion.pairInSettings")
     }
 }
 

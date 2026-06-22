@@ -95,6 +95,17 @@ struct AeroCheckApp: App {
                     guard !isInitialized else { return }
                     isInitialized = true
 
+                    // Wire the companion manager's data sources for BOTH roles, so a viewer (iPhone) can
+                    // read its own GPS to stream up to a GPS-less master (iPad). (shared-GPS)
+                    companionConnectivityManager.configure(
+                        appState: appState,
+                        locationManager: locationManager,
+                        flightPlanManager: flightPlanManager
+                    )
+                    // Auto-connect if companion mode is on and a device is paired — the user shouldn't
+                    // have to start it on both devices. (v4.1 companion UX)
+                    companionConnectivityManager.autoConnectIfReady()
+
                     // v4.1.0: OpenAIP is the primary airport source. Re-apply the merge here in case an
                     // early ensureLoaded (widget/deep-link cold start via FlightLauncher) loaded airports
                     // before OpenAIP airport data was ready; idempotent + a no-op without OpenAIP data.
@@ -185,6 +196,8 @@ struct AeroCheckApp: App {
                     guard phase == .active else { return }
                     dataStatusManager.recompute()
                     Task { await dataStatusManager.autoRefreshIfNeeded(cellularUpdatesEnabled: true) }
+                    // Re-establish the companion link on foreground (e.g. after the peer relaunched). (v4.1)
+                    companionConnectivityManager.autoConnectIfReady()
                 }
             }
         }
@@ -257,27 +270,18 @@ struct AeroCheckApp: App {
                 flightPlanManager: flightPlanManager
             )
 
-            // Start companion listening/updates if enabled
-            if appState.settings.enableCompanionMode {
-                let role = appState.settings.companionRole.resolvedRole(for: UIDevice.current.userInterfaceIdiom)
-                if role == .master {
-                    companionConnectivityManager.startListening()
-                    companionConnectivityManager.startUpdates(
-                        appState: appState,
-                        locationManager: locationManager,
-                        flightPlanManager: flightPlanManager
-                    )
-                }
-            }
+            // Ensure the companion link is up (no-op if already connected). The connection is now tied to
+            // companion-mode-enabled + paired, NOT to the flight — it's a persistent second screen that
+            // shows the flight when one is running and an idle state otherwise. The master streams on
+            // connect, so starting a flight just changes WHAT is streamed. force:true re-arms it even if
+            // an idle auto-disconnect had dropped the link for battery. (v4.1 companion)
+            companionConnectivityManager.autoConnectIfReady(force: true)
         } else {
             // Notify Watch that flight has ended
             watchConnectivityManager.notifyFlightEnded()
 
-            // End companion mode gracefully: disconnect() sends a .disconnect message to a connected
-            // viewer (which drops it to .disconnected) BEFORE teardown, so the viewer doesn't sit in
-            // an unbounded reconnect loop against a master that has stopped listening. Also stops the
-            // update timer + listener. Inert no-op when no companion session is active.
-            companionConnectivityManager.disconnect()
+            // Companion mode deliberately STAYS connected across flights (persistent second screen). It is
+            // torn down only by disabling companion mode, tapping Disconnect, or quitting — not here.
         }
     }
 }
@@ -497,5 +501,9 @@ struct AppRootView<Content: View>: View {
             // materials and any default/semantic text render correctly on the light surfaces.
             .environment(\.colorScheme, AmbientPalette.isActive ? .light : .dark)
             .ambientCelebrationOverlay()
+            // Publish the DEVICE's real appearance so the companion master streams the same theme the
+            // iPad actually displays (not the force-dark window trait). (companion v2 — theme default fix)
+            .onAppear { appState.deviceIsDark = systemIsDark }
+            .onChange(of: systemColorScheme) { _, scheme in appState.deviceIsDark = (scheme == .dark) }
     }
 }

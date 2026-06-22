@@ -106,6 +106,11 @@ struct BriefingContext {
     let departureReportingPoints: [ReportingPoint]
     let destinationReportingPoints: [ReportingPoint]
 
+    // Departure procedure derived from the active flight plan's first leg (nil with no plan).
+    let departureInitialTrack: Double?      // first-leg magnetic course (departure → first fix)
+    let departureFirstFix: String?          // name of the first en-route waypoint
+    let departureCruiseAltitude: Int?       // planned cruise altitude (feet)
+
     // Wind data (if available)
     let currentWind: WindData?
 
@@ -135,6 +140,9 @@ struct BriefingContext {
             suggestedArrivalRunway: nil,
             departureReportingPoints: [],
             destinationReportingPoints: [],
+            departureInitialTrack: nil,
+            departureFirstFix: nil,
+            departureCruiseAltitude: nil,
             currentWind: nil
         )
     }
@@ -156,7 +164,8 @@ struct BriefingContextBuilder {
         airportDataService: AirportDataService?,
         windDirection: Double? = nil,
         windSpeed: Double? = nil,
-        destinationIdent: String? = nil
+        destinationIdent: String? = nil,
+        flightPlan: FlightPlan? = nil
     ) -> BriefingContext {
         // Parse speeds
         let aircraftSpeeds = AircraftSpeeds(from: speeds)
@@ -204,6 +213,18 @@ struct BriefingContextBuilder {
         let destinationReportingPoints = destinationAirport
             .map { rpService.reportingPointsNear(to: $0.coordinate, maxDistanceNm: 8, limit: 6) } ?? []
 
+        // Departure procedure from the active flight plan's first leg + planned cruise altitude.
+        // `magneticCourse` on a waypoint is the course TO the next one, so the first leg = waypoints[0].
+        var departureInitialTrack: Double?
+        var departureFirstFix: String?
+        var departureCruiseAltitude: Int?
+        if let plan = flightPlan, plan.waypoints.count >= 2 {
+            departureInitialTrack = plan.waypoints.first?.magneticCourse
+            departureFirstFix = plan.waypoints.dropFirst().first?.name
+            departureCruiseAltitude = plan.waypoints.dropFirst().dropLast()
+                .compactMap { $0.altitude }.first.map { Int($0) }
+        }
+
         // Build wind data if available
         var windData: BriefingContext.WindData?
         if let direction = windDirection, let speed = windSpeed {
@@ -223,6 +244,9 @@ struct BriefingContextBuilder {
             suggestedArrivalRunway: suggestedArrivalRunway,
             departureReportingPoints: departureReportingPoints,
             destinationReportingPoints: destinationReportingPoints,
+            departureInitialTrack: departureInitialTrack,
+            departureFirstFix: departureFirstFix,
+            departureCruiseAltitude: departureCruiseAltitude,
             currentWind: windData
         )
     }

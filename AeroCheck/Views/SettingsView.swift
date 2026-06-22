@@ -98,6 +98,10 @@ struct SettingsView: View {
                         detailView(for: selection)
                             .navigationBarTitleDisplayMode(.inline)
                     }
+                    // Fresh stack per category so tapping a sidebar item always shows that category's
+                    // content — without this, a pushed sub-page (e.g. OpenAIP Data) stayed on top and the
+                    // user had to tap back first. (settings nav fix)
+                    .id(selection)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .background(Color.cockpitBackground.ignoresSafeArea())
@@ -150,11 +154,6 @@ struct SettingsView: View {
     /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (v4 UI/UX Revamp)
     private func sidebar(twoColumn: Bool) -> some View {
         List {
-            themePickerCard
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
-
             ForEach(Section.allCases) { section in
                 Button {
                     if twoColumn { selection = section } else { path.append(section) }
@@ -187,32 +186,6 @@ struct SettingsView: View {
         }
     }
 
-    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (v4 UI/UX Revamp)
-    private var themePickerCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text(L10n.Settings.theme)
-                .font(.caption.weight(.semibold))
-                .tracking(0.5)
-                .foregroundColor(.secondaryText)
-            Picker(L10n.Settings.theme, selection: Binding(
-                get: { appState.settings.themePreference },
-                set: { appState.settings.themePreference = $0; appState.saveSettings() }
-            )) {
-                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
-                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
-                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
-                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-        )
-    }
 
     @ViewBuilder
     private func detailView(for section: Section?) -> some View {
@@ -450,6 +423,8 @@ struct OfflineMapDownloadSheet: View {
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
     @Binding var offlineMode: Bool
+    /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.
+    var asPage: Bool = false
     @State private var selectedCacheOption: CacheOption = .icaoOnly
 
     private func storageEstimate(for option: CacheOption) -> String {
@@ -460,8 +435,42 @@ struct OfflineMapDownloadSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
+        Group {
+            if asPage {
+                sheetContent
+            } else {
+                NavigationStack {
+                    sheetContent
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                if !offlineMapManager.isDownloading {
+                                    Button(L10n.Button.cancel) {
+                                        if !offlineMapManager.isCacheAvailable { offlineMode = false }
+                                        dismiss()
+                                    }
+                                }
+                            }
+                        }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .interactiveDismissDisabled(offlineMapManager.isDownloading)
+        .onAppear {
+            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
+                selectedCacheOption = .icaoAndSegelflug
+            }
+        }
+        .onDisappear {
+            // As a pushed page, backing out without a cache reverts Offline Mode (mirrors the sheet's Cancel).
+            if asPage && !offlineMapManager.isDownloading && !offlineMapManager.isCacheAvailable {
+                offlineMode = false
+            }
+        }
+    }
+
+    private var sheetContent: some View {
+        VStack(spacing: 20) {
                 Image(systemName: "map.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.aviationGold)
@@ -596,27 +605,8 @@ struct OfflineMapDownloadSheet: View {
                 .padding(.bottom, 24)
             }
             .background(Color.cockpitBackground)
+            .navigationTitle(L10n.Settings.downloadCharts)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if !offlineMapManager.isDownloading {
-                        Button(L10n.Button.cancel) {
-                            if !offlineMapManager.isCacheAvailable {
-                                offlineMode = false
-                            }
-                            dismiss()
-                        }
-                    }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
-        .interactiveDismissDisabled(offlineMapManager.isDownloading)
-        .onAppear {
-            if offlineMapManager.isCacheAvailable && !offlineMapManager.isSegelflugCacheAvailable {
-                selectedCacheOption = .icaoAndSegelflug
-            }
-        }
     }
 
     private var downloadButtonText: String {
@@ -1018,7 +1008,6 @@ struct PremiumAircraftListView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) var dismiss
-    @Binding var showSubscriptionView: Bool
     @State private var showLocalSubscriptionView = false
 
     var premiumAircraft: [RemoteAircraftMetadata] {
@@ -1214,7 +1203,7 @@ struct LanguageFlagView: View {
 #Preview("Premium Aircraft List") {
     let subManager = SubscriptionManager()
     NavigationStack {
-        PremiumAircraftListView(showSubscriptionView: .constant(false))
+        PremiumAircraftListView()
             .environmentObject(AppState())
             .environmentObject(AircraftDataService(subscriptionManager: subManager))
             .environmentObject(subManager)

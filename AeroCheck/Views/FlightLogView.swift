@@ -1257,7 +1257,7 @@ struct FlightLogStatsShareCard: View {
             Image(systemName: "airplane.circle.fill").font(.system(size: 34)).foregroundColor(accent)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("AeroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(theme.primaryTextColor)
+                Text("AéroCheck").font(.system(size: 26, weight: .semibold)).foregroundColor(theme.primaryTextColor)
                 Text("aerocheck.app").font(.system(size: 20)).foregroundColor(accent)
             }
         }

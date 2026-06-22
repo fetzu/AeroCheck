@@ -31,6 +31,9 @@ struct AboutSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             marketingMode = appState.settings.marketingMode
+            // Keep the section revealed if developer mode was already enabled this run (it resets on
+            // relaunch), e.g. after navigating away from About and back.
+            if appState.settings.developerMode { showDeveloperOptions = true }
         }
         .onChange(of: marketingMode) { _, newValue in
             appState.settings.marketingMode = newValue
@@ -143,6 +146,9 @@ struct AboutSettingsView: View {
                 withAnimation {
                     showDeveloperOptions = true
                 }
+                // Enable developer mode for this run (non-persisted; resets on relaunch). Gates
+                // developer-only surfaces app-wide, e.g. the Companion diagnostics panel. (v4.1)
+                appState.settings.developerMode = true
             }
         }
     }
@@ -195,7 +201,7 @@ struct AboutSettingsView: View {
 
     @ViewBuilder
     private var developerOptionsSection: some View {
-        if showDeveloperOptions {
+        if showDeveloperOptions || appState.settings.developerMode {
             SettingsGroup(title: "Developer Options · \(L10n.Tag.dev)", tint: tint,
                           footer: developerOptionsFooter) {
                 SettingsToggleRow(icon: "megaphone", title: L10n.Settings.marketingMode,
@@ -249,6 +255,13 @@ struct AboutSettingsView: View {
                                   tint: tint, showsChevron: false) {
                     previewEvent = DetectedFlightEvent(type: .touchAndGo, timestamp: Date(), airport: nil,
                                                        message: "Touch-and-go detected (preview)")
+                }
+
+                // Turn developer mode back off (hides this section + the Companion diagnostics panel).
+                SettingsButtonRow(icon: "xmark.circle", title: "Disable developer mode",
+                                  tint: tint, showsChevron: false, destructive: true) {
+                    appState.settings.developerMode = false
+                    withAnimation { showDeveloperOptions = false }
                 }
             }
             .onChange(of: subscriptionManager.debugForceNotSubscribed) { _, _ in

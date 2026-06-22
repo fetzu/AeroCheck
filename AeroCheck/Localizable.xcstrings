@@ -1,6 +1,590 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "companion.connectedWith" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected with %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté à %@"
+          }
+        }
+      }
+    },
+    "companion.startFlightOnMaster" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a flight on %@ to begin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrez un vol sur %@ pour commencer."
+          }
+        }
+      }
+    },
+    "companion.connectingTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to %@…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion à %@…"
+          }
+        }
+      }
+    },
+    "companion.providingGPS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Providing GPS to iPad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fournit le GPS à l’iPad"
+          }
+        }
+      }
+    },
+    "companion.checklistUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The checklist appears here once a flight is active on the iPad."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La checklist apparaît ici dès qu’un vol est actif sur l’iPad."
+          }
+        }
+      }
+    },
+    "companion.checkAndNext" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check & next"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cocher & suivant"
+          }
+        }
+      }
+    },
+    "companion.nextPhase" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next phase"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phase suivante"
+          }
+        }
+      }
+    },
+    "companion.exitConfirmLeave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter"
+          }
+        }
+      }
+    },
+    "companion.exitConfirmMessage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device will turn off Companion mode and return to the app. You can turn it back on in Settings."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil va désactiver le mode Companion et revenir à l'application. Vous pourrez le réactiver dans les Réglages."
+          }
+        }
+      }
+    },
+    "companion.exitConfirmTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Companion mode?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter le mode Companion ?"
+          }
+        }
+      }
+    },
+    "companion.holdToExit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to exit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir pour quitter"
+          }
+        }
+      }
+    },
+    "companion.holdToReveal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to reveal"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir pour révéler"
+          }
+        }
+      }
+    },
+    "companion.pairInSettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can pair a companion device in Settings."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez appairer un appareil compagnon dans les Réglages."
+          }
+        }
+      }
+    },
+    "companion.pairWithiPhone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with your iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Associer votre iPhone"
+          }
+        }
+      }
+    },
+    "companion.makeDiscoverable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make discoverable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendre détectable"
+          }
+        }
+      }
+    },
+    "companion.pairBothDevices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do this on both devices: tap below, then select each other and confirm the code shown."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À faire sur les deux appareils : touchez ci-dessous, puis sélectionnez-vous mutuellement et confirmez le code affiché."
+          }
+        }
+      }
+    },
+    "companion.pairingGuidanceMaster" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPad will be the main screen. On your iPhone, open AéroCheck → Companion and tap Connect."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPad sera l’écran principal. Sur votre iPhone, ouvrez AéroCheck → Compagnon et touchez Connecter."
+          }
+        }
+      }
+    },
+    "companion.pairingGuidanceViewer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This iPhone connects to your iPad. Open AéroCheck → Companion on the iPad first, then tap Connect below."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone se connecte à votre iPad. Ouvrez d’abord AéroCheck → Compagnon sur l’iPad, puis touchez Connecter ci-dessous."
+          }
+        }
+      }
+    },
+    "companion.diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        }
+      }
+    },
+    "companion.diagnosticsFooter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Developer-only. Share this if pairing fails — it shows whether Wi-Fi Aware is available and logs connection events."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réservé aux développeurs. Partagez ceci en cas d’échec de l’appairage — indique si le Wi-Fi Aware est disponible et journalise les événements de connexion."
+          }
+        }
+      }
+    },
+    "companion.diagWifiAware" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi Aware"
+          }
+        }
+      }
+    },
+    "companion.diagSupported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supported"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pris en charge"
+          }
+        }
+      }
+    },
+    "companion.diagUnsupported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not supported"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non pris en charge"
+          }
+        }
+      }
+    },
+    "companion.diagThisDevice" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil"
+          }
+        }
+      }
+    },
+    "companion.diagConnection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion"
+          }
+        }
+      }
+    },
+    "companion.diagService" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service"
+          }
+        }
+      }
+    },
+    "companion.diagRoleMaster" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPad — drives (advertises)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPad — pilote (diffuse)"
+          }
+        }
+      }
+    },
+    "companion.diagRoleViewer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone — connects (browses)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone — se connecte (recherche)"
+          }
+        }
+      }
+    },
+    "companion.diagNoEvents" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No events yet. Tap Connect or Start listening to begin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun événement. Touchez Connecter ou Démarrer l’écoute pour commencer."
+          }
+        }
+      }
+    },
+    "companion.diagCopy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy diagnostics"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier les diagnostics"
+          }
+        }
+      }
+    },
+    "gps.source.companion" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPS source: companion iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source GPS : iPhone compagnon"
+          }
+        }
+      }
+    },
+    "alert.acquiringGPS.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a GPS fix. Once GPS is acquired, try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente d’un signal GPS. Une fois le GPS acquis, réessayez."
+          }
+        }
+      }
+    },
+    "Airspace data is out of date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données d'espace aérien obsolètes"
+          }
+        }
+      }
+    },
+    "It may not reflect recent airspace changes." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ces données pourraient ne pas refléter les changements récents."
+          }
+        }
+      }
+    },
+    "Update" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour"
+          }
+        }
+      }
+    },
+    "Updating…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour…"
+          }
+        }
+      }
+    },
     "Plan|Build your route on the map — airspace and terrain in view." : {
       "localizations" : {
         "fr" : {
@@ -2678,6 +3262,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Premier virage"
+          }
+        }
+      }
+    },
+    "briefing.initialTrack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initial track"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap initial"
+          }
+        }
+      }
+    },
+    "briefing.climbTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Climb to"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Montée vers"
           }
         }
       }
@@ -10058,13 +10676,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start your first flight and let AeroCheck guide you through every phase."
+            "value" : "Start your first flight and let AéroCheck guide you through every phase."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lancez votre premier vol et laissez AeroCheck vous guider à travers chaque phase."
+            "value" : "Lancez votre premier vol et laissez AéroCheck vous guider à travers chaque phase."
           }
         }
       }
@@ -10074,13 +10692,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start using AeroCheck"
+            "value" : "Start using AéroCheck"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commencer à utiliser AeroCheck"
+            "value" : "Commencer à utiliser AéroCheck"
           }
         }
       }
@@ -10833,13 +11451,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requires AeroCheck Pro"
+            "value" : "Requires AéroCheck Pro"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite AeroCheck Pro"
+            "value" : "Nécessite AéroCheck Pro"
           }
         }
       }
@@ -11195,13 +11813,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates."
+            "value" : "Select the aircraft you will be flying. Premium aircraft require an AéroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sélectionnez l'avion que vous allez piloter. Les avions premium nécessitent un abonnement AeroCheck Pro. Appuyez sur 'Obtenir les dernières données' pour actualiser la liste et vérifier les mises à jour des checklists."
+            "value" : "Sélectionnez l'avion que vous allez piloter. Les avions premium nécessitent un abonnement AéroCheck Pro. Appuyez sur 'Obtenir les dernières données' pour actualiser la liste et vérifier les mises à jour des checklists."
           }
         }
       }
@@ -11263,13 +11881,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No accessible aircraft to filter. Subscribe to AeroCheck Pro to access premium aircraft."
+            "value" : "No accessible aircraft to filter. Subscribe to AéroCheck Pro to access premium aircraft."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun avion accessible à filtrer. Abonnez-vous à AeroCheck Pro pour accéder aux avions premium."
+            "value" : "Aucun avion accessible à filtrer. Abonnez-vous à AéroCheck Pro pour accéder aux avions premium."
           }
         }
       }
@@ -13491,6 +14109,108 @@
         }
       }
     },
+    "settings.openAIP.estimatedDataSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated data size: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taille des données estimée : %@"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadDataOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download data only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les données seules"
+          }
+        }
+      }
+    },
+    "settings.openAIP.selectionChanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection changed — download to apply"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélection modifiée — téléchargez pour appliquer"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesAnyway" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download tiles anyway"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger les tuiles quand même"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesConfirmTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download map tiles too?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger aussi les tuiles ?"
+          }
+        }
+      }
+    },
+    "settings.openAIP.downloadTilesConfirmMessage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The data (≈%1$@) is what powers AéroCheck. Map tiles add ≈%2$@ of raster chart imagery — a heavy, secondary layer. Downloading data only is recommended."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les données (≈%1$@) sont l'essentiel pour AéroCheck. Les tuiles ajoutent ≈%2$@ d'imagerie raster — une couche lourde et secondaire. Il est recommandé de ne télécharger que les données."
+          }
+        }
+      }
+    },
     "settings.openAIP.footer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13650,13 +14370,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AeroCheck Pro"
+            "value" : "AéroCheck Pro"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AeroCheck Pro"
+            "value" : "AéroCheck Pro"
           }
         }
       }
@@ -14020,13 +14740,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Access additional aircraft checklists with an AeroCheck Pro subscription"
+            "value" : "Access additional aircraft checklists with an AéroCheck Pro subscription"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accédez aux checklists d'autres avions avec un abonnement AeroCheck Pro"
+            "value" : "Accédez aux checklists d'autres avions avec un abonnement AéroCheck Pro"
           }
         }
       }
@@ -14139,13 +14859,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CHOOSE A PLAN"
+            "value" : "Choose a plan"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CHOISIR UNE FORMULE"
+            "value" : "Choisir une formule"
           }
         }
       }
@@ -14156,13 +14876,98 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CURRENT STATUS"
+            "value" : "Current status"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "STATUT ACTUEL"
+            "value" : "Statut actuel"
+          }
+        }
+      }
+    },
+    "subscription.freeTrialDayFormat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d-day free trial"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essai gratuit de %d jours"
+          }
+        }
+      }
+    },
+    "subscription.freeTrialNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free for the first week, then renews yearly. Cancel anytime."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit la première semaine, puis renouvellement annuel. Annulable à tout moment."
+          }
+        }
+      }
+    },
+    "subscription.lifetimeTagline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay once, yours forever"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payez une fois, accès à vie"
+          }
+        }
+      }
+    },
+    "subscription.oneTime" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "one-time"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "paiement unique"
+          }
+        }
+      }
+    },
+    "subscription.unlockAircraft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Débloquer %@"
           }
         }
       }

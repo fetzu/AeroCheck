@@ -30,9 +30,11 @@ struct FlightView: View {
     @State private var allItemsChecked = false
     @State private var scrollToBottom = false
     @State private var nearestFreqText: String?
-    /// Whether the current phase's hidden (memorizable) items have been temporarily revealed (owned here
-    /// so tap-to-advance can step through them). Reset on phase change. (v4 UI/UX Revamp feedback)
-    @State private var hiddenItemsRevealed = false
+    /// Binding to the hidden-items reveal state, now owned by `AppState` so a companion's hold-to-reveal
+    /// syncs to both devices. Reset on phase change in AppState. (companion v2 — hidden-content parity)
+    private var hiddenItemsRevealed: Binding<Bool> {
+        Binding(get: { appState.hiddenItemsRevealed }, set: { appState.hiddenItemsRevealed = $0 })
+    }
 
     // Hour meter input modals
     @State private var showHourMeterStart = false
@@ -74,7 +76,7 @@ struct FlightView: View {
     /// Learning mode OR temporarily-revealed hidden items — the set of items the checklist is showing,
     /// so tap-to-advance and completion stay in sync with what's on screen. (v4 UI/UX Revamp feedback)
     private var effectiveLearningMode: Bool {
-        appState.settings.learningMode || hiddenItemsRevealed
+        appState.effectiveLearningMode
     }
 
     /// Determine if we're on an iPhone-sized device
@@ -135,7 +137,8 @@ struct FlightView: View {
             airportDataService: airportDataService,
             windDirection: windDirection,
             windSpeed: windSpeed,
-            destinationIdent: destinationIdent
+            destinationIdent: destinationIdent,
+            flightPlan: flightPlanManager.activeFlightPlan
         )
     }
 
@@ -241,19 +244,20 @@ struct FlightView: View {
                 .id(timerTrigger)
 
             // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
-            // popup (status guide + advanced fix info). (v4 UI/UX Revamp feedback)
+            // popup (status guide + advanced fix info). When the flight is running off a borrowed
+            // companion fix, the label shows "GPS · iPhone" so the source is unmistakable. (shared-GPS)
             Button(action: { openReference(.gps) }) {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 12))
-                    Text("GPS")
+                    Text(gpsSourceLabel)
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundColor(gpsStatusColor)
             }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .accessibilityLabel(L10n.GPS.status)
+            .accessibilityLabel(isBorrowingCompanionGPS ? L10n.GPS.sourceCompanion : L10n.GPS.status)
             .accessibilityHint(L10n.Flight.info)
 
             // Flight details / options (consolidates the GPS/points/times panel)
@@ -547,7 +551,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
-                            hiddenItemsRevealed: $hiddenItemsRevealed
+                            hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(24)
                         .id("checklistContent")
@@ -1171,7 +1175,7 @@ struct FlightView: View {
                                 }
                                 showHourMeterStop = true
                             },
-                            hiddenItemsRevealed: $hiddenItemsRevealed
+                            hiddenItemsRevealed: hiddenItemsRevealed
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 16)
@@ -1625,6 +1629,18 @@ struct FlightView: View {
         case .degraded: return .orange
         case .lost: return .aviationRed
         }
+    }
+
+    /// True when this device is running the flight off a borrowed companion (iPhone) GPS fix rather
+    /// than its own. (shared-GPS)
+    private var isBorrowingCompanionGPS: Bool {
+        companionConnectivityManager.effectiveGPSSource == .peer
+    }
+
+    /// The cockpit GPS label: "GPS", or "GPS · iPhone" when position is sourced from the paired
+    /// companion. (Both verbatim — aviation abbreviation + brand — so no localization.) (shared-GPS)
+    private var gpsSourceLabel: String {
+        isBorrowingCompanionGPS ? "GPS · iPhone" : "GPS"
     }
 
 }
@@ -2444,6 +2460,7 @@ struct PhaseContextTile: View {
 struct FlightInfoSheet: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager
+    @ObservedObject private var companion = CompanionConnectivityManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
 
@@ -2492,10 +2509,6 @@ struct FlightInfoSheet: View {
                     // Quick in-flight options — the most useful settings without leaving the flight.
                     // ("Options" is identical in EN/FR, so no separate localization entry is needed.)
                     settingsCard(title: "Options") {
-                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
-                        rowDivider
-                        toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
-                        rowDivider
                         VStack(alignment: .leading, spacing: 8) {
                             Text(L10n.Settings.theme)
                                 .font(.system(size: 15))
@@ -2511,6 +2524,38 @@ struct FlightInfoSheet: View {
                             }
                             .pickerStyle(.segmented)
                             .labelsHidden()
+                        }
+                        rowDivider
+                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
+                        rowDivider
+                        toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
+                        rowDivider
+                        // Companion mode only makes sense once a device is paired (pairing happens in
+                        // the main Settings, not mid-flight). Show the toggle when paired; otherwise a
+                        // hint pointing to Settings. (companion — HUD gating)
+                        if companion.hasPairedDevices {
+                            // Toggle the second screen on/off without leaving the flight (e.g. the iPad
+                            // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
+                            // toggle: enabling auto-connects to a paired device, disabling tears down.
+                            toggleRow(L10n.Companion.enableCompanionMode, Binding(
+                                get: { appState.settings.enableCompanionMode },
+                                set: { on in
+                                    appState.settings.enableCompanionMode = on
+                                    appState.saveSettings()
+                                    if on { CompanionConnectivityManager.shared.autoConnectIfReady(force: true) }
+                                    else { CompanionConnectivityManager.shared.disconnect() }
+                                }
+                            ))
+                        } else {
+                            HStack(spacing: 8) {
+                                Image(systemName: "ipad.and.iphone")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.dimText)
+                                Text(L10n.Companion.pairInSettings)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondaryText)
+                                Spacer(minLength: 0)
+                            }
                         }
                     }
 

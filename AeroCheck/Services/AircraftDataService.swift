@@ -167,6 +167,26 @@ class AircraftDataService: ObservableObject {
         WidgetBridge.publish(available: availableAircraft)
     }
 
+    /// After a purchase, the server's entitlement write can lag the client's StoreKit confirmation, so
+    /// a single refetch can still return the locked list ("bought it but still locked"). Retry a few
+    /// times with backoff until at least one premium aircraft reports access — then stop. If it never
+    /// unlocks within the attempts, the periodic check / next launch reconciles. (premium reliability)
+    func refetchUntilPremiumUnlocked(maxAttempts: Int = 4) async {
+        let attempts = max(1, maxAttempts)
+        for attempt in 1...attempts {
+            await fetchAvailableAircraft()
+            if availableAircraft.contains(where: { !$0.isFree && $0.hasAccess }) {
+                AppLog.aircraftData.debugLine("Premium unlocked after \(attempt) fetch attempt(s)")
+                return
+            }
+            if attempt < attempts {
+                // 1.5s, 3s, 4.5s — enough for the edge KV write to propagate without a long hang.
+                try? await Task.sleep(for: .seconds(Double(attempt) * 1.5))
+            }
+        }
+        AppLog.aircraftData.debugLine("Premium still locked after \(attempts) attempt(s); periodic check will reconcile")
+    }
+
     /// Fetches a specific aircraft checklist
     /// For bundled aircraft (like WT9), prefers API version if newer, falls back to bundled version
     /// - Parameters:

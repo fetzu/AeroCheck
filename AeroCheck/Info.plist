@@ -40,15 +40,19 @@
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>AéroCheck needs access to save flight log images to your photo library.</string>
-	<!-- _aerocheck._udp MUST use the ._udp transport label: WiFiAware traps uncatchably on a ._tcp name (RFC6335/6763) when parsing this key, which crashed flight start with companion mode on. Sync with companionWiFiAwareServiceName in CompanionConnectivityManager.swift. -->
+	<!-- WiFiAware companion service. TWO hard requirements, each an UNCATCHABLE trap in WiFiAwareServicesPrivate if wrong:
+	     (1) the name MUST use the ._udp transport label (a ._tcp name fails RFC6335/6763 validation);
+	     (2) the Publishable/Subscribable values MUST be DICTIONARIES (empty is fine), per Apple's "Adopting Wi-Fi Aware" —
+	         a Bool (<true/>) traps with "'Publishable' key ... is malformed (not a dictionary)" on Pair New Device (iOS/iPadOS 26).
+	     Keep the name in sync with companionWiFiAwareServiceName; CompanionServiceContractTests locks both rules. -->
 	<key>WiFiAwareServices</key>
 	<dict>
 		<key>_aerocheck._udp</key>
 		<dict>
 			<key>Publishable</key>
-			<true/>
+			<dict/>
 			<key>Subscribable</key>
-			<true/>
+			<dict/>
 		</dict>
 	</dict>
 	<key>UIBackgroundModes</key>

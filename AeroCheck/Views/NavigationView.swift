@@ -903,7 +903,10 @@ struct NavigationMapView: View {
                 }
             }
             .sheet(isPresented: $showOverlaysSheet) {
-                OverlaysSheet().environmentObject(appState)
+                OverlaysSheet()
+                    .environmentObject(appState)
+                    .environmentObject(openAIPDataService)
+                    .environmentObject(dataStatusManager)
             }
 
             // Map-type picker button (shows the cache info modal in offline mode).
@@ -1404,7 +1407,10 @@ struct NavigationMapView: View {
             }
             .accessibilityLabel(L10n.Nav.layers)
             .sheet(isPresented: $showOverlaysSheet) {
-                OverlaysSheet().environmentObject(appState)
+                OverlaysSheet()
+                    .environmentObject(appState)
+                    .environmentObject(openAIPDataService)
+                    .environmentObject(dataStatusManager)
             }
 
             // OpenAIP overlay toggle
@@ -3643,6 +3649,11 @@ struct LayerPickerSheet: View {
 /// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
 struct OverlaysSheet: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var dataStatusManager: DataStatusManager
+    @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.dismiss) var dismiss
 
     private var anyMarkerOn: Bool {
@@ -3650,10 +3661,27 @@ struct OverlaysSheet: View {
         appState.settings.showReportingPointsOnMap || appState.settings.showObstaclesOnMap
     }
 
+    /// Same aging/stale condition that lights the amber badge on the Layers button — gives that badge a
+    /// plain-language explanation. (v4.1 follow-up)
+    private var airspaceNeedsUpdate: Bool {
+        if dataStatusManager.debugForceStale { return true }
+        guard openAIPDataService.isDataAvailable, let lastUpdated = openAIPDataService.lastUpdated else { return false }
+        let freshness = FreshnessThresholds.aeronautical.freshness(lastUpdated: lastUpdated, now: Date())
+        return freshness == .aging || freshness == .stale
+    }
+
+    private var isUpdatingAeroData: Bool {
+        openAIPDataService.isDownloading || navaidService.isDownloading
+            || obstacleService.isDownloading || reportingPointService.isDownloading
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if airspaceNeedsUpdate || isUpdatingAeroData {
+                        staleDataBanner
+                    }
                     groupCard(L10n.Nav.airspaceCharts) {
                         toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
                             appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
@@ -3726,6 +3754,76 @@ struct OverlaysSheet: View {
         appState.settings.showReportingPointsOnMap = on
         appState.settings.showObstaclesOnMap = on
         appState.saveSettings()
+    }
+
+    /// Worded stale-data warning + inline update, so the Layers-button badge isn't cryptic on its own.
+    /// Update re-downloads all OpenAIP layers (airspace + navaids + obstacles + reporting points) for the
+    /// cached countries, since they age together. (v4.1 follow-up)
+    private var staleDataBanner: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(.aviationAmber)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Airspace data is out of date"))
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundColor(.aviationAmber)
+                    Text(String(localized: "It may not reflect recent airspace changes."))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack {
+                Spacer()
+                if isUpdatingAeroData {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.8)
+                        Text(String(localized: "Updating…"))
+                            .font(.system(size: 12.5))
+                            .foregroundColor(.secondaryText)
+                    }
+                } else {
+                    Button(action: updateAeroData) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise").font(.system(size: 12, weight: .semibold))
+                            Text(String(localized: "Update")).font(.system(size: 12.5, weight: .semibold))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGold))
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.aviationAmber.opacity(0.12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationAmber.opacity(0.4), lineWidth: 1))
+        )
+        .padding(.horizontal, 16)
+    }
+
+    private func updateAeroData() {
+        // Refresh the UNION of every layer's downloaded countries — using one layer's set would, with
+        // per-layer pruning, shrink the others to it. (download-integrity fix)
+        let countries = Array(Set(openAIPDataService.downloadedCountries)
+            .union(navaidService.downloadedCountries)
+            .union(obstacleService.downloadedCountries)
+            .union(reportingPointService.downloadedCountries))
+        guard !countries.isEmpty else { return }
+        Task {
+            await openAIPDataService.downloadData(for: countries)
+            await navaidService.downloadData(for: countries)
+            await obstacleService.downloadData(for: countries)
+            await reportingPointService.downloadData(for: countries)
+            dataStatusManager.recompute()
+        }
     }
 
     @ViewBuilder

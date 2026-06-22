@@ -468,8 +468,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     try await connection.send(msg)
                 }
 
-                await MainActor.run {
-                    guard let self else { return }
+                // Re-check the generation BEFORE adopting this connection. `browser.run`/connection
+                // establishment can suspend for a long time; if disconnect()/a newer connect() superseded
+                // this attempt during that suspension (bumping connectionGeneration + cancelling browserTask),
+                // adopting it here would resurrect a link the user just tore down — re-arming the send
+                // handler/health timer and flipping the UI back to .connected. Every sibling branch already
+                // guards on `myGeneration`; this one didn't. (v4.1.0 pre-tag fix — M2)
+                let stillCurrent = await MainActor.run { () -> Bool in
+                    guard let self, self.connectionGeneration == myGeneration else { return false }
                     self.sendHandler = send
                     self.connectionState = .connected
                     self.connectedDeviceName = self.pairedDevices.first?.name ?? self.pairedDevices.first?.pairingName ?? L10n.Companion.masterDevice
@@ -480,7 +486,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                     // listener never accepts and it never streams back. (v4.1)
                     self.sendPing()
                     self.diag("Viewer: connected to iPad")
+                    return true
                 }
+                // Superseded mid-establish — drop this stale connection instead of entering its receive
+                // loop (which would keep feeding the manager messages from a connection the user dropped).
+                guard stillCurrent else { return }
 
                 // Receive typed messages until the connection ends (the Coder decodes each one).
                 do {

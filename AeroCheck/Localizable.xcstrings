@@ -205,6 +205,23 @@
         }
       }
     },
+    "companion.pairInSettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can pair a companion device in Settings."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez appairer un appareil compagnon dans les Réglages."
+          }
+        }
+      }
+    },
     "companion.pairWithiPhone" : {
       "extractionState" : "manual",
       "localizations" : {

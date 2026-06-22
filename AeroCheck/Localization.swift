@@ -1241,6 +1241,7 @@ enum L10n {
         static let exitConfirmTitle = String(localized: "companion.exitConfirmTitle")
         static let exitConfirmMessage = String(localized: "companion.exitConfirmMessage")
         static let exitConfirmLeave = String(localized: "companion.exitConfirmLeave")
+        static let pairInSettings = String(localized: "companion.pairInSettings")
     }
 }
 

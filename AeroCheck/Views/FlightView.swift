@@ -2459,6 +2459,7 @@ struct PhaseContextTile: View {
 struct FlightInfoSheet: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var locationManager: LocationManager
+    @ObservedObject private var companion = CompanionConnectivityManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var detent: PresentationDetent = .large  // open extended
 
@@ -2507,10 +2508,6 @@ struct FlightInfoSheet: View {
                     // Quick in-flight options — the most useful settings without leaving the flight.
                     // ("Options" is identical in EN/FR, so no separate localization entry is needed.)
                     settingsCard(title: "Options") {
-                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
-                        rowDivider
-                        toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
-                        rowDivider
                         VStack(alignment: .leading, spacing: 8) {
                             Text(L10n.Settings.theme)
                                 .font(.system(size: 15))
@@ -2528,18 +2525,37 @@ struct FlightInfoSheet: View {
                             .labelsHidden()
                         }
                         rowDivider
-                        // Toggle the second screen on/off without leaving the flight (e.g. the iPad
-                        // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
-                        // toggle: enabling auto-connects to a paired device, disabling tears down.
-                        toggleRow(L10n.Companion.enableCompanionMode, Binding(
-                            get: { appState.settings.enableCompanionMode },
-                            set: { on in
-                                appState.settings.enableCompanionMode = on
-                                appState.saveSettings()
-                                if on { CompanionConnectivityManager.shared.autoConnectIfReady(force: true) }
-                                else { CompanionConnectivityManager.shared.disconnect() }
+                        toggleRow(L10n.Settings.learningMode, optionBinding(\.learningMode))
+                        rowDivider
+                        toggleRow(L10n.Settings.alwaysUseUTC, optionBinding(\.alwaysUseUTC))
+                        rowDivider
+                        // Companion mode only makes sense once a device is paired (pairing happens in
+                        // the main Settings, not mid-flight). Show the toggle when paired; otherwise a
+                        // hint pointing to Settings. (companion — HUD gating)
+                        if companion.hasPairedDevices {
+                            // Toggle the second screen on/off without leaving the flight (e.g. the iPad
+                            // pilot brings up the iPhone wingman mid-flight). Mirrors the main settings
+                            // toggle: enabling auto-connects to a paired device, disabling tears down.
+                            toggleRow(L10n.Companion.enableCompanionMode, Binding(
+                                get: { appState.settings.enableCompanionMode },
+                                set: { on in
+                                    appState.settings.enableCompanionMode = on
+                                    appState.saveSettings()
+                                    if on { CompanionConnectivityManager.shared.autoConnectIfReady(force: true) }
+                                    else { CompanionConnectivityManager.shared.disconnect() }
+                                }
+                            ))
+                        } else {
+                            HStack(spacing: 8) {
+                                Image(systemName: "ipad.and.iphone")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.dimText)
+                                Text(L10n.Companion.pairInSettings)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondaryText)
+                                Spacer(minLength: 0)
                             }
-                        ))
+                        }
                     }
 
                     settingsCard(title: L10n.GPS.status) {

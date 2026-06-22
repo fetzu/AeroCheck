@@ -1018,7 +1018,6 @@ struct PremiumAircraftListView: View {
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) var dismiss
-    @Binding var showSubscriptionView: Bool
     @State private var showLocalSubscriptionView = false
 
     var premiumAircraft: [RemoteAircraftMetadata] {
@@ -1214,7 +1213,7 @@ struct LanguageFlagView: View {
 #Preview("Premium Aircraft List") {
     let subManager = SubscriptionManager()
     NavigationStack {
-        PremiumAircraftListView(showSubscriptionView: .constant(false))
+        PremiumAircraftListView()
             .environmentObject(AppState())
             .environmentObject(AircraftDataService(subscriptionManager: subManager))
             .environmentObject(subManager)

@@ -10625,13 +10625,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start your first flight and let AeroCheck guide you through every phase."
+            "value" : "Start your first flight and let AéroCheck guide you through every phase."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lancez votre premier vol et laissez AeroCheck vous guider à travers chaque phase."
+            "value" : "Lancez votre premier vol et laissez AéroCheck vous guider à travers chaque phase."
           }
         }
       }
@@ -10641,13 +10641,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start using AeroCheck"
+            "value" : "Start using AéroCheck"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Commencer à utiliser AeroCheck"
+            "value" : "Commencer à utiliser AéroCheck"
           }
         }
       }
@@ -11400,13 +11400,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Requires AeroCheck Pro"
+            "value" : "Requires AéroCheck Pro"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nécessite AeroCheck Pro"
+            "value" : "Nécessite AéroCheck Pro"
           }
         }
       }
@@ -11762,13 +11762,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Select the aircraft you will be flying. Premium aircraft require an AeroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates."
+            "value" : "Select the aircraft you will be flying. Premium aircraft require an AéroCheck Pro subscription. Tap 'Get latest aircraft data' to refresh the list and check for checklist updates."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sélectionnez l'avion que vous allez piloter. Les avions premium nécessitent un abonnement AeroCheck Pro. Appuyez sur 'Obtenir les dernières données' pour actualiser la liste et vérifier les mises à jour des checklists."
+            "value" : "Sélectionnez l'avion que vous allez piloter. Les avions premium nécessitent un abonnement AéroCheck Pro. Appuyez sur 'Obtenir les dernières données' pour actualiser la liste et vérifier les mises à jour des checklists."
           }
         }
       }
@@ -11830,13 +11830,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No accessible aircraft to filter. Subscribe to AeroCheck Pro to access premium aircraft."
+            "value" : "No accessible aircraft to filter. Subscribe to AéroCheck Pro to access premium aircraft."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucun avion accessible à filtrer. Abonnez-vous à AeroCheck Pro pour accéder aux avions premium."
+            "value" : "Aucun avion accessible à filtrer. Abonnez-vous à AéroCheck Pro pour accéder aux avions premium."
           }
         }
       }
@@ -14217,13 +14217,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AeroCheck Pro"
+            "value" : "AéroCheck Pro"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AeroCheck Pro"
+            "value" : "AéroCheck Pro"
           }
         }
       }
@@ -14587,13 +14587,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Access additional aircraft checklists with an AeroCheck Pro subscription"
+            "value" : "Access additional aircraft checklists with an AéroCheck Pro subscription"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Accédez aux checklists d'autres avions avec un abonnement AeroCheck Pro"
+            "value" : "Accédez aux checklists d'autres avions avec un abonnement AéroCheck Pro"
           }
         }
       }

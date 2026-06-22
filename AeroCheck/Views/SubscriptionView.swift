@@ -12,6 +12,12 @@ struct SubscriptionView: View {
     /// its name personalises the header. Nil → the generic header.
     var contextAircraftName: String? = nil
 
+    /// `true` (default) when shown as a sheet (flight-start, onboarding) — wraps itself in a
+    /// NavigationStack with a Done button. `false` when pushed into an existing stack (the iPad
+    /// settings detail column / iPhone settings push) — renders bare so the parent supplies the
+    /// navigation bar + back button and it fills the detail column instead of a popup.
+    var presentedAsSheet: Bool = true
+
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isLoadingProducts = false
@@ -21,34 +27,21 @@ struct SubscriptionView: View {
     private let yearlyID = "aerocheck.pro.yearly"
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 22) {
-                    headerSection
-
-                    if !subscriptionManager.subscriptionStatus.isSubscribed, let days = yearlyTrialDays {
-                        trialBanner(days: days)
-                    }
-
-                    if !subscriptionManager.subscriptionStatus.isSubscribed {
-                        productsSection
-                    }
-
-                    benefitsSection
-                    statusSection
-                    restoreSection
-                    termsSection
+        Group {
+            if presentedAsSheet {
+                NavigationStack {
+                    scrollContent
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(L10n.Button.done) { dismiss() }
+                                    .foregroundColor(Color.aviationGold)
+                            }
+                        }
                 }
-                .padding()
-            }
-            .background(Color.cockpitBackground)
-            .navigationTitle(L10n.Settings.aeroCheckPro)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.Button.done) { dismiss() }
-                        .foregroundColor(Color.aviationGold)
-                }
+            } else {
+                // Pushed into the settings stack — the parent provides the bar + back button, so it
+                // fills the iPad detail column rather than presenting as a sheet.
+                scrollContent
             }
         }
         .onAppear {
@@ -76,6 +69,32 @@ struct SubscriptionView: View {
                 showingError = true
             }
         }
+    }
+
+    /// The paywall body, shared by the sheet and pushed presentations.
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                headerSection
+
+                if !subscriptionManager.subscriptionStatus.isSubscribed, let days = yearlyTrialDays {
+                    trialBanner(days: days)
+                }
+
+                if !subscriptionManager.subscriptionStatus.isSubscribed {
+                    productsSection
+                }
+
+                benefitsSection
+                statusSection
+                restoreSection
+                termsSection
+            }
+            .padding()
+        }
+        .background(Color.cockpitBackground)
+        .navigationTitle(L10n.Settings.aeroCheckPro)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     /// Resolve whether THIS account is eligible for the yearly free trial (Apple only grants it once),

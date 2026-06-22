@@ -485,6 +485,7 @@ enum L10n {
         static let downloadAirspaceOnly = String(localized: "settings.openAIP.downloadAirspaceOnly")
         static let downloadWithTiles = String(localized: "Download data + map tiles")   // v4.1.0 (literal-keyed; FR in pass)
         static let openAIPDownloadHint = String(localized: "Data (airspace, navaids, obstacles, reporting points, airports) is small. Map tiles add raster chart imagery and are much larger.")
+        static let openAIPSelectionChanged = String(localized: "settings.openAIP.selectionChanged")
         static func openAIPCountriesSelected(_ count: Int) -> String {
             String(format: String(localized: "settings.openAIP.countriesSelected"), count)
         }

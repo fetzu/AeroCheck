@@ -409,6 +409,12 @@ struct OpenAIPDownloadSheet: View {
         }
     }
 
+    /// Whether the current selection differs from what's downloaded — airspace is the canonical
+    /// reference (after a download every layer matches the selection). Drives the reminder banner.
+    private var needsDownload: Bool {
+        !selectedCountries.isEmpty && selectedCountries != Set(openAIPDataService.downloadedCountries)
+    }
+
     private var downloadContent: some View {
         VStack(spacing: 0) {
                 List {
@@ -464,6 +470,21 @@ struct OpenAIPDownloadSheet: View {
                 // the heavy raster map tiles are an explicit opt-in. (v4.1.0 feedback)
                 if !openAIPCacheManager.isDownloading && !openAIPDataService.isDownloading {
                     VStack(spacing: 8) {
+                        // Non-blocking reminder: the selection differs from what's downloaded, so a
+                        // download is needed to apply it. Auto-clears once it matches. (UX feedback)
+                        if needsDownload {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.down.circle")
+                                    .foregroundColor(.aviationAmber)
+                                Text(L10n.Settings.openAIPSelectionChanged)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.primaryText)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationAmber.opacity(0.12)))
+                        }
+
                         Text(L10n.Settings.openAIPDownloadHint)
                             .font(.system(size: 12))
                             .foregroundColor(.secondaryText)

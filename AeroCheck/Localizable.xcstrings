@@ -14143,6 +14143,23 @@
         }
       }
     },
+    "settings.openAIP.selectionChanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection changed — download to apply"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélection modifiée — téléchargez pour appliquer"
+          }
+        }
+      }
+    },
     "settings.openAIP.downloadTilesAnyway" : {
       "extractionState" : "manual",
       "localizations" : {

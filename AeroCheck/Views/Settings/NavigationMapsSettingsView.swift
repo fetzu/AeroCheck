@@ -33,8 +33,8 @@ struct NavigationMapsSettingsView: View {
     var body: some View {
         SettingsPage {
             navigationSection
-            offlineMapsSection
             openAIPSection
+            offlineMapsSection
             airportDataSection
         }
         .navigationTitle(L10n.Settings.navigationAndMaps)
@@ -365,6 +365,7 @@ struct OpenAIPDownloadSheet: View {
 
     @State private var selectedCountries: Set<String> = []
     @State private var showTilesConfirm = false
+    @State private var didSeed = false
 
     var body: some View {
         Group {
@@ -382,9 +383,18 @@ struct OpenAIPDownloadSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+        // Seed ONCE from the persisted selection — re-seeding on every appear (e.g. popping back from
+        // the continent sub-list) clobbered an in-progress edit with the old selection. (download-integrity fix)
         .onAppear {
+            guard !didSeed else { return }
+            didSeed = true
             selectedCountries = Set(appState.settings.openAIPOfflineCountries)
             if selectedCountries.isEmpty { selectedCountries = ["CH"] }
+        }
+        // Persist edits live so the selection survives navigating away (the page is recreated on return).
+        .onChange(of: selectedCountries) { _, new in
+            appState.settings.openAIPOfflineCountries = Array(new).sorted()
+            appState.saveSettings()
         }
         // Warn before adding the heavy raster tiles; recommend data-only. (v4.1.0 feedback)
         .alert(L10n.Settings.downloadTilesConfirmTitle, isPresented: $showTilesConfirm) {

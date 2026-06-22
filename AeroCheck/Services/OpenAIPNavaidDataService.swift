@@ -145,14 +145,16 @@ final class OpenAIPNavaidDataService: ObservableObject {
             downloadProgress = Double(index + 1) / Double(countries.count)
         }
 
+        // De-selected countries are pruned (file + metadata) so this layer matches the requested set —
+        // consistent with the airspace layer. Additive callers (trip-prefetch, builder, refresh) union
+        // before calling, so they pass the full set and lose nothing. (download-integrity fix)
+        for country in Set(metadata.counts.keys).subtracting(countries) {
+            metadata.counts.removeValue(forKey: country)
+            metadata.lastSyncDates.removeValue(forKey: country)
+            try? fileManager.removeItem(at: navaidFileURL(for: country))
+        }
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
-        }
-        // Keep already-cached countries that weren't re-requested this call in memory — otherwise a
-        // subset download (e.g. deselecting a country in the Nav & Maps sheet) drops the others from the
-        // map while downloadedCountries still advertises them. (review #5)
-        for country in metadata.counts.keys where !countries.contains(country) {
-            appendExistingCache(for: country, into: &allLoaded)
         }
         navaids = allLoaded
         navaidCount = allLoaded.count

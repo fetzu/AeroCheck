@@ -98,6 +98,10 @@ struct SettingsView: View {
                         detailView(for: selection)
                             .navigationBarTitleDisplayMode(.inline)
                     }
+                    // Fresh stack per category so tapping a sidebar item always shows that category's
+                    // content — without this, a pushed sub-page (e.g. OpenAIP Data) stayed on top and the
+                    // user had to tap back first. (settings nav fix)
+                    .id(selection)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .background(Color.cockpitBackground.ignoresSafeArea())

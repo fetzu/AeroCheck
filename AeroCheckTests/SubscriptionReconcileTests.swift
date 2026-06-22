@@ -25,4 +25,33 @@ final class SubscriptionReconcileTests: XCTestCase {
             "A confirmed no-subscription must close the grace window and deny premium"
         )
     }
+
+    /// Lifetime is a one-time, permanent entitlement: it grants premium with no grace window and is
+    /// never gated on the offline re-verification window or "definitively denied".
+    func testLifetimeStatusGrantsPermanentPremium() {
+        let sm = SubscriptionManager(deferLoadProducts: true)
+        sm.confirmNoActiveSubscription()                 // clean slate: notSubscribed, no grace
+        XCTAssertFalse(sm.shouldAllowPremiumAccess())
+
+        sm.subscriptionStatus = .lifetime
+        XCTAssertTrue(sm.subscriptionStatus.isSubscribed, "Lifetime counts as entitled")
+        XCTAssertTrue(sm.subscriptionStatus.isLifetime)
+        XCTAssertEqual(sm.subscriptionStatus.productID, "aerocheck.pro.lifetime")
+        XCTAssertTrue(sm.shouldAllowPremiumAccess(), "Lifetime is permanent — never gated on the offline window")
+        XCTAssertFalse(sm.isPremiumAccessDefinitivelyDenied(), "Lifetime is never definitively denied")
+    }
+
+    /// The entitlement flags must distinguish subscriptions from lifetime correctly.
+    func testSubscriptionStatusEntitlementFlags() {
+        let future = Date().addingTimeInterval(1000)
+        XCTAssertFalse(SubscriptionStatus.unknown.isSubscribed)
+        XCTAssertFalse(SubscriptionStatus.notSubscribed.isSubscribed)
+
+        let sub = SubscriptionStatus.subscribed(expiresAt: future, productID: "aerocheck.pro.yearly")
+        XCTAssertTrue(sub.isSubscribed)
+        XCTAssertFalse(sub.isLifetime)
+
+        XCTAssertTrue(SubscriptionStatus.lifetime.isSubscribed)
+        XCTAssertTrue(SubscriptionStatus.lifetime.isLifetime)
+    }
 }

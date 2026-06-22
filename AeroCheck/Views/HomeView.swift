@@ -316,7 +316,9 @@ struct HomeView: View {
             // where the initial fetch completed before the server-side subscription was verified
             if newValue.isSubscribed && !oldValue.isSubscribed {
                 Task {
-                    await aircraftDataService.fetchAvailableAircraft()
+                    // Bounded retry: the server entitlement write can lag the StoreKit confirmation, so
+                    // a single fetch may still come back locked. (premium reliability)
+                    await aircraftDataService.refetchUntilPremiumUnlocked()
                 }
             }
         }

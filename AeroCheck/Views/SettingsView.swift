@@ -150,11 +150,6 @@ struct SettingsView: View {
     /// SettingsRow carries its own chevron, so no NavigationLink (which would add a second one). (v4 UI/UX Revamp)
     private func sidebar(twoColumn: Bool) -> some View {
         List {
-            themePickerCard
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
-
             ForEach(Section.allCases) { section in
                 Button {
                     if twoColumn { selection = section } else { path.append(section) }
@@ -187,32 +182,6 @@ struct SettingsView: View {
         }
     }
 
-    /// Surfaced cockpit-theme picker (Auto / Day / Sunlight / Night), bound straight to the setting. (v4 UI/UX Revamp)
-    private var themePickerCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text(L10n.Settings.theme)
-                .font(.caption.weight(.semibold))
-                .tracking(0.5)
-                .foregroundColor(.secondaryText)
-            Picker(L10n.Settings.theme, selection: Binding(
-                get: { appState.settings.themePreference },
-                set: { appState.settings.themePreference = $0; appState.saveSettings() }
-            )) {
-                Text(L10n.Settings.themeAuto).tag(ThemePreference.auto)
-                Text(L10n.Settings.themeDay).tag(ThemePreference.day)
-                Text(L10n.Settings.themeSunlight).tag(ThemePreference.sunlight)
-                Text(L10n.Settings.themeNight).tag(ThemePreference.night)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.cardBackground)
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-        )
-    }
 
     @ViewBuilder
     private func detailView(for section: Section?) -> some View {

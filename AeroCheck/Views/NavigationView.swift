@@ -3810,7 +3810,12 @@ struct OverlaysSheet: View {
     }
 
     private func updateAeroData() {
-        let countries = openAIPDataService.downloadedCountries
+        // Refresh the UNION of every layer's downloaded countries — using one layer's set would, with
+        // per-layer pruning, shrink the others to it. (download-integrity fix)
+        let countries = Array(Set(openAIPDataService.downloadedCountries)
+            .union(navaidService.downloadedCountries)
+            .union(obstacleService.downloadedCountries)
+            .union(reportingPointService.downloadedCountries))
         guard !countries.isEmpty else { return }
         Task {
             await openAIPDataService.downloadData(for: countries)

@@ -14706,13 +14706,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CHOOSE A PLAN"
+            "value" : "Choose a plan"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CHOISIR UNE FORMULE"
+            "value" : "Choisir une formule"
           }
         }
       }
@@ -14723,13 +14723,98 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CURRENT STATUS"
+            "value" : "Current status"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "STATUT ACTUEL"
+            "value" : "Statut actuel"
+          }
+        }
+      }
+    },
+    "subscription.freeTrialDayFormat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d-day free trial"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essai gratuit de %d jours"
+          }
+        }
+      }
+    },
+    "subscription.freeTrialNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free for the first week, then renews yearly. Cancel anytime."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit la première semaine, puis renouvellement annuel. Annulable à tout moment."
+          }
+        }
+      }
+    },
+    "subscription.lifetimeTagline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay once, yours forever"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payez une fois, accès à vie"
+          }
+        }
+      }
+    },
+    "subscription.oneTime" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "one-time"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "paiement unique"
+          }
+        }
+      }
+    },
+    "subscription.unlockAircraft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Débloquer %@"
           }
         }
       }

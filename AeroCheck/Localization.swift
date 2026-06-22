@@ -670,6 +670,16 @@ enum L10n {
         static let bestValue = String(localized: "subscription.bestValue")
         static let error = String(localized: "subscription.error")
         static let ok = String(localized: "subscription.ok")
+        // Premium revamp: contextual header, free trial, lifetime.
+        static func unlockAircraft(_ name: String) -> String {
+            String(format: String(localized: "subscription.unlockAircraft"), name)
+        }
+        static func freeTrialDays(_ days: Int) -> String {
+            String(format: String(localized: "subscription.freeTrialDayFormat"), days)
+        }
+        static let freeTrialNote = String(localized: "subscription.freeTrialNote")
+        static let lifetimeTagline = String(localized: "subscription.lifetimeTagline")
+        static let oneTime = String(localized: "subscription.oneTime")
     }
 
     // MARK: - Warnings

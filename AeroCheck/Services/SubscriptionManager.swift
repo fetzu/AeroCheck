@@ -871,9 +871,9 @@ class SubscriptionManager: ObservableObject {
                 return true // unparseable expiry → don't reject on expiry alone
             }()
 
-            if decoded?.success == true && status == "active" && expiresAtOK {
+            if decoded?.success == true && (status == "active" || status == "lifetime") && expiresAtOK {
                 recordSuccessfulVerification()
-                debugLogger.log("Server verification: active", level: .success)
+                debugLogger.log("Server verification: \(status)", level: .success)
             } else {
                 debugLogger.log("Server verification did not confirm entitlement (status=\(status)); not recording success", level: .warning)
             }
@@ -1022,5 +1022,24 @@ extension Product {
     /// Whether this is the yearly subscription (for showing discount)
     var isYearly: Bool {
         return id == "aerocheck.pro.yearly"
+    }
+
+    /// Whether this is the one-time lifetime (non-consumable) product.
+    var isLifetime: Bool {
+        return id == "aerocheck.pro.lifetime"
+    }
+
+    /// Number of free-trial days if this product carries a free-trial introductory offer, else nil.
+    /// (Eligibility — Apple grants the trial only once per account — is checked separately.)
+    var freeTrialDays: Int? {
+        guard let offer = subscription?.introductoryOffer, offer.paymentMode == .freeTrial else { return nil }
+        let period = offer.period
+        switch period.unit {
+        case .day: return period.value
+        case .week: return period.value * 7
+        case .month: return period.value * 30
+        case .year: return period.value * 365
+        @unknown default: return nil
+        }
     }
 }

@@ -305,7 +305,8 @@ struct HomeView: View {
             get: { appState.flightStartPaywallRequest },
             set: { if !$0 { appState.flightStartPaywallRequest = false } }
         )) {
-            SubscriptionView()
+            // Personalise the paywall with the aircraft the pilot just tried to fly.
+            SubscriptionView(contextAircraftName: selectedAircraft?.modelName)
                 .environmentObject(subscriptionManager)
         }
         .onChange(of: aircraftDataService.availableAircraft) { _, _ in

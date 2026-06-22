@@ -52,6 +52,24 @@ final class OpenAIPAirportMergeTests: XCTestCase {
 
     // MARK: - Merge
 
+    func testMergeDropsInvalidCoordinateAirport() throws {
+        // A finite-but-out-of-range coordinate magnitude (here longitude 1e30). If it reached the spatial
+        // grid, the `Int(...)` conversion would TRAP (overflow) and crash every user at load. The merge
+        // must drop it. (v4.1.0 pre-tag hardening — blocker #2)
+        let badGeoJSON = """
+        { "type": "FeatureCollection", "features": [
+          { "type": "Feature",
+            "properties": { "_id": "bad", "name": "OUT OF RANGE", "icaoCode": "LSXX", "type": 3, "country": "CH" },
+            "geometry": { "type": "Point", "coordinates": [1e30, 46.5] } }
+        ] }
+        """.data(using: .utf8)!
+        let oaip = try OpenAIPAirport.parse(geoJSON: badGeoJSON)
+        XCTAssertEqual(oaip.count, 1)
+        XCTAssertFalse(CLLocationCoordinate2DIsValid(oaip[0].coordinate))   // sanity: parse produced an invalid coord
+        let merged = AirportDataMergeEngine.merge(ourAirports: [], openAIP: oaip)
+        XCTAssertTrue(merged.isEmpty)                                        // dropped at merge, not appended/crashed
+    }
+
     func testMergeOpenAIPWinsOnIcaoMatchPreservingIATA() throws {
         let our = [ourAirport(id: 100, ident: "LSZB", lat: 46.914, lon: 7.497, name: "Bern Belp", iata: "BRN")]
         let merged = AirportDataMergeEngine.merge(ourAirports: our, openAIP: try OpenAIPAirport.parse(geoJSON: sampleGeoJSON))

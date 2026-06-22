@@ -27,6 +27,10 @@ enum AirportDataMergeEngine {
 
         for oa in openAIP {
             guard let icaoRaw = oa.icaoCode, !icaoRaw.isEmpty else { continue }
+            // Drop invalid coordinates at ingest: a NaN/infinity, or a finite-but-out-of-range magnitude
+            // (e.g. `1e30`), would later TRAP in AirportDataService's spatial-grid `Int(...)` conversion and
+            // crash every user. `CLLocationCoordinate2DIsValid` rejects all three. (v4.1.0 pre-tag hardening)
+            guard CLLocationCoordinate2DIsValid(oa.coordinate) else { continue }
             let icao = icaoRaw.uppercased()
             if let idx = indexByIcao[icao] {
                 let existing = result[idx]

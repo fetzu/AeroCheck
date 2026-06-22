@@ -46,7 +46,12 @@ class AirportDataService: ObservableObject {
     private func rebuildSpatialGrid() {
         var grid: [GridKey: [Airport]] = [:]
         grid.reserveCapacity(airports.count / 4 + 1)
-        for airport in airports {
+        // Skip invalid coordinates: `gridKey`'s `Int(...)` conversion TRAPS (hard crash) on NaN, infinity,
+        // AND any finite value too large for Int (e.g. a corrupt `1e30` magnitude). A corrupt OurAirports
+        // CSV (`Double("inf")`/`"nan"` parse successfully) would otherwise crash every user at load.
+        // `CLLocationCoordinate2DIsValid` rejects all three (range -90…90 / -180…180, not-NaN). Universal
+        // backstop; the OpenAIP ingest also drops these in AirportDataMergeEngine. (v4.1.0)
+        for airport in airports where CLLocationCoordinate2DIsValid(airport.coordinate) {
             grid[gridKey(lat: airport.latitude, lon: airport.longitude), default: []].append(airport)
         }
         spatialGrid = grid

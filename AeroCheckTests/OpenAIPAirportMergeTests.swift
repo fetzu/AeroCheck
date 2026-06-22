@@ -119,4 +119,105 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertNotEqual(AirportDataMergeEngine.stableNegativeID("a"),
                           AirportDataMergeEngine.stableNegativeID("b"))
     }
+
+    // MARK: - Runways (v4.1.0 runway merge)
+
+    /// LSZT: a paired "10"/"28" with PCN + per-direction declared distances (metres), a paired grass
+    /// "16L"/"34R", and an unpaired "07" whose length is already in feet (unit 1).
+    private let runwayGeoJSON = """
+    { "type": "FeatureCollection", "features": [
+      { "type": "Feature",
+        "properties": { "_id": "r1", "name": "TEST", "icaoCode": "LSZT", "type": 3, "country": "CH",
+          "runways": [
+            { "designator": "10", "trueHeading": 104, "mainRunway": true,
+              "surface": { "mainComposite": 0, "pcn": "35/F/B/X/T" },
+              "dimension": { "length": { "value": 1245, "unit": 0 }, "width": { "value": 40, "unit": 0 } },
+              "declaredDistance": { "tora": { "value": 1120, "unit": 0 }, "lda": { "value": 1120, "unit": 0 } },
+              "pilotCtrlLighting": true },
+            { "designator": "28", "trueHeading": 284, "mainRunway": false,
+              "surface": { "mainComposite": 0, "pcn": "35/F/B/X/T" },
+              "dimension": { "length": { "value": 1245, "unit": 0 }, "width": { "value": 40, "unit": 0 } },
+              "declaredDistance": { "tora": { "value": 1245, "unit": 0 }, "lda": { "value": 1100, "unit": 0 } } },
+            { "designator": "16L", "trueHeading": 160, "surface": { "mainComposite": 2 },
+              "dimension": { "length": { "value": 800, "unit": 0 } } },
+            { "designator": "34R", "trueHeading": 340, "surface": { "mainComposite": 2 },
+              "dimension": { "length": { "value": 800, "unit": 0 } } },
+            { "designator": "07", "trueHeading": 70, "surface": { "mainComposite": 0 },
+              "dimension": { "length": { "value": 600, "unit": 1 } } }
+          ] },
+        "geometry": { "type": "Point", "coordinates": [7.5, 47.0] } }
+    ] }
+    """.data(using: .utf8)!
+
+    func testParseRunwaysFromGeoJSON() throws {
+        let apt = try OpenAIPAirport.parse(geoJSON: runwayGeoJSON)[0]
+        XCTAssertEqual(apt.runways.count, 5)
+        let r10 = apt.runways.first { $0.designator == "10" }!
+        XCTAssertEqual(r10.trueHeading, 104)
+        XCTAssertTrue(r10.mainRunway)
+        XCTAssertEqual(r10.surfaceLabel, "Asphalt")          // mainComposite 0
+        XCTAssertEqual(r10.pcn, "35/F/B/X/T")
+        XCTAssertEqual(r10.lengthFeet, Int((1245.0 * 3.28084).rounded()))   // metres → feet
+        XCTAssertEqual(r10.toraFeet, Int((1120.0 * 3.28084).rounded()))
+        XCTAssertTrue(r10.lighted)
+        // "07" length is unit 1 (already feet) → used as-is.
+        XCTAssertEqual(apt.runways.first { $0.designator == "07" }!.lengthFeet, 600)
+        XCTAssertEqual(apt.runways.first { $0.designator == "16L" }!.surfaceLabel, "Grass") // mainComposite 2
+    }
+
+    func testRunwayPairing() throws {
+        let runways = AirportDataMergeEngine.openAIPRunways(from: try OpenAIPAirport.parse(geoJSON: runwayGeoJSON))
+        // 5 directions → 3 runways: 10/28, 16L/34R, and the unpaired 07.
+        XCTAssertEqual(runways.count, 3)
+        let ids = Set(runways.map { $0.identifier })
+        XCTAssertTrue(ids.contains("10/28"))
+        XCTAssertTrue(ids.contains("16L/34R"))
+
+        let main = runways.first { $0.identifier == "10/28" }!
+        XCTAssertEqual(main.leIdent, "10")
+        XCTAssertEqual(main.heIdent, "28")
+        XCTAssertEqual(main.leHeadingDegT, 104)
+        XCTAssertEqual(main.heHeadingDegT, 284)
+        XCTAssertEqual(main.pcn, "35/F/B/X/T")
+        XCTAssertTrue(main.lighted)
+        // Declared distances kept PER DIRECTION (10's LDA 1120 m ≠ 28's LDA 1100 m).
+        XCTAssertEqual(main.leLdaFt, Int((1120.0 * 3.28084).rounded()))
+        XCTAssertEqual(main.heLdaFt, Int((1100.0 * 3.28084).rounded()))
+        XCTAssertNotEqual(main.leLdaFt, main.heLdaFt)
+
+        // "07" had no opposite ("25") present → LE-only runway.
+        let single = runways.first { $0.leIdent == "07" }!
+        XCTAssertNil(single.heIdent)
+        XCTAssertEqual(single.identifier, "07/?")
+    }
+
+    func testRunwayUnionOpenAIPWinsKeepingOurAirportsOnly() {
+        // OurAirports has a basic "10/28" + an "02/20" OpenAIP lacks.
+        let ourRwy = { (le: String, he: String) in
+            Runway(id: 1, airportRef: 1, airportIdent: "LSZT", lengthFt: 3000, widthFt: 100,
+                   surface: "ASP", lighted: false, closed: false,
+                   leIdent: le, leLatitude: nil, leLongitude: nil, leElevationFt: nil,
+                   leHeadingDegT: nil, leDisplacedThresholdFt: nil,
+                   heIdent: he, heLatitude: nil, heLongitude: nil, heElevationFt: nil,
+                   heHeadingDegT: nil, heDisplacedThresholdFt: nil,
+                   pcn: nil, leToraFt: nil, leLdaFt: nil, heToraFt: nil, heLdaFt: nil)
+        }
+        let our = [ourRwy("10", "28"), ourRwy("02", "20")]
+        let openAIP = AirportDataMergeEngine.openAIPRunways(from: try! OpenAIPAirport.parse(geoJSON: runwayGeoJSON))
+        let merged = AirportDataMergeEngine.unionRunways(our: our, openAIP: openAIP)
+        // OpenAIP's 10/28 (with PCN) replaces OurAirports' 10/28; OurAirports' 02/20 is kept; OpenAIP
+        // 16L/34R + 07 added. The matched 10/28 is the OpenAIP one (has PCN).
+        XCTAssertEqual(merged.first { $0.identifier == "10/28" }?.pcn, "35/F/B/X/T")
+        XCTAssertNotNil(merged.first { $0.identifier == "02/20" })          // OurAirports-only kept
+        XCTAssertEqual(merged.filter { $0.identifier == "10/28" }.count, 1) // no duplicate
+        XCTAssertTrue(Set(merged.map { $0.identifier }).isSuperset(of: ["10/28", "02/20", "16L/34R"]))
+    }
+
+    func testDesignatorParsing() {
+        XCTAssertEqual(AirportDataMergeEngine.parseDesignator("10")?.number, 10)
+        XCTAssertEqual(AirportDataMergeEngine.parseDesignator("16L")?.suffix, "L")
+        XCTAssertEqual(AirportDataMergeEngine.parseDesignator("07")?.number, 7)
+        XCTAssertNil(AirportDataMergeEngine.parseDesignator("XYZ"))
+        XCTAssertNil(AirportDataMergeEngine.parseDesignator("99"))   // out of 1...36
+    }
 }

@@ -1213,25 +1213,35 @@ struct RunwayRowView: View {
     var isSuggested: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            if isSuggested {
-                Image(systemName: "star.fill")
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                if isSuggested {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.aviationGold)
+                }
+
+                Text(runway.identifier)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(isSuggested ? .aviationGold : .primaryText)
+
+                Text("-")
+                    .foregroundColor(.dimText)
+
+                Text(runway.descriptionString)
                     .font(.system(size: 12))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(.secondaryText)
+
+                Spacer()
             }
 
-            Text(runway.identifier)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(isSuggested ? .aviationGold : .primaryText)
-
-            Text("-")
-                .foregroundColor(.dimText)
-
-            Text(runway.descriptionString)
-                .font(.system(size: 12))
-                .foregroundColor(.secondaryText)
-
-            Spacer()
+            // OpenAIP extras (PCN + declared distances), only when present. Indented under the runway id.
+            if let extra = runway.extraInfoLine {
+                Text(extra)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.dimText)
+                    .padding(.leading, isSuggested ? 20 : 0)
+            }
         }
         .padding(.vertical, 4)
         .background(isSuggested ? Color.aviationGold.opacity(0.1) : Color.clear)

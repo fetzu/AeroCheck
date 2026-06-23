@@ -370,10 +370,16 @@ struct ProductCard: View {
                     Text(product.displayPrice)
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(Color.aviationGold)
+                        // Scale the price down rather than truncate/wrap at large Dynamic Type. (v4.1.0)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Text(product.isLifetime ? L10n.Subscription.oneTime : product.subscriptionPeriodText)
                         .font(.caption2)
                         .foregroundColor(Color.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
+                .layoutPriority(1)
             }
             .padding()
             .background(

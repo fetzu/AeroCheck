@@ -159,6 +159,8 @@ struct CompanionFlightView: View {
             Text(gpsSourceLabel).font(.system(size: 11, design: .monospaced)).foregroundColor(theme.textPrimary)
             Circle().fill(gpsColor).frame(width: 8, height: 8)
         }
+        // Merge the fragments so VoiceOver reads "GPS <source>" as one element instead of three. (v4.1.0)
+        .accessibilityElement(children: .combine)
     }
 
     /// On the viewer: "own" = the iPad's GPS, "peer" = THIS iPhone's GPS borrowed by the iPad.
@@ -416,10 +418,17 @@ struct CompanionFlightView: View {
         return "121.50"
     }
 
+    /// Whether the current waypoint can take an ATO: a waypoint exists at the current index and hasn't
+    /// been timed yet. Drives both the action guard and the button's enabled/visual state. (v4.1.0)
+    private var canRecordATO: Bool {
+        guard let plan = flightPlan, let idx = flightData?.currentWaypointIndex,
+              plan.waypoints.indices.contains(idx) else { return false }
+        return plan.waypoints[idx].actualTimeOver == nil
+    }
+
     private var recordATOButton: some View {
         Button {
-            if let plan = flightPlan, let idx = flightData?.currentWaypointIndex,
-               plan.waypoints.indices.contains(idx), plan.waypoints[idx].actualTimeOver == nil {
+            if canRecordATO, let idx = flightData?.currentWaypointIndex {
                 companionConnectivityManager.sendCommand(.recordATO(waypointIndex: idx))
             }
         } label: {
@@ -430,6 +439,10 @@ struct CompanionFlightView: View {
             .foregroundColor(theme.actionText).frame(maxWidth: .infinity).padding(.vertical, 12)
             .background(theme.action).clipShape(RoundedRectangle(cornerRadius: 10))
         }
+        // No ButtonStyle here, so .disabled() alone won't dim the inline background — dim explicitly so a
+        // no-op tap (ATO already recorded / no active waypoint) reads as disabled. (v4.1.0)
+        .disabled(!canRecordATO)
+        .opacity(canRecordATO ? 1.0 : 0.45)
     }
 
     // MARK: - CHECKLIST mode (mirrors the iPad checklist: hero + rows + tap-to-advance + NEXT)

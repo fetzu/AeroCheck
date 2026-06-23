@@ -81,7 +81,10 @@ struct SubscriptionView: View {
                     trialBanner(days: days)
                 }
 
-                if !subscriptionManager.subscriptionStatus.isSubscribed {
+                // Lifetime owners can't buy anything more; everyone else sees the purchasable plans —
+                // active subscribers see only the one-time lifetime upgrade (they can't re-subscribe but
+                // can convert to lifetime). (v4.1.1 device-test fix) [[next-pr-followups]]
+                if !subscriptionManager.subscriptionStatus.isLifetime {
                     productsSection
                 }
 
@@ -114,6 +117,16 @@ struct SubscriptionView: View {
     private var orderedProducts: [Product] {
         let rank: [String: Int] = [yearlyID: 0, "aerocheck.pro.monthly": 1, "aerocheck.pro.lifetime": 2]
         return subscriptionManager.products.sorted { (rank[$0.id] ?? 99) < (rank[$1.id] ?? 99) }
+    }
+
+    /// Products the user can still purchase from this paywall: a lifetime owner can buy nothing more; an
+    /// active subscriber sees only the one-time lifetime upgrade; everyone else sees all plans. (v4.1.1)
+    private var purchasableProducts: [Product] {
+        if subscriptionManager.subscriptionStatus.isLifetime { return [] }
+        if subscriptionManager.subscriptionStatus.isSubscribed {
+            return orderedProducts.filter { $0.isLifetime }
+        }
+        return orderedProducts
     }
 
     // MARK: - Header
@@ -178,10 +191,13 @@ struct SubscriptionView: View {
 
     private var productsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.Subscription.choosePlan)
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(Color.secondaryText)
+            // Hide the "Choose a plan" header for subscribers, who only see the single lifetime-upgrade card.
+            if !subscriptionManager.subscriptionStatus.isSubscribed {
+                Text(L10n.Subscription.choosePlan)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.secondaryText)
+            }
 
             if subscriptionManager.products.isEmpty {
                 if isLoadingProducts {
@@ -203,7 +219,7 @@ struct SubscriptionView: View {
                     .buttonStyle(SecondaryButtonStyle())
                 }
             } else {
-                ForEach(orderedProducts) { product in
+                ForEach(purchasableProducts) { product in
                     ProductCard(
                         product: product,
                         trialDays: product.id == yearlyID ? yearlyTrialDays : nil
@@ -370,10 +386,16 @@ struct ProductCard: View {
                     Text(product.displayPrice)
                         .font(.system(.title3, design: .rounded).weight(.bold))
                         .foregroundColor(Color.aviationGold)
+                        // Scale the price down rather than truncate/wrap at large Dynamic Type. (v4.1.0)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Text(product.isLifetime ? L10n.Subscription.oneTime : product.subscriptionPeriodText)
                         .font(.caption2)
                         .foregroundColor(Color.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
+                .layoutPriority(1)
             }
             .padding()
             .background(

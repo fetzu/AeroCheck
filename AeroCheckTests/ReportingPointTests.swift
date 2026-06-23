@@ -49,6 +49,19 @@ final class ReportingPointTests: XCTestCase {
         XCTAssertTrue(try ReportingPoint.parse(geoJSON: json).isEmpty)   // single coordinate → skipped
     }
 
+    func testParseSkipsFeatureMissingRequiredPropertyWithoutAbortingRest() throws {
+        // A feature missing the REQUIRED `_id` must be skipped, not abort the whole FeatureCollection
+        // decode. (v4.1.0 pre-tag fix — M1)
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"ok1","name":"ALPHA"},"geometry":{"type":"Point","coordinates":[7.0,46.8]}},
+          {"type":"Feature","properties":{"name":"NO ID"},"geometry":{"type":"Point","coordinates":[7.1,46.9]}},
+          {"type":"Feature","properties":{"_id":"ok2","name":"BRAVO"},"geometry":{"type":"Point","coordinates":[6.1,46.4]}}
+        ]}
+        """.data(using: .utf8)!
+        XCTAssertEqual(try ReportingPoint.parse(geoJSON: json).map(\.id), ["ok1", "ok2"])   // middle skipped, rest survive
+    }
+
     @MainActor
     func testReportingPointsInRegion() throws {
         let service = OpenAIPReportingPointDataService()

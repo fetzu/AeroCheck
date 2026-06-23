@@ -1440,7 +1440,9 @@ struct NavigationMapView: View {
                         .padding(2)
                         .background(Color.panelBackground, in: Circle())
                         .offset(x: 5, y: -5)
-                        .accessibilityHidden(true)
+                        // Expose the stale-airspace cue to VoiceOver (reuses the existing translated
+                        // string) instead of hiding it — safety-relevant info. (v4.1.1 a11y pass)
+                        .accessibilityLabel(Text("Airspace data is out of date"))
                 }
             }
 

@@ -156,6 +156,13 @@ struct NavigationMapsSettingsView: View {
         SettingsGroup(title: L10n.Settings.openAIPAirspace, tint: tint, footer: L10n.Settings.openAIPFooter) {
             SettingsToggleRow(icon: "shield", title: L10n.Settings.airspaceOverlay, tint: tint, isOn: $showOpenAIPOverlay)
 
+            // OpenAIP-sourced map layers (data downloaded via the OpenAIP download sheet below). Shown
+            // unconditionally like the airspace toggle — the marker render no-ops until data exists, and
+            // these must NOT be gated behind OurAirports airport-data availability. (v4.1.0 pre-tag fix — M3)
+            SettingsToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.showNavaidsOnMap, tint: tint, isOn: $showNavaidsOnMap)
+            SettingsToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.showObstaclesOnMap, tint: tint, isOn: $showObstaclesOnMap)
+            SettingsToggleRow(icon: "triangle", title: L10n.DataStorage.showReportingPointsOnMap, tint: tint, isOn: $showReportingPointsOnMap)
+
             SettingsToggleRow(icon: "dot.radiowaves.left.and.right", title: L10n.Settings.airspaceStreaming, tint: tint, isOn: Binding(
                 get: { enableAirspaceStreaming },
                 set: { newValue in
@@ -282,9 +289,9 @@ struct NavigationMapsSettingsView: View {
                 .padding(.vertical, 11)
 
                 SettingsToggleRow(icon: "mappin.and.ellipse", title: L10n.Settings.showAirportsOnMap, tint: tint, isOn: $showAirportsOnMap)
-                SettingsToggleRow(icon: "antenna.radiowaves.left.and.right", title: L10n.DataStorage.showNavaidsOnMap, tint: tint, isOn: $showNavaidsOnMap)
-                SettingsToggleRow(icon: "exclamationmark.triangle", title: L10n.DataStorage.showObstaclesOnMap, tint: tint, isOn: $showObstaclesOnMap)
-                SettingsToggleRow(icon: "triangle", title: L10n.DataStorage.showReportingPointsOnMap, tint: tint, isOn: $showReportingPointsOnMap)
+                // Navaid/Obstacle/Reporting-Point map toggles live in the OpenAIP section (their data is
+                // OpenAIP-sourced, downloaded separately) — not here, where they'd be gated behind
+                // OurAirports airport-data availability and become unreachable. (v4.1.0 pre-tag fix — M3)
 
                 SettingsButtonRow(icon: "arrow.triangle.2.circlepath", title: L10n.Settings.updateAirportData, tint: tint,
                                   showsChevron: false, action: { Task { await airportDataService.downloadData() } })

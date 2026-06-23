@@ -690,6 +690,14 @@ class AppState: ObservableObject {
                 self.isLoadingFlights = false
                 let changed = flights.filter { previousById[$0.id]?.modifiedAt != $0.modifiedAt }
                 await self.persistence.saveFlightsOffMain(changed)
+                // Delete the local file for any flight the sync removed (a cloud-initiated delete from
+                // another device). Without this the orphaned *.json survives on disk, and because the
+                // logbook is rebuilt by enumerating the flights directory, the deleted flight resurrects
+                // on the next launch. (v4.1.0 pre-tag fix)
+                let incomingIds = Set(flights.map { $0.id })
+                for (id, previous) in previousById where !incomingIds.contains(id) {
+                    self.persistence.deleteFlight(previous)
+                }
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }

@@ -299,7 +299,13 @@ class SubscriptionManager: ObservableObject {
             return
         }
 
-        // First, check Transaction.currentEntitlements for active subscriptions
+        // First, check Transaction.currentEntitlements. `currentEntitlements` iteration order is
+        // undefined, so scan ALL entitlements before deciding: a lifetime (non-consumable) entitlement
+        // must win over any active subscription regardless of order (the old code returned on the FIRST
+        // match, so a dual-owner could resolve `.subscribed` and then be subjected to the offline-reverify
+        // / grace machinery a lifetime owner should never hit). Return immediately on lifetime; otherwise
+        // remember the latest-expiring active subscription and apply it only after the full pass. (v4.1.0)
+        var activeSubscription: (expiresAt: Date, productID: String)?
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
             guard productIdentifiers.contains(transaction.productID) else { continue }
@@ -315,13 +321,15 @@ class SubscriptionManager: ObservableObject {
             }
 
             if let expirationDate = transaction.expirationDate, expirationDate > Date() {
-                subscriptionStatus = .subscribed(
-                    expiresAt: expirationDate,
-                    productID: transaction.productID
-                )
-                debugLogger.log("Active subscription found: \(transaction.productID), expires \(expirationDate)", level: .success)
-                return
+                if activeSubscription == nil || expirationDate > activeSubscription!.expiresAt {
+                    activeSubscription = (expirationDate, transaction.productID)
+                }
             }
+        }
+        if let sub = activeSubscription {
+            subscriptionStatus = .subscribed(expiresAt: sub.expiresAt, productID: sub.productID)
+            debugLogger.log("Active subscription found: \(sub.productID), expires \(sub.expiresAt)", level: .success)
+            return
         }
 
         // If no active entitlement found, check Product.SubscriptionInfo for grace period / billing retry

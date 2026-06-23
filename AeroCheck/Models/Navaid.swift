@@ -76,7 +76,9 @@ extension Navaid {
     }
 
     fileprivate init?(feature: NavaidFeatureCollection.Feature) {
-        guard feature.geometry.coordinates.count >= 2 else { return nil }
+        guard feature.geometry.coordinates.count >= 2,
+              CLLocationCoordinate2DIsValid(CLLocationCoordinate2D(latitude: feature.geometry.coordinates[1],
+                                                                   longitude: feature.geometry.coordinates[0])) else { return nil }
         let p = feature.properties
         self.id = p.oaipId
         self.name = p.name
@@ -92,8 +94,28 @@ extension Navaid {
     }
 }
 
+/// Wraps a `Decodable` element so a single malformed element in an array decodes to `nil` instead of
+/// aborting the whole array decode. The element boundary is still consumed (the wrapper's own decode
+/// always succeeds), so per-feature failures are skipped rather than throwing. (v4.1.0 pre-tag fix — M1)
+private struct FailableDecodable<Wrapped: Decodable>: Decodable {
+    let value: Wrapped?
+    init(from decoder: Decoder) throws {
+        value = try? decoder.singleValueContainer().decode(Wrapped.self)
+    }
+}
+
 private struct NavaidFeatureCollection: Decodable {
     let features: [Feature]
+
+    // Lossy per-feature decode: one malformed feature (a missing required Property, or a non-Point
+    // geometry whose `coordinates` isn't a flat [Double]) must be SKIPPED, not abort the whole-country
+    // decode — which would yield zero navaids and silently disable the region's declination provider.
+    private enum CodingKeys: String, CodingKey { case features }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let lossy = try container.decodeIfPresent([FailableDecodable<Feature>].self, forKey: .features) ?? []
+        features = lossy.compactMap(\.value)
+    }
 
     struct Feature: Decodable {
         let properties: Properties

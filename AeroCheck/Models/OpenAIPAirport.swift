@@ -153,8 +153,28 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
     }
 }
 
+/// Wraps a `Decodable` element so a single malformed element in an array decodes to `nil` instead of
+/// aborting the whole array decode. The element boundary is still consumed (the wrapper's own decode
+/// always succeeds), so per-feature failures are skipped rather than throwing. (v4.1.0 pre-tag fix)
+private struct FailableDecodable<Wrapped: Decodable>: Decodable {
+    let value: Wrapped?
+    init(from decoder: Decoder) throws {
+        value = try? decoder.singleValueContainer().decode(Wrapped.self)
+    }
+}
+
 private struct AirportFeatureCollection: Decodable {
     let features: [Feature]
+
+    // Lossy per-feature decode: one malformed airport feature must be SKIPPED, not abort the whole
+    // country (OpenAIP is now the primary airport provider, so one bad feature would drop every airport
+    // for that country). (v4.1.0 pre-tag fix)
+    private enum CodingKeys: String, CodingKey { case features }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let lossy = try container.decodeIfPresent([FailableDecodable<Feature>].self, forKey: .features) ?? []
+        features = lossy.compactMap(\.value)
+    }
 
     struct Feature: Decodable {
         let properties: Properties

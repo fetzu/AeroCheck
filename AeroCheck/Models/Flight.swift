@@ -537,12 +537,15 @@ struct GPSPoint: Codable, Identifiable {
         self.horizontalAccuracy = horizontalAccuracy
     }
 
-    init(from location: CLLocation) {
+    /// `timestampOverride` re-stamps the point with a chosen clock. Used when recording a *borrowed*
+    /// companion fix (whose `location.timestamp` is the peer device's clock) so the persisted track and
+    /// the flight-event timeline share the master's single clock domain. (v4.1.0 pre-tag fix)
+    init(from location: CLLocation, timestampOverride: Date? = nil) {
         self.id = UUID()
         self.latitude = location.coordinate.latitude
         self.longitude = location.coordinate.longitude
         self.altitude = location.altitude
-        self.timestamp = location.timestamp
+        self.timestamp = timestampOverride ?? location.timestamp
         self.speed = location.speed
         self.course = location.course
         self.horizontalAccuracy = location.horizontalAccuracy

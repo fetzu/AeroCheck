@@ -360,6 +360,9 @@ class LocationManager: NSObject, ObservableObject {
         if !isTracking && !isLocationUpdatesActive {
             locationManager.stopUpdatingLocation()
             stopSignalCheckTimer()
+            // GPS is now off — `checkSignalStatus` early-returns with no active session, so reset the
+            // published status to `.lost` instead of leaving a stale `.good`. (v4.1.0 pre-tag fix)
+            gpsSignalStatus = .lost
         }
         updateBackgroundTrackingLimited()
     }
@@ -749,7 +752,9 @@ class LocationManager: NSObject, ObservableObject {
         let fixAge = isOwnFix ? abs(location.timestamp.timeIntervalSinceNow) : 0
         let fixIsUsable = fixAge <= 10 && location.horizontalAccuracy >= 0
         if shouldRecord, fixIsUsable, let appState = appState {
-            let point = GPSPoint(from: location)
+            // A borrowed companion fix carries the peer device's clock; re-stamp it with our own clock
+            // (`now`) so the recorded track and the flight events stay in one clock domain. (v4.1.0)
+            let point = GPSPoint(from: location, timestampOverride: isOwnFix ? nil : now)
             appState.addGPSPoint(point, airportDataService: airportDataService)
             lastRecordedTime = now
         }

@@ -507,7 +507,9 @@ class OpenAIPDataService: ObservableObject {
             // Calculate distances and update published property
             updateStreamingDistances(from: coordinate)
 
-            AppLog.openAIP.debugLine("Fetched \(decoded.items.count) CTRs near (\(String(format: "%.2f", coordinate.latitude)), \(String(format: "%.2f", coordinate.longitude)))")
+            // Don't log the user's coordinates: debugLine forces .public privacy and persists to the
+            // unified log (captured in sysdiagnose). Count only — no position. (v4.1.0 pre-tag fix)
+            AppLog.openAIP.debugLine("Fetched \(decoded.items.count) CTRs near current position")
         } catch {
             consecutiveStreamingErrors += 1
             AppLog.openAIP.debugLine("Fetch failed: \(error.localizedDescription)")

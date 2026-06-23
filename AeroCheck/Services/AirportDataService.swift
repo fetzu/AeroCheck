@@ -23,8 +23,12 @@ class AirportDataService: ObservableObject {
 
     // MARK: - Private Properties
 
+    /// When true, assigning `airports` does NOT rebuild the spatial grid — so a load-then-merge sequence
+    /// that re-assigns `airports` twice rebuilds the ~40K-entry grid once, not twice, on `@MainActor`.
+    /// Callers MUST rebuild once when clearing it (see `ensureLoaded`'s `defer`). (v4.1.0 pre-tag fix)
+    private var suppressGridRebuild = false
     private var airports: [Airport] = [] {
-        didSet { rebuildSpatialGrid() }
+        didSet { if !suppressGridRebuild { rebuildSpatialGrid() } }
     }
     private var airportsByIdent: [String: Airport] = [:]
     private var frequenciesByAirport: [String: [AirportFrequency]] = [:]
@@ -106,6 +110,10 @@ class AirportDataService: ObservableObject {
     /// Called automatically by query methods that need the data.
     func ensureLoaded() async {
         guard !isLoaded else { return }
+        // Suppress the per-assignment grid rebuild across the load+merge, then rebuild exactly once on
+        // exit (defer covers every path). Avoids building the full grid twice. (v4.1.0 pre-tag fix)
+        suppressGridRebuild = true
+        defer { suppressGridRebuild = false; rebuildSpatialGrid() }
         await loadFromLocal()
         await applyOpenAIPMergeIfAvailable()
     }

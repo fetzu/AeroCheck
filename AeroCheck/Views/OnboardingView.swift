@@ -52,6 +52,7 @@ struct OnboardingView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     // The other OpenAIP layers download alongside airspace; observed so the card reflects all of them.
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
@@ -146,6 +147,16 @@ struct OnboardingView: View {
                                           showEstimatedAirspeed: $appState.settings.showEstimatedAirspeed)
         }
         .sheet(isPresented: $showSubscription) { SubscriptionView() }
+        // When a purchase completes from the onboarding paywall sheet, close it and jump straight to the
+        // "You're ready" page instead of dropping the pilot back on the Premium page to tap Continue.
+        // Gated on showSubscription so a pre-existing subscription (replaying onboarding) doesn't skip the
+        // page. (v4.1.1 device-test feedback)
+        .onChange(of: subscriptionManager.subscriptionStatus) { _, status in
+            if showSubscription && status.isSubscribed {
+                showSubscription = false
+                withAnimation { currentPage = 7 }
+            }
+        }
         // Advance off the Location step only AFTER the user answers the system prompt. (device-test feedback)
         .onChange(of: locationManager.authorizationStatus) { _, status in
             if awaitingLocationResponse && status != .notDetermined {

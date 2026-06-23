@@ -1,72 +1,135 @@
-Bienvenue dans le manuel d'utilisation d'AeroCheck. Ce guide couvre toutes les fonctions de l'application pour vous aider a tirer le meilleur parti de vos vols.
+Bienvenue dans le manuel d'utilisation d'AéroCheck. Ce guide couvre chaque fonction de l'application — de votre premier lancement à la planification, au vol et au carnet de vol — pour vous aider à tirer le meilleur parti de chaque vol.
+
+AéroCheck est un compagnon de vol, pas un instrument certifié. Tout ce qu'il affiche — vitesses, espaces aériens, terrain, fréquences — est indicatif et peut être incomplet ou périmé. Cela ne remplace jamais les instruments de votre aéronef, les cartes aéronautiques en vigueur, les NOTAM, ni votre jugement de commandant de bord.
 
 
 ## Premiers pas
 
-### Premier lancement
+### Premier lancement et introduction
 
-Au premier lancement, AeroCheck demande l'**autorisation de localisation**. Celle-ci est necessaire pour le suivi GPS, l'affichage de la vitesse sol et la carte de navigation. Accordez l'autorisation "Lorsque l'app est active" ou "Toujours" pour un fonctionnement complet, y compris le suivi en arriere-plan pendant les vols.
+Au premier lancement d'AéroCheck, une courte introduction vous guide dans la configuration :
 
-Si vous n'accordez que l'autorisation "Lorsque l'app est active", AeroCheck vous proposera de **passer a "Toujours"** au demarrage d'un vol. C'est l'acces "Toujours" qui permet a la trace de continuer a s'enregistrer lorsque l'ecran se verrouille ou que vous passez a une autre app en vol -- sans cela, une banniere en vol vous avertira que l'enregistrement en arriere-plan est limite (voir [Indicateurs GPS](#indicateurs-gps)).
+- **Autorisation de localisation** — nécessaire pour le suivi GPS, la vitesse sol et la carte de navigation. Accordez "Lorsque l'app est active" ou "Toujours" pour un fonctionnement complet. C'est l'accès "Toujours" qui permet à la trace de continuer à s'enregistrer lorsque l'écran se verrouille ou que vous passez à une autre app en vol ; si vous n'accordez que "Lorsque l'app est active", AéroCheck vous proposera de **passer à "Toujours"** au démarrage d'un vol.
+- **Cartes et données pour votre région** — AéroCheck propose les données aéronautiques à télécharger pour votre pays (détecté depuis la région de l'appareil ou, si disponible, un point GPS) et ses voisins, afin que les espaces aériens, les fréquences et les marqueurs cartographiques fonctionnent là où vous volez. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
+- **Préférences** — réglez les options de checklist (mode apprentissage, mode circuits) et parcourez les fonctions en vol.
 
-### Selection d'un aeronef
+Vous pouvez rejouer toute l'introduction à tout moment depuis **Paramètres > À propos > Rejouer l'introduction**.
 
-L'ecran d'accueil affiche un **carrousel d'aeronefs**. Balayez vers la gauche ou la droite pour parcourir les aeronefs disponibles. L'aeronef inclus (WT9 Dynamic / F-HVXA) est gratuit. Les aeronefs premium necessitent un abonnement AeroCheck Pro.
+### AéroCheck Pro
 
-Chaque fiche aeronef affiche l'immatriculation, le type et le nombre d'items de checklist. Appuyez sur l'icone **Parametres** pour gerer les aeronefs, telecharger des checklists supplementaires ou souscrire un abonnement.
+AéroCheck est gratuit avec l'aéronef inclus, le **WT9 Dynamic (F-HVXA)**. Les autres aéronefs se débloquent avec **AéroCheck Pro** :
 
-### Demarrer un vol
+- Un abonnement **mensuel** ou **annuel** — l'abonnement annuel inclut un **essai gratuit de 7 jours** pour les comptes éligibles.
+- Un achat unique **à vie** (Lifetime) — payez une seule fois, sans renouvellement.
 
-Appuyez sur **DEMARRER LE VOL** pour commencer un vol standard. L'application vous guidera a travers les 16 phases de vol, de la visite pre-vol jusqu'au hangar. Pour l'entrainement en tour de piste, appuyez sur **TOURS DE PISTE** -- cela active le mode circuits, qui simplifie la checklist pour les atterrissages repetes.
+Gérez votre formule dans **Paramètres > Aéronef et abonnement**, où vous pouvez vous abonner, démarrer l'essai, acheter la version à vie ou **Restaurer les achats** sur un nouvel appareil. Les abonnements se renouvellent automatiquement sauf annulation au moins 24 heures avant la fin de la période ; vous pouvez annuler à tout moment dans les Réglages de votre appareil. Les aéronefs premium et leurs checklists sont fournis par le réseau : un aéronef débloqué télécharge sa checklist lors de sa première sélection, puis elle est mise en cache pour une utilisation hors ligne.
 
-Pour les aeronefs premium, la checklist est telechargee depuis l'API AeroCheck. Si elle n'a pas fini de se charger -- par exemple a cause d'une connexion manquante ou d'un abonnement inactif -- AeroCheck ne demarre **pas** le vol avec une checklist incomplete. Il affiche a la place une alerte **"Checklist non disponible"** vous demandant de verifier votre connexion et votre abonnement puis de reessayer, afin qu'une checklist erronee (ou vide) ne puisse jamais apparaitre en vol.
+### Sélection d'un aéronef
 
-### Demarrer depuis le widget de l'ecran d'accueil
+L'écran d'accueil affiche un **carrousel d'aéronefs**. Balayez vers la gauche ou la droite pour parcourir les aéronefs que vous possédez — le WT9 Dynamic gratuit ainsi que tout aéronef premium débloqué. Chaque fiche affiche l'immatriculation, le type, la version de checklist et le nombre d'items. Utilisez **Paramètres > Aéronef et abonnement** pour choisir votre aéronef actif, gérer votre abonnement ou afficher/masquer les aéronefs par aéroclub.
 
-Ajoutez le **widget AeroCheck** a l'ecran d'accueil de votre iPhone ou iPad pour demarrer un vol en un seul appui. Le widget affiche un bouton de demarrage pour chaque aeronef que vous possedez -- le WT9 Dynamic gratuit ainsi que tout aeronef premium debloque (les aeronefs que vous ne possedez pas ne sont jamais affiches). Appuyer sur un bouton demarre directement le vol de cet aeronef, en chargeant sa checklist et en lancant le suivi GPS, exactement comme le bouton DEMARRER dans l'application. Le widget moyen inclut egalement un raccourci vers votre journal de vol.
+### Démarrer un vol
+
+Appuyez sur **DÉMARRER LE VOL** pour commencer un vol standard à travers les 16 phases, de la visite pré-vol jusqu'au hangar. Pour l'entraînement en tour de piste, appuyez sur **TOURS DE PISTE** pour démarrer en [mode circuits](#mode-circuits).
+
+Pour les aéronefs premium, la checklist est récupérée depuis le service AéroCheck. Si elle n'a pas fini de se charger — par exemple à cause d'une connexion manquante ou d'un abonnement inactif — AéroCheck ne démarre **pas** le vol avec une checklist incomplète. Il affiche une alerte **"Checklist non disponible"** vous demandant de vérifier votre connexion et votre abonnement, afin qu'une checklist erronée ou vide ne puisse jamais apparaître en vol.
+
+### Démarrer depuis le widget de l'écran d'accueil
+
+Ajoutez le **widget AéroCheck** à l'écran d'accueil de votre iPhone ou iPad pour démarrer en un seul appui. Le widget affiche un bouton de démarrage pour chaque aéronef que vous possédez (les aéronefs que vous ne possédez pas ne sont jamais affichés). Appuyer sur un bouton charge la checklist de cet aéronef et lance le suivi GPS, exactement comme le bouton DÉMARRER de l'application. Le widget moyen inclut aussi un raccourci vers votre journal de vol.
 
 ---
 
-## Checklists
+## Planification de vol
+
+Ouvrez **Planification de vol** depuis l'écran d'accueil ou la carte de navigation pour construire une route directement sur la carte.
+
+### Construire une route
+
+Le planificateur d'AéroCheck est **centré sur la carte** :
+
+- Définissez votre départ et votre destination dans la barre **De → Vers**, puis affinez sur la carte.
+- **Faites glisser un waypoint** pour le déplacer ; **faites glisser la ligne de route** pour insérer un waypoint en cours de route.
+- Relâchez un point glissé **près d'un aérodrome ou d'une balise** pour un **accrochage automatique** — son nom et sa fréquence sont remplis automatiquement.
+- Le dépôt d'un waypoint utilise une **insertion "au plus court"**, en le plaçant dans le segment qui ajoute le moins de détour.
+- Les plans enregistrés apparaissent dans une liste avec des aperçus de route et un bouton **Activer** en un toucher.
+
+### Détails du plan de vol
+
+Ouvrez la feuille **Détails du plan de vol** pour le détail segment par segment — nom et fréquence de chaque waypoint, altitude prévue, vitesse sol, temps de vol estimé (EET), heure estimée d'arrivée (ETO) et route magnétique (MC).
+
+### Profil de route
+
+Le **profil de route interactif** dessine une silhouette du terrain (élévation swisstopo en Suisse, mondiale ailleurs) face à votre ligne d'altitude prévue. Faites glisser un point pour définir son altitude, ou maintenez pour en ajouter un. Les avertissements de marge de terrain et de conflit d'espace aérien se mettent à jour en direct lorsque vous remodelez la route.
+
+### Vérification des espaces aériens
+
+AéroCheck confronte votre route prévue aux données d'espaces aériens OpenAIP et signale les espaces contrôlés ou réglementés qu'elle pourrait pénétrer. Les conflits apparaissent sous forme de bannière et de surbrillance sur la route ; appuyez pour voir chaque espace, ses limites verticales et sa fréquence. Un résultat "aucun conflit" en vert n'est affiché que lorsque les données d'espace aérien sont effectivement chargées — sinon AéroCheck indique que l'espace aérien n'a pas été vérifié plutôt que de laisser croire que vous êtes dégagé.
+
+La vérification suit la géométrie exacte de la route entre les waypoints (et pas seulement les extrémités), de sorte qu'un segment qui effleure le coin d'une zone est tout de même détecté. Lorsque le résultat dépend de l'altitude, AéroCheck est volontairement prudent : il signale la sévérité la plus défavorable, et lorsque le plafond ou le plancher d'une zone est publié par rapport au sol ou en niveau de vol (AGL/FL), ou lorsqu'un segment n'a pas d'altitude prévue, le conflit est marqué **"Altitude incertaine — vérifiez la séparation verticale."** Ce qualificatif signifie que le conflit horizontal est réel mais que l'app ne peut pas confirmer si votre altitude vous en dégage — vous devez vérifier vous-même la séparation verticale par rapport aux cartes en vigueur et au QNH.
+
+Comme toujours, les données d'espace aérien sont indicatives et peuvent être incomplètes ou périmées ; elles ne remplacent jamais les cartes aéronautiques officielles ni les NOTAM.
+
+### Exporter un plan
+
+Les plans de vol peuvent être exportés en fichiers **GPX** compatibles avec les systèmes avioniques Dynon, Garmin et autres.
+
+---
+
+## Checklists et HUD en vol
 
 ### Les 16 phases de vol
 
-AeroCheck couvre chaque phase de vol :
+AéroCheck couvre chaque phase de vol :
 
-1. Visite pre-vol
-2. Avant demarrage moteur
-3. Demarrage moteur
-4. Apres demarrage moteur
+1. Visite pré-vol
+2. Avant démarrage moteur
+3. Démarrage moteur
+4. Après démarrage moteur
 5. Roulage
 6. Point fixe
-7. Avant depart
+7. Avant départ
 8. Alignement
-9. Montee
-10. Croisiere
+9. Montée
+10. Croisière
 11. Descente
 12. Approche
 13. Atterrissage
-14. Apres atterrissage
-15. Arret moteur
+14. Après atterrissage
+15. Arrêt moteur
 16. Au hangar
 
-Naviguez entre les phases avec le **selecteur de phase** en haut de l'ecran. Les phases completees sont marquees d'une coche.
+Déplacez-vous entre les phases avec la **barre de phases tactile** en haut de l'écran. Les phases complétées sont marquées ; vous pouvez avancer ou reculer à tout moment.
 
-### Mode pas-a-pas
+### Le HUD cockpit
 
-Lorsqu'il est active (par defaut), l'item actuel de la checklist est mis en surbrillance. Appuyez dessus pour le marquer comme complete et passer au suivant. Cela permet de s'assurer qu'aucun item n'est oublie.
+En vol, l'item de checklist en cours est présenté comme l'**item principal** tandis que les étapes passées et futures s'effacent, pour que la prochaine action soit toujours évidente. Un **bandeau d'instruments cockpit** affiche en direct **vitesse, altitude, cap et vitesse verticale**, avec une barre "dans la cible" lisible même en cas de daltonisme et des annonces de décrochage / panne d'instrument. Les panneaux de référence — vitesses (V-speeds), état GPS et briefings départ/approche — s'ouvrent en panneau ancré sur iPad ou en tiroir inférieur sur iPhone.
+
+### Mode pas-à-pas
+
+Lorsqu'il est activé (par défaut), l'item actuel de la checklist est mis en surbrillance. Appuyez dessus pour le marquer comme complété et passer au suivant, ce qui aide à ne rien oublier. Activez-le dans **Paramètres > Checklist et vol**.
 
 ### Mode apprentissage
 
-Le mode apprentissage masque les items a memoriser, vous permettant de tester vos connaissances. Les items configures comme "memorisables" n'apparaissent que lorsque le mode apprentissage est desactive. Activez-le dans **Parametres > Checklist > Mode apprentissage**.
+Le mode apprentissage masque les items à mémoriser afin de tester vos connaissances. Les items configurés comme "mémorisables" n'apparaissent que lorsque le mode apprentissage est désactivé. En vol, vous pouvez maintenir le contenu masqué pour révéler temporairement ces items. Activez-le dans **Paramètres > Checklist et vol**.
 
 ### Phases multi-pages
 
-Certaines phases s'etendent sur plusieurs pages. Un indicateur de page en bas de l'ecran montre votre position. Balayez ou appuyez pour naviguer entre les pages d'une phase.
+Certaines phases s'étendent sur plusieurs pages. Un indicateur de page montre votre position ; balayez ou appuyez pour passer d'une page à l'autre au sein d'une phase.
 
 ### Langue de la checklist
 
-Si une checklist est disponible en plusieurs langues, vous pouvez choisir votre langue preferee dans **Parametres > Checklist > Langue de la checklist**. Les options incluent Auto (suit la langue de l'appareil), anglais et francais.
+Si une checklist est disponible en plusieurs langues, choisissez votre langue préférée dans **Paramètres > Checklist et vol > Langue de la checklist**. Les options incluent Auto (suit la langue de l'appareil), anglais et français.
+
+### Vitesse, décrochage et vitesse estimée
+
+Pendant les phases de vol, AéroCheck affiche un grand indicateur de vitesse avec un guidage coloré vers la vitesse cible de la phase en cours, ainsi qu'une alerte de décrochage (clignotement rouge/blanc) lorsque vous passez sous la vitesse de décrochage de l'aéronef.
+
+Par défaut, il affiche la **vitesse sol GPS** (`GND SPD`, en nœuds). La vitesse sol n'est pas la vitesse air affichée par votre instrument de bord — un vent de face ou arrière la décale — traitez donc l'alerte de décrochage à l'écran comme une aide à la vigilance, jamais comme un remplacement de l'anémomètre de votre aéronef.
+
+**Vitesse estimée (expérimental, Suisse uniquement).** Lorsque vous activez *Afficher la vitesse estimée* dans les Paramètres, l'indicateur estime la vitesse air indiquée en corrigeant la vitesse sol GPS avec le vent moyen de la station MeteoSuisse la plus proche. Une valeur estimée est clairement signalée : le libellé indique **`EST. IAS`** et le nombre est préfixé d'un tilde (par exemple `~62`), afin qu'une valeur dérivée ne soit jamais confondue avec une valeur mesurée. La correction utilise le vent moyen (et non les rafales), et les relevés trop anciens sont écartés plutôt qu'utilisés.
+
+**Alerte de décrochage sonore (optionnelle).** Avec la vitesse estimée activée, vous pouvez aussi activer une **Alerte de décrochage sonore** dans les Paramètres. Une fois armée, elle émet un avertissement audible si votre vitesse passe sous la vitesse de décrochage — utile lorsque votre regard est à l'extérieur du cockpit. Elle est **désactivée par défaut** et, comme l'indicateur visuel, reste une aide uniquement : fiez-vous toujours à l'anémomètre certifié de l'aéronef.
 
 ---
 
@@ -74,235 +137,224 @@ Si une checklist est disponible en plusieurs langues, vous pouvez choisir votre 
 
 ### Ouvrir la carte
 
-Appuyez sur le bouton **NAV** pendant un vol pour ouvrir la carte de navigation en plein ecran. La carte affiche votre position actuelle avec un indicateur de cap.
+Appuyez sur le bouton **NAV** pendant un vol pour ouvrir la carte de navigation en plein écran ; elle affiche votre position avec un indicateur de cap et un court vecteur de tendance de route sol.
 
 ### Couches cartographiques
 
-AeroCheck propose plusieurs couches cartographiques :
+Ouvrez le bouton **Couches** pour choisir la carte de fond et activer les surcouches.
 
-- **Standard** -- Vue Apple Maps par defaut
-- **Satellite** -- Imagerie satellite
-- **Carte OACI 1:500 000** -- Carte aeronautique suisse de swisstopo
-- **Landeskarten 1:100 000 / 1:50 000** -- Cartes nationales suisses
-- **Segelflugkarte 1:300 000** -- Carte de vol a voile suisse
+**Cartes de fond :**
 
-La carte OACI et la Segelflugkarte alternent automatiquement selon le niveau de zoom. Les couches cartographiques suisses sont disponibles en Suisse et a proximite.
+- **Standard** — vue Apple Maps par défaut
+- **Satellite** — imagerie satellite Apple
+- **Carte OACI 1:500 000** — carte aéronautique suisse de swisstopo
+- **Landeskarten 1:100 000 / 1:50 000** — cartes nationales suisses
+- **Segelflugkarte 1:300 000** — carte de vol à voile suisse
+
+La carte OACI et la Segelflugkarte alternent automatiquement selon le zoom. Les couches suisses sont disponibles en Suisse et à proximité.
+
+**Surcouches et marqueurs** (à partir des données OpenAIP téléchargées — voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage)) :
+
+- **Espaces aériens** — espaces OpenAIP (CTR/TMA/réglementés, etc.) en surcouche vectorielle ; les tuiles raster d'espace aérien sont une bascule distincte et optionnelle
+- **Aérodromes** — avec leurs fréquences au toucher
+- **Balises** — VOR / DME / NDB (marqueurs dorés, activées par défaut)
+- **Obstacles** — pylônes, mâts, éoliennes (désactivés par défaut ; ils sont denses)
+- **Points de report** — points de report VFR (activés par défaut ; les points obligatoires sont mis en évidence)
+
+Si les données d'espace aérien téléchargées vieillissent, un **badge d'obsolescence** ambre apparaît sur le bouton Couches pour rappeler que l'affichage peut ne pas refléter les changements récents.
+
+### Suivre un plan de vol
+
+Avec un plan actif, la carte ajoute le guidage segment par segment : prochain waypoint, orientation route (cap en haut), chronométrage des segments (EET/ETO) et un chronomètre. Un rappel **FREDA** invite au contrôle croisière périodique. Dépliez la barre inférieure pour la liste de progression des waypoints et le panneau de fréquences.
 
 ### Panneau FREQ
 
-Appuyez sur le bouton **FREQ** pour ouvrir le panneau de frequences radio. Celui-ci affiche :
+Le panneau de fréquences radio affiche :
 
-- **Frequences du plan de vol** (si un plan de vol est actif)
-- **Frequences des aerodromes proches** -- Aerodromes detectes automatiquement dans un rayon de 15 NM, affichant ATIS, TWR, GND, APP et autres frequences publiees depuis la base de donnees OurAirports
-- **Frequences suisses courantes** -- Frequences d'urgence, d'information et FIS
-- **Frequences CTR proches** -- Frequences des zones de controle selon votre position
+- **Fréquences du plan de vol** (si un plan est actif)
+- **Fréquences des aérodromes proches** — aérodromes dans un rayon de 15 NM, affichant ATIS, TWR, GND, APP et autres fréquences publiées depuis les données OurAirports / OpenAIP
+- **Fréquences suisses courantes** — urgence, information et FIS
+- **Fréquences CTR proches** — fréquences des zones de contrôle selon votre position
+
+Il est organisé en **ACTUELLE / SUIVANTE / URGENCE** pour que la fréquence dont vous avez besoin soit visible d'un coup d'œil.
 
 ### Indicateurs GPS
 
-La vue navigation affiche en temps reel :
-- **Vitesse sol** en noeuds
-- **Altitude** en pieds MSL
-- **Qualite du signal GPS**
+La vue navigation affiche en temps réel la **vitesse sol** (nœuds), l'**altitude** (pieds MSL) et la **qualité du signal GPS**.
 
-Si la position GPS cesse de se mettre a jour en vol (aucun point pendant plus de 90 secondes), les indicateurs de vitesse et d'altitude affichent un **drapeau d'erreur** au lieu de valeurs perimees, et l'etat GPS indique **Perdu** -- ainsi une perte de signal silencieuse n'est jamais prise pour une lecture valide. Si l'acces a la localisation est limite a "Lorsque l'app est active", une banniere ambre **"GPS limite"** vous rappelle d'autoriser "Toujours" pour que la trace continue de s'enregistrer en arriere-plan.
-
-### Vitesse, decrochage et vitesse estimee
-
-Pendant les phases de vol, AeroCheck affiche un grand indicateur de vitesse avec un guidage colore vers la vitesse cible de la phase en cours, et une alerte de decrochage (clignotement rouge/blanc) lorsque vous passez sous la vitesse de decrochage de l'aeronef.
-
-Par defaut, cet indicateur affiche la **vitesse sol GPS** (`GND SPD`, en noeuds). La vitesse sol n'est pas la vitesse air affichee par votre instrument de bord -- un vent de face ou arriere la decale -- traitez donc l'alerte de decrochage a l'ecran comme une aide a la vigilance, jamais comme un remplacement de l'anemometre de votre aeronef.
-
-**Vitesse estimee (experimental, Suisse uniquement).** Lorsque vous activez *Afficher la vitesse estimee* dans les Parametres, l'indicateur estime la vitesse air indiquee en corrigeant la vitesse sol GPS avec le vent moyen de la station MeteoSuisse la plus proche. Pour rester honnete, une valeur estimee est clairement signalee : le libelle indique **`EST. IAS`** et le nombre est prefixe d'un tilde (par exemple `~62`), afin qu'une valeur derivee ne soit jamais confondue avec une valeur mesuree. La correction utilise le vent moyen (et non les rafales), et les releves de vent trop anciens sont ecartes plutot qu'utilises, afin qu'une observation perimee ne pilote pas discretement l'estimation.
-
-**Alerte de decrochage sonore (optionnelle).** Avec la vitesse estimee activee, vous pouvez aussi activer une **Alerte de decrochage sonore** dans les Parametres. Une fois armee, elle emet un avertissement audible si votre vitesse passe sous la vitesse de decrochage -- utile lorsque votre regard est a l'exterieur du cockpit. Elle est **desactivee par defaut** et, comme l'indicateur visuel, reste une aide uniquement : fiez-vous toujours a l'anemometre certifie de l'aeronef.
+Si la position GPS cesse de se mettre à jour en vol (aucun point pendant plus de 90 secondes), les indicateurs de vitesse et d'altitude affichent un **drapeau d'erreur** au lieu de valeurs périmées, et l'état GPS indique **Perdu** — ainsi une perte de signal silencieuse n'est jamais prise pour une lecture valide. Si l'accès à la localisation est limité à "Lorsque l'app est active", une bannière ambre **"GPS limité"** vous rappelle d'autoriser "Toujours" pour que la trace continue de s'enregistrer en arrière-plan.
 
 ### Cartes hors ligne
 
-Les cartes OACI suisses et la Segelflugkarte peuvent etre mises en cache pour une utilisation hors ligne. Allez dans **Parametres > Cartes hors ligne** pour telecharger les cartes (~100-250 Mo). Lorsque le mode hors ligne est active, les cartes sont servies depuis votre cache local.
+La carte OACI suisse et la Segelflugkarte peuvent être mises en cache pour une utilisation hors ligne depuis **Paramètres > Navigation et cartes** (ou le hub Données et stockage), environ 100 à 250 Mo. Lorsqu'une carte est en cache, elle est servie depuis le stockage local et fonctionne sans connexion.
 
 ---
 
 ## Briefings
 
-### Briefing de depart
+### Briefing de départ
 
-Avant le depart, un briefing dynamique est affiche comprenant :
-- **Aerodrome** et **altitude** (detectes automatiquement par GPS)
-- **Piste** (detectee ou selectionnee manuellement)
-- **Procedure de depart** -- Direction du premier virage et altitude de mise en palier (a briefer verbalement par le pilote)
+Avant le départ, un briefing dynamique affiche :
+
+- **Aérodrome** et **altitude** (détectés par GPS)
+- **Piste** (détectée ou sélectionnée manuellement)
+- **Procédure de départ** — direction du premier virage et altitude de mise en palier (à briefer verbalement par le pilote)
 - **Vent** (lorsque disponible via MeteoSuisse)
-- **Vitesses** -- Rotation (Vr), meilleur angle (Vx), meilleur taux (Vy), meilleure finesse (Vbg) et autres vitesses du manuel de vol
-- **Procedures d'urgence** -- Panne avant rotation, panne moteur apres decollage, altitudes minimales de securite
+- **Vitesses** — rotation (Vr), meilleur angle (Vx), meilleur taux (Vy), meilleure finesse (Vbg) et autres vitesses du manuel de vol
+- **Procédures d'urgence** — panne avant rotation, panne moteur après décollage, altitudes minimales de sécurité
+- **Points de report proches** — points VFR obligatoires et sur demande autour du terrain
 
 ### Briefing d'approche
 
-Avant l'approche, un briefing similaire couvre :
-- **Aerodrome** et **altitude**
-- **Piste**
-- **Vent**
-- **Vitesses d'approche** -- Approche initiale, approche finale et vitesses de decrochage
-- **Procedure de remise de gaz**
-
-Lorsque les donnees de vent ne sont pas disponibles, le briefing affiche un rappel de verifier la manche a air pour les conditions de calme, vent de travers, vent de face ou vent arriere.
+Avant l'approche, un briefing similaire couvre l'**aérodrome** et l'**altitude**, la **piste**, le **vent**, les **vitesses d'approche** (initiale, finale et de décrochage), les **points de report** proches et la **procédure de remise de gaz**. Lorsque les données de vent ne sont pas disponibles, il rappelle de vérifier la manche à air pour des conditions de calme, vent de travers, vent de face ou vent arrière.
 
 ---
 
 ## Journal de vol
 
-### Chronometrage automatique
+### Chronométrage automatique
 
-AeroCheck enregistre automatiquement les moments cles de votre vol :
-- Heures de **block off / block on**
-- Heures de **demarrage / arret moteur**
-- Heures de **decollage / atterrissage** (appuyez sur les boutons d'action pour enregistrer)
+AéroCheck enregistre automatiquement les moments clés de votre vol :
 
-### Evenements de vol
+- **Block off / Block on**
+- **Démarrage / arrêt moteur**
+- **Alignement** et **décollage / atterrissage**
 
-L'application detecte et enregistre automatiquement :
-- **Remises de gaz** -- Detectees lors d'une montee au-dessus d'un seuil apres une approche
-- **Touch-and-go** -- Contact bref avec le sol suivi d'un decollage
-- **Atterrissages complets** -- Atterrissage final en fin de vol
+### Événements de vol
+
+L'application détecte et enregistre automatiquement :
+
+- **Remises de gaz** — montée au-dessus d'un seuil après une approche
+- **Touch-and-go** — contact bref avec le sol suivi d'un décollage
+- **Atterrissages complets** — l'atterrissage final du vol
+
+Les remises de gaz, touch-and-go et atterrissages complets détectés sont confirmés par un bref appui maintenu (avec une courte annulation), afin qu'une détection automatique ne soit jamais enregistrée contre votre volonté.
 
 ### Heures moteur
 
-Si active dans **Parametres > Journal de vol**, l'application demande les releves du tachymetre ou de l'horametre au demarrage et a l'arret du moteur. Les heures effectuees sont calculees automatiquement.
+Si activé dans **Paramètres > Checklist et vol**, l'application demande les relevés du tachymètre ou de l'horamètre au démarrage et à l'arrêt du moteur, et calcule automatiquement les heures effectuées.
 
 ### Consulter l'historique des vols
 
-Appuyez sur l'icone du **journal de vol** sur l'ecran d'accueil pour voir les vols passes. Chaque entree affiche la date, la duree, l'aeronef et la distance.
+Ouvrez le **journal de vol** pour revoir les vols passés ; chaque entrée affiche la date, la durée, l'aéronef et la distance. Appuyez sur un vol pour sa **vue détaillée** :
 
-Appuyez sur un vol pour voir sa **vue detaillee**, qui comprend :
-- Une carte interactive avec votre trace de vol
-- Un profil d'altitude
-- Les informations de route (aerodromes de depart et d'arrivee)
-- La chronologie de tous les evenements
-- Les heures moteur (si enregistrees)
-- Les notes de vol
+- Une carte interactive de votre trace de vol
+- Un profil d'altitude (et de vitesse)
+- Les informations de route (départ et arrivée)
+- La chronologie de tous les événements
+- Les heures moteur (si enregistrées) et les notes de vol
 
-### Exporter les vols
+Le journal se filtre par année (réglez-le sur **Tout** pour voir tous les vols) et vos vols se synchronisent entre appareils via iCloud.
 
-Depuis la vue detaillee, appuyez sur **Exporter** pour sauvegarder votre vol en :
-- **GPX** -- Format standard d'echange GPS, compatible avec la plupart des outils cartographiques
-- **JSON** -- Donnees de vol detaillees incluant tous les evenements et metadonnees
+### Exporter et partager
 
-Vous pouvez aussi generer une **carte de partage** -- un resume visuel de votre vol a partager sur les reseaux sociaux ou par messagerie.
+Depuis la vue détaillée, appuyez sur **Exporter** pour sauvegarder un vol en **GPX** (format standard d'échange GPS) ou **JSON** (données complètes avec événements et métadonnées) ; plusieurs vols peuvent être exportés ensemble en **ZIP**. Vous pouvez aussi générer une **carte de partage** — un résumé visuel à publier ou à envoyer.
 
 ---
 
 ## Apple Watch et mode Compagnon
 
-AeroCheck peut afficher votre vol en direct sur un second ecran.
+AéroCheck peut afficher votre vol en direct sur un second écran.
 
 ### Apple Watch
 
-L'**application Apple Watch** affiche la phase de vol en cours, la vitesse sol et l'altitude a votre poignet, mises a jour en temps reel depuis votre iPhone. Si la montre cesse de recevoir des donnees fraiches -- par exemple lorsqu'elle s'eloigne du telephone -- une banniere **"NO DATA"** apparait pour vous signaler que les valeurs affichees peuvent etre figees plutot qu'actuelles.
+L'**application Apple Watch** affiche la phase en cours, la vitesse sol et l'altitude à votre poignet, mises à jour en temps réel depuis votre iPhone (y compris la bonne phase suivante en mode circuits). Si la montre cesse de recevoir des données fraîches — par exemple hors de portée du téléphone — une bannière **"NO DATA"** apparaît pour qu'une valeur figée ne soit jamais prise pour une valeur en direct.
 
 ### Mode Compagnon
 
-Sur les appareils compatibles, le **mode Compagnon** transforme un second iPhone ou iPad en second ecran synchronise via une liaison Wi-Fi directe : un appareil sert de maitre et l'autre reproduit son affichage de vol. Si la connexion tombe ou que les donnees deviennent perimees, l'ecran compagnon affiche une banniere **"Donnees obsoletes -- valeurs possiblement figees"** ou **"Connexion perdue"**, afin qu'un ecran reproduit ne soit jamais pris pour un ecran en direct.
+Le **mode Compagnon** associe un iPad et un iPhone via une liaison Wi-Fi directe (Wi-Fi Aware ; nécessite **iOS 26 sur les deux appareils**) pour transformer le second appareil en **second écran synchronisé**. Associez les deux appareils une fois dans **Paramètres > Mode Compagnon** ; ils se connectent ensuite automatiquement lorsqu'ils sont à proximité et prêts.
 
-Dans les deux cas, la regle est la meme : une banniere d'obsolescence ou de deconnexion signifie *cessez de vous fier aux valeurs de cet ecran* jusqu'a sa reconnexion.
+L'écran compagnon propose deux vues entre lesquelles vous pouvez basculer, et il change automatiquement selon la phase de vol :
 
----
+- **NAV** — une vue orientée route (cap en haut) du prochain waypoint avec le plan actif
+- **CHECKLIST** — une réplique de la checklist du maître
 
-## Planification de vol
+Le contrôle est **bidirectionnel** : avancer la checklist ou révéler les items masqués depuis l'un ou l'autre appareil met à jour les deux, et les deux écrans adoptent le thème du maître (jour / plein soleil / nuit). Une **pastille GPS** indique quel GPS est utilisé.
 
-Ouvrez **Planification de vol** depuis l'ecran d'accueil ou la carte de navigation pour construire une route directement sur la carte.
+**GPS partagé.** Si l'iPad ne dispose pas de son propre GPS (modèle Wi-Fi uniquement), il peut effectuer tout le vol grâce au **GPS de l'iPhone** — l'iPhone partage sa position par la liaison, et l'iPad enregistre la trace et pilote le HUD comme si le point était le sien.
 
-### Construire une route
-
-Le planificateur d'AeroCheck est **centre sur la carte** :
-- Definissez votre depart et votre destination dans la barre **De -> Vers**, puis affinez sur la carte.
-- **Faites glisser un waypoint** pour le deplacer ; **faites glisser la ligne de route** pour inserer un waypoint en cours de route.
-- Relachez un point pres d'un aerodrome pour un **accrochage automatique** -- son nom et sa frequence sont remplis automatiquement.
-- Le depot d'un waypoint utilise une **insertion "au plus court"**, en le placant dans le segment qui ajoute le moins de detour.
-- Les plans enregistres apparaissent dans une liste avec des apercus de route et un bouton **Activer** en un toucher.
-
-### Details du plan de vol
-
-Ouvrez la feuille **Details du plan de vol** pour le detail segment par segment -- nom et frequence de chaque waypoint, altitude prevue, vitesse sol, temps de vol estime (EET), heure estimee d'arrivee (ETO) et route magnetique (MC).
-
-### Profil de route
-
-Le **profil de route interactif** dessine une silhouette du terrain (elevation swisstopo en Suisse, mondiale ailleurs) face a votre ligne d'altitude prevue. Faites glisser un point pour definir son altitude, ou maintenez pour en ajouter un. Les avertissements de marge de terrain et de conflit d'espace aerien se mettent a jour en direct lorsque vous remodelez la route.
-
-### Verification des espaces aeriens
-
-AeroCheck confronte votre route prevue aux donnees d'espaces aeriens OpenAIP et signale les espaces controles ou reglementes qu'elle pourrait penetrer. Les conflits apparaissent sous forme de banniere et de surbrillance sur la route ; appuyez pour voir chaque espace, ses limites verticales et sa frequence. Un resultat "aucun conflit" en vert n'est affiche que lorsque les donnees d'espace aerien sont effectivement chargees -- sinon AeroCheck indique que l'espace aerien n'a pas ete verifie plutot que de laisser croire que vous etes degage.
-
-La verification suit la geometrie exacte de la route entre les waypoints (et pas seulement les extremites), de sorte qu'un segment qui effleure le coin d'une zone est tout de meme detecte. Lorsque le resultat depend de l'altitude, AeroCheck est volontairement prudent : il signale la severite la plus defavorable, et lorsque le plafond ou le plancher d'une zone est publie par rapport au sol ou en niveau de vol (AGL/FL), ou lorsqu'un segment n'a pas d'altitude prevue saisie, le conflit est marque **"Altitude incertaine -- verifiez la separation verticale."** Ce qualificatif signifie que le conflit horizontal est reel mais que l'app ne peut pas confirmer si votre altitude vous en degage -- vous devez verifier vous-meme la separation verticale par rapport aux cartes en vigueur et au QNH.
-
-Comme toujours, les donnees d'espace aerien sont indicatives et peuvent etre incompletes ou perimees ; elles ne remplacent jamais les cartes aeronautiques officielles ni les NOTAM.
-
-### HUD en vol
-
-Pendant un vol avec un plan actif, un affichage tete haute montre :
-- Nom du prochain waypoint, cap et distance
-- Altitude prevue
-- Temps de vol et ETO
-- Indicateur de progression
-- Un chronometre pour le chronometrage des segments
-
-### Exportation
-
-Les plans de vol peuvent etre exportes en fichiers GPX compatibles avec les systemes avioniques Dynon, Garmin et autres.
+Si la connexion tombe ou que les données deviennent périmées, le compagnon affiche une bannière **"Données obsolètes — valeurs possiblement figées"** ou **"Connexion perdue"**. La règle est simple : une bannière d'obsolescence ou de déconnexion signifie *cessez de vous fier aux valeurs de cet écran* jusqu'à sa reconnexion. Pour économiser la batterie, une liaison inactive se déconnecte d'elle-même.
 
 ---
 
 ## Mode circuits
 
-Le mode circuits est concu pour l'**entrainement en tour de piste** (touch-and-go). Lorsqu'il est active :
+Le mode circuits est conçu pour l'**entraînement en tour de piste** (touch-and-go). Lorsqu'il est activé :
 
-- La checklist saute les phases **Croisiere** et **Descente**
-- Apres l'atterrissage, la checklist revient directement a la phase **Avant depart**
+- La checklist saute les phases **Croisière** et **Descente**
+- Après l'atterrissage, la checklist revient directement à la phase **Avant départ**
 - Les **atterrissages complets** sont suivis automatiquement
 
-Activez le mode circuits au demarrage d'un vol en appuyant sur **TOURS DE PISTE** sur l'ecran d'accueil, ou basculez-le dans **Parametres > Checklist > Mode circuits**.
+Activez-le en appuyant sur **TOURS DE PISTE** sur l'écran d'accueil, ou basculez-le dans **Paramètres > Checklist et vol > Mode circuits**.
 
 ---
 
-## Parametres et abonnement
+## Données aéronautiques et stockage
 
-Les parametres sont organises en un hub de pages dediees :
+AéroCheck s'appuie sur plusieurs jeux de données externes pour que la navigation fonctionne partout où vous volez. Tout est téléchargé à la demande et mis en cache sur l'appareil.
 
-### Aeronef
+### Quelles données AéroCheck utilise
 
-- **AeroCheck Pro** -- Abonnez-vous pour debloquer les checklists d'aeronefs premium
-- **Aeronef** -- Selectionnez votre aeronef actif parmi le WT9 Dynamic gratuit et les options premium debloquees
-- **Visibilite des aeronefs** -- Afficher ou masquer les aeronefs par aeroclub
+- **Aérodromes et fréquences** — depuis OurAirports et OpenAIP (positions, pistes et fréquences radio)
+- **Espaces aériens** — espaces contrôlés et réglementés OpenAIP, avec limites verticales et fréquences
+- **Balises, obstacles et points de report** — couches cartographiques OpenAIP (voir [Couches cartographiques](#couches-cartographiques))
+- **Cartes** — cartes OACI, Landeskarten et Segelflug suisses de swisstopo
 
-### Checklist & vol
+### Télécharger les données
 
-- **Checklist** -- Surlignage pas-a-pas, mode apprentissage, mode circuits et langue
-- **Journal de vol** -- Enregistrement des heures moteur (horametre)
-- **GPS** -- Intervalle d'enregistrement (1-30 secondes) et etat de l'autorisation
-- **Affichage** -- Garder l'ecran allume pendant le vol, utiliser l'heure UTC
+Téléchargez les données aéronautiques **par pays ou par continent** depuis **Paramètres > Données et stockage** (ou **Navigation et cartes**). L'introduction propose un ensemble recommandé pour votre région et ses voisins, afin que vous soyez couvert dès le premier vol. Espaces aériens, balises, obstacles et points de report se téléchargent ensemble par pays.
 
-### Navigation & cartes
+### Garder les données à jour
 
-- **Theme** -- Choisissez le theme cockpit : **Auto, Jour, Plein soleil ou Nuit** (Auto suit l'apparence du systeme)
-- **Navigation** -- Forcer la couche carte OACI
-- **Espaces aeriens** -- Couche OpenAIP, telechargements par continent et streaming en ligne
-- **Donnees aerodromes** -- Telecharger la base de donnees OurAirports pour les frequences mondiales
-- **Cartes hors ligne** -- Mettre en cache la carte OACI suisse et la Segelflugkarte pour une utilisation hors ligne
-- **Vitesse estimee** (Experimental) -- Vitesse sol GPS corrigee avec le vent moyen MeteoSuisse (Suisse uniquement). Les valeurs estimees sont affichees en `EST. IAS` avec un prefixe `~` pour ne jamais etre confondues avec une vitesse air mesuree. Son activation revele aussi une bascule **Alerte de decrochage sonore** (desactivee par defaut) qui emet un avertissement audible sous la vitesse de decrochage
+Les données aéronautiques changent régulièrement, AéroCheck en montre donc la fraîcheur à plusieurs endroits :
+
+- Un **indicateur de données** sur l'écran d'accueil et un résumé de fraîcheur dans **Données et stockage**
+- Une **notification** que l'on peut différer lorsqu'un jeu de données est périmé
+- Le **badge d'obsolescence** sur la carte lorsque l'espace aérien téléchargé vieillit (voir [Couches cartographiques](#couches-cartographiques))
+- Le **préchargement selon le trajet** — lorsque votre plan actif traverse un pays non téléchargé, AéroCheck propose d'en récupérer les données
+
+Les données se rafraîchissent lorsque vous revenez dans l'application (il n'y a pas de téléchargement en arrière-plan) : les mises à jour se font pendant que vous l'utilisez, pas sur batterie dans votre poche.
+
+> Même à jour, les données restent indicatives. Recoupez toujours avec les cartes officielles et les NOTAM.
+
+### Cartes hors ligne et stockage
+
+Mettez en cache la carte OACI suisse et la Segelflugkarte pour une utilisation hors ligne (~100 à 250 Mo). **Données et stockage** liste chaque jeu de données avec sa taille et sa fraîcheur, et permet de mettre à jour ou de supprimer les données en cache pour libérer de l'espace.
+
+---
+
+## Référence des paramètres
+
+Les paramètres sont organisés en un hub de pages dédiées.
+
+### Aéronef et abonnement
+
+Sélectionnez votre aéronef actif, gérez **AéroCheck Pro** (abonnement, essai, achat à vie ou restauration des achats) et affichez ou masquez les aéronefs par aéroclub.
+
+### Checklist et vol
+
+Surlignage pas-à-pas, mode apprentissage, mode circuits et langue de la checklist ; enregistrement des heures moteur (horamètre) ; et options d'affichage en vol comme garder l'écran allumé et utiliser l'heure UTC.
+
+### Navigation et cartes
+
+Couches cartographiques et **thème cockpit** (Auto / Jour / Plein soleil / Nuit, Auto suivant l'apparence du système) ; surcouche d'espaces aériens OpenAIP et couches de marqueurs ; mise en cache hors ligne des cartes ; données aérodromes ; et la **vitesse estimée** expérimentale (avec son alerte de décrochage sonore optionnelle).
 
 ### Planification de vol
 
-- Preferences du constructeur de route et de l'export GPX
+Préférences du constructeur de route et de l'export GPX.
 
-### Compagnon
+### iCloud et journal
 
-- **Mode Compagnon** -- Associez un iPhone comme second ecran synchronise de votre iPad (necessite iOS 26 sur les deux appareils)
+Synchronisation iCloud des paramètres et des vols entre appareils, intervalle d'enregistrement GPS et préférences du journal de vol.
 
-### Synchronisation & donnees
+### Données et stockage
 
-- **Synchronisation iCloud** -- Synchroniser les parametres et les journaux de vol entre appareils
-- **Donnees** -- Statistiques de vol et GPS
+Fraîcheur des données aéronautiques, téléchargements par pays et par continent, cache des cartes hors ligne et gestion du stockage. Voir [Données aéronautiques et stockage](#données-aéronautiques-et-stockage).
 
-### A propos
+### Mode Compagnon
 
-- **A propos** -- Version de l'app, site web, auteur et informations open source
-- **Checklists disponibles** -- Voir toutes les checklists en cache et leurs versions
-- **Rejouer l'introduction** -- Reafficher la visite guidee d'introduction
-- **Options developpeur** -- Outils de debogage caches (appuyez 5 fois sur le numero de version pour les activer)
+Associez un iPhone et un iPad en second écran synchronisé (Wi-Fi Aware ; nécessite iOS 26 sur les deux appareils).
+
+### À propos
+
+Version de l'app, site web, auteur et informations open source ; la liste des checklists en cache et leurs versions ; **Rejouer l'introduction** ; et les **Options développeur** cachées (appuyez 5 fois sur le numéro de version pour les activer).

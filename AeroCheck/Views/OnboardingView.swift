@@ -856,7 +856,8 @@ struct OnboardingView: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel("Page \(currentPage + 1) of \(totalPages)")
+        // Localized so VoiceOver reads the page count in the user's language (FR). (v4.1.1 a11y pass)
+        .accessibilityLabel(String(localized: "Page \(currentPage + 1) of \(totalPages)"))
     }
 
     private func downloadButton(

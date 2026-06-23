@@ -52,6 +52,22 @@ final class OpenAIPAirportMergeTests: XCTestCase {
 
     // MARK: - Merge
 
+    func testParseSkipsMalformedAirportFeatureWithoutAbortingRest() throws {
+        // One feature missing a REQUIRED property (here `_id`) must be skipped, not abort the whole
+        // country decode (OpenAIP is the primary airport provider). (v4.1.0 pre-tag fix)
+        let json = """
+        { "type": "FeatureCollection", "features": [
+          { "type": "Feature", "properties": { "_id": "ok1", "name": "ALPHA", "icaoCode": "LSZA", "type": 3, "country": "CH" },
+            "geometry": { "type": "Point", "coordinates": [8.0, 46.0] } },
+          { "type": "Feature", "properties": { "name": "NO ID", "icaoCode": "LSZB", "type": 3, "country": "CH" },
+            "geometry": { "type": "Point", "coordinates": [7.5, 46.9] } },
+          { "type": "Feature", "properties": { "_id": "ok2", "name": "BRAVO", "icaoCode": "LSGG", "type": 3, "country": "CH" },
+            "geometry": { "type": "Point", "coordinates": [6.1, 46.2] } }
+        ] }
+        """.data(using: .utf8)!
+        XCTAssertEqual(try OpenAIPAirport.parse(geoJSON: json).map(\.id), ["ok1", "ok2"])   // middle skipped, rest survive
+    }
+
     func testMergeDropsInvalidCoordinateAirport() throws {
         // A finite-but-out-of-range coordinate magnitude (here longitude 1e30). If it reached the spatial
         // grid, the `Int(...)` conversion would TRAP (overflow) and crash every user at load. The merge

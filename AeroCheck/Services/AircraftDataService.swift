@@ -528,12 +528,15 @@ class AircraftDataService: ObservableObject {
     /// Checks and clears premium caches if subscription is no longer valid
     /// Returns true if premium caches are still valid, false if they were cleared
     func validatePremiumCaches(subscriptionManager: SubscriptionGating) -> Bool {
-        guard subscriptionManager.shouldAllowPremiumAccess() else {
-            AppLog.aircraftData.debugLine("Subscription access revoked, clearing premium caches")
-            clearPremiumCaches()
-            return false
+        // Gate on the DEFINITIVELY-denied predicate, not shouldAllowPremiumAccess(): the latter returns
+        // false on transient/unknown/offline-too-long states, which would wrongly wipe a subscribed
+        // pilot's offline cache. Mirrors the cache-destroying gate in fetchChecklist. (v4.1.0 pre-tag fix)
+        guard subscriptionManager.isPremiumAccessDefinitivelyDenied() else {
+            return true
         }
-        return true
+        AppLog.aircraftData.debugLine("Subscription access definitively denied, clearing premium caches")
+        clearPremiumCaches()
+        return false
     }
 
     // MARK: - Private Methods

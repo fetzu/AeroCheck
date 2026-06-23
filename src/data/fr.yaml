@@ -25,18 +25,18 @@ flagship:
   items:
     - step: "01 · Planifier"
       title: "Construisez la route en glissant sur la carte"
-      description: "Déplacez un waypoint, tirez la ligne pour en insérer un, relâchez près d'un aérodrome pour accrocher automatiquement son nom et sa fréquence. Un profil de route en direct signale la marge de terrain et détecte les conflits d'espace aérien tout au long — couverture mondiale OpenAIP sur 119 pays."
+      description: "Déplacez un waypoint, tirez la ligne pour en insérer un, relâchez près d'un aérodrome pour accrocher automatiquement son nom et sa fréquence. Un profil de route en direct signale la marge de terrain et détecte les conflits d'espace aérien tout au long."
       chips: ["From→To d'abord", "Glisser-déposer & accrochage", "Détection conflits terrain & espace", "OpenAIP · 119 pays", "Export GPX"]
       shot: "planning"
     - step: "02 · Voler"
       title: "La bonne étape de checklist, au bon moment"
       description: "L'élément en cours devient le centre tandis que les étapes passées et futures s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre « dans la cible », sur les 16 phases. Temps moteur, temps-bloc, remises de gaz, touch-and-gos et atterrissages sont détectés et journalisés automatiquement."
-      chips: ["16 phases", "13 aéronefs", "Bandeau « dans la cible »", "Journal du temps moteur", "Briefings départ & approche", "Aperçu navigation", "Mode tour de piste", "Temps-bloc auto", "Détection auto remise de gaz / touch-and-go / atterrissage"]
+      chips: ["16 phases", "13 aéronefs", "Bandeau « dans la cible »", "Briefings départ & approche", "Mode tour de piste", "Détection auto remise de gaz / touch-and-go / atterrissage"]
       shot: "hud"
     - step: "03 · Naviguer"
       title: "Cartes plein écran, fréquences à portée"
-      description: "Cartes OACI suisses, vectoriel & satellite Apple, et une couche d'espaces aériens OpenAIP mondiale, avec aérodromes et balises à portée. Chronométrage par tronçon, vecteur de tendance de route sol, rappel FREDA et panneau de fréquences ACTUELLE / SUIVANTE / URGENCE — cache par continent ou diffusion en direct des espaces proches."
-      chips: ["OACI / Segelflug", "Vectoriel & satellite Apple", "Espaces OpenAIP", "Aérodromes & balises", "ACTUELLE / SUIVANTE / URGENCE", "Rappel FREDA", "Hors ligne par continent", "Diffusion espaces en direct"]
+      description: "Cartes OACI suisses, vectoriel & satellite Apple, et une couche d'espaces aériens OpenAIP mondiale, avec aérodromes, balises, obstacles et points de report VFR à portée. Chronométrage par tronçon, vecteur de tendance de route sol, rappel FREDA et panneau de fréquences ACTUELLE / SUIVANTE / URGENCE — cache par continent ou diffusion en direct des espaces proches."
+      chips: ["OACI / Segelflug", "Vectoriel & satellite Apple", "Espaces OpenAIP", "Aérodromes, balises & points de report", "ACTUELLE / SUIVANTE / URGENCE", "Rappel FREDA", "Hors ligne par continent", "Diffusion espaces en direct"]
       shot: "nav"
     - step: "04 · Journal"
       title: "Chaque vol, enregistré automatiquement"
@@ -47,8 +47,11 @@ flagship:
 supporting:
   heading: "Tout le reste"
   items:
+    - title: "AéroCheck Pro"
+      description: "Le WT9 Dynamic est gratuit ; les 12 autres aéronefs se débloquent avec AéroCheck Pro — un abonnement avec essai gratuit de 7 jours, ou un achat unique à vie. Bientôt sur l'App Store."
+      icon: "sparkles"
     - title: "Mode Compagnon"
-      description: "Associez un iPad et un iPhone via Wi-Fi Aware : le téléphone reflète le vol en direct du maître comme second écran synchronisé — la carte d'un côté, la checklist de l'autre."
+      description: "Associez un iPad et un iPhone via Wi-Fi Aware pour un second écran synchronisé — basculez entre carte et checklist, pilotez l'un depuis l'autre. Un iPad en Wi-Fi seul peut même voler grâce au GPS de l'iPhone."
       icon: "devices"
     - title: "Briefings départ & approche"
       description: "Briefings dynamiques avec vitesses de référence, procédures d'urgence et détection des aérodromes proches — vent et suggestions de piste selon votre position GPS."

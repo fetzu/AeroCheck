@@ -156,6 +156,24 @@ struct NavigationMapsSettingsView: View {
         SettingsGroup(title: L10n.Settings.openAIPAirspace, tint: tint, footer: L10n.Settings.openAIPFooter) {
             SettingsToggleRow(icon: "shield", title: L10n.Settings.airspaceOverlay, tint: tint, isOn: $showOpenAIPOverlay)
 
+            // Enabling the overlay with no downloaded data silently rendered nothing — say so and
+            // point at the download flow below. (The streaming toggle only covers CTR frequencies,
+            // not the map polygons, so it doesn't clear this condition.) (v4.2 UX fix)
+            if showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundColor(.orange)
+                        .accessibilityHidden(true)
+                    Text(L10n.Settings.airspaceNoDataHint)
+                        .font(.caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            }
+
             // OpenAIP-sourced map layers (data downloaded via the OpenAIP download sheet below). Shown
             // unconditionally like the airspace toggle — the marker render no-ops until data exists, and
             // these must NOT be gated behind OurAirports airport-data availability. (v4.1.0 pre-tag fix — M3)

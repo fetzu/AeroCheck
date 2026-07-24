@@ -1495,6 +1495,26 @@
         }
       }
     },
+    "Add or remove countries and continents in Navigation & Maps" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez ou supprimez des pays et continents dans Navigation et cartes"
+          }
+        }
+      }
+    },
+    "Manage regions & downloads" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer les régions et téléchargements"
+          }
+        }
+      }
+    },
     "More options" : {
       "localizations" : {
         "fr" : {
@@ -14163,6 +14183,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Télécharger les données seules"
+          }
+        }
+      }
+    },
+    "settings.openAIP.noDataHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No airspace data downloaded yet — the overlay will stay empty on the map. Download countries below."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune donnée d'espace aérien téléchargée — la couche restera vide sur la carte. Téléchargez des pays ci-dessous."
           }
         }
       }

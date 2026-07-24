@@ -67,6 +67,8 @@ enum L10n {
         static let syncChecklists = String(localized: "Check for checklist updates")
         static let simulateStaleData = String(localized: "Simulate stale data")
         static let rowActions = String(localized: "More options")
+        static let manageRegions = String(localized: "Manage regions & downloads")
+        static let manageRegionsDetail = String(localized: "Add or remove countries and continents in Navigation & Maps")
         // About → Data sources credits
         static let dataSourcesTitle = String(localized: "Data sources")
         static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
@@ -459,6 +461,7 @@ enum L10n {
         static let tileCache = String(localized: "settings.openAIP.tileCache")
         static let updateData = String(localized: "settings.openAIP.updateData")
         static let downloadData = String(localized: "settings.openAIP.downloadData")
+        static let airspaceNoDataHint = String(localized: "settings.openAIP.noDataHint")
         static let deleteOpenAIPData = String(localized: "settings.openAIP.deleteData")
         static let deleteOpenAIPTitle = String(localized: "settings.openAIP.deleteTitle")
         static let deleteOpenAIPMessage = String(localized: "settings.openAIP.deleteMessage")

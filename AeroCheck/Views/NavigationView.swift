@@ -2817,6 +2817,15 @@ private func reliftNonTileOverlays(on mapView: MKMapView) {
     for overlay in buried { mapView.addOverlay(overlay, level: .aboveLabels) }
 }
 
+/// Inserts a tile overlay at the BOTTOM of the `.aboveLabels` stack (after any existing tiles,
+/// before the first polygon/polyline), so a late tile (re-)add can never bury the airspace/track/
+/// route overlays — regardless of which code path adds it or when. This is the structural fix;
+/// `reliftNonTileOverlays` stays as repair for any pre-existing inversion. (v4.2 layer-switch fix)
+private func insertTileBelowShapes(_ tile: MKTileOverlay, on mapView: MKMapView) {
+    let tileCount = mapView.overlays(in: .aboveLabels).filter { $0 is MKTileOverlay }.count
+    mapView.insertOverlay(tile, at: tileCount, level: .aboveLabels)
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -2856,7 +2865,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Add OpenAIP raster tile overlay if enabled (separate from the airspace vector — v4.1.0)
         if showOpenAIPTiles {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         }
 
         // Set initial camera from shared state (preserves heading)
@@ -3145,7 +3154,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         if showOpenAIPTiles && !hasOverlay {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
             // The tile just landed above any existing airspace/track/route overlays — re-lift them. (v4.2 layer-switch fix)
             reliftNonTileOverlays(on: mapView)
         } else if !showOpenAIPTiles && hasOverlay {
@@ -4005,7 +4014,7 @@ struct SwissMapView: UIViewRepresentable {
                         hasSegelflugCache: self.hasSegelflugCache
                     )
                     overlay.canReplaceMapContent = true
-                    mapView.addOverlay(overlay, level: .aboveLabels)
+                    insertTileBelowShapes(overlay, on: mapView)
                 } else if let layerId = self.layerType.swisstopoLayerIdentifier {
                     let overlay = SwisstopoTileOverlay(
                         layerIdentifier: layerId,
@@ -4014,7 +4023,7 @@ struct SwissMapView: UIViewRepresentable {
                         maximumZ: self.layerType.maximumZoom
                     )
                     overlay.canReplaceMapContent = true
-                    mapView.addOverlay(overlay, level: .aboveLabels)
+                    insertTileBelowShapes(overlay, on: mapView)
                 }
 
                 // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
@@ -4023,7 +4032,7 @@ struct SwissMapView: UIViewRepresentable {
                         cacheManager: self.openAIPCacheManager,
                         isStrictOfflineMode: self.isStrictOfflineMode
                     )
-                    mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+                    insertTileBelowShapes(openAIPOverlay, on: mapView)
                 }
 
                 // The base tile was just re-added on TOP (same .aboveLabels level), which buries the
@@ -4094,7 +4103,7 @@ struct SwissMapView: UIViewRepresentable {
                 cacheManager: openAIPCacheManager,
                 isStrictOfflineMode: isStrictOfflineMode
             )
-            mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+            insertTileBelowShapes(openAIPOverlay, on: mapView)
             tilesTouched = true
         } else if !showOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
@@ -4334,7 +4343,7 @@ struct SwissMapView: UIViewRepresentable {
                 hasSegelflugCache: hasSegelflugCache
             )
             overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         } else if let layerId = layerType.swisstopoLayerIdentifier {
             let overlay = SwisstopoTileOverlay(
                 layerIdentifier: layerId,
@@ -4343,7 +4352,7 @@ struct SwissMapView: UIViewRepresentable {
                 maximumZ: layerType.maximumZoom
             )
             overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         }
         context.coordinator.currentLayerType = layerType
         context.coordinator.currentForceICAO = forceICAOLayer
@@ -4479,7 +4488,7 @@ struct SwissMapView: UIViewRepresentable {
                     hasSegelflugCache: segelflugCache
                 )
                 overlay.canReplaceMapContent = true
-                mapView.addOverlay(overlay, level: .aboveLabels)
+                insertTileBelowShapes(overlay, on: mapView)
             } else if let layerId = layerType.swisstopoLayerIdentifier {
                 let overlay = SwisstopoTileOverlay(
                     layerIdentifier: layerId,
@@ -4488,7 +4497,7 @@ struct SwissMapView: UIViewRepresentable {
                     maximumZ: layerType.maximumZoom
                 )
                 overlay.canReplaceMapContent = true
-                mapView.addOverlay(overlay, level: .aboveLabels)
+                insertTileBelowShapes(overlay, on: mapView)
             }
 
             return true

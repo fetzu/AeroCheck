@@ -32,6 +32,28 @@ struct DataStorageSettingsView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     SettingsGroup(title: L10n.DataStorage.aeronauticalSection, tint: tint, footer: L10n.DataStorage.caveat) {
                         ForEach(primaryDataSets) { dataRow($0) }
+
+                        // This screen refreshes what's already downloaded; adding/removing coverage
+                        // (countries, continents) happens in Navigation & Maps — link there instead of
+                        // leaving users to hunt for it. (v4.2 UX fix)
+                        NavigationLink {
+                            NavigationMapsSettingsView()
+                        } label: {
+                            HStack(spacing: 8) {
+                                SettingsRowLabel(icon: "map",
+                                                 title: L10n.DataStorage.manageRegions,
+                                                 subtitle: L10n.DataStorage.manageRegionsDetail,
+                                                 tint: tint)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.dimText.opacity(0.7))
+                                    .accessibilityHidden(true)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                     openAIPCredit   // airspace is OpenAIP data
                 }

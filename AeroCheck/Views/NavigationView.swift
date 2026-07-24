@@ -3695,6 +3695,8 @@ struct OverlaysSheet: View {
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.dismiss) var dismiss
+    /// Presents Settings at Navigation & Maps for the no-data download flow. (v4.2 UX fix)
+    @State private var showDataSettings = false
 
     private var anyMarkerOn: Bool {
         appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
@@ -3725,6 +3727,35 @@ struct OverlaysSheet: View {
                     groupCard(L10n.Nav.airspaceCharts) {
                         toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
                             appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                        }
+                        // The toggle can be ON with no data downloaded — the layer then renders
+                        // nothing. Say so where the user is looking, and route straight to the
+                        // download flow (country selection lives in Settings → Navigation & Maps;
+                        // updateAeroData can't help here, it only refreshes existing countries). (v4.2 UX fix)
+                        if appState.settings.showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
+                            Divider().padding(.leading, 56)
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.footnote)
+                                        .foregroundColor(.orange)
+                                        .accessibilityHidden(true)
+                                    Text(L10n.Nav.airspaceNoData)
+                                        .font(.caption)
+                                        .foregroundColor(.secondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Button {
+                                    showDataSettings = true
+                                } label: {
+                                    Text(L10n.Nav.downloadAirspaceData)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundColor(.aviationGold)
+                                }
+                                .padding(.leading, 24)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
                         }
                         Divider().padding(.leading, 56)
                         toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
@@ -3783,6 +3814,11 @@ struct OverlaysSheet: View {
                     Button(L10n.Button.done) { dismiss() }
                 }
             }
+        }
+        .sheet(isPresented: $showDataSettings) {
+            // Settings opened at Navigation & Maps (same deep-link mechanism as Home's data chip),
+            // where country selection + the download flow live. (v4.2 UX fix)
+            SettingsView(initialSection: .navigation)
         }
         .presentationDetents([.height(520)])
         .preferredColorScheme(.dark)

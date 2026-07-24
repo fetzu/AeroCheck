@@ -1097,6 +1097,8 @@ enum L10n {
         static let mark = String(localized: "nav.mark")
         static let overlays = String(localized: "nav.overlays")
         static let airspace = String(localized: "nav.airspace")
+        static let airspaceNoData = String(localized: "nav.airspaceNoData")
+        static let downloadAirspaceData = String(localized: "nav.downloadAirspaceData")
         static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
         static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
         static let airspaceCharts = String(localized: "Airspace & charts")

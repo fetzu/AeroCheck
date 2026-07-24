@@ -14,6 +14,27 @@ struct RemoteAircraftRegistration: Codable, Identifiable, Equatable {
     let availableLanguages: [String]?
 }
 
+/// Selection/cache token for a specific tail of a multi-registration aircraft: "id~REG".
+/// '~' is RFC 3986-unreserved (never percent-encoded, so the token survives widget deep-link
+/// URLs verbatim — '#' would truncate as a fragment), is filename-safe for cache keys, and can
+/// appear in neither server ids (lowercase-hyphenated) nor registrations, so the split is
+/// unambiguous. The FIRST registration keeps the plain server id, so existing persisted
+/// selections and checklist caches stay valid without migration.
+enum AircraftRegistrationToken {
+    static let separator: Character = "~"
+
+    /// "dr400-140b-gvmn~HB-KFP" → ("dr400-140b-gvmn", "HB-KFP"); a plain id passes through.
+    static func split(_ token: String) -> (aircraftId: String, registration: String?) {
+        guard let idx = token.firstIndex(of: separator) else { return (token, nil) }
+        let reg = String(token[token.index(after: idx)...])
+        return (String(token[..<idx]), reg.isEmpty ? nil : reg)
+    }
+
+    static func make(aircraftId: String, registration: String) -> String {
+        "\(aircraftId)\(separator)\(registration)"
+    }
+}
+
 struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
     let id: String
     let aircraftType: String
@@ -54,6 +75,34 @@ struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {
             return ["en", "fr"]  // WT9 Dynamic F-HVXA has English and French
         default:
             return ["en"]  // Default to English for unknown aircraft
+        }
+    }
+
+    /// One metadata entry per tail, so every registration of a multi-registration aircraft is a
+    /// separately selectable aircraft (the PR-17 selector). The first registration keeps the plain
+    /// server id; additional tails get an "id~REG" token that `AircraftDataService` splits back
+    /// into the request path + `reg` query. Entries with a nil/empty/single `registrations` array
+    /// pass through unchanged, and expanded entries carry `registrations == nil`, so applying this
+    /// twice is a no-op (cached metadata may already be expanded).
+    func expandedPerRegistration() -> [RemoteAircraftMetadata] {
+        guard let regs = registrations, regs.count > 1 else { return [self] }
+        return regs.enumerated().map { index, reg in
+            RemoteAircraftMetadata(
+                id: index == 0 ? id : AircraftRegistrationToken.make(aircraftId: id, registration: reg.registration),
+                aircraftType: aircraftType,
+                registration: reg.registration,
+                modelName: reg.modelName,
+                shortModelName: reg.shortModelName,
+                aeroclub: reg.aeroclub ?? aeroclub,
+                version: reg.version,
+                lastUpdated: reg.lastUpdated,
+                isFree: isFree,
+                stallSpeed: stallSpeed,
+                pageCount: pageCount,
+                hasAccess: hasAccess,
+                availableLanguages: reg.availableLanguages ?? availableLanguages,
+                registrations: nil
+            )
         }
     }
 }

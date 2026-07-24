@@ -156,4 +156,130 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         let m = try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(json.utf8))
         XCTAssertNil(m.registrations)
     }
+
+    // MARK: - Per-registration expansion (each tail is its own selectable aircraft)
+
+    private func multiRegMetadata() throws -> RemoteAircraftMetadata {
+        try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(#"""
+        {"id":"dr400-140b-gvmn","aircraftType":"DR400","registration":"HB-KFO",
+         "modelName":"Robin DR400/140B","shortModelName":"DR400-140B",
+         "aeroclub":"Groupe de Vol à Moteur Neuchâtel","version":"9","lastUpdated":"January 2023",
+         "isFree":false,"stallSpeed":54,"pageCount":4,"hasAccess":true,
+         "registrations":[
+           {"registration":"HB-KFO","modelName":"Robin DR400/140B","shortModelName":"DR400-140B","aeroclub":"Groupe de Vol à Moteur Neuchâtel","version":"9","lastUpdated":"January 2023","availableLanguages":["en"]},
+           {"registration":"HB-KFP","modelName":"Robin DR400/140B","shortModelName":"DR400-140B","aeroclub":"Groupe de Vol à Moteur Neuchâtel","version":"9","lastUpdated":"January 2023","availableLanguages":["en"]}
+         ]}
+        """#.utf8))
+    }
+
+    func testTokenSplitRoundTrip() {
+        let token = AircraftRegistrationToken.make(aircraftId: "dr400-140b-gvmn", registration: "HB-KFP")
+        XCTAssertEqual(token, "dr400-140b-gvmn~HB-KFP")
+        let (id, reg) = AircraftRegistrationToken.split(token)
+        XCTAssertEqual(id, "dr400-140b-gvmn")
+        XCTAssertEqual(reg, "HB-KFP")
+    }
+
+    func testTokenSplitPassesPlainIdThrough() {
+        let (id, reg) = AircraftRegistrationToken.split("pa28-181")
+        XCTAssertEqual(id, "pa28-181")
+        XCTAssertNil(reg)
+    }
+
+    /// '~' survives a widget deep-link URL unencoded — '#' (the previous candidate) would have
+    /// been parsed as a fragment and silently truncated the aircraft query parameter.
+    func testTokenSurvivesDeepLinkURL() {
+        let token = AircraftRegistrationToken.make(aircraftId: "dr400-140b-gvmn", registration: "HB-KFP")
+        let url = URL(string: "aerocheck://start-flight?aircraft=\(token)")
+        let value = URLComponents(url: url!, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "aircraft" })?.value
+        XCTAssertEqual(value, token)
+    }
+
+    func testExpansionYieldsOneEntryPerTail() throws {
+        let expanded = try multiRegMetadata().expandedPerRegistration()
+
+        XCTAssertEqual(expanded.count, 2)
+        // First tail keeps the plain server id so existing selections/caches stay valid.
+        XCTAssertEqual(expanded[0].id, "dr400-140b-gvmn")
+        XCTAssertEqual(expanded[0].registration, "HB-KFO")
+        // Additional tails get the composite token and their own metadata.
+        XCTAssertEqual(expanded[1].id, "dr400-140b-gvmn~HB-KFP")
+        XCTAssertEqual(expanded[1].registration, "HB-KFP")
+        XCTAssertEqual(expanded[1].hasAccess, true)
+        XCTAssertEqual(expanded[1].isFree, false)
+        XCTAssertEqual(expanded[1].availableLanguages, ["en"])
+    }
+
+    func testExpansionIsIdempotentAndPassesSingletonsThrough() throws {
+        // Single/absent registrations array → unchanged.
+        let single = try premiumMetadata()
+        XCTAssertEqual(single.expandedPerRegistration(), [single])
+        // Expanded entries carry registrations == nil, so re-expanding is a no-op (cached
+        // metadata written after expansion must not multiply).
+        let expanded = try multiRegMetadata().expandedPerRegistration()
+        XCTAssertEqual(expanded.flatMap { $0.expandedPerRegistration() }, expanded)
+    }
+
+    /// A tail token flows out of the service as path id + `reg` query, so the server serves that
+    /// tail's own file (checklist and version endpoints).
+    func testTailTokenBecomesRegQueryParameter() async throws {
+        let checklistJSON = #"""
+        {"success":true,"data":{"id":"dr400-140b-gvmn","aircraftType":"DR400",
+         "registration":"HB-KFP","modelName":"Robin DR400/140B","shortModelName":"DR400-140B",
+         "aeroclub":null,"version":"9","lastUpdated":"January 2023","isFree":false,"stallSpeed":54,
+         "pageCount":4,"hasParachute":false,"language":"en","requestedLanguage":"en",
+         "languageFallback":false,"crosswindLimits":{"takeoff":"22 kt","landing":"22 kt"},
+         "speeds":[],"targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}}
+        """#
+        let http = FakeHTTPClient(responseData: Data(checklistJSON.utf8))
+        let service = AircraftDataService(
+            subscriptionManager: FakeGating(), httpClient: http
+        )
+        service.availableAircraft = try multiRegMetadata().expandedPerRegistration()
+        // Unique cache key per test run isn't needed: assert on the outbound URLs, not the cache.
+        let token = "dr400-140b-gvmn~HB-KFP"
+        service.clearCache(for: token)
+        defer { service.clearCache(for: token) }
+
+        let checklist = await service.fetchChecklist(for: token)
+
+        XCTAssertEqual(checklist?.registration, "HB-KFP")
+        let urls = http.capturedRequests.compactMap { $0.url?.absoluteString }
+        XCTAssertFalse(urls.isEmpty)
+        for url in urls {
+            XCTAssertTrue(url.contains("/aircraft/dr400-140b-gvmn/"),
+                          "Path must use the base id, got \(url)")
+            XCTAssertTrue(url.contains("reg=HB-KFP"), "Tail must be requested via reg=, got \(url)")
+            XCTAssertFalse(url.contains("~"), "The token separator must never reach the URL: \(url)")
+        }
+    }
+
+    /// A plain (first-tail or single-reg) id keeps today's URL shape — no reg parameter.
+    func testPlainIdOmitsRegQueryParameter() async throws {
+        let checklistJSON = #"""
+        {"success":true,"data":{"id":"dr400-140b-gvmn","aircraftType":"DR400",
+         "registration":"HB-KFO","modelName":"Robin DR400/140B","shortModelName":"DR400-140B",
+         "aeroclub":null,"version":"9","lastUpdated":"January 2023","isFree":false,"stallSpeed":54,
+         "pageCount":4,"hasParachute":false,"language":"en","requestedLanguage":"en",
+         "languageFallback":false,"crosswindLimits":{"takeoff":"22 kt","landing":"22 kt"},
+         "speeds":[],"targetSpeeds":{},"learningModeVisibleCount":{},"phases":{}}}
+        """#
+        let http = FakeHTTPClient(responseData: Data(checklistJSON.utf8))
+        let service = AircraftDataService(
+            subscriptionManager: FakeGating(), httpClient: http
+        )
+        service.availableAircraft = try multiRegMetadata().expandedPerRegistration()
+        service.clearCache(for: "dr400-140b-gvmn")
+        defer { service.clearCache(for: "dr400-140b-gvmn") }
+
+        let checklist = await service.fetchChecklist(for: "dr400-140b-gvmn")
+
+        XCTAssertEqual(checklist?.registration, "HB-KFO")
+        let urls = http.capturedRequests.compactMap { $0.url?.absoluteString }
+        XCTAssertFalse(urls.isEmpty)
+        for url in urls {
+            XCTAssertFalse(url.contains("reg="), "Plain id must not send a reg parameter: \(url)")
+        }
+    }
 }

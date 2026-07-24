@@ -223,7 +223,7 @@ The v4 cockpit design language lives in `Components/DesignSystem.swift` + `Share
 
 **Settings kit:** reusable `SettingsPage` / `SettingsGroup` / `Settings*Row` components — use these for any settings UI.
 
-**Typography:** monospaced fonts for checklist items; Dynamic Type supported; 44pt minimum touch targets.
+**Typography:** monospaced fonts for checklist items; 44pt minimum touch targets. **Dynamic Type:** ground-use screens (planning, settings, onboarding, paywall) use `.scaledFont(size:weight:design:relativeTo:)` from `DesignSystem.swift` (a `@ScaledMetric` wrapper) instead of fixed `.font(.system(size:))`; in-flight HUD instrumentation intentionally keeps fixed sizes for cockpit legibility (UX-24). Adoption is in progress — Flight Log, Home and the in-flight surfaces still use fixed sizes.
 
 **Custom `ButtonStyle` + `.disabled()`:** a style must read `@Environment(\.isEnabled)` itself to dim when disabled (Primary/Secondary/ActionButtonStyle do).
 

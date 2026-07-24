@@ -134,7 +134,7 @@ struct SubscriptionView: View {
     private var headerSection: some View {
         VStack(spacing: 14) {
             Image(systemName: "airplane")
-                .font(.system(size: 30))
+                .scaledFont(size: 30, relativeTo: .largeTitle)
                 .foregroundColor(Color.aviationGold)
                 .frame(width: 64, height: 64)
                 .background(RoundedRectangle(cornerRadius: 16).fill(Color.aviationGold.opacity(0.16)))
@@ -166,7 +166,7 @@ struct SubscriptionView: View {
     private func trialBanner(days: Int) -> some View {
         HStack(spacing: 11) {
             Image(systemName: "gift.fill")
-                .font(.system(size: 18))
+                .scaledFont(size: 18, relativeTo: .title3)
                 .foregroundColor(Color.aviationGreen)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
@@ -250,7 +250,7 @@ struct SubscriptionView: View {
         VStack(spacing: 0) {
             HStack(spacing: 11) {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16, relativeTo: .body)
                     .foregroundColor(tint)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(tint.opacity(0.16)))

@@ -173,7 +173,7 @@ struct AircraftSettingsView: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                         .foregroundColor(.dimText.opacity(0.7))
                 }
                 .padding(.horizontal, 14)
@@ -192,7 +192,7 @@ struct AircraftSettingsView: View {
                                 .scaleEffect(0.8)
                         } else {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 16, weight: .semibold))
+                                .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(tint)
                         }
                     }

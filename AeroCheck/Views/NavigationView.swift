@@ -185,6 +185,11 @@ struct NavigationMapView: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    // Observed so the count-based recompute triggers actually fire when each layer's async
+    // first-load lands (these services are singletons, not environment objects). (v4.2 fix)
+    @ObservedObject private var openAIPNavaidDataService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var openAIPObstacleDataService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var openAIPReportingPointDataService = OpenAIPReportingPointDataService.shared
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -492,6 +497,16 @@ struct NavigationMapView: View {
             if available { recomputePhaseFrequencies() }
         }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
+        // First-open race (v4.2 fix): `isDataAvailable` is restored from cache METADATA at app
+        // launch — it is already true before this view first appears, so the onChange above never
+        // fires for the initial async feature decode. The forced onAppear recompute runs against a
+        // still-empty array, and the unforced region recompute early-returns (region unchanged) —
+        // leaving the enabled overlay blank until a real pan/zoom. Recomputing when the loaded
+        // COUNTS land closes the race for all four layers.
+        .onChange(of: openAIPDataService.airspaceCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPReportingPointDataService.reportingPointCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
             locationUpdateCounter += 1

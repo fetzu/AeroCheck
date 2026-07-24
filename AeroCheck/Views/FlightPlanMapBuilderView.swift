@@ -273,6 +273,10 @@ struct FlightPlanMapBuilderView: View {
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
         .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); updateRouteCountriesCache() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
+        // isDataAvailable is metadata-restored at launch (already true before first appear), so the
+        // async feature decode landing must retrigger via the count — same first-open race as the
+        // nav map. (v4.2 fix)
+        .onChange(of: openAIPDataService.airspaceCount) { _, _ in scheduleAirspaceUpdate() }
     }
 
     /// Full-geometry signature (every waypoint's coordinate AND planned altitude) so the airspace scan

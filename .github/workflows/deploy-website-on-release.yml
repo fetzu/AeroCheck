@@ -1,0 +1,24 @@
+name: Deploy website on release
+
+# The website (Astro, `website` branch) renders the changelog and footer version from the GitHub
+# releases API at build time, so it must rebuild whenever releases change. Release events only run
+# workflow files present on the tagged commit (main), while the site's deploy.yml lives on the
+# `website` branch — so this workflow just dispatches it there.
+#
+# `edited`/`deleted` are included because the changelog page mirrors release notes verbatim.
+
+on:
+  release:
+    types: [published, edited, deleted]
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch-website-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch website deploy.yml on the website branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo ${{ github.repository }} --ref website

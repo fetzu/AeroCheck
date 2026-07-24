@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for checklist behavior, flight logging, and display options
 struct ChecklistFlightSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @State private var stepByStepHighlighting: Bool = true
     @State private var learningMode: Bool = false

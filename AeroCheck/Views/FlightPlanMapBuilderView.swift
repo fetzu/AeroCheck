@@ -10,7 +10,7 @@ import MapKit
 /// "Table" (advanced) view. All mutations go through `FlightPlanManager` (single source of truth,
 /// auto-recalculates the route), so the builder reads the live plan by id and stays reactive.
 struct FlightPlanMapBuilderView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -235,7 +235,7 @@ struct FlightPlanMapBuilderView: View {
             .sheet(isPresented: $showTableEditor) {
                 if let plan {
                     FlightPlanEditorView(flightPlan: plan)
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(openAIPDataService)
@@ -248,7 +248,7 @@ struct FlightPlanMapBuilderView: View {
                     onSave: { updated in flightPlanManager.updateWaypoint(updated, in: planId) },
                     onDelete: { flightPlanManager.removeWaypoint(waypoint, from: planId) }
                 )
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(airportDataService)
             }
             .sheet(item: $exportItem) { item in

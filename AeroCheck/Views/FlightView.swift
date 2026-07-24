@@ -6,7 +6,7 @@ import UIKit
 
 /// Main flight view displayed during an active flight
 struct FlightView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
@@ -1759,7 +1759,7 @@ private struct FlightDurationText: View {
 // MARK: - Phase Selector Sheet
 
 struct PhaseSelectorView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -1819,7 +1819,7 @@ struct PhaseSelectorView: View {
 // MARK: - Speed Reference Sheet
 
 struct SpeedReferenceSheet: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
 
     /// When presented as a custom overlay (HomeView's leading-edge slide-in), the host supplies a
@@ -2304,7 +2304,7 @@ struct PhaseContextTile: View {
 // MARK: - Flight Info Sheet (iPhone)
 
 struct FlightInfoSheet: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @ObservedObject var locationManager: LocationManager
     @ObservedObject private var companion = CompanionConnectivityManager.shared
     @Environment(\.dismiss) var dismiss
@@ -2563,7 +2563,7 @@ struct HUDReferencePanel: View {
     var aglFeet: Double? = nil
     let onClose: () -> Void
 
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var airportDataService: AirportDataService
 
     private var corners: AnyShape {
@@ -2681,7 +2681,7 @@ private struct DrawerDragDismiss: ViewModifier {
 /// position/altitude), and a guide explaining each status. Satellite count / raw GNSS time aren't
 /// available through CoreLocation. Cockpit cards (no system List). (v4 UI/UX Revamp popup redesign)
 struct GPSStatusContent: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @ObservedObject var locationManager: LocationManager
     // Tap the value to switch units: Vertical defaults to metres, Altitude to feet. (round 6)
     @State private var verticalInFeet = false
@@ -2997,7 +2997,7 @@ struct InFlightSpeedReference: View {
 
 #Preview {
     FlightView()
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(WindDataService())
         .environmentObject(FlightPlanManager())

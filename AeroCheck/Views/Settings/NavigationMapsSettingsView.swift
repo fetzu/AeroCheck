@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for navigation, offline maps, and airport data
 struct NavigationMapsSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
@@ -66,7 +66,7 @@ struct NavigationMapsSettingsView: View {
                     .environmentObject(openAIPCacheManager)
                     .environmentObject(openAIPDataService)
                     .environmentObject(openAIPNavaidDataService)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
         .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
@@ -364,7 +364,7 @@ struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
 
     /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.

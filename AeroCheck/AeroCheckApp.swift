@@ -4,7 +4,7 @@ import UIKit
 /// Main application entry point
 @main
 struct AeroCheckApp: App {
-    @StateObject private var appState = AppState()
+    @State private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager: OfflineMapManager
     @StateObject private var windDataService = WindDataService()
@@ -71,7 +71,7 @@ struct AeroCheckApp: App {
         WindowGroup {
             AppRootView(appState: appState) {
             ContentView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
@@ -205,7 +205,7 @@ struct AeroCheckApp: App {
         #if os(macOS)
         Settings {
             SettingsView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
@@ -474,7 +474,8 @@ private func withTimeout(seconds: TimeInterval, operation: @escaping () async ->
 /// every probe (window/scene/screen), which is why the earlier four attempts all failed.
 /// `.environment(\.colorScheme, _)` is local-only, leaving the device setting readable. (round 6)
 struct AppRootView<Content: View>: View {
-    @ObservedObject var appState: AppState
+    // AppState is @Observable (PERF-30): a plain stored reference is tracked automatically.
+    var appState: AppState
     @ObservedObject private var ambient = AmbientController.shared
     @Environment(\.colorScheme) private var systemColorScheme
     private let content: Content

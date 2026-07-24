@@ -44,7 +44,7 @@ struct FlightPlanExportItem: Identifiable {
 
 /// Flight plan editor view - tabular format similar to "AVIS DE VOL" form
 struct FlightPlanEditorView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -1125,7 +1125,7 @@ struct WaypointPickerMapViewRepresentable: UIViewRepresentable {
 
 #Preview {
     FlightPlanEditorView(flightPlan: FlightPlan(name: "Test Flight"))
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(FlightPlanManager())
         .environmentObject(AirportDataService())
         .environmentObject(OpenAIPDataService())

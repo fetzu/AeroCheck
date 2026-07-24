@@ -177,7 +177,7 @@ extension MapOrientationMode: Equatable {}
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
@@ -800,7 +800,7 @@ struct NavigationMapView: View {
                 }
                 .fullScreenCover(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(aircraftDataService)
@@ -910,7 +910,7 @@ struct NavigationMapView: View {
             }
             .sheet(isPresented: $showOverlaysSheet) {
                 OverlaysSheet()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(openAIPDataService)
                     .environmentObject(dataStatusManager)
             }
@@ -932,7 +932,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
     }
@@ -962,7 +962,7 @@ struct NavigationMapView: View {
                     }
                     .sheet(isPresented: $showCacheInfoModal) {
                         CacheInfoSheet(isOfflineMode: isOfflineMode)
-                            .environmentObject(appState)
+                            .environment(appState)
                             .environmentObject(offlineMapManager)
                     }
                 }
@@ -1416,7 +1416,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.Nav.layers)
             .sheet(isPresented: $showOverlaysSheet) {
                 OverlaysSheet()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(openAIPDataService)
                     .environmentObject(dataStatusManager)
             }
@@ -1481,7 +1481,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
     }
@@ -1513,7 +1513,7 @@ struct NavigationMapView: View {
                         }
                         .sheet(isPresented: $showCacheInfoModal) {
                             CacheInfoSheet(isOfflineMode: isOfflineMode)
-                                .environmentObject(appState)
+                                .environment(appState)
                                 .environmentObject(offlineMapManager)
                         }
                     }
@@ -1569,7 +1569,7 @@ struct NavigationMapView: View {
             // ViewThatFits candidates). (v4 UI/UX Revamp)
             .fullScreenCover(isPresented: $showFlightPlanning) {
                 FlightPlanningView()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
                     .environmentObject(aircraftDataService)
@@ -3529,7 +3529,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
 struct LayerPickerSheet: View {
     @Binding var selectedLayer: MapLayerType
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
@@ -3649,7 +3649,7 @@ struct LayerPickerSheet: View {
 /// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
 /// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
 struct OverlaysSheet: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
@@ -5044,7 +5044,7 @@ struct GPSStatusInfoSheet: View {
 /// Modal sheet explaining cache status and usage
 struct CacheInfoSheet: View {
     let isOfflineMode: Bool
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
 
@@ -5283,7 +5283,7 @@ private struct NavClockText: View {
 
 #Preview {
     NavigationMapView(isPresented: .constant(true))
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
         .environmentObject(OpenAIPCacheManager())

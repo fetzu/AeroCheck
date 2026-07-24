@@ -320,6 +320,51 @@ class DataPersistenceManager: ObservableObject {
         try data.write(to: url, options: Self.protectedWriteOptions)
     }
 
+    /// Append-only NDJSON companion to the checkpoint: one JSON-encoded GPSPoint per line.
+    /// The snapshot file carries the (small, constant-size) flight metadata; the track lives here
+    /// and is only ever APPENDED to, so per-checkpoint work is O(new points) instead of re-encoding
+    /// the entire multi-hour track every ~30 s (which grew quadratically). (PERF-29)
+    var activeFlightTrackDeltaURL: URL {
+        localAppDirectory.appendingPathComponent("active_flight_track.ndjson")
+    }
+
+    /// Appends the given points as NDJSON lines. The file is created atomically on first write;
+    /// later writes append via FileHandle. A crash mid-append can at worst tear the LAST line,
+    /// which `readActiveFlightTrackDelta` tolerates by skipping undecodable lines. (PERF-29)
+    nonisolated static func appendActiveFlightTrackPoints(_ points: [GPSPoint], to url: URL) throws {
+        guard !points.isEmpty else { return }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var blob = Data()
+        for point in points {
+            blob.append(try encoder.encode(point))
+            blob.append(0x0A)
+        }
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try blob.write(to: url, options: protectedWriteOptions)
+        } else {
+            let handle = try FileHandle(forWritingTo: url)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: blob)
+        }
+    }
+
+    /// Reads the delta file, skipping any undecodable (torn/corrupt) lines rather than failing —
+    /// a partially-written tail line after a crash must never block recovery. (PERF-29)
+    nonisolated static func readActiveFlightTrackDelta(at url: URL) -> [GPSPoint] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var points: [GPSPoint] = []
+        for line in data.split(separator: 0x0A) where !line.isEmpty {
+            if let point = try? decoder.decode(GPSPoint.self, from: line) {
+                points.append(point)
+            }
+        }
+        return points
+    }
+
     /// Reads the raw active-flight checkpoint, or nil if none exists.
     func loadActiveFlightStateData() -> Data? {
         guard FileManager.default.fileExists(atPath: activeFlightStateURL.path) else {
@@ -336,6 +381,7 @@ class DataPersistenceManager: ObservableObject {
     /// Removes the crash-recovery checkpoint (flight ended / cancelled / restored).
     func clearActiveFlightStateFile() {
         try? FileManager.default.removeItem(at: activeFlightStateURL)
+        try? FileManager.default.removeItem(at: activeFlightTrackDeltaURL)
     }
 
     // MARK: - Flight Persistence (Individual Files)

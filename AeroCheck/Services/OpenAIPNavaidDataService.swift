@@ -1,17 +1,15 @@
 import Foundation
 import CoreLocation
 
-/// On-disk metadata for the navaid cache (per-country last-sync + count). Mirrors `OpenAIPCacheMetadata`.
-struct NavaidCacheMetadata: Codable {
-    var lastSyncDates: [String: Date] = [:]
-    var counts: [String: Int] = [:]
-}
-
 /// Manages OpenAIP NAVAID data via the keyless, per-country GeoJSON exports
 /// (`storage.googleapis.com/.../{cc}_nav.geojson`) — a sibling to `OpenAIPDataService`, mirroring its
 /// lazy-load + atomic per-country cache, but without the REST pagination / API key. Provides a
 /// nearest-navaid query (the flight-plan builder snap + the declination fix) and a region query (map
 /// markers). New OpenAIP layer for v4.1.0; additive — it does not touch the working airspace path.
+///
+/// The cache/download lifecycle (same directories, file names and metadata shape as before) is
+/// delegated to a shared `OpenAIPLayerCache`; this service keeps its published surface, spatial
+/// grid and queries.
 @MainActor
 final class OpenAIPNavaidDataService: ObservableObject {
     /// Shared instance — the app DI, the data-status provider, and the flight-plan builder all use this
@@ -32,6 +30,13 @@ final class OpenAIPNavaidDataService: ObservableObject {
         didSet { rebuildSpatialGrid() }
     }
 
+    private let cache = OpenAIPLayerCache<Navaid>(
+        directoryName: "OpenAIPNavaidData",
+        filePrefix: "navaids",
+        endpointSuffix: "nav",
+        logLabel: "Navaid",
+        parse: Navaid.parse(geoJSON:))
+
     // MARK: - Spatial index (coarse 1° grid, mirrors AirportDataService)
 
     private struct GridKey: Hashable { let lat: Int; let lon: Int }
@@ -51,57 +56,24 @@ final class OpenAIPNavaidDataService: ObservableObject {
         spatialGrid = grid
     }
 
-    // MARK: - Storage
-
-    private let fileManager = FileManager.default
-    private var dataDirectory: URL {
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("OpenAIPNavaidData", isDirectory: true)
-    }
-    private var metadataFileURL: URL { dataDirectory.appendingPathComponent("metadata.json") }
-    private func navaidFileURL(for country: String) -> URL {
-        dataDirectory.appendingPathComponent("navaids_\(country).json")
-    }
-
     init() {
         // Restore lightweight metadata (counts/dates) without loading the navaids into memory.
-        if let data = try? Data(contentsOf: metadataFileURL),
-           let metadata = try? JSONDecoder().decode(NavaidCacheMetadata.self, from: data) {
-            downloadedCountries = metadata.counts.keys.sorted()
-            navaidCount = metadata.counts.values.reduce(0, +)
-            lastUpdated = metadata.lastSyncDates.values.max()
-            isDataAvailable = !downloadedCountries.isEmpty
+        if let summary = cache.restoredSummary() {
+            downloadedCountries = summary.downloadedCountries
+            navaidCount = summary.totalCount
+            lastUpdated = summary.lastUpdated
+            isDataAvailable = summary.isDataAvailable
         }
     }
 
     /// Stale once older than the shared aeronautical-data TTL (90 days).
-    var needsUpdate: Bool {
-        guard let lastUpdated else { return true }
-        return Date().timeIntervalSince(lastUpdated) > OpenAIPConfig.airspaceCacheExpirationInterval
-    }
+    var needsUpdate: Bool { cache.isStale(lastUpdated: lastUpdated) }
 
     // MARK: - Load
 
     func ensureLoaded() async {
         guard !isLoaded else { return }
-        await loadFromLocal()
-    }
-
-    private func loadFromLocal() async {
-        guard let metaData = try? Data(contentsOf: metadataFileURL),
-              let metadata = try? JSONDecoder().decode(NavaidCacheMetadata.self, from: metaData) else { return }
-        let urls = metadata.counts.keys.map { navaidFileURL(for: $0) }
-        let loaded: [Navaid] = await Task.detached(priority: .userInitiated) {
-            let decoder = JSONDecoder()
-            var all: [Navaid] = []
-            for url in urls {
-                guard let data = try? Data(contentsOf: url),
-                      let decoded = try? decoder.decode([Navaid].self, from: data) else { continue }
-                all.append(contentsOf: decoded)
-            }
-            return all
-        }.value
+        guard let loaded = await cache.loadFromLocal() else { return }
         navaids = loaded
         navaidCount = loaded.count
         isLoaded = true
@@ -118,55 +90,13 @@ final class OpenAIPNavaidDataService: ObservableObject {
         downloadError = nil
         defer { isDownloading = false }
 
-        try? fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-        var metadata = (try? Data(contentsOf: metadataFileURL))
-            .flatMap { try? JSONDecoder().decode(NavaidCacheMetadata.self, from: $0) } ?? NavaidCacheMetadata()
-        var allLoaded: [Navaid] = []
-
-        for (index, country) in countries.enumerated() {
-            let cc = country.lowercased()
-            guard let url = URL(string: "\(OpenAIPConfig.geoJSONExportBaseURL)/\(cc)_nav.geojson") else { continue }
-            do {
-                let (data, response) = try await ExternalRequest.data(from: url)
-                guard response.statusCode == 200 else {
-                    appendExistingCache(for: country, into: &allLoaded)
-                    continue
-                }
-                let parsed = try Navaid.parse(geoJSON: data)
-                let encoded = try JSONEncoder().encode(parsed)
-                try encoded.write(to: navaidFileURL(for: country), options: .atomic)
-                metadata.counts[country] = parsed.count
-                metadata.lastSyncDates[country] = Date()
-                allLoaded.append(contentsOf: parsed)
-            } catch {
-                AppLog.openAIP.debugLine("Navaid download failed for \(country): \(error)")
-                appendExistingCache(for: country, into: &allLoaded)
-            }
-            downloadProgress = Double(index + 1) / Double(countries.count)
-        }
-
-        // De-selected countries are pruned (file + metadata) so this layer matches the requested set —
-        // consistent with the airspace layer. Additive callers (trip-prefetch, builder, refresh) union
-        // before calling, so they pass the full set and lose nothing. (download-integrity fix)
-        OpenAIPConfig.pruneDeselectedCountries(
-            keeping: countries, counts: &metadata.counts, lastSyncDates: &metadata.lastSyncDates,
-            fileURL: { navaidFileURL(for: $0) }, fileManager: fileManager)
-        if let metaEncoded = try? JSONEncoder().encode(metadata) {
-            try? metaEncoded.write(to: metadataFileURL, options: .atomic)
-        }
-        navaids = allLoaded
-        navaidCount = allLoaded.count
-        downloadedCountries = metadata.counts.keys.sorted()
-        lastUpdated = metadata.lastSyncDates.values.max()
-        isDataAvailable = !downloadedCountries.isEmpty
+        let result = await cache.downloadData(for: countries) { downloadProgress = $0 }
+        navaids = result.features
+        navaidCount = result.features.count
+        downloadedCountries = result.summary.downloadedCountries
+        lastUpdated = result.summary.lastUpdated
+        isDataAvailable = result.summary.isDataAvailable
         isLoaded = true
-    }
-
-    private func appendExistingCache(for country: String, into accumulator: inout [Navaid]) {
-        if let data = try? Data(contentsOf: navaidFileURL(for: country)),
-           let decoded = try? JSONDecoder().decode([Navaid].self, from: data) {
-            accumulator.append(contentsOf: decoded)
-        }
     }
 
     // MARK: - Queries
@@ -212,7 +142,7 @@ final class OpenAIPNavaidDataService: ObservableObject {
     }
 
     func deleteData() {
-        try? fileManager.removeItem(at: dataDirectory)
+        cache.deleteData()
         navaids = []
         navaidCount = 0
         downloadedCountries = []

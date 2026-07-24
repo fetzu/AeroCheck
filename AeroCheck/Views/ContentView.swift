@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Root content view that switches between home and flight views
 struct ContentView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var windDataService: WindDataService
@@ -159,9 +159,9 @@ struct ContentView: View {
                 locationManager.clearGPSStatusOverride()
             }
         }
-        .fullScreenCover(isPresented: $appState.showFlightLog) {
+        .fullScreenCover(isPresented: Bindable(appState).showFlightLog) {
             FlightLogView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
@@ -372,7 +372,7 @@ struct RotateToPortraitView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(FlightPlanManager())
         .environmentObject(DataStatusManager(providers: [], networkMonitor: NetworkMonitor(stub: .disconnected)))

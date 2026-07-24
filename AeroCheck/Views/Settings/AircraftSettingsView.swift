@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for aircraft selection, subscription, and visibility
 struct AircraftSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
 
@@ -133,7 +133,7 @@ struct AircraftSettingsView: View {
 
             // Premium Aircrafts navigation link
             NavigationLink(destination: PremiumAircraftListView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(aircraftDataService)
                 .environmentObject(subscriptionManager)
             ) {

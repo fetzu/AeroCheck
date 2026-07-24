@@ -66,6 +66,11 @@
 		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
+		A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000071 /* OpenAIPLayerCache.swift */; };
+		A9000001211111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
+		A9000001311111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
+		A9000001211111110000002 /* FlightActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000002 /* FlightActivityController.swift */; };
+		A9000001311111110000003 /* FlightLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000003 /* FlightLiveActivity.swift */; };
 		A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000066 /* OpenAIPObstacleDataService.swift */; };
 		A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */; };
 		A1000001211111110000068 /* RouteDataCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000068 /* RouteDataCalculator.swift */; };
@@ -262,6 +267,10 @@
 		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
+		A1000001111111110000071 /* OpenAIPLayerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPLayerCache.swift; sourceTree = "<group>"; };
+		A9000001111111110000001 /* FlightActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityAttributes.swift; sourceTree = "<group>"; };
+		A9000001111111110000002 /* FlightActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityController.swift; sourceTree = "<group>"; };
+		A9000001111111110000003 /* FlightLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLiveActivity.swift; sourceTree = "<group>"; };
 		A1000001111111110000066 /* OpenAIPObstacleDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPObstacleDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPReportingPointDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000068 /* RouteDataCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculator.swift; sourceTree = "<group>"; };
@@ -523,6 +532,7 @@
 				A1000001111111110000007 /* Flight.swift */,
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
 				04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */,
+				A9000001111111110000001 /* FlightActivityAttributes.swift */,
 				A1000001111111110000008 /* Checklist.swift */,
 				A1000001111111110000097 /* ActiveChecklist.swift */,
 				A1000001111111110000016 /* WT9ChecklistData.swift */,
@@ -539,6 +549,8 @@
 				A1000001111111110000010 /* LocationManager.swift */,
 				A1000001111111110000099 /* FlightLauncher.swift */,
 				A1000001111111110000050 /* ExternalRequest.swift */,
+				A1000001111111110000071 /* OpenAIPLayerCache.swift */,
+				A9000001111111110000002 /* FlightActivityController.swift */,
 				A1000001111111110000065 /* OpenAIPNavaidDataService.swift */,
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
@@ -584,6 +596,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000001111111110000003 /* AeroCheckWidget.swift */,
+				A9000001111111110000003 /* FlightLiveActivity.swift */,
 				A2000001111111110000004 /* Info.plist */,
 			);
 			path = AeroCheckWidget;
@@ -850,6 +863,9 @@
 				A1000001211111110000010 /* LocationManager.swift in Sources */,
 				A1000001211111110000099 /* FlightLauncher.swift in Sources */,
 				A1000001211111110000050 /* ExternalRequest.swift in Sources */,
+				A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */,
+				A9000001211111110000001 /* FlightActivityAttributes.swift in Sources */,
+				A9000001211111110000002 /* FlightActivityController.swift in Sources */,
 				A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */,
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
@@ -918,6 +934,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A2000001211111110000003 /* AeroCheckWidget.swift in Sources */,
+				A9000001311111110000001 /* FlightActivityAttributes.swift in Sources */,
+				A9000001311111110000003 /* FlightLiveActivity.swift in Sources */,
 				A3000009311111110000009 /* DesignTokens.swift in Sources */,
 				A300000A311111110000009 /* AmbientPalette.swift in Sources */,
 				A300000B311111110000009 /* AppLog.swift in Sources */,

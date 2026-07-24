@@ -3,7 +3,7 @@ import CoreLocation
 
 /// Settings sub-page for about info and developer options
 struct AboutSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @EnvironmentObject var locationManager: LocationManager

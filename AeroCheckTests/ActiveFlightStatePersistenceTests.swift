@@ -132,6 +132,94 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         source.isFlightActive = false
     }
 
+    /// PERF-29: the snapshot is slim (no inline track) and the track delta file only grows —
+    /// per-checkpoint work is O(new points), not O(whole track).
+    func testIncrementalCheckpointKeepsSnapshotSlimAndDeltaAppendOnly() throws {
+        let source = AppState()
+        startWT9Flight(on: source)
+        for i in 0..<25 { source.addGPSPoint(makePoint(47.0 + Double(i) * 0.001, 8.0)) }
+        source.saveActiveFlightState()
+        source.flushPendingCheckpoint()
+
+        let deltaURL = DataPersistenceManager.shared.activeFlightTrackDeltaURL
+        let sizeAfterFirst = (try? Data(contentsOf: deltaURL))?.count ?? 0
+        XCTAssertGreaterThan(sizeAfterFirst, 0, "Delta file should exist after a checkpoint")
+
+        for i in 25..<50 { source.addGPSPoint(makePoint(47.0 + Double(i) * 0.001, 8.0)) }
+        source.saveActiveFlightState()
+        source.flushPendingCheckpoint()
+
+        let sizeAfterSecond = (try? Data(contentsOf: deltaURL))?.count ?? 0
+        XCTAssertGreaterThan(sizeAfterSecond, sizeAfterFirst, "Delta file must grow, never rewrite")
+
+        // The snapshot itself must be slim: no inline GPS track.
+        let snapshotData = try XCTUnwrap(DataPersistenceManager.shared.loadActiveFlightStateData())
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let snapshot = try decoder.decode(ActiveFlightState.self, from: snapshotData)
+        XCTAssertEqual(snapshot.schemaVersion, ActiveFlightState.currentSchemaVersion)
+        XCTAssertTrue(snapshot.flight.gpsTrack.isEmpty, "v3 snapshots must not carry the track inline")
+
+        // Recovery merges the delta (deduped by id) back into the flight.
+        let relaunched = AppState()
+        XCTAssertTrue(relaunched.isFlightActive)
+        XCTAssertEqual(relaunched.currentFlight?.gpsTrack.count, 50,
+                       "The full track must be rebuilt from the delta file")
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
+
+    /// PERF-29: a crash can tear the last delta line mid-append; recovery must skip the torn tail
+    /// and keep every complete point rather than failing.
+    func testTornDeltaTailIsTolerated() throws {
+        let source = AppState()
+        startWT9Flight(on: source)
+        for i in 0..<30 { source.addGPSPoint(makePoint(46.0 + Double(i) * 0.001, 7.0)) }
+        source.saveActiveFlightState()
+        source.flushPendingCheckpoint()
+
+        // Simulate a torn write: garbage partial JSON with no trailing newline.
+        let deltaURL = DataPersistenceManager.shared.activeFlightTrackDeltaURL
+        let handle = try FileHandle(forWritingTo: deltaURL)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{\"latitude\":46.5,\"longi".utf8))
+        try handle.close()
+
+        let relaunched = AppState()
+        XCTAssertTrue(relaunched.isFlightActive)
+        XCTAssertEqual(relaunched.currentFlight?.gpsTrack.count, 30,
+                       "A torn tail line must be skipped, not fail the whole recovery")
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
+
+    /// PERF-29: a legacy v2 checkpoint (full track inline, written by an older build) still restores.
+    func testLegacyV2FullSnapshotRestores() throws {
+        let source = AppState()
+        startWT9Flight(on: source)
+        source.currentFlight?.gpsTrack = (0..<12).map { makePoint(45.0 + Double($0) * 0.001, 6.0) }
+        let flight = try XCTUnwrap(source.currentFlight)
+        var snapshot = ActiveFlightState(flight: flight, from: source)
+        snapshot.schemaVersion = ActiveFlightState.legacyFullTrackSchemaVersion
+
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        try DataPersistenceManager.writeActiveFlightStateData(
+            try encoder.encode(snapshot), to: DataPersistenceManager.shared.activeFlightStateURL
+        )
+
+        let relaunched = AppState()
+        XCTAssertTrue(relaunched.isFlightActive)
+        XCTAssertEqual(relaunched.currentFlight?.gpsTrack.count, 12,
+                       "A v2 snapshot's inline track must restore unchanged")
+
+        relaunched.clearActiveFlightState()
+        relaunched.isFlightActive = false
+        source.isFlightActive = false
+    }
+
     /// A restored *premium* flight reports its checklist as unresolved — never the silent WT9
     /// fallback. (ARCH-01 / ARCH-08)
     func testRestoredPremiumFlightDoesNotFallBackToWT9() throws {

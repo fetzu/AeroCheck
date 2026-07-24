@@ -6,7 +6,7 @@ import Compression
 
 /// Flight log view showing all recorded flights
 struct FlightLogView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @Environment(\.dismiss) var dismiss
 
@@ -290,7 +290,7 @@ struct FlightLogView: View {
     private var emptyState: some View {
         VStack(spacing: 24) {
             Image(systemName: "airplane.circle")
-                .font(.system(size: 80))
+                .scaledFont(size: 80, relativeTo: .largeTitle)
                 .foregroundColor(.dimText)
 
             Text(L10n.FlightLog.noFlightsTitle)
@@ -369,10 +369,10 @@ struct FlightLogView: View {
         } else {
             VStack(spacing: 12) {
                 Image(systemName: "airplane.circle")
-                    .font(.system(size: 48))
+                    .scaledFont(size: 48, relativeTo: .largeTitle)
                     .foregroundColor(.dimText)
                 Text("Select a flight")
-                    .font(.system(size: 16))
+                    .scaledFont(size: 16, relativeTo: .body)
                     .foregroundColor(.secondaryText)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -392,7 +392,7 @@ struct FlightLogView: View {
             if filteredFlights.isEmpty {
                 Section {
                     Text("No flights in this period")
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14, relativeTo: .subheadline)
                         .foregroundColor(.dimText)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 24)
@@ -470,14 +470,14 @@ struct FlightLogView: View {
 
     private func favoritesHeader(count: Int) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(.aviationGold)
+            Image(systemName: "star.fill").scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.aviationGold)
             Text("FAVORITES")
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
             Spacer()
             Text("\(count)")
-                .font(.system(size: 11, design: .monospaced))
+                .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
         }
         .textCase(nil)
@@ -486,12 +486,12 @@ struct FlightLogView: View {
     private func monthHeader(_ group: MonthGroup) -> some View {
         HStack(spacing: 8) {
             Text(group.label)
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .tracking(0.6)
                 .foregroundColor(.aviationGold)
             Spacer()
             Text("\(group.flights.count) flight\(group.flights.count == 1 ? "" : "s") · \(String(format: "%.1f", group.totalHours)) h")
-                .font(.system(size: 11, design: .monospaced))
+                .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
         }
         .textCase(nil)
@@ -553,7 +553,7 @@ struct FlightLogView: View {
             // Title + year selector + export (concept header)
             HStack(alignment: .center) {
                 Text("Flight Log")
-                    .font(.system(size: 28, weight: .bold))
+                    .scaledFont(size: 28, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -582,7 +582,7 @@ struct FlightLogView: View {
             // List header: count + aircraft filter.
             HStack {
                 Text("\(stats.flights) FLIGHTS")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
                     .tracking(0.5)
                     .foregroundColor(.secondaryText)
                 Spacer()
@@ -647,8 +647,8 @@ struct FlightLogView: View {
             HStack(spacing: 4) {
                 // verbatim + String() so the year never gets a thousands separator ("2'026"). (round 7)
                 Text(verbatim: selectedYear.map { String($0) } ?? "All")
-                    .font(.system(size: 15, weight: .medium))
-                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+                    .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
+                Image(systemName: "chevron.down").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
             }
             .foregroundColor(.primaryText)
             .padding(.horizontal, 12)
@@ -675,8 +675,8 @@ struct FlightLogView: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: "square.and.arrow.up").font(.system(size: 14, weight: .semibold))
-                Text("Export").font(.system(size: 15, weight: .semibold))
+                Image(systemName: "square.and.arrow.up").scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                Text("Export").scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
             }
             .foregroundColor(.black)
             .padding(.horizontal, 14)
@@ -690,7 +690,7 @@ struct FlightLogView: View {
     private var shareCardButton: some View {
         Button { openStatsShareSheet() } label: {
             Image(systemName: "photo")
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                 .foregroundColor(.black)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 8)
@@ -711,8 +711,8 @@ struct FlightLogView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: selectedAircraft == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    .font(.system(size: 13))
-                Text(selectedAircraft ?? "Filter").font(.system(size: 13, weight: .medium))
+                    .scaledFont(size: 13, relativeTo: .caption)
+                Text(selectedAircraft ?? "Filter").scaledFont(size: 13, weight: .medium, relativeTo: .caption)
             }
             .foregroundColor(selectedAircraft == nil ? .secondaryText : .aviationGold)
         }
@@ -722,13 +722,13 @@ struct FlightLogView: View {
         let maxHours = items.map(\.hours).max() ?? 1
         return VStack(alignment: .leading, spacing: 8) {
             Text("HOURS BY AIRCRAFT")
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
                 .tracking(0.6)
                 .foregroundColor(.secondaryText)
             ForEach(Array(items.enumerated()), id: \.element.name) { index, item in
                 HStack(spacing: 8) {
                     Text(item.name)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .scaledFont(size: 12, weight: .semibold, design: .monospaced, relativeTo: .caption)
                         .foregroundColor(.primaryText)
                         .lineLimit(1)
                         .frame(width: 76, alignment: .leading)
@@ -741,7 +741,7 @@ struct FlightLogView: View {
                     }
                     .frame(height: 7)
                     Text(String(format: "%.1f", item.hours))
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .caption)
                         .foregroundColor(.primaryText)
                         .frame(width: 40, alignment: .trailing)
                 }
@@ -982,10 +982,10 @@ struct LogMetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .scaledFont(size: 13, weight: .medium, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
             Text(value)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .scaledFont(size: 26, weight: .bold, design: .rounded, relativeTo: .title2)
                 .foregroundColor(valueColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -1115,6 +1115,7 @@ struct StatsShareCardData: Identifiable {
 /// hours-by-aircraft. Theme/accent/layout/content are customizable. Rendered via ImageRenderer.
 /// Fixed 1080×1350 (4:5 portrait) so the preview/render size is predictable. (round 7 / round 10)
 struct FlightLogStatsShareCard: View {
+    // Fixed fonts by design: rendered to a fixed-size share image, not subject to Dynamic Type. (UX-24)
     let periodLabel: String
     let hours: Double
     let flights: Int
@@ -1277,10 +1278,10 @@ struct FlightRowView: View {
             // Calendar date block: day over weekday (the month/year lives in the section header). (v4 UI/UX Revamp)
             VStack(spacing: 1) {
                 Text(dayNumber)
-                    .font(.system(size: 19, weight: .bold))
+                    .scaledFont(size: 19, weight: .bold, relativeTo: .title3)
                     .foregroundColor(.aviationGold)
                 Text(weekday)
-                    .font(.system(size: 9, weight: .semibold)).tracking(0.5)
+                    .scaledFont(size: 9, weight: .semibold, relativeTo: .caption2).tracking(0.5)
                     .foregroundColor(.dimText)
             }
             .frame(width: 32)
@@ -1290,14 +1291,14 @@ struct FlightRowView: View {
                 // Custom name (if set) above the route, small/grey like the stats line. (round 7)
                 if !flight.name.isEmpty {
                     Text(flight.name)
-                        .font(.system(size: 11))
+                        .scaledFont(size: 11, relativeTo: .caption2)
                         .foregroundColor(.dimText)
                         .lineLimit(1)
                 }
                 routeView
                 // Secondary: aircraft · landings · distance (time is featured on the right).
                 Text(statsLine)
-                    .font(.system(size: 11))
+                    .scaledFont(size: 11, relativeTo: .caption2)
                     .foregroundColor(.dimText)
                     .lineLimit(1)
             }
@@ -1310,12 +1311,12 @@ struct FlightRowView: View {
                 HStack(spacing: 4) {
                     if flight.isFavorite {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 10))
+                            .scaledFont(size: 10, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
                             .accessibilityLabel("Favorite")
                     }
                     Text(flight.formattedDuration)
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.aviationGreen)
                         .lineLimit(1)
                         .fixedSize()
@@ -1352,13 +1353,13 @@ struct FlightRowView: View {
         if flight.touchAndGoCount > 0 {
             HStack(spacing: 7) {
                 Text(primaryIdent)
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3)
                     .foregroundColor(.primaryText)
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 13))
+                    .scaledFont(size: 13, relativeTo: .caption)
                     .foregroundColor(.altimeterBlue)
                 Text("circuits")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
                     .foregroundColor(.orange)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -1366,13 +1367,13 @@ struct FlightRowView: View {
             }
         } else if let dep = flight.departureAirportIdent, let arr = flight.arrivalAirportIdent {
             HStack(spacing: 6) {
-                Text(dep).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
-                Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)).foregroundColor(.dimText)
-                Text(arr).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.primaryText)
+                Text(dep).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
+                Image(systemName: "arrow.right").scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.dimText)
+                Text(arr).scaledFont(size: 18, weight: .bold, design: .monospaced, relativeTo: .title3).foregroundColor(.primaryText)
             }
         } else {
             Text(flight.displayName)
-                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .scaledFont(size: 17, weight: .bold, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.primaryText)
                 .lineLimit(1)
         }
@@ -1408,7 +1409,7 @@ struct FlightRowView: View {
 // MARK: - Flight Detail View
 
 struct FlightDetailView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -1560,7 +1561,7 @@ struct FlightDetailView: View {
                     .overlay(
                         VStack(spacing: 12) {
                             Image(systemName: "map")
-                                .font(.system(size: 40))
+                                .scaledFont(size: 40, relativeTo: .largeTitle)
                                 .foregroundColor(.dimText)
                             Text(L10n.FlightDetail.noGPSData)
                                 .font(.bodyText)
@@ -1588,7 +1589,7 @@ struct FlightDetailView: View {
                     .overlay(
                         VStack(spacing: 12) {
                             Image(systemName: "chart.xyaxis.line")
-                                .font(.system(size: 40))
+                                .scaledFont(size: 40, relativeTo: .largeTitle)
                                 .foregroundColor(.dimText)
                             Text(L10n.FlightDetail.noAltitudeData)
                                 .font(.bodyText)
@@ -1656,12 +1657,12 @@ struct FlightDetailView: View {
     private var flightHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(routeTitle)
-                .font(.system(size: 26, weight: .bold, design: .monospaced))
+                .scaledFont(size: 26, weight: .bold, design: .monospaced, relativeTo: .title2)
                 .foregroundColor(.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(subtitleLine)
-                .font(.system(size: 13))
+                .scaledFont(size: 13, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .lineLimit(2)
             HStack(spacing: 8) {
@@ -1676,9 +1677,9 @@ struct FlightDetailView: View {
 
     private func statChip(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(.dimText)
+            Text(label).scaledFont(size: 9, weight: .semibold, relativeTo: .caption2).foregroundColor(.dimText)
             Text(value)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .scaledFont(size: 14, weight: .bold, design: .monospaced, relativeTo: .subheadline)
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
@@ -1696,7 +1697,7 @@ struct FlightDetailView: View {
     /// Chronological event timeline card. (round 8)
     private var timelineCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("TIMELINE").font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
+            Text("TIMELINE").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
             VStack(spacing: 12) {
                 if let start = flight.startTime {
                     TimelineRow(label: L10n.FlightDetail.sessionStart, time: timeString(from: start), icon: "play.fill", color: .dimText)
@@ -1731,7 +1732,7 @@ struct FlightDetailView: View {
     private var engineHoursCard: some View {
         if flight.engineHourStart != nil || flight.engineHourEnd != nil {
             VStack(alignment: .leading, spacing: 10) {
-                Text(L10n.FlightDetail.engineHours.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
+                Text(L10n.FlightDetail.engineHours.uppercased()).scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
                 VStack(spacing: 12) {
                     if let start = flight.engineHourStart {
                         ToggleableHoursRow(label: L10n.FlightDetail.hoursBefore, hours: start, inputFormat: flight.engineHourStartInputFormat, icon: "gauge.with.dots.needle.0percent", color: .aviationGold)
@@ -1744,7 +1745,7 @@ struct FlightDetailView: View {
                             Image(systemName: "clock.badge.checkmark").foregroundColor(.aviationGreen).frame(width: 24)
                             Text(L10n.FlightDetail.hoursFlown).font(.bodyText).foregroundColor(.secondaryText)
                             Spacer()
-                            Text(formatted).font(.system(size: 16, weight: .medium, design: .monospaced)).foregroundColor(.aviationGreen)
+                            Text(formatted).scaledFont(size: 16, weight: .medium, design: .monospaced, relativeTo: .body).foregroundColor(.aviationGreen)
                         }
                     }
                 }
@@ -1755,7 +1756,7 @@ struct FlightDetailView: View {
 
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(L10n.FlightDetail.flightName).font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundColor(.secondaryText)
+            Text(L10n.FlightDetail.flightName).scaledFont(size: 11, weight: .semibold, relativeTo: .caption2).tracking(0.5).foregroundColor(.secondaryText)
             TextField(L10n.FlightDetail.namePlaceholder, text: $flightName)
                 .font(.bodyText)
                 .foregroundColor(.primaryText)
@@ -1779,7 +1780,7 @@ struct FlightDetailView: View {
                     Image(systemName: "photo")
                     Text("Share card").lineLimit(1).minimumScaleFactor(0.7)
                 }
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
@@ -1788,7 +1789,7 @@ struct FlightDetailView: View {
             .buttonStyle(.plain)
             Button { showDeleteAlert = true } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                     .foregroundColor(.aviationRed)
                     .padding(.vertical, 11)
                     .padding(.horizontal, 14)
@@ -1799,7 +1800,7 @@ struct FlightDetailView: View {
         .sheet(isPresented: $showFlightPlan) {
             if let savedFlightPlan = flight.flightPlan {
                 FlightPlanEditorView(flightPlan: savedFlightPlan, isViewingFromFlightLog: true)
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
                     .environmentObject(openAIPDataService)
@@ -1813,7 +1814,7 @@ struct FlightDetailView: View {
                 Image(systemName: icon)
                 Text(title).lineLimit(1).minimumScaleFactor(0.7)
             }
-            .font(.system(size: 14, weight: .medium))
+            .scaledFont(size: 14, weight: .medium, relativeTo: .subheadline)
             .foregroundColor(tint)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
@@ -1837,7 +1838,7 @@ struct FlightDetailView: View {
             if !rows.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("PLAN vs ACTUAL")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption)
                         .tracking(0.6)
                         .foregroundColor(.secondaryText)
 
@@ -1847,22 +1848,22 @@ struct FlightDetailView: View {
                         Text("ATO").frame(width: 60, alignment: .trailing)
                         Text("Δ").frame(width: 56, alignment: .trailing)
                     }
-                    .font(.system(size: 10, weight: .semibold))
+                    .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
                     .foregroundColor(.dimText)
 
                     ForEach(rows) { waypoint in
                         HStack {
                             Text(waypoint.name)
-                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .scaledFont(size: 13, weight: .medium, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.primaryText)
                                 .lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text(waypoint.estimatedTimeOver.map(planTimeString) ?? "—")
-                                .font(.system(size: 12, design: .monospaced))
+                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.secondaryText)
                                 .frame(width: 60, alignment: .trailing)
                             Text(waypoint.actualTimeOver.map(planTimeString) ?? "—")
-                                .font(.system(size: 12, design: .monospaced))
+                                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                                 .foregroundColor(.primaryText)
                                 .frame(width: 60, alignment: .trailing)
                             planDeltaView(eto: waypoint.estimatedTimeOver, ato: waypoint.actualTimeOver)
@@ -1887,11 +1888,11 @@ struct FlightDetailView: View {
             // Within a minute = on time (green); late = orange; early = blue.
             let color: Color = abs(delta) < 60 ? .aviationGreen : (delta > 0 ? .orange : .altimeterBlue)
             Text("\(sign)\(minutes):\(String(format: "%02d", seconds))")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .scaledFont(size: 12, weight: .bold, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(color)
         } else {
             Text("—")
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.dimText)
         }
     }
@@ -2018,7 +2019,7 @@ struct ToggleableHoursRow: View {
                 Spacer()
 
                 Text(displayValue)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .scaledFont(size: 16, weight: .medium, design: .monospaced, relativeTo: .body)
                     .foregroundColor(.primaryText)
             }
         }
@@ -2059,7 +2060,7 @@ struct TimelineRow: View {
             Spacer()
             
             Text(time)
-                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                .scaledFont(size: 16, weight: .medium, design: .monospaced, relativeTo: .body)
                 .foregroundColor(.primaryText)
         }
     }
@@ -2390,7 +2391,7 @@ struct AltitudeChartView: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 2]))
                         .annotation(position: .top, alignment: .center) {
                             Image(systemName: event.icon)
-                                .font(.system(size: 12, weight: .medium))
+                                .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
                                 .foregroundColor(event.color)
                                 .padding(4)
                                 .background(
@@ -2415,7 +2416,7 @@ struct AltitudeChartView: View {
                     .symbolSize(100)
                     .annotation(position: .top, spacing: 8) {
                         Text("\(Int(value)) \(mode.unit)")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .scaledFont(size: 11, weight: .bold, design: .monospaced, relativeTo: .caption2)
                             .foregroundColor(.aviationGold)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
@@ -2433,6 +2434,7 @@ struct AltitudeChartView: View {
                         .foregroundStyle(Color.dimText.opacity(0.3))
                     AxisValueLabel()
                         .foregroundStyle(Color.secondaryText)
+                        // AxisMark is not a View — .scaledFont doesn't apply; fixed size stays. (UX-24)
                         .font(.system(size: 10))
                 }
             }
@@ -2443,7 +2445,7 @@ struct AltitudeChartView: View {
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
                             Text("\(Int(v)) \(mode.unit)")
-                                .font(.system(size: 10))
+                                .scaledFont(size: 10, relativeTo: .caption2)
                                 .foregroundStyle(Color.secondaryText)
                         }
                     }
@@ -2452,7 +2454,7 @@ struct AltitudeChartView: View {
             .chartYScale(domain: displayRange)
             .chartYAxisLabel(position: .leading, alignment: .center) {
                 Text(mode == .altitude ? L10n.FlightDetail.altitudeFtMSL : "Speed (kt)")
-                    .font(.system(size: 10, weight: .medium))
+                    .scaledFont(size: 10, weight: .medium, relativeTo: .caption2)
                     .foregroundStyle(Color.secondaryText)
             }
             .chartOverlay { proxy in
@@ -2814,7 +2816,7 @@ enum ShareCardMapLayer: String, Codable, CaseIterable, Identifiable {
 /// Shows a live preview with color scheme dots and map layer picker.
 struct ShareCardCustomizationView: View {
     let flight: Flight
-    @ObservedObject var appState: AppState
+    var appState: AppState
 
     @Environment(\.dismiss) private var dismiss
 
@@ -2940,7 +2942,7 @@ struct ShareCardCustomizationView: View {
     private var mapLayerPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("MAP STYLE")
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .tracking(1.5)
 
@@ -2956,10 +2958,10 @@ struct ShareCardCustomizationView: View {
                         }) {
                             HStack(spacing: 6) {
                                 Image(systemName: layer.icon)
-                                    .font(.system(size: 13, weight: .medium))
+                                    .scaledFont(size: 13, weight: .medium, relativeTo: .caption)
 
                                 Text(layer.displayName)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
@@ -2980,7 +2982,7 @@ struct ShareCardCustomizationView: View {
     private var colorSchemePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("COLOR THEME")
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .tracking(1.5)
 
@@ -3015,7 +3017,7 @@ struct ShareCardCustomizationView: View {
                             .frame(width: 44, height: 44)
 
                             Text(scheme.displayName)
-                                .font(.system(size: 11, weight: .medium))
+                                .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
                                 .foregroundColor(selectedScheme == scheme ? .aviationGold : .secondaryText)
                                 .lineLimit(1)
                                 .fixedSize()
@@ -3031,7 +3033,7 @@ struct ShareCardCustomizationView: View {
     private var terrainToggle: some View {
         VStack(alignment: .center, spacing: 8) {
             Text("TERRAIN")
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .tracking(1.5)
 
@@ -3053,7 +3055,7 @@ struct ShareCardCustomizationView: View {
                                             .tint(.white)
                                     } else {
                                         Image(systemName: "mountain.2.fill")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
                                             .foregroundColor(showTerrain ? .white : .secondaryText)
                                     }
                                 }
@@ -3066,7 +3068,7 @@ struct ShareCardCustomizationView: View {
                     .frame(width: 44, height: 44)
 
                     Text(isLoadingTerrain ? "..." : (showTerrain ? "On" : "Off"))
-                        .font(.system(size: 11, weight: .medium))
+                        .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
                         .foregroundColor(showTerrain ? Color(red: 0.65, green: 0.48, blue: 0.28) : .secondaryText)
                 }
             }
@@ -3088,7 +3090,7 @@ struct ShareCardCustomizationView: View {
                     Image(systemName: "square.and.arrow.up")
                 }
                 Text("Share")
-                    .font(.system(size: 18, weight: .bold))
+                    .scaledFont(size: 18, weight: .bold, relativeTo: .title3)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
@@ -3453,7 +3455,7 @@ struct ShareCardCustomizationView: View {
 /// (the single-flight sheet). (v4 UI/UX Revamp share-card customization)
 struct StatsShareCardCustomizationView: View {
     let data: StatsShareCardData
-    @ObservedObject var appState: AppState
+    var appState: AppState
 
     @Environment(\.dismiss) private var dismiss
 
@@ -3559,7 +3561,7 @@ struct StatsShareCardCustomizationView: View {
                             }
                             .frame(width: 44, height: 44)
                             Text(scheme.displayName)
-                                .font(.system(size: 11, weight: .medium))
+                                .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
                                 .foregroundColor(options.theme == scheme ? .aviationGold : .secondaryText)
                                 .fixedSize()
                         }
@@ -3589,7 +3591,7 @@ struct StatsShareCardCustomizationView: View {
                             }
                             .frame(width: 44, height: 44)
                             Text(accent.displayName)
-                                .font(.system(size: 11, weight: .medium))
+                                .scaledFont(size: 11, weight: .medium, relativeTo: .caption2)
                                 .foregroundColor(options.accent == accent ? .primaryText : .secondaryText)
                                 .fixedSize()
                         }
@@ -3610,8 +3612,8 @@ struct StatsShareCardCustomizationView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { options.layout = layout }
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: layout.icon).font(.system(size: 13, weight: .medium))
-                            Text(layout.displayName).font(.system(size: 13, weight: .semibold))
+                            Image(systemName: layout.icon).scaledFont(size: 13, weight: .medium, relativeTo: .caption)
+                            Text(layout.displayName).scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -3637,7 +3639,7 @@ struct StatsShareCardCustomizationView: View {
 
     private func toggleRow(_ label: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
-            Text(label).font(.system(size: 15)).foregroundColor(.primaryText)
+            Text(label).scaledFont(size: 15, relativeTo: .subheadline).foregroundColor(.primaryText)
         }
         .tint(.aviationGold)
         .padding(.horizontal, 14)
@@ -3647,7 +3649,7 @@ struct StatsShareCardCustomizationView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .bold))
+            .scaledFont(size: 12, weight: .bold, relativeTo: .caption)
             .foregroundColor(.secondaryText)
             .tracking(1.5)
     }
@@ -3661,7 +3663,7 @@ struct StatsShareCardCustomizationView: View {
             HStack(spacing: 8) {
                 if isGenerating { ProgressView().tint(.black) }
                 else { Image(systemName: "square.and.arrow.up") }
-                Text("Share").font(.system(size: 18, weight: .bold))
+                Text("Share").scaledFont(size: 18, weight: .bold, relativeTo: .title3)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
@@ -3697,6 +3699,7 @@ struct StatsShareCardCustomizationView: View {
 /// A portrait card view designed for sharing flight summaries on mobile
 /// Renders at 1080x1920 (9:16 aspect ratio, standard mobile/stories format)
 struct FlightShareCard: View {
+    // Fixed fonts by design: rendered to a fixed-size share image, not subject to Dynamic Type. (UX-24)
     let flight: Flight
     let mapImage: UIImage?
     let useUTC: Bool
@@ -4252,6 +4255,7 @@ struct FlightShareCard: View {
 
 /// A minimal altitude sparkline chart for the share card
 struct ShareCardAltitudeChart: View {
+    // Fixed fonts by design: rendered to a fixed-size share image, not subject to Dynamic Type. (UX-24)
     let gpsTrack: [GPSPoint]
     var sparklineColor: Color = .altimeterBlue
     var terrainData: [(time: Date, elevationFeet: Double)] = []
@@ -4457,5 +4461,5 @@ struct ShareCardAltitudeChart: View {
 
 #Preview {
     FlightLogView()
-        .environmentObject(AppState())
+        .environment(AppState())
 }

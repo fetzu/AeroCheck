@@ -7,7 +7,7 @@ import SwiftUI
 /// is inherently asymmetric, so this removes the footgun where two devices could pick the same role
 /// and never discover each other. (v4.1 — pairing UX simplification)
 struct CompanionSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
 
     @State private var enableCompanionMode: Bool = false

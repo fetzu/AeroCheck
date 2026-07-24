@@ -64,6 +64,7 @@ struct AeroCheckProvider: TimelineProvider {
 struct SmallWidgetView: View {
     let aircraft: [WidgetAircraft]
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         VStack(spacing: 6) {
@@ -83,12 +84,14 @@ struct SmallWidgetView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Start-a-flight CTA at the bottom.
+            // Start-a-flight CTA at the bottom. Accentable + a plain-color fallback so it stays
+            // legible once iOS 18 tinted/StandBy rendering drops the custom gold fill.
             HStack(spacing: 4) {
                 Image(systemName: "airplane.departure").font(.system(size: 11, weight: .semibold))
                 Text("Start a flight").font(.system(size: 12, weight: .semibold))
             }
-            .foregroundStyle(Color.aviationGold)
+            .widgetAccentable()
+            .foregroundStyle(renderingMode == .fullColor ? Color.aviationGold : .primary)
         }
         .padding()
         .containerBackground(for: .widget) { widgetContainerBackground(colorScheme) }
@@ -98,15 +101,18 @@ struct SmallWidgetView: View {
 struct MediumWidgetView: View {
     let aircraft: [WidgetAircraft]
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         VStack(spacing: 10) {
-            // Small brand header.
+            // Small brand header. Accentable + a plain-color fallback so the mark still reads once
+            // iOS 18 tinted Home Screen / StandBy rendering drops the custom gold fill.
             HStack(spacing: 5) {
                 Image(systemName: "airplane").font(.system(size: 13, weight: .semibold))
                 Text("AéroCheck").font(.system(size: 13, weight: .bold))
             }
-            .foregroundStyle(Color.aviationGold)
+            .widgetAccentable()
+            .foregroundStyle(renderingMode == .fullColor ? Color.aviationGold : .primary)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 14) {
@@ -127,16 +133,23 @@ struct MediumWidgetView: View {
                 // History — Flight Log tile fills this section.
                 VStack(alignment: .leading, spacing: 6) {
                     Text("HISTORY").modifier(WidgetSectionLabel())
+                    // `Link` (not `Button(intent:)`) is the sanctioned way to launch the app from a
+                    // widget — Button(intent:) only performs in-place actions and would not open
+                    // AeroCheck's Flight Log screen.
                     Link(destination: URL(string: "aerocheck://flight-log")!) {
                         VStack(spacing: 4) {
                             Image(systemName: "book.closed.fill").font(.system(size: 22))
+                                .widgetAccentable()
                             Text("Flight Log").font(.system(size: 11, weight: .medium))
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(colorScheme == .dark ? Color.aviationGreen.opacity(0.2) : Color.aviationGreen.opacity(0.15))
-                        .foregroundStyle(Color.aviationGreen)
+                        .background(renderingMode == .fullColor ? (colorScheme == .dark ? Color.aviationGreen.opacity(0.2) : Color.aviationGreen.opacity(0.15)) : Color.clear)
+                        .foregroundStyle(renderingMode == .fullColor ? Color.aviationGreen : .primary)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.aviationGreen.opacity(0.3), lineWidth: 1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(renderingMode == .fullColor ? Color.aviationGreen.opacity(0.3) : Color.primary.opacity(0.2), lineWidth: 1)
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -179,26 +192,101 @@ struct AircraftButton: View {
     let accentColor: Color
 
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
+
+    private var isFullColor: Bool { renderingMode == .fullColor }
 
     var body: some View {
+        // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app from a
+        // widget — Button(intent:) only performs in-place actions and would not open AeroCheck.
         Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(aircraft.key)")!) {
             VStack(spacing: 4) {
                 Image(systemName: "airplane")
                     .font(.system(size: 22))
+                    .widgetAccentable()
                 Text(aircraft.registration)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .widgetAccentable()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(colorScheme == .dark ? accentColor.opacity(0.2) : accentColor.opacity(0.12))
-            .foregroundStyle(accentColor)
+            // In accented (iOS 18 tinted Home Screen) / vibrant (StandBy) rendering, drop the
+            // per-aircraft accent fill and border and let the system supply its own tint — a
+            // saturated custom fill under a system-tinted glyph reads as unreadable color-on-color.
+            .background(isFullColor ? (colorScheme == .dark ? accentColor.opacity(0.2) : accentColor.opacity(0.12)) : Color.clear)
+            .foregroundStyle(isFullColor ? accentColor : .primary)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(accentColor.opacity(0.3), lineWidth: 1)
+                    .strokeBorder(isFullColor ? accentColor.opacity(0.3) : Color.primary.opacity(0.2), lineWidth: 1)
             )
         }
+    }
+}
+
+// MARK: - Lock Screen / StandBy Accessory Views
+
+/// Lock Screen circular accessory: a single app-glyph quick-launch button. There's no room to pick
+/// an aircraft in this tiny face, so it launches the same "default" aircraft the systemSmall /
+/// systemMedium tiles put first — i.e. the front of the owned-aircraft list published by the app.
+struct CircularWidgetView: View {
+    let aircraft: [WidgetAircraft]
+
+    /// The default owned aircraft to quick-launch (falls back to the free bundled aircraft's key,
+    /// matching `WidgetSharedData.ownedAircraft()`'s own fallback, if the list is ever empty).
+    private var defaultAircraftKey: String { aircraft.first?.key ?? "wt9-dynamic" }
+
+    var body: some View {
+        // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app from a
+        // widget — Button(intent:) only performs in-place actions and would not open AeroCheck.
+        Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(defaultAircraftKey)")!) {
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "airplane")
+                    .font(.system(size: 22, weight: .semibold))
+                    .widgetAccentable()
+            }
+        }
+        // Required since iOS 17 even for accessory families; the Lock Screen/StandBy chrome comes
+        // from the system regardless, so this is just satisfying the unified container-background API.
+        .containerBackground(for: .widget) { Color.clear }
+    }
+}
+
+/// Lock Screen rectangular accessory: up to 2 owned-aircraft quick-start rows, using the same
+/// deep-link URLs as the systemSmall/systemMedium `AircraftButton` tiles.
+struct RectangularWidgetView: View {
+    let aircraft: [WidgetAircraft]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: "airplane").font(.system(size: 11, weight: .semibold))
+                Text("AéroCheck").font(.system(size: 11, weight: .semibold))
+            }
+            .widgetAccentable()
+
+            ForEach(Array(aircraft.prefix(2)), id: \.key) { item in
+                // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app
+                // from a widget — Button(intent:) only performs in-place actions and would not
+                // open AeroCheck.
+                Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(item.key)")!) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "airplane.departure")
+                            .font(.system(size: 11, weight: .semibold))
+                            .widgetAccentable()
+                        Text(item.registration)
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+            }
+        }
+        // Required since iOS 17 even for accessory families; the Lock Screen/StandBy chrome comes
+        // from the system regardless, so this is just satisfying the unified container-background API.
+        .containerBackground(for: .widget) { Color.clear }
     }
 }
 
@@ -213,7 +301,7 @@ struct AeroCheckWidget: Widget {
         }
         .configurationDisplayName("AéroCheck")
         .description("Quickly start a flight or view your flight log.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -228,6 +316,10 @@ struct AeroCheckWidgetEntryView: View {
             SmallWidgetView(aircraft: entry.aircraft)
         case .systemMedium:
             MediumWidgetView(aircraft: entry.aircraft)
+        case .accessoryCircular:
+            CircularWidgetView(aircraft: entry.aircraft)
+        case .accessoryRectangular:
+            RectangularWidgetView(aircraft: entry.aircraft)
         default:
             SmallWidgetView(aircraft: entry.aircraft)
         }
@@ -240,6 +332,9 @@ struct AeroCheckWidgetEntryView: View {
 struct AeroCheckWidgetBundle: WidgetBundle {
     var body: some Widget {
         AeroCheckWidget()
+        #if canImport(ActivityKit)
+        FlightLiveActivity()
+        #endif
     }
 }
 
@@ -259,5 +354,22 @@ struct AeroCheckWidgetBundle: WidgetBundle {
 } timeline: {
     AeroCheckEntry(date: .now, aircraft: [
         WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA")
+    ])
+}
+
+#Preview("Lock Screen - Circular", as: .accessoryCircular) {
+    AeroCheckWidget()
+} timeline: {
+    AeroCheckEntry(date: .now, aircraft: [
+        WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA")
+    ])
+}
+
+#Preview("Lock Screen - Rectangular", as: .accessoryRectangular) {
+    AeroCheckWidget()
+} timeline: {
+    AeroCheckEntry(date: .now, aircraft: [
+        WidgetAircraft(key: "wt9-dynamic", registration: "F-HVXA"),
+        WidgetAircraft(key: "pa28-181", registration: "HB-PFA")
     ])
 }

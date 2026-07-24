@@ -177,7 +177,7 @@ extension MapOrientationMode: Equatable {}
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
     @EnvironmentObject var locationManager: LocationManager
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
@@ -185,6 +185,11 @@ struct NavigationMapView: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    // Observed so the count-based recompute triggers actually fire when each layer's async
+    // first-load lands (these services are singletons, not environment objects). (v4.2 fix)
+    @ObservedObject private var openAIPNavaidDataService = OpenAIPNavaidDataService.shared
+    @ObservedObject private var openAIPObstacleDataService = OpenAIPObstacleDataService.shared
+    @ObservedObject private var openAIPReportingPointDataService = OpenAIPReportingPointDataService.shared
 
     /// True when the downloaded OpenAIP airspace data is aging/stale, or the developer "simulate stale
     /// data" toggle is on — drives the on-map staleness cue (v4.1.0 Data Freshness), so stale airspace
@@ -492,6 +497,16 @@ struct NavigationMapView: View {
             if available { recomputePhaseFrequencies() }
         }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in recomputeMapSpatialContent(force: true) }
+        // First-open race (v4.2 fix): `isDataAvailable` is restored from cache METADATA at app
+        // launch — it is already true before this view first appears, so the onChange above never
+        // fires for the initial async feature decode. The forced onAppear recompute runs against a
+        // still-empty array, and the unforced region recompute early-returns (region unchanged) —
+        // leaving the enabled overlay blank until a real pan/zoom. Recomputing when the loaded
+        // COUNTS land closes the race for all four layers.
+        .onChange(of: openAIPDataService.airspaceCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPNavaidDataService.navaidCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPObstacleDataService.obstacleCount) { _, _ in recomputeMapSpatialContent(force: true) }
+        .onChange(of: openAIPReportingPointDataService.reportingPointCount) { _, _ in recomputeMapSpatialContent(force: true) }
         .onChange(of: locationManager.currentLocation) { _, newLocation in
             // Increment counter to force map view updates (ensures aircraft annotation moves)
             locationUpdateCounter += 1
@@ -800,7 +815,7 @@ struct NavigationMapView: View {
                 }
                 .fullScreenCover(isPresented: $showFlightPlanning) {
                     FlightPlanningView()
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(aircraftDataService)
@@ -910,7 +925,7 @@ struct NavigationMapView: View {
             }
             .sheet(isPresented: $showOverlaysSheet) {
                 OverlaysSheet()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(openAIPDataService)
                     .environmentObject(dataStatusManager)
             }
@@ -932,7 +947,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
     }
@@ -962,7 +977,7 @@ struct NavigationMapView: View {
                     }
                     .sheet(isPresented: $showCacheInfoModal) {
                         CacheInfoSheet(isOfflineMode: isOfflineMode)
-                            .environmentObject(appState)
+                            .environment(appState)
                             .environmentObject(offlineMapManager)
                     }
                 }
@@ -1416,7 +1431,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.Nav.layers)
             .sheet(isPresented: $showOverlaysSheet) {
                 OverlaysSheet()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(openAIPDataService)
                     .environmentObject(dataStatusManager)
             }
@@ -1481,7 +1496,7 @@ struct NavigationMapView: View {
             .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
     }
@@ -1513,7 +1528,7 @@ struct NavigationMapView: View {
                         }
                         .sheet(isPresented: $showCacheInfoModal) {
                             CacheInfoSheet(isOfflineMode: isOfflineMode)
-                                .environmentObject(appState)
+                                .environment(appState)
                                 .environmentObject(offlineMapManager)
                         }
                     }
@@ -1569,7 +1584,7 @@ struct NavigationMapView: View {
             // ViewThatFits candidates). (v4 UI/UX Revamp)
             .fullScreenCover(isPresented: $showFlightPlanning) {
                 FlightPlanningView()
-                    .environmentObject(appState)
+                    .environment(appState)
                     .environmentObject(flightPlanManager)
                     .environmentObject(airportDataService)
                     .environmentObject(aircraftDataService)
@@ -2804,6 +2819,28 @@ private func cachedWaypointMarker(number: Int, state: String, iconName: String, 
     return finalImage
 }
 
+/// Re-lifts every non-tile overlay above freshly-(re)added tile overlays. Base/OpenAIP chart tiles
+/// are added at the same `.aboveLabels` level as the polygon/polyline overlays, so MapKit's
+/// insertion order buries the existing airspace/track/route overlays under a newly added tile —
+/// user-visible as "airspace disappears on layer switch until toggled off/on". The per-overlay
+/// diff-guards can't catch this (the buried overlays are still on the map), so call this after any
+/// tile (re-)add. Shared by BOTH map representables. (v4.2 layer-switch fix)
+private func reliftNonTileOverlays(on mapView: MKMapView) {
+    let buried = mapView.overlays.filter { !($0 is MKTileOverlay) }
+    guard !buried.isEmpty else { return }
+    mapView.removeOverlays(buried)
+    for overlay in buried { mapView.addOverlay(overlay, level: .aboveLabels) }
+}
+
+/// Inserts a tile overlay at the BOTTOM of the `.aboveLabels` stack (after any existing tiles,
+/// before the first polygon/polyline), so a late tile (re-)add can never bury the airspace/track/
+/// route overlays — regardless of which code path adds it or when. This is the structural fix;
+/// `reliftNonTileOverlays` stays as repair for any pre-existing inversion. (v4.2 layer-switch fix)
+private func insertTileBelowShapes(_ tile: MKTileOverlay, on mapView: MKMapView) {
+    let tileCount = mapView.overlays(in: .aboveLabels).filter { $0 is MKTileOverlay }.count
+    mapView.insertOverlay(tile, at: tileCount, level: .aboveLabels)
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -2843,7 +2880,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         // Add OpenAIP raster tile overlay if enabled (separate from the airspace vector — v4.1.0)
         if showOpenAIPTiles {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         }
 
         // Set initial camera from shared state (preserves heading)
@@ -3132,7 +3169,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
         if showOpenAIPTiles && !hasOverlay {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
+            // The tile just landed above any existing airspace/track/route overlays — re-lift them. (v4.2 layer-switch fix)
+            reliftNonTileOverlays(on: mapView)
         } else if !showOpenAIPTiles && hasOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
@@ -3529,7 +3568,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 
 struct LayerPickerSheet: View {
     @Binding var selectedLayer: MapLayerType
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
@@ -3649,13 +3688,15 @@ struct LayerPickerSheet: View {
 /// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
 /// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
 struct OverlaysSheet: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
     @ObservedObject private var obstacleService = OpenAIPObstacleDataService.shared
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.dismiss) var dismiss
+    /// Presents Settings at Navigation & Maps for the no-data download flow. (v4.2 UX fix)
+    @State private var showDataSettings = false
 
     private var anyMarkerOn: Bool {
         appState.settings.showAirportsOnMap || appState.settings.showNavaidsOnMap ||
@@ -3686,6 +3727,35 @@ struct OverlaysSheet: View {
                     groupCard(L10n.Nav.airspaceCharts) {
                         toggleRow(icon: "shield", title: L10n.Nav.airspace, isOn: appState.settings.showOpenAIPOverlay) {
                             appState.settings.showOpenAIPOverlay.toggle(); appState.saveSettings()
+                        }
+                        // The toggle can be ON with no data downloaded — the layer then renders
+                        // nothing. Say so where the user is looking, and route straight to the
+                        // download flow (country selection lives in Settings → Navigation & Maps;
+                        // updateAeroData can't help here, it only refreshes existing countries). (v4.2 UX fix)
+                        if appState.settings.showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
+                            Divider().padding(.leading, 56)
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.footnote)
+                                        .foregroundColor(.orange)
+                                        .accessibilityHidden(true)
+                                    Text(L10n.Nav.airspaceNoData)
+                                        .font(.caption)
+                                        .foregroundColor(.secondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Button {
+                                    showDataSettings = true
+                                } label: {
+                                    Text(L10n.Nav.downloadAirspaceData)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundColor(.aviationGold)
+                                }
+                                .padding(.leading, 24)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
                         }
                         Divider().padding(.leading, 56)
                         toggleRow(icon: "square.grid.3x3", title: L10n.Nav.mapTiles, isOn: appState.settings.showOpenAIPTiles) {
@@ -3744,6 +3814,11 @@ struct OverlaysSheet: View {
                     Button(L10n.Button.done) { dismiss() }
                 }
             }
+        }
+        .sheet(isPresented: $showDataSettings) {
+            // Settings opened at Navigation & Maps (same deep-link mechanism as Home's data chip),
+            // where country selection + the download flow live. (v4.2 UX fix)
+            SettingsView(initialSection: .navigation)
         }
         .presentationDetents([.height(520)])
         .preferredColorScheme(.dark)
@@ -3990,7 +4065,7 @@ struct SwissMapView: UIViewRepresentable {
                         hasSegelflugCache: self.hasSegelflugCache
                     )
                     overlay.canReplaceMapContent = true
-                    mapView.addOverlay(overlay, level: .aboveLabels)
+                    insertTileBelowShapes(overlay, on: mapView)
                 } else if let layerId = self.layerType.swisstopoLayerIdentifier {
                     let overlay = SwisstopoTileOverlay(
                         layerIdentifier: layerId,
@@ -3999,7 +4074,7 @@ struct SwissMapView: UIViewRepresentable {
                         maximumZ: self.layerType.maximumZoom
                     )
                     overlay.canReplaceMapContent = true
-                    mapView.addOverlay(overlay, level: .aboveLabels)
+                    insertTileBelowShapes(overlay, on: mapView)
                 }
 
                 // Re-add OpenAIP tile overlay if it was enabled (removed above with all MKTileOverlays)
@@ -4008,13 +4083,15 @@ struct SwissMapView: UIViewRepresentable {
                         cacheManager: self.openAIPCacheManager,
                         isStrictOfflineMode: self.isStrictOfflineMode
                     )
-                    mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+                    insertTileBelowShapes(openAIPOverlay, on: mapView)
                 }
 
                 // The base tile was just re-added on TOP (same .aboveLabels level), which buries the
                 // flight-plan route line. Invalidate the route diff-guard so the next updateUIView
                 // redraws the route above the tile. (v4 UI/UX Revamp fix — route line was invisible on Swiss layers)
                 context.coordinator.lastFlightPlanSignature = nil
+                // And re-lift any other overlays (airspace etc.) the fresh tile just buried. (v4.2 layer-switch fix)
+                reliftNonTileOverlays(on: mapView)
 
                 // Force camera update like updateUIView does after overlay change (preserves heading)
                 let adjustedCamera = MKMapCamera(
@@ -4071,15 +4148,23 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update OpenAIP tile overlay
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+        var tilesTouched = overlayChanged
         if showOpenAIPTiles && !hasOpenAIPOverlay {
             let openAIPOverlay = OpenAIPTileOverlay(
                 cacheManager: openAIPCacheManager,
                 isStrictOfflineMode: isStrictOfflineMode
             )
-            mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+            insertTileBelowShapes(openAIPOverlay, on: mapView)
+            tilesTouched = true
         } else if !showOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
+        }
+
+        // A layer switch / tile toggle just added fresh tiles above the existing airspace/track/route
+        // overlays — re-lift them or they stay buried. (v4.2 layer-switch fix)
+        if tilesTouched {
+            reliftNonTileOverlays(on: mapView)
         }
 
         // Update airspace polygon overlays
@@ -4309,7 +4394,7 @@ struct SwissMapView: UIViewRepresentable {
                 hasSegelflugCache: hasSegelflugCache
             )
             overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         } else if let layerId = layerType.swisstopoLayerIdentifier {
             let overlay = SwisstopoTileOverlay(
                 layerIdentifier: layerId,
@@ -4318,7 +4403,7 @@ struct SwissMapView: UIViewRepresentable {
                 maximumZ: layerType.maximumZoom
             )
             overlay.canReplaceMapContent = true
-            mapView.addOverlay(overlay, level: .aboveLabels)
+            insertTileBelowShapes(overlay, on: mapView)
         }
         context.coordinator.currentLayerType = layerType
         context.coordinator.currentForceICAO = forceICAOLayer
@@ -4454,7 +4539,7 @@ struct SwissMapView: UIViewRepresentable {
                     hasSegelflugCache: segelflugCache
                 )
                 overlay.canReplaceMapContent = true
-                mapView.addOverlay(overlay, level: .aboveLabels)
+                insertTileBelowShapes(overlay, on: mapView)
             } else if let layerId = layerType.swisstopoLayerIdentifier {
                 let overlay = SwisstopoTileOverlay(
                     layerIdentifier: layerId,
@@ -4463,7 +4548,7 @@ struct SwissMapView: UIViewRepresentable {
                     maximumZ: layerType.maximumZoom
                 )
                 overlay.canReplaceMapContent = true
-                mapView.addOverlay(overlay, level: .aboveLabels)
+                insertTileBelowShapes(overlay, on: mapView)
             }
 
             return true
@@ -5044,7 +5129,7 @@ struct GPSStatusInfoSheet: View {
 /// Modal sheet explaining cache status and usage
 struct CacheInfoSheet: View {
     let isOfflineMode: Bool
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @Environment(\.dismiss) var dismiss
 
@@ -5283,7 +5368,7 @@ private struct NavClockText: View {
 
 #Preview {
     NavigationMapView(isPresented: .constant(true))
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
         .environmentObject(OpenAIPCacheManager())

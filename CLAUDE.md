@@ -135,7 +135,7 @@ AeroCheckWatch/
 
 ## Architecture
 
-**State Management:** MVVM with `@EnvironmentObject` injection
+**State Management:** MVVM. `AppState` is `@Observable` (Observation framework, PERF-30): views hold it via `@Environment(AppState.self)` and re-render only when a property they actually READ changes — a GPS-track append no longer invalidates every screen. Bindings into it use `Bindable(appState).property`. The other managers (SubscriptionManager, LocationManager, …) remain `ObservableObject` + `@EnvironmentObject`.
 - `AppState`: Central state (flight lifecycle, navigation, timing, settings, sync). Being decomposed: cohesive `@Published` clusters are merged into facade structs (`NavigationMapState`, `FlightTiming`, `ChecklistProgress`) with thin forwarding accessors so existing call sites stay reactive; pure rules are extracted into testable types (`ChecklistHighlighting`, `FlightClock`).
 - `LocationManager`: GPS service with background tracking
 - `SubscriptionManager`: StoreKit 2 product/subscription management
@@ -145,7 +145,7 @@ AeroCheckWatch/
 - `OpenAIPDataService`: OpenAIP airspace data management (download by country/continent, tile overlay, streaming CTR fallback)
 - `CompanionConnectivityManager`: Companion mode pairing + live-data push (Wi-Fi Aware). Available on iOS 17 but **inert** below 26 (all `WiFiAware`/`NetworkListener` calls gated behind `if #available(iOS 26)`); stores version-agnostic `CompanionPairedDevice` so views on 17 can hold it.
 - **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette injected as `@Environment(\.cockpitTheme)`; views read semantic tokens, never hard-coded colors.
-- Views observe state via `@EnvironmentObject`
+- Views observe `AppState` via `@Environment(AppState.self)` (per-property tracking); the other managers via `@EnvironmentObject`
 
 **Data Persistence:**
 - `DataPersistenceManager`: File-based storage in Documents/iCloud
@@ -199,7 +199,7 @@ AeroCheckWatch/
 ### View Structure
 ```swift
 struct SomeView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var subscriptionManager: SubscriptionManager
 
     var body: some View {

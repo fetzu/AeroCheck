@@ -919,7 +919,7 @@ struct MarketingControlsView: View {
     @State private var showCustomControls = false
 
     // Scene injector (DEV-ONLY). These managers are inherited from ContentView's environment.
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
@@ -1181,7 +1181,7 @@ extension LocationManager {
     return MarketingControlsView()
         .frame(height: 600)
         .background(Color.gray)
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(subscriptionManager)
         .environmentObject(AircraftDataService(subscriptionManager: subscriptionManager))

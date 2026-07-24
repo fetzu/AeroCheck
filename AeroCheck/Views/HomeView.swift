@@ -89,7 +89,7 @@ enum AircraftOption: Identifiable, Hashable {
 
 /// Home view - main screen when no flight is active
 struct HomeView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
@@ -214,23 +214,23 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: coverBinding($showSettings)) {
             SettingsView(initialSection: pendingSettingsSection)
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(locationManager)
         }
         .fullScreenCover(isPresented: coverBinding($showFlightLog)) {
             FlightLogView(initialFlightID: flightLogSelectionID)
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
         }
         .sheet(isPresented: coverBinding($showSpeedReference)) {
             SpeedReferenceSheet()
-                .environmentObject(appState)
+                .environment(appState)
         }
         .fullScreenCover(isPresented: $showFlightPlanning) {
             FlightPlanningView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
@@ -254,14 +254,14 @@ struct HomeView: View {
                         }
                     }
             }
-            .environmentObject(appState)
+            .environment(appState)
             .environmentObject(flightPlanManager)
             .environmentObject(airportDataService)
             .environmentObject(openAIPDataService)
         }
         .fullScreenCover(isPresented: coverBinding($showNavigation)) {
             NavigationMapView(isPresented: $showNavigation)
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(flightPlanManager)
@@ -373,14 +373,14 @@ struct HomeView: View {
             ZStack {
                 if showSettings {
                     SettingsView(onClose: { showSettings = false }, initialSection: pendingSettingsSection)
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(locationManager)
                         .background(Color.cockpitBackground.ignoresSafeArea())
                         .transition(.move(edge: .leading))
                 }
                 if showFlightLog {
                     FlightLogView(onClose: { showFlightLog = false }, initialFlightID: flightLogSelectionID)
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(flightPlanManager)
                         .environmentObject(airportDataService)
                         .environmentObject(openAIPDataService)
@@ -392,13 +392,13 @@ struct HomeView: View {
                     // (Settings / Flight Log / Navigation). Reverts the 3.5 constrained-popup variant
                     // (88f4e5e) on iPad per user request; iPhone keeps its bottom sheet via coverBinding.
                     SpeedReferenceSheet(onClose: { showSpeedReference = false })
-                        .environmentObject(appState)
+                        .environment(appState)
                         .background(Color.cockpitBackground.ignoresSafeArea())
                         .transition(.move(edge: .leading))
                 }
                 if showNavigation {
                     NavigationMapView(isPresented: $showNavigation)
-                        .environmentObject(appState)
+                        .environment(appState)
                         .environmentObject(locationManager)
                         .environmentObject(offlineMapManager)
                         .environmentObject(flightPlanManager)
@@ -512,17 +512,17 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: isCompact ? 6 : 10) {
                     Image(systemName: "airplane")
-                        .font(.system(size: isCompact ? 22 : 28))
+                        .scaledFont(size: isCompact ? 22 : 28, relativeTo: .title2)
                         .foregroundColor(.aviationGold)
                         .contentShape(Rectangle())
                         .onTapGesture(count: 5) { AmbientController.shared.engage() }
                     Text("AéroCheck")
-                        .font(.system(size: isCompact ? 20 : 26, weight: .bold))
+                        .scaledFont(size: isCompact ? 20 : 26, weight: .bold, relativeTo: .title2)
                         .foregroundColor(.primaryText)
                         .tracking(isCompact ? 1 : 2)
                 }
                 Text(L10n.App.tagline)
-                    .font(.system(size: isCompact ? 10 : 12))
+                    .scaledFont(size: isCompact ? 10 : 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
             }
             Spacer()
@@ -542,7 +542,7 @@ struct HomeView: View {
     private var navRail: some View {
         VStack(spacing: 0) {
             Image(systemName: "airplane")
-                .font(.system(size: 26))
+                .scaledFont(size: 26, relativeTo: .title2)
                 .foregroundColor(.aviationGold)
                 .padding(.top, 18)
                 .contentShape(Rectangle())
@@ -596,13 +596,13 @@ struct HomeView: View {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: icon)
-                        .font(.system(size: 20))
+                        .scaledFont(size: 20, relativeTo: .title3)
                         .foregroundColor(tint)
                         .frame(width: 32, height: 26)
                         .loadingRotationEffect(isActive: icon == "clock.arrow.circlepath" && appState.isLoadingFlights)
                     if let badge, badge > 0 {
                         Text("\(badge)")
-                            .font(.system(size: 9, weight: .bold))
+                            .scaledFont(size: 9, weight: .bold, relativeTo: .caption2)
                             .foregroundColor(.black)
                             .padding(.horizontal, 4).padding(.vertical, 1)
                             .background(Capsule().fill(Color.aviationGold))
@@ -610,7 +610,7 @@ struct HomeView: View {
                     }
                 }
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .scaledFont(size: 10, weight: .medium, relativeTo: .caption2)
                     .foregroundColor(.secondaryText)
                     .lineLimit(1)
             }
@@ -640,24 +640,24 @@ struct HomeView: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L10n.Home.lastFlight)
-                            .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
                             .foregroundColor(.dimText)
                         Text(lastFlightRoute(last))
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 6)
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(last.formattedDuration)
-                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .scaledFont(size: 15, weight: .bold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.aviationGreen)
                         if let when = lastFlightWhen(last) {
-                            Text(when).font(.system(size: 11)).foregroundColor(.dimText)
+                            Text(when).scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText)
                         }
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                         .foregroundColor(.dimText.opacity(0.7))
                 }
                 .padding(.horizontal, 14)
@@ -704,26 +704,26 @@ struct HomeView: View {
         Button { showFlightPlanning = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                    .font(.system(size: 17))
+                    .scaledFont(size: 17, relativeTo: .body)
                     .foregroundColor(accent)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.Home.flightPlan)
-                        .font(.system(size: 10, weight: .semibold)).tracking(0.5)
+                        .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
                         .foregroundColor(.dimText)
                     HStack(spacing: 6) {
                         Text(title)
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
                         if let detail {
-                            Text("· \(detail)").font(.system(size: 12)).foregroundColor(.dimText).lineLimit(1)
+                            Text("· \(detail)").scaledFont(size: 12, relativeTo: .caption).foregroundColor(.dimText).lineLimit(1)
                         }
                     }
                 }
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                     .foregroundColor(.dimText.opacity(0.7))
             }
             .padding(.horizontal, 14)
@@ -769,9 +769,9 @@ struct HomeView: View {
             Button(action: startFlight) {
                 HStack(spacing: isCompact ? 10 : 14) {
                     Image(systemName: "play.fill")
-                        .font(.system(size: isCompact ? 18 : 22))
+                        .scaledFont(size: isCompact ? 18 : 22, relativeTo: .title2)
                     Text(L10n.Button.startFlight)
-                        .font(.system(size: isCompact ? 18 : 22, weight: .bold))
+                        .scaledFont(size: isCompact ? 18 : 22, weight: .bold, relativeTo: .title2)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -785,9 +785,9 @@ struct HomeView: View {
                 Button(action: startCircuits) {
                     VStack(spacing: isCompact ? 2 : 4) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: isCompact ? 18 : 20))
+                            .scaledFont(size: isCompact ? 18 : 20, relativeTo: .title3)
                         Text(L10n.Button.circuits)
-                            .font(.system(size: isCompact ? 13 : 14, weight: .bold))
+                            .scaledFont(size: isCompact ? 13 : 14, weight: .bold, relativeTo: .subheadline)
                             .lineLimit(2)
                             .minimumScaleFactor(0.6)
                             .multilineTextAlignment(.center)
@@ -840,7 +840,7 @@ struct HomeView: View {
                         }
                     }
                     Text("\(selectedAircraftIndex + 1) / \(aircraft.count)")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(0.4)
+                        .scaledFont(size: 10, weight: .semibold, design: .monospaced, relativeTo: .caption2).tracking(0.4)
                         .foregroundColor(.dimText)
                 }
                 .padding(.horizontal, 10)
@@ -884,7 +884,7 @@ struct HomeView: View {
                 }
             } label: {
                 Image(systemName: isLeft ? "chevron.left" : "chevron.right")
-                    .font(.system(size: 20, weight: .semibold))
+                    .scaledFont(size: 20, weight: .semibold, relativeTo: .title3)
                     .foregroundColor(.dimText)
                     .padding(10)
                     .contentShape(Rectangle())
@@ -901,22 +901,22 @@ struct HomeView: View {
         VStack(spacing: isLandscape ? 4 : (isCompact ? 6 : 12)) {
             // Aircraft silhouette
             Image(systemName: "airplane")
-                .font(.system(size: isCompact ? 32 : (isLandscape ? 36 : 60)))
+                .scaledFont(size: isCompact ? 32 : (isLandscape ? 36 : 60), relativeTo: .largeTitle)
                 .foregroundColor(.aviationGold.opacity(0.3))
 
             // Aircraft info
             VStack(spacing: isLandscape ? 2 : (isCompact ? 3 : 6)) {
                 Text(option.registration)
-                    .font(.system(size: isCompact ? 22 : (isLandscape ? 26 : 32), weight: .bold, design: .monospaced))
+                    .scaledFont(size: isCompact ? 22 : (isLandscape ? 26 : 32), weight: .bold, design: .monospaced, relativeTo: .largeTitle)
                     .foregroundColor(.aviationGold)
 
                 Text(option.modelName)
-                    .font(.system(size: isCompact ? 12 : (isLandscape ? 14 : 16), weight: .semibold))
+                    .scaledFont(size: isCompact ? 12 : (isLandscape ? 14 : 16), weight: .semibold, relativeTo: .body)
                     .foregroundColor(.primaryText)
 
                 if !isLandscape {
                     Text(L10n.Home.version(option.version))
-                        .font(.system(size: isCompact ? 10 : 12))
+                        .scaledFont(size: isCompact ? 10 : 12, relativeTo: .caption)
                         .foregroundColor(.dimText)
                 }
             }
@@ -929,11 +929,11 @@ struct HomeView: View {
     private func homeStatChip(_ label: String, _ value: String, _ color: Color, compact: Bool) -> some View {
         VStack(spacing: 3) {
             Text(label)
-                .font(.system(size: compact ? 10 : 11, weight: .semibold)).tracking(0.4)
+                .scaledFont(size: compact ? 10 : 11, weight: .semibold, relativeTo: .caption2).tracking(0.4)
                 .foregroundColor(.secondaryText)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: compact ? 15 : 18, weight: .bold, design: .monospaced))
+                .scaledFont(size: compact ? 15 : 18, weight: .bold, design: .monospaced, relativeTo: .title3)
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -973,9 +973,9 @@ struct HomeView: View {
     private func statusChip(icon: String, label: String, tint: Color, isCompact: Bool) -> some View {
         HStack(spacing: isCompact ? 4 : 5) {
             Image(systemName: icon)
-                .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
+                .scaledFont(size: isCompact ? 10 : 11, weight: .semibold, relativeTo: .caption2)
             Text(label)
-                .font(.system(size: isCompact ? 11 : 12, weight: .medium))
+                .scaledFont(size: isCompact ? 11 : 12, weight: .medium, relativeTo: .caption)
                 .lineLimit(1)
         }
         .foregroundColor(tint)
@@ -1120,7 +1120,7 @@ private extension View {
 #Preview {
     let subManager = SubscriptionManager()
     return HomeView()
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
         .environmentObject(FlightPlanManager())

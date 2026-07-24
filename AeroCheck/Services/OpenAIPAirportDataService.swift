@@ -1,16 +1,13 @@
 import Foundation
 import CoreLocation
 
-/// On-disk metadata for the OpenAIP airport cache (per-country last-sync + count).
-struct OpenAIPAirportCacheMetadata: Codable {
-    var lastSyncDates: [String: Date] = [:]
-    var counts: [String: Int] = [:]
-}
-
 /// Manages OpenAIP AIRPORT data via the keyless, per-country GeoJSON exports
 /// (`storage.googleapis.com/.../{cc}_apt.geojson`) — a sibling to the other OpenAIP layer services.
 /// Feeds `AirportDataMergeEngine` (OpenAIP is the primary airport source; OurAirports gap-fills). When
 /// no OpenAIP airport data is downloaded, the merge is a no-op and OurAirports remains the backbone. (v4.1.0)
+///
+/// The cache/download lifecycle (same directories, file names and metadata shape as before) is
+/// delegated to a shared `OpenAIPLayerCache`; this service keeps its published surface and queries.
 @MainActor
 final class OpenAIPAirportDataService: ObservableObject {
     static let shared = OpenAIPAirportDataService()
@@ -26,56 +23,30 @@ final class OpenAIPAirportDataService: ObservableObject {
 
     private var airports: [OpenAIPAirport] = []
 
-    // MARK: - Storage
-
-    private let fileManager = FileManager.default
-    private var dataDirectory: URL {
-        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("OpenAIPAirportData", isDirectory: true)
-    }
-    private var metadataFileURL: URL { dataDirectory.appendingPathComponent("metadata.json") }
-    private func airportFileURL(for country: String) -> URL {
-        dataDirectory.appendingPathComponent("airports_\(country).json")
-    }
+    private let cache = OpenAIPLayerCache<OpenAIPAirport>(
+        directoryName: "OpenAIPAirportData",
+        filePrefix: "airports",
+        endpointSuffix: "apt",
+        logLabel: "OpenAIP airport",
+        parse: OpenAIPAirport.parse(geoJSON:))
 
     init() {
-        if let data = try? Data(contentsOf: metadataFileURL),
-           let metadata = try? JSONDecoder().decode(OpenAIPAirportCacheMetadata.self, from: data) {
-            downloadedCountries = metadata.counts.keys.sorted()
-            airportCount = metadata.counts.values.reduce(0, +)
-            lastUpdated = metadata.lastSyncDates.values.max()
-            isDataAvailable = !downloadedCountries.isEmpty
+        if let summary = cache.restoredSummary() {
+            downloadedCountries = summary.downloadedCountries
+            airportCount = summary.totalCount
+            lastUpdated = summary.lastUpdated
+            isDataAvailable = summary.isDataAvailable
         }
     }
 
     /// Stale once older than the shared aeronautical-data TTL (90 days).
-    var needsUpdate: Bool {
-        guard let lastUpdated else { return true }
-        return Date().timeIntervalSince(lastUpdated) > OpenAIPConfig.airspaceCacheExpirationInterval
-    }
+    var needsUpdate: Bool { cache.isStale(lastUpdated: lastUpdated) }
 
     // MARK: - Load
 
     func ensureLoaded() async {
         guard !isLoaded else { return }
-        await loadFromLocal()
-    }
-
-    private func loadFromLocal() async {
-        guard let metaData = try? Data(contentsOf: metadataFileURL),
-              let metadata = try? JSONDecoder().decode(OpenAIPAirportCacheMetadata.self, from: metaData) else { return }
-        let urls = metadata.counts.keys.map { airportFileURL(for: $0) }
-        let loaded: [OpenAIPAirport] = await Task.detached(priority: .userInitiated) {
-            let decoder = JSONDecoder()
-            var all: [OpenAIPAirport] = []
-            for url in urls {
-                guard let data = try? Data(contentsOf: url),
-                      let decoded = try? decoder.decode([OpenAIPAirport].self, from: data) else { continue }
-                all.append(contentsOf: decoded)
-            }
-            return all
-        }.value
+        guard let loaded = await cache.loadFromLocal() else { return }
         airports = loaded
         airportCount = loaded.count
         isLoaded = true
@@ -90,55 +61,13 @@ final class OpenAIPAirportDataService: ObservableObject {
         downloadError = nil
         defer { isDownloading = false }
 
-        try? fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-        var metadata = (try? Data(contentsOf: metadataFileURL))
-            .flatMap { try? JSONDecoder().decode(OpenAIPAirportCacheMetadata.self, from: $0) } ?? OpenAIPAirportCacheMetadata()
-        var allLoaded: [OpenAIPAirport] = []
-
-        for (index, country) in countries.enumerated() {
-            let cc = country.lowercased()
-            guard let url = URL(string: "\(OpenAIPConfig.geoJSONExportBaseURL)/\(cc)_apt.geojson") else { continue }
-            do {
-                let (data, response) = try await ExternalRequest.data(from: url)
-                guard response.statusCode == 200 else {
-                    appendExistingCache(for: country, into: &allLoaded)
-                    continue
-                }
-                let parsed = try OpenAIPAirport.parse(geoJSON: data)
-                let encoded = try JSONEncoder().encode(parsed)
-                try encoded.write(to: airportFileURL(for: country), options: .atomic)
-                metadata.counts[country] = parsed.count
-                metadata.lastSyncDates[country] = Date()
-                allLoaded.append(contentsOf: parsed)
-            } catch {
-                AppLog.openAIP.debugLine("OpenAIP airport download failed for \(country): \(error)")
-                appendExistingCache(for: country, into: &allLoaded)
-            }
-            downloadProgress = Double(index + 1) / Double(countries.count)
-        }
-
-        // De-selected countries are pruned (file + metadata) so this layer matches the requested set —
-        // consistent with the airspace layer; additive callers union first, so they lose nothing.
-        // (download-integrity fix)
-        OpenAIPConfig.pruneDeselectedCountries(
-            keeping: countries, counts: &metadata.counts, lastSyncDates: &metadata.lastSyncDates,
-            fileURL: { airportFileURL(for: $0) }, fileManager: fileManager)
-        if let metaEncoded = try? JSONEncoder().encode(metadata) {
-            try? metaEncoded.write(to: metadataFileURL, options: .atomic)
-        }
-        airports = allLoaded
-        airportCount = allLoaded.count
-        downloadedCountries = metadata.counts.keys.sorted()
-        lastUpdated = metadata.lastSyncDates.values.max()
-        isDataAvailable = !downloadedCountries.isEmpty
+        let result = await cache.downloadData(for: countries) { downloadProgress = $0 }
+        airports = result.features
+        airportCount = result.features.count
+        downloadedCountries = result.summary.downloadedCountries
+        lastUpdated = result.summary.lastUpdated
+        isDataAvailable = result.summary.isDataAvailable
         isLoaded = true
-    }
-
-    private func appendExistingCache(for country: String, into accumulator: inout [OpenAIPAirport]) {
-        if let data = try? Data(contentsOf: airportFileURL(for: country)),
-           let decoded = try? JSONDecoder().decode([OpenAIPAirport].self, from: data) {
-            accumulator.append(contentsOf: decoded)
-        }
     }
 
     // MARK: - Queries
@@ -151,7 +80,7 @@ final class OpenAIPAirportDataService: ObservableObject {
     }
 
     func deleteData() {
-        try? fileManager.removeItem(at: dataDirectory)
+        cache.deleteData()
         airports = []
         airportCount = 0
         downloadedCountries = []

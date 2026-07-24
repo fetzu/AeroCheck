@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for iCloud sync, GPS configuration, and data statistics
 struct SyncDataSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @ObservedObject private var syncManager = SyncManager.shared
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for flight planning and experimental airspeed
 struct FlightPlanningSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
 
     @State private var enableFlightPlanning: Bool = false
     @State private var waypointProximityThreshold: Double = 500

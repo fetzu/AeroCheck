@@ -210,7 +210,7 @@ struct EventConfirmationView: View {
 /// prompt was invisible and undismissable whenever the pilot had the map up. (PR-40)
 struct FlightEventConfirmationOverlay: ViewModifier {
     @ObservedObject var flightEventDetector: FlightEventDetector
-    @ObservedObject var appState: AppState
+    var appState: AppState
 
     func body(content: Content) -> some View {
         content

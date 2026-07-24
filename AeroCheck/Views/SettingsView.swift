@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings hub view with navigation to sub-pages
 struct SettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -995,7 +995,7 @@ struct DebugLogRow: View {
 
 #Preview {
     SettingsView()
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(LocationManager())
         .environmentObject(OfflineMapManager())
 }
@@ -1004,7 +1004,7 @@ struct DebugLogRow: View {
 
 /// View displaying all premium aircraft available from the API
 struct PremiumAircraftListView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) var dismiss
@@ -1204,7 +1204,7 @@ struct LanguageFlagView: View {
     let subManager = SubscriptionManager()
     NavigationStack {
         PremiumAircraftListView()
-            .environmentObject(AppState())
+            .environment(AppState())
             .environmentObject(AircraftDataService(subscriptionManager: subManager))
             .environmentObject(subManager)
     }

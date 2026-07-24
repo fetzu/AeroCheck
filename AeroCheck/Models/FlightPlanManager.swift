@@ -660,6 +660,14 @@ class FlightPlanManager: ObservableObject {
         return nil
     }
 
+    /// Name of the waypoint currently being flown to on the active plan, or nil when there is no
+    /// active plan / the route is complete. Surfaces on the Live Activity. (UX-25)
+    var activeNextWaypointName: String? {
+        guard let plan = activeFlightPlan,
+              plan.currentWaypointIndex < plan.waypoints.count else { return nil }
+        return plan.waypoints[plan.currentWaypointIndex].name
+    }
+
     // MARK: - Persistence
 
     /// Snapshot of each plan as last persisted, for dirty detection (`FlightPlan` is Equatable).

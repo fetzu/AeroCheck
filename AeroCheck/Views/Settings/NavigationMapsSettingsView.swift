@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings sub-page for navigation, offline maps, and airport data
 struct NavigationMapsSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
@@ -66,7 +66,7 @@ struct NavigationMapsSettingsView: View {
                     .environmentObject(openAIPCacheManager)
                     .environmentObject(openAIPDataService)
                     .environmentObject(openAIPNavaidDataService)
-                    .environmentObject(appState)
+                    .environment(appState)
             }
         }
         .alert(L10n.Settings.deleteCacheTitle, isPresented: $showDeleteConfirmation) {
@@ -155,6 +155,24 @@ struct NavigationMapsSettingsView: View {
     private var openAIPSection: some View {
         SettingsGroup(title: L10n.Settings.openAIPAirspace, tint: tint, footer: L10n.Settings.openAIPFooter) {
             SettingsToggleRow(icon: "shield", title: L10n.Settings.airspaceOverlay, tint: tint, isOn: $showOpenAIPOverlay)
+
+            // Enabling the overlay with no downloaded data silently rendered nothing — say so and
+            // point at the download flow below. (The streaming toggle only covers CTR frequencies,
+            // not the map polygons, so it doesn't clear this condition.) (v4.2 UX fix)
+            if showOpenAIPOverlay && !openAIPDataService.isDataAvailable && !openAIPDataService.isDownloading {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundColor(.orange)
+                        .accessibilityHidden(true)
+                    Text(L10n.Settings.airspaceNoDataHint)
+                        .font(.caption)
+                        .foregroundColor(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            }
 
             // OpenAIP-sourced map layers (data downloaded via the OpenAIP download sheet below). Shown
             // unconditionally like the airspace toggle — the marker render no-ops until data exists, and
@@ -364,7 +382,7 @@ struct OpenAIPDownloadSheet: View {
     @EnvironmentObject var openAIPCacheManager: OpenAIPCacheManager
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var openAIPNavaidDataService: OpenAIPNavaidDataService
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
 
     /// When true, rendered as a pushed page (parent supplies the nav bar + back); else as a sheet.

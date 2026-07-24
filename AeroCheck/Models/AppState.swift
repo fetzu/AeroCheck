@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Observation
 
 /// Phase completion status
 enum PhaseCompletionStatus: String, Codable {
@@ -12,7 +13,7 @@ enum PhaseCompletionStatus: String, Codable {
 /// The pilot's progress through the checklist, grouped as one cohesive value extracted from four
 /// loose @Published properties on AppState: the current phase, the per-phase completion status, the
 /// highest phase reached, and the per-phase step-by-step highlight index. AppState owns it via a
-/// single `@Published var checklistProgress` and exposes thin forwarding accessors, so the app-wide
+/// single `var checklistProgress` and exposes thin forwarding accessors, so the app-wide
 /// `appState.currentPhase` / `phaseCompletionStatus` / … call sites keep working and stay reactive.
 /// (Phase 4 — AppState decomposition: state extraction)
 struct ChecklistProgress {
@@ -317,7 +318,10 @@ enum GPSPriority: String, Codable, CaseIterable, Identifiable {
 struct ActiveFlightState: Codable {
     /// Bumped when the stored shape changes incompatibly. A snapshot with a different version
     /// (or one that fails to decode) is discarded on restore rather than crashing.
-    static let currentSchemaVersion = 2
+    /// v2 = full snapshot with the whole GPS track inline. v3 = slim snapshot (empty track);
+    /// the track lives in the append-only NDJSON delta file (PERF-29). Restore accepts both.
+    static let currentSchemaVersion = 3
+    static let legacyFullTrackSchemaVersion = 2
 
     var schemaVersion: Int = ActiveFlightState.currentSchemaVersion
     let flight: Flight
@@ -383,13 +387,14 @@ struct ActiveFlightState: Codable {
 
 /// Main application state manager
 @MainActor
-class AppState: ObservableObject {
+@Observable
+class AppState {
     // MARK: - Published Properties
 
     // Checklist progress (current phase, completion status, highest phase reached, highlight index)
     // grouped into one cohesive ChecklistProgress value. The forwarding accessors below keep every
     // existing `appState.currentPhase` / … call site working and reactive. (Phase 4 — decomposition)
-    @Published var checklistProgress = ChecklistProgress()
+    var checklistProgress = ChecklistProgress()
 
     var currentPhase: ChecklistPhase {
         get { checklistProgress.currentPhase }
@@ -405,7 +410,7 @@ class AppState: ObservableObject {
     /// out of `FlightView`'s local @State so it is a single source of truth: the checklist snapshot
     /// streamed to a companion reflects it, and a companion's hold-to-reveal sets it here — so revealing
     /// on either device reveals on BOTH. Transient (never persisted); reset on phase change above.
-    @Published var hiddenItemsRevealed: Bool = false
+    var hiddenItemsRevealed: Bool = false
 
     /// The effective learning mode = the user's learning-mode setting OR a temporary reveal. Drives which
     /// checklist items are visible/stepped-through. (Was computed in FlightView; centralised for the
@@ -416,21 +421,21 @@ class AppState: ObservableObject {
     /// app forces its dark presentation). The companion manager streams the theme resolved against THIS
     /// so the viewer mirrors exactly what the iPad displays — using the force-dark window trait instead
     /// made `.auto` always resolve to night on the companion. (companion v2 — theme default fix)
-    @Published var deviceIsDark: Bool = false
+    var deviceIsDark: Bool = false
 
-    @Published var isFlightActive: Bool = false
-    @Published var currentFlight: Flight?
+    var isFlightActive: Bool = false
+    var currentFlight: Flight?
 
     // MARK: - Cruise check (FREDA) reminder
     /// Re-cruise (FREDA: Fuel, Radio, Engine, Direction, Altimeter) interval — standard VFR practice
     /// is a check every 10–15 minutes in cruise. (v4 UI/UX Revamp)
     static let cruiseCheckInterval: TimeInterval = 15 * 60 // standard VFR re-cruise check every ~15 min
     /// True when a cruise check is due/overdue — drives the amber phase indicator + CRUISE button. (v4 UI/UX Revamp)
-    @Published var cruiseCheckDue: Bool = false
+    var cruiseCheckDue: Bool = false
     /// When the countdown was started / last re-armed; nil = idle (NOT started). The countdown is
     /// MANUAL — the pilot starts it from the CRUISE button on the Cruise checklist page, so a busy
     /// pilot is never reminded for a check they haven't begun timing. (v4 UI/UX Revamp — manual start)
-    @Published var cruiseCheckStartTime: Date?
+    var cruiseCheckStartTime: Date?
 
     /// Seconds remaining until the next cruise check is due — the full interval while idle. (v4 UI/UX Revamp)
     func cruiseCheckRemaining(now: Date = Date()) -> TimeInterval {
@@ -468,17 +473,17 @@ class AppState: ObservableObject {
     func acknowledgeCruiseCheck() { armCruiseCheck() }
     /// Set when a flight start is refused (e.g. a premium aircraft's checklist isn't loaded, or
     /// location permission is denied). Observed by the UI to show an explanatory alert. (ARCH-01/UX-13)
-    @Published var flightStartError: String?
+    var flightStartError: String?
 
     /// Set when a flight start is refused because the requested premium aircraft isn't owned.
     /// Observed by the UI to present the subscription paywall. (UX-07)
-    @Published var flightStartPaywallRequest: Bool = false
+    var flightStartPaywallRequest: Bool = false
 
     /// The resolved remote checklist for the current selection — a premium aircraft, or a
     /// language-specific bundled checklist. `nil` means none is loaded (the bundled fallback is
     /// used, unless a premium aircraft is selected, in which case the checklist is unresolved).
     /// Only mutated by `loadRemoteChecklistIfNeeded` / `syncAircraftType`.
-    @Published private(set) var resolvedRemoteChecklist: RemoteAircraftChecklist?
+    private(set) var resolvedRemoteChecklist: RemoteAircraftChecklist?
 
     /// The owned, fully-resolved checklist + speeds for the current selection. Every checklist /
     /// speed reader uses this instead of the former global `ChecklistData` statics, so a premium
@@ -498,42 +503,42 @@ class AppState: ObservableObject {
     var isPremiumChecklistResolved: Bool {
         settings.selectedRemoteAircraftId == nil || resolvedRemoteChecklist != nil
     }
-    @Published var flights: [Flight] = []
-    @Published var isLoadingFlights: Bool = true
+    var flights: [Flight] = []
+    var isLoadingFlights: Bool = true
     /// Device-local onboarding gate (NOT the iCloud-synced `settings.hasCompletedOnboarding`). Onboarding
     /// offers per-device setup (data downloads, location), so it must show once per device — including a
     /// reinstall, where the synced flag would otherwise restore from iCloud and suppress it. (bug 1)
-    @Published var hasSeenOnboarding: Bool = false
-    @Published var settings: AppSettings = AppSettings()
-    @Published var showFlightLog: Bool = false
+    var hasSeenOnboarding: Bool = false
+    var settings: AppSettings = AppSettings()
+    var showFlightLog: Bool = false
 
     /// Set when iCloud sync auto-merged (or couldn't merge) a conflicting flight edit, so the UI can
     /// surface it instead of the conflict being silent. (ARCH-02)
-    @Published var syncConflictNotice: String?
+    var syncConflictNotice: String?
 
     /// Set when a just-finished flight could not be written to disk at endFlight. The crash-recovery
     /// checkpoint is deliberately kept (the flight is NOT lost) and restored/retried on next launch;
     /// this surfaces the failure to the pilot instead of it being silent. (PR-14)
-    @Published var flightSaveError: String?
+    var flightSaveError: String?
 
     /// Set when a flight was restored from the crash-recovery checkpoint on launch and GPS recording
     /// was resumed automatically, so the pilot knows tracking is live again. (PR-01)
-    @Published var flightRestoredNotice: String?
+    var flightRestoredNotice: String?
 
     /// Set when the loaded checklist was served in a different language than requested (the requested
     /// language isn't available for that aircraft), so the pilot is told before flight rather than
     /// silently shown a foreign-language checklist. Surfaced as a non-blocking banner. (PR-41 / UX-08)
-    @Published var languageFallbackNotice: String?
+    var languageFallbackNotice: String?
 
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
-    @Published var navigationMapState = NavigationMapState()
+    var navigationMapState = NavigationMapState()
 
     // Recorded times during flight — grouped into one cohesive FlightTiming value (extracted from
     // four loose @Published timestamps). The forwarding accessors below keep every existing call
     // site (`appState.engineStartTime`, …) working and reactive without a risky 177-site rename
     // (Flight has identically-named fields). (Phase 4 — AppState decomposition: state extraction)
-    @Published var flightTiming = FlightTiming()
+    var flightTiming = FlightTiming()
 
     var engineStartTime: Date? {
         get { flightTiming.engineStartTime }
@@ -568,7 +573,7 @@ class AppState: ObservableObject {
     }
     
     // Landing detection
-    @Published var hasLandingBeenDetected: Bool = false
+    var hasLandingBeenDetected: Bool = false
     private var consecutiveLowSpeedReadings: Int = 0
     private let lowSpeedThreshold: Double = 2.0 // m/s (about 4 knots)
     private let requiredLowSpeedReadings: Int = 3
@@ -584,7 +589,7 @@ class AppState: ObservableObject {
     private let requiredStoppedInWindow: Int = 2 // 2 low-speed readings within window = stopped
 
     // Circuit mode - skips CRUISE and DESCENT phases
-    @Published var isCircuitMode: Bool = false
+    var isCircuitMode: Bool = false
 
     // MARK: - Private Properties
 
@@ -604,6 +609,10 @@ class AppState: ObservableObject {
     private static let checkpointQueue = DispatchQueue(label: "app.aerocheck.activeFlightCheckpoint", qos: .utility)
     private var pointsSinceCheckpoint = 0
     private var lastCheckpointAt: Date?
+    /// How many leading track points are already in the NDJSON delta file (PERF-29). Advanced only
+    /// after a confirmed append (via a hop back to the main actor), so a failed write retries the
+    /// same points next checkpoint. A late hop can re-append a few points — restore dedupes by id.
+    private var deltaPointsWritten = 0
 
     // Reference to persistence manager
     private let persistence = DataPersistenceManager.shared
@@ -862,6 +871,10 @@ class AppState: ObservableObject {
             return
         }
         flightStartError = nil
+        // A fresh flight must start from a clean checkpoint: the track delta file is append-only
+        // (PERF-29), so a stale delta from an unrestored previous session would otherwise leak
+        // that session's points into this flight's recovery data.
+        clearActiveFlightState()
         currentFlight = Flight(
             airplane: aircraft,
             aircraftRegistration: aircraftRegistration,
@@ -885,8 +898,10 @@ class AppState: ObservableObject {
         recentStoppedTimestamps = []
         lastStopLocation = nil
         currentHighlightedItem = [:] // Reset highlighting
+        // Surface the new flight on the Lock Screen / Dynamic Island right away. (UX-25)
+        FlightActivityController.shared.sync(from: self)
     }
-    
+
     func endFlight(withFlightPlan flightPlan: FlightPlan? = nil) {
         guard var flight = currentFlight else { return }
 
@@ -1521,6 +1536,10 @@ class AppState: ObservableObject {
     /// encode of a multi-hour, up-to-1 Hz track is NOT cheap and must not run on the main actor.
     func checkpointActiveFlight(force: Bool) {
         guard isFlightActive, let flight = currentFlight else { return }
+        // Piggyback the Live Activity refresh on the checkpoint cadence: sync() diffs the content
+        // state and no-ops when nothing changed, so this is cheap per GPS tick and catches every
+        // phase/timing/landing change promptly. (UX-25)
+        FlightActivityController.shared.sync(from: self)
         if !force {
             let enoughPoints = pointsSinceCheckpoint >= Self.checkpointPointInterval
             let enoughTime = lastCheckpointAt.map {
@@ -1540,18 +1559,37 @@ class AppState: ObservableObject {
     /// - Parameter synchronous: when true (scene-background save), block until the write completes
     ///   so the checkpoint is guaranteed on disk before the app can suspend.
     private func persistActiveFlightState(flight: Flight, synchronous: Bool = false) {
-        let state = ActiveFlightState(flight: flight, from: self)
+        // PERF-29: the snapshot no longer carries the GPS track — per-checkpoint work was
+        // O(whole track) every ~30 s (quadratic over a flight). The snapshot is now a slim,
+        // constant-size metadata write, and only the points recorded since the last confirmed
+        // append go to the NDJSON delta file.
+        var slimFlight = flight
+        let track = flight.gpsTrack
+        let alreadyWritten = min(deltaPointsWritten, track.count)
+        let newPoints = Array(track[alreadyWritten...])
+        slimFlight.gpsTrack = []
+        let state = ActiveFlightState(flight: slimFlight, from: self)
         let url = persistence.activeFlightStateURL
+        let deltaURL = persistence.activeFlightTrackDeltaURL
         let savedAt = state.savedAt
         let pointerKey = activeFlightPointerKey
+        let writtenThrough = alreadyWritten + newPoints.count
 
-        let write: @Sendable () -> Void = {
+        let write: @Sendable () -> Void = { [weak self] in
             do {
+                try DataPersistenceManager.appendActiveFlightTrackPoints(newPoints, to: deltaURL)
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(state)
                 try DataPersistenceManager.writeActiveFlightStateData(data, to: url)
                 UserDefaults.standard.set(savedAt, forKey: pointerKey)
+                // Confirm the append on the main actor. If a newer checkpoint already ran (stale
+                // watermark), max() keeps the furthest confirmed position; the few re-appended
+                // points are deduped by id on restore.
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.deltaPointsWritten = max(self.deltaPointsWritten, writtenThrough)
+                }
             } catch {
                 AppLog.general.debugLine("Failed to checkpoint active flight: \(error.localizedDescription)")
             }
@@ -1592,7 +1630,10 @@ class AppState: ObservableObject {
             let state = try decoder.decode(ActiveFlightState.self, from: data)
 
             // A snapshot from an incompatible build is discarded, not crashed on.
-            guard state.schemaVersion == ActiveFlightState.currentSchemaVersion else {
+            // v3 = slim snapshot + NDJSON track delta; v2 = legacy full-track snapshot (PERF-29).
+            let supportedVersions = [ActiveFlightState.currentSchemaVersion,
+                                     ActiveFlightState.legacyFullTrackSchemaVersion]
+            guard supportedVersions.contains(state.schemaVersion) else {
                 AppLog.general.debugLine("Discarding active flight state with schema \(state.schemaVersion)")
                 clearActiveFlightState()
                 return false
@@ -1606,6 +1647,23 @@ class AppState: ObservableObject {
             }
 
             state.restore(to: self)
+            if state.schemaVersion == ActiveFlightState.currentSchemaVersion {
+                // Rehydrate the track from the append-only delta. Duplicate lines (a re-appended
+                // tail after an unconfirmed write) are deduped by point id, preserving order.
+                let raw = DataPersistenceManager.readActiveFlightTrackDelta(at: persistence.activeFlightTrackDeltaURL)
+                var seenIds = Set<UUID>()
+                var points: [GPSPoint] = []
+                for point in raw where seenIds.insert(point.id).inserted {
+                    points.append(point)
+                }
+                currentFlight?.gpsTrack = state.flight.gpsTrack + points
+                deltaPointsWritten = points.count
+            } else {
+                // Legacy full-track snapshot: the track came inline; any stale delta file belongs
+                // to an older session. Start the delta fresh on the next checkpoint.
+                try? FileManager.default.removeItem(at: persistence.activeFlightTrackDeltaURL)
+                deltaPointsWritten = 0
+            }
             lastCheckpointAt = state.savedAt
             AppLog.general.debugLine("Restored active flight state from \(state.savedAt)")
             return true
@@ -1624,6 +1682,9 @@ class AppState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)
         pointsSinceCheckpoint = 0
         lastCheckpointAt = nil
+        deltaPointsWritten = 0
+        // Every flight-end path funnels through here — retire the Live Activity with it. (UX-25)
+        if !isFlightActive { FlightActivityController.shared.end() }
     }
 
     /// Check if there is a saved active flight state.

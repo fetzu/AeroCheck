@@ -48,7 +48,7 @@ enum CountryNeighbors {
 /// onboarding completes. Cockpit language: tinted page icons, gold primary actions, custom gold page
 /// dots. (onboarding revamp)
 struct OnboardingView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var offlineMapManager: OfflineMapManager
@@ -145,7 +145,7 @@ struct OnboardingView: View {
         }
         .sheet(isPresented: $showEstimatedAirspeedWarning) {
             EstimatedAirspeedWarningSheet(isPresented: $showEstimatedAirspeedWarning,
-                                          showEstimatedAirspeed: $appState.settings.showEstimatedAirspeed)
+                                          showEstimatedAirspeed: Bindable(appState).settings.showEstimatedAirspeed)
         }
         .sheet(isPresented: $showSubscription) { SubscriptionView() }
         // When a purchase completes from the onboarding paywall sheet, close it and jump straight to the
@@ -505,11 +505,11 @@ struct OnboardingView: View {
                     toggleRow("graduationcap", .altimeterBlue,
                               String(localized: "Learning mode"),
                               String(localized: "Show memorised items while you learn"),
-                              $appState.settings.learningMode)
+                              Bindable(appState).settings.learningMode)
                     toggleRow("arrow.triangle.2.circlepath", .altimeterBlue,
                               String(localized: "Circuit mode"),
                               String(localized: "Streamlined pattern-training flow"),
-                              $appState.settings.enableCircuitMode)
+                              Bindable(appState).settings.enableCircuitMode)
                 }
                 languageRow
             }
@@ -529,19 +529,19 @@ struct OnboardingView: View {
                 toggleRow("shield.lefthalf.filled", .aviationGreen,
                           String(localized: "Airspace overlay"),
                           String(localized: "CTRs & zones from OpenAIP"),
-                          $appState.settings.showOpenAIPOverlay)
+                          Bindable(appState).settings.showOpenAIPOverlay)
                 toggleRow("location.north.line", .aviationGreen,
                           String(localized: "Track vector"),
                           String(localized: "Trend line ahead of the aircraft"),
-                          $appState.settings.showTrackVector)
+                          Bindable(appState).settings.showTrackVector)
                 toggleRow("exclamationmark.triangle", .aviationGreen,
                           String(localized: "Obstacles"),
                           String(localized: "Masts, towers & wires"),
-                          $appState.settings.showObstaclesOnMap)
+                          Bindable(appState).settings.showObstaclesOnMap)
                 toggleRow("map", .aviationGreen,
                           String(localized: "Force ICAO chart"),
                           String(localized: "Keep the chart at all zoom levels"),
-                          $appState.settings.forceICAOChartLayer)
+                          Bindable(appState).settings.forceICAOChartLayer)
             }
         }
     }
@@ -559,7 +559,7 @@ struct OnboardingView: View {
                 toggleRow("point.3.connected.trianglepath.dotted", .aviationGreen,
                           String(localized: "Flight planning"),
                           String(localized: "Map-first route builder"),
-                          $appState.settings.enableFlightPlanning)
+                          Bindable(appState).settings.enableFlightPlanning)
                 toggleRow("wind", .altimeterBlue,
                           String(localized: "Estimated airspeed"),
                           String(localized: "MeteoSwiss wind estimate — experimental (Switzerland)"),
@@ -574,11 +574,11 @@ struct OnboardingView: View {
                 toggleRow("gauge.with.needle", .aviationGold,
                           String(localized: "Log engine hours"),
                           String(localized: "Prompt for the hour meter"),
-                          $appState.settings.logEngineHours)
+                          Bindable(appState).settings.logEngineHours)
                 toggleRow("icloud", .altimeterBlue,
                           String(localized: "Sync to iCloud"),
                           String(localized: "Flights & settings across devices"),
-                          $appState.settings.iCloudSyncEnabled)
+                          Bindable(appState).settings.iCloudSyncEnabled)
             }
         }
     }

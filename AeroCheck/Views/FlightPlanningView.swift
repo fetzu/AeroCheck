@@ -11,7 +11,7 @@ extension FlightPlan: Hashable {
 
 /// Main flight planning view - lists all flight plans with CRUD operations
 struct FlightPlanningView: View {
-    @EnvironmentObject var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
@@ -78,7 +78,7 @@ struct FlightPlanningView: View {
         // Full-screen so iPad gets the two-column map+list layout. Presented by id → live plan.
         .fullScreenCover(item: $editingPlan) { plan in
             FlightPlanMapBuilderView(planId: plan.id)
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
@@ -778,7 +778,7 @@ struct FlightPlanDocument: FileDocument {
 
 #Preview {
     FlightPlanningView()
-        .environmentObject(AppState())
+        .environment(AppState())
         .environmentObject(FlightPlanManager())
         .environmentObject(LocationManager())
 }

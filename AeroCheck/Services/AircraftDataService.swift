@@ -562,8 +562,9 @@ class AircraftDataService: ObservableObject {
             throw AircraftDataError.serverError((response as? HTTPURLResponse)?.statusCode ?? -1)
         }
 
-        // Parse aircraft list with resilient decoding - skip malformed entries
-        return parseAircraftListResilient(from: data)
+        // Parse aircraft list with resilient decoding - skip malformed entries, then expand
+        // multi-registration aircraft into one selectable entry per tail (PR-17 selector).
+        return parseAircraftListResilient(from: data).flatMap { $0.expandedPerRegistration() }
     }
 
     /// Parses aircraft list data, skipping any malformed aircraft entries
@@ -597,15 +598,23 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchChecklistFromServer(aircraftId: String, language: String? = nil) async throws -> RemoteAircraftChecklist {
-        // Build URL with optional language parameter. The aircraftId is server-supplied,
-        // so percent-encode it (and the language) and fail safely on an unbuildable URL
-        // rather than force-unwrapping (PERF-14).
-        let encodedId = aircraftId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? aircraftId
+        // Build URL with optional language/registration parameters. The aircraftId is
+        // server-supplied, so percent-encode it (and the query values) and fail safely on an
+        // unbuildable URL rather than force-unwrapping (PERF-14). An "id~REG" tail token is
+        // split into the path id plus a `reg` query (the server serves that tail's file).
+        let (baseId, registration) = AircraftRegistrationToken.split(aircraftId)
+        let encodedId = baseId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? baseId
         var urlString = "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/checklist"
+        var query: [String] = []
         if let lang = language,
            let encodedLang = lang.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-            urlString += "?lang=\(encodedLang)"
+            query.append("lang=\(encodedLang)")
         }
+        if let reg = registration,
+           let encodedReg = reg.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            query.append("reg=\(encodedReg)")
+        }
+        if !query.isEmpty { urlString += "?" + query.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw AircraftDataError.invalidURL }
 
         var request = URLRequest(url: url)
@@ -642,13 +651,21 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
-        // Build URL with optional language parameter (server-supplied id; encode + fail safe).
-        let encodedId = aircraftId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? aircraftId
+        // Build URL with optional language/registration parameters (server-supplied id;
+        // encode + fail safe). "id~REG" tail tokens split into path id + `reg` query.
+        let (baseId, registration) = AircraftRegistrationToken.split(aircraftId)
+        let encodedId = baseId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? baseId
         var urlString = "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/version"
+        var query: [String] = []
         if let lang = language,
            let encodedLang = lang.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-            urlString += "?lang=\(encodedLang)"
+            query.append("lang=\(encodedLang)")
         }
+        if let reg = registration,
+           let encodedReg = reg.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            query.append("reg=\(encodedReg)")
+        }
+        if !query.isEmpty { urlString += "?" + query.joined(separator: "&") }
         guard let url = URL(string: urlString) else { throw AircraftDataError.invalidURL }
 
         var request = URLRequest(url: url)
@@ -690,7 +707,10 @@ class AircraftDataService: ObservableObject {
         do {
             let data = try Data(contentsOf: path)
             let decoder = JSONDecoder()
+            // Expand per tail here too so a metadata cache written before the per-registration
+            // selector shipped still lists every registration (idempotent on new caches).
             availableAircraft = try decoder.decode([RemoteAircraftMetadata].self, from: data)
+                .flatMap { $0.expandedPerRegistration() }
 
             // Get cache date
             if let attributes = try? fileManager.attributesOfItem(atPath: path.path) {

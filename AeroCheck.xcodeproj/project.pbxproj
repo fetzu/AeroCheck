@@ -987,7 +987,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1007,7 +1007,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1169,7 +1169,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1222,7 +1222,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1264,7 +1264,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1297,7 +1297,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1330,7 +1330,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1362,7 +1362,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1.0;
+				MARKETING_VERSION = 4.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";

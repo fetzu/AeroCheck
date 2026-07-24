@@ -239,21 +239,67 @@ class DataPersistenceManager: ObservableObject {
         }
     }
 
-    /// Load settings from file
+    /// Load settings from file. Called synchronously from `AppState.init` — must never block on
+    /// iCloud: an evicted (not-locally-materialized) file would make `Data(contentsOf:)` wait on an
+    /// on-demand download, long enough on a slow network to trip the launch watchdog (0x8badf00d).
+    /// In that case we kick the download and return nil; the async top-up in `AppState.init`
+    /// adopts the file once it is local. (PERF-25)
     func loadSettings() -> AppSettings? {
-        guard FileManager.default.fileExists(atPath: settingsFileURL.path) else {
+        let url = settingsFileURL
+        guard FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
+        guard Self.isLocallyMaterialized(url) else {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            return nil
+        }
+        return Self.decodeSettings(at: url)
+    }
 
+    /// Loads + decodes settings OFF the main actor (blocking on an iCloud download is acceptable
+    /// on a background executor). Returns nil if the file doesn't exist or fails to decode. (PERF-25)
+    func loadSettingsOffMain() async -> AppSettings? {
+        let url = settingsFileURL
+        return await Task.detached(priority: .utility) {
+            Self.decodeSettings(at: url)
+        }.value
+    }
+
+    /// Pure settings decode, no main-actor state.
+    nonisolated static func decodeSettings(at url: URL) -> AppSettings? {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            // Evicted placeholder: request materialization so a later read finds it.
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            return nil
+        }
         do {
-            let data = try Data(contentsOf: settingsFileURL)
-            let decoder = JSONDecoder()
-            let settings = try decoder.decode(AppSettings.self, from: data)
+            let data = try Data(contentsOf: url)
+            let settings = try JSONDecoder().decode(AppSettings.self, from: data)
             AppLog.general.debugLine("Settings loaded from file")
             return settings
         } catch {
             AppLog.general.debugLine("Failed to load settings: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    /// Whether an iCloud-backed file is downloaded locally (reading it cannot block on the network).
+    /// Non-iCloud files (or files whose metadata can't be read) are treated as materialized.
+    nonisolated static func isLocallyMaterialized(_ url: URL) -> Bool {
+        guard let status = (try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]))?
+            .ubiquitousItemDownloadingStatus else { return true }
+        return status != .notDownloaded
+    }
+
+    /// Requests download of every evicted/placeholder item in an iCloud-backed directory so the
+    /// next load pass finds them materialized. Safe no-op for local directories. (PERF-25)
+    nonisolated static func requestICloudDownloads(in directory: URL) {
+        let fileManager = FileManager.default
+        guard let files = try? fileManager.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: [.ubiquitousItemDownloadingStatusKey]
+        ) else { return }
+        for url in files where url.lastPathComponent.hasSuffix(".icloud") || !isLocallyMaterialized(url) {
+            try? fileManager.startDownloadingUbiquitousItem(at: url)
         }
     }
 
@@ -370,22 +416,58 @@ class DataPersistenceManager: ObservableObject {
         }.value
     }
 
-    /// Save flights index (list of flight IDs and filenames). Returns `true` on a confirmed write.
+    /// Save flights index. Returns `true` on a confirmed write.
+    /// The index carries per-flight summary fields (PERF-26) so list UIs can render a logbook
+    /// without decoding any GPS track. The flight files remain the source of truth — the index is a
+    /// rebuildable summary cache and may lag behind (e.g. after a sync ingest, see `writeFlightFiles`).
     @discardableResult
     private func saveFlightsIndex(_ flights: [Flight]) -> Bool {
-        let index = flights.map { FlightIndexEntry(id: $0.id, filename: Self.flightFilename(for: $0)) }
         let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
-
+        guard let data = Self.encodeFlightIndex(flights) else {
+            AppLog.general.debugLine("Failed to encode flights index")
+            return false
+        }
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted]
-            let data = try encoder.encode(index)
             try data.write(to: fileURL, options: Self.protectedWriteOptions)
             return true
         } catch {
             AppLog.general.debugLine("Failed to save flights index: \(error.localizedDescription)")
             return false
         }
+    }
+
+    /// Pure index encode, no main-actor state.
+    nonisolated static func encodeFlightIndex(_ flights: [Flight]) -> Data? {
+        let index = flights.map { FlightIndexEntry(flight: $0, filename: flightFilename(for: $0)) }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted]
+        return try? encoder.encode(index)
+    }
+
+    /// Rebuilds the summary index OFF the main actor (encode + write on a background executor).
+    /// Call after single-flight saves, deletions, and sync ingests to keep summaries fresh. (PERF-26)
+    func rebuildFlightsIndexOffMain(_ flights: [Flight]) async {
+        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
+        await Task.detached(priority: .utility) {
+            if let data = Self.encodeFlightIndex(flights) {
+                try? data.write(to: fileURL, options: Self.protectedWriteOptions)
+            }
+        }.value
+    }
+
+    /// Loads the summary index OFF the main actor. Entries from pre-summary index files decode with
+    /// nil summary fields; callers must fall back to the flight files for anything missing. (PERF-26)
+    func loadFlightSummariesOffMain() async -> [FlightIndexEntry] {
+        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
+        return await Task.detached(priority: .utility) {
+            guard FileManager.default.fileExists(atPath: fileURL.path),
+                  DataPersistenceManager.isLocallyMaterialized(fileURL),
+                  let data = try? Data(contentsOf: fileURL) else { return [] }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return (try? decoder.decode([FlightIndexEntry].self, from: data)) ?? []
+        }.value
     }
 
     /// Load all flights from individual files
@@ -400,7 +482,9 @@ class DataPersistenceManager: ObservableObject {
     func loadFlightsOffMain() async -> [Flight] {
         let directory = flightsDirectory
         return await Task.detached(priority: .utility) {
-            Self.decodeFlights(in: directory)
+            // Kick downloads for any evicted flights so a later reload/relaunch picks them up. (PERF-25)
+            Self.requestICloudDownloads(in: directory)
+            return Self.decodeFlights(in: directory)
         }.value
     }
 
@@ -468,7 +552,7 @@ class DataPersistenceManager: ObservableObject {
     // MARK: - Navigation Plan Persistence (Individual Files)
 
     /// Generate filename for a navigation plan: YYYYMMDD-HHMM_NAME.json
-    func navigationPlanFilename(for plan: FlightPlan) -> String {
+    nonisolated static func navigationPlanFilename(for plan: FlightPlan) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
         let dateStr = formatter.string(from: plan.createdAt)
@@ -477,6 +561,11 @@ class DataPersistenceManager: ObservableObject {
             .replacingOccurrences(of: "/", with: "-")
             .prefix(20)
         return "\(dateStr)_\(name).json"
+    }
+
+    /// Instance convenience for existing call sites.
+    func navigationPlanFilename(for plan: FlightPlan) -> String {
+        Self.navigationPlanFilename(for: plan)
     }
 
     /// Save a single navigation plan to its own file
@@ -522,18 +611,36 @@ class DataPersistenceManager: ObservableObject {
         }
     }
 
-    /// Load all navigation plans from individual files
+    /// Load all navigation plans from individual files.
+    /// Prefer `loadNavigationPlansOffMain()` — this synchronous variant reads iCloud-backed files
+    /// on the calling thread and must not run during launch. (PERF-25)
     func loadNavigationPlans() -> [FlightPlan] {
+        Self.decodeNavigationPlans(in: navigationPlansDirectory)
+    }
+
+    /// Loads + decodes all navigation plans OFF the main actor (mirrors `loadFlightsOffMain`, PR-24):
+    /// the directory enumeration and per-file reads can stall on iCloud, which previously ran
+    /// synchronously inside `FlightPlanManager.init()` during launch. (PERF-25)
+    func loadNavigationPlansOffMain() async -> [FlightPlan] {
+        let directory = navigationPlansDirectory
+        return await Task.detached(priority: .utility) {
+            Self.requestICloudDownloads(in: directory)
+            return Self.decodeNavigationPlans(in: directory)
+        }.value
+    }
+
+    /// Pure directory-enumerate + decode, no main-actor state.
+    nonisolated static func decodeNavigationPlans(in directory: URL) -> [FlightPlan] {
         var plans: [FlightPlan] = []
         let fileManager = FileManager.default
 
         // Ensure directory exists
-        guard fileManager.fileExists(atPath: navigationPlansDirectory.path) else {
+        guard fileManager.fileExists(atPath: directory.path) else {
             return []
         }
 
         do {
-            let files = try fileManager.contentsOfDirectory(at: navigationPlansDirectory, includingPropertiesForKeys: nil)
+            let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             let jsonFiles = files.filter { $0.pathExtension == "json" && !$0.lastPathComponent.contains("index") }
 
             let decoder = JSONDecoder()
@@ -549,6 +656,16 @@ class DataPersistenceManager: ObservableObject {
                 }
             }
 
+            // Keep one plan per id (freshest by updatedAt): renaming a plan changes its filename,
+            // so the old file can linger beside the new one and would otherwise duplicate the plan
+            // on the next load (same class of issue as the flights' PR-19 dedupe).
+            var byId: [UUID: FlightPlan] = [:]
+            for plan in plans {
+                if let existing = byId[plan.id], existing.updatedAt >= plan.updatedAt { continue }
+                byId[plan.id] = plan
+            }
+            plans = Array(byId.values)
+
             // Sort by creation date (newest first)
             plans.sort { $0.createdAt > $1.createdAt }
             AppLog.general.debugLine("Loaded \(plans.count) navigation plans from iCloud")
@@ -557,6 +674,36 @@ class DataPersistenceManager: ObservableObject {
         }
 
         return plans
+    }
+
+    /// Encode + write the given plan files and the index on the calling executor (no main-actor
+    /// state), so per-waypoint/ATO saves during a flight stay off the main thread. (PERF-25)
+    nonisolated static func writeNavigationPlanFiles(_ changed: [FlightPlan], index allPlans: [FlightPlan], to directory: URL) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        for plan in changed {
+            let url = directory.appendingPathComponent(navigationPlanFilename(for: plan))
+            if let data = try? encoder.encode(plan) {
+                try? data.write(to: url, options: protectedWriteOptions)
+            }
+        }
+        let index = allPlans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
+        let indexEncoder = JSONEncoder()
+        indexEncoder.outputFormatting = [.prettyPrinted]
+        if let data = try? indexEncoder.encode(index) {
+            let url = directory.appendingPathComponent("plans_index.json")
+            try? data.write(to: url, options: protectedWriteOptions)
+        }
+    }
+
+    /// Saves only the given changed plans (plus the index) OFF the main actor. (PERF-25)
+    func saveNavigationPlansOffMain(changed: [FlightPlan], all: [FlightPlan]) async {
+        guard !changed.isEmpty || !all.isEmpty else { return }
+        let directory = navigationPlansDirectory
+        await Task.detached(priority: .utility) {
+            Self.writeNavigationPlanFiles(changed, index: all, to: directory)
+        }.value
     }
 
     /// Delete a navigation plan file
@@ -577,10 +724,38 @@ class DataPersistenceManager: ObservableObject {
 
 // MARK: - Index Entry Types
 
-/// Entry in the flights index file
+/// Entry in the flights index file.
+/// Summary fields (PERF-26) let list UIs render without decoding full GPS tracks; they are all
+/// optional so index files written before the enrichment (id + filename only) still decode, and
+/// older app versions simply ignore the extra keys.
 struct FlightIndexEntry: Codable {
     let id: UUID
     let filename: String
+    var airplane: String?
+    var startTime: Date?
+    var stopTime: Date?
+    var modifiedAt: Date?
+    var isFavorite: Bool?
+    var durationSeconds: Double?
+    var gpsPointCount: Int?
+    var goAroundCount: Int?
+    var touchAndGoCount: Int?
+    var fullStopCount: Int?
+
+    init(flight: Flight, filename: String) {
+        self.id = flight.id
+        self.filename = filename
+        self.airplane = flight.airplane
+        self.startTime = flight.startTime
+        self.stopTime = flight.stopTime
+        self.modifiedAt = flight.modifiedAt
+        self.isFavorite = flight.isFavorite
+        self.durationSeconds = flight.duration
+        self.gpsPointCount = flight.gpsTrack.count
+        self.goAroundCount = flight.goAroundCount
+        self.touchAndGoCount = flight.touchAndGoCount
+        self.fullStopCount = flight.fullStopCount
+    }
 }
 
 /// Entry in the navigation plans index file

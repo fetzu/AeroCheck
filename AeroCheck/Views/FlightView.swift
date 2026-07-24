@@ -24,7 +24,6 @@ struct FlightView: View {
     /// docked into the iPad-landscape right column (over the map), or a cockpit-themed bottom drawer
     /// on iPad portrait / iPhone. nil = none. HUD Settings stays a sheet (Pattern A). (v4 UI/UX Revamp)
     @State private var activeReference: HUDReference? = nil
-    @State private var timerTrigger = false
     @State private var pulseNextButton = false
     @State private var pulseActionButton = false
     @State private var allItemsChecked = false
@@ -46,8 +45,6 @@ struct FlightView: View {
     @State private var hourMeterStartInitialValue: String = ""
     @State private var hourMeterStopInitialValue: String = ""
 
-    // Timer for updating flight duration display
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     /// Check if current phase has an action button that hasn't been pressed yet
     private var currentPhaseNeedsAction: Bool {
@@ -238,10 +235,11 @@ struct FlightView: View {
             }
 
             // Flight timer — just the elapsed clock (no status dot; GPS status is its own indicator).
-            Text(appState.flightDuration)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .id(timerTrigger)
+            FlightDurationText(
+                startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
+                font: .system(size: 18, weight: .bold, design: .monospaced),
+                color: .primaryText
+            )
 
             // GPS status — icon AND label reflect the signal status; tap to open the dedicated GPS
             // popup (status guide + advanced fix info). When the flight is running off a borrowed
@@ -364,10 +362,6 @@ struct FlightView: View {
             }
         } message: {
             Text(L10n.Alert.abandonFlightMessage)
-        }
-        .onReceive(timer) { _ in
-            // Trigger view update for timer display
-            timerTrigger.toggle()
         }
         .onAppear {
             // Start wind data fetching if estimated airspeed is enabled
@@ -1256,12 +1250,13 @@ struct FlightView: View {
 
             Spacer(minLength: 4)
 
-            Text(appState.flightDuration)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)   // claim full width — never wrap the clock
-                .id(timerTrigger)
+            FlightDurationText(
+                startTime: appState.engineStartTime ?? appState.currentFlight?.startTime,
+                font: .system(size: 16, weight: .bold, design: .monospaced),
+                color: .primaryText
+            )
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)   // claim full width — never wrap the clock
 
             // GPS status — icon only on iPhone to reclaim the horizontal room the bar needs to stay one
             // row; still a button that opens the GPS reference. (v4.0.0 review iPhone HUD fix)
@@ -1555,7 +1550,7 @@ struct FlightView: View {
                 .foregroundColor(.primaryText)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(.ultraThinMaterial, in: Capsule())
+                .floatingChromeCapsule()
                 .padding(8)
                 .allowsHitTesting(false)
             }
@@ -1644,31 +1639,6 @@ struct FlightView: View {
     }
 
 }
-
-// MARK: - Time Info Row
-
-struct TimeInfoRow: View {
-    let icon: String
-    let label: String
-    let time: String
-    let color: Color
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 20)
-            Text(label)
-                .font(.captionText)
-                .foregroundColor(.secondaryText)
-            Spacer()
-            Text(time)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundColor(.primaryText)
-        }
-    }
-}
-
 // MARK: - Phase Row Button
 
 /// A compact segmented phase progress bar for the HUD top region: one segment per phase, colored by
@@ -1766,73 +1736,23 @@ struct PhaseProgressBar: View {
     }
 }
 
-struct PhaseRowButton: View {
-    let phase: ChecklistPhase
-    let isActive: Bool
-    let status: PhaseCompletionStatus
-    let action: () -> Void
-    
-    var statusColor: Color {
-        if isActive {
-            return .aviationGold
-        }
-        switch status {
-        case .completed:
-            return .aviationGreen
-        case .skipped:
-            return .orange
-        case .missingAction:
-            return .aviationRed
-        case .notStarted:
-            return .dimText.opacity(0.3)
-        }
-    }
-    
-    var textColor: Color {
-        if isActive {
-            return .aviationGold
-        }
-        switch status {
-        case .completed:
-            return .primaryText
-        case .skipped:
-            return .orange
-        case .missingAction:
-            return .aviationRed
-        case .notStarted:
-            return .dimText
-        }
-    }
-    
+// MARK: - Flight Duration Clock
+
+/// Scoped 1 Hz clock for the flight-duration readout. The previous top-level `Timer.publish` +
+/// view-owned `@State` toggle re-evaluated the entire FlightView body every second for the whole
+/// flight; `TimelineView` scopes the redraw to this small subview — the same fix NavigationView's
+/// `NavClockText` documents. (PERF-28)
+private struct FlightDurationText: View {
+    let startTime: Date?
+    let font: Font
+    let color: Color
+
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                // Status indicator
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                
-                // Phase name
-                Text(phase.shortTitle)
-                    .font(.system(size: 12, weight: isActive ? .bold : .regular))
-                    .foregroundColor(textColor)
-                    .lineLimit(1)
-                
-                Spacer()
-                
-                // Page indicator
-                Text("P\(phase.pageNumber)")
-                    .font(.system(size: 10))
-                    .foregroundColor(.dimText)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isActive ? Color.aviationGold.opacity(0.15) : Color.clear)
-            )
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text(startTime.map { FlightClock.formattedDuration(seconds: context.date.timeIntervalSince($0)) } ?? "--:--")
+                .font(font)
+                .foregroundColor(color)
         }
-        .buttonStyle(.plain)
     }
 }
 
@@ -2131,80 +2051,6 @@ struct CompactSpeedView: View {
         withAnimation(.easeInOut(duration: 0.1)) {
             isFlashing = false
         }
-    }
-}
-
-// MARK: - Compact Altimeter View (iPhone)
-
-struct CompactAltimeterView: View {
-    let altitudeFeet: Double
-    let gpsSignalStatus: GPSSignalStatus
-    @Environment(\.isNightMode) private var nightMode
-    private var altimeterFill: Color { nightMode ? .nightAltimeterBackground : .altimeterBlue }
-    private var altimeterText: Color { nightMode ? .nightInstrumentText : .black }
-
-    private var altitudeFontSize: CGFloat {
-        // Sized to match the elevated airspeed readout — altitude is primary flight data too. (UX-15)
-        let altitude = Int(altitudeFeet)
-        let digitCount = String(abs(altitude)).count
-        switch digitCount {
-        case 1, 2: return 30
-        case 3: return 27
-        case 4: return 22
-        default: return 17
-        }
-    }
-
-    /// Whether to show failure flag overlay
-    private var showFailureFlag: Bool {
-        gpsSignalStatus == .degraded || gpsSignalStatus == .lost
-    }
-
-    /// Failure level for the flag
-    private var failureLevel: InstrumentFailureFlag.FailureLevel {
-        gpsSignalStatus == .lost ? .lost : .degraded
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            // Altitude value with failure flag
-            ZStack {
-                HStack(spacing: 4) {
-                    if gpsSignalStatus != .lost {
-                        Text("\(Int(max(0, altitudeFeet)))")
-                            .font(.system(size: altitudeFontSize, weight: .bold, design: .monospaced))
-                            .foregroundColor(altimeterText)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                        Text(L10n.Unit.ft)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(altimeterText.opacity(0.7))
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(altimeterFill)
-                )
-
-                // Failure flag overlay
-                if showFailureFlag {
-                    InstrumentFailureFlag(level: failureLevel, size: CGSize(width: 80, height: 40))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-            }
-            .frame(minWidth: 80, minHeight: 40)
-
-            Text(L10n.Speed.msl)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.secondaryText)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Altitude")
-        .accessibilityValue(AltimeterView.accessibilityValue(
-            altitudeFeet: Int(altitudeFeet), gpsLost: gpsSignalStatus == .lost))
-        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

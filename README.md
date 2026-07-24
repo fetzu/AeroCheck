@@ -21,8 +21,8 @@ AéroCheck is open source under the MIT License. The app includes:
   - WT9 Dynamic (F-HVXA)
 
 - **Premium aircraft** (requires AeroCheck Pro subscription):
-  - 12 aircraft delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28
-  - Sourced from two Swiss flying clubs (Groupe de Vol à Moteur de Porrentruy and Lausanne Aéroclub)
+  - 13 aircraft delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 (two variants) & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28
+  - Sourced from three Swiss flying clubs (Groupe de Vol à Moteur de Porrentruy, Lausanne Aéroclub, and Groupe de Vol à Moteur Neuchâtel)
   - Automatic updates when checklists change
   - Offline access after initial download
 
@@ -38,7 +38,7 @@ All subscription payments are handled securely through the Apple App Store. See 
 **Free (bundled)**
 - **F-HVXA** - Aerospool WT9 Dynamic - Free
 
-**Premium (AeroCheck Pro)** — 12 aircraft delivered via the API:
+**Premium (AeroCheck Pro)** — 13 aircraft delivered via the API:
 
 | Registration | Aircraft | Club |
 |--------------|----------|------|
@@ -54,6 +54,8 @@ All subscription payments are handled securely through the Apple App Store. See 
 | HB-KOJ | Robin DR401/140B | Lausanne Aéroclub |
 | HB-SAX | CAP10-C | Lausanne Aéroclub |
 | HB-SYI | Pipistrel VELIS Electro SW128 | Lausanne Aéroclub |
+| HB-KFO | Robin DR400/140B | GVMN Neuchâtel |
+| HB-KFP | Robin DR400/140B | GVMN Neuchâtel |
 
 Checklists, speeds and limits adapt automatically to the selected aircraft. Some aircraft are French- or English-only; most ship in both languages.
 
@@ -233,14 +235,14 @@ The app includes all 16 phases from the official checklists (same structure for 
 
 ### General
 - Location services enabled
-- Xcode 15.0+ for building
+- Xcode 26 for building (ships the iOS 26 SDK required by Companion mode's `WiFiAware` imports)
 
 ## Installation
 
 ### From Xcode
 
 1. Clone or download this repository
-2. Open `AeroCheck.xcodeproj` in Xcode 15+
+2. Open `AeroCheck.xcodeproj` in Xcode 26+
 3. Select your development team in Signing & Capabilities
 4. Connect your iPhone/iPad or select a simulator
 5. Build and run (⌘R)
@@ -331,7 +333,7 @@ AeroCheck/
 │   │   ├── OnboardingView.swift     # First-run onboarding
 │   │   ├── SubscriptionView.swift   # Subscription / paywall
 │   │   ├── SettingsView.swift       # Settings hub
-│   │   └── Settings/                # 7 cockpit-styled settings sub-pages
+│   │   └── Settings/                # 8 cockpit-styled settings sub-pages
 │   ├── Components/
 │   │   ├── DesignSystem.swift       # Theme engine, tokens, styles, Settings kit
 │   │   └── ChecklistView.swift      # Checklist display

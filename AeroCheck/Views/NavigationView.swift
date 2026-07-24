@@ -197,6 +197,7 @@ struct NavigationMapView: View {
     }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Binding var isPresented: Bool
     @State private var selectedLayer: MapLayerType = .icao
@@ -620,7 +621,8 @@ struct NavigationMapView: View {
                 compactMapControls
                     .padding(.horizontal, 12)
                     .padding(.bottom, (appState.settings.enableFlightPlanning ? compactSheetHeight : geometry.safeAreaInsets.bottom) + 8)
-                    .animation(.easeInOut(duration: 0.3), value: compactSheetHeight)
+                    // No animated resize under Reduce Motion (UX-18)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: compactSheetHeight)
             }
 
             // Bottom nav sheet — only with flight planning on (it carries the plan + frequencies). The
@@ -661,7 +663,8 @@ struct NavigationMapView: View {
             UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
                 .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
         }
-        .animation(.easeInOut(duration: 0.3), value: showCompactPanel)
+        // No animated expand/collapse under Reduce Motion (UX-18)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: showCompactPanel)
     }
 
     /// Expanded sheet body — sizes to its content (waypointList caps + scrolls internally, freqColumn
@@ -709,10 +712,11 @@ struct NavigationMapView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 8).padding(.bottom, 7)
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeInOut(duration: 0.3)) { showCompactPanel.toggle() } }
+        // No animated expand/collapse under Reduce Motion (UX-18)
+        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { showCompactPanel.toggle() } }
         .gesture(
             DragGesture(minimumDistance: 10).onEnded { value in
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
                     if value.translation.height < -24 { showCompactPanel = true }
                     else if value.translation.height > 24 { showCompactPanel = false }
                 }
@@ -728,7 +732,8 @@ struct NavigationMapView: View {
             compactFreqChip
         }
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeInOut(duration: 0.3)) { showCompactPanel = true } }
+        // No animated expand under Reduce Motion (UX-18)
+        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { showCompactPanel = true } }
     }
 
     private var compactFreqChip: some View {
@@ -764,7 +769,8 @@ struct NavigationMapView: View {
             if appState.settings.enableFlightPlanning {
             if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
+                    // No animated expand/collapse under Reduce Motion (UX-18)
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
                         showCompactPanel.toggle()
                     }
                 }) {
@@ -923,6 +929,7 @@ struct NavigationMapView: View {
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .floatingChromeCircle()
             }
+            .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
                     .environmentObject(appState)
@@ -995,7 +1002,8 @@ struct NavigationMapView: View {
                         .floatingChromeCircle()
                 }
                 .accessibilityLabel(L10n.Nav.navigation)
-                .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+                // No animated icon transition under Reduce Motion (UX-18)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: mapState.cameraHeading)
 
                 // Zoom out / in (pinch also works). (v4 UI/UX Revamp — iPhone)
                 VStack(spacing: 0) {
@@ -1470,6 +1478,7 @@ struct NavigationMapView: View {
                 .padding(.vertical, 12)
                 .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             }
+            .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
                 LayerPickerSheet(selectedLayer: $selectedLayer)
                     .environmentObject(appState)
@@ -1588,13 +1597,14 @@ struct NavigationMapView: View {
             .padding(.top, 7)
             .padding(.bottom, 3)
             .contentShape(Rectangle())
+            // No animated expand/collapse under Reduce Motion (UX-18)
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded.toggle() }
             }
             .gesture(
                 DragGesture(minimumDistance: 10)
                     .onEnded { value in
-                        withAnimation(.easeInOut(duration: 0.28)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) {
                             if value.translation.height < -24 { navSheetExpanded = true }
                             else if value.translation.height > 24 { navSheetExpanded = false }
                         }
@@ -1614,7 +1624,8 @@ struct NavigationMapView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded = true } }
+        // No animated expand under Reduce Motion (UX-18)
+        .onTapGesture { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded = true } }
     }
 
     @ViewBuilder
@@ -1656,7 +1667,8 @@ struct NavigationMapView: View {
     private var freqChip: some View {
         let active = phaseFreqItems.first(where: { $0.role == .current })
             ?? phaseFreqItems.first(where: { !$0.isEmergency }) ?? phaseFreqItems.first
-        return Button(action: { withAnimation(.easeInOut(duration: 0.28)) { navSheetExpanded = true } }) {
+        // No animated expand under Reduce Motion (UX-18)
+        return Button(action: { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { navSheetExpanded = true } }) {
             HStack(spacing: 6) {
                 Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 13))
                 if let active {
@@ -1972,7 +1984,8 @@ struct NavigationMapView: View {
                 .padding(.bottom, 4)
             ForEach(visible) { freqRow($0) }
             if hasMore {
-                Button(action: { withAnimation { showAllFreqs.toggle() } }) {
+                // No animated expand/collapse under Reduce Motion (UX-18)
+                Button(action: { withAnimation(reduceMotion ? nil : .default) { showAllFreqs.toggle() } }) {
                     HStack(spacing: 3) {
                         Text(showAllFreqs ? L10n.Nav.showLess : "\(L10n.Nav.allFrequencies) (\(nonEmergency.count))")
                         Image(systemName: showAllFreqs ? "chevron.up" : "chevron.down").font(.system(size: 9))
@@ -2358,8 +2371,10 @@ struct NavigationMapView: View {
                     }
                     .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
                     .frame(width: 50, height: 40)
+                    .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the flight-planning toggle (UX-16)
                     .contentShape(Rectangle())
                 }
+                .accessibilityLabel(L10n.Nav.flightPlan)
             }
 
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
@@ -2383,6 +2398,7 @@ struct NavigationMapView: View {
                 }
                 .padding(.horizontal, 6)
                 .frame(height: 40)
+                .frame(minHeight: 44) // 44pt touch target around the GPS status control (UX-16)
                 .contentShape(Rectangle())
             }
 
@@ -2392,10 +2408,12 @@ struct NavigationMapView: View {
                     .font(.system(size: 19, weight: .medium))
                     .foregroundColor(trackingTint)
                     .frame(width: 46, height: 40)
+                    .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the tracking button (UX-16)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(L10n.Nav.navigation)
-            .animation(.easeInOut(duration: 0.2), value: mapState.cameraHeading)
+            // No animated icon transition under Reduce Motion (UX-18)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: mapState.cameraHeading)
 
             // Zoom out / in (kept for gloved / turbulence use, docked far-right). First thing dropped
             // when horizontal space runs out — pinch still zooms. (v4 UI/UX Revamp)
@@ -2406,6 +2424,7 @@ struct NavigationMapView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.primaryText)
                             .frame(width: 40, height: 40)
+                            .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-out button (UX-16)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel(L10n.Nav.zoomOut)
@@ -2415,6 +2434,7 @@ struct NavigationMapView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.primaryText)
                             .frame(width: 40, height: 40)
+                            .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-in button (UX-16)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel(L10n.Nav.zoomIn)
@@ -2928,6 +2948,9 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
         let newIds = Set(visibleAirports.map { $0.id })
 
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
+
         // Remove annotations that are no longer visible
         let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
         mapView.removeAnnotations(toRemove)
@@ -2944,6 +2967,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
         let existingIds = Set(existing.map { $0.navaid.id })
         let newIds = Set(visibleNavaids.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
         for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
@@ -2954,6 +2979,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
         let existingIds = Set(existing.map { $0.obstacle.id })
         let newIds = Set(visibleObstacles.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
         for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
             mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
@@ -2964,6 +2991,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
         let existingIds = Set(existing.map { $0.point.id })
         let newIds = Set(visibleReportingPoints.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
         for point in visibleReportingPoints where !existingIds.contains(point.id) {
             mapView.addAnnotation(ReportingPointAnnotation(point: point))
@@ -3493,36 +3522,6 @@ struct NativeMapViewUIKit: UIViewRepresentable {
             parent.onWaypointATOTap?(waypointAnnotation.waypointIndex)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-    }
-}
-
-// MARK: - Aircraft Marker
-
-struct AircraftMarker: View {
-    let heading: Double
-    let speed: Double
-
-    var body: some View {
-        // Aircraft marker with outline for visibility on all map backgrounds
-        // SF Symbol "airplane" points to the right (90°/East) by default
-        // Subtract 90° so that heading 0° (North) shows plane pointing up
-        ZStack {
-            // Black outline (drawn multiple times offset to create stroke effect)
-            ForEach(0..<8, id: \.self) { i in
-                let angle = Double(i) * .pi / 4
-                let offset: CGFloat = 1.5
-                Image(systemName: "airplane")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.black)
-                    .offset(x: cos(angle) * offset, y: sin(angle) * offset)
-            }
-            // Main gold icon
-            Image(systemName: "airplane")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.aviationGold)
-        }
-        .rotationEffect(.degrees(heading - 90.0))
-        .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
     }
 }
 
@@ -4189,6 +4188,9 @@ struct SwissMapView: UIViewRepresentable {
         let existingIds = Set(existingAirportAnnotations.map { $0.airport.id })
         let newIds = Set(visibleAirports.map { $0.id })
 
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
+
         // Remove annotations that are no longer visible
         let toRemove = existingAirportAnnotations.filter { !newIds.contains($0.airport.id) }
         mapView.removeAnnotations(toRemove)
@@ -4205,6 +4207,8 @@ struct SwissMapView: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? NavaidAnnotation }
         let existingIds = Set(existing.map { $0.navaid.id })
         let newIds = Set(visibleNavaids.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.navaid.id) })
         for navaid in visibleNavaids where !existingIds.contains(navaid.id) {
             mapView.addAnnotation(NavaidAnnotation(navaid: navaid))
@@ -4215,6 +4219,8 @@ struct SwissMapView: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? ObstacleAnnotation }
         let existingIds = Set(existing.map { $0.obstacle.id })
         let newIds = Set(visibleObstacles.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.obstacle.id) })
         for obstacle in visibleObstacles where !existingIds.contains(obstacle.id) {
             mapView.addAnnotation(ObstacleAnnotation(obstacle: obstacle))
@@ -4225,6 +4231,8 @@ struct SwissMapView: UIViewRepresentable {
         let existing = mapView.annotations.compactMap { $0 as? ReportingPointAnnotation }
         let existingIds = Set(existing.map { $0.point.id })
         let newIds = Set(visibleReportingPoints.map { $0.id })
+        // Skip rebuilding when the visible set hasn't changed since the last update. (PERF-27)
+        guard existingIds != newIds else { return }
         mapView.removeAnnotations(existing.filter { !newIds.contains($0.point.id) })
         for point in visibleReportingPoints where !existingIds.contains(point.id) {
             mapView.addAnnotation(ReportingPointAnnotation(point: point))
@@ -4904,34 +4912,6 @@ class TrackVectorCasingPolyline: TrackVectorPolyline {}
 // `ICAOSegelflugkarteTileOverlay` and `SwisstopoTileOverlay` moved to the shared
 // `Services/SwisstopoTileOverlays.swift` (v4 UI/UX Revamp design-system consolidation — they were
 // duplicated as `WaypointPicker*` in FlightPlanEditorView). All map consumers use them from there.
-
-// MARK: - Navigation Toggle Button
-
-/// Button to toggle navigation mode from FlightView
-struct NavigationModeButton: View {
-    @Binding var showNavigation: Bool
-
-    var body: some View {
-        Button(action: { showNavigation = true }) {
-            HStack(spacing: 6) {
-                Image(systemName: "map")
-                Text("NAV")
-            }
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(.primaryText)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.aviationBlue, lineWidth: 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.aviationBlue.opacity(0.2))
-                    )
-            )
-        }
-    }
-}
 
 // MARK: - GPS Status Info Sheet
 

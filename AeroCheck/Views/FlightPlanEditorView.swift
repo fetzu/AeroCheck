@@ -49,6 +49,7 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Live "Flight plan details" editor (#5): the route is read-only here (the builder owns it), and
     // changes to the non-route fields auto-commit (debounced) — no Save button, no snapshot split.
@@ -304,7 +305,8 @@ struct FlightPlanEditorView: View {
     private var timingSection: some View {
         VStack(spacing: 12) {
             // Post-flight logbook data — collapsed by default so it doesn't clutter planning. (#5)
-            Button { withAnimation { logbookExpanded.toggle() } } label: {
+            // No animated expand/collapse under Reduce Motion (UX-18)
+            Button { withAnimation(reduceMotion ? nil : .default) { logbookExpanded.toggle() } } label: {
                 HStack {
                     Label(L10n.Nav.logbookTimes, systemImage: "clock")
                         .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
@@ -439,7 +441,8 @@ struct FlightPlanEditorView: View {
 
     private var icaoDetailsSection: some View {
         VStack(spacing: 12) {
-            Button(action: { withAnimation { icaoSectionExpanded.toggle() } }) {
+            // No animated expand/collapse under Reduce Motion (UX-18)
+            Button(action: { withAnimation(reduceMotion ? nil : .default) { icaoSectionExpanded.toggle() } }) {
                 HStack {
                     Label(L10n.Nav.icaoDetails, systemImage: "doc.plaintext")
                         .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
@@ -649,126 +652,38 @@ struct FlightPlanEditorView: View {
     }
 }
 
-// MARK: - Waypoint Table Row
+// MARK: - Form Fields
 
-struct WaypointTableRow: View {
-    let index: Int
-    let waypoint: FlightPlanWaypoint
-    let isLast: Bool
-    var isCompact: Bool = false
-    let onTap: () -> Void
-    let onDelete: () -> Void
-    let onMoveUp: (() -> Void)?
-    let onMoveDown: (() -> Void)?
-
-    /// Whether this is the first waypoint (departure point - no leg data to display)
-    private var isFirstWaypoint: Bool { index == 0 }
+/// Shared caption-style label used above every editor form field.
+private struct FieldLabel: View {
+    let text: String
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Index - fixed width
-            Text("\(index + 1)")
-                .scaledFont(size: 12, weight: .medium, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.dimText)
-                .frame(width: 30)
-
-            // Waypoint name - flexible on iPad, fixed on iPhone
-            if isCompact {
-                Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
-                    .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                    .frame(width: 100, alignment: .leading)
-            } else {
-                Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
-                    .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            // Frequency - fixed width
-            Text(waypoint.frequency ?? "-")
-                .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
-                .foregroundColor(.aviationGold)
-                .frame(width: 55)
-                .lineLimit(1)
-
-            // MC (Magnetic Course) - not shown for first waypoint
-            Text(isFirstWaypoint ? "-" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "-"))
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 50)
-
-            // Distance - not shown for first waypoint
-            Text(isFirstWaypoint ? "-" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? "-"))
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 50)
-
-            // Altitude - shown for all waypoints (it's the planned altitude AT this waypoint)
-            Text(waypoint.altitude.map { String(format: "%.0f", $0) } ?? "-")
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 60)
-
-            // Ground Speed - not shown for first waypoint
-            Text(isFirstWaypoint ? "-" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "-"))
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 50)
-
-            // EET - not shown for first waypoint
-            Text(isFirstWaypoint ? "-" : (waypoint.formattedEET ?? "-"))
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 50)
-
-            // ETO - shown for all waypoints (time at which we should arrive AT this waypoint)
-            Text(waypoint.formattedETO ?? "-")
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(.primaryText)
-                .frame(width: 55)
-
-            // ATO - fixed width
-            Text(waypoint.formattedATO ?? "-")
-                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
-                .foregroundColor(waypoint.actualTimeOver != nil ? .aviationGreen : .dimText)
-                .frame(width: 55)
-        }
-        .frame(height: 40)
-        .background(index % 2 == 0 ? Color.cardBackground : Color.panelBackground)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            onTap()
-        }
-        .contextMenu {
-            Button(action: onTap) {
-                Label(L10n.Nav.edit, systemImage: "pencil")
-            }
-
-            if let moveUp = onMoveUp {
-                Button(action: moveUp) {
-                    Label(L10n.Nav.moveUp, systemImage: "arrow.up")
-                }
-            }
-
-            if let moveDown = onMoveDown {
-                Button(action: moveDown) {
-                    Label(L10n.Nav.moveDown, systemImage: "arrow.down")
-                }
-            }
-
-            Divider()
-
-            Button(role: .destructive, action: onDelete) {
-                Label(L10n.Button.delete, systemImage: "trash")
-            }
-        }
+        Text(text)
+            .scaledFont(size: 11, relativeTo: .caption2)
+            .foregroundColor(.secondaryText)
     }
 }
 
-// MARK: - Form Fields
+/// Shared input-box chrome (padding + card background + rounded corners) for editor form fields.
+/// `dimmed` selects the lighter, read-only variant of the background.
+private struct FieldBoxModifier: ViewModifier {
+    var dimmed: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(dimmed ? Color.cardBackground.opacity(0.5) : Color.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+private extension View {
+    func fieldBox(dimmed: Bool = false) -> some View {
+        modifier(FieldBoxModifier(dimmed: dimmed))
+    }
+}
 
 struct FormField: View {
     let label: String
@@ -777,27 +692,19 @@ struct FormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             if isReadOnly {
                 Text(text.isEmpty ? "-" : text)
                     .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.cardBackground.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldBox(dimmed: true)
             } else {
                 TextField("", text: $text)
                     .scaledFont(size: 14, relativeTo: .subheadline)
                     .textFieldStyle(.plain)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldBox()
             }
         }
     }
@@ -813,18 +720,13 @@ struct OptionalFormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             TextField("", text: $localText)
                 .scaledFont(size: 14, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(keyboardType)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .fieldBox()
                 .onAppear {
                     localText = text ?? ""
                 }
@@ -855,9 +757,7 @@ struct DateFormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             // Display date as styled text, tap to edit
             Button(action: { showingDatePicker = true }) {
@@ -865,10 +765,7 @@ struct DateFormField: View {
                     .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldBox()
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -879,6 +776,30 @@ struct DateFormField: View {
     }
 }
 
+/// Shared header for the compact date/time picker sheets: title + spacer + Done button.
+private struct SheetHeader: View {
+    let title: String
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
+                .foregroundColor(.primaryText)
+
+            Spacer()
+
+            Button(L10n.Button.done) {
+                isPresented = false
+            }
+            .scaledFont(size: 16, weight: .medium, relativeTo: .body)
+            .foregroundColor(.aviationGold)
+        }
+        .padding(.horizontal)
+        .padding(.top, 16)
+    }
+}
+
 /// Compact sheet for picking date (popover-style)
 struct DatePickerSheet: View {
     @Binding var selectedDate: Date
@@ -886,22 +807,7 @@ struct DatePickerSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header
-            HStack {
-                Text(L10n.Nav.selectDate)
-                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-
-                Spacer()
-
-                Button(L10n.Button.done) {
-                    isPresented = false
-                }
-                .scaledFont(size: 16, weight: .medium, relativeTo: .body)
-                .foregroundColor(.aviationGold)
-            }
-            .padding(.horizontal)
-            .padding(.top, 16)
+            SheetHeader(title: L10n.Nav.selectDate, isPresented: $isPresented)
 
             // Date picker
             DatePicker("", selection: $selectedDate, displayedComponents: [.date])
@@ -935,9 +841,7 @@ struct OptionalTimeFormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             Button(action: {
                 if !isSet {
@@ -951,10 +855,7 @@ struct OptionalTimeFormField: View {
                     .scaledFont(size: 14, weight: isSet ? .medium : .regular, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(isSet ? .primaryText : .aviationGold)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .fieldBox()
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -981,22 +882,7 @@ struct TimePickerSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header
-            HStack {
-                Text(L10n.Nav.selectTime)
-                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
-                    .foregroundColor(.primaryText)
-
-                Spacer()
-
-                Button(L10n.Button.done) {
-                    isPresented = false
-                }
-                .scaledFont(size: 16, weight: .medium, relativeTo: .body)
-                .foregroundColor(.aviationGold)
-            }
-            .padding(.horizontal)
-            .padding(.top, 16)
+            SheetHeader(title: L10n.Nav.selectTime, isPresented: $isPresented)
 
             // Compact time picker
             DatePicker("", selection: $selectedTime, displayedComponents: [.hourAndMinute])
@@ -1023,18 +909,13 @@ struct NumberFormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             TextField("", value: $value, format: .number)
                 .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .fieldBox()
         }
     }
 }
@@ -1045,18 +926,13 @@ struct IntFormField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .scaledFont(size: 11, relativeTo: .caption2)
-                .foregroundColor(.secondaryText)
+            FieldLabel(text: label)
 
             TextField("", value: $value, format: .number)
                 .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.numberPad)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .fieldBox()
         }
     }
 }

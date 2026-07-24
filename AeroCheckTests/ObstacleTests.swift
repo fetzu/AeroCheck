@@ -75,4 +75,35 @@ final class ObstacleTests: XCTestCase {
         let empty = service.obstaclesInRegion(latRange: 0...1, lonRange: 0...1)
         XCTAssertTrue(empty.isEmpty)
     }
+
+    /// The 1° spatial grid added for the perf review (30-performance.md #7) must gather candidates from
+    /// every cell the query bounds overlap and still apply the exact range check — asserted against an
+    /// independently reimplemented brute-force filter over a dataset that straddles the (lat 45, lon 9)
+    /// cell corner: one obstacle per surrounding cell, a same-cell false positive outside the query
+    /// range, and a far-away obstacle in an untouched cell.
+    @MainActor
+    func testObstaclesInRegionMatchesBruteForceAcrossGridBoundary() throws {
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"P1","type":0},"geometry":{"type":"Point","coordinates":[8.95,44.95]}},
+          {"type":"Feature","properties":{"_id":"P2","type":0},"geometry":{"type":"Point","coordinates":[8.95,45.05]}},
+          {"type":"Feature","properties":{"_id":"P3","type":0},"geometry":{"type":"Point","coordinates":[9.05,44.95]}},
+          {"type":"Feature","properties":{"_id":"P4","type":0},"geometry":{"type":"Point","coordinates":[9.05,45.05]}},
+          {"type":"Feature","properties":{"_id":"P5","type":0},"geometry":{"type":"Point","coordinates":[8.80,44.95]}},
+          {"type":"Feature","properties":{"_id":"P6","type":0},"geometry":{"type":"Point","coordinates":[10.0,10.0]}}
+        ]}
+        """.data(using: .utf8)!
+        let all = try Obstacle.parse(geoJSON: json)
+
+        let latRange = 44.9...45.1
+        let lonRange = 8.9...9.1
+        let bruteForce = all.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+
+        let service = OpenAIPObstacleDataService()
+        service.seedForTesting(all)
+        let gridResult = service.obstaclesInRegion(latRange: latRange, lonRange: lonRange)
+
+        XCTAssertEqual(Set(gridResult.map(\.id)), Set(bruteForce.map(\.id)))
+        XCTAssertEqual(Set(gridResult.map(\.id)), ["P1", "P2", "P3", "P4"])
+    }
 }

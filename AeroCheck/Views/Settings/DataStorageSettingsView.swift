@@ -159,6 +159,7 @@ struct DataStorageSettingsView: View {
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
                 }
+                .accessibilityLabel(L10n.DataStorage.rowActions)
             }
         }
     }

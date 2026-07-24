@@ -41,11 +41,12 @@ enum CountryNeighbors {
     ]
 }
 
-/// First-run onboarding (v4.1.0 revamp). Seven steps: welcome → location priming → maps & data
-/// downloads → checklists → your map → in flight & features → ready. The three middle "config" steps
-/// fold a one-line intro into a header and let the pilot tune the default-off/on features up front; the
-/// toggles bind straight to `AppSettings` and persist when onboarding completes. Cockpit language:
-/// tinted page icons, gold primary actions, custom gold page dots. (onboarding revamp)
+/// First-run onboarding (v4.1.0 revamp). Eight steps: welcome → location priming → maps & data
+/// downloads → checklists → your map → in flight & features → premium (AéroCheck Pro upsell) → ready.
+/// The three middle "config" steps fold a one-line intro into a header and let the pilot tune the
+/// default-off/on features up front; the toggles bind straight to `AppSettings` and persist when
+/// onboarding completes. Cockpit language: tinted page icons, gold primary actions, custom gold page
+/// dots. (onboarding revamp)
 struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var locationManager: LocationManager

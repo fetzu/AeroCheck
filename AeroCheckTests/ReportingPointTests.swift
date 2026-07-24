@@ -73,4 +73,71 @@ final class ReportingPointTests: XCTestCase {
 
         XCTAssertTrue(service.reportingPointsInRegion(latRange: 0...1, lonRange: 0...1).isEmpty)
     }
+
+    /// The 1° spatial grid added for the perf review (30-performance.md #9) must gather region-query
+    /// candidates from every overlapping cell and still apply the exact range check — asserted against
+    /// an independently reimplemented brute-force filter over a dataset straddling the (lat 45, lon 9)
+    /// cell corner: one point per surrounding cell, a same-cell false positive outside the query range,
+    /// and a far-away point in an untouched cell.
+    @MainActor
+    func testReportingPointsInRegionMatchesBruteForceAcrossGridBoundary() throws {
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"P1"},"geometry":{"type":"Point","coordinates":[8.95,44.95]}},
+          {"type":"Feature","properties":{"_id":"P2"},"geometry":{"type":"Point","coordinates":[8.95,45.05]}},
+          {"type":"Feature","properties":{"_id":"P3"},"geometry":{"type":"Point","coordinates":[9.05,44.95]}},
+          {"type":"Feature","properties":{"_id":"P4"},"geometry":{"type":"Point","coordinates":[9.05,45.05]}},
+          {"type":"Feature","properties":{"_id":"P5"},"geometry":{"type":"Point","coordinates":[8.80,44.95]}},
+          {"type":"Feature","properties":{"_id":"P6"},"geometry":{"type":"Point","coordinates":[10.0,10.0]}}
+        ]}
+        """.data(using: .utf8)!
+        let all = try ReportingPoint.parse(geoJSON: json)
+
+        let latRange = 44.9...45.1
+        let lonRange = 8.9...9.1
+        let bruteForce = all.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+
+        let service = OpenAIPReportingPointDataService()
+        service.seedForTesting(all)
+        let gridResult = service.reportingPointsInRegion(latRange: latRange, lonRange: lonRange)
+
+        XCTAssertEqual(Set(gridResult.map(\.id)), Set(bruteForce.map(\.id)))
+        XCTAssertEqual(Set(gridResult.map(\.id)), ["P1", "P2", "P3", "P4"])
+    }
+
+    /// `reportingPointsNear`'s ring-widening grid walk must find the nearest point even when it sits in
+    /// an adjacent grid cell to the query coordinate — a naive "only check the query's own cell"
+    /// implementation would miss it and could return the wrong (same-cell but farther) point instead.
+    @MainActor
+    func testReportingPointsNearFindsNearestAcrossGridBoundary() throws {
+        let json = """
+        {"type":"FeatureCollection","features":[
+          {"type":"Feature","properties":{"_id":"near","name":"NEAR"},"geometry":{"type":"Point","coordinates":[9.001,45.001]}},
+          {"type":"Feature","properties":{"_id":"far","name":"FAR"},"geometry":{"type":"Point","coordinates":[8.5,44.5]}}
+        ]}
+        """.data(using: .utf8)!
+        let all = try ReportingPoint.parse(geoJSON: json)
+
+        let service = OpenAIPReportingPointDataService()
+        service.seedForTesting(all)
+
+        // Query coordinate sits just inside cell (44, 8); "near" sits just across the corner in the
+        // diagonally adjacent cell (45, 9), about 0.15 NM away. "far" shares the query's own cell but is
+        // ~35 NM away.
+        let coord = CLLocationCoordinate2D(latitude: 44.999, longitude: 8.999)
+        let nearest = service.reportingPointsNear(to: coord, maxDistanceNm: 50, limit: 1)
+
+        XCTAssertEqual(nearest.map(\.id), ["near"])
+
+        // Both must be found (equal to the brute-force filter+sort) when the limit allows it.
+        let both = service.reportingPointsNear(to: coord, maxDistanceNm: 50, limit: 2)
+        let bruteForce = all
+            .compactMap { p -> (ReportingPoint, Double)? in
+                let d = p.distanceNM(from: coord)
+                return d <= 50 ? (p, d) : nil
+            }
+            .sorted { ($0.1, $0.0.compulsory ? 0 : 1) < ($1.1, $1.0.compulsory ? 0 : 1) }
+            .map { $0.0.id }
+        XCTAssertEqual(both.map(\.id), bruteForce)
+    }
 }

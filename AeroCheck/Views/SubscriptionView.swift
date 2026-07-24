@@ -173,7 +173,7 @@ struct SubscriptionView: View {
                 Text(L10n.Subscription.freeTrialDays(days))
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundColor(Color.aviationGreen)
-                Text(L10n.Subscription.freeTrialNote)
+                Text(L10n.Subscription.freeTrialNoteDays(days))
                     .font(.caption)
                     .foregroundColor(Color.secondaryText)
             }
@@ -265,6 +265,7 @@ struct SubscriptionView: View {
                 Rectangle().fill(Color.subtleOverlay(0.06)).frame(height: 1).padding(.leading, 41)
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Status
@@ -406,6 +407,7 @@ struct ProductCard: View {
         }
         .disabled(subscriptionManager.isPurchasing)
         .opacity(subscriptionManager.isPurchasing ? 0.6 : 1.0)
+        .accessibilityElement(children: .combine)
     }
 
     private func tag(_ text: String, color: Color) -> some View {

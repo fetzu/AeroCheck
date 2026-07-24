@@ -9,6 +9,17 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     private var session: WCSession?
     private var updateTimer: Timer?
+    /// Whether the app has asked for periodic updates (via `startUpdates`/`notifyFlightStarted`) and
+    /// hasn't since called `stopUpdates`. Kept separate from `updateTimer` so a pairing/install change
+    /// mid-flight (`sessionWatchStateDidChange`) knows whether it should (re)arm the timer. (WATCH-01)
+    private var wantsUpdates = false
+
+    /// True only when there's an actual Watch to talk to — paired AND with the companion app installed.
+    /// Guards the 1 Hz timer so it never runs for a flight with no Watch in the picture. (WATCH-01)
+    private var isWatchAvailable: Bool {
+        guard let session = session else { return false }
+        return session.isPaired && session.isWatchAppInstalled
+    }
 
     // Held weakly so a Watch command (e.g. chronometer control) can act on live state + echo back.
     private weak var appStateRef: AppState?
@@ -43,28 +54,61 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Start sending periodic updates to the Watch
+    /// Start sending periodic updates to the Watch. No-ops the timer when there's no paired/installed
+    /// Watch to receive them — `sessionWatchStateDidChange` arms it later if one pairs mid-flight. (WATCH-01)
     func startUpdates(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
         stopUpdates()
         appStateRef = appState
         locationManagerRef = locationManager
         flightPlanManagerRef = flightPlanManager
+        wantsUpdates = true
 
-        // Send initial update immediately
-        sendFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
-
-        // Start periodic updates (every 1 second for real-time data)
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.sendFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
-            }
+        guard isWatchAvailable else {
+            AppLog.watch.debugLine("No paired/installed Watch — skipping periodic updates")
+            return
         }
+
+        armUpdateTimer()
     }
 
     /// Stop sending updates to the Watch
     func stopUpdates() {
         updateTimer?.invalidate()
         updateTimer = nil
+        wantsUpdates = false
+    }
+
+    /// Sends the initial update and arms the 1 Hz timer. Only called once a Watch is actually available
+    /// (either at `startUpdates` time, or later via `sessionWatchStateDidChange`). (WATCH-01)
+    private func armUpdateTimer() {
+        guard let appState = appStateRef, let locationManager = locationManagerRef,
+              let flightPlanManager = flightPlanManagerRef else { return }
+
+        // Send initial update immediately
+        sendFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+
+        // Start periodic updates (every 1 second for real-time data)
+        updateTimer?.invalidate()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let a = self.appStateRef, let l = self.locationManagerRef,
+                      let f = self.flightPlanManagerRef else { return }
+                self.sendFlightData(appState: a, locationManager: l, flightPlanManager: f)
+            }
+        }
+    }
+
+    /// Re-evaluate whether the timer should be running after the Watch's paired/installed state
+    /// changes mid-session, without disturbing a flight that never asked for updates. (WATCH-01)
+    @MainActor
+    private func handleWatchAvailabilityChange() {
+        guard wantsUpdates else { return }
+        if isWatchAvailable {
+            if updateTimer == nil { armUpdateTimer() }
+        } else {
+            updateTimer?.invalidate()
+            updateTimer = nil
+        }
     }
 
     /// Notify Watch that a flight has started (triggers Watch app launch)
@@ -131,7 +175,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     // MARK: - Private Methods
 
     private func sendFlightData(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
-        guard let session = session else { return }
+        // No paired/installed Watch to receive this — short-circuit instead of building + encoding the
+        // payload for nobody. (WATCH-01)
+        guard let session = session, isWatchAvailable else { return }
 
         let flightData = createFlightData(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
 
@@ -312,6 +358,14 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
         AppLog.watch.debugLine("Reachability changed: \(session.isReachable)")
+    }
+
+    /// Fires when pairing/installation state changes (e.g. the Watch pairs or the companion app gets
+    /// installed/removed) mid-session. Delegate callbacks land on a background queue, so hop to the
+    /// MainActor — same pattern as `didReceiveMessage` below — before touching timer/actor state. (WATCH-01)
+    nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+        AppLog.watch.debugLine("Watch state changed - Paired: \(session.isPaired), Installed: \(session.isWatchAppInstalled)")
+        Task { @MainActor in self.handleWatchAvailabilityChange() }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

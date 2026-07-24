@@ -154,7 +154,7 @@ struct DataStorageSettingsView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 18))
+                        .scaledFont(size: 18, relativeTo: .title3)
                         .foregroundColor(.secondaryText)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
@@ -260,10 +260,10 @@ struct DataStorageSettingsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                         if aircraft.isPremium {
-                            Image(systemName: "star.fill").font(.system(size: 9)).foregroundColor(.aviationGold)
+                            Image(systemName: "star.fill").scaledFont(size: 9, relativeTo: .caption2).foregroundColor(.aviationGold)
                         }
                         Text(aircraft.modelName).font(.caption).foregroundColor(.secondaryText).lineLimit(1)
                         Spacer(minLength: 6)

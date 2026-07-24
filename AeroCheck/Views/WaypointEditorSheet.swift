@@ -52,21 +52,21 @@ struct WaypointEditorSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.latitude)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("46.0000", text: $latitudeString)
                                 .keyboardType(.decimalPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.longitude)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("7.0000", text: $longitudeString)
                                 .keyboardType(.decimalPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
                     }
@@ -92,11 +92,11 @@ struct WaypointEditorSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.plannedAltitude)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("5000", text: $altitudeString)
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
 
@@ -113,16 +113,16 @@ struct WaypointEditorSheet: View {
                                 .scaleEffect(0.8)
                             Text(L10n.Nav.loadingElevation)
                                 .foregroundColor(.secondaryText)
-                                .font(.system(size: 12))
+                                .scaledFont(size: 12, relativeTo: .caption)
                         } else if let groundElevation = groundElevationMeters {
                             let groundFeet = groundElevation * 3.28084
                             Text(L10n.Nav.groundLevel(Int(groundFeet)))
                                 .foregroundColor(.dimText)
-                                .font(.system(size: 12))
+                                .scaledFont(size: 12, relativeTo: .caption)
                         } else {
                             Text(L10n.Nav.groundLevelNA)
                                 .foregroundColor(.dimText)
-                                .font(.system(size: 12))
+                                .scaledFont(size: 12, relativeTo: .caption)
                         }
                         Spacer(minLength: 0)
                     }
@@ -135,11 +135,11 @@ struct WaypointEditorSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.groundSpeed)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("\(FlightPlan.defaultCruiseSpeed(for: aircraftTypeId))", text: $groundSpeedString)
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
 
@@ -152,11 +152,11 @@ struct WaypointEditorSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.windDirection)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("270", text: $windDirectionString)
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
 
@@ -165,11 +165,11 @@ struct WaypointEditorSheet: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(L10n.Nav.windSpeed)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                                 .foregroundColor(.secondaryText)
                             TextField("10", text: $windSpeedString)
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 14, design: .monospaced))
+                                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                         }
 
@@ -194,13 +194,13 @@ struct WaypointEditorSheet: View {
                     fieldRow(L10n.Nav.frequency, icon: "antenna.radiowaves.left.and.right") {
                         TextField("118.100", text: $frequency)
                             .keyboardType(.decimalPad)
-                            .font(.system(size: 14, design: .monospaced))
+                            .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                     }
 
                     fieldRow(L10n.Nav.callsign) {
                         TextField("e.g., PORRENTRUY INFO", text: $callSign)
-                            .font(.system(size: 14))
+                            .scaledFont(size: 14, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                     }
                 }
@@ -209,7 +209,7 @@ struct WaypointEditorSheet: View {
                 SettingsGroup(title: L10n.Nav.remarks, tint: tint) {
                     TextEditor(text: $remarks)
                         .frame(minHeight: 80)
-                        .font(.system(size: 14))
+                        .scaledFont(size: 14, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 14)
@@ -428,7 +428,7 @@ struct CoordinatePickerView: View {
                     HStack {
                         Spacer()
                         Image(systemName: "plus")
-                            .font(.system(size: 30, weight: .light))
+                            .scaledFont(size: 30, weight: .light, relativeTo: .largeTitle)
                             .foregroundColor(.aviationGold)
                             .shadow(color: .black, radius: 2)
                         Spacer()
@@ -461,24 +461,24 @@ struct CoordinatePickerView: View {
 
                     VStack(spacing: 8) {
                         Text(L10n.Nav.selectedCoordinates)
-                            .font(.system(size: 12))
+                            .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.secondaryText)
 
                         HStack(spacing: 16) {
                             VStack {
                                 Text("LAT")
-                                    .font(.system(size: 10))
+                                    .scaledFont(size: 10, relativeTo: .caption2)
                                     .foregroundColor(.dimText)
                                 Text(String(format: "%.6f", region.center.latitude))
-                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
                             }
 
                             VStack {
                                 Text("LON")
-                                    .font(.system(size: 10))
+                                    .scaledFont(size: 10, relativeTo: .caption2)
                                     .foregroundColor(.dimText)
                                 Text(String(format: "%.6f", region.center.longitude))
-                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
                             }
                         }
 
@@ -487,7 +487,7 @@ struct CoordinatePickerView: View {
                             dismiss()
                         }) {
                             Text(L10n.Nav.useThisLocation)
-                                .font(.system(size: 16, weight: .semibold))
+                                .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)

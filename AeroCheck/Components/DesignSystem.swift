@@ -15,6 +15,37 @@ extension Font {
     static let captionText = Font.system(size: 14, weight: .medium, design: .default)
 }
 
+/// Applies a system font whose point size follows the user's Dynamic Type setting,
+/// anchored to a reference text style's scaling curve. Ground-use screens (planning,
+/// settings, onboarding, paywall, flight log) use `.scaledFont` instead of fixed
+/// `.font(.system(size:))`; in-flight HUD instrumentation intentionally keeps
+/// fixed sizes for cockpit legibility (UX-24).
+struct ScaledFontModifier: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design, relativeTo textStyle: Font.TextStyle) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: textStyle)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    /// Dynamic Type–aware replacement for `.font(.system(size:weight:design:))`.
+    /// `relativeTo` selects the text style whose scaling curve the size follows;
+    /// small labels should anchor to `.caption`/`.footnote` so they don't
+    /// over-scale at accessibility sizes.
+    func scaledFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default, relativeTo textStyle: Font.TextStyle = .body) -> some View {
+        modifier(ScaledFontModifier(size: size, weight: weight, design: design, relativeTo: textStyle))
+    }
+}
+
 // MARK: - Button Styles
 
 struct PrimaryButtonStyle: ButtonStyle {

@@ -432,17 +432,17 @@ struct OpenAIPDownloadSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(L10n.Settings.openAIPCountriesSelected(selectedCountries.count))
-                                        .font(.system(size: 15, weight: .medium))
+                                        .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                                         .foregroundColor(.primaryText)
                                     // Data-first: show the JSON data estimate (the primary download), not tiles.
                                     Text(L10n.Settings.estimatedDataSize(OpenAIPDataService.estimatedDataSize(for: countries)))
-                                        .font(.system(size: 13))
+                                        .scaledFont(size: 13, relativeTo: .caption)
                                         .foregroundColor(.secondaryText)
                                 }
                                 Spacer()
                                 Button(action: { selectedCountries.removeAll() }) {
                                     Text(L10n.Settings.openAIPClearSelection)
-                                        .font(.system(size: 13))
+                                        .scaledFont(size: 13, relativeTo: .caption)
                                         .foregroundColor(.aviationAmber)
                                 }
                             }
@@ -484,7 +484,7 @@ struct OpenAIPDownloadSheet: View {
                                 Image(systemName: "arrow.down.circle")
                                     .foregroundColor(.aviationAmber)
                                 Text(L10n.Settings.openAIPSelectionChanged)
-                                    .font(.system(size: 13))
+                                    .scaledFont(size: 13, relativeTo: .caption)
                                     .foregroundColor(.primaryText)
                                 Spacer(minLength: 0)
                             }
@@ -493,7 +493,7 @@ struct OpenAIPDownloadSheet: View {
                         }
 
                         Text(L10n.Settings.openAIPDownloadHint)
-                            .font(.system(size: 12))
+                            .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.secondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.bottom, 2)
@@ -502,10 +502,10 @@ struct OpenAIPDownloadSheet: View {
                         Button(action: { startDownload(tilesAndData: false) }) {
                             HStack {
                                 Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 14))
+                                    .scaledFont(size: 14, relativeTo: .subheadline)
                                 Text(L10n.Settings.downloadData)
                             }
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -520,10 +520,10 @@ struct OpenAIPDownloadSheet: View {
                         Button(action: { showTilesConfirm = true }) {
                             HStack {
                                 Image(systemName: "square.2.layers.3d")
-                                    .font(.system(size: 14))
+                                    .scaledFont(size: 14, relativeTo: .subheadline)
                                 Text(L10n.Settings.downloadWithTiles)
                             }
-                            .font(.system(size: 15, weight: .medium))
+                            .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                             .foregroundColor(.aviationGold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -549,16 +549,16 @@ struct OpenAIPDownloadSheet: View {
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(continent.name)
-                    .font(.system(size: 15, weight: .medium))
+                    .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                 Text(L10n.Settings.openAIPContinentCountryCount(continent.countries.count))
-                    .font(.system(size: 12))
+                    .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
             }
             Spacer()
             if selectedInContinent > 0 {
                 Text("\(selectedInContinent)")
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .scaledFont(size: 13, weight: .semibold, design: .monospaced, relativeTo: .caption)
                     .foregroundColor(.aviationGold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
@@ -576,18 +576,18 @@ struct OpenAIPDownloadSheet: View {
             if openAIPCacheManager.isDownloading {
                 VStack(spacing: 4) {
                     Text(L10n.Settings.downloadingTiles)
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(size: 14, weight: .medium, relativeTo: .subheadline)
                     ProgressView(value: openAIPCacheManager.downloadProgress)
                         .tint(.aviationGold)
                     Text("\(openAIPCacheManager.downloadedTileCount) / \(openAIPCacheManager.totalTileCount)")
-                        .font(.system(size: 12, design: .monospaced))
+                        .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                 }
             }
             if openAIPDataService.isDownloading {
                 VStack(spacing: 4) {
                     Text(L10n.Settings.downloadingAirspaceData)
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(size: 14, weight: .medium, relativeTo: .subheadline)
                     ProgressView(value: openAIPDataService.downloadProgress)
                         .tint(.aviationGold)
                 }
@@ -689,9 +689,9 @@ struct ContinentCountryListView: View {
                     HStack {
                         Image(systemName: allSelected ? "checkmark.circle.fill" : (someSelected ? "minus.circle.fill" : "circle"))
                             .foregroundColor(allSelected || someSelected ? .aviationGold : .secondaryText)
-                            .font(.system(size: 20))
+                            .scaledFont(size: 20, relativeTo: .title3)
                         Text(allSelected ? L10n.Settings.openAIPDeselectAll : L10n.Settings.openAIPSelectAll(continent.name))
-                            .font(.system(size: 15, weight: .medium))
+                            .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                         Spacer()
                     }
@@ -712,15 +712,15 @@ struct ContinentCountryListView: View {
                     Button(action: { toggleCountry(country.code) }) {
                         HStack {
                             Text(flagEmoji(for: country.code))
-                                .font(.system(size: 22))
+                                .scaledFont(size: 22, relativeTo: .title2)
                             Text(country.name)
-                                .font(.system(size: 15))
+                                .scaledFont(size: 15, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                             Spacer()
                             if selectedCountries.contains(country.code) {
                                 Image(systemName: "checkmark")
                                     .foregroundColor(.aviationGold)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
                             }
                         }
                     }

@@ -120,16 +120,16 @@ struct FlightPlanEditorView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(routeEndpoints)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .body)
                     .foregroundColor(.primaryText).lineLimit(1)
                 Text("\(flightPlan.waypoints.count) wpt · \(String(format: "%.0f", flightPlan.totalDistance)) NM · \(flightPlan.formattedTotalEET)")
-                    .font(.system(size: 11)).foregroundColor(.secondaryText)
+                    .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.secondaryText)
             }
             Spacer()
             if !isViewingFromFlightLog {
                 Button { dismiss() } label: {
                     Label(L10n.Nav.editRoute, systemImage: "map")
-                        .font(.system(size: 12, weight: .semibold)).foregroundColor(.altimeterBlue)
+                        .scaledFont(size: 12, weight: .semibold, relativeTo: .caption).foregroundColor(.altimeterBlue)
                 }
             }
         }
@@ -183,13 +183,13 @@ struct FlightPlanEditorView: View {
         VStack(spacing: 16) {
             HStack {
                 Text(L10n.Nav.navigationFlightPlan)
-                    .font(.system(size: isCompactWidth ? 12 : 14, weight: .bold))
+                    .scaledFont(size: isCompactWidth ? 12 : 14, weight: .bold, relativeTo: .subheadline)
                     .foregroundColor(.aviationGold)
                     .tracking(1)
                 Spacer()
                 HStack(spacing: 8) {
                     Text(L10n.Nav.flightType)
-                        .font(.system(size: isCompactWidth ? 10 : 12))
+                        .scaledFont(size: isCompactWidth ? 10 : 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                     Picker("", selection: $flightPlan.flightType) {
                         ForEach(FlightType.allCases) { type in
@@ -226,7 +226,7 @@ struct FlightPlanEditorView: View {
         VStack(spacing: 12) {
             HStack {
                 Label(L10n.Nav.fuelCalculation, systemImage: "fuelpump")
-                    .font(.system(size: 14, weight: .bold))
+                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
                     .foregroundColor(.aviationGold)
 
                 Spacer()
@@ -307,11 +307,11 @@ struct FlightPlanEditorView: View {
             Button { withAnimation { logbookExpanded.toggle() } } label: {
                 HStack {
                     Label(L10n.Nav.logbookTimes, systemImage: "clock")
-                        .font(.system(size: 14, weight: .bold))
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
                         .foregroundColor(.aviationGold)
                     Spacer()
                     Image(systemName: logbookExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12)).foregroundColor(.secondaryText)
+                        .scaledFont(size: 12, relativeTo: .caption).foregroundColor(.secondaryText)
                 }
             }
             .buttonStyle(.plain)
@@ -364,10 +364,10 @@ struct FlightPlanEditorView: View {
                 // Engine Time display (HH:MM format)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.Nav.engineTime)
-                        .font(.system(size: 11))
+                        .scaledFont(size: 11, relativeTo: .caption2)
                         .foregroundColor(.secondaryText)
                     Text(formattedEngineTime)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .scaledFont(size: 14, weight: .medium, design: .monospaced, relativeTo: .subheadline)
                         .foregroundColor(.primaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 8)
@@ -396,7 +396,7 @@ struct FlightPlanEditorView: View {
         VStack(spacing: 12) {
             HStack {
                 Label(L10n.Nav.notes, systemImage: "note.text")
-                    .font(.system(size: 14, weight: .bold))
+                    .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
                     .foregroundColor(.aviationGold)
 
                 Spacer()
@@ -404,11 +404,11 @@ struct FlightPlanEditorView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.Nav.remarks)
-                    .font(.system(size: 12))
+                    .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
 
                 TextEditor(text: $flightPlan.remarks)
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14, relativeTo: .subheadline)
                     .frame(minHeight: 60)
                     .scrollContentBackground(.hidden)
                     .background(Color.cardBackground)
@@ -417,11 +417,11 @@ struct FlightPlanEditorView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(L10n.Nav.debriefing)
-                    .font(.system(size: 12))
+                    .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
 
                 TextEditor(text: $flightPlan.debriefing)
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14, relativeTo: .subheadline)
                     .frame(minHeight: 60)
                     .scrollContentBackground(.hidden)
                     .background(Color.cardBackground)
@@ -442,13 +442,13 @@ struct FlightPlanEditorView: View {
             Button(action: { withAnimation { icaoSectionExpanded.toggle() } }) {
                 HStack {
                     Label(L10n.Nav.icaoDetails, systemImage: "doc.plaintext")
-                        .font(.system(size: 14, weight: .bold))
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
                         .foregroundColor(.aviationGold)
 
                     Spacer()
 
                     Image(systemName: icaoSectionExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12))
+                        .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.secondaryText)
                 }
             }
@@ -475,7 +475,7 @@ struct FlightPlanEditorView: View {
             // Wake turbulence category picker
             HStack {
                 Text(L10n.Nav.wakeTurbulence)
-                    .font(.system(size: 12))
+                    .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
                     .frame(width: 140, alignment: .leading)
 
@@ -508,7 +508,7 @@ struct FlightPlanEditorView: View {
             // Persons on board
             HStack {
                 Text(L10n.Nav.personsOnBoard)
-                    .font(.system(size: 12))
+                    .scaledFont(size: 12, relativeTo: .caption)
                     .foregroundColor(.secondaryText)
                     .frame(width: 140, alignment: .leading)
 
@@ -517,7 +517,7 @@ struct FlightPlanEditorView: View {
                     set: { flightPlan.personsOnBoard = Int($0) }
                 ))
                 .keyboardType(.numberPad)
-                .font(.system(size: 14, design: .monospaced))
+                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.roundedBorder)
             }
 
@@ -531,12 +531,12 @@ struct FlightPlanEditorView: View {
     private func icaoFieldRow(label: String, placeholder: String, binding: Binding<String>) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 12))
+                .scaledFont(size: 12, relativeTo: .caption)
                 .foregroundColor(.secondaryText)
                 .frame(width: 140, alignment: .leading)
 
             TextField(placeholder, text: binding)
-                .font(.system(size: 14, design: .monospaced))
+                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.roundedBorder)
                 .autocapitalization(.allCharacters)
         }
@@ -668,20 +668,20 @@ struct WaypointTableRow: View {
         HStack(spacing: 0) {
             // Index - fixed width
             Text("\(index + 1)")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .scaledFont(size: 12, weight: .medium, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.dimText)
                 .frame(width: 30)
 
             // Waypoint name - flexible on iPad, fixed on iPhone
             if isCompact {
                 Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
-                    .font(.system(size: 12, weight: .medium))
+                    .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
                     .frame(width: 100, alignment: .leading)
             } else {
                 Text(waypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(index + 1)" : waypoint.name)
-                    .font(.system(size: 12, weight: .medium))
+                    .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
                     .foregroundColor(.primaryText)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -689,50 +689,50 @@ struct WaypointTableRow: View {
 
             // Frequency - fixed width
             Text(waypoint.frequency ?? "-")
-                .font(.system(size: 11, design: .monospaced))
+                .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                 .foregroundColor(.aviationGold)
                 .frame(width: 55)
                 .lineLimit(1)
 
             // MC (Magnetic Course) - not shown for first waypoint
             Text(isFirstWaypoint ? "-" : (waypoint.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "-"))
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
             // Distance - not shown for first waypoint
             Text(isFirstWaypoint ? "-" : (waypoint.distance.map { String(format: "%.1f", $0) } ?? "-"))
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
             // Altitude - shown for all waypoints (it's the planned altitude AT this waypoint)
             Text(waypoint.altitude.map { String(format: "%.0f", $0) } ?? "-")
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 60)
 
             // Ground Speed - not shown for first waypoint
             Text(isFirstWaypoint ? "-" : (waypoint.plannedGroundSpeed.map { "\($0)" } ?? "-"))
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
             // EET - not shown for first waypoint
             Text(isFirstWaypoint ? "-" : (waypoint.formattedEET ?? "-"))
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 50)
 
             // ETO - shown for all waypoints (time at which we should arrive AT this waypoint)
             Text(waypoint.formattedETO ?? "-")
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(.primaryText)
                 .frame(width: 55)
 
             // ATO - fixed width
             Text(waypoint.formattedATO ?? "-")
-                .font(.system(size: 12, design: .monospaced))
+                .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                 .foregroundColor(waypoint.actualTimeOver != nil ? .aviationGreen : .dimText)
                 .frame(width: 55)
         }
@@ -778,12 +778,12 @@ struct FormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             if isReadOnly {
                 Text(text.isEmpty ? "-" : text)
-                    .font(.system(size: 14, design: .monospaced))
+                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
@@ -792,7 +792,7 @@ struct FormField: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 TextField("", text: $text)
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14, relativeTo: .subheadline)
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
@@ -814,11 +814,11 @@ struct OptionalFormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             TextField("", text: $localText)
-                .font(.system(size: 14))
+                .scaledFont(size: 14, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(keyboardType)
                 .padding(.horizontal, 8)
@@ -856,13 +856,13 @@ struct DateFormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             // Display date as styled text, tap to edit
             Button(action: { showingDatePicker = true }) {
                 Text(dateFormatter.string(from: date))
-                    .font(.system(size: 14, design: .monospaced))
+                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
@@ -889,7 +889,7 @@ struct DatePickerSheet: View {
             // Header
             HStack {
                 Text(L10n.Nav.selectDate)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .foregroundColor(.primaryText)
 
                 Spacer()
@@ -897,7 +897,7 @@ struct DatePickerSheet: View {
                 Button(L10n.Button.done) {
                     isPresented = false
                 }
-                .font(.system(size: 16, weight: .medium))
+                .scaledFont(size: 16, weight: .medium, relativeTo: .body)
                 .foregroundColor(.aviationGold)
             }
             .padding(.horizontal)
@@ -936,7 +936,7 @@ struct OptionalTimeFormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             Button(action: {
@@ -948,7 +948,7 @@ struct OptionalTimeFormField: View {
                 showingPicker = true
             }) {
                 Text(isSet ? timeFormatter.string(from: selectedTime) : L10n.Nav.set)
-                    .font(.system(size: 14, weight: isSet ? .medium : .regular, design: .monospaced))
+                    .scaledFont(size: 14, weight: isSet ? .medium : .regular, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(isSet ? .primaryText : .aviationGold)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
@@ -984,7 +984,7 @@ struct TimePickerSheet: View {
             // Header
             HStack {
                 Text(L10n.Nav.selectTime)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .foregroundColor(.primaryText)
 
                 Spacer()
@@ -992,7 +992,7 @@ struct TimePickerSheet: View {
                 Button(L10n.Button.done) {
                     isPresented = false
                 }
-                .font(.system(size: 16, weight: .medium))
+                .scaledFont(size: 16, weight: .medium, relativeTo: .body)
                 .foregroundColor(.aviationGold)
             }
             .padding(.horizontal)
@@ -1024,11 +1024,11 @@ struct NumberFormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             TextField("", value: $value, format: .number)
-                .font(.system(size: 14, design: .monospaced))
+                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
                 .padding(.horizontal, 8)
@@ -1046,11 +1046,11 @@ struct IntFormField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11))
+                .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.secondaryText)
 
             TextField("", value: $value, format: .number)
-                .font(.system(size: 14, design: .monospaced))
+                .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.numberPad)
                 .padding(.horizontal, 8)

@@ -214,12 +214,12 @@ struct FlightPlanningWarningSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "map.fill")
-                    .font(.system(size: 60))
+                    .scaledFont(size: 60, relativeTo: .largeTitle)
                     .foregroundColor(.aviationAmber)
                     .padding(.top, 40)
 
                 Text(L10n.Warning.betaFeature)
-                    .font(.system(size: 24, weight: .bold))
+                    .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -238,7 +238,7 @@ struct FlightPlanningWarningSheet: View {
                         isPresented = false
                     }) {
                         Text(L10n.Warning.iUnderstandEnable)
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -251,7 +251,7 @@ struct FlightPlanningWarningSheet: View {
 
                     Button(action: { isPresented = false }) {
                         Text(L10n.Warning.cancel)
-                            .font(.system(size: 17, weight: .medium))
+                            .scaledFont(size: 17, weight: .medium, relativeTo: .body)
                             .foregroundColor(.secondaryText)
                     }
                 }
@@ -279,12 +279,12 @@ struct EstimatedAirspeedWarningSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 60))
+                    .scaledFont(size: 60, relativeTo: .largeTitle)
                     .foregroundColor(.aviationAmber)
                     .padding(.top, 40)
 
                 Text(L10n.Warning.experimentalFeature)
-                    .font(.system(size: 24, weight: .bold))
+                    .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -303,7 +303,7 @@ struct EstimatedAirspeedWarningSheet: View {
                         isPresented = false
                     }) {
                         Text(L10n.Warning.iUnderstandEnable)
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -316,7 +316,7 @@ struct EstimatedAirspeedWarningSheet: View {
 
                     Button(action: { isPresented = false }) {
                         Text(L10n.Warning.cancel)
-                            .font(.system(size: 17, weight: .medium))
+                            .scaledFont(size: 17, weight: .medium, relativeTo: .body)
                             .foregroundColor(.secondaryText)
                     }
                 }
@@ -344,12 +344,12 @@ struct AirspaceStreamingWarningSheet: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 60))
+                    .scaledFont(size: 60, relativeTo: .largeTitle)
                     .foregroundColor(.aviationAmber)
                     .padding(.top, 40)
 
                 Text(L10n.Warning.onlineAirspaceTitle)
-                    .font(.system(size: 24, weight: .bold))
+                    .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -367,7 +367,7 @@ struct AirspaceStreamingWarningSheet: View {
                         isPresented = false
                     }) {
                         Text(L10n.Warning.iUnderstandEnable)
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -380,7 +380,7 @@ struct AirspaceStreamingWarningSheet: View {
 
                     Button(action: { isPresented = false }) {
                         Text(L10n.Warning.cancel)
-                            .font(.system(size: 17, weight: .medium))
+                            .scaledFont(size: 17, weight: .medium, relativeTo: .body)
                             .foregroundColor(.secondaryText)
                     }
                 }
@@ -405,12 +405,12 @@ struct WarningItem: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .scaledFont(size: 20, relativeTo: .title3)
                 .foregroundColor(.aviationAmber)
                 .frame(width: 24)
 
             Text(text)
-                .font(.system(size: 15))
+                .scaledFont(size: 15, relativeTo: .subheadline)
                 .foregroundColor(.primaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -472,16 +472,16 @@ struct OfflineMapDownloadSheet: View {
     private var sheetContent: some View {
         VStack(spacing: 20) {
                 Image(systemName: "map.fill")
-                    .font(.system(size: 50))
+                    .scaledFont(size: 50, relativeTo: .largeTitle)
                     .foregroundColor(.aviationGold)
                     .padding(.top, 24)
 
                 Text(L10n.Settings.downloadCharts)
-                    .font(.system(size: 22, weight: .bold))
+                    .scaledFont(size: 22, weight: .bold, relativeTo: .title2)
                     .foregroundColor(.primaryText)
 
                 Text(L10n.Download.description)
-                    .font(.system(size: 14))
+                    .scaledFont(size: 14, relativeTo: .subheadline)
                     .foregroundColor(.secondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -489,7 +489,7 @@ struct OfflineMapDownloadSheet: View {
                 if !offlineMapManager.isDownloading {
                     VStack(spacing: 12) {
                         Text(L10n.Download.selectCharts)
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
                             .foregroundColor(.secondaryText)
 
                         ForEach(CacheOption.allCases) { option in
@@ -516,21 +516,21 @@ struct OfflineMapDownloadSheet: View {
 
                         if let layer = offlineMapManager.currentDownloadingLayer {
                             Text(L10n.Download.downloadingLayer(layer.displayName))
-                                .font(.system(size: 14))
+                                .scaledFont(size: 14, relativeTo: .subheadline)
                                 .foregroundColor(.secondaryText)
                         } else {
                             Text(L10n.Download.downloadingTiles)
-                                .font(.system(size: 14))
+                                .scaledFont(size: 14, relativeTo: .subheadline)
                                 .foregroundColor(.secondaryText)
                         }
 
                         Text("\(offlineMapManager.downloadedTileCount) / \(offlineMapManager.totalTileCount)")
-                            .font(.system(size: 14, design: .monospaced))
+                            .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.secondaryText)
 
                         if let eta = offlineMapManager.estimatedTimeRemaining, eta > 0 {
                             Text(L10n.Download.estimatedTimeRemaining(formattedTimeRemaining(eta)))
-                                .font(.system(size: 13))
+                                .scaledFont(size: 13, relativeTo: .caption)
                                 .foregroundColor(.dimText)
                         }
 
@@ -538,7 +538,7 @@ struct OfflineMapDownloadSheet: View {
                         // download isn't mistaken for ordinary slowness or tile failures.
                         if offlineMapManager.downloadWasThrottled {
                             Label(L10n.Download.throttled, systemImage: "clock.badge.exclamationmark")
-                                .font(.system(size: 12))
+                                .scaledFont(size: 12, relativeTo: .caption)
                                 .foregroundColor(.aviationGold)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
@@ -547,11 +547,11 @@ struct OfflineMapDownloadSheet: View {
                 } else if let error = offlineMapManager.downloadError {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 36))
+                            .scaledFont(size: 36, relativeTo: .largeTitle)
                             .foregroundColor(.aviationRed)
 
                         Text(error)
-                            .font(.system(size: 13))
+                            .scaledFont(size: 13, relativeTo: .caption)
                             .foregroundColor(.aviationRed)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
@@ -569,7 +569,7 @@ struct OfflineMapDownloadSheet: View {
                             }
                         }
                         Text(L10n.Download.total(offlineMapManager.formattedCacheSize))
-                            .font(.system(size: 12))
+                            .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.dimText)
                     }
                 }
@@ -582,7 +582,7 @@ struct OfflineMapDownloadSheet: View {
                     } else {
                         Button(action: startDownload) {
                             Text(downloadButtonText)
-                                .font(.system(size: 17, weight: .semibold))
+                                .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -596,7 +596,7 @@ struct OfflineMapDownloadSheet: View {
                         if offlineMapManager.isCacheAvailable || offlineMapManager.isSegelflugCacheAvailable {
                             Button(action: { dismiss() }) {
                                 Text("Done")
-                                    .font(.system(size: 15, weight: .medium))
+                                    .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                                     .foregroundColor(.secondaryText)
                             }
                         }
@@ -659,11 +659,11 @@ struct CacheOptionRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(option.displayName)
-                            .font(.system(size: 15, weight: .medium))
+                            .scaledFont(size: 15, weight: .medium, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                         if isAlreadyCached {
                             Text("CACHED")
-                                .font(.system(size: 9, weight: .bold))
+                                .scaledFont(size: 9, weight: .bold, relativeTo: .caption2)
                                 .foregroundColor(.aviationGreen)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -674,14 +674,14 @@ struct CacheOptionRow: View {
                         }
                     }
                     Text(storageEstimate)
-                        .font(.system(size: 12))
+                        .scaledFont(size: 12, relativeTo: .caption)
                         .foregroundColor(.dimText)
                 }
 
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .scaledFont(size: 22, relativeTo: .title2)
                     .foregroundColor(isSelected ? .aviationGold : .dimText)
             }
             .padding(.horizontal, 16)
@@ -707,9 +707,9 @@ struct CacheStatusBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: isAvailable ? "checkmark.circle.fill" : "xmark.circle")
-                .font(.system(size: 12))
+                .scaledFont(size: 12, relativeTo: .caption)
             Text(name)
-                .font(.system(size: 12, weight: .medium))
+                .scaledFont(size: 12, weight: .medium, relativeTo: .caption)
         }
         .foregroundColor(isAvailable ? .aviationGreen : .dimText)
         .padding(.horizontal, 10)
@@ -743,7 +743,7 @@ struct TransactionDebugView: View {
                 } else if transactions.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 60))
+                            .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Transactions Found")
                             .font(.headline)
@@ -874,7 +874,7 @@ struct TransactionDebugRow: View {
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(transaction.id)
-                        .font(.system(size: 10, design: .monospaced))
+                        .scaledFont(size: 10, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -885,7 +885,7 @@ struct TransactionDebugRow: View {
                         .foregroundColor(.secondary)
                     Spacer()
                     Text(transaction.originalID)
-                        .font(.system(size: 10, design: .monospaced))
+                        .scaledFont(size: 10, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -923,7 +923,7 @@ struct SubscriptionDebugLogView: View {
                 if debugLogger.logs.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "doc.text")
-                            .font(.system(size: 60))
+                            .scaledFont(size: 60, relativeTo: .largeTitle)
                             .foregroundColor(.secondary)
                         Text("No Logs Yet")
                             .font(.headline)
@@ -1038,7 +1038,7 @@ struct PremiumAircraftListView: View {
             } else if premiumAircraft.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "airplane.circle")
-                        .font(.system(size: 60))
+                        .scaledFont(size: 60, relativeTo: .largeTitle)
                         .foregroundColor(.secondary)
                     Text(L10n.Premium.noAircraftAvailable)
                         .font(.headline)
@@ -1123,7 +1123,7 @@ struct PremiumAircraftRow: View {
                         .frame(width: 50, height: 50)
 
                     Image(systemName: aircraft.hasAccess ? "airplane.circle.fill" : "lock.fill")
-                        .font(.system(size: 24))
+                        .scaledFont(size: 24, relativeTo: .title2)
                         .foregroundColor(aircraft.hasAccess ? .aviationGold : .secondary)
                 }
 
@@ -1146,9 +1146,9 @@ struct PremiumAircraftRow: View {
                     if !aircraft.hasAccess {
                         HStack(spacing: 4) {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 10))
+                                .scaledFont(size: 10, relativeTo: .caption2)
                             Text(L10n.Premium.requiresAeroCheckPro)
-                                .font(.system(size: 11))
+                                .scaledFont(size: 11, relativeTo: .caption2)
                         }
                         .foregroundColor(.secondary)
                     }
@@ -1185,7 +1185,7 @@ struct LanguageFlagView: View {
                 .frame(width: 28, height: 28)
 
             Text(flagEmoji)
-                .font(.system(size: 16))
+                .scaledFont(size: 16, relativeTo: .body)
         }
     }
 

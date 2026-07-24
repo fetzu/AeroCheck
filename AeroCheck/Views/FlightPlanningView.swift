@@ -177,15 +177,15 @@ struct FlightPlanningView: View {
     private var emptyState: some View {
         VStack(spacing: 24) {
             Image(systemName: "map.fill")
-                .font(.system(size: 60))
+                .scaledFont(size: 60, relativeTo: .largeTitle)
                 .foregroundColor(.aviationGold.opacity(0.5))
 
             Text(L10n.Nav.noFlightPlans)
-                .font(.system(size: 24, weight: .bold))
+                .scaledFont(size: 24, weight: .bold, relativeTo: .title2)
                 .foregroundColor(.primaryText)
 
             Text(L10n.Nav.noFlightPlansMessage)
-                .font(.system(size: 16))
+                .scaledFont(size: 16, relativeTo: .body)
                 .foregroundColor(.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
@@ -195,7 +195,7 @@ struct FlightPlanningView: View {
                     Image(systemName: "plus")
                     Text(L10n.Nav.newFlightPlan)
                 }
-                .font(.system(size: 17, weight: .semibold))
+                .scaledFont(size: 17, weight: .semibold, relativeTo: .body)
                 .foregroundColor(.black)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 14)
@@ -449,8 +449,8 @@ struct FlightPlanRow: View {
 
     private func metric(_ icon: String, _ value: String) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 10)).foregroundColor(.dimText)
-            Text(value).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(.secondaryText)
+            Image(systemName: icon).scaledFont(size: 10, relativeTo: .caption2).foregroundColor(.dimText)
+            Text(value).scaledFont(size: 12, weight: .semibold, design: .monospaced, relativeTo: .caption).foregroundColor(.secondaryText)
         }
     }
 
@@ -468,7 +468,7 @@ struct FlightPlanRow: View {
                 // Hero: the route endpoints.
                 HStack(spacing: 6) {
                     Text(routeEndpoints)
-                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .scaledFont(size: 16, weight: .semibold, design: .monospaced, relativeTo: .body)
                         .foregroundColor(.primaryText)
                         .lineLimit(1).minimumScaleFactor(0.7)
                     if isActive {
@@ -491,12 +491,12 @@ struct FlightPlanRow: View {
                 }
                 // Metadata: aircraft · recency (muted).
                 HStack(spacing: 5) {
-                    Image(systemName: "airplane").font(.system(size: 9))
+                    Image(systemName: "airplane").scaledFont(size: 9, relativeTo: .caption2)
                     Text(plan.aircraftRegistration)
                     Text("·")
                     Text(relativeDate)
                 }
-                .font(.system(size: 11)).foregroundColor(.dimText).lineLimit(1)
+                .scaledFont(size: 11, relativeTo: .caption2).foregroundColor(.dimText).lineLimit(1)
             }
 
             Spacer(minLength: 6)
@@ -504,16 +504,16 @@ struct FlightPlanRow: View {
             // One-tap activate (or "in use") — was buried in a swipe / context menu. (revamp)
             if isActive {
                 VStack(spacing: 3) {
-                    Image(systemName: "airplane.departure").font(.system(size: 14))
-                    Text(L10n.Nav.inUse).font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "airplane.departure").scaledFont(size: 14, relativeTo: .subheadline)
+                    Text(L10n.Nav.inUse).scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
                 }
                 .foregroundColor(.aviationGreen)
                 .frame(width: 62)
             } else {
                 Button(action: onActivate) {
                     VStack(spacing: 3) {
-                        Image(systemName: "airplane.departure").font(.system(size: 15))
-                        Text(L10n.Nav.activate).font(.system(size: 10, weight: .semibold))
+                        Image(systemName: "airplane.departure").scaledFont(size: 15, relativeTo: .subheadline)
+                        Text(L10n.Nav.activate).scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
                     }
                     .foregroundColor(.aviationGreen)
                     .frame(width: 62)
@@ -564,7 +564,7 @@ struct RouteThumbnail: View {
                         .padding(10)
                 } else {
                     Image(systemName: coords.isEmpty ? "plus" : "mappin")
-                        .font(.system(size: 16)).foregroundColor(.dimText)
+                        .scaledFont(size: 16, relativeTo: .body).foregroundColor(.dimText)
                 }
             }
             .task(id: "\(signature)|\(Int(geo.size.width))x\(Int(geo.size.height))") {
@@ -679,7 +679,7 @@ struct ActiveFlightPlanRow: View {
                     .foregroundColor(.primaryText)
                 Spacer()
                 Text(plan.aircraftRegistration)
-                    .font(.system(size: 13, design: .monospaced))
+                    .scaledFont(size: 13, design: .monospaced, relativeTo: .caption)
                     .foregroundColor(.aviationGold)
             }
 
@@ -691,7 +691,7 @@ struct ActiveFlightPlanRow: View {
                             .foregroundColor(.secondaryText)
                         Spacer()
                         Text("\(plan.currentWaypointIndex)/\(plan.waypoints.count)")
-                            .font(.system(size: 12, design: .monospaced))
+                            .scaledFont(size: 12, design: .monospaced, relativeTo: .caption)
                             .foregroundColor(.secondaryText)
                     }
                     ProgressView(value: plan.progress)
@@ -702,10 +702,10 @@ struct ActiveFlightPlanRow: View {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(L10n.Nav.next)
-                                .font(.system(size: 10)).tracking(0.4)
+                                .scaledFont(size: 10, relativeTo: .caption2).tracking(0.4)
                                 .foregroundColor(.dimText)
                             Text(nextWaypoint.name.isEmpty ? "\(L10n.Nav.wpt)\(plan.currentWaypointIndex + 1)" : nextWaypoint.name)
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                                 .foregroundColor(.primaryText)
                                 .lineLimit(1)
                         }
@@ -734,10 +734,10 @@ struct ActiveFlightPlanRow: View {
     private func statColumn(_ label: String, _ value: String, _ color: Color) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(label)
-                .font(.system(size: 10)).tracking(0.4)
+                .scaledFont(size: 10, relativeTo: .caption2).tracking(0.4)
                 .foregroundColor(.dimText)
             Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                 .foregroundColor(color)
         }
     }

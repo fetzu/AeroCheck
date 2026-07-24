@@ -224,7 +224,7 @@ struct OnboardingView: View {
         let text = parts.count > 1 ? parts[1] : ""
         return HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 17))
+                .scaledFont(size: 17, relativeTo: .body)
                 .foregroundColor(.aviationGold)
                 .frame(width: 24, height: 20)
                 .accessibilityHidden(true)
@@ -279,7 +279,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 13) {
                 Image(systemName: "map.fill")
-                    .font(.system(size: 22))
+                    .scaledFont(size: 22, relativeTo: .title2)
                     .foregroundColor(.aviationGreen)
                     .frame(width: 50, height: 50)
                     .background(RoundedRectangle(cornerRadius: 15).fill(Color.aviationGreen.opacity(0.14)))
@@ -355,7 +355,7 @@ struct OnboardingView: View {
     private var regionPill: some View {
         let name = Locale.current.localizedString(forRegionCode: effectiveHome) ?? effectiveHome
         return HStack(spacing: 6) {
-            Image(systemName: "location.fill").font(.system(size: 11, weight: .semibold))
+            Image(systemName: "location.fill").scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
             Text(name).font(.caption.weight(.medium)).lineLimit(1)
         }
         .foregroundColor(.aviationGreen)
@@ -374,7 +374,7 @@ struct OnboardingView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
                 Image(systemName: done ? "checkmark.circle.fill" : "shield.lefthalf.filled")
-                    .font(.system(size: 19))
+                    .scaledFont(size: 19, relativeTo: .title3)
                     .foregroundColor(done ? .aviationGreen : .aviationGold)
                     .accessibilityHidden(true)
                 Text(String(localized: "Airspace, navaids & reporting points"))
@@ -404,7 +404,7 @@ struct OnboardingView: View {
                 // country flips it back to a gold "Download". (Maps & Data UX fix)
                 Button(action: downloadOpenAIP) {
                     HStack(spacing: 6) {
-                        Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").font(.system(size: 14))
+                        Image(systemName: done ? "checkmark.circle.fill" : "arrow.down.circle").scaledFont(size: 14, relativeTo: .subheadline)
                         Text(done ? L10n.Onboarding.downloaded : String(localized: "Download"))
                             .font(.subheadline.weight(.medium))
                     }
@@ -629,7 +629,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 13) {
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .scaledFont(size: 22, relativeTo: .title2)
                     .foregroundColor(tint)
                     .frame(width: 50, height: 50)
                     .background(RoundedRectangle(cornerRadius: 15).fill(tint.opacity(0.14)))
@@ -669,7 +669,7 @@ struct OnboardingView: View {
     /// A tinted rounded-square page icon (cockpit language).
     private func pageIcon(_ name: String, tint: Color, iconSize: CGFloat = 40) -> some View {
         Image(systemName: name)
-            .font(.system(size: iconSize))
+            .scaledFont(size: iconSize, relativeTo: .largeTitle)
             .foregroundColor(tint)
             .frame(width: 88, height: 88)
             .background(RoundedRectangle(cornerRadius: 24).fill(tint.opacity(0.14)))
@@ -695,7 +695,7 @@ struct OnboardingView: View {
     private func locationBullet(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 11) {
             Image(systemName: icon)
-                .font(.system(size: 17))
+                .scaledFont(size: 17, relativeTo: .body)
                 .foregroundColor(.aviationGreen)
                 .frame(width: 24)
                 .accessibilityHidden(true)
@@ -711,7 +711,7 @@ struct OnboardingView: View {
                            _ isOn: Binding<Bool>) -> some View {
         HStack(spacing: 11) {
             Image(systemName: icon)
-                .font(.system(size: 19))
+                .scaledFont(size: 19, relativeTo: .title3)
                 .foregroundColor(iconTint)
                 .frame(width: 26)
                 .accessibilityHidden(true)
@@ -746,7 +746,7 @@ struct OnboardingView: View {
     private var languageRow: some View {
         HStack(spacing: 11) {
             Image(systemName: "globe")
-                .font(.system(size: 19))
+                .scaledFont(size: 19, relativeTo: .title3)
                 .foregroundColor(.altimeterBlue)
                 .frame(width: 26)
                 .accessibilityHidden(true)
@@ -805,7 +805,7 @@ struct OnboardingView: View {
                 Text(title)
                     .font(.body.weight(.semibold))
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .accessibilityHidden(true)
             }
             .foregroundColor(.black)
@@ -824,7 +824,7 @@ struct OnboardingView: View {
                 Text(title)
                     .font(.body.weight(.semibold))
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(size: 16, weight: .semibold, relativeTo: .body)
                     .accessibilityHidden(true)
             }
             .foregroundColor(.primaryText)
@@ -846,7 +846,7 @@ struct OnboardingView: View {
                 Text(title)
                     .font(.body.weight(.semibold))
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
                     .accessibilityHidden(true)
             }
             .foregroundColor(.black)
@@ -887,7 +887,7 @@ struct OnboardingView: View {
         }) {
             HStack(spacing: 12) {
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
-                    .font(.system(size: 20))
+                    .scaledFont(size: 20, relativeTo: .title3)
                     .foregroundColor(isCompleted ? .aviationGreen : .aviationGold)
                     .frame(width: 28)
                     .accessibilityHidden(true)
@@ -918,7 +918,7 @@ struct OnboardingView: View {
                         .scaleEffect(0.8)
                 } else if !isCompleted {
                     Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 20))
+                        .scaledFont(size: 20, relativeTo: .title3)
                         .foregroundColor(.aviationGold)
                         .accessibilityHidden(true)
                 }

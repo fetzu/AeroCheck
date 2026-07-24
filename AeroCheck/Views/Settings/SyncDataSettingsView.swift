@@ -63,7 +63,7 @@ struct SyncDataSettingsView: View {
                     tint: tint
                 )
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                     .foregroundColor(tint)
                     .rotationEffect(.degrees(syncManager.isSyncing ? 360 : 0))
                     .animation(

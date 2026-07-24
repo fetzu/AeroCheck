@@ -637,6 +637,20 @@ class AppState: ObservableObject {
             guard let self = self else { return }
             await self.loadFlightsAsync()
         }
+
+        // Async settings top-up: loadSettings() skips (returns nil for) an evicted iCloud
+        // settings.json rather than blocking launch on its download (PERF-25). Adopt the file once
+        // it is readable — but only if nothing changed settings in the meantime: a user edit or a
+        // CloudKit settings ingest wins over the stale file.
+        let launchSettings = settings
+        Task { [weak self] in
+            guard let self = self else { return }
+            guard let fileSettings = await self.persistence.loadSettingsOffMain(),
+                  fileSettings != launchSettings,
+                  self.settings == launchSettings else { return }
+            self.settings = fileSettings
+            self.saveSettings()
+        }
     }
 
     /// Load flights asynchronously to avoid blocking startup. The directory enumeration + per-flight
@@ -698,6 +712,7 @@ class AppState: ObservableObject {
                 for (id, previous) in previousById where !incomingIds.contains(id) {
                     self.persistence.deleteFlight(previous)
                 }
+                await self.persistence.rebuildFlightsIndexOffMain(flights)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }
@@ -1322,10 +1337,20 @@ class AppState: ObservableObject {
 
         // Delete the individual flight file from iCloud
         persistence.deleteFlight(flight)
+        scheduleFlightsIndexRebuild()
 
         // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             SyncManager.shared.deleteFlight(flight.id)
+        }
+    }
+
+    /// Rebuilds the summary index (PERF-26) off-main from the current in-memory logbook.
+    /// Fire-and-forget: the index is a rebuildable cache, the flight files stay the source of truth.
+    private func scheduleFlightsIndexRebuild() {
+        let snapshot = flights
+        Task { [weak self] in
+            await self?.persistence.rebuildFlightsIndexOffMain(snapshot)
         }
     }
 
@@ -1339,6 +1364,7 @@ class AppState: ObservableObject {
         for flight in flightsToDelete {
             persistence.deleteFlight(flight)
         }
+        scheduleFlightsIndexRebuild()
 
         // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
@@ -1410,6 +1436,7 @@ class AppState: ObservableObject {
     func saveFlight(_ flight: Flight) -> Bool {
         // Save just this flight to its own file
         let saved = persistence.saveFlight(flight)
+        scheduleFlightsIndexRebuild()
 
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncFlight(flight, allFlights: flights)

@@ -10,7 +10,9 @@ struct ObstacleCacheMetadata: Codable {
 /// Manages OpenAIP OBSTACLE data via the keyless, per-country GeoJSON exports
 /// (`storage.googleapis.com/.../{cc}_obs.geojson`) — a sibling to `OpenAIPNavaidDataService`, sharing its
 /// lazy-load + atomic per-country cache. Obstacles are read-only situational-awareness markers (no snap,
-/// no nearest query), so this drops the spatial grid and keeps only a region query for map markers.
+/// no nearest query), but the region query now sits on the throttled map-region-change hot path
+/// (NavigationView + FlightPlanMapBuilderView), so it keeps the same 1° spatial grid as the navaid
+/// service to gather only the overlapping cells instead of scanning the whole country-wide array.
 /// New OpenAIP layer for v4.1.0; additive — it does not touch the working airspace path.
 @MainActor
 final class OpenAIPObstacleDataService: ObservableObject {
@@ -28,7 +30,28 @@ final class OpenAIPObstacleDataService: ObservableObject {
     @Published var downloadedCountries: [String] = []
     @Published private(set) var isLoaded = false
 
-    private var obstacles: [Obstacle] = []
+    private var obstacles: [Obstacle] = [] {
+        didSet { rebuildSpatialGrid() }
+    }
+
+    // MARK: - Spatial index (coarse 1° grid, mirrors OpenAIPNavaidDataService)
+
+    private struct GridKey: Hashable { let lat: Int; let lon: Int }
+    private static let gridCellDegrees = 1.0
+    private var spatialGrid: [GridKey: [Obstacle]] = [:]
+
+    private func gridKey(lat: Double, lon: Double) -> GridKey {
+        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
+                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+    }
+
+    private func rebuildSpatialGrid() {
+        var grid: [GridKey: [Obstacle]] = [:]
+        for obstacle in obstacles {
+            grid[gridKey(lat: obstacle.latitude, lon: obstacle.longitude), default: []].append(obstacle)
+        }
+        spatialGrid = grid
+    }
 
     // MARK: - Storage
 
@@ -150,9 +173,25 @@ final class OpenAIPObstacleDataService: ObservableObject {
 
     // MARK: - Queries
 
-    /// Obstacles whose coordinate falls within the lat/lon ranges (for map markers).
+    /// Obstacles whose coordinate falls within the lat/lon ranges (for map markers). Gathers only the
+    /// grid cells the requested bounds overlap, then applies the exact range check to those candidates
+    /// — avoids a full linear scan on the throttled map-region-change hot path.
     func obstaclesInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [Obstacle] {
-        obstacles.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        let minLatKey = Int((latRange.lowerBound / Self.gridCellDegrees).rounded(.down))
+        let maxLatKey = Int((latRange.upperBound / Self.gridCellDegrees).rounded(.down))
+        let minLonKey = Int((lonRange.lowerBound / Self.gridCellDegrees).rounded(.down))
+        let maxLonKey = Int((lonRange.upperBound / Self.gridCellDegrees).rounded(.down))
+
+        var candidates: [Obstacle] = []
+        for latKey in minLatKey...maxLatKey {
+            for lonKey in minLonKey...maxLonKey {
+                if let cell = spatialGrid[GridKey(lat: latKey, lon: lonKey)] {
+                    candidates.append(contentsOf: cell)
+                }
+            }
+        }
+
+        return candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
     }
 
     func deleteData() {

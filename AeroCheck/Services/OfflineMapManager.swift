@@ -424,11 +424,6 @@ class OfflineMapManager: ObservableObject {
         }
     }
 
-    /// Get cached tile URL if available (legacy method for backwards compatibility)
-    nonisolated func cachedTileURL(z: Int, x: Int, y: Int) -> URL? {
-        return cachedTileURL(z: z, x: x, y: y, layer: .icao)
-    }
-
     /// Get cached tile URL if available for a specific layer
     /// This method is nonisolated because it only performs file system operations
     /// and needs to be called from the tile overlay's loadTile method

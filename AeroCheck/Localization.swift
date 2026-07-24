@@ -66,6 +66,7 @@ enum L10n {
         static let noChecklists = String(localized: "No checklists cached yet")
         static let syncChecklists = String(localized: "Check for checklist updates")
         static let simulateStaleData = String(localized: "Simulate stale data")
+        static let rowActions = String(localized: "More options")
         // About → Data sources credits
         static let dataSourcesTitle = String(localized: "Data sources")
         static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
@@ -690,6 +691,9 @@ enum L10n {
             String(format: String(localized: "subscription.freeTrialDayFormat"), days)
         }
         static let freeTrialNote = String(localized: "subscription.freeTrialNote")
+        static func freeTrialNoteDays(_ days: Int) -> String {
+            String(format: String(localized: "subscription.freeTrialNoteDays"), days)
+        }
         static let lifetimeTagline = String(localized: "subscription.lifetimeTagline")
         static let oneTime = String(localized: "subscription.oneTime")
     }

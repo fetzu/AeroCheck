@@ -194,8 +194,21 @@ final class OpenAIPNavaidDataService: ObservableObject {
     }
 
     /// Navaids whose coordinate falls within the lat/lon ranges (for map markers).
+    /// Gathers only the overlapping grid cells instead of scanning the full array — the grid is
+    /// already maintained for `nearestNavaid`, this query just never used it. (PERF-27)
     func navaidsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [Navaid] {
-        navaids.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        let minKey = gridKey(lat: latRange.lowerBound, lon: lonRange.lowerBound)
+        let maxKey = gridKey(lat: latRange.upperBound, lon: lonRange.upperBound)
+        var result: [Navaid] = []
+        for lat in minKey.lat...maxKey.lat {
+            for lon in minKey.lon...maxKey.lon {
+                guard let bucket = spatialGrid[GridKey(lat: lat, lon: lon)] else { continue }
+                for navaid in bucket where latRange.contains(navaid.latitude) && lonRange.contains(navaid.longitude) {
+                    result.append(navaid)
+                }
+            }
+        }
+        return result
     }
 
     func deleteData() {

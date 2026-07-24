@@ -3,7 +3,10 @@ import CoreLocation
 import MapKit
 
 /// Service for managing OpenAIP airspace data
-/// Downloads, caches, and queries airspace data for flight planning and navigation
+/// Downloads, caches, and queries airspace data for flight planning and navigation.
+/// `airspacesInBounds` (the throttled map-region-change hot path) is backed by a coarse 1° spatial
+/// grid — mirroring `OpenAIPNavaidDataService` — keyed on each airspace's precomputed bounding box
+/// rather than a point, since airspaces are polygons that can span multiple cells.
 @MainActor
 class OpenAIPDataService: ObservableObject {
     // MARK: - Published Properties
@@ -23,8 +26,46 @@ class OpenAIPDataService: ObservableObject {
 
     // MARK: - Private Properties
 
-    private var airspaces: [Airspace] = []
+    private var airspaces: [Airspace] = [] {
+        didSet { rebuildSpatialGrid() }
+    }
     @Published private(set) var isLoaded = false
+
+    // MARK: - Spatial index (coarse 1° grid, mirrors OpenAIPNavaidDataService)
+
+    /// Airspaces are polygons, not points, so each one is inserted into EVERY cell its precomputed
+    /// bounding box (`Airspace.boundingBox`, PR-11) overlaps — a query then only has to gather the
+    /// cells its own bounds overlap and can never miss a true intersection (two boxes that truly
+    /// overlap always share at least one grid cell), at the cost of some false-positive candidates
+    /// that the existing exact per-element check below still filters out.
+    private struct GridKey: Hashable { let lat: Int; let lon: Int }
+    private static let gridCellDegrees = 1.0
+    private var spatialGrid: [GridKey: [Airspace]] = [:]
+
+    private func gridKeyRange(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double) -> (lat: ClosedRange<Int>, lon: ClosedRange<Int>) {
+        let minLatKey = Int((minLat / Self.gridCellDegrees).rounded(.down))
+        let maxLatKey = Int((maxLat / Self.gridCellDegrees).rounded(.down))
+        let minLonKey = Int((minLon / Self.gridCellDegrees).rounded(.down))
+        let maxLonKey = Int((maxLon / Self.gridCellDegrees).rounded(.down))
+        return (minLatKey...maxLatKey, minLonKey...maxLonKey)
+    }
+
+    private func rebuildSpatialGrid() {
+        var grid: [GridKey: [Airspace]] = [:]
+        for airspace in airspaces {
+            // An airspace with no bounding box has an empty polygon ring and can never pass the exact
+            // check in `airspacesInBounds` (it early-returns false on `coords.isEmpty`), so it's safe —
+            // and matches prior behavior exactly — to leave it out of the index entirely.
+            guard let box = airspace.boundingBox else { continue }
+            let keys = gridKeyRange(minLat: box.minLat, maxLat: box.maxLat, minLon: box.minLon, maxLon: box.maxLon)
+            for latKey in keys.lat {
+                for lonKey in keys.lon {
+                    grid[GridKey(lat: latKey, lon: lonKey), default: []].append(airspace)
+                }
+            }
+        }
+        spatialGrid = grid
+    }
 
     // Streaming cache
     private struct StreamingCTRCache {
@@ -265,7 +306,24 @@ class OpenAIPDataService: ObservableObject {
         let minLon = region.center.longitude - region.span.longitudeDelta / 2
         let maxLon = region.center.longitude + region.span.longitudeDelta / 2
 
-        return airspaces.filter { airspace in
+        // Gather only the grid cells the query bounds overlap instead of scanning every downloaded
+        // airspace on every throttled map-region change. Since each airspace was inserted into every
+        // cell its own bbox overlaps, any airspace whose bbox truly intersects the query bounds is
+        // guaranteed to share at least one cell with the query — candidates are a superset, deduped by
+        // id (an airspace can span several cells within the query range too).
+        let keys = gridKeyRange(minLat: minLat, maxLat: maxLat, minLon: minLon, maxLon: maxLon)
+        var seenIds = Set<String>()
+        var candidates: [Airspace] = []
+        for latKey in keys.lat {
+            for lonKey in keys.lon {
+                guard let cell = spatialGrid[GridKey(lat: latKey, lon: lonKey)] else { continue }
+                for airspace in cell where seenIds.insert(airspace.id).inserted {
+                    candidates.append(airspace)
+                }
+            }
+        }
+
+        return candidates.filter { airspace in
             // Fast reject: skip any airspace whose bounding box doesn't overlap the visible region,
             // without touching its coordinate ring. (PR-11)
             if let box = airspace.boundingBox,
@@ -557,6 +615,16 @@ class OpenAIPDataService: ObservableObject {
             downloadError = "Failed to delete data: \(error.localizedDescription)"
         }
     }
+
+    #if DEBUG
+    /// Test seam: seed in-memory airspaces without a network download. Mirrors
+    /// `OpenAIPNavaidDataService.seedForTesting`.
+    func seedForTesting(_ seeded: [Airspace]) {
+        airspaces = seeded
+        airspaceCount = seeded.count
+        isLoaded = true
+    }
+    #endif
 }
 
 // MARK: - Errors

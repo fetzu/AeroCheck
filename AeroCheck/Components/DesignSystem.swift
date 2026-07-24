@@ -95,60 +95,6 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
-struct NavigationButtonStyle: ButtonStyle {
-    var direction: NavigationDirection = .next
-    var isEnabled: Bool = true
-    
-    enum NavigationDirection {
-        case previous, next
-        
-        var color: Color {
-            switch self {
-            case .previous: return .aviationBlue
-            case .next: return .aviationGreen
-            }
-        }
-    }
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.buttonText)
-            .foregroundColor(isEnabled ? .primaryText : .dimText)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? direction.color : Color.gray.opacity(0.3))
-            )
-            .scaleEffect(configuration.isPressed && isEnabled ? 0.96 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-            // Defense-in-depth: a button that *looks* disabled must not stay tappable even if a
-            // call site forgets the matching `.disabled()`. (UX-23)
-            .allowsHitTesting(isEnabled)
-    }
-}
-
-struct ActionButtonStyle: ButtonStyle {
-    var color: Color
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(color)
-                    .shadow(color: color.opacity(0.4), radius: 6, x: 0, y: 3)
-            )
-            .opacity(isEnabled ? 1.0 : 0.45) // dim when `.disabled()` (UX-23)
-            .scaleEffect(configuration.isPressed && isEnabled ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
 // MARK: - Card Style
 
 struct CardModifier: ViewModifier {
@@ -662,6 +608,16 @@ extension View {
             self.glassEffect(.regular, in: .circle)
         } else {
             self.background(.regularMaterial, in: Circle())
+        }
+    }
+
+    /// Capsule variant of `floatingChromeBackground` for pill-shaped chips over the map.
+    @ViewBuilder
+    func floatingChromeCapsule() -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: .capsule)
+        } else {
+            self.background(.regularMaterial, in: Capsule())
         }
     }
 }

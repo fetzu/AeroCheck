@@ -970,20 +970,6 @@ struct FlightLogView: View {
     }
 }
 
-// MARK: - Custom Label Style
-
-/// A custom label style with configurable spacing between icon and text
-struct CustomLabelStyle: LabelStyle {
-    var spacing: CGFloat = 4
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: spacing) {
-            configuration.icon
-            configuration.title
-        }
-    }
-}
-
 // MARK: - Dashboard metric card (v4 UI/UX Revamp)
 
 /// A compact metric card for the Flight Log dashboard: label + icon, then a big value with an optional
@@ -1998,32 +1984,6 @@ struct FlightDetailView: View {
 
 }
 
-// MARK: - Detail Row
-
-struct DetailRow: View {
-    let label: String
-    let value: String
-    let icon: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.aviationGold)
-                .frame(width: 24)
-            
-            Text(label)
-                .font(.bodyText)
-                .foregroundColor(.secondaryText)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.system(size: 16, weight: .medium, design: .monospaced))
-                .foregroundColor(.primaryText)
-        }
-    }
-}
-
 // MARK: - Toggleable Hours Row
 
 /// A row that toggles between decimal and time format on tap
@@ -2548,29 +2508,6 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-// MARK: - Image Share Sheet
-
-/// A share sheet for UIImage that saves to a temporary JPEG file and shares the URL.
-/// Sharing a file URL (instead of raw UIImage) reliably surfaces "Save Image" in the share sheet,
-/// provided NSPhotoLibraryAddUsageDescription is set in Info.plist.
-struct ImageShareSheet: UIViewControllerRepresentable {
-    let image: UIImage
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        // Write image to a temporary JPEG file — sharing a file URL is the most
-        // reliable way to get iOS to show "Save Image" and proper preview thumbnails
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AeroCheck_Flight_\(UUID().uuidString.prefix(8)).jpg")
-        if let jpegData = image.jpegData(compressionQuality: 0.9) {
-            try? jpegData.write(to: tempURL)
-        }
-        let controller = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-        return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

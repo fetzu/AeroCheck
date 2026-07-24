@@ -10,6 +10,7 @@ import SwiftUI
 /// flight data), overriding this device's own theme so the two screens match. (companion v2)
 struct CompanionFlightView: View {
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Mode: Hashable { case nav, checklist }
     @State private var mode: Mode = .checklist
@@ -92,7 +93,7 @@ struct CompanionFlightView: View {
     private func applyAutoMode() {
         guard !userPickedMode else { return }
         let target: Mode = isAirborne ? .nav : .checklist
-        if mode != target { withAnimation { mode = target } }
+        if mode != target { withAnimation(reduceMotion ? nil : .default) { mode = target } } // (UX-18)
     }
 
     // MARK: - Header
@@ -109,7 +110,7 @@ struct CompanionFlightView: View {
                     .scaleEffect(isHoldingExit ? 0.9 : 1.0)
                     .opacity(isHoldingExit ? 0.6 : 1.0)
                     .onLongPressGesture(minimumDuration: 1.0, pressing: { p in
-                        withAnimation(.easeInOut(duration: 0.15)) { isHoldingExit = p }
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isHoldingExit = p } // (UX-18)
                     }, perform: {
                         isHoldingExit = false
                         showExitConfirm = true
@@ -219,7 +220,7 @@ struct CompanionFlightView: View {
     private func modeButton(_ m: Mode, _ title: String, _ icon: String) -> some View {
         // Tapping either mode is a deliberate manual choice — latch it directly (even when re-selecting the
         // already-active mode, which wouldn't fire an .onChange) so auto-by-phase stops overriding the pilot.
-        Button { userPickedMode = true; withAnimation { mode = m } } label: {
+        Button { userPickedMode = true; withAnimation(reduceMotion ? nil : .default) { mode = m } } label: { // (UX-18)
             HStack(spacing: 5) {
                 Image(systemName: icon).font(.system(size: 11))
                 Text(title).font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -229,6 +230,10 @@ struct CompanionFlightView: View {
             .background(mode == m ? theme.action : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
+        // Invisible hit-area expansion to the HIG 44pt minimum, without growing the visual chip. (UX-16)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityAddTraits(mode == m ? .isSelected : [])
     }
 
     // MARK: - NAV mode
@@ -294,7 +299,7 @@ struct CompanionFlightView: View {
                 Circle().stroke(theme.action, lineWidth: 2).frame(width: 72, height: 72)
                 Image(systemName: "arrow.up").font(.system(size: 34, weight: .semibold)).foregroundColor(theme.action)
                     .rotationEffect(.degrees(arrowRotation(wp)))
-                    .animation(.easeInOut(duration: 0.4), value: arrowRotation(wp))
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: arrowRotation(wp)) // (UX-18)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text("NEXT").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(theme.textSecondary)
@@ -334,7 +339,7 @@ struct CompanionFlightView: View {
         Group {
             if let plan = flightPlan {
                 VStack(spacing: 0) {
-                    Button { withAnimation { showFullPlan.toggle() } } label: {
+                    Button { withAnimation(reduceMotion ? nil : .default) { showFullPlan.toggle() } } label: { // (UX-18)
                         HStack {
                             Text("PLAN").font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundColor(theme.action)
                             Spacer()
@@ -480,7 +485,7 @@ struct CompanionFlightView: View {
                             .padding(.horizontal, 12).padding(.vertical, 8)
                         }
                         .onChange(of: cl.highlightedIndex) { _, idx in
-                            withAnimation { proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.12)) }
+                            withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.12)) } // (UX-18)
                         }
                     }
                     // Tap anywhere on the list to advance the highlighted item (mirrors the iPad).
@@ -607,7 +612,7 @@ struct CompanionFlightView: View {
                 }
             }
             .onChange(of: flightData?.currentWaypointIndex) {
-                if let idx = flightData?.currentWaypointIndex { withAnimation { proxy.scrollTo(idx, anchor: .center) } }
+                if let idx = flightData?.currentWaypointIndex { withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(idx, anchor: .center) } } // (UX-18)
             }
         }
     }

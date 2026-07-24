@@ -22,6 +22,7 @@ struct FlightPlanMapBuilderView: View {
     @ObservedObject private var reportingPointService = OpenAIPReportingPointDataService.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let planId: UUID
 
@@ -166,7 +167,7 @@ struct FlightPlanMapBuilderView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .floatingChromeBackground(cornerRadius: 12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color.aviationGold.opacity(0.35), lineWidth: 1)
@@ -203,7 +204,7 @@ struct FlightPlanMapBuilderView: View {
             }
             .background(Color.cockpitBackground)
             .overlay(alignment: .top) { tripDataBanner }
-            .animation(.easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: tripNeededCountries.isEmpty) // (UX-18)
             .navigationBarTitleDisplayMode(.inline)
             // Direction B: the bar stays, but the dead "Flight plan" title is replaced by the live
             // route summary, so the right column drops its summary row and starts at the toggle. (#4)
@@ -642,14 +643,14 @@ struct FlightPlanMapBuilderView: View {
                 Spacer()
                 if !profileCollapsed {
                     // Resize the profile IN PLACE (no popup) — taller = easier to read / edit precisely.
-                    Button { withAnimation(.easeInOut(duration: 0.22)) { profileExpanded.toggle() } } label: {
+                    Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { profileExpanded.toggle() } } label: { // (UX-18)
                         Image(systemName: profileExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondaryText)
                     }
                     .accessibilityLabel(L10n.Nav.expandProfile)
                 }
-                Button { withAnimation(.easeInOut(duration: 0.18)) { profileCollapsed.toggle() } } label: {
+                Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { profileCollapsed.toggle() } } label: { // (UX-18)
                     Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
                 }
@@ -696,7 +697,7 @@ struct FlightPlanMapBuilderView: View {
     private func tabButton(_ tab: RightTab, _ title: String, badge: String?, tint: Color) -> some View {
         let selected = rightTab == tab
         return Button {
-            withAnimation(.easeInOut(duration: 0.15)) { rightTab = tab }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { rightTab = tab } // (UX-18)
         } label: {
             HStack(spacing: 6) {
                 Text(title).font(.system(size: 13, weight: .semibold))
@@ -802,7 +803,7 @@ struct FlightPlanMapBuilderView: View {
 
     /// Toggle selection of a conflict — highlights it on the map and in the route profile. (#4 feedback)
     private func selectConflict(_ id: String) {
-        withAnimation(.easeInOut(duration: 0.15)) {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { // (UX-18)
             selectedConflictId = (selectedConflictId == id) ? nil : id
         }
     }
@@ -820,9 +821,9 @@ struct FlightPlanMapBuilderView: View {
     private func updateHold(_ id: String, pressing: Bool) {
         if pressing {
             holdCenterId = id; holdCenterProgress = 0
-            withAnimation(.linear(duration: 0.6)) { holdCenterProgress = 1 }
+            withAnimation(reduceMotion ? nil : .linear(duration: 0.6)) { holdCenterProgress = 1 } // (UX-18)
         } else {
-            withAnimation(.easeOut(duration: 0.15)) { holdCenterProgress = 0 }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { holdCenterProgress = 0 } // (UX-18)
             holdCenterId = nil
         }
     }
@@ -1025,7 +1026,7 @@ struct FlightPlanMapBuilderView: View {
             }
             Spacer()
             Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { // (UX-18)
                     listEditMode = (listEditMode == .active ? .inactive : .active)
                 }
             } label: {

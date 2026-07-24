@@ -25,9 +25,15 @@ class FlightPlanManager: ObservableObject {
     // MARK: - Initialization
 
     init() {
-        loadFlightPlans()
+        // Active plan + chronometer come from UserDefaults (local, fast) and are needed for
+        // initial UI. The plans themselves live in iCloud Drive: enumerating/reading them can
+        // stall on iCloud — for an evicted file, long enough on a slow network to trip the launch
+        // watchdog — so they load off-main, mirroring the flights fix (PR-24). (PERF-25)
         loadActiveFlightPlan()
         startChronometerIfNeeded()
+        Task { [weak self] in
+            await self?.loadFlightPlansAsync()
+        }
     }
 
     // MARK: - Flight Plan CRUD
@@ -656,22 +662,44 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Persistence
 
+    /// Snapshot of each plan as last persisted, for dirty detection (`FlightPlan` is Equatable).
+    /// Keyed by id; entries are removed on plan deletion.
+    private var lastPersisted: [UUID: FlightPlan] = [:]
+
+    /// Persists only the plans that actually changed since the last save (plus the index), off the
+    /// main actor. Previously this rewrote EVERY plan file synchronously on the main thread — and it
+    /// is called on every waypoint edit and every ATO record/auto-advance during a flight. (PERF-25)
     private func saveFlightPlans() {
-        // Save all plans to individual files in iCloud
-        persistence.saveNavigationPlans(flightPlans)
+        let changed = flightPlans.filter { lastPersisted[$0.id] != $0 }
+        guard !changed.isEmpty else { return }
+        for plan in changed { lastPersisted[plan.id] = plan }
+        let all = flightPlans
+        Task { [weak self] in
+            await self?.persistence.saveNavigationPlansOffMain(changed: changed, all: all)
+        }
     }
 
     /// Save a single flight plan
     private func saveFlightPlan(_ plan: FlightPlan) {
+        lastPersisted[plan.id] = plan
         persistence.saveNavigationPlan(plan)
     }
 
-    private func loadFlightPlans() {
-        flightPlans = persistence.loadNavigationPlans()
+    private func loadFlightPlansAsync() async {
+        let loaded = await persistence.loadNavigationPlansOffMain()
+        // The async load can finish long after launch (an iCloud download on a slow network).
+        // Plans created/edited in the meantime win by id; loaded plans only fill the gaps.
+        let existingIds = Set(flightPlans.map(\.id))
+        let merged = flightPlans + loaded.filter { !existingIds.contains($0.id) }
+        flightPlans = merged.sorted { $0.createdAt > $1.createdAt }
+        for plan in loaded where lastPersisted[plan.id] == nil {
+            lastPersisted[plan.id] = plan
+        }
     }
 
     /// Delete a flight plan file
     private func deleteFlightPlanFile(_ plan: FlightPlan) {
+        lastPersisted[plan.id] = nil
         persistence.deleteNavigationPlan(plan)
     }
 

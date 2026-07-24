@@ -9,7 +9,9 @@ struct ReportingPointCacheMetadata: Codable {
 
 /// Manages OpenAIP VFR REPORTING-POINT data via the keyless, per-country GeoJSON exports
 /// (`storage.googleapis.com/.../{cc}_rpp.geojson`) — a sibling to `OpenAIPObstacleDataService`, sharing
-/// its lazy-load + atomic per-country cache and a region query for the read-only nav-map markers.
+/// its lazy-load + atomic per-country cache. Both the region query (nav-map markers) and the nearest-k
+/// query (briefings) sit on hot paths, so this keeps the same 1° spatial grid as
+/// `OpenAIPNavaidDataService` to avoid scanning the whole country-wide array on every call.
 /// New OpenAIP layer for v4.1.0; additive — it does not touch the working airspace path.
 @MainActor
 final class OpenAIPReportingPointDataService: ObservableObject {
@@ -24,7 +26,28 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     @Published var downloadedCountries: [String] = []
     @Published private(set) var isLoaded = false
 
-    private var points: [ReportingPoint] = []
+    private var points: [ReportingPoint] = [] {
+        didSet { rebuildSpatialGrid() }
+    }
+
+    // MARK: - Spatial index (coarse 1° grid, mirrors OpenAIPNavaidDataService)
+
+    private struct GridKey: Hashable { let lat: Int; let lon: Int }
+    private static let gridCellDegrees = 1.0
+    private var spatialGrid: [GridKey: [ReportingPoint]] = [:]
+
+    private func gridKey(lat: Double, lon: Double) -> GridKey {
+        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
+                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+    }
+
+    private func rebuildSpatialGrid() {
+        var grid: [GridKey: [ReportingPoint]] = [:]
+        for point in points {
+            grid[gridKey(lat: point.latitude, lon: point.longitude), default: []].append(point)
+        }
+        spatialGrid = grid
+    }
 
     // MARK: - Storage
 
@@ -143,19 +166,53 @@ final class OpenAIPReportingPointDataService: ObservableObject {
 
     // MARK: - Queries
 
-    /// Reporting points whose coordinate falls within the lat/lon ranges (for map markers).
+    /// Reporting points whose coordinate falls within the lat/lon ranges (for map markers). Gathers only
+    /// the grid cells the requested bounds overlap, then applies the exact range check to those
+    /// candidates — avoids a full linear scan on the map-region-change hot path.
     func reportingPointsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [ReportingPoint] {
-        points.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        let minLatKey = Int((latRange.lowerBound / Self.gridCellDegrees).rounded(.down))
+        let maxLatKey = Int((latRange.upperBound / Self.gridCellDegrees).rounded(.down))
+        let minLonKey = Int((lonRange.lowerBound / Self.gridCellDegrees).rounded(.down))
+        let maxLonKey = Int((lonRange.upperBound / Self.gridCellDegrees).rounded(.down))
+
+        var candidates: [ReportingPoint] = []
+        for latKey in minLatKey...maxLatKey {
+            for lonKey in minLonKey...maxLonKey {
+                if let cell = spatialGrid[GridKey(lat: latKey, lon: lonKey)] {
+                    candidates.append(contentsOf: cell)
+                }
+            }
+        }
+
+        return candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
     }
 
     /// Nearest reporting points to a coordinate (for briefings), within `maxDistanceNm`, closest first,
     /// capped at `limit`. Compulsory points are surfaced ahead of on-request ones at equal distance.
+    ///
+    /// Since `maxDistanceNm` is a fixed cap (unlike `OpenAIPNavaidDataService.nearestNavaid`'s shrinking
+    /// best-distance), any point within range must fall inside the ring of cells whose radius covers
+    /// `maxDistanceNm` from the center cell — gathered exactly like `nearestNavaid`'s ring walk. The sort
+    /// then only has to order those in-range candidates, not the whole country-wide array.
     func reportingPointsNear(to coord: CLLocationCoordinate2D, maxDistanceNm: Double, limit: Int) -> [ReportingPoint] {
-        points
-            .compactMap { p -> (ReportingPoint, Double)? in
-                let d = p.distanceNM(from: coord)
-                return d <= maxDistanceNm ? (p, d) : nil
+        let centerKey = gridKey(lat: coord.latitude, lon: coord.longitude)
+        let cellSpanNm = Self.gridCellDegrees * 60.0
+        let ringRadius = max(1, Int((maxDistanceNm / cellSpanNm).rounded(.up)))
+
+        var candidates: [(ReportingPoint, Double)] = []
+        for dLat in -ringRadius...ringRadius {
+            for dLon in -ringRadius...ringRadius {
+                guard let bucket = spatialGrid[GridKey(lat: centerKey.lat + dLat, lon: centerKey.lon + dLon)] else { continue }
+                for point in bucket {
+                    let d = point.distanceNM(from: coord)
+                    if d <= maxDistanceNm {
+                        candidates.append((point, d))
+                    }
+                }
             }
+        }
+
+        return candidates
             .sorted { ($0.1, $0.0.compulsory ? 0 : 1) < ($1.1, $1.0.compulsory ? 0 : 1) }
             .prefix(limit)
             .map { $0.0 }

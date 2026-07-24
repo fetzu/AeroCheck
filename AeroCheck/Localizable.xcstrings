@@ -1495,6 +1495,16 @@
         }
       }
     },
+    "More options" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus d'options"
+          }
+        }
+      }
+    },
     "Navaids" : {
       "localizations" : {
         "fr" : {
@@ -14931,6 +14941,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gratuit la première semaine, puis renouvellement annuel. Annulable à tout moment."
+          }
+        }
+      }
+    },
+    "subscription.freeTrialNoteDays" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free for the first %d days, then renews yearly. Cancel anytime."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit les %d premiers jours, puis renouvellement annuel. Annulable à tout moment."
           }
         }
       }

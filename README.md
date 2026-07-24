@@ -48,4 +48,3 @@ Worker and is untouched by this site.
 
 - Replace placeholder screenshots with region captures (hero + 4 flagship rows).
 - Build out sub-pages: Aircraft, Manual (EN/FR), Changelog, Privacy (currently stubs).
-- Port the release-notes pipeline (old `update-releases.yml`) to feed the Changelog page.

@@ -102,6 +102,12 @@ struct AeroCheckApp: App {
                         locationManager: locationManager,
                         flightPlanManager: flightPlanManager
                     )
+
+                    // Live Activity next-waypoint feed (UX-25): AppState has no FlightPlanManager
+                    // reference, so the controller pulls the name through this closure at sync time.
+                    FlightActivityController.shared.nextWaypointProvider = {
+                        flightPlanManager.activeNextWaypointName
+                    }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)
                     companionConnectivityManager.autoConnectIfReady()

@@ -18,6 +18,8 @@ struct FlightActivityAttributes: ActivityAttributes {
         var phaseName: String
         /// Engine start (or session start) — drives the self-ticking elapsed clock.
         var startTime: Date?
+        /// Waypoint currently being flown to on the active plan (nil = no plan / route complete).
+        var nextWaypointName: String?
         var touchAndGoCount: Int
         var fullStopCount: Int
         var isCircuitMode: Bool

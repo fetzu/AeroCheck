@@ -14,6 +14,10 @@ final class FlightActivityController {
     static let shared = FlightActivityController()
     private init() {}
 
+    /// Supplies the active flight plan's next-waypoint name. Wired once at startup (AeroCheckApp) —
+    /// AppState deliberately has no FlightPlanManager reference, so the dependency stays inverted.
+    var nextWaypointProvider: (() -> String?)?
+
     #if canImport(ActivityKit)
     private var activity: Activity<FlightActivityAttributes>?
     private var lastState: FlightActivityAttributes.ContentState?
@@ -30,6 +34,7 @@ final class FlightActivityController {
         let state = FlightActivityAttributes.ContentState(
             phaseName: appState.currentPhase.title,
             startTime: appState.engineStartTime ?? flight.startTime,
+            nextWaypointName: nextWaypointProvider?(),
             touchAndGoCount: flight.touchAndGoCount,
             fullStopCount: flight.fullStopCount,
             isCircuitMode: appState.isCircuitMode

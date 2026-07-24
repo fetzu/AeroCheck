@@ -2804,6 +2804,19 @@ private func cachedWaypointMarker(number: Int, state: String, iconName: String, 
     return finalImage
 }
 
+/// Re-lifts every non-tile overlay above freshly-(re)added tile overlays. Base/OpenAIP chart tiles
+/// are added at the same `.aboveLabels` level as the polygon/polyline overlays, so MapKit's
+/// insertion order buries the existing airspace/track/route overlays under a newly added tile —
+/// user-visible as "airspace disappears on layer switch until toggled off/on". The per-overlay
+/// diff-guards can't catch this (the buried overlays are still on the map), so call this after any
+/// tile (re-)add. Shared by BOTH map representables. (v4.2 layer-switch fix)
+private func reliftNonTileOverlays(on mapView: MKMapView) {
+    let buried = mapView.overlays.filter { !($0 is MKTileOverlay) }
+    guard !buried.isEmpty else { return }
+    mapView.removeOverlays(buried)
+    for overlay in buried { mapView.addOverlay(overlay, level: .aboveLabels) }
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -3133,6 +3146,8 @@ struct NativeMapViewUIKit: UIViewRepresentable {
         if showOpenAIPTiles && !hasOverlay {
             let overlay = OpenAIPTileOverlay(cacheManager: openAIPCacheManager)
             mapView.addOverlay(overlay, level: .aboveLabels)
+            // The tile just landed above any existing airspace/track/route overlays — re-lift them. (v4.2 layer-switch fix)
+            reliftNonTileOverlays(on: mapView)
         } else if !showOpenAIPTiles && hasOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
@@ -4015,6 +4030,8 @@ struct SwissMapView: UIViewRepresentable {
                 // flight-plan route line. Invalidate the route diff-guard so the next updateUIView
                 // redraws the route above the tile. (v4 UI/UX Revamp fix — route line was invisible on Swiss layers)
                 context.coordinator.lastFlightPlanSignature = nil
+                // And re-lift any other overlays (airspace etc.) the fresh tile just buried. (v4.2 layer-switch fix)
+                reliftNonTileOverlays(on: mapView)
 
                 // Force camera update like updateUIView does after overlay change (preserves heading)
                 let adjustedCamera = MKMapCamera(
@@ -4071,15 +4088,23 @@ struct SwissMapView: UIViewRepresentable {
 
         // Update OpenAIP tile overlay
         let hasOpenAIPOverlay = mapView.overlays.contains(where: { $0 is OpenAIPTileOverlay })
+        var tilesTouched = overlayChanged
         if showOpenAIPTiles && !hasOpenAIPOverlay {
             let openAIPOverlay = OpenAIPTileOverlay(
                 cacheManager: openAIPCacheManager,
                 isStrictOfflineMode: isStrictOfflineMode
             )
             mapView.addOverlay(openAIPOverlay, level: .aboveLabels)
+            tilesTouched = true
         } else if !showOpenAIPTiles && hasOpenAIPOverlay {
             let overlaysToRemove = mapView.overlays.filter { $0 is OpenAIPTileOverlay }
             mapView.removeOverlays(overlaysToRemove)
+        }
+
+        // A layer switch / tile toggle just added fresh tiles above the existing airspace/track/route
+        // overlays — re-lift them or they stay buried. (v4.2 layer-switch fix)
+        if tilesTouched {
+            reliftNonTileOverlays(on: mapView)
         }
 
         // Update airspace polygon overlays

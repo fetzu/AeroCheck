@@ -20,7 +20,8 @@ struct FlightLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.registration, systemImage: "airplane")
+                    // `airplane.departure`, not `airplane` — the plain glyph reads as Airplane Mode. (UX-26)
+                    Label(context.attributes.registration, systemImage: "airplane.departure")
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                 }
@@ -33,6 +34,10 @@ struct FlightLiveActivity: Widget {
                             .font(.subheadline.weight(.bold))
                             .lineLimit(1)
                         Spacer()
+                        if let waypoint = context.state.nextWaypointName {
+                            nextWaypoint(waypoint)
+                                .font(.caption2)
+                        }
                         if context.state.isCircuitMode {
                             circuitCounters(context)
                                 .font(.caption2)
@@ -40,12 +45,12 @@ struct FlightLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: "airplane")
+                Image(systemName: "airplane.departure")
             } compactTrailing: {
                 elapsedClock(context, font: .caption2.monospacedDigit())
                     .frame(maxWidth: 44)
             } minimal: {
-                Image(systemName: "airplane")
+                Image(systemName: "airplane.departure")
             }
             .widgetURL(URL(string: "aerocheck://"))
         }
@@ -54,7 +59,8 @@ struct FlightLiveActivity: Widget {
     @ViewBuilder
     private func lockScreenView(_ context: ActivityViewContext<FlightActivityAttributes>) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "airplane")
+            // `airplane.departure`, not `airplane` — the plain glyph reads as Airplane Mode. (UX-26)
+            Image(systemName: "airplane.departure")
                 .font(.title2)
                 .foregroundStyle(.white)
             VStack(alignment: .leading, spacing: 2) {
@@ -66,9 +72,18 @@ struct FlightLiveActivity: Widget {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                if let waypoint = context.state.nextWaypointName {
+                    nextWaypoint(waypoint)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
+                // Aviation abbreviation kept unlocalized per ICAO conventions, like the rest of the widget.
+                Text("ELAPSED")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.5))
                 elapsedClock(context, font: .title3.monospacedDigit().weight(.bold))
                     .foregroundStyle(.white)
                 if context.state.isCircuitMode {
@@ -79,6 +94,13 @@ struct FlightLiveActivity: Widget {
             }
         }
         .padding(14)
+    }
+
+    /// "→ WPT" next-waypoint chip.
+    @ViewBuilder
+    private func nextWaypoint(_ name: String) -> some View {
+        Label(name, systemImage: "arrow.triangle.turn.up.right.diamond")
+            .lineLimit(1)
     }
 
     /// Self-ticking elapsed clock from the engine/session start; a placeholder before any start.

@@ -26,9 +26,20 @@ const COPY = {
 const t = COPY[lang];
 const API = 'https://api.aerocheck.app/api/v3/aircraft/available';
 
+interface AircraftRegistration {
+  registration: string; modelName: string; aeroclub?: string;
+  version: string; lastUpdated: string; availableLanguages?: string[];
+}
 interface Aircraft {
   id: string; aircraftType: string; registration: string; modelName: string;
   aeroclub?: string; isFree: boolean; version: string; lastUpdated: string; availableLanguages?: string[];
+  registrations?: AircraftRegistration[];
+}
+
+// One row per tail: a multi-registration aircraft (e.g. dr400-140b HB-KFD + HB-KFI) is expanded
+// via its per-registration metadata; the top-level fields only reflect the first registration.
+function expand(list: Aircraft[]): Aircraft[] {
+  return list.flatMap((a) => (a.registrations?.length ? a.registrations.map((r) => ({ ...a, ...r })) : [a]));
 }
 
 // Build-time fetch (server-side → no CORS). Read-only; never mutates the API.
@@ -37,7 +48,7 @@ let failed = false;
 try {
   const res = await fetch(API);
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  aircraft = (await res.json())?.data?.aircraft ?? [];
+  aircraft = expand((await res.json())?.data?.aircraft ?? []);
 } catch {
   failed = true;
 }
@@ -59,7 +70,7 @@ function group(list: Aircraft[]): [string, Aircraft[]][] {
     (groups.get(k) ?? groups.set(k, []).get(k)!).push(a);
   }
   const ordered = [...groups.entries()].sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
-  for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
+  for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName) || a.registration.localeCompare(b.registration));
   return ordered;
 }
 const ordered = group(aircraft);
@@ -121,7 +132,9 @@ const ordered = group(aircraft);
       try {
         const res = await fetch(API);
         if (!res.ok) return;
-        const aircraft = (await res.json())?.data?.aircraft ?? [];
+        const raw = (await res.json())?.data?.aircraft ?? [];
+        // Same per-tail expansion as the build-time render above.
+        const aircraft = raw.flatMap((a) => (a.registrations && a.registrations.length ? a.registrations.map((r) => ({ ...a, ...r })) : [a]));
         if (!aircraft.length) return;
 
         const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -135,7 +148,7 @@ const ordered = group(aircraft);
         const groups = {};
         for (const a of aircraft) (groups[a.aeroclub || ''] ??= []).push(a);
         const ordered = Object.entries(groups).sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
-        for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName));
+        for (const [, l] of ordered) l.sort((a, b) => Number(b.isFree) - Number(a.isFree) || a.modelName.localeCompare(b.modelName) || a.registration.localeCompare(b.registration));
 
         const html = ordered.map(([club, list]) => {
           const rows = list.map((a) => {

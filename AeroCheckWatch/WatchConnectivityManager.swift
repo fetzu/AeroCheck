@@ -123,9 +123,14 @@ extension WatchConnectivityManager: WCSessionDelegate {
             self.isConnected = activationState == .activated && session.isReachable
             AppLog.watch.debugLine("Session activated: \(activationState == .activated), reachable: \(session.isReachable)")
 
-            // Load any existing application context
+            // Load any existing application context. SEC-C38: this cached context can be
+            // arbitrarily old — it is exactly the replay-at-launch case — so pass its transmitted
+            // timestamp rather than letting it be stamped "now".
             if let flightDataEncoded = session.receivedApplicationContext[WatchConnectivityKeys.flightData] as? Data {
-                self.processFlightData(flightDataEncoded)
+                self.processFlightData(
+                    flightDataEncoded,
+                    sentAt: Self.sentDate(from: session.receivedApplicationContext)
+                )
             }
         }
     }
@@ -146,7 +151,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         Task { @MainActor in
             if let flightDataEncoded = applicationContext[WatchConnectivityKeys.flightData] as? Data {
-                self.processFlightData(flightDataEncoded)
+                self.processFlightData(flightDataEncoded, sentAt: Self.sentDate(from: applicationContext))
             }
         }
     }
@@ -157,7 +162,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
         switch messageTypeRaw {
         case WatchMessage.flightStarted.rawValue, WatchMessage.dataUpdate.rawValue:
             if let flightDataEncoded = message[WatchConnectivityKeys.flightData] as? Data {
-                processFlightData(flightDataEncoded)
+                processFlightData(flightDataEncoded, sentAt: Self.sentDate(from: message))
             }
 
         case WatchMessage.flightEnded.rawValue:
@@ -167,7 +172,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
         case WatchMessage.launchApp.rawValue:
             // App is already launched if receiving this
             if let flightDataEncoded = message[WatchConnectivityKeys.flightData] as? Data {
-                processFlightData(flightDataEncoded)
+                processFlightData(flightDataEncoded, sentAt: Self.sentDate(from: message))
             }
 
         default:
@@ -175,11 +180,27 @@ extension WatchConnectivityManager: WCSessionDelegate {
         }
     }
 
-    private func processFlightData(_ data: Data) {
+    /// Reads the phone's transmitted send-time from a message/context payload. (SEC-C38)
+    ///
+    /// A timestamp in the future (a phone with a skewed clock) is ignored rather than trusted —
+    /// it would make stale data look permanently fresh, which is the failure this fix exists to
+    /// prevent.
+    private static func sentDate(from payload: [String: Any]) -> Date? {
+        guard let epoch = payload[WatchConnectivityKeys.timestamp] as? TimeInterval,
+              epoch.isFinite, epoch > 0 else { return nil }
+        let date = Date(timeIntervalSince1970: epoch)
+        return date <= Date().addingTimeInterval(60) ? date : nil
+    }
+
+    private func processFlightData(_ data: Data, sentAt: Date? = nil) {
         do {
             let decoded = try JSONDecoder().decode(WatchFlightData.self, from: data)
             self.flightData = decoded
-            self.lastUpdateTime = Date()
+            // SEC-C38: age the data from when the PHONE sent it, not from when we happened to
+            // decode it. A cached applicationContext replayed at launch is arbitrarily old, but
+            // stamping receipt time made it look brand new — so a finished flight could render as
+            // live on the wrist. Fall back to receipt time only when no timestamp was transmitted.
+            self.lastUpdateTime = sentAt ?? Date()
         } catch {
             AppLog.watch.debugLine("Failed to decode flight data: \(error.localizedDescription)")
         }

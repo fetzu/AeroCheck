@@ -222,8 +222,10 @@ actor ElevationService {
         // Convert sampled coordinates to LV95 for the LineString
         let lv95Coords = sampledTrack.map { wgs84ToLV95($0.coordinate) }
 
-        // Build GeoJSON LineString with all sampled points
-        let coordStrings = lv95Coords.map { "[\($0.easting),\($0.northing)]" }
+        // SEC-C39: round to whole metres. LV95 is metre-based, so the fractional part is
+        // sub-metre detail of the pilot's actual route being sent to a third party for no benefit —
+        // the terrain profile is sampled at a far coarser resolution than that.
+        let coordStrings = lv95Coords.map { "[\(Int($0.easting.rounded())),\(Int($0.northing.rounded()))]" }
         let geom = "{\"type\":\"LineString\",\"coordinates\":[\(coordStrings.joined(separator: ","))]}"
 
         // Use POST to avoid URL length limits
@@ -303,8 +305,12 @@ actor ElevationService {
         // failure (URL, non-200, parse, count mismatch, network) return [] so the caller honestly
         // shows "no terrain" instead of a fabricated flat band.
         for batch in batches {
-            let lats = batch.map { String(format: "%.5f", $0.coordinate.latitude) }.joined(separator: ",")
-            let lons = batch.map { String(format: "%.5f", $0.coordinate.longitude) }.joined(separator: ",")
+            // SEC-C39: ~1 m precision (%.5f) is far more than a terrain-profile graph needs, and
+            // this is the RECORDED FLIGHT TRACK — departure and arrival are inferable from its
+            // endpoints — going to a third party. %.3f is ~100 m, which changes no pixel of the
+            // rendered profile while materially coarsening what leaves the device.
+            let lats = batch.map { String(format: "%.3f", $0.coordinate.latitude) }.joined(separator: ",")
+            let lons = batch.map { String(format: "%.3f", $0.coordinate.longitude) }.joined(separator: ",")
 
             guard let url = URL(string: "https://api.open-meteo.com/v1/elevation?latitude=\(lats)&longitude=\(lons)") else {
                 return []

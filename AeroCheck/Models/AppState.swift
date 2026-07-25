@@ -8,6 +8,15 @@ enum PhaseCompletionStatus: String, Codable {
     case completed       // User pressed NEXT
     case skipped         // User jumped past without pressing NEXT
     case missingAction   // Phase with required button (e.g., engine start) was skipped without pressing button
+    /// The phase had nothing to display, so there was nothing for the pilot to work through.
+    ///
+    /// SEC-C36: previously indistinguishable from `.completed`. `allItemsCompleted(current: 0,
+    /// visibleCount: 0)` is `0 >= 0` → true, so ANY zero-visible-item phase was stamped green as if
+    /// it had been worked. That is reachable with no attacker at all — an `.unresolved` checklist (a
+    /// premium aircraft whose download has not landed) and a learning-mode configuration that hides
+    /// every item both produce a visible count of 0. Showing a pilot a green phase they never
+    /// touched is the defect; the fix is a state that says "nothing here", not one that claims done.
+    case empty
 }
 
 /// The pilot's progress through the checklist, grouped as one cohesive value extracted from four
@@ -1026,6 +1035,11 @@ class AppState {
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
     }
+
+    /// Whether the current phase has nothing to show at all. (SEC-C36)
+    func currentPhaseHasNoVisibleItems(learningMode: Bool) -> Bool {
+        activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode) == 0
+    }
     
     /// Reset highlighted item for a phase
     func resetHighlightedItem(for phase: ChecklistPhase) {
@@ -1276,6 +1290,10 @@ class AppState {
             linedUp: lineUpTime != nil,
             engineShutDown: engineShutdownTime != nil) {
             phaseCompletionStatus[currentPhase] = .missingAction
+        } else if currentPhaseHasNoVisibleItems(learningMode: settings.learningMode) {
+            // SEC-C36: nothing was displayed, so nothing was worked through. Report that honestly
+            // instead of inheriting `.completed` from the 0 >= 0 comparison.
+            phaseCompletionStatus[currentPhase] = .empty
         } else {
             phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
         }

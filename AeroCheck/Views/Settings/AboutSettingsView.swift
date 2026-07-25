@@ -204,8 +204,20 @@ struct AboutSettingsView: View {
         if showDeveloperOptions || appState.settings.developerMode {
             SettingsGroup(title: "Developer Options · \(L10n.Tag.dev)", tint: tint,
                           footer: developerOptionsFooter) {
+                // SEC-C37: Marketing Mode ships out of Release entirely.
+                //
+                // It was reachable in a shipped App Store build (five taps on the version row →
+                // this section → toggle → shake → "Inject Scene"), and the scene injector is NOT
+                // #if DEBUG: it calls appState.cancelFlight() with no confirmation — discarding an
+                // in-progress flight's recorded track — and writes fabricated historical flights
+                // into the REAL flight store via saveFlight, where they persist, appear in the
+                // Flight Log as genuine entries, sync to iCloud and export as GPX/JSON. Pilots use
+                // that log for currency records. The two inline comments claiming the side effects
+                // are "dev-gated by the caller" were describing a RUNTIME toggle as a build gate.
+                #if DEBUG
                 SettingsToggleRow(icon: "megaphone", title: L10n.Settings.marketingMode,
                                   tint: tint, isOn: $marketingMode)
+                #endif
 
                 // v4.1.0: force the freshness surfaces (Home dot, nudge, on-map cue) to STALE for testing.
                 SettingsToggleRow(icon: "clock.badge.xmark", title: L10n.DataStorage.simulateStaleData,

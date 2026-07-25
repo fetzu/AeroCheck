@@ -1731,6 +1731,9 @@ struct PhaseProgressBar: View {
         case .completed: return .aviationGreen
         case .skipped: return .orange
         case .missingAction: return .aviationRed
+        // SEC-C36: a phase with nothing to display is NOT "done" — render it as neutral/inactive
+        // so a pilot never reads green for a phase they were never shown.
+        case .empty: return .dimText.opacity(0.5)
         case .notStarted: return .dimText.opacity(0.3)
         }
     }
@@ -1810,6 +1813,8 @@ struct PhaseSelectorView: View {
             return .orange
         case .missingAction:
             return .aviationRed
+        case .empty: // SEC-C36 — nothing to show, so not "completed"
+            return .dimText.opacity(0.5)
         case .notStarted:
             return .dimText.opacity(0.3)
         }

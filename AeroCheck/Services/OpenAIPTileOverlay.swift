@@ -34,6 +34,13 @@ class OpenAIPTileOverlay: MKTileOverlay {
     /// Returning this instead of nil ensures MapKit renders all tiles uniformly,
     /// preventing visible seams where some tiles load and others don't.
     /// Must be 256x256 to match the standard tile size and avoid scaling artifacts.
+    /// Largest tile edge accepted from the origin. Standard tiles are 256; @2x/@3x variants reach
+    /// 768. 2048 leaves generous headroom while making an OOM impossible. (SEC-C34)
+    private static let maxTileDimension = 2048
+
+    /// Response ceiling for a single tile — orders of magnitude above a real PNG tile. (SEC-C34)
+    private static let maxTileBytes = 8 * 1024 * 1024
+
     private static let transparentTilePNG: Data = {
         let size = CGSize(width: 256, height: 256)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -124,15 +131,23 @@ class OpenAIPTileOverlay: MKTileOverlay {
         }
 
         let transparentPNG = Self.transparentTilePNG
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            if error != nil {
+        // SEC-C34: go through ExternalRequest so tiles get the shared streaming size ceiling and
+        // the cross-host redirect header stripping. This used a bare URLSession.shared dataTask,
+        // which had neither.
+        Task { [weak self] in
+            let data: Data
+            let httpResponse: HTTPURLResponse
+            do {
+                (data, httpResponse) = try await ExternalRequest.data(
+                    for: request,
+                    maxResponseBytes: Self.maxTileBytes
+                )
+            } catch {
                 result(transparentPNG, nil)
                 return
             }
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200,
-                  let data = data, !data.isEmpty else {
+            guard httpResponse.statusCode == 200, !data.isEmpty else {
                 result(transparentPNG, nil)
                 return
             }
@@ -141,7 +156,6 @@ class OpenAIPTileOverlay: MKTileOverlay {
             self?.processedTileCache.setObject(processed as NSData, forKey: memoKey)
             result(processed, nil)
         }
-        task.resume()
     }
 
     // MARK: - Tile Processing
@@ -157,6 +171,17 @@ class OpenAIPTileOverlay: MKTileOverlay {
     private static func processedTile(from pngData: Data) -> Data {
         guard let image = UIImage(data: pngData),
               let cgImage = image.cgImage else {
+            return transparentTilePNG
+        }
+
+        // SEC-C34: bound the decode before allocating. A map tile is 256×256 (512 for @2x); this
+        // buffer is sized from the DECODED IMAGE's own dimensions, so a maliciously oversized but
+        // well-formed PNG from the tile origin would allocate width*height*4 bytes — an OOM with
+        // the map open, i.e. in flight. Anything outside the expected envelope is dropped in favour
+        // of the transparent tile, which degrades the overlay rather than the app.
+        guard cgImage.width > 0, cgImage.height > 0,
+              cgImage.width <= Self.maxTileDimension, cgImage.height <= Self.maxTileDimension else {
+            AppLog.openAIP.debugLine("Rejected tile with implausible dimensions \(cgImage.width)x\(cgImage.height)")
             return transparentTilePNG
         }
 

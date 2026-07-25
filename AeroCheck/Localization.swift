@@ -1196,6 +1196,13 @@ enum L10n {
 
     // MARK: - Companion Mode
     enum Companion {
+        // Companion command authorisation (SEC-C40)
+        static let allowControlTitle = String(localized: "companion.allowControlTitle")
+        static let allowControl = String(localized: "companion.allowControl")
+        static func allowControlMessage(_ device: String) -> String {
+            String(format: String(localized: "companion.allowControlMessage"), device)
+        }
+
         // Connectivity
         static let dataStale = String(localized: "companion.dataStale")
         // Settings

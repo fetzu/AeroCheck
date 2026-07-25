@@ -515,7 +515,15 @@ For testing against the development server:
 ## Privacy
 
 - All flight data stored locally on device
-- GPS data never transmitted to external servers (except subscription verification with Apple)
+- Your flight log, tracks and settings are never uploaded to AeroCheck's servers. Flights and
+  settings sync only through **your own** iCloud account (CloudKit private database).
+- **Terrain profiles send route coordinates to a third party.** When you generate a flight-plan or
+  flight-share terrain profile, the route — for a recorded flight, a sampled version of the actual
+  GPS track — is sent to swisstopo (`api3.geo.admin.ch`) inside Switzerland or Open-Meteo
+  (`api.open-meteo.com`) elsewhere, to look up ground elevation. Coordinates are rounded to roughly
+  100 m before they leave the device, and nothing identifying you is attached. No terrain profile
+  means no transmission.
+- Map, airspace and airport data are fetched by area, not by your position.
 - Checklist data cached locally after initial download
 - Export only when explicitly requested by user
 

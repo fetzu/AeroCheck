@@ -170,6 +170,23 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         session.sendMessage(message, replyHandler: nil) { error in
             AppLog.watch.debugLine("Failed to send flight ended message: \(error.localizedDescription)")
         }
+
+        // SEC-C38: ALSO clear the persisted application context, not just send a live message.
+        // Previously only the unreachable branch did this, so ending a flight while the watch was
+        // reachable left a stale isFlightActive=true context behind — which the watch replays on
+        // its next launch, showing a finished flight as live.
+        var noFlightData = WatchFlightData()
+        noFlightData.isFlightActive = false
+        if let encodedData = try? JSONEncoder().encode(noFlightData) {
+            do {
+                try session.updateApplicationContext([
+                    WatchConnectivityKeys.flightData: encodedData,
+                    WatchConnectivityKeys.timestamp: Date().timeIntervalSince1970
+                ])
+            } catch {
+                AppLog.watch.debugLine("Failed to clear context: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Private Methods

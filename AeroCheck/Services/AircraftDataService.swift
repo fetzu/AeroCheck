@@ -43,6 +43,21 @@ extension URLSession: HTTPClient {
     }
 }
 
+/// Default `HTTPClient` for this service: the shared `ExternalRequest` path. (SEC-C35)
+///
+/// The three fetch sites here called the injected client directly, and the default was
+/// `URLSession.shared` — so the aircraft-list and checklist downloads were the only external
+/// fetches in the app with NO response-size ceiling, while every other service went through
+/// `ExternalRequest`. A checklist fetch can happen mid-flight (widget/deep-link start), so the
+/// unbounded buffer was reachable at the worst possible moment. Fixing the DEFAULT rather than the
+/// call sites keeps the `HTTPClient` seam intact for tests.
+nonisolated struct SizeLimitedHTTPClient: HTTPClient {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let (data, response) = try await ExternalRequest.data(for: request)
+        return (data, response)
+    }
+}
+
 /// Service for fetching and caching aircraft checklist data from the API
 @MainActor
 class AircraftDataService: ObservableObject {
@@ -79,7 +94,7 @@ class AircraftDataService: ObservableObject {
     init(
         apiBaseURL: String = APIConfig.baseURL,
         subscriptionManager: SubscriptionGating,
-        httpClient: HTTPClient = URLSession.shared
+        httpClient: HTTPClient = SizeLimitedHTTPClient()
     ) {
         self.apiBaseURL = apiBaseURL
         self.gating = subscriptionManager

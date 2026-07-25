@@ -807,6 +807,16 @@ struct FlightLogView: View {
             defer { url.stopAccessingSecurityScopedResource() }
 
             do {
+                // SEC-C31: cap the file BEFORE reading it into memory. The ZIP branch has
+                // enforced per-entry and total budgets since SA-24, but a directly-picked .json/.gpx
+                // was loaded whole with no bound at all.
+                let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                guard fileSize <= FlightDataLimits.maxImportEntryBytes else {
+                    importError = L10n.ImportLimits.tooLarge
+                    showImportError = true
+                    return
+                }
+
                 let data = try Data(contentsOf: url)
 
                 // Check if it's a ZIP file

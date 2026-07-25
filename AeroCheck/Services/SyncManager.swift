@@ -113,6 +113,11 @@ class SyncManager: ObservableObject {
     // MARK: - Initialization
 
     private init() {
+        // SEC-C27: reclaim staged CKAsset payloads orphaned by a previous session (crash, or a
+        // permanently-failed upload). Cheap, off the hot path, and bounded by an age cutoff so it
+        // can never touch an upload in progress.
+        Task.detached(priority: .utility) { SyncManager.sweepStagedFlightAssets() }
+
         // Load sync preference (default to enabled)
         self.isSyncEnabled = UserDefaults.standard.object(forKey: syncEnabledKey) as? Bool ?? true
 
@@ -599,11 +604,44 @@ class SyncManager: ObservableObject {
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let url = dir.appendingPathComponent("\(flightId.uuidString).json")
-            try data.write(to: url, options: .atomic)
+            // SEC-C27: staged assets carry the same flight data (incl. the full GPS track) as the
+            // durable copy, so they get the same at-rest protection — they were written with a bare
+            // .atomic, i.e. weaker protection than the file they duplicate.
+            try data.write(to: url, options: DataPersistenceManager.protectedWriteOptions)
             return url
         } catch {
             AppLog.sync.debugLine("Failed to stage flight asset: \(error)")
             return nil
+        }
+    }
+
+    /// Directory holding staged CKAsset payloads awaiting upload. (SEC-C27)
+    nonisolated static var stagedAssetsDirectory: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("CKFlightAssets", isDirectory: true)
+    }
+
+    /// Removes one staged asset once CloudKit has confirmed its record saved. (SEC-C27)
+    nonisolated static func removeStagedFlightAsset(flightId: UUID) {
+        let url = stagedAssetsDirectory.appendingPathComponent("\(flightId.uuidString).json")
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Sweeps staged assets left behind by a previous session — a crash or a permanent upload
+    /// failure between staging and confirmation would otherwise leak one file per flight forever.
+    /// (SEC-C27)
+    nonisolated static func sweepStagedFlightAssets() {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(
+            at: stagedAssetsDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey]
+        ) else { return }
+
+        // Anything older than a day cannot belong to an in-flight upload from this session.
+        let cutoff = Date().addingTimeInterval(-24 * 60 * 60)
+        for url in entries {
+            let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let modified, modified > cutoff { continue }
+            try? fm.removeItem(at: url)
         }
     }
 
@@ -1017,6 +1055,13 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             if record.recordID.recordName == "settings" {
                 manager?.clearPendingSettings()
                 manager?.cachedSettingsRecord = record // Update cache with new change tag
+            } else if record.recordType == SyncRecordType.flight.rawValue {
+                // SEC-C27: the staged CKAsset temp file has served its purpose. Nothing ever
+                // removed these, so one unreclaimed copy of every long flight's track accumulated
+                // in tmp/CKFlightAssets indefinitely.
+                if let id = UUID(uuidString: record.recordID.recordName) {
+                    SyncManager.removeStagedFlightAsset(flightId: id)
+                }
             } else if record.recordType == SyncRecordType.flightTrack.rawValue {
                 // Track record confirmed → fingerprint its point count so it isn't re-sent unchanged.
                 if let id = SyncManager.flightId(fromTrackRecordName: record.recordID.recordName),

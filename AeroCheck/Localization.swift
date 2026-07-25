@@ -945,6 +945,11 @@ enum L10n {
     }
 
     // MARK: - Navigation / Flight Plans
+    enum ImportLimits {
+        /// Shown when a picked import file exceeds the size budget. (SEC-C31)
+        static let tooLarge = String(localized: "import.errorTooLarge")
+    }
+
     enum Export {
         /// Shown in the XLSX/PDF nav log when the route exceeds the fixed table height. (SEC-C21)
         static func routeTruncated(_ count: Int) -> String {

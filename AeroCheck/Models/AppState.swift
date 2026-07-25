@@ -667,7 +667,7 @@ class AppState {
             guard let fileSettings = await self.persistence.loadSettingsOffMain(),
                   fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
-            self.settings = fileSettings
+            self.settings = fileSettings.clampedForIngest() // SEC-C25
             self.saveSettings()
         }
     }
@@ -923,6 +923,22 @@ class AppState {
         flight.flightPlan = flightPlan
         // Block times are already set on currentFlight, copy them to the final flight
         // (they're already there since we modify currentFlight directly)
+
+        // SEC-C26: drop individually bad GPS points before the track is measured and written.
+        // The crash-recovery checkpoint is restored into `currentFlight` without validation, so a
+        // corrupt or tampered checkpoint's out-of-range coordinates would otherwise be baked into
+        // the cached distance stats and the exported GPX. Individual points are filtered rather
+        // than the whole flight rejected — this is the pilot's own in-progress logbook data, and
+        // losing all of it to one bad sample would be the worse failure.
+        let originalPointCount = flight.gpsTrack.count
+        flight.gpsTrack = flight.gpsTrack.filter { point in
+            GeoValidation.isValidLatLon(point.latitude, point.longitude) && point.altitude.isFinite
+        }
+        if flight.gpsTrack.count != originalPointCount {
+            AppLog.general.debugLine(
+                "Dropped \(originalPointCount - flight.gpsTrack.count) implausible GPS point(s) when ending flight"
+            )
+        }
 
         // Precompute summary stats once now that the track is final, so the flight-log list
         // never recomputes an O(n) distance per row. (PERF-22)
@@ -1515,7 +1531,11 @@ class AppState {
 
     private func loadSettings() {
         if let loadedSettings = persistence.loadSettings() {
-            settings = loadedSettings
+            // SEC-C25: settings.json lives in the same user-visible iCloud Drive container as
+            // Flights/ and NavigationPlans/, so it is exactly as untrusted as a synced record.
+            // SyncManager.settingsFromRecord already clamps; this sibling path did not, leaving
+            // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
+            settings = loadedSettings.clampedForIngest()
 
             // Update sync manager with loaded preference
             SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled

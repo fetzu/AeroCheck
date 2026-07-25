@@ -42,6 +42,19 @@ class DataPersistenceManager: ObservableObject {
         .atomic, .completeFileProtectionUntilFirstUserAuthentication,
     ]
 
+    /// Marks a regenerable cache directory as excluded from device backups. (SEC-C28)
+    ///
+    /// The premium checklist cache has opted out since SA-22, but the four large public caches
+    /// (map tiles, OpenAIP tiles, per-country GeoJSON layers, the ~40 K-airport dataset) did not —
+    /// so every iCloud/iTunes backup carried up to ~250 MB of re-downloadable public aeronautical
+    /// data. Idempotent; safe to call on every launch.
+    nonisolated static func excludeFromBackup(_ directory: URL) {
+        var url = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
+    }
+
     /// Documents directory URL — retained only as the **migration source** and for exports.
     /// `UIFileSharingEnabled` exposes this folder, so the working datastore no longer lives here.
     private let documentsDirectory: URL
@@ -353,6 +366,16 @@ class DataPersistenceManager: ObservableObject {
     /// Reads the delta file, skipping any undecodable (torn/corrupt) lines rather than failing —
     /// a partially-written tail line after a crash must never block recovery. (PERF-29)
     nonisolated static func readActiveFlightTrackDelta(at url: URL) -> [GPSPoint] {
+        // SEC-C24: bound the read. Every other ingest path caps point count and byte size
+        // (maxGPSPoints on the CloudKit/import paths, maxIngestRecordBytes in SyncManager); this
+        // one appended every decodable line from a file of any size.
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let fileSize = attributes[.size] as? Int,
+              fileSize <= FlightDataLimits.maxImportEntryBytes
+        else {
+            AppLog.general.debugLine("Active-flight track delta missing or over size cap; skipping")
+            return []
+        }
         guard let data = try? Data(contentsOf: url) else { return [] }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -360,6 +383,10 @@ class DataPersistenceManager: ObservableObject {
         for line in data.split(separator: 0x0A) where !line.isEmpty {
             if let point = try? decoder.decode(GPSPoint.self, from: line) {
                 points.append(point)
+                if points.count >= FlightDataLimits.maxGPSPoints {
+                    AppLog.general.debugLine("Active-flight track delta hit the point cap; truncating restore")
+                    break
+                }
             }
         }
         return points
@@ -368,6 +395,13 @@ class DataPersistenceManager: ObservableObject {
     /// Reads the raw active-flight checkpoint, or nil if none exists.
     func loadActiveFlightStateData() -> Data? {
         guard FileManager.default.fileExists(atPath: activeFlightStateURL.path) else {
+            return nil
+        }
+        // SEC-C24: byte cap before reading, mirroring the delta file above.
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: activeFlightStateURL.path),
+           let fileSize = attributes[.size] as? Int,
+           fileSize > FlightDataLimits.maxImportEntryBytes {
+            AppLog.general.debugLine("Active-flight checkpoint over size cap; ignoring")
             return nil
         }
         return try? Data(contentsOf: activeFlightStateURL)
@@ -555,7 +589,16 @@ class DataPersistenceManager: ObservableObject {
                 do {
                     let data = try Data(contentsOf: fileURL)
                     let flight = try decoder.decode(Flight.self, from: data)
-                    flights.append(flight)
+                    // SEC-C23: this directory resolves to the iCloud Documents container — the one
+                    // the user sees as iCloud/AéroCheck/Flights — so its contents are editable
+                    // outside the app's own import flow. The CloudKit ingest path already treats
+                    // the identical shape as untrusted and runs validatedForIngest(); this sibling
+                    // did not, so an oversized or malformed file reached the flight store unchecked.
+                    guard let validated = flight.validatedForIngest() else {
+                        AppLog.general.debugLine("Skipped flight \(fileURL.lastPathComponent): failed ingest validation")
+                        continue
+                    }
+                    flights.append(validated)
                 } catch {
                     AppLog.general.debugLine("Failed to load flight \(fileURL.lastPathComponent): \(error.localizedDescription)")
                 }
@@ -696,7 +739,14 @@ class DataPersistenceManager: ObservableObject {
                 do {
                     let data = try Data(contentsOf: fileURL)
                     let plan = try decoder.decode(FlightPlan.self, from: data)
-                    plans.append(plan)
+                    // SEC-C23: same reasoning as flights above, and it matters more here — an
+                    // unvalidated plan can be ACTIVATED, drawn on the map, and used for the route
+                    // profile and fuel figures.
+                    guard let validated = plan.validatedForIngest() else {
+                        AppLog.general.debugLine("Skipped plan \(fileURL.lastPathComponent): failed ingest validation")
+                        continue
+                    }
+                    plans.append(validated)
                 } catch {
                     AppLog.general.debugLine("Failed to load navigation plan \(fileURL.lastPathComponent): \(error.localizedDescription)")
                 }

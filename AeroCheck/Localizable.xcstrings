@@ -7639,6 +7639,23 @@
         }
       }
     },
+    "import.errorTooLarge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file is too large to import."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier est trop volumineux pour être importé."
+          }
+        }
+      }
+    },
     "kt": {},
     "language.de": {
       "extractionState": "manual",

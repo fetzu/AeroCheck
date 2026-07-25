@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Narrow seam over the subscription state `AircraftDataService` needs, so its premium-gating logic
 /// can be exercised with a fake instead of a live `SubscriptionManager` + StoreKit. (ARCH-12)
@@ -673,6 +674,14 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
+        // SEC-C29: the SA-23 traversal guard applied to fetchChecklistFromServer (:618) and
+        // cacheFileURL (:748) but NOT here, even though this builds a URL path segment from the
+        // same id — and fetchChecklist calls fetchVersion FIRST, so the unguarded request fired
+        // regardless of what the guarded sibling later did. `.urlPathAllowed` preserves `/` and
+        // `..`, so percent-encoding alone does not stop a traversal.
+        guard AircraftRegistrationToken.isWellFormed(aircraftId) else {
+            throw AircraftDataError.invalidURL
+        }
         // Build URL with optional language/registration parameters (server-supplied id;
         // encode + fail safe). "id~REG" tail tokens split into path id + `reg` query.
         let (baseId, registration) = AircraftRegistrationToken.split(aircraftId)
@@ -776,7 +785,8 @@ class AircraftDataService: ObservableObject {
                 aircraftId: aircraftId,
                 checksum: checksum,
                 cachedAt: Date(),
-                subscriptionVerifiedAt: Date()
+                subscriptionVerifiedAt: Date(),
+                contentHash: data.sha256Hex // SEC-C30
             )
             let metadataData = try encoder.encode(metadata)
             try metadataData.write(to: metadataPath, options: DataPersistenceManager.protectedWriteOptions)
@@ -806,6 +816,17 @@ class AircraftDataService: ObservableObject {
 
         do {
             let data = try Data(contentsOf: path)
+
+            // SEC-C30: verify the bytes are the ones we wrote. The cache was previously
+            // decode-and-trust: any file that happened to parse was served to the pilot as a
+            // genuine checklist. A mismatch means the file was replaced or corrupted, so treat it
+            // as absent — the caller re-downloads rather than displaying unverified procedures.
+            if let expected = loadCacheMetadata(aircraftId: aircraftId)?.contentHash,
+               expected != data.sha256Hex {
+                AppLog.aircraftData.debugLine("Cached checklist failed integrity check; discarding")
+                return nil
+            }
+
             let decoder = JSONDecoder()
             return try decoder.decode(RemoteAircraftChecklist.self, from: data)
         } catch {
@@ -882,4 +903,19 @@ private struct CacheMetadata: Codable {
     let checksum: String?
     let cachedAt: Date
     let subscriptionVerifiedAt: Date?
+    /// SHA-256 of the checklist bytes as written by THIS app. (SEC-C30)
+    ///
+    /// Distinct from `checksum`, which is the server's value and is only ever compared against
+    /// another server value to decide whether an update exists — it was never checked against the
+    /// bytes actually on disk, so a cached checklist was decode-and-trust. Optional so caches
+    /// written before this change still load (they simply skip verification once, then get a hash
+    /// on the next refresh).
+    var contentHash: String?
+}
+
+extension Data {
+    /// Lowercase hex SHA-256, used for at-rest cache integrity. (SEC-C30)
+    var sha256Hex: String {
+        SHA256.hash(data: self).map { String(format: "%02x", $0) }.joined()
+    }
 }

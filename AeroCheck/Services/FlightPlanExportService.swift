@@ -51,12 +51,20 @@ class FlightPlanExportService {
             // Truncate waypoint name to 20 chars (G3X limitation)
             let waypointName = truncateName(waypoint.name, maxLength: 20)
 
+            // SEC-C20: `String(format: "%.6f", .nan)` yields the literal "nan", which would be
+            // written into a file loaded by a Dynon/Garmin. Skip a waypoint we cannot express
+            // rather than emitting a coordinate no avionics can parse.
+            guard GeoValidation.isValidLatLon(waypoint.latitude, waypoint.longitude) else {
+                AppLog.general.debugLine("Skipped waypoint with invalid coordinates during GPX export")
+                continue
+            }
             gpx += "    <rtept lat=\"\(String(format: "%.6f", waypoint.latitude))\" lon=\"\(String(format: "%.6f", waypoint.longitude))\">\n"
             gpx += "      <name>\(escapeXML(waypointName))</name>\n"
 
             // Add elevation if available (convert feet to meters)
             // Note: Some SkyView firmware had issues with <ele> tag, but modern versions handle it
-            if let altitudeFeet = waypoint.altitude {
+            if let altitudeFeet = waypoint.altitude,
+               PlausibleRange.isPlausible(altitudeFeet, in: PlausibleRange.altitudeFeet) {
                 let altitudeMeters = altitudeFeet * 0.3048
                 gpx += "      <ele>\(String(format: "%.1f", altitudeMeters))</ele>\n"
             }
@@ -271,8 +279,11 @@ class FlightPlanExportService {
         </Row>
         """
 
-        // Route waypoints (15 rows minimum as per template)
+        // Route waypoints. SEC-C21: the row count is fixed by the template, so anything beyond it
+        // was silently dropped — a 16-leg cross-country printed a nav log missing its destination
+        // while the in-app route looked complete. The overflow is now stated in the document.
         let waypointRows = 15
+        let omittedWaypoints = max(0, plan.waypoints.count - waypointRows)
         for i in 0..<waypointRows {
             if i < plan.waypoints.count {
                 let waypoint = plan.waypoints[i]
@@ -320,6 +331,15 @@ class FlightPlanExportService {
                 </Row>
                 """
             }
+        }
+
+        // SEC-C21: say so, in the document, when the route did not fit the fixed template.
+        if omittedWaypoints > 0 {
+            xml += """
+            <Row ss:Height="16">
+                <Cell ss:StyleID="Header" ss:MergeAcross="11"><Data ss:Type="String">\(escapeXML(L10n.Export.routeTruncated(omittedWaypoints)))</Data></Cell>
+            </Row>
+            """
         }
 
         // Fuel calculation section - matching template layout exactly
@@ -598,7 +618,11 @@ class FlightPlanExportService {
 
         let rowH: CGFloat = 18.5
         let naCols: Set<Int> = [3, 4, 5, 6, 7, 8]   // MC, Dist, Alt, Wind, GS, EET — no value on the departure line
-        for i in 0..<16 {
+        // SEC-C21: the printed nav log is the copy a pilot may actually fly from, so a route longer
+        // than the fixed table must not simply stop — potentially without its destination.
+        let pdfRouteRows = 16
+        let pdfOmittedWaypoints = max(0, plan.waypoints.count - pdfRouteRows)
+        for i in 0..<pdfRouteRows {
             let isDep = i == 0
             let rowFill: UIColor? = isDep ? shDep : (i % 2 == 1 ? shZebra : nil)
             let rowFont = isDep ? fRouteHdr : fRoute
@@ -625,6 +649,14 @@ class FlightPlanExportService {
                      font: rowFont, align: align, fill: na ? shNA : rowFill)
                 rx += widths[c]
             }
+            y += rowH
+        }
+
+        // SEC-C21: a visible, unmissable line rather than a silently short table.
+        if pdfOmittedWaypoints > 0 {
+            cell(CGRect(x: tableX, y: y, width: tableWidth, height: rowH),
+                 L10n.Export.routeTruncated(pdfOmittedWaypoints),
+                 font: fRouteHdr, align: .center, fill: shDep)
             y += rowH
         }
 

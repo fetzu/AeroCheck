@@ -844,7 +844,10 @@ extension FlightPlan {
         }
 
         if !remarks.isEmpty {
-            gpx += "\n        <ac:remarks><![CDATA[\(remarks)]]></ac:remarks>"
+            // PR-18 / SEC-C22: a literal "]]>" in the text terminates the CDATA section early,
+            // producing malformed XML in a file handed to avionics and re-imported by this app.
+            // Flight.swift's GPX writer has split it since PR-18; this sibling did not.
+            gpx += "\n        <ac:remarks><![CDATA[\(remarks.cdataSafe)]]></ac:remarks>"
         }
 
         gpx += """
@@ -898,7 +901,7 @@ extension FlightPlan {
             }
 
             if !waypoint.remarks.isEmpty {
-                gpx += "\n        <ac:remarks><![CDATA[\(waypoint.remarks)]]></ac:remarks>"
+                gpx += "\n        <ac:remarks><![CDATA[\(waypoint.remarks.cdataSafe)]]></ac:remarks>"
             }
 
             gpx += """

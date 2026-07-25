@@ -709,7 +709,7 @@ extension Flight {
 
         if !notes.isEmpty {
             // PR-18: a literal "]]>" in notes would terminate the CDATA section early; split it.
-            let safeNotes = notes.replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
+            let safeNotes = notes.cdataSafe
             gpx += "\n        <pc:notes><![CDATA[\(safeNotes)]]></pc:notes>"
         }
         
@@ -894,6 +894,18 @@ extension Flight {
 
 /// Validation helpers for imported geographic data (SEC-08): reject NaN/Inf/out-of-range
 /// so ElevationService / export never operate on garbage coordinates.
+extension String {
+    /// Escapes a `]]>` sequence so the string can be embedded in an XML CDATA section.
+    ///
+    /// PR-18 / SEC-C22: this was an inline one-liner in the Flight GPX writer and simply absent
+    /// from the FlightPlan one, so a plan or waypoint remark containing `]]>` produced malformed
+    /// XML in a file handed to Dynon/Garmin avionics — and re-imported by this app. Shared so the
+    /// two writers cannot drift apart again.
+    var cdataSafe: String {
+        replacingOccurrences(of: "]]>", with: "]]]]><![CDATA[>")
+    }
+}
+
 enum GeoValidation {
     static func isValidLatLon(_ lat: Double, _ lon: Double) -> Bool {
         lat.isFinite && lon.isFinite && (-90.0...90.0).contains(lat) && (-180.0...180.0).contains(lon)

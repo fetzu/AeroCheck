@@ -239,7 +239,13 @@ extension Airport {
         self.name = name
         self.latitude = lat
         self.longitude = lon
-        self.elevation = csvRow["elevation_ft"].flatMap { Int($0) }
+        // SEC-C16: elevation feeds FlightEventDetector's AGL computation, whose 100/500/600 ft
+        // thresholds decide whether a landing/go-around is detected at all. A corrupt or absurd
+        // value from the CSV would silently shift every one of those thresholds, so it is clamped
+        // to a physically plausible band rather than trusted verbatim.
+        self.elevation = csvRow["elevation_ft"]
+            .flatMap { Int($0) }
+            .flatMap { PlausibleRange.fieldElevationFeet.contains(Double($0)) ? $0 : nil }
         self.continent = csvRow["continent"]
         self.isoCountry = isoCountry
         self.isoRegion = isoRegion

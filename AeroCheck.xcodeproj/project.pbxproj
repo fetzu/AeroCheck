@@ -79,6 +79,8 @@
 		A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000070 /* AirportDataMergeEngine.swift */; };
 		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
 		A1000001211111110000063 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000063 /* NetworkMonitor.swift */; };
+		A1000001211111110000902 /* APIConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000902 /* APIConfig.swift */; };
+		A1000001211111110000901 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000901 /* KeychainStore.swift */; };
 		A1000001211111110000098 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000098 /* WidgetBridge.swift */; };
 		A1000001211111110000011 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000011 /* DesignSystem.swift */; };
 		A1000001211111110000012 /* ChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000012 /* ChecklistView.swift */; };
@@ -108,8 +110,11 @@
 		A300000A311111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
 		A300000A411111110000009 /* AmbientPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000A111111110000009 /* AmbientPalette.swift */; };
 		A300000B211111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
+		A300000B211111110000903 /* SafeNumeric.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000903 /* SafeNumeric.swift */; };
 		A300000B311111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
+		A300000B311111110000903 /* SafeNumeric.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000903 /* SafeNumeric.swift */; };
 		A300000B411111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
+		A300000B411111110000903 /* SafeNumeric.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000903 /* SafeNumeric.swift */; };
 		A1000001211111110000062 /* AmbientCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000062 /* AmbientCelebration.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -280,6 +285,8 @@
 		A1000001111111110000070 /* AirportDataMergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataMergeEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000063 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		A1000001111111110000902 /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
+		A1000001111111110000901 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		A1000001111111110000098 /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
 		A1000001111111110000011 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		A1000001111111110000012 /* ChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistView.swift; sourceTree = "<group>"; };
@@ -301,6 +308,7 @@
 		A3000009111111110000009 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		A300000A111111110000009 /* AmbientPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientPalette.swift; sourceTree = "<group>"; };
 		A300000B111111110000009 /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLog.swift; sourceTree = "<group>"; };
+		A300000B111111110000903 /* SafeNumeric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeNumeric.swift; sourceTree = "<group>"; };
 		A4000001111111110000000 /* AeroCheckWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroCheckWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4000001111111110000001 /* AeroCheckWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeroCheckWatchApp.swift; sourceTree = "<group>"; };
 		A4000001111111110000002 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchContentView.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -562,6 +570,8 @@
 				A1000001111111110000070 /* AirportDataMergeEngine.swift */,
 				A1000001111111110000064 /* DataStatusManager.swift */,
 				A1000001111111110000063 /* NetworkMonitor.swift */,
+				A1000001111111110000902 /* APIConfig.swift */,
+				A1000001111111110000901 /* KeychainStore.swift */,
 				A1000001111111110000098 /* WidgetBridge.swift */,
 				A1000001111111110000019 /* OfflineMapManager.swift */,
 				A1000001111111110000061 /* SwisstopoTileOverlays.swift */,
@@ -622,6 +632,7 @@
 				A3000009111111110000009 /* DesignTokens.swift */,
 				A300000A111111110000009 /* AmbientPalette.swift */,
 				A300000B111111110000009 /* AppLog.swift */,
+				A300000B111111110000903 /* SafeNumeric.swift */,
 				58FBA25D932544A8A504A2CD /* CompanionConnectivityData.swift */,
 			);
 			path = Shared;
@@ -878,6 +889,8 @@
 				A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */,
 				A1000001211111110000064 /* DataStatusManager.swift in Sources */,
 				A1000001211111110000063 /* NetworkMonitor.swift in Sources */,
+				A1000001211111110000902 /* APIConfig.swift in Sources */,
+				A1000001211111110000901 /* KeychainStore.swift in Sources */,
 				A1000001211111110000098 /* WidgetBridge.swift in Sources */,
 				A1000001211111110000019 /* OfflineMapManager.swift in Sources */,
 				A1000001211111110000061 /* SwisstopoTileOverlays.swift in Sources */,
@@ -895,6 +908,7 @@
 				A3000009211111110000009 /* DesignTokens.swift in Sources */,
 				A300000A211111110000009 /* AmbientPalette.swift in Sources */,
 				A300000B211111110000009 /* AppLog.swift in Sources */,
+				A300000B211111110000903 /* SafeNumeric.swift in Sources */,
 				A1000001211111110000062 /* AmbientCelebration.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
@@ -943,6 +957,7 @@
 				A3000009311111110000009 /* DesignTokens.swift in Sources */,
 				A300000A311111110000009 /* AmbientPalette.swift in Sources */,
 				A300000B311111110000009 /* AppLog.swift in Sources */,
+				A300000B311111110000903 /* SafeNumeric.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -957,6 +972,7 @@
 				A3000009411111110000009 /* DesignTokens.swift in Sources */,
 				A300000A411111110000009 /* AmbientPalette.swift in Sources */,
 				A300000B411111110000009 /* AppLog.swift in Sources */,
+				A300000B411111110000903 /* SafeNumeric.swift in Sources */,
 				0F1AFE06661D409A94896CE5 /* CompanionConnectivityData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

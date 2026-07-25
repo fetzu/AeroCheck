@@ -930,19 +930,48 @@ extension FlightPlan {
         }
     }
 
+    /// Validates and sanitises a decoded plan before it becomes app state. (SEC-C17)
+    ///
+    /// Every ingest path funnels through here — JSON import, GPX import, and the launch-time load
+    /// of the iCloud-Drive-visible NavigationPlans folder — because the recurring defect in this
+    /// codebase is a guard that exists on the path someone labelled "untrusted" and is missing from
+    /// its sibling reading the same bytes. `fromJSON` validated coordinates but never the waypoint
+    /// COUNT its own GPX sibling capped, and neither validated `altitude` at all — a non-finite
+    /// planned altitude silently disables the terrain-clearance warning rather than erroring.
+    ///
+    /// Returns nil when the plan is unusable; otherwise returns it with implausible optional
+    /// numerics dropped (nil is honest and renders as "no planned altitude"; a bogus number is not).
+    func validatedForIngest() -> FlightPlan? {
+        guard waypoints.count <= FlightDataLimits.maxRouteWaypoints else {
+            AppLog.general.debugLine("Rejected flight plan: \(waypoints.count) waypoints exceeds cap")
+            return nil
+        }
+        guard waypoints.allSatisfy({ GeoValidation.isValidLatLon($0.latitude, $0.longitude) }) else {
+            AppLog.general.debugLine("Rejected flight plan: invalid coordinates")
+            return nil
+        }
+
+        var sanitised = self
+        sanitised.waypoints = waypoints.map { waypoint in
+            var w = waypoint
+            if let altitude = w.altitude,
+               !PlausibleRange.isPlausible(altitude, in: PlausibleRange.altitudeFeet) {
+                w.altitude = nil
+            }
+            return w
+        }
+        return sanitised
+    }
+
     /// Import flight plan from JSON data
     static func fromJSON(_ data: Data) -> FlightPlan? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         do {
             let plan = try decoder.decode(FlightPlan.self, from: data)
-            // Reject NaN/Inf/out-of-range waypoint coordinates (e.g. a "1e999" overflow that
-            // decodes to Infinity) before the route reaches the map/analyzer/export. (SEC-08)
-            guard plan.waypoints.allSatisfy({ GeoValidation.isValidLatLon($0.latitude, $0.longitude) }) else {
-                AppLog.general.debugLine("Rejected flight plan import: invalid coordinates")
-                return nil
-            }
-            return plan
+            // SEC-08 + SEC-C17: one shared validator for every ingest path — coordinates, waypoint
+            // count, and altitude plausibility — rather than each call site remembering a subset.
+            return plan.validatedForIngest()
         } catch {
             AppLog.general.debugLine("Failed to decode flight plan from JSON: \(error)")
             return nil
@@ -952,7 +981,8 @@ extension FlightPlan {
     /// Import flight plan from GPX data
     static func fromGPX(_ data: Data) -> FlightPlan? {
         let parser = FlightPlanGPXParser(data: data)
-        return parser.parse()
+        // SEC-C17: same validator as the JSON path — the two importers had diverged.
+        return parser.parse()?.validatedForIngest()
     }
 
     /// Escape XML special characters (delegates to the shared `String.xmlEscaped`).
@@ -1078,7 +1108,12 @@ class FlightPlanGPXParser: NSObject, XMLParserDelegate {
         case "ele":
             // GPX elevation is in meters, convert to feet
             if let meters = Double(text), meters.isFinite {
-                currentWaypoint?.altitude = meters / 0.3048
+                // SEC-C17: a non-finite planned altitude makes RouteAltitudeProfile.altitude(atNM:)
+                // return Infinity/NaN, and the terrain-clearance check (`alt - terrain < warnFt`)
+                // is never true against Infinity — so the leg silently stops warning instead of
+                // erroring. A suppressed clearance warning in a planning tool is worse than none.
+                let feet = meters / 0.3048
+                currentWaypoint?.altitude = PlausibleRange.isPlausible(feet, in: PlausibleRange.altitudeFeet) ? feet : nil
             }
         case "altitudeFeet":
             currentWaypoint?.altitude = GeoValidation.finite(Double(text))

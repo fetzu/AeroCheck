@@ -14,3 +14,14 @@ OPENAIP_API_KEY =
 // so a fresh checkout without Secrets.xcconfig still builds). Later assignments
 // win, so a value here overrides the empty default above.
 #include? "Secrets.xcconfig"
+
+// --- API endpoint (SEC-C2 / SUB-2) ---
+// The production worker refuses Sandbox StoreKit transactions, because a TestFlight purchase is
+// free and unlimited and would otherwise unlock the whole premium catalogue. TestFlight builds
+// therefore have to talk to the sandbox worker to exercise the paid flow at all.
+//
+// Debug builds point at the sandbox worker; Release points at production. Override
+// API_BASE_URL in Secrets.xcconfig (untracked) to aim a local build somewhere else, e.g.
+// http://localhost:8787 for `npm run dev`.
+API_BASE_URL = https:/$()/api.aerocheck.app
+API_BASE_URL[config=Debug] = https:/$()/api-sandbox.aerocheck.app

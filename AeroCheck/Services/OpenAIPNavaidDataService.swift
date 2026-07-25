@@ -44,8 +44,8 @@ final class OpenAIPNavaidDataService: ObservableObject {
     private var spatialGrid: [GridKey: [Navaid]] = [:]
 
     private func gridKey(lat: Double, lon: Double) -> GridKey {
-        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
-                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+        GridKey(lat: ((lat / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)),
+                lon: ((lon / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)))
     }
 
     private func rebuildSpatialGrid() {

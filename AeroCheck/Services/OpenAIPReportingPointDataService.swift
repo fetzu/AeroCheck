@@ -42,8 +42,8 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     private var spatialGrid: [GridKey: [ReportingPoint]] = [:]
 
     private func gridKey(lat: Double, lon: Double) -> GridKey {
-        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
-                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+        GridKey(lat: ((lat / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)),
+                lon: ((lon / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)))
     }
 
     private func rebuildSpatialGrid() {
@@ -100,10 +100,10 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     /// the grid cells the requested bounds overlap, then applies the exact range check to those
     /// candidates — avoids a full linear scan on the map-region-change hot path.
     func reportingPointsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [ReportingPoint] {
-        let minLatKey = Int((latRange.lowerBound / Self.gridCellDegrees).rounded(.down))
-        let maxLatKey = Int((latRange.upperBound / Self.gridCellDegrees).rounded(.down))
-        let minLonKey = Int((lonRange.lowerBound / Self.gridCellDegrees).rounded(.down))
-        let maxLonKey = Int((lonRange.upperBound / Self.gridCellDegrees).rounded(.down))
+        let minLatKey = ((latRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let maxLatKey = ((latRange.upperBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let minLonKey = ((lonRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let maxLonKey = ((lonRange.upperBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
 
         var candidates: [ReportingPoint] = []
         for latKey in minLatKey...maxLatKey {

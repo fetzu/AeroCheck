@@ -879,12 +879,18 @@ struct TransactionDebugRow: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
+                // SEC-C3: the Original ID is the Apple originalTransactionId, which was until
+                // recently the API's entire bearer credential — and this screen is reachable in a
+                // RELEASE build (five taps on the version row). Printing it verbatim meant a
+                // subscriber could read out a string that unlocked the whole premium catalogue for
+                // anyone, on unlimited devices. It stays available for debugging, redacted to a
+                // suffix that is still enough to correlate with a server log line.
                 HStack {
                     Text("Original ID")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     Spacer()
-                    Text(transaction.originalID)
+                    Text(SubscriptionManager.redactedIdentifier(transaction.originalID))
                         .scaledFont(size: 10, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.secondary)
                         .lineLimit(1)

@@ -43,10 +43,10 @@ class OpenAIPDataService: ObservableObject {
     private var spatialGrid: [GridKey: [Airspace]] = [:]
 
     private func gridKeyRange(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double) -> (lat: ClosedRange<Int>, lon: ClosedRange<Int>) {
-        let minLatKey = Int((minLat / Self.gridCellDegrees).rounded(.down))
-        let maxLatKey = Int((maxLat / Self.gridCellDegrees).rounded(.down))
-        let minLonKey = Int((minLon / Self.gridCellDegrees).rounded(.down))
-        let maxLonKey = Int((maxLon / Self.gridCellDegrees).rounded(.down))
+        let minLatKey = ((minLat / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let maxLatKey = ((maxLat / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let minLonKey = ((minLon / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
+        let maxLonKey = ((maxLon / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
         return (minLatKey...maxLatKey, minLonKey...maxLonKey)
     }
 

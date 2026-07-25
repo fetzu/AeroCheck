@@ -5,6 +5,9 @@ import Foundation
 @MainActor
 protocol SubscriptionGating {
     func getUserID() async -> String?
+    /// Credential for `Authorization: Bearer …` — the minted session token when one exists,
+    /// otherwise the legacy identifier during migration. (SEC-C3)
+    func getAuthCredential() async -> String?
     func shouldAllowPremiumAccess() -> Bool
     /// True only when premium access is DEFINITIVELY denied (status resolved, not subscribed, no
     /// valid grace window). Used for the cache-DESTROYING decision so a transient cold-launch state
@@ -13,6 +16,9 @@ protocol SubscriptionGating {
 }
 
 extension SubscriptionGating {
+    /// Default for conformers (e.g. test fakes) that predate the session token.
+    func getAuthCredential() async -> String? { await getUserID() }
+
     /// Conservative default for conformers without richer state (e.g. test fakes): defer to the
     /// access check. `SubscriptionManager` overrides this to avoid clearing caches mid-load. (PR-05)
     func isPremiumAccessDefinitivelyDenied() -> Bool { !shouldAllowPremiumAccess() }
@@ -70,7 +76,7 @@ class AircraftDataService: ObservableObject {
     /// `subscriptionManager` and `httpClient` are injected as protocols (defaulting to the real
     /// implementations) so production wiring is unchanged but tests can supply fakes. (ARCH-12)
     init(
-        apiBaseURL: String = "https://api.aerocheck.app",
+        apiBaseURL: String = APIConfig.baseURL,
         subscriptionManager: SubscriptionGating,
         httpClient: HTTPClient = URLSession.shared
     ) {
@@ -560,9 +566,9 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 15 // Set timeout for poor network conditions
 
-        // Add auth header if available
-        if let userID = await gating.getUserID() {
-            request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
+        // Add auth header if available (minted session token, or legacy id during migration)
+        if let credential = await gating.getAuthCredential() {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await httpClient.data(for: request)
@@ -637,9 +643,9 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30 // Checklists can be larger, allow more time
 
-        // Add auth header if available
-        if let userID = await gating.getUserID() {
-            request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
+        // Add auth header if available (minted session token, or legacy id during migration)
+        if let credential = await gating.getAuthCredential() {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await httpClient.data(for: request)

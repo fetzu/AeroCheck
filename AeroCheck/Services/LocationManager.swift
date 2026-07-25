@@ -490,8 +490,11 @@ class LocationManager: NSObject, ObservableObject {
             lastValidSpeedMPS = location.speed
             lastValidSpeedTime = now
 
-            // Update display integer with 1-knot hysteresis to prevent flickering
-            let currentDisplayKnots = Int(displaySmoothedSpeedMPS * 1.94384)
+            // Update display integer with 1-knot hysteresis to prevent flickering.
+            // SEC-C15: `Int(Double)` traps on a non-finite or out-of-range value. The peer-GPS
+            // envelope check upstream should make that impossible, but this is the line that
+            // actually kills the process, so it does not rely on a caller getting it right.
+            let currentDisplayKnots = (displaySmoothedSpeedMPS * 1.94384).safeInt(or: lastDisplayedSpeedKnots)
             if abs(currentDisplayKnots - lastDisplayedSpeedKnots) >= 1 {
                 lastDisplayedSpeedKnots = currentDisplayKnots
             }

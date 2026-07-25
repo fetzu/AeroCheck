@@ -379,7 +379,10 @@ struct NavigationMapView: View {
 
     /// Current heading from location (cached to prevent snapping to 0° during GPS gaps)
     private var currentHeading: Int {
-        if let course = locationManager.currentCourseDegrees { return Int(course) }
+        // SEC-C15: never convert a sensor/peer-derived Double with a trapping initializer.
+        // An implausible or unrepresentable course falls back to the same 0 the nil case uses,
+        // rather than trapping the process.
+        if let course = locationManager.currentCourseDegrees { return course.safeInt(or: 0) }
         return 0
     }
 

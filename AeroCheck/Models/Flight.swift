@@ -32,6 +32,11 @@ enum FlightDataLimits {
     static let maxImportTotalBytes = 128 * 1024 * 1024
     /// Max entries processed from one archive.
     static let maxImportEntries = 500
+
+    /// How far into the future an ingested `modifiedAt` may sit before the record is rejected.
+    /// Generous enough to absorb ordinary clock drift and timezone confusion between devices,
+    /// tight enough that a poisoned timestamp cannot win merges indefinitely. (SEC-C19)
+    static let maxClockSkew: TimeInterval = 24 * 60 * 60
 }
 
 /// Pure flight-clock formatting, extracted from `AppState` so the timer/time-of-day rules are
@@ -332,6 +337,12 @@ struct Flight: Identifiable, Codable {
     func validatedForIngest() -> Flight? {
         guard schemaVersion <= Flight.currentSchemaVersion else { return nil }
         guard gpsTrack.count <= FlightDataLimits.maxGPSPoints else { return nil }
+        // SEC-C19: `merge` picks the greater `modifiedAt` for scalar fields, and `touch()` can only
+        // ever set real wall-clock time — so a far-future timestamp (a device with a wrong clock,
+        // no malice required) wins forever, and every later legitimate edit to that flight's
+        // name/notes is silently discarded on every synced device. Reject implausible timestamps at
+        // the boundary instead of letting one poison the merge history permanently.
+        guard modifiedAt <= Date().addingTimeInterval(FlightDataLimits.maxClockSkew) else { return nil }
         for point in gpsTrack {
             guard point.latitude.isFinite, point.longitude.isFinite, point.altitude.isFinite,
                   (-90.0...90.0).contains(point.latitude),
@@ -855,13 +866,15 @@ extension Flight {
             }
         }
 
-        // Reject NaN/Inf/out-of-range coordinates (e.g. a "1e999" overflow that decodes to
-        // Infinity) before the flight can reach the map, analyzer, or export. (SEC-08)
-        guard imported.importedCoordinatesAreValid else {
-            AppLog.general.debugLine("Rejected flight import: invalid coordinates")
+        // SEC-08 + SEC-C18: run the SAME validator the CloudKit ingest path uses, rather than a
+        // coordinates-only subset. This path previously checked coordinates but not the point
+        // COUNT — the cap its own GPX sibling and the sync path both enforce — so an import could
+        // carry an unbounded gpsTrack straight into memory and the flight store.
+        guard imported.importedCoordinatesAreValid, let validated = imported.validatedForIngest() else {
+            AppLog.general.debugLine("Rejected flight import: failed ingest validation")
             throw ImportError.invalidCoordinates
         }
-        return imported
+        return validated
     }
 
     /// Import flight from JSON data (non-throwing version for backward compatibility)
@@ -874,7 +887,8 @@ extension Flight {
     /// Import flight from GPX data
     static func fromGPX(_ data: Data) -> Flight? {
         let parser = GPXParser(data: data)
-        return parser.parse()
+        // SEC-C18: same validator as every other ingest path.
+        return parser.parse()?.validatedForIngest()
     }
 }
 

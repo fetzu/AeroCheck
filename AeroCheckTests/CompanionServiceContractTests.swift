@@ -77,6 +77,89 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertFalse(e.isValid(accuracy: -1, age: 1), "negative accuracy = invalid fix")
         XCTAssertFalse(e.isValid(accuracy: nil, age: 1), "no accuracy = invalid")
         XCTAssertFalse(e.isValid(accuracy: 20, age: nil), "no age = invalid")
+        XCTAssertFalse(e.isValid(accuracy: .nan, age: 1), "NaN accuracy = invalid")
+        XCTAssertFalse(e.isValid(accuracy: 20, age: .infinity), "non-finite age = invalid")
+    }
+
+    // MARK: - Shared GPS: peer-fix geometry (SA-10)
+    //
+    // A paired peer is a network trust boundary. Accuracy and age alone said nothing about the
+    // COORDINATE, so a peer could pair a plausible 10 m accuracy with an out-of-range or non-finite
+    // latitude/longitude and be elected — after which the raw values reach MKCoordinateRegion /
+    // MKAnnotation, and MapKit raises on an invalid coordinate: a mid-flight crash of the navigation
+    // display. The same point also lands in the recorded track, corrupting the flight file.
+
+    private func peerFix(lat: Double, lon: Double, accuracy: Double = 10,
+                         altitude: Double? = 500, speed: Double? = 30,
+                         course: Double? = 90) -> CompanionPeerGPS {
+        CompanionPeerGPS(latitude: lat, longitude: lon, speedMPS: speed, altitudeMeters: altitude,
+                         courseDegrees: course, horizontalAccuracy: accuracy,
+                         signalStatus: "good", timestamp: Date())
+    }
+
+    func testPeerFixGeometryAcceptsARealCoordinate() {
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0).hasValidGeometry)
+        // Extremes of the valid range must still pass.
+        XCTAssertTrue(peerFix(lat: 90, lon: 180).hasValidGeometry)
+        XCTAssertTrue(peerFix(lat: -90, lon: -180).hasValidGeometry)
+    }
+
+    func testPeerFixGeometryRejectsNonFiniteCoordinates() {
+        XCTAssertFalse(peerFix(lat: .nan, lon: 8.0).hasValidGeometry, "NaN latitude")
+        XCTAssertFalse(peerFix(lat: 47.0, lon: .nan).hasValidGeometry, "NaN longitude")
+        XCTAssertFalse(peerFix(lat: .infinity, lon: 8.0).hasValidGeometry, "+inf latitude")
+        XCTAssertFalse(peerFix(lat: 47.0, lon: -.infinity).hasValidGeometry, "-inf longitude")
+    }
+
+    func testPeerFixGeometryRejectsOutOfRangeCoordinates() {
+        XCTAssertFalse(peerFix(lat: 4.0e9, lon: 8.0).hasValidGeometry, "the report's example value")
+        XCTAssertFalse(peerFix(lat: 91, lon: 8.0).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: -90.001, lon: 8.0).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 181).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: -180.5).hasValidGeometry)
+    }
+
+    func testPeerFixGeometryRejectsNonFiniteMotionValues() {
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, altitude: .nan).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, speed: .infinity).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, course: .nan).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, accuracy: .nan).hasValidGeometry)
+    }
+
+    func testPeerFixGeometryAllowsAbsentMotionValues() {
+        // Absent is fine — they degrade to CoreLocation's "unknown" sentinels.
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, altitude: nil, speed: nil, course: nil)
+            .hasValidGeometry)
+    }
+
+    func testPeerFixElectionRequiresBothGeometryAndFreshness() {
+        let e = GPSSourceElection(maxFixAge: 5, maxAccuracy: 100)
+
+        XCTAssertTrue(e.isPeerFixValid(peerFix(lat: 47.0, lon: 8.0), age: 1))
+        // The attack: plausible accuracy, nonsense coordinate.
+        XCTAssertFalse(e.isPeerFixValid(peerFix(lat: 4.0e9, lon: 8.0, accuracy: 10), age: 1),
+                       "a plausible accuracy must not launder an invalid coordinate")
+        // The pre-existing gates still apply.
+        XCTAssertFalse(e.isPeerFixValid(peerFix(lat: 47.0, lon: 8.0, accuracy: 200), age: 1))
+        XCTAssertFalse(e.isPeerFixValid(peerFix(lat: 47.0, lon: 8.0), age: 10))
+        XCTAssertFalse(e.isPeerFixValid(nil, age: 1), "no fix at all")
+        XCTAssertFalse(e.isPeerFixValid(peerFix(lat: 47.0, lon: 8.0), age: nil))
+    }
+
+    func testPeerFixGeometryMatchesFlightIngestPredicate() {
+        // The two validators must not drift apart: anything the companion path accepts must also
+        // survive Flight.validatedForIngest(), or a borrowed fix corrupts the flight file and the
+        // record silently fails to sync to the pilot's other devices.
+        for (lat, lon) in [(47.0, 8.0), (90.0, 180.0), (-90.0, -180.0),
+                           (Double.nan, 8.0), (4.0e9, 8.0), (47.0, 181.0)] {
+            let fix = peerFix(lat: lat, lon: lon)
+            let flight = Flight(
+                gpsTrack: [GPSPoint(latitude: lat, longitude: lon, altitude: 500,
+                                    speed: 30, course: 90)]
+            )
+            XCTAssertEqual(fix.hasValidGeometry, flight.validatedForIngest() != nil,
+                           "companion and flight-ingest validators disagree on (\(lat), \(lon))")
+        }
     }
 
     // MARK: - Shared GPS: wire codecs (v4.1)

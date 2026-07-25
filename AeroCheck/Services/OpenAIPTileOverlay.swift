@@ -56,8 +56,11 @@ class OpenAIPTileOverlay: MKTileOverlay {
         self.cacheManager = cacheManager
         self.isStrictOfflineMode = isStrictOfflineMode
 
-        // Placeholder URL template - we override loadTile for cache-first logic
-        let urlTemplate = "https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=\(OpenAIPConfig.apiKey)"
+        // Placeholder URL template — we override loadTile for cache-first logic, so MapKit never
+        // fetches from this template itself. It carries NO api key (SA-11): the key goes in the
+        // x-openaip-api-key header on the request built in loadTile, so it can never leak into a
+        // URLCache entry, a proxy log, or OpenAIP's access logs.
+        let urlTemplate = "https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png"
         super.init(urlTemplate: urlTemplate)
 
         self.minimumZ = OpenAIPConfig.tileMinZoom
@@ -112,15 +115,16 @@ class OpenAIPTileOverlay: MKTileOverlay {
             return
         }
 
-        // Cache miss - fetch from network with subdomain rotation
+        // Cache miss - fetch from network with subdomain rotation. The key rides in a header
+        // rather than the URL. (SA-11)
         let subdomain = subdomains[abs(path.x + path.y) % subdomains.count]
-        guard let url = OpenAIPConfig.tileURL(subdomain: subdomain, z: z, x: path.x, y: path.y) else {
+        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: z, x: path.x, y: path.y) else {
             result(Self.transparentTilePNG, nil)
             return
         }
 
         let transparentPNG = Self.transparentTilePNG
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             if error != nil {
                 result(transparentPNG, nil)
                 return

@@ -689,6 +689,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // own GPS. Ignored on the viewer — GPS only flows up to the owner. (shared-GPS)
             if currentRole == .master,
                let gps = try? JSONDecoder().decode(CompanionPeerGPS.self, from: message.payload) {
+                // SA-10: reject a geometrically-invalid fix at the wire boundary so it is never
+                // stored, never elected, and never reaches the flight pipeline or MapKit. Dropping
+                // it (rather than clamping) keeps the previous good fix in play until it goes stale,
+                // which is the same behaviour as a missed update.
+                guard gps.hasValidGeometry else {
+                    AppLog.companion.debugLine("Dropped peer GPS with invalid geometry")
+                    return
+                }
                 receivedPeerGPS = gps
                 lastPeerGPSReceivedAt = Date()
                 updateEffectiveGPSSource()
@@ -979,8 +987,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // very feed we depend on. `ownFixIsLive` reflects real device fixes only. (shared-GPS)
         let ownValid = locationManager?.ownFixIsLive ?? false
         // Peer freshness is judged by local receive time, not the peer's embedded timestamp (its clock). (shared-GPS)
-        let peerValid = gpsElection.isValid(accuracy: receivedPeerGPS?.horizontalAccuracy,
-                                            age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
+        // SA-10: isPeerFixValid also checks the fix's GEOMETRY. Accuracy and age alone would let a
+        // peer pair a plausible 10 m accuracy with an out-of-range or non-finite coordinate and be
+        // elected, after which effectiveLocation builds a CLLocation straight from the wire values.
+        let peerValid = gpsElection.isPeerFixValid(receivedPeerGPS,
+                                                   age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
         effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
     }
 
@@ -989,8 +1000,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// GPS-less device (e.g. a Wi-Fi iPad) to launch off the companion's GPS. (shared-GPS)
     var hasUsablePeerFix: Bool {
         guard currentRole == .master, connectionState == .connected,
-              let peer = receivedPeerGPS, let at = lastPeerGPSReceivedAt else { return false }
-        return gpsElection.isValid(accuracy: peer.horizontalAccuracy, age: Date().timeIntervalSince(at))
+              let at = lastPeerGPSReceivedAt else { return false }
+        // SA-10: this gates whether a GPS-less device may START a flight off the peer, so it must
+        // apply the same geometry check as the election.
+        return gpsElection.isPeerFixValid(receivedPeerGPS, age: Date().timeIntervalSince(at))
     }
 
     /// The location the flight owner should record/navigate from: its own fix, or a borrowed peer fix

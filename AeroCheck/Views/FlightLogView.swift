@@ -857,11 +857,31 @@ struct FlightLogView: View {
         }
     }
 
+    /// Errors raised while unpacking an imported archive.
+    private enum ZipImportError: LocalizedError {
+        case entryTooLarge, archiveTooLarge, tooManyEntries, sizeMismatch
+
+        var errorDescription: String? {
+            switch self {
+            case .entryTooLarge: return L10n.FlightLog.importErrorEntryTooLarge
+            case .archiveTooLarge: return L10n.FlightLog.importErrorArchiveTooLarge
+            case .tooManyEntries: return L10n.FlightLog.importErrorTooManyEntries
+            case .sizeMismatch: return L10n.FlightLog.importErrorSizeMismatch
+            }
+        }
+    }
+
     private func extractZipEntries(from data: Data) throws -> [(filename: String, data: Data)] {
         var entries: [(filename: String, data: Data)] = []
         var offset = 0
+        // SA-24: decompression budgets. Without these a small deflate stream can expand to several
+        // GB in memory and get the app OOM-killed — mid-flight, that kills the flight.
+        var totalDecompressedBytes = 0
 
         while offset < data.count {
+            guard entries.count < FlightDataLimits.maxImportEntries else {
+                throw ZipImportError.tooManyEntries
+            }
             // Check for local file header signature (0x04034b50)
             guard offset + 30 <= data.count else { break }
 
@@ -950,10 +970,32 @@ struct FlightLogView: View {
 
             var fileData = data.subdata(in: dataStart..<dataEnd)
 
+            // Refuse before allocating: the header's DECLARED size is the cheapest signal we have,
+            // so an entry claiming more than the per-entry budget is rejected without decompressing.
+            guard Int(uncompressedSize) <= FlightDataLimits.maxImportEntryBytes else {
+                throw ZipImportError.entryTooLarge
+            }
+            guard totalDecompressedBytes + Int(uncompressedSize) <= FlightDataLimits.maxImportTotalBytes else {
+                throw ZipImportError.archiveTooLarge
+            }
+
             // Handle compression (method 0 = uncompressed, method 8 = deflate)
             if compressionMethod == 8 {
                 // Decompress using zlib
                 fileData = try decompress(fileData, uncompressedSize: Int(uncompressedSize))
+            }
+
+            // ...and verify the ACTUAL size against the declaration, because the declared value is
+            // attacker-controlled: a lying header would otherwise walk straight past the check above.
+            guard fileData.count <= FlightDataLimits.maxImportEntryBytes else {
+                throw ZipImportError.entryTooLarge
+            }
+            guard uncompressedSize == 0 || fileData.count == Int(uncompressedSize) else {
+                throw ZipImportError.sizeMismatch
+            }
+            totalDecompressedBytes += fileData.count
+            guard totalDecompressedBytes <= FlightDataLimits.maxImportTotalBytes else {
+                throw ZipImportError.archiveTooLarge
             }
 
             entries.append((filename: filename, data: fileData))
@@ -963,6 +1005,12 @@ struct FlightLogView: View {
         return entries
     }
 
+    /// Decompresses one deflate entry.
+    ///
+    /// `uncompressedSize` is the size the archive DECLARES. The caller checks it before calling
+    /// (cheap rejection) and re-checks the actual output afterwards (because the declaration is
+    /// attacker-controlled). It is not used here beyond documenting the contract — Foundation's
+    /// `decompressed(using:)` offers no output ceiling of its own. (SA-24)
     private func decompress(_ data: Data, uncompressedSize: Int) throws -> Data {
         // Use Swift's built-in decompression with DEFLATE algorithm
         let decompressedData = try (data as NSData).decompressed(using: .zlib) as Data

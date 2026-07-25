@@ -139,6 +139,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
 
     // References for data creation (set during startUpdates)
     private weak var appState: AppState?
+
+    /// Whether the connected viewer reported its own premium entitlement (SA-26).
+    /// Defaults to false and resets on every disconnect — an older viewer that never sends
+    /// `viewerHello`, or one that sends a malformed one, gets the redacted checklist stream.
+    private var peerIsEntitled = false
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
 
@@ -304,6 +309,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         listenerTask = nil
     }
 
+    /// Reports THIS device's own premium entitlement, for the viewer→master hello (SA-26).
+    ///
+    /// A closure rather than a stored reference so the manager keeps no dependency on
+    /// SubscriptionManager and stays usable in tests and previews. Absent ⇒ not entitled, which is
+    /// the fail-closed direction: the worst case is a legitimate subscriber briefly seeing the
+    /// redacted stream, never an unentitled peer seeing premium text.
+    var viewerEntitlementProvider: (() -> Bool)?
+
     /// Wire the data sources (idempotent, no timer). Needed on BOTH roles, so the viewer can read its
     /// own GPS to stream upstream when the master has none. (shared-GPS)
     func configure(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
@@ -381,7 +394,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// other way), and EITHER side drops the link if the peer's traffic goes silent for >5 s. (v4.1)
     private func checkConnectionHealth() {
         guard connectionState == .connected else { stopConnectionHealthTimer(); return }
-        if currentRole == .viewer { sendPing() }   // keep the UDP flow open + prove liveness to the master
+        if currentRole == .viewer {
+            sendPing()          // keep the UDP flow open + prove liveness to the master
+            sendViewerHello()   // report entitlement so the master knows what it may stream (SA-26)
+        }
         if let last = lastReceivedAt, Date().timeIntervalSince(last) > Self.receiveStaleAfter {
             diag("\(currentRole == .master ? "Master" : "Viewer"): no data for \(Int(Date().timeIntervalSince(last)))s — dropping")
             handleDisconnection(generation: connectionGeneration)
@@ -405,6 +421,15 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     private func sendPing() {
         guard let payload = try? JSONEncoder().encode(CompanionCommand.ping) else { return }
         sendMessage(CompanionMessage(type: .command, payload: payload))
+    }
+
+    /// Viewer → master: report our own entitlement so the master knows how much checklist text it
+    /// may stream to us. Sent on connect, alongside the first ping. (SA-26)
+    private func sendViewerHello() {
+        guard currentRole == .viewer else { return }
+        let hello = CompanionViewerHello(isSubscribed: viewerEntitlementProvider?() ?? false)
+        guard let payload = try? JSONEncoder().encode(hello) else { return }
+        sendMessage(CompanionMessage(type: .viewerHello, payload: payload))
     }
 
     /// Master/viewer: repeated send failures mean the peer is gone — drop the connection.
@@ -689,6 +714,14 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // own GPS. Ignored on the viewer — GPS only flows up to the owner. (shared-GPS)
             if currentRole == .master,
                let gps = try? JSONDecoder().decode(CompanionPeerGPS.self, from: message.payload) {
+                // SA-10: reject a geometrically-invalid fix at the wire boundary so it is never
+                // stored, never elected, and never reaches the flight pipeline or MapKit. Dropping
+                // it (rather than clamping) keeps the previous good fix in play until it goes stale,
+                // which is the same behaviour as a missed update.
+                guard gps.hasValidGeometry else {
+                    AppLog.companion.debugLine("Dropped peer GPS with invalid geometry")
+                    return
+                }
                 receivedPeerGPS = gps
                 lastPeerGPSReceivedAt = Date()
                 updateEffectiveGPSSource()
@@ -700,11 +733,22 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
                 }
             }
 
+        case .viewerHello:
+            // Only the master consumes this, and only to decide how much checklist text to stream.
+            if currentRole == .master,
+               let hello = try? JSONDecoder().decode(CompanionViewerHello.self, from: message.payload) {
+                peerIsEntitled = hello.isSubscribed
+                diag("Master: viewer reported entitlement = \(hello.isSubscribed)")
+                // Re-send with the new redaction level applied.
+                sendChecklistSnapshot()
+            }
+
         case .disconnect:
             AppLog.companion.debugLine("Received disconnect message")
             cleanupConnection()
             connectionState = .disconnected
             connectedDeviceName = nil
+            peerIsEntitled = false   // a new peer must re-prove entitlement (SA-26)
         }
     }
 
@@ -858,9 +902,28 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // hidden items to the viewer (and vice-versa). (companion v2 — hidden-content parity)
         let learning = appState.effectiveLearningMode
         let visible = appState.activeChecklist.visibleItems(for: phase, learningMode: learning)
-        let items = visible.map {
-            CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
-        }
+
+        // SA-26: stream the actual challenge/response text only when the viewer is entitled to it.
+        // Pairing is one system sheet plus one confirmation code, after which the devices reconnect
+        // automatically in proximity — so without this, an unsubscribed peer could read a
+        // subscriber's whole premium checklist (and drive it via nextChecklistPhase /
+        // revealHiddenItems) simply by being nearby. The viewer still gets the phase title,
+        // progress counters and highlight, so the second-screen layout is intact; only the words
+        // are withheld.
+        //
+        // Bundled/free aircraft always stream in full. `isUsingRemoteAircraft` is the conservative
+        // signal available here — today every remote aircraft is premium, and if a free one ever
+        // ships, withholding its text from an unentitled peer is the harmless direction to err.
+        //
+        // Defence in depth, NOT a server gap: the paid content is legitimately on the paying
+        // device. A legitimate single user's iPhone shares the subscriber's Apple ID, reports
+        // isSubscribed = true, and is unaffected.
+        let mayStreamItemText = peerIsEntitled || !appState.settings.isRemoteAircraftSelected
+        let items = mayStreamItemText
+            ? visible.map {
+                CompanionChecklistItem(id: $0.id, challenge: $0.challenge, response: $0.response, isHeader: $0.isHeader)
+            }
+            : []
         let visibleCount = appState.activeChecklist.visibleItemCount(for: phase, learningMode: learning)
         let highlighted = appState.getHighlightedItem(for: phase)
         // How many memorizable items are still hidden (0 once revealed/learning mode) — drives the
@@ -979,8 +1042,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
         // very feed we depend on. `ownFixIsLive` reflects real device fixes only. (shared-GPS)
         let ownValid = locationManager?.ownFixIsLive ?? false
         // Peer freshness is judged by local receive time, not the peer's embedded timestamp (its clock). (shared-GPS)
-        let peerValid = gpsElection.isValid(accuracy: receivedPeerGPS?.horizontalAccuracy,
-                                            age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
+        // SA-10: isPeerFixValid also checks the fix's GEOMETRY. Accuracy and age alone would let a
+        // peer pair a plausible 10 m accuracy with an out-of-range or non-finite coordinate and be
+        // elected, after which effectiveLocation builds a CLLocation straight from the wire values.
+        let peerValid = gpsElection.isPeerFixValid(receivedPeerGPS,
+                                                   age: lastPeerGPSReceivedAt.map { now.timeIntervalSince($0) })
         effectiveGPSSource = gpsElection.elect(ownValid: ownValid, peerValid: peerValid)
     }
 
@@ -989,8 +1055,10 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// GPS-less device (e.g. a Wi-Fi iPad) to launch off the companion's GPS. (shared-GPS)
     var hasUsablePeerFix: Bool {
         guard currentRole == .master, connectionState == .connected,
-              let peer = receivedPeerGPS, let at = lastPeerGPSReceivedAt else { return false }
-        return gpsElection.isValid(accuracy: peer.horizontalAccuracy, age: Date().timeIntervalSince(at))
+              let at = lastPeerGPSReceivedAt else { return false }
+        // SA-10: this gates whether a GPS-less device may START a flight off the peer, so it must
+        // apply the same geometry check as the election.
+        return gpsElection.isPeerFixValid(receivedPeerGPS, age: Date().timeIntervalSince(at))
     }
 
     /// The location the flight owner should record/navigate from: its own fix, or a borrowed peer fix

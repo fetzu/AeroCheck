@@ -33,6 +33,37 @@ enum AircraftRegistrationToken {
     static func make(aircraftId: String, registration: String) -> String {
         "\(aircraftId)\(separator)\(registration)"
     }
+
+    /// Characters an aircraft id / registration may contain. Deliberately excludes `/`, `\` and `.`
+    /// sequences that could escape a directory, and anything needing percent-encoding.
+    private static let allowed = CharacterSet(charactersIn:
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+
+    /// Whether a token is safe to splice into a filesystem path component **and** a URL path segment.
+    ///
+    /// The id reaches two sinks that both trust it: `cacheDirectory.appendingPathComponent("\(id).json")`
+    /// and the `/aircraft/{id}/checklist` request path. It arrives from the API *and* from a synced
+    /// CloudKit `Settings` record, which `clampedForIngest()` previously waved through — it clamped
+    /// two numeric fields and validated no string at all. An id of `../../../Documents/leak` resolves
+    /// outside the cache and inside the `UIFileSharingEnabled`-exposed Documents folder, so a server
+    /// response gets written where the Files app can read it; `.urlPathAllowed` preserves `/` and `..`
+    /// so the traversal survives percent-encoding too. (SA-23)
+    static func isWellFormed(_ token: String) -> Bool {
+        guard !token.isEmpty, token.count <= 96 else { return false }
+        // At most one `~`, splitting id from registration.
+        let parts = token.split(separator: separator, omittingEmptySubsequences: false)
+        guard parts.count <= 2 else { return false }
+
+        for (index, part) in parts.enumerated() {
+            // A trailing `~` with no registration is malformed; the id itself must be non-empty.
+            guard !part.isEmpty, part.count <= 64 else { return false }
+            guard part.rangeOfCharacter(from: allowed.inverted) == nil else { return false }
+            // No `..` anywhere, and no leading dot (a hidden file / relative reference).
+            guard !part.contains(".."), part.first != "." else { return false }
+            _ = index
+        }
+        return true
+    }
 }
 
 struct RemoteAircraftMetadata: Codable, Identifiable, Equatable {

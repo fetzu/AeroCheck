@@ -16,6 +16,22 @@ enum FlightDataLimits {
     static let maxGPSPoints = 100_000
     /// Max waypoints in an imported route.
     static let maxRouteWaypoints = 500
+
+    // MARK: - ZIP import budgets (SA-24)
+    //
+    // `extractZipEntries` read the declared `uncompressedSize` and passed it to `decompress`,
+    // which ignored the parameter entirely — no per-entry cap, no running total, no entry-count
+    // bound. A "flight archive" ZIP received from a club-mate (AirDrop, e-mail, Files) could
+    // expand a small deflate stream to several GB in memory and get the app OOM-killed; done
+    // mid-flight, that interrupts the flight (the crash-recovery checkpoint limits the damage,
+    // but the app dies).
+
+    /// Max decompressed bytes for a single entry. A 100k-point flight JSON is a few MB.
+    static let maxImportEntryBytes = 32 * 1024 * 1024
+    /// Max decompressed bytes across the whole archive.
+    static let maxImportTotalBytes = 128 * 1024 * 1024
+    /// Max entries processed from one archive.
+    static let maxImportEntries = 500
 }
 
 /// Pure flight-clock formatting, extracted from `AppState` so the timer/time-of-day rules are

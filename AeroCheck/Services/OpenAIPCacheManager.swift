@@ -213,10 +213,11 @@ class OpenAIPCacheManager: ObservableObject {
     /// Download a single tile and save to disk
     private nonisolated func downloadAndSaveTile(z: Int, x: Int, y: Int, session: URLSession) async -> Bool {
         let subdomain = OpenAIPConfig.tileSubdomains[abs(x + y) % OpenAIPConfig.tileSubdomains.count]
-        guard let url = OpenAIPConfig.tileURL(subdomain: subdomain, z: z, x: x, y: y) else { return false }
+        // Key in a header, not the URL (SA-11).
+        guard let request = OpenAIPConfig.tileRequest(subdomain: subdomain, z: z, x: x, y: y) else { return false }
 
         do {
-            let (data, response) = try await session.data(from: url)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else { return false }
 
             // HTTP 204 = no content for this tile (valid, skip)

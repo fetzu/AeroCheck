@@ -70,6 +70,7 @@ struct CompanionMessage: Codable {
         case command          // Viewer -> Master
         case disconnect       // Either direction (graceful)
         case peerGPS          // Viewer -> Master (the peer's GPS fix, when the master has none) — shared-GPS
+        case viewerHello      // Viewer -> Master (viewer capabilities/entitlement, on connect) — SA-26
     }
 
     /// Current wire-format version produced by this build.
@@ -229,6 +230,66 @@ struct CompanionPeerGPS: Codable, Equatable {
         signalStatus = try c.decodeIfPresent(String.self, forKey: .signalStatus) ?? "unknown"
         timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date.distantPast
     }
+
+    /// Whether the fix is geometrically usable: finite, in-range coordinates and finite motion values.
+    ///
+    /// A paired peer is a network trust boundary — a device on an older or modified build, or simply a
+    /// buggy one, can put anything on the wire. Every other ingest path in this codebase already
+    /// validates (`Flight.validatedForIngest()`, `AirportDataService`, `Navaid`, `Obstacle`,
+    /// `ReportingPoint`); the companion path was the one omission. Without this an out-of-range or
+    /// non-finite coordinate reaches `MKCoordinateRegion` / `MKAnnotation`, and **MapKit raises on an
+    /// invalid coordinate — i.e. the navigation display crashes mid-flight.** The same point is also
+    /// appended to the recorded track, corrupting the flight file so that
+    /// `Flight.validatedForIngest()` then rejects it on the pilot's other devices and it silently
+    /// never syncs. (SA-10)
+    ///
+    /// Deliberately duplicates `GeoValidation.isValidLatLon` rather than calling it: that helper
+    /// lives in `Models/Flight.swift`, which is app-target only, while this file is in `Shared/`
+    /// (compiled into the Watch and Widget targets too). `testPeerFixGeometryMatchesFlightIngestPredicate`
+    /// asserts the two agree, so the copy cannot silently drift.
+    var hasValidGeometry: Bool {
+        guard latitude.isFinite, longitude.isFinite,
+              (-90.0...90.0).contains(latitude),
+              (-180.0...180.0).contains(longitude) else { return false }
+        // Optional motion values: absent is fine (they degrade to CoreLocation's "unknown"
+        // sentinels), but a present-and-non-finite value would propagate into speed/altitude
+        // readouts and the recorded track.
+        if let altitudeMeters, !altitudeMeters.isFinite { return false }
+        if let speedMPS, !speedMPS.isFinite { return false }
+        if let courseDegrees, !courseDegrees.isFinite { return false }
+        return horizontalAccuracy.isFinite
+    }
+}
+
+// MARK: - Viewer hello (Viewer -> Master, on connect) — SA-26
+
+/// What the viewer tells the master about itself when the link comes up.
+///
+/// SA-26: the master streams the full challenge/response text of whatever checklist it is running.
+/// Pairing is one system sheet and one confirmation code, after which the devices reconnect
+/// automatically whenever in proximity — so without this, someone with no subscription could pair
+/// to a subscriber's iPad once and then read the entire premium checklist, phase by phase, and
+/// even drive it (`nextChecklistPhase`, `revealHiddenItems`) without touching the iPad. Proximity
+/// to a subscriber substituted for a subscription.
+///
+/// This is defence in depth, not a server gap: the paid content is legitimately on the paying
+/// device. A legitimate single user's iPhone shares the subscriber's Apple ID and reports
+/// `isSubscribed: true`, so the normal second-screen workflow is unaffected.
+struct CompanionViewerHello: Codable, Equatable {
+    /// Whether the viewer device itself holds a premium entitlement.
+    let isSubscribed: Bool
+
+    init(isSubscribed: Bool) {
+        self.isSubscribed = isSubscribed
+    }
+
+    /// Tolerant decode, but note the DEFAULT IS FALSE: an older viewer that does not send this
+    /// message, or a malformed one, is treated as unentitled and gets the redacted stream. Failing
+    /// closed here costs an old viewer some text; failing open would defeat the whole check.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isSubscribed = try c.decodeIfPresent(Bool.self, forKey: .isSubscribed) ?? false
+    }
 }
 
 // MARK: - Companion stream timing
@@ -262,9 +323,20 @@ struct GPSSourceElection {
     var maxAccuracy: Double = 100
 
     func isValid(accuracy: Double?, age: TimeInterval?) -> Bool {
-        guard let accuracy, accuracy >= 0, accuracy <= maxAccuracy,
-              let age, age >= 0, age <= maxFixAge else { return false }
+        guard let accuracy, accuracy.isFinite, accuracy >= 0, accuracy <= maxAccuracy,
+              let age, age.isFinite, age >= 0, age <= maxFixAge else { return false }
         return true
+    }
+
+    /// Validity of a peer fix: the accuracy/age policy above PLUS the fix's own geometry.
+    ///
+    /// `isValid(accuracy:age:)` inspects only accuracy and age, so a peer could pair a plausible
+    /// 10 m accuracy with a nonsense coordinate and be elected. Election is the last gate before
+    /// `effectiveLocation` builds a `CLLocation` from the raw wire values and feeds it into the
+    /// flight pipeline, so the geometry has to be checked here too. (SA-10)
+    func isPeerFixValid(_ fix: CompanionPeerGPS?, age: TimeInterval?) -> Bool {
+        guard let fix, fix.hasValidGeometry else { return false }
+        return isValid(accuracy: fix.horizontalAccuracy, age: age)
     }
 
     /// Elect the source from the current validity of each side. Own always wins when valid.

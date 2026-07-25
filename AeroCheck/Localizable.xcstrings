@@ -6251,6 +6251,40 @@
         }
       }
     },
+    "flightLog.importError.archiveTooLarge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive expands to more data than can be imported safely."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette archive se décompresse en plus de données qu’il n’est possible d’importer en toute sécurité."
+          }
+        }
+      }
+    },
+    "flightLog.importError.entryTooLarge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A file in this archive is too large to import safely."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un fichier de cette archive est trop volumineux pour être importé en toute sécurité."
+          }
+        }
+      }
+    },
     "flightLog.importError.noAccess" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6302,6 +6336,23 @@
         }
       }
     },
+    "flightLog.importError.sizeMismatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A file in this archive does not match its declared size."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un fichier de cette archive ne correspond pas à la taille déclarée."
+          }
+        }
+      }
+    },
     "flightLog.importError.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6315,6 +6366,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Erreur d'importation"
+          }
+        }
+      }
+    },
+    "flightLog.importError.tooManyEntries" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This archive contains too many files to import."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette archive contient trop de fichiers à importer."
           }
         }
       }

@@ -61,4 +61,23 @@ Icon
 # Local build secrets (OpenAIP API key, etc.) — NEVER commit.
 # Copy Secrets.example.xcconfig → Secrets.xcconfig and fill it in.
 # Config.xcconfig (tracked) optionally #includes this file.
-Secrets.xcconfig
+#
+# SA-17: glob rather than the single literal filename. The canonical name was matched, but a
+# duplicate of the kind Finder or a second scheme naturally produces — "Secrets copy.xcconfig",
+# Secrets.local.xcconfig, Secrets.debug.xcconfig — was not, and would carry the real OpenAIP key.
+Secrets*.xcconfig
+!Secrets.example.xcconfig
+
+# Signing / distribution material left behind after an archive. None of this belongs in the repo
+# under any name. (SA-17)
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+ExportOptions.plist
+.env
+.env.*
+
+# Large opaque reference blobs (Safari webarchives etc.) belong in the out-of-repo BUFFER/ area,
+# not in a public repo. (SA-19)
+*.webarchive

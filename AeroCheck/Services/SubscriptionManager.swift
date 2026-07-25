@@ -856,9 +856,14 @@ class SubscriptionManager: ObservableObject {
             debugLogger.log("Server response: HTTP \(httpResponse.statusCode)", level: httpResponse.statusCode == 200 ? .success : .error)
 
             guard httpResponse.statusCode == 200 else {
-                if let responseString = String(data: data, encoding: .utf8) {
-                    debugLogger.log("Error response: \(responseString)", level: .error)
-                }
+                // SA-20: log the server's structured `code` rather than mirroring the whole
+                // response body. This line feeds both the unified log AND the in-app Subscription
+                // Logs screen, which ships unguarded in release — so an unexpected body (an error
+                // echoing part of the request, a proxy's HTML error page) would be surfaced twice.
+                // The code is what is actually diagnosable; the prose never was.
+                let code = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                let serverCode = code?["code"] as? String ?? "unknown"
+                debugLogger.log("Error response: code=\(serverCode)", level: .error)
                 return
             }
 

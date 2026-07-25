@@ -31,10 +31,28 @@ enum OpenAIPConfig {
     /// Subdomains for tile load balancing
     static let tileSubdomains = ["a", "b", "c"]
 
-    /// Tile URL template for raster PNG tiles
-    /// Placeholders: {s} = subdomain, {z} = zoom, {x} = x tile, {y} = y tile
+    /// HTTP header carrying the API key. The REST endpoints already authenticate this way; tiles
+    /// now do too. (SA-11)
+    static let apiKeyHeader = "x-openaip-api-key"
+
+    /// Tile URL for raster PNG tiles.
+    ///
+    /// SA-11: the key is deliberately NOT in the query string. A key in a URL lands in every
+    /// URL-level log along the path — the device's on-disk `URLCache` entries, any
+    /// enterprise/MDM TLS-inspecting proxy, and OpenAIP's own access logs. The REST path
+    /// (`OpenAIPDataService`) already sent it as a header, so the query-string form was an
+    /// internal inconsistency rather than a platform constraint. Build requests with
+    /// `tileRequest(...)` so the header is never forgotten.
     static func tileURL(subdomain: String, z: Int, x: Int, y: Int) -> URL? {
-        URL(string: "https://\(subdomain).api.tiles.openaip.net/api/data/openaip/\(z)/\(x)/\(y).png?apiKey=\(apiKey)")
+        URL(string: "https://\(subdomain).api.tiles.openaip.net/api/data/openaip/\(z)/\(x)/\(y).png")
+    }
+
+    /// An authenticated tile request. The single place the tile key meets the network.
+    static func tileRequest(subdomain: String, z: Int, x: Int, y: Int) -> URLRequest? {
+        guard let url = tileURL(subdomain: subdomain, z: z, x: x, y: y) else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue(apiKey, forHTTPHeaderField: apiKeyHeader)
+        return request
     }
 
     /// Minimum zoom level for OpenAIP tiles (below this, tiles are too sparse)

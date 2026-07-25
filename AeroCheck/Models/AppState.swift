@@ -282,6 +282,16 @@ struct AppSettings: Codable, Equatable {
         var result = self
         result.gpsRecordingInterval = result.gpsRecordingInterval.clamped(to: 1.0...300.0)
         result.waypointProximityThreshold = result.waypointProximityThreshold.clamped(to: 10.0...50_000.0)
+        // SA-23: this used to clamp two numeric fields and validate NO string. The aircraft id is
+        // applied verbatim and then spliced into a filesystem path component and a URL path
+        // segment, bypassing the whitelist check that `selectAircraft(id:available:)` applies on
+        // the deep-link path — so someone with access to the user's iCloud account could write a
+        // Settings record with `../../../Documents/leak` and land a server response inside the
+        // file-sharing-exposed Documents folder. Dropping the id degrades to "no premium aircraft
+        // selected", which the rest of the app already handles.
+        if let id = result.selectedRemoteAircraftId, !AircraftRegistrationToken.isWellFormed(id) {
+            result.selectedRemoteAircraftId = nil
+        }
         return result
     }
 }

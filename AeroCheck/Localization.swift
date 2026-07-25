@@ -650,6 +650,11 @@ enum L10n {
         static func importErrorZipExtract(_ error: String) -> String {
             String(format: String(localized: "flightLog.importError.zipExtract"), error)
         }
+        // Decompression-budget refusals (SA-24)
+        static let importErrorEntryTooLarge = String(localized: "flightLog.importError.entryTooLarge")
+        static let importErrorArchiveTooLarge = String(localized: "flightLog.importError.archiveTooLarge")
+        static let importErrorTooManyEntries = String(localized: "flightLog.importError.tooManyEntries")
+        static let importErrorSizeMismatch = String(localized: "flightLog.importError.sizeMismatch")
         static let loading = String(localized: "flightLog.loading")
         static let noFlightsTitle = String(localized: "flightLog.noFlights.title")
         static let noFlightsMessage = String(localized: "flightLog.noFlights.message")

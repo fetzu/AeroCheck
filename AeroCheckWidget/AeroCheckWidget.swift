@@ -16,6 +16,28 @@ struct WidgetAircraft: Codable, Hashable {
 enum WidgetSharedData {
     static let appGroupID = "group.com.fetzu.aerocheck"
     static let aircraftDefaultsKey = "widgetAircraft"
+    static let launchTokenDefaultsKey = "widgetLaunchToken"
+
+    /// Token proving a `start-flight` link came from this app's own widget rather than an arbitrary
+    /// web page, message or QR code. Written by the app (`WidgetBridge.launchToken`) into the App
+    /// Group, which only this app and its extensions can read. Without it the app pre-selects the
+    /// aircraft and waits for a START tap instead of launching a flight (and background GPS
+    /// recording) unattended. (SA-25)
+    static func launchToken() -> String? {
+        UserDefaults(suiteName: appGroupID)?.string(forKey: launchTokenDefaultsKey)
+    }
+
+    /// The `start-flight` deep link for an aircraft, carrying the launch token when available.
+    static func startFlightURL(aircraftKey: String) -> URL {
+        var string = "aerocheck://start-flight?aircraft=\(aircraftKey)"
+        if let token = launchToken(),
+           let encoded = token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            string += "&token=\(encoded)"
+        }
+        // The key comes from our own App Group payload, so this is well-formed by construction;
+        // fall back to a bare launch rather than crashing if it somehow is not.
+        return URL(string: string) ?? URL(string: "aerocheck://start-flight")!
+    }
 
     /// The aircraft the user owns, as published by the app. Falls back to just the free bundled
     /// aircraft if the App Group hasn't been written yet — so an unowned premium aircraft never
@@ -199,7 +221,7 @@ struct AircraftButton: View {
     var body: some View {
         // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app from a
         // widget — Button(intent:) only performs in-place actions and would not open AeroCheck.
-        Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(aircraft.key)")!) {
+        Link(destination: WidgetSharedData.startFlightURL(aircraftKey: aircraft.key)) {
             VStack(spacing: 4) {
                 Image(systemName: "airplane")
                     .font(.system(size: 22))
@@ -240,7 +262,7 @@ struct CircularWidgetView: View {
     var body: some View {
         // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app from a
         // widget — Button(intent:) only performs in-place actions and would not open AeroCheck.
-        Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(defaultAircraftKey)")!) {
+        Link(destination: WidgetSharedData.startFlightURL(aircraftKey: defaultAircraftKey)) {
             ZStack {
                 AccessoryWidgetBackground()
                 Image(systemName: "airplane")
@@ -271,7 +293,7 @@ struct RectangularWidgetView: View {
                 // `Link` (not `Button(intent:)`) is the sanctioned pattern for launching the app
                 // from a widget — Button(intent:) only performs in-place actions and would not
                 // open AeroCheck.
-                Link(destination: URL(string: "aerocheck://start-flight?aircraft=\(item.key)")!) {
+                Link(destination: WidgetSharedData.startFlightURL(aircraftKey: item.key)) {
                     HStack(spacing: 4) {
                         Image(systemName: "airplane.departure")
                             .font(.system(size: 11, weight: .semibold))

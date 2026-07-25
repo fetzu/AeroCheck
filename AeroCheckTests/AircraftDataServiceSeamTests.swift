@@ -282,4 +282,55 @@ final class AircraftDataServiceSeamTests: XCTestCase {
             XCTAssertFalse(url.contains("reg="), "Plain id must not send a reg parameter: \(url)")
         }
     }
+
+    // MARK: - Aircraft id validation (SA-23)
+    //
+    // The id reaches two sinks that both trusted it: a filesystem path component
+    // (cacheDirectory.appendingPathComponent("\(id).json")) and a URL path segment. It arrives from
+    // the API *and* from a synced CloudKit Settings record, whose clampedForIngest() validated no
+    // string at all — so `../../../Documents/leak` resolved outside the cache and inside the
+    // UIFileSharingEnabled-exposed Documents folder. `.urlPathAllowed` preserves `/` and `..`, so
+    // percent-encoding did not stop it either.
+
+    func testWellFormedIdsAreAccepted() {
+        for id in ["wt9-dynamic", "pa28-181", "dr400-140b-gvmn", "dr400-140b-gvmn~HB-KFP",
+                   "a", "PS28_Cruiser", "id.with.dots"] {
+            XCTAssertTrue(AircraftRegistrationToken.isWellFormed(id), "should accept \(id)")
+        }
+    }
+
+    func testPathTraversalIsRejected() {
+        for id in ["../../../Documents/leak", "..", "../x", "a/b", "a\\b",
+                   "wt9/../../etc/passwd", "foo/bar~REG"] {
+            XCTAssertFalse(AircraftRegistrationToken.isWellFormed(id), "should reject \(id)")
+        }
+    }
+
+    func testHiddenFilesAndEmptyPartsAreRejected() {
+        for id in ["", ".hidden", "~", "~REG", "wt9~", ".", "a~b~c"] {
+            XCTAssertFalse(AircraftRegistrationToken.isWellFormed(id), "should reject \(id)")
+        }
+    }
+
+    func testCharactersNeedingEncodingAreRejected() {
+        for id in ["a b", "a?b", "a#b", "a%2e%2e", "a&b=1", "a\u{0000}b", "é"] {
+            XCTAssertFalse(AircraftRegistrationToken.isWellFormed(id), "should reject \(id)")
+        }
+    }
+
+    func testOverlongIdsAreRejected() {
+        XCTAssertTrue(AircraftRegistrationToken.isWellFormed(String(repeating: "a", count: 64)))
+        XCTAssertFalse(AircraftRegistrationToken.isWellFormed(String(repeating: "a", count: 65)))
+    }
+
+    func testIngestClampNullsOutAnUnsafeAircraftId() {
+        var settings = AppSettings()
+        settings.selectedRemoteAircraftId = "../../../Documents/leak"
+        XCTAssertNil(settings.clampedForIngest().selectedRemoteAircraftId,
+                     "a traversal id from a synced record must not be applied")
+
+        settings.selectedRemoteAircraftId = "pa28-181"
+        XCTAssertEqual(settings.clampedForIngest().selectedRemoteAircraftId, "pa28-181",
+                       "a legitimate id must survive ingest")
+    }
 }

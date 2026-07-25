@@ -70,6 +70,7 @@ struct CompanionMessage: Codable {
         case command          // Viewer -> Master
         case disconnect       // Either direction (graceful)
         case peerGPS          // Viewer -> Master (the peer's GPS fix, when the master has none) — shared-GPS
+        case viewerHello      // Viewer -> Master (viewer capabilities/entitlement, on connect) — SA-26
     }
 
     /// Current wire-format version produced by this build.
@@ -257,6 +258,37 @@ struct CompanionPeerGPS: Codable, Equatable {
         if let speedMPS, !speedMPS.isFinite { return false }
         if let courseDegrees, !courseDegrees.isFinite { return false }
         return horizontalAccuracy.isFinite
+    }
+}
+
+// MARK: - Viewer hello (Viewer -> Master, on connect) — SA-26
+
+/// What the viewer tells the master about itself when the link comes up.
+///
+/// SA-26: the master streams the full challenge/response text of whatever checklist it is running.
+/// Pairing is one system sheet and one confirmation code, after which the devices reconnect
+/// automatically whenever in proximity — so without this, someone with no subscription could pair
+/// to a subscriber's iPad once and then read the entire premium checklist, phase by phase, and
+/// even drive it (`nextChecklistPhase`, `revealHiddenItems`) without touching the iPad. Proximity
+/// to a subscriber substituted for a subscription.
+///
+/// This is defence in depth, not a server gap: the paid content is legitimately on the paying
+/// device. A legitimate single user's iPhone shares the subscriber's Apple ID and reports
+/// `isSubscribed: true`, so the normal second-screen workflow is unaffected.
+struct CompanionViewerHello: Codable, Equatable {
+    /// Whether the viewer device itself holds a premium entitlement.
+    let isSubscribed: Bool
+
+    init(isSubscribed: Bool) {
+        self.isSubscribed = isSubscribed
+    }
+
+    /// Tolerant decode, but note the DEFAULT IS FALSE: an older viewer that does not send this
+    /// message, or a malformed one, is treated as unentitled and gets the redacted stream. Failing
+    /// closed here costs an old viewer some text; failing open would defeat the whole check.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isSubscribed = try c.decodeIfPresent(Bool.self, forKey: .isSubscribed) ?? false
     }
 }
 

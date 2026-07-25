@@ -10,6 +10,53 @@ enum ExternalRequest {
     /// Default retry budget for a single logical request.
     static let maxRetries = 3
 
+    /// Default ceiling on a single response body.
+    ///
+    /// SA-32: every external fetch buffered the whole body with no ceiling and no inspection of
+    /// `expectedContentLength`. TLS stops a network attacker, so the realistic trigger is a
+    /// third-party origin compromise or a misbehaving origin — which could OOM the app *during a
+    /// flight*, since trip-aware prefetch runs while airborne. The CloudKit ingest path already
+    /// bounds its input (`SyncManager.maxIngestRecordBytes`); this mirrors that.
+    ///
+    /// Generous by design: the largest legitimate payload is an OurAirports CSV / OpenAIP
+    /// per-country GeoJSON, comfortably under this. Callers with a smaller known bound should pass
+    /// their own.
+    static let maxResponseBytes: Int = 96 * 1024 * 1024
+
+    /// Raised when a response is refused on size grounds.
+    enum SizeError: LocalizedError {
+        case tooLarge(declared: Int64?, limit: Int)
+
+        var errorDescription: String? {
+            switch self {
+            case let .tooLarge(declared, limit):
+                let declaredText = declared.map { "\($0)" } ?? "unknown"
+                return "Response too large (declared \(declaredText) bytes, limit \(limit))"
+            }
+        }
+    }
+
+    /// Cancels a task as soon as the response headers declare a body over the limit, so an
+    /// oversized body is never buffered. A body with no (or a lying) `Content-Length` still gets
+    /// the post-hoc check in `data(for:)` — that one cannot prevent the allocation, but it stops
+    /// the oversized payload being parsed and surfaces the misbehaving origin.
+    private final class SizeLimitingDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        let limit: Int
+        init(limit: Int) { self.limit = limit }
+
+        func urlSession(
+            _ session: URLSession,
+            dataTask: URLSessionDataTask,
+            didReceive response: URLResponse
+        ) async -> URLSession.ResponseDisposition {
+            if response.expectedContentLength != NSURLSessionTransferSizeUnknown,
+               response.expectedContentLength > Int64(limit) {
+                return .cancel
+            }
+            return .allow
+        }
+    }
+
     /// Descriptive User-Agent so swisstopo/MeteoSwiss/Open-Meteo operators can identify/whitelist us.
     static let userAgent: String = {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -58,19 +105,40 @@ enum ExternalRequest {
     /// GET a URL with retry/backoff. Returns the final `(data, response)` (success or the last
     /// non-retryable response). Throws `CancellationError` if the surrounding Task is cancelled,
     /// or a `URLError` if the request keeps failing transiently past the retry budget.
-    static func data(from url: URL, session: URLSession = session, maxRetries: Int = maxRetries) async throws -> (Data, HTTPURLResponse) {
-        try await data(for: URLRequest(url: url), session: session, maxRetries: maxRetries)
+    static func data(
+        from url: URL,
+        session: URLSession = session,
+        maxRetries: Int = maxRetries,
+        maxResponseBytes: Int = maxResponseBytes
+    ) async throws -> (Data, HTTPURLResponse) {
+        try await data(for: URLRequest(url: url), session: session, maxRetries: maxRetries,
+                       maxResponseBytes: maxResponseBytes)
     }
 
     /// Perform a request with retry/backoff on 429/5xx and transient `URLError`s.
-    static func data(for request: URLRequest, session: URLSession = session, maxRetries: Int = maxRetries) async throws -> (Data, HTTPURLResponse) {
+    ///
+    /// The response body is size-bounded (SA-32): an oversized declared length is cancelled before
+    /// the body is buffered, and an oversized actual body is refused after the fact.
+    static func data(
+        for request: URLRequest,
+        session: URLSession = session,
+        maxRetries: Int = maxRetries,
+        maxResponseBytes: Int = maxResponseBytes
+    ) async throws -> (Data, HTTPURLResponse) {
         var attempt = 0
+        let sizeLimiter = SizeLimitingDelegate(limit: maxResponseBytes)
         while true {
             try Task.checkCancellation()
             do {
-                let (data, response) = try await session.data(for: request)
+                let (data, response) = try await session.data(for: request, delegate: sizeLimiter)
                 guard let http = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
+                }
+                // Backstop for an origin that omits or lies about Content-Length. This cannot
+                // prevent the allocation that already happened, but it stops an oversized payload
+                // being parsed and makes the misbehaving origin visible.
+                if data.count > maxResponseBytes {
+                    throw SizeError.tooLarge(declared: http.expectedContentLength, limit: maxResponseBytes)
                 }
                 if shouldRetry(status: http.statusCode, attempt: attempt, maxRetries: maxRetries) {
                     let retryAfter = parseRetryAfter(http.value(forHTTPHeaderField: "Retry-After"))

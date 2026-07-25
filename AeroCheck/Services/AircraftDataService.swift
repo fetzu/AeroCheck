@@ -86,6 +86,16 @@ class AircraftDataService: ObservableObject {
         // Create cache directory if needed
         try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
+        // SA-22: keep the paywalled checklist cache OUT of device backups. Application Support is
+        // included in backups (only Library/Caches and tmp are excluded), so without this an
+        // ordinary unencrypted Finder/iTunes backup of a subscriber's iPad contains every premium
+        // checklist as plaintext JSON — no jailbreak, just a backup extractor. Nothing is lost by
+        // excluding it: the cache is fully re-downloadable.
+        var excludeFromBackup = URLResourceValues()
+        excludeFromBackup.isExcludedFromBackup = true
+        var cacheDirectoryURL = cacheDirectory
+        try? cacheDirectoryURL.setResourceValues(excludeFromBackup)
+
         // Load cached data first
         loadCachedMetadata()
 
@@ -404,7 +414,7 @@ class AircraftDataService: ObservableObject {
 
     /// Checks if a checklist is cached locally
     func isChecklistCached(aircraftId: String) -> Bool {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
+        guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".json") else { return false }
         return fileManager.fileExists(atPath: path.path)
     }
 
@@ -479,8 +489,8 @@ class AircraftDataService: ObservableObject {
 
     /// Gets the cache date for a checklist
     func getCacheDate(aircraftId: String) -> Date? {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
-        guard let attributes = try? fileManager.attributesOfItem(atPath: path.path) else {
+        guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".json"),
+              let attributes = try? fileManager.attributesOfItem(atPath: path.path) else {
             return nil
         }
         return attributes[.modificationDate] as? Date
@@ -500,8 +510,8 @@ class AircraftDataService: ObservableObject {
 
     /// Clears the cache for a specific aircraft
     func clearCache(for aircraftId: String) {
-        let checklistPath = cacheDirectory.appendingPathComponent("\(aircraftId).json")
-        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
+        guard let checklistPath = cacheFileURL(aircraftId: aircraftId, suffix: ".json"),
+              let metadataPath = cacheFileURL(aircraftId: aircraftId, suffix: ".metadata.json") else { return }
 
         do {
             if fileManager.fileExists(atPath: checklistPath.path) {
@@ -602,6 +612,12 @@ class AircraftDataService: ObservableObject {
         // server-supplied, so percent-encode it (and the query values) and fail safely on an
         // unbuildable URL rather than force-unwrapping (PERF-14). An "id~REG" tail token is
         // split into the path id plus a `reg` query (the server serves that tail's file).
+        // SA-23: reject an id that is not safe as a URL path segment before building the request.
+        // `.urlPathAllowed` preserves `/` and `..`, so percent-encoding alone does NOT stop a
+        // traversal reaching the server (or the response landing at a traversed cache path).
+        guard AircraftRegistrationToken.isWellFormed(aircraftId) else {
+            throw AircraftDataError.invalidURL
+        }
         let (baseId, registration) = AircraftRegistrationToken.split(aircraftId)
         let encodedId = baseId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? baseId
         var urlString = "\(apiBaseURL)/api/v3/aircraft/\(encodedId)/checklist"
@@ -693,7 +709,7 @@ class AircraftDataService: ObservableObject {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
             let data = try encoder.encode(aircraft)
-            try data.write(to: path)
+            try data.write(to: path, options: DataPersistenceManager.protectedWriteOptions)
         } catch {
             AppLog.aircraftData.debugLine("Failed to cache metadata: \(error)")
         }
@@ -721,15 +737,33 @@ class AircraftDataService: ObservableObject {
         }
     }
 
+    /// Cache-file URL for an aircraft id, or nil when the id is not safe as a path component.
+    ///
+    /// SA-23: `cacheDirectory.appendingPathComponent("\(id).json")` trusted the id, and the id can
+    /// arrive from a synced CloudKit Settings record or a compromised/misbehaving API server.
+    /// `../../../Documents/leak` resolves outside the cache and inside the
+    /// `UIFileSharingEnabled`-exposed Documents folder. Validating here as well as on ingest means
+    /// the sink is safe even if a future caller forgets — defence at the boundary AND at the sink.
+    private func cacheFileURL(aircraftId: String, suffix: String) -> URL? {
+        guard AircraftRegistrationToken.isWellFormed(aircraftId) else {
+            AppLog.aircraftData.debugLine("Refused unsafe aircraft id for a cache path")
+            return nil
+        }
+        return cacheDirectory.appendingPathComponent("\(aircraftId)\(suffix)")
+    }
+
     private func cacheChecklist(_ checklist: RemoteAircraftChecklist, aircraftId: String, checksum: String? = nil) {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
-        let metadataPath = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
+        guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".json"),
+              let metadataPath = cacheFileURL(aircraftId: aircraftId, suffix: ".metadata.json") else { return }
 
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
             let data = try encoder.encode(checklist)
-            try data.write(to: path)
+            // At-rest protection, matching every other local write (DataPersistenceManager applies
+            // the same options with an in-code SEC-12 comment about exactly this). The checklist
+            // cache never adopted it. (SA-22)
+            try data.write(to: path, options: DataPersistenceManager.protectedWriteOptions)
 
             // Also store metadata for cache validation
             let metadata = CacheMetadata(
@@ -739,14 +773,14 @@ class AircraftDataService: ObservableObject {
                 subscriptionVerifiedAt: Date()
             )
             let metadataData = try encoder.encode(metadata)
-            try metadataData.write(to: metadataPath)
+            try metadataData.write(to: metadataPath, options: DataPersistenceManager.protectedWriteOptions)
         } catch {
             AppLog.aircraftData.debugLine("Failed to cache checklist: \(error)")
         }
     }
 
     private func loadCacheMetadata(aircraftId: String) -> CacheMetadata? {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).metadata.json")
+        guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".metadata.json") else { return nil }
 
         guard fileManager.fileExists(atPath: path.path) else { return nil }
 
@@ -761,9 +795,8 @@ class AircraftDataService: ObservableObject {
     }
 
     private func loadCachedChecklist(aircraftId: String) -> RemoteAircraftChecklist? {
-        let path = cacheDirectory.appendingPathComponent("\(aircraftId).json")
-
-        guard fileManager.fileExists(atPath: path.path) else { return nil }
+        guard let path = cacheFileURL(aircraftId: aircraftId, suffix: ".json"),
+              fileManager.fileExists(atPath: path.path) else { return nil }
 
         do {
             let data = try Data(contentsOf: path)

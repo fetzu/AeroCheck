@@ -102,6 +102,11 @@ struct AeroCheckApp: App {
                         locationManager: locationManager,
                         flightPlanManager: flightPlanManager
                     )
+                    // The viewer reports its OWN entitlement to the master, which decides how much
+                    // premium checklist text it may stream back. (SA-26)
+                    companionConnectivityManager.viewerEntitlementProvider = { [weak subscriptionManager] in
+                        subscriptionManager?.subscriptionStatus.isSubscribed ?? false
+                    }
 
                     // Live Activity next-waypoint feed (UX-25): AppState has no FlightPlanManager
                     // reference, so the controller pulls the name through this closure at sync time.
@@ -248,6 +253,20 @@ struct AeroCheckApp: App {
                 AppLog.general.debugLine("Deep link requested unknown aircraft: \(aircraft)")
                 return
             }
+
+            // SA-25: only the app's OWN widget may start a flight unattended. The scheme is
+            // registered with no universal-link restriction, so without this any web page,
+            // iMessage, QR code or third-party app could start a flight — and with it continuous
+            // background GPS recording that persists after the user switches away — from one tap.
+            // An untrusted link is treated as a REQUEST: the aircraft is now selected, and the
+            // user's START tap on Home is the confirmation.
+            let token = components.queryItems?.first(where: { $0.name == "token" })?.value
+            guard WidgetBridge.isTrustedLaunch(token: token) else {
+                AppLog.general.debugLine("Deep link start-flight without a widget token — pre-selecting only")
+                appState.showFlightLog = false
+                return
+            }
+
             // Route through the same launcher as the home screen so the checklist is loaded, the
             // ARCH-01 / entitlement / permission guards run, and GPS tracking actually starts.
             // (Fixes UX-08/13: widget/deep-link flights previously recorded no GPS.)

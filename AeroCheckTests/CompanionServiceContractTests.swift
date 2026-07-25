@@ -184,4 +184,37 @@ final class CompanionServiceContractTests: XCTestCase {
         let decoded = try JSONDecoder().decode(CompanionFlightData.self, from: Data(#"{"isFlightActive":true}"#.utf8))
         XCTAssertTrue(decoded.ownGPSAvailable)
     }
+
+    // MARK: - Viewer entitlement handshake (SA-26)
+    //
+    // The master streams the full challenge/response text of whatever checklist it is running.
+    // Pairing is one system sheet plus one confirmation code, after which devices reconnect
+    // automatically in proximity — so without a gate, someone with no subscription could pair to a
+    // subscriber's iPad once and then read the whole premium checklist, and drive it.
+
+    func testViewerHelloRoundTrips() throws {
+        for entitled in [true, false] {
+            let hello = CompanionViewerHello(isSubscribed: entitled)
+            let decoded = try JSONDecoder().decode(
+                CompanionViewerHello.self, from: JSONEncoder().encode(hello))
+            XCTAssertEqual(decoded, hello)
+        }
+    }
+
+    func testViewerHelloDefaultsToUnentitled() throws {
+        // An older viewer that predates this message, or a malformed one, must read as NOT
+        // entitled. Failing closed costs an old viewer some text; failing open defeats the check.
+        let empty = try JSONDecoder().decode(CompanionViewerHello.self, from: Data("{}".utf8))
+        XCTAssertFalse(empty.isSubscribed)
+
+        let wrongKey = try JSONDecoder().decode(
+            CompanionViewerHello.self, from: Data(#"{"subscribed":true}"#.utf8))
+        XCTAssertFalse(wrongKey.isSubscribed, "an unrecognised key must not grant entitlement")
+    }
+
+    func testViewerHelloIsAViewerToMasterMessageType() {
+        // Guards the wire vocabulary: the type must exist and round-trip, or the master silently
+        // never learns the viewer's entitlement and (correctly, but unhelpfully) redacts forever.
+        XCTAssertEqual(CompanionMessage.MessageType(rawValue: "viewerHello"), .viewerHello)
+    }
 }

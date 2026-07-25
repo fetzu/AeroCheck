@@ -1,0 +1,17 @@
+# Dependabot configuration.
+#
+# SEC-C42: the workflows now pin third-party Actions to commit SHAs rather than a floating major
+# tag, which removes the "a moved tag silently runs new code in CI" exposure — but a pin only stays
+# safe if it is maintained. Dependabot keeps the SHAs current (and annotates each bump with the
+# version it corresponds to) so pinning does not decay into running a stale, unpatched action.
+#
+# The app has no package-manager dependencies to track (no SPM, no CocoaPods, no vendored source —
+# a deliberate property worth keeping), so github-actions is the only ecosystem here.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"

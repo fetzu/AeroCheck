@@ -103,6 +103,53 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertNil(flight(modifiedAt: Date(), track: [point(47, 200)]).validatedForIngest(), "lon > 180")
     }
 
+    // MARK: - Local-load salvage (RES-02)
+    //
+    // Local flight files are the only copy of a recorded flight, so they get a salvaging loader
+    // rather than the all-or-nothing ingest gate the untrusted paths use. A pilot can see a small
+    // gap in a track; they cannot see an absent flight.
+
+    func testSalvageKeepsFlightAndDropsOnlyTheBadPoints() throws {
+        let f = flight(modifiedAt: Date(),
+                       track: [point(47, 8), point(.nan, 8), point(47.1, 8.1), point(95, 8), point(47.2, 8.2)])
+
+        // Precondition: the ingest validator throws the whole flight away for exactly this input.
+        XCTAssertNil(f.validatedForIngest())
+
+        let salvaged = try XCTUnwrap(f.sanitizedForLocalLoad(),
+                                     "A salvageable flight must survive local load")
+        XCTAssertEqual(salvaged.id, f.id)
+        XCTAssertEqual(salvaged.gpsTrack.count, 3, "Only the two invalid points should be dropped")
+        XCTAssertTrue(salvaged.gpsTrack.allSatisfy {
+            GeoValidation.isValidLatLon($0.latitude, $0.longitude)
+        })
+    }
+
+    func testSalvageStillRejectsANewerSchema() {
+        var f = flight(modifiedAt: Date(), track: [point(47, 8)])
+        f.schemaVersion = Flight.currentSchemaVersion + 1
+        XCTAssertNil(f.sanitizedForLocalLoad(),
+                     "A record written by a newer build cannot be interpreted and must not be rewritten")
+    }
+
+    func testSalvageClampsAFutureModifiedAtInsteadOfDiscardingTheFlight() throws {
+        let future = Date().addingTimeInterval(FlightDataLimits.maxClockSkew + 86_400)
+        let f = flight(modifiedAt: future, track: [point(47, 8)])
+
+        XCTAssertNil(f.validatedForIngest(), "Precondition: ingest rejects an implausible timestamp")
+
+        let salvaged = try XCTUnwrap(f.sanitizedForLocalLoad())
+        XCTAssertLessThanOrEqual(salvaged.modifiedAt, Date().addingTimeInterval(FlightDataLimits.maxClockSkew))
+        XCTAssertEqual(salvaged.gpsTrack.count, 1, "Clamping the timestamp must not cost the track")
+    }
+
+    func testSalvageLeavesACleanFlightUntouched() throws {
+        let f = flight(modifiedAt: Date(), track: [point(47, 8), point(47.1, 8.1)])
+        let salvaged = try XCTUnwrap(f.sanitizedForLocalLoad())
+        XCTAssertEqual(salvaged.gpsTrack.count, 2)
+        XCTAssertEqual(salvaged.modifiedAt, f.modifiedAt)
+    }
+
     // MARK: - CloudKit record payload (PERF-13: large-track CKAsset offload)
 
     func testSmallFlightStaysInlineWithNoAsset() throws {

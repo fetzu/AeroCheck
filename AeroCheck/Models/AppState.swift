@@ -1681,6 +1681,18 @@ class AppState {
                 return false
             }
 
+            // RES-12: endFlight() writes the flight file and only then clears this checkpoint, with
+            // no suspension point between the two — but a process kill in that window leaves a
+            // checkpoint describing a flight that was already durably saved. Restoring it would put
+            // the app back "in flight" on a completed flight and, on the next endFlight(), write a
+            // second file under a fresh id: one flight, logged twice. If the flight is already on
+            // disk the checkpoint has done its job and is simply stale.
+            if persistence.flightFileExists(for: state.flight) {
+                AppLog.general.debugLine("Discarding stale checkpoint: flight \(state.flight.id) is already saved")
+                clearActiveFlightState()
+                return false
+            }
+
             state.restore(to: self)
             if state.schemaVersion == ActiveFlightState.currentSchemaVersion {
                 // Rehydrate the track from the append-only delta. Duplicate lines (a re-appended

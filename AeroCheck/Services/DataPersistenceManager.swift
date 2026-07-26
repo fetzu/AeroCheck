@@ -431,6 +431,17 @@ class DataPersistenceManager: ObservableObject {
         return "\(dateStr)_\(plane)_\(idSuffix).json"
     }
 
+    /// Whether a saved flight file already exists for this flight. (RES-12)
+    ///
+    /// `flightFilename(for:)` is stable per flight (same id → same name), so this is an exact check
+    /// rather than a heuristic. Used to detect a crash-recovery checkpoint that outlived the flight
+    /// it describes: `endFlight()` writes the flight file and only then clears the checkpoint, so a
+    /// kill between those two synchronous calls leaves a checkpoint for an already-completed flight.
+    func flightFileExists(for flight: Flight) -> Bool {
+        let url = flightsDirectory.appendingPathComponent(Self.flightFilename(for: flight))
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     /// Save a single flight to its own file.
     /// Returns `true` only if the write was confirmed — callers that hold the sole durable copy
     /// (e.g. the crash-recovery checkpoint) must not discard it on `false`. (PR-14)
@@ -548,11 +559,16 @@ class DataPersistenceManager: ObservableObject {
                     let flight = try decoder.decode(Flight.self, from: data)
                     // SEC-C23: this directory resolves to the iCloud Documents container — the one
                     // the user sees as iCloud/AéroCheck/Flights — so its contents are editable
-                    // outside the app's own import flow. The CloudKit ingest path already treats
-                    // the identical shape as untrusted and runs validatedForIngest(); this sibling
-                    // did not, so an oversized or malformed file reached the flight store unchecked.
-                    guard let validated = flight.validatedForIngest() else {
-                        AppLog.general.debugLine("Skipped flight \(fileURL.lastPathComponent): failed ingest validation")
+                    // outside the app's own import flow and must be checked, not trusted blindly.
+                    //
+                    // RES-02: but it is checked with `sanitizedForLocalLoad()`, not the all-or-nothing
+                    // `validatedForIngest()` this used to share with the CloudKit path. These files are
+                    // the ONLY copy of a recorded flight, so a single unusable GPS point anywhere in a
+                    // multi-thousand-point track used to delete the entire flight from the logbook —
+                    // silently, with no error and no count discrepancy. Salvaging drops the bad points
+                    // and keeps the flight; a newer schema is still a hard reject.
+                    guard let validated = flight.sanitizedForLocalLoad() else {
+                        AppLog.general.debugLine("Skipped flight \(fileURL.lastPathComponent): unreadable (newer schema)")
                         continue
                     }
                     flights.append(validated)
@@ -731,30 +747,49 @@ class DataPersistenceManager: ObservableObject {
 
     /// Encode + write the given plan files and the index on the calling executor (no main-actor
     /// state), so per-waypoint/ATO saves during a flight stay off the main thread. (PERF-25)
-    nonisolated static func writeNavigationPlanFiles(_ changed: [FlightPlan], index allPlans: [FlightPlan], to directory: URL) {
+    /// Returns the ids of the plans whose files were **confirmed written**. (RES-01)
+    ///
+    /// This used to return Void and swallow every encode/write error in a bare `try?`, logging
+    /// nothing — the only save path in this file that reported neither success nor failure. Callers
+    /// had no way to distinguish a completed write from a total failure, and `FlightPlanManager`
+    /// marked plans persisted regardless, so a failed write became a permanent silent drop.
+    @discardableResult
+    nonisolated static func writeNavigationPlanFiles(_ changed: [FlightPlan], index allPlans: [FlightPlan], to directory: URL) -> [UUID] {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        var written: [UUID] = []
         for plan in changed {
             let url = directory.appendingPathComponent(navigationPlanFilename(for: plan))
-            if let data = try? encoder.encode(plan) {
-                try? data.write(to: url, options: protectedWriteOptions)
+            do {
+                let data = try encoder.encode(plan)
+                try data.write(to: url, options: protectedWriteOptions)
+                written.append(plan.id)
+            } catch {
+                AppLog.general.debugLine(
+                    "Failed to save navigation plan \(navigationPlanFilename(for: plan)): \(error.localizedDescription)")
             }
         }
         let index = allPlans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
         let indexEncoder = JSONEncoder()
         indexEncoder.outputFormatting = [.prettyPrinted]
-        if let data = try? indexEncoder.encode(index) {
+        do {
+            let data = try indexEncoder.encode(index)
             let url = directory.appendingPathComponent("plans_index.json")
-            try? data.write(to: url, options: protectedWriteOptions)
+            try data.write(to: url, options: protectedWriteOptions)
+        } catch {
+            AppLog.general.debugLine("Failed to save navigation plans index: \(error.localizedDescription)")
         }
+        return written
     }
 
     /// Saves only the given changed plans (plus the index) OFF the main actor. (PERF-25)
-    func saveNavigationPlansOffMain(changed: [FlightPlan], all: [FlightPlan]) async {
-        guard !changed.isEmpty || !all.isEmpty else { return }
+    /// Returns the ids actually written, so the caller only marks those as persisted. (RES-01)
+    @discardableResult
+    func saveNavigationPlansOffMain(changed: [FlightPlan], all: [FlightPlan]) async -> [UUID] {
+        guard !changed.isEmpty || !all.isEmpty else { return [] }
         let directory = navigationPlansDirectory
-        await Task.detached(priority: .utility) {
+        return await Task.detached(priority: .utility) {
             Self.writeNavigationPlanFiles(changed, index: all, to: directory)
         }.value
     }

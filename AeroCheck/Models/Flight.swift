@@ -353,6 +353,52 @@ struct Flight: Identifiable, Codable {
         return self
     }
 
+    /// Salvage a flight decoded from the app's OWN local datastore, dropping bad GPS points rather
+    /// than discarding the whole record. (RES-02)
+    ///
+    /// `validatedForIngest()` is an all-or-nothing gate, which is right for genuinely untrusted
+    /// input — a CloudKit record or an imported file that fails validation should not be applied at
+    /// all. It is the wrong policy for our own flight files: there, rejecting the record means a
+    /// completed flight silently vanishes from the pilot's logbook with no error, no count
+    /// discrepancy and no way to recover it, because `FlightLogView` renders solely from the
+    /// in-memory array that `decodeFlights` populates.
+    ///
+    /// The asymmetry matters because a flight file is the ONLY copy of a recorded flight. Losing
+    /// the whole logbook entry to salvage-able damage is strictly worse than showing a track with a
+    /// few points missing — a pilot can see a small gap in a track; they cannot see an absent flight.
+    ///
+    /// Mirrors the write-side filter: drop individual invalid points, cap the track, and clamp a
+    /// future `modifiedAt` instead of rejecting on it. The one genuinely uninterpretable case — a
+    /// record written by a NEWER app build, whose fields this build cannot be trusted to understand
+    /// — is still a hard reject, so a downgrade cannot silently rewrite newer data.
+    func sanitizedForLocalLoad() -> Flight? {
+        // A newer schema is the only unrecoverable case: we cannot know what we are dropping.
+        guard schemaVersion <= Flight.currentSchemaVersion else { return nil }
+
+        var salvaged = self
+
+        // Drop only the individual points that are unusable, keeping the rest of the track.
+        let cleanTrack = gpsTrack.filter { point in
+            point.latitude.isFinite && point.longitude.isFinite && point.altitude.isFinite
+                && GeoValidation.isValidLatLon(point.latitude, point.longitude)
+        }
+        if cleanTrack.count != gpsTrack.count {
+            AppLog.general.debugLine(
+                "Salvaged flight \(id): dropped \(gpsTrack.count - cleanTrack.count) invalid GPS point(s)")
+        }
+        salvaged.gpsTrack = Array(cleanTrack.prefix(FlightDataLimits.maxGPSPoints))
+
+        // A far-future timestamp poisons the merge history (SEC-C19), but that is a reason to clamp
+        // it, not to destroy the flight. Clamping loses ordering precision; rejecting loses the flight.
+        let ceiling = Date().addingTimeInterval(FlightDataLimits.maxClockSkew)
+        if salvaged.modifiedAt > ceiling {
+            AppLog.general.debugLine("Salvaged flight \(id): clamped implausible modifiedAt")
+            salvaged.modifiedAt = ceiling
+        }
+
+        return salvaged
+    }
+
     /// Total landings (touch and go + full stops, which now includes the final landing)
     var totalLandings: Int {
         return touchAndGoCount + fullStopCount

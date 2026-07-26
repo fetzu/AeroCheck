@@ -2695,6 +2695,17 @@ struct GPSStatusContent: View {
 
     /// When GPS is degraded/lost, a short reason shown under the status word ("why"). (round 6)
     private var statusReason: String? {
+        // Permission causes are checked BEFORE the isTracking guard, so they also surface when a
+        // flight is active but tracking never started for lack of authorization. Without these two
+        // branches a revoked permission and a disabled Precise Location both rendered as an ordinary
+        // signal dropout — the pilot could see that recording had stopped, but not why, and neither
+        // cause resolves on its own the way weak reception does. (RES-14 / RES-09)
+        if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+            return L10n.GPS.accessRevoked
+        }
+        if locationManager.accuracyAuthorization == .reducedAccuracy {
+            return L10n.GPS.preciseOff
+        }
         guard locationManager.isTracking else { return nil }
         switch locationManager.gpsSignalStatus {
         case .good:

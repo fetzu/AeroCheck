@@ -680,10 +680,19 @@ class FlightPlanManager: ObservableObject {
     private func saveFlightPlans() {
         let changed = flightPlans.filter { lastPersisted[$0.id] != $0 }
         guard !changed.isEmpty else { return }
-        for plan in changed { lastPersisted[plan.id] = plan }
         let all = flightPlans
         Task { [weak self] in
-            await self?.persistence.saveNavigationPlansOffMain(changed: changed, all: all)
+            let written = await self?.persistence.saveNavigationPlansOffMain(changed: changed, all: all) ?? []
+            // RES-01: mark plans persisted only once their file is CONFIRMED written. This used to
+            // run synchronously before the write was even attempted, so a failed write left the
+            // plan looking clean — the next save saw no diff, skipped it, and the edit was dropped
+            // permanently with nothing logged. Marking on confirmation makes a failure self-heal:
+            // the plan stays dirty and the very next saveFlightPlans() retries it.
+            guard let self else { return }
+            let confirmed = Set(written)
+            for plan in changed where confirmed.contains(plan.id) {
+                self.lastPersisted[plan.id] = plan
+            }
         }
     }
 

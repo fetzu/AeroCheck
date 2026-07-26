@@ -19,6 +19,13 @@ class LocationManager: NSObject, ObservableObject {
     /// a short window. nil until enough samples exist. (v4 UI/UX Revamp — instrument strip VSI)
     @Published private(set) var verticalSpeedFpm: Double?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    /// Whether the pilot granted full or reduced ("Precise Location" off) accuracy. (RES-09)
+    ///
+    /// With reduced accuracy CoreLocation delivers deliberately coarsened fixes — hundreds of metres
+    /// to kilometres — which permanently fail the 100 m `horizontalAccuracyThreshold`. The app then
+    /// shows a perpetually degraded/lost signal that looks exactly like bad reception, with nothing
+    /// pointing at the actual cause or its one-tap fix in Settings.
+    @Published private(set) var accuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy
     @Published var isTracking: Bool = false
     @Published var isLocationUpdatesActive: Bool = false // True when GPS is active (even without flight tracking)
     @Published var locationError: String?
@@ -155,6 +162,7 @@ class LocationManager: NSObject, ObservableObject {
 
         // Check current authorization
         authorizationStatus = locationManager.authorizationStatus
+        accuracyAuthorization = locationManager.accuracyAuthorization
     }
     
     /// Apply GPS priority setting — adjusts accuracy and distance filter
@@ -817,6 +825,9 @@ extension LocationManager: CLLocationManagerDelegate {
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
             self.authorizationStatus = manager.authorizationStatus
+            // Reduced accuracy can be toggled independently of the authorization state, and the
+            // delegate fires for it too, so read it on every change rather than only at start. (RES-09)
+            self.accuracyAuthorization = manager.accuracyAuthorization
 
             switch self.authorizationStatus {
             case .authorizedWhenInUse, .authorizedAlways:

@@ -150,6 +150,10 @@ enum L10n {
         static let signalDegraded = String(localized: "gps.signal.degraded")
         static let signalLost = String(localized: "gps.signal.lost")
         static let signalInactive = String(localized: "gps.signal.inactive")
+        /// Shown when authorization was revoked — distinct from an ordinary signal dropout. (RES-14)
+        static let accessRevoked = String(localized: "gps.accessRevoked")
+        /// Shown when "Precise Location" is off, which otherwise looks like a permanently weak signal. (RES-09)
+        static let preciseOff = String(localized: "gps.preciseOff")
         static let points = String(localized: "gps.points")
         static let pointsRecorded = String(localized: "gps.pointsRecorded")
 

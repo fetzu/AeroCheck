@@ -451,6 +451,10 @@ struct FlightLogView: View {
             // 2-column: tap selects the right-pane detail (no push).
             Button { selectedFlightID = flight.id } label: {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                    // `.buttonStyle(.plain)` hit-tests the label's RENDERED content, so the gaps and
+                    // Spacer regions between the row's text and its trailing glance were dead space —
+                    // only the text itself opened the flight. Make the whole row rect tappable.
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
@@ -460,6 +464,7 @@ struct FlightLogView: View {
             // Home last-flight strip can open straight onto a flight's detail. (v4 UI/UX Revamp)
             Button { selectedFlightID = flight.id } label: {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                    .contentShape(Rectangle())   // whole row tappable, not just the text
             }
             .buttonStyle(.plain)
             .listRowBackground(Color.cardBackground)

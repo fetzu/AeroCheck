@@ -2844,6 +2844,33 @@ private func insertTileBelowShapes(_ tile: MKTileOverlay, on mapView: MKMapView)
     mapView.insertOverlay(tile, at: tileCount, level: .aboveLabels)
 }
 
+/// Incrementally reconciles the airspace polygon overlays on `mapView` with `polygons`.
+///
+/// Removes only the overlays that are no longer visible and adds only the newly-visible ones,
+/// instead of tearing down and re-adding the entire set whenever it changes at all — so a pan that
+/// shifts a few airspaces in/out doesn't rebuild the rest. (PR-11)
+///
+/// Shared by both map representables. `NativeMapViewUIKit` had this diff and `SwissMapView` kept an
+/// inline full-rebuild, so panning the Swiss ICAO / Landeskarte / SWISSIMAGE layers re-created every
+/// visible airspace polygon on each change while the Apple Maps layer did not. That divergence is
+/// exactly the failure mode duplicated code produces: one copy got the optimisation, the other was
+/// missed. One implementation now serves both.
+private func updateAirspaceOverlays(on mapView: MKMapView, polygons: [AirspacePolygon]) {
+    let existing = mapView.overlays.compactMap { $0 as? AirspacePolygon }
+    let existingIds = Set(existing.map { $0.airspaceId })
+    let newIds = Set(polygons.map { $0.airspaceId })
+
+    guard existingIds != newIds else { return }
+
+    let toRemove = existing.filter { !newIds.contains($0.airspaceId) }
+    if !toRemove.isEmpty { mapView.removeOverlays(toRemove) }
+
+    let toAdd = polygons.filter { !existingIds.contains($0.airspaceId) }
+    for polygon in toAdd {
+        mapView.addOverlay(polygon, level: .aboveLabels)
+    }
+}
+
 /// UIViewRepresentable wrapper for MKMapView - used for Apple Maps layers
 /// This avoids the gesture conflict issues that occur with SwiftUI Map
 struct NativeMapViewUIKit: UIViewRepresentable {
@@ -3182,22 +3209,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
     }
 
     private func updateAirspaceOverlays(_ mapView: MKMapView, context: Context) {
-        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
-        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
-        let newIds = Set(airspacePolygons.map { $0.airspaceId })
-
-        guard existingIds != newIds else { return }
-
-        // Remove only the overlays that are no longer visible and add only the newly-visible ones,
-        // instead of tearing down and re-adding the entire set whenever it changes at all — so a pan
-        // that shifts a few airspaces in/out doesn't rebuild the rest. (PR-11)
-        let toRemove = existingAirspaceOverlays.filter { !newIds.contains($0.airspaceId) }
-        if !toRemove.isEmpty { mapView.removeOverlays(toRemove) }
-
-        let toAdd = airspacePolygons.filter { !existingIds.contains($0.airspaceId) }
-        for polygon in toAdd {
-            mapView.addOverlay(polygon, level: .aboveLabels)
-        }
+        AeroCheck.updateAirspaceOverlays(on: mapView, polygons: airspacePolygons)
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
@@ -4170,16 +4182,8 @@ struct SwissMapView: UIViewRepresentable {
             reliftNonTileOverlays(on: mapView)
         }
 
-        // Update airspace polygon overlays
-        let existingAirspaceOverlays = mapView.overlays.compactMap { $0 as? AirspacePolygon }
-        let existingIds = Set(existingAirspaceOverlays.map { $0.airspaceId })
-        let newIds = Set(airspacePolygons.map { $0.airspaceId })
-        if existingIds != newIds {
-            mapView.removeOverlays(existingAirspaceOverlays)
-            for polygon in airspacePolygons {
-                mapView.addOverlay(polygon, level: .aboveLabels)
-            }
-        }
+        // Update airspace polygon overlays (incremental diff, shared with NativeMapViewUIKit)
+        updateAirspaceOverlays(on: mapView, polygons: airspacePolygons)
 
         // Track vector — rebuilt each update. Only wipe when the feature is OFF; on a transient empty
         // (brief GPS gap / <5 kt) keep the existing vector instead of blanking it. (v4 UI/UX Revamp fix)

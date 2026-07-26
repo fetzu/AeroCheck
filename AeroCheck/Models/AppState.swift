@@ -740,7 +740,6 @@ class AppState {
                 for (id, previous) in previousById where !incomingIds.contains(id) {
                     self.persistence.deleteFlight(previous)
                 }
-                await self.persistence.rebuildFlightsIndexOffMain(flights)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }
@@ -1396,20 +1395,10 @@ class AppState {
 
         // Delete the individual flight file from iCloud
         persistence.deleteFlight(flight)
-        scheduleFlightsIndexRebuild()
 
         // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             SyncManager.shared.deleteFlight(flight.id)
-        }
-    }
-
-    /// Rebuilds the summary index (PERF-26) off-main from the current in-memory logbook.
-    /// Fire-and-forget: the index is a rebuildable cache, the flight files stay the source of truth.
-    private func scheduleFlightsIndexRebuild() {
-        let snapshot = flights
-        Task { [weak self] in
-            await self?.persistence.rebuildFlightsIndexOffMain(snapshot)
         }
     }
 
@@ -1423,7 +1412,6 @@ class AppState {
         for flight in flightsToDelete {
             persistence.deleteFlight(flight)
         }
-        scheduleFlightsIndexRebuild()
 
         // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
@@ -1495,7 +1483,6 @@ class AppState {
     func saveFlight(_ flight: Flight) -> Bool {
         // Save just this flight to its own file
         let saved = persistence.saveFlight(flight)
-        scheduleFlightsIndexRebuild()
 
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncFlight(flight, allFlights: flights)
@@ -1690,6 +1677,18 @@ class AppState {
             // Old sessions shouldn't be restored (within 24 hours).
             let maxAge: TimeInterval = 24 * 60 * 60
             if Date().timeIntervalSince(state.savedAt) > maxAge {
+                clearActiveFlightState()
+                return false
+            }
+
+            // RES-12: endFlight() writes the flight file and only then clears this checkpoint, with
+            // no suspension point between the two — but a process kill in that window leaves a
+            // checkpoint describing a flight that was already durably saved. Restoring it would put
+            // the app back "in flight" on a completed flight and, on the next endFlight(), write a
+            // second file under a fresh id: one flight, logged twice. If the flight is already on
+            // disk the checkpoint has done its job and is simply stale.
+            if persistence.flightFileExists(for: state.flight) {
+                AppLog.general.debugLine("Discarding stale checkpoint: flight \(state.flight.id) is already saved")
                 clearActiveFlightState()
                 return false
             }

@@ -104,4 +104,66 @@ final class AirspaceRegionQueryTests: XCTestCase {
         XCTAssertEqual(Set(gridResult.map(\.id)), Set(bruteResult.map(\.id)))
         XCTAssertEqual(Set(gridResult.map(\.id)), ["SW", "NE"])
     }
+
+    // MARK: - nearbyCTRs grid equivalence (APP-11)
+    //
+    // `nearbyCTRs` fed the in-flight FREQ panel with a full linear scan of every loaded airspace,
+    // re-run as the aircraft moves, while this very class already maintained a 1° grid for
+    // `airspacesInBounds`. Switching it to the grid must not change WHICH CTRs are returned — the
+    // grid indexes by bounding box and the query measures from the centroid, so the search box is
+    // widened by a cell to guarantee the candidate set stays a superset.
+
+    /// Independent brute-force reimplementation of the pre-grid algorithm — the oracle.
+    private func bruteForceNearbyCTRs(
+        _ airspaces: [Airspace], from coord: CLLocationCoordinate2D, withinNM: Double
+    ) -> [String] {
+        let location = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        return airspaces
+            .filter { $0.airspaceType == .ctr }
+            .compactMap { airspace -> (String, Double)? in
+                guard let centroid = airspace.centroid else { return nil }
+                let distance = location.distance(
+                    from: CLLocation(latitude: centroid.latitude, longitude: centroid.longitude))
+                guard distance <= withinNM * 1852 else { return nil }
+                return (airspace.id, distance / 1852.0)
+            }
+            .sorted { $0.1 < $1.1 }
+            .prefix(8)
+            .map { $0.0 }
+    }
+
+    func testNearbyCTRsMatchesBruteForceIncludingAcrossCellBoundaries() {
+        // Deliberately straddles integer-degree boundaries, which is where a naive per-cell lookup
+        // would drop results.
+        let all = [
+            rectAirspace(id: "near", minLat: 46.95, maxLat: 47.05, minLon: 7.95, maxLon: 8.05),
+            rectAirspace(id: "cellEdge", minLat: 46.98, maxLat: 47.02, minLon: 7.98, maxLon: 8.02),
+            rectAirspace(id: "justOutside", minLat: 47.40, maxLat: 47.50, minLon: 8.40, maxLon: 8.50),
+            rectAirspace(id: "far", minLat: 44.00, maxLat: 44.10, minLon: 5.00, maxLon: 5.10),
+        ]
+        let service = OpenAIPDataService()
+        service.seedForTesting(all)
+
+        for withinNM in [5.0, 20.0, 60.0] as [Double] {
+            let center = CLLocationCoordinate2D(latitude: 47.0, longitude: 8.0)
+            let grid = service.nearbyCTRs(from: center, withinNM: withinNM).map { $0.airspace.id }
+            let brute = bruteForceNearbyCTRs(all, from: center, withinNM: withinNM)
+            XCTAssertEqual(grid, brute, "grid and brute force must agree at \(withinNM) NM")
+        }
+    }
+
+    /// Negative longitudes/latitudes floor toward -infinity, the case integer cell keys get wrong.
+    func testNearbyCTRsAcrossPrimeMeridianAndEquator() {
+        let all = [
+            rectAirspace(id: "NE", minLat: 0.05, maxLat: 0.15, minLon: 0.05, maxLon: 0.15),
+            rectAirspace(id: "SW", minLat: -0.15, maxLat: -0.05, minLon: -0.15, maxLon: -0.05),
+        ]
+        let service = OpenAIPDataService()
+        service.seedForTesting(all)
+
+        let center = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        let grid = service.nearbyCTRs(from: center, withinNM: 30).map { $0.airspace.id }
+        XCTAssertEqual(grid, bruteForceNearbyCTRs(all, from: center, withinNM: 30))
+        XCTAssertEqual(Set(grid), ["NE", "SW"])
+    }
 }

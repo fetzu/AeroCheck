@@ -153,3 +153,47 @@ final class LocationManagerTests: XCTestCase {
         XCTAssertFalse(lm.hasRecentUsableFix, "a negative-accuracy fix is not a usable position")
     }
 }
+
+/// The revoked-mid-flight recovery decision, extracted so it can be tested at all. (CQ-05)
+///
+/// The surrounding `locationManagerDidChangeAuthorization` needs a live `CLLocationManager`, so this
+/// path — recording silently stopping when a pilot revokes permission, and whether it comes back on
+/// re-authorization — previously had no test seam and was only ever exercised by hand.
+final class LocationRevocationTransitionTests: XCTestCase {
+
+    private func transition(
+        authorized: Bool, active: Bool, wasRevoked: Bool
+    ) -> LocationManager.RevocationTransition {
+        LocationManager.revocationTransition(
+            isAuthorized: authorized, hasActiveSession: active, wasStoppedByRevocation: wasRevoked)
+    }
+
+    func testRevocationDuringAnActiveSessionStopsAndRemembers() {
+        XCTAssertEqual(transition(authorized: false, active: true, wasRevoked: false), .stopAndRemember)
+    }
+
+    /// The recovery half (PR-39): without it the session stayed dead with `isTracking` still true —
+    /// the app looked like it was recording when it was not.
+    func testReauthorizationAfterRevocationResumes() {
+        XCTAssertEqual(transition(authorized: true, active: true, wasRevoked: true), .resume)
+    }
+
+    /// Granting permission normally must NOT restart anything — only a session we ourselves stopped
+    /// is resumed, otherwise an unrelated authorization callback could start GPS behind the pilot.
+    func testAuthorizationWithoutAPriorRevocationDoesNothing() {
+        XCTAssertEqual(transition(authorized: true, active: true, wasRevoked: false), .none)
+    }
+
+    /// With no session running there is nothing to stop or resume, whatever the flags say.
+    func testNoActiveSessionIsAlwaysANoOp() {
+        XCTAssertEqual(transition(authorized: false, active: false, wasRevoked: false), .none)
+        XCTAssertEqual(transition(authorized: false, active: false, wasRevoked: true), .none)
+        XCTAssertEqual(transition(authorized: true, active: false, wasRevoked: true), .none,
+                       "a stale revocation flag must not start GPS when nothing is running")
+    }
+
+    /// Revoke → re-authorize → revoke again must return to stopAndRemember, not latch.
+    func testRevocationIsRepeatable() {
+        XCTAssertEqual(transition(authorized: false, active: true, wasRevoked: true), .stopAndRemember)
+    }
+}

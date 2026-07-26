@@ -327,11 +327,26 @@ struct FlightLogView: View {
 
     /// Sorted flights scoped to the selected year + aircraft (drives the dashboard stats and the list).
     private var filteredFlights: [Flight] {
-        sortedFlights.filter { flight in
+        // Read from `body` in eight places per pass (dashboard stats twice, favourites, month groups,
+        // the empty check, the export menu) and each read re-ran a full sort plus a per-flight
+        // `Calendar.current.component` lookup over the whole logbook. (APP-08)
+        //
+        // The unfiltered case — no year and no aircraft selected, which is how the screen opens — is
+        // now returned directly, skipping N closure invocations and N calendar lookups per read for
+        // a filter that would have kept every flight anyway. When a filter IS active, `Calendar` is
+        // resolved once instead of once per flight per read.
+        //
+        // Deliberately NOT converted into a compute-once-and-thread-down parameter: that means
+        // reshaping six call sites across a 4500-line view for a ground screen, and the sort itself
+        // is the remaining cost either way. Revisit if the logbook screen ever shows up in a trace.
+        guard selectedYear != nil || selectedAircraft != nil else { return sortedFlights }
+
+        let calendar = Calendar.current
+        return sortedFlights.filter { flight in
             let yearOK: Bool = {
                 guard let year = selectedYear else { return true }
                 guard let start = flight.startTime else { return false }
-                return Calendar.current.component(.year, from: start) == year
+                return calendar.component(.year, from: start) == year
             }()
             let aircraftOK = selectedAircraft == nil || (flight.aircraftRegistration ?? flight.airplane) == selectedAircraft
             return yearOK && aircraftOK
@@ -436,6 +451,10 @@ struct FlightLogView: View {
             // 2-column: tap selects the right-pane detail (no push).
             Button { selectedFlightID = flight.id } label: {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                    // `.buttonStyle(.plain)` hit-tests the label's RENDERED content, so the gaps and
+                    // Spacer regions between the row's text and its trailing glance were dead space —
+                    // only the text itself opened the flight. Make the whole row rect tappable.
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .listRowBackground(effectiveSelectionID == flight.id ? Color.aviationGold.opacity(0.12) : Color.cardBackground)
@@ -445,6 +464,7 @@ struct FlightLogView: View {
             // Home last-flight strip can open straight onto a flight's detail. (v4 UI/UX Revamp)
             Button { selectedFlightID = flight.id } label: {
                 FlightRowView(flight: flight, nauticalMiles: appState.settings.distanceInNauticalMiles)
+                    .contentShape(Rectangle())   // whole row tappable, not just the text
             }
             .buttonStyle(.plain)
             .listRowBackground(Color.cardBackground)
@@ -1390,19 +1410,31 @@ struct FlightRowView: View {
         .padding(.vertical, 8)
     }
 
-    private var dayNumber: String {
-        guard let date = flight.startTime else { return "—" }
+    // Hoisted out of the two computed properties below, which are read from `body`: a DateFormatter
+    // is expensive to construct, and building two per row on every render meant a scrolling logbook
+    // allocated a pair for every visible row on every pass. Matches the cached-formatter pattern
+    // already used elsewhere in the app. (APP-15)
+    private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "d"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter
+    }()
+
+    private var dayNumber: String {
+        guard let date = flight.startTime else { return "—" }
+        return Self.dayFormatter.string(from: date)
     }
 
     /// Weekday abbreviation (e.g. "SAT") under the day number, like a logbook entry. (v4 UI/UX Revamp)
     private var weekday: String {
         guard let date = flight.startTime else { return "" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date).uppercased()
+        return Self.weekdayFormatter.string(from: date).uppercased()
     }
 
     /// Route line: "DEP → ARR", or "DEP ↻ [circuits]" for pattern training, or a name fallback. (v4 UI/UX Revamp)

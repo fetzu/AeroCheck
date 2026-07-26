@@ -53,3 +53,76 @@ final class OpenAIPTileAuthTests: XCTestCase {
         }
     }
 }
+
+/// The OpenAIP raster tile cache was the only one of six layers with NO eviction: tiles are keyed
+/// `{z}/{x}/{y}.png` with no country namespace, so deselecting a country left its tiles on disk
+/// permanently — nothing outside the new bounding box is ever revisited. The cache only ever grew,
+/// with the Settings size readout as the only clue and a full delete as the only remedy. (APP-10)
+@MainActor
+final class OpenAIPTilePruneTests: XCTestCase {
+
+    private var tileRoot: URL {
+        DataPersistenceManager.shared.mapTilesDirectory
+            .appendingPathComponent("OpenAIP", isDirectory: true)
+    }
+
+    private func writeTile(z: Int, x: Int, y: Int) throws {
+        let dir = tileRoot
+            .appendingPathComponent("\(z)", isDirectory: true)
+            .appendingPathComponent("\(x)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: dir.appendingPathComponent("\(y).png"))
+    }
+
+    private func tileExists(z: Int, x: Int, y: Int) -> Bool {
+        FileManager.default.fileExists(atPath: tileRoot
+            .appendingPathComponent("\(z)")
+            .appendingPathComponent("\(x)")
+            .appendingPathComponent("\(y).png").path)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: tileRoot)
+        super.tearDown()
+    }
+
+    /// A tile far outside any plausible Swiss bounding box must be reclaimed, while the cache root
+    /// itself survives. Zoom 7 x=0 y=0 is the Atlantic near (0°, 85°N) — never inside CH.
+    func testPruneRemovesTilesOutsideTheSelection() async throws {
+        try writeTile(z: 7, x: 0, y: 0)
+        XCTAssertTrue(tileExists(z: 7, x: 0, y: 0), "precondition: the stray tile is on disk")
+
+        let manager = OpenAIPCacheManager()
+        let deleted = await manager.pruneTilesOutside(countries: ["CH"])
+
+        XCTAssertEqual(deleted, 1)
+        XCTAssertFalse(tileExists(z: 7, x: 0, y: 0), "a tile outside the selection must be reclaimed")
+    }
+
+    /// An empty selection also occurs transiently while the Settings list is being edited, so it
+    /// must never be treated as "delete everything" — that is what `deleteCache()` is for.
+    func testPruneRefusesToRunForAnEmptySelection() async throws {
+        try writeTile(z: 7, x: 0, y: 0)
+
+        let manager = OpenAIPCacheManager()
+        let deleted = await manager.pruneTilesOutside(countries: [])
+
+        XCTAssertEqual(deleted, 0, "an empty selection must not wipe the cache")
+        XCTAssertTrue(tileExists(z: 7, x: 0, y: 0))
+    }
+
+    /// Tiles the current selection still wants must survive — the prune is a reconcile, not a purge.
+    func testPruneKeepsTilesInsideTheSelection() async throws {
+        let manager = OpenAIPCacheManager()
+        // Ask the manager itself which tiles CH wants, so the test cannot drift from the projection.
+        let wanted = await manager.tilesForCountriesForTesting(["CH"])
+        let keep = try XCTUnwrap(wanted.first, "CH must project to at least one tile")
+        try writeTile(z: keep.z, x: keep.x, y: keep.y)
+
+        let deleted = await manager.pruneTilesOutside(countries: ["CH"])
+
+        XCTAssertEqual(deleted, 0)
+        XCTAssertTrue(tileExists(z: keep.z, x: keep.x, y: keep.y),
+                      "a tile the current selection still covers must be kept")
+    }
+}

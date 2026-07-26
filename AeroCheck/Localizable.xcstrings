@@ -6986,6 +6986,23 @@
       }
     },
     "ft": {},
+    "gps.accessRevoked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location access turned off — re-enable it in Settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accès à la position désactivé — réactivez-le dans Réglages"
+          }
+        }
+      }
+    },
     "gps.authorized": {
       "extractionState": "manual",
       "localizations": {
@@ -7101,6 +7118,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Points enregistrés"
+          }
+        }
+      }
+    },
+    "gps.preciseOff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise Location is off — enable it in Settings for accurate tracking"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localisation précise désactivée — activez-la dans Réglages pour un suivi précis"
           }
         }
       }

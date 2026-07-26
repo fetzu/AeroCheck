@@ -313,41 +313,29 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         return data
     }
 
+    /// Swiss common frequencies for the Watch's fallback list, derived from the canonical
+    /// `SwissCommonFrequency` source the phone's FREQ panel uses.
+    ///
+    /// These used to be hand-written literals, and two of them had drifted from the canonical
+    /// values: the Watch showed FIS East 124.150 and FIS West 126.600 where the iPad showed
+    /// 125.225 and 119.175 for the same sectors. A pilot reading the Watch would have tuned a
+    /// frequency the app's own data says is not that FIS sector. Deriving them removes both the
+    /// divergence and the ability for it to recur.
+    ///
+    /// The display order is stated explicitly rather than using `allCases`, because it is not the
+    /// enum's declaration order and the Watch renders only the first four entries — reordering
+    /// here would silently change which frequencies a pilot sees.
     private func getCommonFrequencies() -> [FrequencyInfo] {
-        // Swiss common frequencies for aviation
-        var frequencies: [FrequencyInfo] = []
-
-        frequencies.append(FrequencyInfo(
-            name: "Geneva Info",
-            frequency: "126.350",
-            type: .info
-        ))
-
-        frequencies.append(FrequencyInfo(
-            name: "Zurich Info",
-            frequency: "124.700",
-            type: .info
-        ))
-
-        frequencies.append(FrequencyInfo(
-            name: "FIS East",
-            frequency: "124.150",
-            type: .info
-        ))
-
-        frequencies.append(FrequencyInfo(
-            name: "FIS West",
-            frequency: "126.600",
-            type: .info
-        ))
-
-        frequencies.append(FrequencyInfo(
-            name: "Emergency",
-            frequency: "121.500",
-            type: .common
-        ))
-
-        return frequencies
+        let ordered: [SwissCommonFrequency] = [
+            .genevaInfo, .zurichInfo, .fisEast, .fisWest, .emergency,
+        ]
+        return ordered.map { freq in
+            FrequencyInfo(
+                name: freq.name,
+                frequency: freq.frequency,
+                type: freq == .emergency ? .common : .info
+            )
+        }
     }
 }
 

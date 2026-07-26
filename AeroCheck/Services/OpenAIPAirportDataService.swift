@@ -75,6 +75,25 @@ final class OpenAIPAirportDataService: ObservableObject {
     /// All loaded OpenAIP airports — consumed by the merge engine. Call `ensureLoaded()` first.
     func allLoadedAirports() -> [OpenAIPAirport] { airports }
 
+    /// Drops the in-memory array after the merge has consumed it. (APP-16)
+    ///
+    /// This service is a read-once source: `allLoadedAirports()` has exactly one caller
+    /// (`AirportDataService.applyOpenAIPMergeIfAvailable`), which folds the data into its own
+    /// merged store and never reads it again. The raw array nevertheless stayed resident for the
+    /// process lifetime — a full second copy of the country dataset, held alongside the merged one
+    /// it was already folded into.
+    ///
+    /// The on-disk cache and the published summary (`airportCount`, `downloadedCountries`,
+    /// `lastUpdated`, `isDataAvailable`) are deliberately left intact: Settings renders them, and
+    /// `isLoaded = false` means a later `ensureLoaded()` simply re-reads from disk if the data is
+    /// ever needed again.
+    func releaseLoadedAirports() {
+        guard isLoaded else { return }
+        airports = []
+        isLoaded = false
+        AppLog.airportData.debugLine("Released in-memory OpenAIP airport array after merge")
+    }
+
     func airportsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [OpenAIPAirport] {
         airports.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
     }

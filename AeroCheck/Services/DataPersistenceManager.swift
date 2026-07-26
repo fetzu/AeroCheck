@@ -27,9 +27,6 @@ class DataPersistenceManager: ObservableObject {
     /// Settings file name (in iCloud Documents root)
     private let settingsFileName = "settings.json"
 
-    /// Index file for tracking all flights
-    private let flightsIndexFileName = "flights_index.json"
-
     /// Index file for tracking all navigation plans
     private let plansIndexFileName = "plans_index.json"
 
@@ -67,10 +64,11 @@ class DataPersistenceManager: ObservableObject {
     /// iCloud Drive container URL (nil if iCloud not available) - cached at init
     /// IMPORTANT: FileManager.url(forUbiquityContainerIdentifier:) can block the main thread
     /// for seconds when iCloud is initializing. We call it once at init and cache the result.
-    private let iCloudContainerURL: URL?
+    /// Mutable so an iCloud account change can re-resolve it mid-session. (RES-03)
+    private var iCloudContainerURL: URL?
 
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
-    private let iCloudDocumentsURL: URL?
+    private var iCloudDocumentsURL: URL?
 
     /// Local app data directory (non-browsable Application Support, not the exposed Documents root).
     var localAppDirectory: URL {
@@ -138,6 +136,48 @@ class DataPersistenceManager: ObservableObject {
         // root into Application Support, BEFORE creating the (possibly-overlapping) new dirs. (SEC-12)
         migrateLocalDatastoreIfNeeded()
 
+        createDirectoryStructure()
+
+        observeUbiquityIdentityChanges()
+    }
+
+    /// Re-resolves the ubiquity container when the iCloud account changes. (RES-03)
+    ///
+    /// The container used to be resolved exactly once per process, in `init`. If the pilot signed
+    /// out, switched Apple ID, or disabled iCloud Drive mid-session, every subsequent read and write
+    /// kept using the previous account's container path for the life of the process — writing the
+    /// new account's flights into the old account's container, or continuing to read the old
+    /// account's data. The same staleness applied in reverse: a container that timed out at launch
+    /// (the 2 s cap below) stayed nil until the app was killed, silently keeping the session
+    /// local-only even after iCloud became available.
+    ///
+    /// `NSUbiquityIdentityDidChangeNotification` is the documented signal for exactly this.
+    private func observeUbiquityIdentityChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .NSUbiquityIdentityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.reresolveUbiquityContainer()
+            }
+        }
+    }
+
+    /// Re-resolves the container and re-points the cached directory URLs. (RES-03)
+    ///
+    /// The directory properties are computed from `iCloudDocumentsURL`, so re-pointing that one
+    /// value is enough for every path to follow. Uses the same short timeout as launch: this runs on
+    /// the main thread from a notification, and blocking it for the multi-second worst case of
+    /// `url(forUbiquityContainerIdentifier:)` is exactly what the launch path already avoids.
+    func reresolveUbiquityContainer() {
+        let container = Self.resolveUbiquityContainer(identifier: "iCloud.com.fetzu.aerocheck", timeout: 2.0)
+        guard container != iCloudContainerURL else { return }
+
+        iCloudContainerURL = container
+        iCloudDocumentsURL = container?.appendingPathComponent("Documents", isDirectory: true)
+        AppLog.general.debugLine(
+            "iCloud identity changed; container is now \(container == nil ? "unavailable (local-only)" : "available")")
         createDirectoryStructure()
     }
 
@@ -434,6 +474,17 @@ class DataPersistenceManager: ObservableObject {
         return "\(dateStr)_\(plane)_\(idSuffix).json"
     }
 
+    /// Whether a saved flight file already exists for this flight. (RES-12)
+    ///
+    /// `flightFilename(for:)` is stable per flight (same id → same name), so this is an exact check
+    /// rather than a heuristic. Used to detect a crash-recovery checkpoint that outlived the flight
+    /// it describes: `endFlight()` writes the flight file and only then clears the checkpoint, so a
+    /// kill between those two synchronous calls leaves a checkpoint for an already-completed flight.
+    func flightFileExists(for flight: Flight) -> Bool {
+        let url = flightsDirectory.appendingPathComponent(Self.flightFilename(for: flight))
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     /// Save a single flight to its own file.
     /// Returns `true` only if the write was confirmed — callers that hold the sole durable copy
     /// (e.g. the crash-recovery checkpoint) must not discard it on `false`. (PR-14)
@@ -468,8 +519,6 @@ class DataPersistenceManager: ObservableObject {
             if !saveFlight(flight) { allSucceeded = false }
         }
 
-        // Save index file for tracking
-        if !saveFlightsIndex(flights) { allSucceeded = false }
         return allSucceeded
     }
 
@@ -496,59 +545,21 @@ class DataPersistenceManager: ObservableObject {
         }.value
     }
 
-    /// Save flights index. Returns `true` on a confirmed write.
-    /// The index carries per-flight summary fields (PERF-26) so list UIs can render a logbook
-    /// without decoding any GPS track. The flight files remain the source of truth — the index is a
-    /// rebuildable summary cache and may lag behind (e.g. after a sync ingest, see `writeFlightFiles`).
-    @discardableResult
-    private func saveFlightsIndex(_ flights: [Flight]) -> Bool {
-        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
-        guard let data = Self.encodeFlightIndex(flights) else {
-            AppLog.general.debugLine("Failed to encode flights index")
-            return false
-        }
-        do {
-            try data.write(to: fileURL, options: Self.protectedWriteOptions)
-            return true
-        } catch {
-            AppLog.general.debugLine("Failed to save flights index: \(error.localizedDescription)")
-            return false
-        }
-    }
-
-    /// Pure index encode, no main-actor state.
-    nonisolated static func encodeFlightIndex(_ flights: [Flight]) -> Data? {
-        let index = flights.map { FlightIndexEntry(flight: $0, filename: flightFilename(for: $0)) }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted]
-        return try? encoder.encode(index)
-    }
-
-    /// Rebuilds the summary index OFF the main actor (encode + write on a background executor).
-    /// Call after single-flight saves, deletions, and sync ingests to keep summaries fresh. (PERF-26)
-    func rebuildFlightsIndexOffMain(_ flights: [Flight]) async {
-        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
-        await Task.detached(priority: .utility) {
-            if let data = Self.encodeFlightIndex(flights) {
-                try? data.write(to: fileURL, options: Self.protectedWriteOptions)
-            }
-        }.value
-    }
-
-    /// Loads the summary index OFF the main actor. Entries from pre-summary index files decode with
-    /// nil summary fields; callers must fall back to the flight files for anything missing. (PERF-26)
-    func loadFlightSummariesOffMain() async -> [FlightIndexEntry] {
-        let fileURL = flightsDirectory.appendingPathComponent(flightsIndexFileName)
-        return await Task.detached(priority: .utility) {
-            guard FileManager.default.fileExists(atPath: fileURL.path),
-                  DataPersistenceManager.isLocallyMaterialized(fileURL),
-                  let data = try? Data(contentsOf: fileURL) else { return [] }
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return (try? decoder.decode([FlightIndexEntry].self, from: data)) ?? []
-        }.value
-    }
+    // The flights summary index (PERF-26: saveFlightsIndex / encodeFlightIndex /
+    // rebuildFlightsIndexOffMain / loadFlightSummariesOffMain / FlightIndexEntry) was removed here.
+    // It was written on every save, delete and sync ingest, and migrated between datastores, but
+    // `loadFlightSummariesOffMain` had no caller anywhere in the app, Watch, Widget or test targets
+    // — the index was pure write amplification and, worse, read as a shipped optimisation that was
+    // never actually in effect.
+    //
+    // It also could not have served its stated purpose without further work: the entry carried
+    // neither `name` nor `aircraftRegistration`, nor `distanceKilometers` / `blockTime` / `flightTime`,
+    // all of which FlightLogView's list and dashboard read. Reviving it would have meant extending
+    // the entry AND keeping a full-flight fallback for every optional field on pre-existing index
+    // files — i.e. keeping the slow path and adding a fast one.
+    //
+    // Old `flights_index.json` files are still handled by the datastore migration's move list, so
+    // they relocate and get cleaned up rather than being orphaned.
 
     /// Load all flights from individual files
     func loadFlights() -> [Flight] {
@@ -591,11 +602,16 @@ class DataPersistenceManager: ObservableObject {
                     let flight = try decoder.decode(Flight.self, from: data)
                     // SEC-C23: this directory resolves to the iCloud Documents container — the one
                     // the user sees as iCloud/AéroCheck/Flights — so its contents are editable
-                    // outside the app's own import flow. The CloudKit ingest path already treats
-                    // the identical shape as untrusted and runs validatedForIngest(); this sibling
-                    // did not, so an oversized or malformed file reached the flight store unchecked.
-                    guard let validated = flight.validatedForIngest() else {
-                        AppLog.general.debugLine("Skipped flight \(fileURL.lastPathComponent): failed ingest validation")
+                    // outside the app's own import flow and must be checked, not trusted blindly.
+                    //
+                    // RES-02: but it is checked with `sanitizedForLocalLoad()`, not the all-or-nothing
+                    // `validatedForIngest()` this used to share with the CloudKit path. These files are
+                    // the ONLY copy of a recorded flight, so a single unusable GPS point anywhere in a
+                    // multi-thousand-point track used to delete the entire flight from the logbook —
+                    // silently, with no error and no count discrepancy. Salvaging drops the bad points
+                    // and keeps the flight; a newer schema is still a hard reject.
+                    guard let validated = flight.sanitizedForLocalLoad() else {
+                        AppLog.general.debugLine("Skipped flight \(fileURL.lastPathComponent): unreadable (newer schema)")
                         continue
                     }
                     flights.append(validated)
@@ -774,30 +790,49 @@ class DataPersistenceManager: ObservableObject {
 
     /// Encode + write the given plan files and the index on the calling executor (no main-actor
     /// state), so per-waypoint/ATO saves during a flight stay off the main thread. (PERF-25)
-    nonisolated static func writeNavigationPlanFiles(_ changed: [FlightPlan], index allPlans: [FlightPlan], to directory: URL) {
+    /// Returns the ids of the plans whose files were **confirmed written**. (RES-01)
+    ///
+    /// This used to return Void and swallow every encode/write error in a bare `try?`, logging
+    /// nothing — the only save path in this file that reported neither success nor failure. Callers
+    /// had no way to distinguish a completed write from a total failure, and `FlightPlanManager`
+    /// marked plans persisted regardless, so a failed write became a permanent silent drop.
+    @discardableResult
+    nonisolated static func writeNavigationPlanFiles(_ changed: [FlightPlan], index allPlans: [FlightPlan], to directory: URL) -> [UUID] {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        var written: [UUID] = []
         for plan in changed {
             let url = directory.appendingPathComponent(navigationPlanFilename(for: plan))
-            if let data = try? encoder.encode(plan) {
-                try? data.write(to: url, options: protectedWriteOptions)
+            do {
+                let data = try encoder.encode(plan)
+                try data.write(to: url, options: protectedWriteOptions)
+                written.append(plan.id)
+            } catch {
+                AppLog.general.debugLine(
+                    "Failed to save navigation plan \(navigationPlanFilename(for: plan)): \(error.localizedDescription)")
             }
         }
         let index = allPlans.map { NavigationPlanIndexEntry(id: $0.id, filename: navigationPlanFilename(for: $0)) }
         let indexEncoder = JSONEncoder()
         indexEncoder.outputFormatting = [.prettyPrinted]
-        if let data = try? indexEncoder.encode(index) {
+        do {
+            let data = try indexEncoder.encode(index)
             let url = directory.appendingPathComponent("plans_index.json")
-            try? data.write(to: url, options: protectedWriteOptions)
+            try data.write(to: url, options: protectedWriteOptions)
+        } catch {
+            AppLog.general.debugLine("Failed to save navigation plans index: \(error.localizedDescription)")
         }
+        return written
     }
 
     /// Saves only the given changed plans (plus the index) OFF the main actor. (PERF-25)
-    func saveNavigationPlansOffMain(changed: [FlightPlan], all: [FlightPlan]) async {
-        guard !changed.isEmpty || !all.isEmpty else { return }
+    /// Returns the ids actually written, so the caller only marks those as persisted. (RES-01)
+    @discardableResult
+    func saveNavigationPlansOffMain(changed: [FlightPlan], all: [FlightPlan]) async -> [UUID] {
+        guard !changed.isEmpty || !all.isEmpty else { return [] }
         let directory = navigationPlansDirectory
-        await Task.detached(priority: .utility) {
+        return await Task.detached(priority: .utility) {
             Self.writeNavigationPlanFiles(changed, index: all, to: directory)
         }.value
     }
@@ -819,40 +854,6 @@ class DataPersistenceManager: ObservableObject {
 }
 
 // MARK: - Index Entry Types
-
-/// Entry in the flights index file.
-/// Summary fields (PERF-26) let list UIs render without decoding full GPS tracks; they are all
-/// optional so index files written before the enrichment (id + filename only) still decode, and
-/// older app versions simply ignore the extra keys.
-struct FlightIndexEntry: Codable {
-    let id: UUID
-    let filename: String
-    var airplane: String?
-    var startTime: Date?
-    var stopTime: Date?
-    var modifiedAt: Date?
-    var isFavorite: Bool?
-    var durationSeconds: Double?
-    var gpsPointCount: Int?
-    var goAroundCount: Int?
-    var touchAndGoCount: Int?
-    var fullStopCount: Int?
-
-    init(flight: Flight, filename: String) {
-        self.id = flight.id
-        self.filename = filename
-        self.airplane = flight.airplane
-        self.startTime = flight.startTime
-        self.stopTime = flight.stopTime
-        self.modifiedAt = flight.modifiedAt
-        self.isFavorite = flight.isFavorite
-        self.durationSeconds = flight.duration
-        self.gpsPointCount = flight.gpsTrack.count
-        self.goAroundCount = flight.goAroundCount
-        self.touchAndGoCount = flight.touchAndGoCount
-        self.fullStopCount = flight.fullStopCount
-    }
-}
 
 /// Entry in the navigation plans index file
 struct NavigationPlanIndexEntry: Codable {

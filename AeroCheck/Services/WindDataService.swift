@@ -14,6 +14,14 @@ struct WindData {
 
 /// Service for fetching wind data from MeteoSwiss Open Data API
 /// Note: This is an experimental feature that only works in Switzerland
+///
+/// `@MainActor` because every other `ObservableObject` service in the app is, and this was the one
+/// exception — its `@Published` properties were mutated from async fetch code with only hand-written
+/// `MainActor.run` hops to keep that correct. The project builds in Swift 5 language mode with no
+/// `SWIFT_STRICT_CONCURRENCY` flag, so nothing was checking that by hand-audit alone. Annotating the
+/// class makes the existing hops redundant-but-harmless and gains the compiler enforcement the rest
+/// of the codebase already has. (CQ-07)
+@MainActor
 class WindDataService: ObservableObject {
     // MARK: - Published Properties
 

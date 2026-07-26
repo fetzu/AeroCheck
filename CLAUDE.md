@@ -22,8 +22,32 @@ open AeroCheck.xcodeproj
 
 # Run scheme: AéroCheck (with accent). Tests are on a separate scheme — the app
 # scheme has no test action, so a plain `build` never compiles tests.
+
+# Preferred: wraps xcodebuild with a preflight cleanup (see the note below).
+scripts/run-tests.sh                      # full suite
+scripts/run-tests.sh "iPhone 17"          # another simulator
+scripts/run-tests.sh "" ObstacleTests     # one class
+
+# Equivalent raw invocation:
 xcodebuild test -scheme AeroCheckTests -destination "platform=iOS Simulator,name=iPad Air 11-inch (M4)"
 ```
+
+> **If a test run hangs with ZERO test cases started** — the log stops partway and it sits there —
+> the cause is a stalled **build service**, not the test harness. `xcodebuild` blocks in
+> `waitForBuildWithBuildLog:` waiting on `SWBBuildService`, which sits idle in `read`: a lost message
+> between the two, so the build never completes and tests never begin.
+>
+> Fix: `killall SWBBuildService XCBBuildService` (xcodebuild spawns a fresh one), plus
+> `pkill -f "AeroCheck.app/AeroCheck"` to clear leftover simulator app processes.
+> `scripts/run-tests.sh` does both in its preflight.
+>
+> **Diagnose by sampling `xcodebuild`, not the app.** An app process left running on the simulator is
+> a red herring — it is usually a leftover from a previous run, and sampling it shows an ordinary idle
+> run loop, which reads convincingly like "the test bundle was never injected" when the build simply
+> never finished. Quick discriminator: if the log stops growing over ~20 s and no test case has
+> started, the build is stuck.
+>
+> Never stop a test run with `kill -9` — Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
 
 Requirements: Xcode 26 (ships the iOS 26 SDK — `CompanionConnectivityManager.swift` and
 `CompanionPairingView.swift` unconditionally `import WiFiAware`, which won't compile under

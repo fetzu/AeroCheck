@@ -106,7 +106,20 @@ final class OpenAIPObstacleDataService: ObservableObject {
     /// Obstacles whose coordinate falls within the lat/lon ranges (for map markers). Gathers only the
     /// grid cells the requested bounds overlap, then applies the exact range check to those candidates
     /// — avoids a full linear scan on the throttled map-region-change hot path.
-    func obstaclesInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [Obstacle] {
+    /// Obstacles whose coordinate falls in the given ranges, capped at `limit`.
+    ///
+    /// The cap exists because this feeds map annotations directly and was previously unbounded,
+    /// unlike its airport and airspace siblings which have capped at 100 for a while — a dense
+    /// region could hand the map thousands of markers in one update. (APP-05)
+    ///
+    /// When the cap truncates, the TALLEST obstacles are kept rather than an arbitrary slice of
+    /// grid order: dropping a 2000 ft mast near the aircraft while keeping a low fence post would
+    /// be worse than not capping at all. Truncation is logged, never silent.
+    func obstaclesInRegion(
+        latRange: ClosedRange<Double>,
+        lonRange: ClosedRange<Double>,
+        limit: Int = 250
+    ) -> [Obstacle] {
         let minLatKey = ((latRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
         let maxLatKey = ((latRange.upperBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
         let minLonKey = ((lonRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
@@ -121,7 +134,14 @@ final class OpenAIPObstacleDataService: ObservableObject {
             }
         }
 
-        return candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        let inRegion = candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        guard inRegion.count > limit else { return inRegion }
+        AppLog.general.debugLine("Obstacle region query truncated: \(inRegion.count) in range, showing the \(limit) tallest")
+        return Array(
+            inRegion
+                .sorted { ($0.elevationFeetMSL ?? $0.heightFeetAGL ?? 0) > ($1.elevationFeetMSL ?? $1.heightFeetAGL ?? 0) }
+                .prefix(limit)
+        )
     }
 
     func deleteData() {

@@ -45,6 +45,21 @@ class SyncManager: ObservableObject {
     private let settingsRecordKey = "cachedSettingsRecord"
     private let lastSyncedModifiedAtKey = "lastSyncedFlightModifiedAt"
     private let lastSyncedTrackCountKey = "lastSyncedFlightTrackCount"
+    private let recordSystemFieldsKey = "syncedRecordSystemFields"
+
+    /// recordName → archived CKRecord **system fields** (recordID, change tag, zone) for records the
+    /// server has acknowledged.
+    ///
+    /// Without this a flight record was rebuilt from scratch on every send — `CKRecord(recordType:
+    /// recordID:)` carries no `recordChangeTag`, so CloudKit treats every save as an INSERT and
+    /// answers an existing record with `serverRecordChanged` / "record to insert already exists".
+    /// The conflict handler then merged and re-queued... another tag-less record, so it could never
+    /// converge, and the GPS track record failed alongside it with "Atomic failure" because the two
+    /// share an atomic batch. Net effect: a flight that needed re-sending never reached iCloud.
+    ///
+    /// The settings record never had this problem because it reuses `cachedSettingsRecord`
+    /// specifically to keep its change tag. Flights were the one record type that didn't.
+    private var recordSystemFields: [String: Data] = [:]
 
     /// flightId → the `modifiedAt` last CONFIRMED-sent to CloudKit, so `syncAllFlights` can skip flights
     /// that haven't changed (a miss only ever causes a harmless re-upload, never a skipped change).
@@ -136,6 +151,8 @@ class SyncManager: ObservableObject {
            let map = try? JSONDecoder().decode([String: Int].self, from: data) {
             self.lastSyncedTrackCount = map
         }
+        self.recordSystemFields =
+            UserDefaults.standard.dictionary(forKey: recordSystemFieldsKey) as? [String: Data] ?? [:]
 
         // Defer CloudKit initialization to avoid blocking app startup
         // Use detached task with low priority to not compete with UI rendering
@@ -280,6 +297,35 @@ class SyncManager: ObservableObject {
         AppLog.sync.debugLine("Sync engine shutdown")
     }
 
+    /// Discards every piece of account-scoped sync state. (RES-05)
+    ///
+    /// All of this describes the *previous* account's server side: the persisted
+    /// `CKSyncEngine.State.Serialization` holds that account's change tokens and pending changes;
+    /// `cachedSettingsRecord` holds one of its record change tags; `settingsRecordExists` asserts a
+    /// record exists in a database we can no longer see; and the fingerprint maps record what was
+    /// confirmed-sent *there*. Carried into a different account, each one is actively wrong — the
+    /// fingerprints in particular would make `syncAllFlights` skip flights as "already synced" that
+    /// the new account has never seen, so the pilot's logbook would silently never upload.
+    private func clearAccountScopedState() {
+        UserDefaults.standard.removeObject(forKey: syncStateKey)
+        UserDefaults.standard.removeObject(forKey: settingsRecordKey)
+        UserDefaults.standard.removeObject(forKey: settingsRecordExistsKey)
+        UserDefaults.standard.removeObject(forKey: lastSyncedModifiedAtKey)
+        UserDefaults.standard.removeObject(forKey: lastSyncedTrackCountKey)
+        UserDefaults.standard.removeObject(forKey: recordSystemFieldsKey)
+        UserDefaults.standard.removeObject(forKey: lastSyncDateKey)
+
+        settingsRecordExists = false
+        lastSyncedModifiedAt = [:]
+        lastSyncedTrackCount = [:]
+        recordSystemFields = [:]
+        lastSyncDate = nil
+        pendingSettingsChange = nil
+        pendingFlights = [:]
+        pendingFlightDeletions = []
+        AppLog.sync.debugLine("Cleared account-scoped sync state")
+    }
+
     private func createDelegate() -> SyncEngineDelegate {
         let delegate = SyncEngineDelegate(manager: self)
         self.syncEngineDelegate = delegate
@@ -388,6 +434,9 @@ class SyncManager: ObservableObject {
         guard isSyncEnabled, let engine = syncEngine, let recordZone = recordZone else { return }
 
         unmarkFlightSynced(flightId)   // so a future flight reusing this id re-uploads
+        // Drop the stored change tag too: once the delete lands the record no longer exists, and a
+        // stale tag would make a later insert look like an update to something that is gone.
+        forgetSystemFields(forFlight: flightId)
         pendingFlightDeletions.insert(flightId)
 
         // Delete both the metadata record and its separate track record.
@@ -398,8 +447,67 @@ class SyncManager: ObservableObject {
         AppLog.sync.debugLine("Queued flight \(flightId) (+ track) for deletion")
     }
 
-    /// Force a sync now
+    /// The sync currently in flight, so concurrent callers join it instead of starting another. (CQ-06)
+    private var inFlightSync: Task<Void, Never>?
+
+    /// Tears the engine down on sign-out, leaving local data untouched. (RES-05)
+    ///
+    /// Local flights and settings are deliberately NOT deleted: signing out of iCloud must not cost
+    /// a pilot their logbook. The data stays on device and re-uploads if they sign back in.
+    func stopSyncForSignOut() {
+        inFlightSync?.cancel()
+        inFlightSync = nil
+        shutdownSyncEngine()
+        clearAccountScopedState()
+        isSyncing = false
+    }
+
+    /// Restarts sync after an account change, optionally discarding the previous account's state. (RES-05)
+    ///
+    /// `clearState` is true for `.switchAccounts` — a different account's server side means every
+    /// cached token, change tag and fingerprint is stale. It is false for `.signIn`, which resumes
+    /// the account the state already belongs to.
+    func restartSyncForAccountChange(clearState: Bool) {
+        inFlightSync?.cancel()
+        inFlightSync = nil
+        shutdownSyncEngine()
+        if clearState { clearAccountScopedState() }
+        isSyncing = false
+        guard isSyncEnabled else { return }
+        Task { [weak self] in
+            await self?.initializeCloudKit()
+        }
+    }
+
+    /// Force a sync now.
+    ///
+    /// Concurrent callers are **coalesced** onto the in-flight sync rather than each driving the
+    /// engine. `syncSettings()` is called from ~28 UI sites and fires this on every settings change,
+    /// so two toggles in one interaction — or a settings change racing a manual "Sync Now" — used to
+    /// invoke `fetchChanges()`/`sendChanges()` concurrently on the same `CKSyncEngine`. That also
+    /// made `isSyncing` unreliable: whichever task finished first cleared it while the other was
+    /// still running, so the UI showed sync as complete while it wasn't.
+    ///
+    /// Awaiting the existing task (rather than returning early) means a caller that awaits
+    /// `syncNow()` still observes a completed sync, which an early `return` would have broken.
     func syncNow() async {
+        if let existing = inFlightSync {
+            await existing.value
+            return
+        }
+        guard isSyncEnabled, syncEngine != nil else { return }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.performSync()
+        }
+        inFlightSync = task
+        await task.value
+        inFlightSync = nil
+    }
+
+    @MainActor
+    private func performSync() async {
         guard isSyncEnabled, let engine = syncEngine else { return }
 
         isSyncing = true
@@ -453,6 +561,67 @@ class SyncManager: ObservableObject {
     /// The recordName of a flight's separate GPS-track record. (sync optimization)
     nonisolated static func trackRecordName(_ id: UUID) -> String { "track-" + id.uuidString }
 
+
+    /// How a failed record save should be resolved.
+    ///
+    /// This is the conflict-resolution decision extracted out of `handleSentRecordZoneChanges` as a
+    /// pure value, so every branch can be unit-tested without a live `CKSyncEngine`. (CQ-04)
+    ///
+    /// The decision logic was previously inline, interleaved with `manager?` side effects, and had
+    /// zero test coverage — only the pure `Flight.merge` / `validatedForIngest` helpers it calls
+    /// were tested. It is the code that decides whether a pilot's edit survives a sync race, so it
+    /// is the last place that should be exercised for the first time in production.
+    enum SendFailure: Equatable {
+        /// The settings record conflicted. Requeue with the server's change tag when we have it,
+        /// otherwise drop the pending settings.
+        case settingsConflict(hasServerRecord: Bool)
+        /// A flight metadata record conflicted. Merge when both sides are available.
+        case flightConflict(flightId: UUID, hasServerRecord: Bool)
+        /// Permanently oversized. Retrying the identical record is futile, so drop the pending
+        /// change. `flightId` is nil for records whose name is not a bare flight UUID.
+        case tooLarge(flightId: UUID?)
+        /// iCloud storage is full.
+        case quotaExceeded
+        /// Nothing to do: either a transient error CKSyncEngine will retry with the change still
+        /// pending, or a conflict on a record type with no special handling.
+        case leavePending
+    }
+
+    /// Classifies one `failedRecordSaves` entry. Pure — no CloudKit types, no side effects. (CQ-04)
+    ///
+    /// - Parameters:
+    ///   - errorCode: `NSError.code` of the failure.
+    ///   - serverErrorCode: `userInfo["CKErrorServerErrorCode"]`, which surfaces 2004 for a
+    ///     server-record-changed conflict that did not set the top-level code.
+    ///   - recordName: the failed record's name — `"settings"`, a flight UUID, or a track name.
+    ///   - hasServerRecord: whether `CKRecordChangedErrorServerRecordKey` carried a server record.
+    nonisolated static func classifySendFailure(
+        errorCode: Int,
+        serverErrorCode: Int?,
+        recordName: String,
+        hasServerRecord: Bool
+    ) -> SendFailure {
+        let isConflict = errorCode == CKError.serverRecordChanged.rawValue || serverErrorCode == 2004
+        if isConflict {
+            if recordName == "settings" {
+                return .settingsConflict(hasServerRecord: hasServerRecord)
+            }
+            if let flightId = UUID(uuidString: recordName) {
+                return .flightConflict(flightId: flightId, hasServerRecord: hasServerRecord)
+            }
+            // A conflict on a record we do not special-case (e.g. a track record, whose name is not
+            // a bare UUID) falls through to the permanent-failure check below, exactly as before.
+        }
+
+        switch CKError.Code(rawValue: errorCode) {
+        case .limitExceeded:
+            return .tooLarge(flightId: UUID(uuidString: recordName))
+        case .quotaExceeded:
+            return .quotaExceeded
+        default:
+            return .leavePending
+        }
+    }
     /// The flightId encoded in a `flightTrack` recordName, or nil if it isn't one.
     nonisolated static func flightId(fromTrackRecordName name: String) -> UUID? {
         guard name.hasPrefix("track-") else { return nil }
@@ -529,8 +698,47 @@ class SyncManager: ObservableObject {
     /// Encodes a flight into a CKRecord. `nonisolated static` (the JSON encode + GPS-track payload is
     /// the expensive part) so the sync-batch path can build records OFF the main actor instead of
     /// inside a `DispatchQueue.main.sync`. (PR-24 / PERF-13)
-    nonisolated static func buildFlightRecord(_ flight: Flight, recordID: CKRecord.ID) -> CKRecord? {
-        let record = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+    /// Rebuilds a `CKRecord` from previously-stored **system fields**, falling back to a fresh record.
+    ///
+    /// A record decoded from system fields carries the server's `recordChangeTag`, so CloudKit treats
+    /// the save as an UPDATE. A freshly-constructed one has no tag and is treated as an INSERT, which
+    /// fails with `serverRecordChanged` the moment the record already exists.
+    ///
+    /// Falls back to a fresh record when there are no stored fields, when they fail to decode, or when
+    /// they describe a different `recordID` — a fresh record is exactly the right thing for a genuinely
+    /// new flight, so the fallback is correct rather than merely safe.
+    nonisolated static func baseRecord(
+        recordType: String,
+        recordID: CKRecord.ID,
+        systemFields: Data?
+    ) -> CKRecord {
+        if let systemFields,
+           let coder = try? NSKeyedUnarchiver(forReadingFrom: systemFields) {
+            coder.requiresSecureCoding = true
+            let restored = CKRecord(coder: coder)
+            coder.finishDecoding()
+            if let restored, restored.recordID == recordID, restored.recordType == recordType {
+                return restored
+            }
+        }
+        return CKRecord(recordType: recordType, recordID: recordID)
+    }
+
+    /// Archives a record's system fields (identity + change tag only — never its data).
+    nonisolated static func encodedSystemFields(of record: CKRecord) -> Data {
+        let coder = NSKeyedArchiver(requiringSecureCoding: true)
+        record.encodeSystemFields(with: coder)
+        coder.finishEncoding()
+        return coder.encodedData
+    }
+
+    nonisolated static func buildFlightRecord(
+        _ flight: Flight,
+        recordID: CKRecord.ID,
+        systemFields: Data? = nil
+    ) -> CKRecord? {
+        let record = baseRecord(
+            recordType: SyncRecordType.flight.rawValue, recordID: recordID, systemFields: systemFields)
         do {
             // The GPS track ships in a separate FlightTrack record, so the metadata record is always
             // track-stripped — small enough to stay inline. (sync optimization)
@@ -569,8 +777,13 @@ class SyncManager: ObservableObject {
     /// is only ever *re-uploaded* when the track point count changes — a metadata edit leaves it put,
     /// so other devices don't re-download the track. `flightFromPayload` decodes it like any flight
     /// and `Flight.merge` folds its (richer) track onto the metadata record. (sync optimization)
-    nonisolated static func buildFlightTrackRecord(_ flight: Flight, recordID: CKRecord.ID) -> CKRecord? {
-        let record = CKRecord(recordType: SyncRecordType.flightTrack.rawValue, recordID: recordID)
+    nonisolated static func buildFlightTrackRecord(
+        _ flight: Flight,
+        recordID: CKRecord.ID,
+        systemFields: Data? = nil
+    ) -> CKRecord? {
+        let record = baseRecord(
+            recordType: SyncRecordType.flightTrack.rawValue, recordID: recordID, systemFields: systemFields)
         do {
             let payload = try flightRecordPayload(flight)
             if let assetData = payload.asset {
@@ -744,6 +957,35 @@ class SyncManager: ObservableObject {
         syncFlight(merged, allFlights: flights)
     }
 
+    // MARK: - Record system fields (change-tag preservation)
+
+    /// Stored system fields for a record name, if the server has acknowledged it before.
+    func systemFields(forRecordName recordName: String) -> Data? {
+        recordSystemFields[recordName]
+    }
+
+    /// Remembers a server-acknowledged record's identity + change tag.
+    ///
+    /// Called both when a save succeeds and when a conflict hands back the SERVER's record — the
+    /// latter matters most, because it is what lets the retry after a conflict actually converge
+    /// instead of re-sending another tag-less insert.
+    func rememberSystemFields(of record: CKRecord) {
+        recordSystemFields[record.recordID.recordName] = SyncManager.encodedSystemFields(of: record)
+        persistRecordSystemFields()
+    }
+
+    /// Drops the stored fields for a flight and its track record — the record no longer exists
+    /// server-side, so a later flight reusing the id must be sent as a genuine insert.
+    func forgetSystemFields(forFlight id: UUID) {
+        recordSystemFields.removeValue(forKey: id.uuidString)
+        recordSystemFields.removeValue(forKey: SyncManager.trackRecordName(id))
+        persistRecordSystemFields()
+    }
+
+    private func persistRecordSystemFields() {
+        UserDefaults.standard.set(recordSystemFields, forKey: recordSystemFieldsKey)
+    }
+
     /// Update last sync date (called when sync operations complete)
     func updateLastSyncDate() {
         lastSyncDate = Date()
@@ -782,7 +1024,7 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             handleDatabaseChanges(fetchedChanges)
 
         case .fetchedRecordZoneChanges(let fetchedChanges):
-            await handleRecordZoneChanges(fetchedChanges)
+            await handleRecordZoneChanges(fetchedChanges, syncEngine: syncEngine)
 
         case .sentDatabaseChanges(let sentChanges):
             handleSentDatabaseChanges(sentChanges)
@@ -804,8 +1046,10 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     /// the small settings record is built on the main actor (it has main-actor side effects), the
     /// expensive flight encoding happens off-main. (PR-24)
     private struct PendingBatch {
-        let flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)]
-        let trackRecordIDs: [(flight: Flight, recordID: CKRecord.ID)]
+        /// `systemFields` is the record's stored identity + change tag, read on the main actor while
+        /// gathering so the off-main encoder below stays free of main-actor state.
+        let flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID, systemFields: Data?)]
+        let trackRecordIDs: [(flight: Flight, recordID: CKRecord.ID, systemFields: Data?)]
         let settingsRecord: CKRecord?
         let deletions: [CKRecord.ID]
     }
@@ -830,12 +1074,14 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
             recordsToSave.append(settingsRecord)
         }
         for entry in pending.flightRecordIDs {
-            if let record = SyncManager.buildFlightRecord(entry.flight, recordID: entry.recordID) {
+            if let record = SyncManager.buildFlightRecord(
+                entry.flight, recordID: entry.recordID, systemFields: entry.systemFields) {
                 recordsToSave.append(record)
             }
         }
         for entry in pending.trackRecordIDs {
-            if let record = SyncManager.buildFlightTrackRecord(entry.flight, recordID: entry.recordID) {
+            if let record = SyncManager.buildFlightTrackRecord(
+                entry.flight, recordID: entry.recordID, systemFields: entry.systemFields) {
                 recordsToSave.append(record)
             }
         }
@@ -859,8 +1105,8 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
         let pendingChanges = syncEngine.state.pendingRecordZoneChanges
 
-        var flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID)] = []
-        var trackRecordIDs: [(flight: Flight, recordID: CKRecord.ID)] = []
+        var flightRecordIDs: [(flight: Flight, recordID: CKRecord.ID, systemFields: Data?)] = []
+        var trackRecordIDs: [(flight: Flight, recordID: CKRecord.ID, systemFields: Data?)] = []
         var settingsRecord: CKRecord?
         var deletions: [CKRecord.ID] = []
         var processedSettingsRecord = false
@@ -877,10 +1123,12 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                     }
                 } else if let flightId = SyncManager.flightId(fromTrackRecordName: recordID.recordName),
                           let flight = manager.getPendingFlight(for: flightId) {
-                    trackRecordIDs.append((flight, recordID))
+                    trackRecordIDs.append(
+                        (flight, recordID, manager.systemFields(forRecordName: recordID.recordName)))
                 } else if let flightId = UUID(uuidString: recordID.recordName),
                           let flight = manager.getPendingFlight(for: flightId) {
-                    flightRecordIDs.append((flight, recordID))
+                    flightRecordIDs.append(
+                        (flight, recordID, manager.systemFields(forRecordName: recordID.recordName)))
                 }
 
             case .deleteRecord(let recordID):
@@ -903,13 +1151,22 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
 
     @MainActor
     private func handleAccountChange(_ change: CKSyncEngine.Event.AccountChange) {
+        // RES-05: every case here used to be a bare log line. The engine, container and database
+        // built against the OLD account were never torn down, and account-scoped local state — the
+        // persisted sync-state serialization, the cached settings record's change tag, and the
+        // confirmed-sent fingerprint maps — was carried straight into the new account, where it is
+        // wrong in a way that fails silently rather than loudly. This matters here specifically
+        // because the app runs on shared aeroclub hardware, where account switching is routine.
         switch change.changeType {
         case .signIn:
-            AppLog.sync.debugLine("User signed into iCloud")
+            AppLog.sync.debugLine("User signed into iCloud — restarting sync engine")
+            manager?.restartSyncForAccountChange(clearState: false)
         case .signOut:
-            AppLog.sync.debugLine("User signed out of iCloud")
+            AppLog.sync.debugLine("User signed out of iCloud — tearing down sync engine")
+            manager?.stopSyncForSignOut()
         case .switchAccounts:
-            AppLog.sync.debugLine("iCloud account switched")
+            AppLog.sync.debugLine("iCloud account switched — resetting sync state")
+            manager?.restartSyncForAccountChange(clearState: true)
         @unknown default:
             break
         }
@@ -923,8 +1180,12 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
     }
 
     @MainActor
-    private func handleRecordZoneChanges(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) async {
+    private func handleRecordZoneChanges(
+        _ changes: CKSyncEngine.Event.FetchedRecordZoneChanges,
+        syncEngine: CKSyncEngine
+    ) async {
         var deletedFlightIds: [UUID] = []
+        var deletedZoneIDs: [UUID: CKRecordZone.ID] = [:]
 
         // Settings records are handled inline on the main actor (cheap). Flight records are decoded
         // CONCURRENTLY off the main actor below — their asset disk read + GPS-track JSON decode is the
@@ -983,7 +1244,25 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
                let flightId = UUID(uuidString: deletion.recordID.recordName) {
                 AppLog.sync.debugLine("Flight deleted from cloud: \(flightId)")
                 deletedFlightIds.append(flightId)
+                deletedZoneIDs[flightId] = deletion.recordID.zoneID
             }
+        }
+
+        // RES-04: a deletion from another device must also cancel THIS device's own queued edit for
+        // the same flight. Removing it from local state is not enough — an unsent `.saveRecord` still
+        // sitting in the engine's pending changes (e.g. the edit was made offline) is sent on the next
+        // sendChanges() and re-creates the record server-side, so the flight the pilot deleted
+        // reappears on every device. Both records matter: the metadata record and the separate track
+        // record are each resurrected by the same mechanism.
+        for flightId in deletedFlightIds {
+            manager?.clearPendingFlight(flightId)
+            // The records are gone server-side: a later flight reusing this id must be a real insert.
+            manager?.forgetSystemFields(forFlight: flightId)
+            guard let zoneID = deletedZoneIDs[flightId] else { continue }
+            syncEngine.state.remove(pendingRecordZoneChanges: [
+                .saveRecord(CKRecord.ID(recordName: flightId.uuidString, zoneID: zoneID)),
+                .saveRecord(CKRecord.ID(recordName: SyncManager.trackRecordName(flightId), zoneID: zoneID)),
+            ])
         }
 
         // Notify about flight updates
@@ -1052,6 +1331,9 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         // Clear pending data for successfully saved records
         var didMarkSynced = false
         for record in changes.savedRecords {
+            // The server has acknowledged this record — keep its change tag so the NEXT save is an
+            // update rather than an insert that collides with itself. (CloudKit change-tag fix)
+            manager?.rememberSystemFields(of: record)
             if record.recordID.recordName == "settings" {
                 manager?.clearPendingSettings()
                 manager?.cachedSettingsRecord = record // Update cache with new change tag
@@ -1096,71 +1378,74 @@ class SyncEngineDelegate: NSObject, CKSyncEngineDelegate {
         for failedSave in changes.failedRecordSaves {
             let recordName = failedSave.record.recordID.recordName
             let error = failedSave.error
-            
-            // Handle server record changed error (code 14) - settings record already exists
             let nsError = error as NSError
-            let errorCode = nsError.code
-            if errorCode == CKError.serverRecordChanged.rawValue || nsError.userInfo["CKErrorServerErrorCode"] as? Int == 2004 {
-                // For settings record, this is OK - it means the record was already created
-                if recordName == "settings" {
-                    AppLog.sync.debugLine("Settings record conflict detected. Updating cache from server record.")
-                    manager?.settingsRecordExists = true
-                    UserDefaults.standard.set(true, forKey: "settingsRecordExists")
-                    
-                    // Extract server record to get the latest change tag
-                    if let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord {
-                        manager?.cachedSettingsRecord = serverRecord
-                        // Re-queue the sync immediately with the updated change tag
-                        if let pendingSettings = manager?.getPendingSettings() {
-                            AppLog.sync.debugLine("Re-queueing settings sync with updated change tag")
-                            manager?.syncSettings(pendingSettings)
-                        }
-                    } else {
-                        manager?.clearPendingSettings()
-                    }
-                    
-                    manager?.updateLastSyncDate()
-                    continue
-                }
+            let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord
 
-                // Flight conflict: another device's edit won the race. Previously this fell through
-                // to a bare print and the local edit was dropped (devices diverged permanently).
-                // Now we merge the server record with our pending local flight and re-queue. (ARCH-02)
-                if let flightId = UUID(uuidString: recordName) {
-                    if let serverRecord = nsError.userInfo[CKRecordChangedErrorServerRecordKey] as? CKRecord,
-                       let serverFlight = await manager?.flightFromRecord(serverRecord),
-                       let localFlight = manager?.getPendingFlight(for: flightId) {
-                        let merged = Flight.merge(localFlight, serverFlight)
-                        manager?.resolveFlightConflict(merged)
-                        manager?.onSyncConflict?("A flight edited on two devices was merged.")
-                    } else {
-                        // Can't merge — keep the cloud version rather than overwrite it, and surface
-                        // the conflict instead of silently dropping it.
-                        manager?.clearPendingFlight(flightId)
-                        manager?.onSyncConflict?(
-                            "A flight sync conflict couldn't be auto-merged; the cloud version was kept."
-                        )
-                    }
-                    manager?.updateLastSyncDate()
-                    continue
-                }
-            }
+            // The decision itself is pure and unit-tested; this switch only performs it. (CQ-04)
+            switch SyncManager.classifySendFailure(
+                errorCode: nsError.code,
+                serverErrorCode: nsError.userInfo["CKErrorServerErrorCode"] as? Int,
+                recordName: recordName,
+                hasServerRecord: serverRecord != nil
+            ) {
+            case .settingsConflict:
+                // The record already exists server-side, which is fine — adopt its change tag.
+                AppLog.sync.debugLine("Settings record conflict detected. Updating cache from server record.")
+                manager?.settingsRecordExists = true
+                UserDefaults.standard.set(true, forKey: "settingsRecordExists")
 
-            // Non-conflict failure. CKSyncEngine auto-retries transient errors (network, server
-            // busy, rate limit) and keeps the change pending, so for those the pending flight is
-            // left untouched so the retry still has its data. Only act on permanent failures, so
-            // they don't loop forever as a silent no-op. (PERF-13)
-            switch CKError.Code(rawValue: nsError.code) {
-            case .limitExceeded:
+                if let serverRecord {
+                    manager?.cachedSettingsRecord = serverRecord
+                    // Re-queue the sync immediately with the updated change tag
+                    if let pendingSettings = manager?.getPendingSettings() {
+                        AppLog.sync.debugLine("Re-queueing settings sync with updated change tag")
+                        manager?.syncSettings(pendingSettings)
+                    }
+                } else {
+                    manager?.clearPendingSettings()
+                }
+                manager?.updateLastSyncDate()
+                continue
+
+            case .flightConflict(let flightId, _):
+                // Another device's edit won the race. Merge the server record with our pending local
+                // flight and re-queue rather than dropping the local edit (which used to diverge the
+                // devices permanently). (ARCH-02)
+                // Adopt the SERVER's change tag before doing anything else. Without this the merge
+                // below re-queues another tag-less record and the conflict repeats forever — the
+                // retry could never converge, which is what made a failing flight never sync at all.
+                if let serverRecord { manager?.rememberSystemFields(of: serverRecord) }
+
+                if let serverRecord,
+                   let serverFlight = await manager?.flightFromRecord(serverRecord),
+                   let localFlight = manager?.getPendingFlight(for: flightId) {
+                    let merged = Flight.merge(localFlight, serverFlight)
+                    manager?.resolveFlightConflict(merged)
+                    manager?.onSyncConflict?("A flight edited on two devices was merged.")
+                } else {
+                    // Can't merge — keep the cloud version rather than overwrite it, and surface
+                    // the conflict instead of silently dropping it.
+                    manager?.clearPendingFlight(flightId)
+                    manager?.onSyncConflict?(
+                        "A flight sync conflict couldn't be auto-merged; the cloud version was kept."
+                    )
+                }
+                manager?.updateLastSyncDate()
+                continue
+
+            case .tooLarge(let flightId):
                 // Record still too large even after the GPS track was offloaded to a CKAsset.
                 // Retrying the identical record is futile — drop the pending change and surface it.
-                if let flightId = UUID(uuidString: recordName) {
-                    manager?.clearPendingFlight(flightId)
-                }
+                if let flightId { manager?.clearPendingFlight(flightId) }
                 manager?.onSyncConflict?("A flight was too large to sync to iCloud and was skipped.")
+
             case .quotaExceeded:
                 manager?.onSyncConflict?("iCloud storage is full — a flight couldn't be synced.")
-            default:
+
+            case .leavePending:
+                // CKSyncEngine auto-retries transient errors (network, server busy, rate limit) and
+                // keeps the change pending, so the pending flight is left untouched and the retry
+                // still has its data. (PERF-13)
                 break
             }
 

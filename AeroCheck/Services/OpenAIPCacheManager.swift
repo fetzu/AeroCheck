@@ -208,6 +208,11 @@ class OpenAIPCacheManager: ObservableObject {
         downloadStartTime = nil
         estimatedTimeRemaining = nil
 
+        // APP-10: reclaim tiles from any PREVIOUS selection that the new one no longer covers.
+        // Runs after `isDownloading` clears (the prune refuses to run mid-download) and after the
+        // new tiles have landed, so a shrinking selection never deletes something it still wants.
+        await pruneTilesOutside(countries: countries)
+
         await calculateCacheSize()
     }
 
@@ -292,6 +297,66 @@ class OpenAIPCacheManager: ObservableObject {
     }
 
     // MARK: - Cache Management
+
+    /// Deletes cached tiles that fall outside the current country selection. (APP-10)
+    ///
+    /// This layer was the only one of six with **no eviction at all**. The five sibling per-country
+    /// GeoJSON layers each prune on reselect; tiles never did, so deselecting a country left its
+    /// tiles on disk permanently — they are keyed `{z}/{x}/{y}.png` with no country namespace, so
+    /// nothing outside the new bounding box is ever revisited, and the cache only ever grew. A pilot
+    /// who sampled several countries kept every one of them forever, with the Settings size readout
+    /// as the only clue and a full delete as the only remedy.
+    ///
+    /// Reconciles **disk against the currently-desired set** rather than diffing old and new
+    /// selections. Countries merge into a single combined bounding box, so "the tiles for country X"
+    /// is not a separable set — but "every tile the current selection wants" is exact, which makes
+    /// this correct regardless of how the selection changed or how many past selections accumulated.
+    ///
+    /// - Returns: the number of tile files deleted.
+    @discardableResult
+    func pruneTilesOutside(countries: [String]) async -> Int {
+        // An empty selection is not a licence to wipe the cache: it also occurs transiently while
+        // the Settings list is being edited. Clearing everything is `deleteCache()`, explicitly.
+        guard !countries.isEmpty, !isDownloading else { return 0 }
+
+        let desired = Set(calculateTilesForCountries(countries).map { "\($0.z)/\($0.x)/\($0.y)" })
+        guard !desired.isEmpty else { return 0 }
+
+        let directory = cacheDirectory
+        let deleted = await Task.detached(priority: .utility) { () -> Int in
+            let fm = FileManager.default
+            guard let walker = fm.enumerator(at: directory, includingPropertiesForKeys: nil) else { return 0 }
+            var removed = 0
+            for case let url as URL in walker where url.pathExtension == "png" {
+                // .../OpenAIP/{z}/{x}/{y}.png — take the key back out of the path itself, so this
+                // stays correct if the cache root ever moves.
+                let parts = url.pathComponents
+                guard parts.count >= 3 else { continue }
+                let z = parts[parts.count - 3]
+                let x = parts[parts.count - 2]
+                let y = url.deletingPathExtension().lastPathComponent
+                if !desired.contains("\(z)/\(x)/\(y)") {
+                    try? fm.removeItem(at: url)
+                    removed += 1
+                }
+            }
+            return removed
+        }.value
+
+        if deleted > 0 {
+            AppLog.general.debugLine("Pruned \(deleted) OpenAIP tile(s) outside the current country selection")
+            await calculateCacheSize()
+        }
+        return deleted
+    }
+
+    #if DEBUG
+    /// Test seam: the tile projection for a country set, so a test can assert against the real
+    /// projection instead of hardcoding tile coordinates that would drift from it.
+    func tilesForCountriesForTesting(_ countries: [String]) -> [(z: Int, x: Int, y: Int)] {
+        calculateTilesForCountries(countries)
+    }
+    #endif
 
     /// Delete all cached OpenAIP tiles
     func deleteCache() {

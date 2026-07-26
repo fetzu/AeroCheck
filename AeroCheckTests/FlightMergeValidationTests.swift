@@ -323,3 +323,104 @@ final class FlightMergeValidationTests: XCTestCase {
         XCTAssertEqual(roundTripped.themePreference, .sunlight)
     }
 }
+
+/// Tests the CloudKit send-failure classification extracted from `handleSentRecordZoneChanges`. (CQ-04)
+///
+/// This is the logic that decides whether a pilot's edit survives a sync race — settings conflict vs
+/// flight conflict, merge-and-requeue vs keep-the-cloud-version, permanently-too-large vs
+/// leave-it-pending-for-retry. Before the extraction it was inline, interleaved with side effects,
+/// and had no coverage at all: only the pure `Flight.merge` / `validatedForIngest` helpers it calls
+/// were tested, not the branch selection that decides which of them runs.
+final class SyncSendFailureClassificationTests: XCTestCase {
+
+    private func classify(
+        code: Int,
+        serverErrorCode: Int? = nil,
+        recordName: String,
+        hasServerRecord: Bool = false
+    ) -> SyncManager.SendFailure {
+        SyncManager.classifySendFailure(
+            errorCode: code,
+            serverErrorCode: serverErrorCode,
+            recordName: recordName,
+            hasServerRecord: hasServerRecord
+        )
+    }
+
+    private let conflict = CKError.serverRecordChanged.rawValue
+
+    // MARK: - Settings conflicts
+
+    func testSettingsConflictWithServerRecordRequeues() {
+        XCTAssertEqual(classify(code: conflict, recordName: "settings", hasServerRecord: true),
+                       .settingsConflict(hasServerRecord: true))
+    }
+
+    func testSettingsConflictWithoutServerRecordDropsPending() {
+        XCTAssertEqual(classify(code: conflict, recordName: "settings", hasServerRecord: false),
+                       .settingsConflict(hasServerRecord: false))
+    }
+
+    // MARK: - Flight conflicts
+
+    func testFlightConflictCarriesTheFlightIdAndServerRecordAvailability() {
+        let id = UUID()
+        XCTAssertEqual(classify(code: conflict, recordName: id.uuidString, hasServerRecord: true),
+                       .flightConflict(flightId: id, hasServerRecord: true))
+        XCTAssertEqual(classify(code: conflict, recordName: id.uuidString, hasServerRecord: false),
+                       .flightConflict(flightId: id, hasServerRecord: false))
+    }
+
+    /// CloudKit sometimes reports the conflict only in `CKErrorServerErrorCode`, leaving the
+    /// top-level code something else. Both spellings must be treated as the same conflict.
+    func testConflictSignalledOnlyByServerErrorCode2004() {
+        let id = UUID()
+        XCTAssertEqual(classify(code: CKError.internalError.rawValue,
+                                serverErrorCode: 2004,
+                                recordName: id.uuidString,
+                                hasServerRecord: true),
+                       .flightConflict(flightId: id, hasServerRecord: true))
+    }
+
+    /// A conflict on the separate track record has no dedicated handling — its name is not a bare
+    /// UUID, so it must fall through rather than being mistaken for a flight conflict.
+    func testConflictOnATrackRecordFallsThrough() {
+        let name = SyncManager.trackRecordName(UUID())
+        XCTAssertEqual(classify(code: conflict, recordName: name, hasServerRecord: true), .leavePending)
+    }
+
+    // MARK: - Permanent failures
+
+    func testLimitExceededOnAFlightDropsThatFlight() {
+        let id = UUID()
+        XCTAssertEqual(classify(code: CKError.limitExceeded.rawValue, recordName: id.uuidString),
+                       .tooLarge(flightId: id))
+    }
+
+    /// Same permanent failure on a track record: still surfaced, but there is no flight id to clear.
+    func testLimitExceededOnATrackRecordHasNoFlightIdToClear() {
+        XCTAssertEqual(classify(code: CKError.limitExceeded.rawValue,
+                                recordName: SyncManager.trackRecordName(UUID())),
+                       .tooLarge(flightId: nil))
+    }
+
+    func testQuotaExceededIsSurfaced() {
+        XCTAssertEqual(classify(code: CKError.quotaExceeded.rawValue, recordName: UUID().uuidString),
+                       .quotaExceeded)
+    }
+
+    // MARK: - Transient failures
+
+    /// The important negative case: a transient error must NOT drop the pending change, or the
+    /// edit is lost instead of being retried by CKSyncEngine.
+    func testTransientErrorsLeaveTheChangePending() {
+        for code in [CKError.networkFailure, .networkUnavailable, .serviceUnavailable, .requestRateLimited, .zoneBusy] {
+            XCTAssertEqual(classify(code: code.rawValue, recordName: UUID().uuidString), .leavePending,
+                           "\(code) must leave the change pending for retry")
+        }
+    }
+
+    func testUnknownErrorCodeLeavesTheChangePending() {
+        XCTAssertEqual(classify(code: 999_999, recordName: UUID().uuidString), .leavePending)
+    }
+}

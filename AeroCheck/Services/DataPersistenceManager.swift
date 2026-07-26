@@ -64,10 +64,11 @@ class DataPersistenceManager: ObservableObject {
     /// iCloud Drive container URL (nil if iCloud not available) - cached at init
     /// IMPORTANT: FileManager.url(forUbiquityContainerIdentifier:) can block the main thread
     /// for seconds when iCloud is initializing. We call it once at init and cache the result.
-    private let iCloudContainerURL: URL?
+    /// Mutable so an iCloud account change can re-resolve it mid-session. (RES-03)
+    private var iCloudContainerURL: URL?
 
     /// iCloud Documents directory (visible in Files app as iCloud/AéroCheck)
-    private let iCloudDocumentsURL: URL?
+    private var iCloudDocumentsURL: URL?
 
     /// Local app data directory (non-browsable Application Support, not the exposed Documents root).
     var localAppDirectory: URL {
@@ -135,6 +136,48 @@ class DataPersistenceManager: ObservableObject {
         // root into Application Support, BEFORE creating the (possibly-overlapping) new dirs. (SEC-12)
         migrateLocalDatastoreIfNeeded()
 
+        createDirectoryStructure()
+
+        observeUbiquityIdentityChanges()
+    }
+
+    /// Re-resolves the ubiquity container when the iCloud account changes. (RES-03)
+    ///
+    /// The container used to be resolved exactly once per process, in `init`. If the pilot signed
+    /// out, switched Apple ID, or disabled iCloud Drive mid-session, every subsequent read and write
+    /// kept using the previous account's container path for the life of the process — writing the
+    /// new account's flights into the old account's container, or continuing to read the old
+    /// account's data. The same staleness applied in reverse: a container that timed out at launch
+    /// (the 2 s cap below) stayed nil until the app was killed, silently keeping the session
+    /// local-only even after iCloud became available.
+    ///
+    /// `NSUbiquityIdentityDidChangeNotification` is the documented signal for exactly this.
+    private func observeUbiquityIdentityChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .NSUbiquityIdentityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.reresolveUbiquityContainer()
+            }
+        }
+    }
+
+    /// Re-resolves the container and re-points the cached directory URLs. (RES-03)
+    ///
+    /// The directory properties are computed from `iCloudDocumentsURL`, so re-pointing that one
+    /// value is enough for every path to follow. Uses the same short timeout as launch: this runs on
+    /// the main thread from a notification, and blocking it for the multi-second worst case of
+    /// `url(forUbiquityContainerIdentifier:)` is exactly what the launch path already avoids.
+    func reresolveUbiquityContainer() {
+        let container = Self.resolveUbiquityContainer(identifier: "iCloud.com.fetzu.aerocheck", timeout: 2.0)
+        guard container != iCloudContainerURL else { return }
+
+        iCloudContainerURL = container
+        iCloudDocumentsURL = container?.appendingPathComponent("Documents", isDirectory: true)
+        AppLog.general.debugLine(
+            "iCloud identity changed; container is now \(container == nil ? "unavailable (local-only)" : "available")")
         createDirectoryStructure()
     }
 

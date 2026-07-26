@@ -43,8 +43,12 @@ class AirportDataService: ObservableObject {
     private var spatialGrid: [GridKey: [Airport]] = [:]
 
     private func gridKey(lat: Double, lon: Double) -> GridKey {
-        GridKey(lat: Int((lat / Self.gridCellDegrees).rounded(.down)),
-                lon: Int((lon / Self.gridCellDegrees).rounded(.down)))
+        // `Int(_:)` on a Double TRAPS on NaN or infinity — it does not return a sentinel — so a
+        // single non-finite coordinate reaching here crashes the app rather than degrading. Every
+        // sibling grid (navaids, obstacles, reporting points, airspaces) already uses the safe
+        // helper; this one was never migrated. (CQ-08)
+        GridKey(lat: ((lat / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)),
+                lon: ((lon / Self.gridCellDegrees).safeRoundedInt(.down, or: 0)))
     }
 
     private func rebuildSpatialGrid() {

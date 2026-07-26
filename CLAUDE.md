@@ -38,9 +38,13 @@ xcodebuild test -scheme AeroCheckTests -destination "platform=iOS Simulator,name
 > launch the app and then wait forever for a bundle that never arrives. Sampling the app shows it
 > *idle in a normal CFRunLoop*, not deadlocked — that is the tell that the harness is stuck, not the code.
 >
-> Fix: `killall -9 testmanagerd`. Note that neither `xcrun simctl shutdown all` **nor** killing
-> `CoreSimulatorService` clears it, so those resets seem to work once and then the hang returns.
-> `scripts/run-tests.sh` does this cleanup automatically. Never stop a test run with `kill -9` —
+> Fix — **both** steps, in order: `killall -9 testmanagerd` **and** `xcrun simctl shutdown all`.
+> There are two brokers, a host-side one and a runtime-side one inside the booted simulator; killing
+> only the host side leaves the stale runtime broker in the booted device, so the next run still
+> hangs. That half-fix works just often enough to look like flakiness. Killing
+> `CoreSimulatorService` is not the fix on its own either.
+>
+> `scripts/run-tests.sh` does all of this automatically. Never stop a test run with `kill -9` —
 > Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
 
 Requirements: Xcode 26 (ships the iOS 26 SDK — `CompanionConnectivityManager.swift` and

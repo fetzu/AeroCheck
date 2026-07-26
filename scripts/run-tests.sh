@@ -42,9 +42,17 @@ if pgrep -f "xcodebuild test -scheme $SCHEME" >/dev/null 2>&1; then
 fi
 
 # The orphan check. Any testmanagerd still alive here belongs to no live run.
+#
+# There are TWO of them — a host-side /usr/libexec/testmanagerd and a runtime-side one living
+# inside the booted simulator. Killing only the host side is not enough: the simulator keeps its
+# stale runtime broker across the kill, and the next session still fails to attach. So when an
+# orphan is found, shut the device down as well and let the boot below bring up a clean pair.
 if pgrep -x testmanagerd >/dev/null 2>&1; then
   echo "    killing orphaned testmanagerd (the usual cause of a hang with 0 tests started)"
   killall -9 testmanagerd 2>/dev/null
+  sleep 2
+  echo "    shutting the simulator down so it re-spawns a clean runtime-side broker"
+  xcrun simctl shutdown all >/dev/null 2>&1
   sleep 2
 fi
 

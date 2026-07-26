@@ -4,6 +4,8 @@ import CoreLocation
 
 /// Tests for estimated-airspeed wind handling: staleness fall-back and geofencing.
 /// (UX-04 stale wind is ignored; estimation only inside Switzerland.)
+/// @MainActor because WindDataService is now main-actor isolated like every other service. (CQ-07)
+@MainActor
 final class WindDataServiceTests: XCTestCase {
 
     private let swissCoord = CLLocationCoordinate2D(latitude: 47.0, longitude: 8.0)

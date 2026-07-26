@@ -270,13 +270,36 @@ class AircraftDataService: ObservableObject {
             let versionInfo = try? await fetchVersion(aircraftId: aircraftId, language: language)
             let checklist = try await fetchChecklistFromServer(aircraftId: aircraftId, language: language)
 
+            // RES-13: these are two SEPARATE requests, and their results were paired and cached
+            // without ever checking they describe the same revision. A deploy landing between them —
+            // or a stale edge cache on one of the two — stores this content under that checksum, and
+            // because the update check compares checksums first, the mismatched pair then compares
+            // equal forever: the stale checklist is never refreshed.
+            //
+            // Dropping the checksum on a mismatch costs nothing (the next check falls back to
+            // version comparison, which is correct) and cannot poison the cache.
+            //
+            // Note this is a consistency check, not an integrity one: the client cannot recompute
+            // the server's digest, which is taken over the server's own checklist object rather than
+            // the response body the client receives. On-disk integrity is covered separately by
+            // `CacheMetadata.contentHash` (SEC-C30).
+            let trustedChecksum: String? = {
+                guard let info = versionInfo else { return nil }
+                guard info.version == checklist.version else {
+                    AppLog.aircraftData.debugLine(
+                        "Version/checklist disagree for \(cacheKey) (\(info.version) vs \(checklist.version)); caching without a checksum")
+                    return nil
+                }
+                return info.checksum
+            }()
+
             // For bundled aircraft, compare against bundled version for the same language
             if BundledChecklistService.isBundled(aircraftId: aircraftId) {
                 // Get bundled checklist for the requested language (or default)
                 if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId, language: language) {
                     if BundledChecklistService.isNewer(checklist.version, than: bundled.version) ||
                        checklist.version == bundled.version {
-                        cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
+                        cacheChecklist(checklist, aircraftId: cacheKey, checksum: trustedChecksum)
                         AppLog.aircraftData.debugLine("API version (\(checklist.version)) cached for bundled aircraft \(cacheKey)")
                         return checklist
                     } else {
@@ -287,13 +310,13 @@ class AircraftDataService: ObservableObject {
                 } else {
                     // Language not bundled but aircraft is bundled - this is a new language from API
                     // Cache it as it's new content not available in the bundle
-                    cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
+                    cacheChecklist(checklist, aircraftId: cacheKey, checksum: trustedChecksum)
                     AppLog.aircraftData.debugLine("New language variant (\(language ?? "default")) from API for bundled aircraft \(aircraftId)")
                     return checklist
                 }
             }
 
-            cacheChecklist(checklist, aircraftId: cacheKey, checksum: versionInfo?.checksum)
+            cacheChecklist(checklist, aircraftId: cacheKey, checksum: trustedChecksum)
             AppLog.aircraftData.debugLine("Cached fresh checklist for \(cacheKey)")
             return checklist
         } catch {

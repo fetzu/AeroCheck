@@ -126,7 +126,12 @@ final class OpenAIPNavaidDataService: ObservableObject {
     /// Navaids whose coordinate falls within the lat/lon ranges (for map markers).
     /// Gathers only the overlapping grid cells instead of scanning the full array — the grid is
     /// already maintained for `nearestNavaid`, this query just never used it. (PERF-27)
-    func navaidsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [Navaid] {
+    /// Capped at `limit` to bound map annotations; truncation is logged rather than silent. (APP-05)
+    func navaidsInRegion(
+        latRange: ClosedRange<Double>,
+        lonRange: ClosedRange<Double>,
+        limit: Int = 250
+    ) -> [Navaid] {
         let minKey = gridKey(lat: latRange.lowerBound, lon: lonRange.lowerBound)
         let maxKey = gridKey(lat: latRange.upperBound, lon: lonRange.upperBound)
         var result: [Navaid] = []
@@ -138,7 +143,9 @@ final class OpenAIPNavaidDataService: ObservableObject {
                 }
             }
         }
-        return result
+        guard result.count > limit else { return result }
+        AppLog.general.debugLine("Navaid region query truncated: \(result.count) in range, showing \(limit)")
+        return Array(result.prefix(limit))
     }
 
     func deleteData() {

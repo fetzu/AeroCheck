@@ -99,7 +99,13 @@ final class OpenAIPReportingPointDataService: ObservableObject {
     /// Reporting points whose coordinate falls within the lat/lon ranges (for map markers). Gathers only
     /// the grid cells the requested bounds overlap, then applies the exact range check to those
     /// candidates — avoids a full linear scan on the map-region-change hot path.
-    func reportingPointsInRegion(latRange: ClosedRange<Double>, lonRange: ClosedRange<Double>) -> [ReportingPoint] {
+    /// VFR reporting points in the given ranges, capped at `limit` to bound map annotations. (APP-05)
+    /// Truncation is logged rather than silent.
+    func reportingPointsInRegion(
+        latRange: ClosedRange<Double>,
+        lonRange: ClosedRange<Double>,
+        limit: Int = 250
+    ) -> [ReportingPoint] {
         let minLatKey = ((latRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
         let maxLatKey = ((latRange.upperBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
         let minLonKey = ((lonRange.lowerBound / Self.gridCellDegrees).safeRoundedInt(.down, or: 0))
@@ -114,7 +120,10 @@ final class OpenAIPReportingPointDataService: ObservableObject {
             }
         }
 
-        return candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        let inRegion = candidates.filter { latRange.contains($0.latitude) && lonRange.contains($0.longitude) }
+        guard inRegion.count > limit else { return inRegion }
+        AppLog.general.debugLine("Reporting-point region query truncated: \(inRegion.count) in range, showing \(limit)")
+        return Array(inRegion.prefix(limit))
     }
 
     /// Nearest reporting points to a coordinate (for briefings), within `maxDistanceNm`, closest first,

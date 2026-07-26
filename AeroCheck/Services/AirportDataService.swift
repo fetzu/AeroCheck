@@ -154,6 +154,11 @@ class AirportDataService: ObservableObject {
                 our: runwaysByAirport[ident] ?? [], openAIP: openAIPRwys)
         }
         AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRwysByIdent.count) got OpenAIP runways")
+
+        // The raw OpenAIP array has now been folded into `airports`, `frequenciesByAirport` and
+        // `runwaysByAirport`, and nothing reads it again — so drop it instead of keeping a second
+        // full copy of the country dataset resident for the process lifetime. (APP-16)
+        OpenAIPAirportDataService.shared.releaseLoadedAirports()
     }
 
     // MARK: - Public Methods

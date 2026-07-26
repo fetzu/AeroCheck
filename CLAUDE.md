@@ -22,8 +22,26 @@ open AeroCheck.xcodeproj
 
 # Run scheme: AéroCheck (with accent). Tests are on a separate scheme — the app
 # scheme has no test action, so a plain `build` never compiles tests.
+
+# Preferred: wraps xcodebuild with a preflight cleanup (see the note below).
+scripts/run-tests.sh                      # full suite
+scripts/run-tests.sh "iPhone 17"          # another simulator
+scripts/run-tests.sh "" ObstacleTests     # one class
+
+# Equivalent raw invocation:
 xcodebuild test -scheme AeroCheckTests -destination "platform=iOS Simulator,name=iPad Air 11-inch (M4)"
 ```
+
+> **If a test run hangs with ZERO test cases started** — the build succeeds, the app launches on the
+> simulator, and nothing else happens — the cause is an orphaned host-side `/usr/libexec/testmanagerd`
+> left behind by a **SIGKILLed `xcodebuild test`**. It keeps holding the test session, so later runs
+> launch the app and then wait forever for a bundle that never arrives. Sampling the app shows it
+> *idle in a normal CFRunLoop*, not deadlocked — that is the tell that the harness is stuck, not the code.
+>
+> Fix: `killall -9 testmanagerd`. Note that neither `xcrun simctl shutdown all` **nor** killing
+> `CoreSimulatorService` clears it, so those resets seem to work once and then the hang returns.
+> `scripts/run-tests.sh` does this cleanup automatically. Never stop a test run with `kill -9` —
+> Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
 
 Requirements: Xcode 26 (ships the iOS 26 SDK — `CompanionConnectivityManager.swift` and
 `CompanionPairingView.swift` unconditionally `import WiFiAware`, which won't compile under

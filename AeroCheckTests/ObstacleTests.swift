@@ -76,6 +76,43 @@ final class ObstacleTests: XCTestCase {
         XCTAssertTrue(empty.isEmpty)
     }
 
+    /// The region query feeds map annotations directly and used to be unbounded, unlike its airport
+    /// and airspace siblings which cap at 100 — a dense region could hand the map thousands of
+    /// markers in one update. (APP-05)
+    ///
+    /// The cap keeps the TALLEST obstacles, not an arbitrary slice of grid order: silently dropping
+    /// a tall mast near the aircraft while keeping a low one would be worse than not capping.
+    @MainActor
+    func testObstaclesInRegionCapKeepsTheTallest() throws {
+        let features = (0..<50).map { i in
+            """
+            {"type":"Feature","properties":{"_id":"o\(i)","type":0,
+              "elevation":{"value":\(100 + i * 10),"unit":0,"referenceDatum":1}},
+             "geometry":{"type":"Point","coordinates":[8.0\(i % 10),47.0]}}
+            """
+        }.joined(separator: ",")
+        let json = "{\"type\":\"FeatureCollection\",\"features\":[\(features)]}".data(using: .utf8)!
+
+        let service = OpenAIPObstacleDataService()
+        service.seedForTesting(try Obstacle.parse(geoJSON: json))
+
+        // Under the cap, everything in range is returned.
+        let uncapped = service.obstaclesInRegion(latRange: 46.5...47.5, lonRange: 7.5...8.5, limit: 500)
+        XCTAssertEqual(uncapped.count, 50)
+
+        let capped = service.obstaclesInRegion(latRange: 46.5...47.5, lonRange: 7.5...8.5, limit: 5)
+        XCTAssertEqual(capped.count, 5, "The cap must be applied")
+
+        // Compared against the uncapped set rather than hardcoded numbers: the source elevations are
+        // in metres (`unit: 0`) and the parser converts to feet, so literals here would be asserting
+        // the conversion factor rather than the cap behaviour this test is about.
+        let tallestFive = uncapped
+            .sorted { ($0.elevationFeetMSL ?? 0) > ($1.elevationFeetMSL ?? 0) }
+            .prefix(5)
+            .map(\.id)
+        XCTAssertEqual(capped.map(\.id), tallestFive, "The cap must keep the tallest, in descending order")
+    }
+
     /// The 1° spatial grid added for the perf review (30-performance.md #7) must gather candidates from
     /// every cell the query bounds overlap and still apply the exact range check — asserted against an
     /// independently reimplemented brute-force filter over a dataset that straddles the (lat 45, lon 9)

@@ -462,7 +462,34 @@ class OpenAIPDataService: ObservableObject {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let maxDistanceMeters = distance * 1852
 
-        return airspaces
+        // Gather candidates from the spatial grid instead of scanning every airspace. The grid is
+        // already built and maintained for `airspacesInBounds`; this query simply never used it, so
+        // it ran a full linear scan of the whole loaded dataset — on the in-flight FREQ path, which
+        // re-runs as the aircraft moves. (APP-11, same fix as PERF-27 got for navaids)
+        //
+        // The search box is the lat/lon envelope of `distance`, widened by one cell so a CTR whose
+        // centroid sits just outside the box but within range still appears. Longitude degrees
+        // shrink with latitude, so the lon half-width is divided by cos(lat); clamped because that
+        // term explodes near the poles.
+        let latDelta = distance / 60.0 + Self.gridCellDegrees
+        let cosLat = max(cos(coordinate.latitude * .pi / 180.0), 0.01)
+        let lonDelta = min(distance / 60.0 / cosLat + Self.gridCellDegrees, 180.0)
+        let keys = gridKeyRange(
+            minLat: coordinate.latitude - latDelta, maxLat: coordinate.latitude + latDelta,
+            minLon: coordinate.longitude - lonDelta, maxLon: coordinate.longitude + lonDelta
+        )
+        var seenIds = Set<String>()
+        var candidates: [Airspace] = []
+        for latKey in keys.lat {
+            for lonKey in keys.lon {
+                guard let cell = spatialGrid[GridKey(lat: latKey, lon: lonKey)] else { continue }
+                for airspace in cell where seenIds.insert(airspace.id).inserted {
+                    candidates.append(airspace)
+                }
+            }
+        }
+
+        return candidates
             .filter { $0.airspaceType == .ctr && (!requireFrequencies || $0.frequencies?.isEmpty == false) }
             .compactMap { airspace -> (airspace: Airspace, distanceNM: Double)? in
                 guard let centroid = airspace.centroid else { return nil }

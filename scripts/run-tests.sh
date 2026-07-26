@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# Runs the AeroCheck unit tests, with a preflight cleanup that prevents the most common
+# local failure mode: a hang in which the build succeeds, the app launches on the simulator,
+# and then ZERO test cases ever start.
+#
+# Cause: a SIGKILLed `xcodebuild test` orphans the host-side /usr/libexec/testmanagerd, which
+# keeps holding the test session. Every later run then builds and launches fine and waits forever
+# for a test bundle the stale broker never hands over. Sampling the app shows it idle in a normal
+# CFRunLoop rather than deadlocked — that "idle, not blocked" signature means the harness is stuck,
+# not the app.
+#
+# Neither `simctl shutdown all` nor killing CoreSimulatorService touches testmanagerd, so those
+# resets appear to work once and then the hang returns. Killing testmanagerd is the actual fix.
+#
+# Usage:
+#   scripts/run-tests.sh                      # default destination
+#   scripts/run-tests.sh "iPhone 17"          # another simulator by name
+#   scripts/run-tests.sh "" ObstacleTests     # filter to one test class (target prefix optional)
+#
+# Never stop this script (or xcodebuild) with `kill -9` — that is what creates the orphan in the
+# first place. Ctrl-C sends SIGINT, which xcodebuild cleans up after correctly.
+
+set -uo pipefail
+
+DEVICE="${1:-iPad Air 11-inch (M4)}"
+[ -z "$DEVICE" ] && DEVICE="iPad Air 11-inch (M4)"
+ONLY_TESTING="${2:-}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT="$SCRIPT_DIR/../AeroCheck.xcodeproj"
+SCHEME="AeroCheckTests"
+LOG="${TMPDIR:-/tmp}/aerocheck-tests.log"
+
+echo "==> Preflight: clearing stale test state"
+
+# SIGTERM, never -9: let xcodebuild tear its own session down.
+if pgrep -f "xcodebuild test -scheme $SCHEME" >/dev/null 2>&1; then
+  echo "    stopping a previous xcodebuild test run"
+  pkill -f "xcodebuild test -scheme $SCHEME" 2>/dev/null
+  sleep 2
+fi
+
+# The orphan check. Any testmanagerd still alive here belongs to no live run.
+if pgrep -x testmanagerd >/dev/null 2>&1; then
+  echo "    killing orphaned testmanagerd (the usual cause of a hang with 0 tests started)"
+  killall -9 testmanagerd 2>/dev/null
+  sleep 2
+fi
+
+# Booting explicitly, and waiting for ready, keeps boot from racing test-bundle injection.
+if ! xcrun simctl list devices booted | grep -qF "$DEVICE"; then
+  echo "==> Booting $DEVICE"
+  xcrun simctl boot "$DEVICE" >/dev/null 2>&1
+fi
+xcrun simctl bootstatus "$DEVICE" -b >/dev/null 2>&1
+
+echo "==> Testing on $DEVICE${ONLY_TESTING:+ (only: $ONLY_TESTING)}"
+
+ARGS=(test -scheme "$SCHEME" -project "$PROJECT" -destination "platform=iOS Simulator,name=$DEVICE")
+if [ -n "$ONLY_TESTING" ]; then
+  # -only-testing wants Target/Class; accept a bare class name and prefix the test target.
+  case "$ONLY_TESTING" in
+    */*) ARGS+=(-only-testing:"$ONLY_TESTING") ;;
+    *)   ARGS+=(-only-testing:"AeroCheckTests/$ONLY_TESTING") ;;
+  esac
+fi
+
+xcodebuild "${ARGS[@]}" > "$LOG" 2>&1
+STATUS=$?
+
+echo
+grep -E "error:|XCTAssert.*failed|Executed [0-9]+ tests, with|TEST SUCCEEDED|TEST FAILED" "$LOG" | tail -20
+
+if [ "$STATUS" -ne 0 ] && ! grep -q "TEST FAILED" "$LOG"; then
+  # Non-zero without a test verdict usually means the run never reached the tests at all.
+  echo
+  echo "!! xcodebuild exited $STATUS with no test verdict. Last log lines:"
+  tail -15 "$LOG"
+  echo
+  echo "   If it hung with no test cases started, re-run this script — the preflight above"
+  echo "   clears the orphaned testmanagerd that causes it."
+fi
+
+echo
+echo "Full log: $LOG"
+exit "$STATUS"

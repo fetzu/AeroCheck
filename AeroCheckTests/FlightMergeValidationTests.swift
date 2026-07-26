@@ -424,3 +424,117 @@ final class SyncSendFailureClassificationTests: XCTestCase {
         XCTAssertEqual(classify(code: 999_999, recordName: UUID().uuidString), .leavePending)
     }
 }
+
+/// Change-tag preservation for flight records. (CloudKit "record to insert already exists")
+///
+/// `buildFlightRecord` used to mint a fresh `CKRecord` on every send. A record with no
+/// `recordChangeTag` is an INSERT to CloudKit, so re-sending an existing flight failed with
+/// `serverRecordChanged` / "record to insert already exists" — and the conflict handler then merged
+/// and re-queued *another* tag-less record, so it could never converge. The GPS track record failed
+/// alongside it with "Atomic failure", since the two share an atomic batch. A flight that needed
+/// re-sending therefore never reached iCloud at all.
+final class FlightRecordSystemFieldsTests: XCTestCase {
+
+    private let zoneID = CKRecordZone.ID(zoneName: "AeroCheckZone", ownerName: CKCurrentUserDefaultName)
+
+    private func flightRecordID(_ id: UUID) -> CKRecord.ID {
+        CKRecord.ID(recordName: id.uuidString, zoneID: zoneID)
+    }
+
+    func testSystemFieldsRoundTripPreservesRecordIdentity() throws {
+        let id = UUID()
+        let recordID = flightRecordID(id)
+        let original = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+
+        let restored = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue,
+            recordID: recordID,
+            systemFields: SyncManager.encodedSystemFields(of: original)
+        )
+
+        XCTAssertEqual(restored.recordID, recordID)
+        XCTAssertEqual(restored.recordType, SyncRecordType.flight.rawValue)
+    }
+
+    /// System fields carry identity and change tag ONLY — never the payload. If data leaked through,
+    /// a rebuilt record could resurrect stale fields the local flight no longer has.
+    func testSystemFieldsCarryNoDataFields() throws {
+        let recordID = flightRecordID(UUID())
+        let original = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+        original["data"] = Data([0x01, 0x02]) as CKRecordValue
+        original["airplane"] = "HB-XYZ" as CKRecordValue
+
+        let restored = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue,
+            recordID: recordID,
+            systemFields: SyncManager.encodedSystemFields(of: original)
+        )
+
+        XCTAssertNil(restored["data"], "system fields must not carry the payload")
+        XCTAssertNil(restored["airplane"])
+    }
+
+    func testNoStoredFieldsYieldsAFreshRecord() {
+        let recordID = flightRecordID(UUID())
+        let record = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue, recordID: recordID, systemFields: nil)
+
+        XCTAssertEqual(record.recordID, recordID)
+        XCTAssertNil(record.recordChangeTag, "a genuinely new flight must still be an insert")
+    }
+
+    /// Stored fields describing a DIFFERENT record must never be adopted — that would send one
+    /// flight's payload under another flight's identity.
+    func testMismatchedStoredFieldsAreIgnored() throws {
+        let other = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: flightRecordID(UUID()))
+        let wantedID = flightRecordID(UUID())
+
+        let record = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue,
+            recordID: wantedID,
+            systemFields: SyncManager.encodedSystemFields(of: other)
+        )
+
+        XCTAssertEqual(record.recordID, wantedID, "must fall back to the requested identity")
+    }
+
+    /// A track record's fields must not be adopted for a metadata record, or vice versa.
+    func testMismatchedRecordTypeIsIgnored() throws {
+        let recordID = flightRecordID(UUID())
+        let track = CKRecord(recordType: SyncRecordType.flightTrack.rawValue, recordID: recordID)
+
+        let record = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue,
+            recordID: recordID,
+            systemFields: SyncManager.encodedSystemFields(of: track)
+        )
+
+        XCTAssertEqual(record.recordType, SyncRecordType.flight.rawValue)
+    }
+
+    func testCorruptStoredFieldsFallBackInsteadOfCrashing() {
+        let recordID = flightRecordID(UUID())
+        let record = SyncManager.baseRecord(
+            recordType: SyncRecordType.flight.rawValue,
+            recordID: recordID,
+            systemFields: Data([0xDE, 0xAD, 0xBE, 0xEF])
+        )
+
+        XCTAssertEqual(record.recordID, recordID)
+    }
+
+    /// The built record must still carry its payload — preserving system fields must not cost data.
+    func testBuiltFlightRecordStillCarriesItsPayload() throws {
+        let id = UUID()
+        let recordID = flightRecordID(id)
+        let flight = Flight(id: id, name: "T", gpsTrack: [], notes: "", modifiedAt: Date())
+        let seed = CKRecord(recordType: SyncRecordType.flight.rawValue, recordID: recordID)
+
+        let record = try XCTUnwrap(SyncManager.buildFlightRecord(
+            flight, recordID: recordID, systemFields: SyncManager.encodedSystemFields(of: seed)))
+
+        XCTAssertEqual(record.recordID, recordID)
+        XCTAssertNotNil(record["data"], "the flight payload must still be attached")
+        XCTAssertEqual(record["flightId"] as? String, id.uuidString)
+    }
+}

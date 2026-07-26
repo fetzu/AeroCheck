@@ -1,25 +1,28 @@
 #!/bin/bash
 #
-# Runs the AeroCheck unit tests, with a preflight cleanup that prevents the most common
-# local failure mode: a hang in which the build succeeds, the app launches on the simulator,
-# and then ZERO test cases ever start.
+# Runs the AeroCheck unit tests, with a preflight cleanup and a stall watchdog for the most common
+# local failure mode: a run that hangs with ZERO test cases started.
 #
-# Cause: a SIGKILLed `xcodebuild test` orphans the host-side /usr/libexec/testmanagerd, which
-# keeps holding the test session. Every later run then builds and launches fine and waits forever
-# for a test bundle the stale broker never hands over. Sampling the app shows it idle in a normal
-# CFRunLoop rather than deadlocked — that "idle, not blocked" signature means the harness is stuck,
-# not the app.
+# Cause: SWBBuildService wedges. `xcodebuild` blocks in `waitForBuildWithBuildLog:` waiting on it,
+# while the service sits idle in `read` with no lock contention — a lost message between the two, so
+# the BUILD never completes and tests never begin.
 #
-# Neither `simctl shutdown all` nor killing CoreSimulatorService touches testmanagerd, so those
-# resets appear to work once and then the hang returns. Killing testmanagerd is the actual fix.
+# Diagnose by sampling `xcodebuild` itself, never the app. A leftover app process on the simulator is
+# a red herring: sampling it shows an ordinary idle CFRunLoop, which reads convincingly like "the test
+# bundle was never injected" when in fact the build never finished.
+#
+# The preflight below clears a wedged service before starting, but a FRESHLY spawned one can wedge
+# too — so the watchdog further down detects the stall and retries. `testmanagerd` and simulator
+# reboots are NOT the fix; earlier versions of this script claimed they were and were wrong.
 #
 # Usage:
 #   scripts/run-tests.sh                      # default destination
 #   scripts/run-tests.sh "iPhone 17"          # another simulator by name
 #   scripts/run-tests.sh "" ObstacleTests     # filter to one test class (target prefix optional)
 #
-# Never stop this script (or xcodebuild) with `kill -9` — that is what creates the orphan in the
-# first place. Ctrl-C sends SIGINT, which xcodebuild cleans up after correctly.
+# Never stop this script (or xcodebuild) with `kill -9`, and never run it from a foreground shell
+# that might be killed — a dying process group takes xcodebuild with it and leaves debris behind.
+# Ctrl-C sends SIGINT, which xcodebuild cleans up after correctly.
 
 set -uo pipefail
 
@@ -82,8 +85,50 @@ if [ -n "$ONLY_TESTING" ]; then
   esac
 fi
 
-xcodebuild "${ARGS[@]}" > "$LOG" 2>&1
+# Run under a stall watchdog.
+#
+# SWBBuildService can wedge mid-build: xcodebuild blocks in `waitForBuildWithBuildLog:` while the
+# service sits idle in `read`, so the build never completes and NO test case ever starts. It happens
+# to a freshly-spawned service too, so clearing one beforehand reduces it but cannot prevent it.
+#
+# Detection is simple and reliable: if the log stops growing while zero test cases have started, the
+# build is stuck. (Once tests are running a quiet log is normal, so the check is disabled from then
+# on.) On a stall we kill the run, clear the build service, and retry once.
+STALL_CHECK_SECONDS=10
+STALL_LIMIT=4          # ~40 s of no output and no tests started
+
+run_once() {
+  xcodebuild "${ARGS[@]}" > "$LOG" 2>&1 &
+  local pid=$! last=0 stalls=0 now
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep "$STALL_CHECK_SECONDS"
+    # Once any test case has started the build is past; let it run to completion.
+    if grep -q "Test Case" "$LOG" 2>/dev/null; then
+      wait "$pid"; return $?
+    fi
+    now=$(wc -c < "$LOG" 2>/dev/null || echo 0)
+    if [ "$now" -eq "$last" ]; then stalls=$((stalls + 1)); else stalls=0; fi
+    last=$now
+    if [ "$stalls" -ge "$STALL_LIMIT" ]; then
+      echo "    !! build stalled (no output, no tests started) — killing and clearing build service"
+      kill "$pid" 2>/dev/null
+      wait "$pid" 2>/dev/null
+      killall SWBBuildService XCBBuildService 2>/dev/null
+      sleep 2
+      return 99
+    fi
+  done
+  wait "$pid"; return $?
+}
+
+run_once
 STATUS=$?
+if [ "$STATUS" -eq 99 ]; then
+  echo "==> Retrying after the stall"
+  run_once
+  STATUS=$?
+  [ "$STATUS" -eq 99 ] && echo "!! stalled twice — this is the SWBBuildService wedge, not your code"
+fi
 
 echo
 grep -E "error:|XCTAssert.*failed|Executed [0-9]+ tests, with|TEST SUCCEEDED|TEST FAILED" "$LOG" | tail -20
@@ -94,8 +139,8 @@ if [ "$STATUS" -ne 0 ] && ! grep -q "TEST FAILED" "$LOG"; then
   echo "!! xcodebuild exited $STATUS with no test verdict. Last log lines:"
   tail -15 "$LOG"
   echo
-  echo "   If it hung with no test cases started, re-run this script — the preflight above"
-  echo "   clears the orphaned testmanagerd that causes it."
+  echo "   If it hung with no test cases started, that is the SWBBuildService wedge — the"
+  echo "   watchdog above retries once automatically; run again if it hit the limit twice."
 fi
 
 echo

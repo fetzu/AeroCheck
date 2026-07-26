@@ -274,3 +274,62 @@ final class OpenAIPAirportMergeTests: XCTestCase {
         XCTAssertEqual(merged.first?.pcn, "30/F/A/X/T", "OpenAIP wins on the normalised match")
     }
 }
+
+/// OpenAIP must be usable as a STANDALONE dataset, not only as an enrichment of OurAirports.
+///
+/// Reported from device testing: with OurAirports not downloaded but OpenAIP present for the
+/// pilot's country, the app showed no airports and no frequencies at all. Two independent blockers
+/// treated OurAirports as mandatory — `applyOpenAIPMergeIfAvailable` early-returned on an empty
+/// backbone so the merge never ran, and `isDataAvailable` (which every frequency/airport surface
+/// gates on) was only ever set by OurAirports. The merge engine itself was always capable of it.
+final class OpenAIPStandaloneMergeTests: XCTestCase {
+
+    private let openAIPJSON = """
+    { "type": "FeatureCollection", "features": [
+      { "type": "Feature",
+        "properties": { "_id": "s1", "name": "BERN-BELP", "icaoCode": "LSZB", "type": 3, "country": "CH",
+          "frequencies": [ { "name": "BERN TOWER", "value": "121.030", "type": 14 } ] },
+        "geometry": { "type": "Point", "coordinates": [7.4971, 46.9141] } },
+      { "type": "Feature",
+        "properties": { "_id": "s2", "name": "GENEVA", "icaoCode": "LSGG", "type": 3, "country": "CH" },
+        "geometry": { "type": "Point", "coordinates": [6.1089, 46.2381] } }
+    ] }
+    """.data(using: .utf8)!
+
+    /// The case that was broken: an EMPTY OurAirports backbone must still yield every OpenAIP field.
+    func testMergeWithEmptyBackboneYieldsTheOpenAIPAirports() throws {
+        let openAIP = try OpenAIPAirport.parse(geoJSON: openAIPJSON)
+
+        let merged = AirportDataMergeEngine.merge(ourAirports: [], openAIP: openAIP)
+
+        XCTAssertEqual(merged.count, 2, "OpenAIP alone must produce a usable airport set")
+        XCTAssertEqual(Set(merged.map(\.ident)), ["LSZB", "LSGG"])
+    }
+
+    /// Frequencies are the reason this mattered in the field — the FREQ panel had nothing to show.
+    func testFrequenciesSurviveAMergeWithNoBackbone() throws {
+        let openAIP = try OpenAIPAirport.parse(geoJSON: openAIPJSON)
+
+        let freqs = AirportDataMergeEngine.openAIPFrequencies(from: openAIP)
+
+        let bern = freqs.filter { $0.airportIdent == "LSZB" }
+        XCTAssertFalse(bern.isEmpty, "OpenAIP frequencies must be available without OurAirports")
+        XCTAssertTrue(bern.contains { abs($0.frequencyMhz - 121.030) < 0.0005 })
+    }
+
+    /// Guards the honest limitation: OpenAIP records with no ICAO code are skipped by the merge, so
+    /// an OpenAIP-only dataset covers ICAO-coded fields only. Documented, not accidental.
+    func testOpenAIPRecordsWithoutIcaoAreStillSkipped() throws {
+        let noIcao = """
+        { "type": "FeatureCollection", "features": [
+          { "type": "Feature", "properties": { "_id": "n1", "name": "STRIP", "type": 2, "country": "CH" },
+            "geometry": { "type": "Point", "coordinates": [7.0, 46.5] } }
+        ] }
+        """.data(using: .utf8)!
+
+        let merged = AirportDataMergeEngine.merge(
+            ourAirports: [], openAIP: try OpenAIPAirport.parse(geoJSON: noIcao))
+
+        XCTAssertTrue(merged.isEmpty, "no ICAO code means no merge key — a known limitation")
+    }
+}

@@ -100,6 +100,13 @@ class AirportDataService: ObservableObject {
 
         // Check if data files exist on disk and restore metadata
         // without loading the full dataset into memory.
+        // OpenAIP alone is a valid dataset: report data as available when EITHER source has something
+        // on disk, so the UI offers its surfaces (and triggers `ensureLoaded`) rather than behaving as
+        // if there were no airport data at all.
+        if OpenAIPAirportDataService.shared.isDataAvailable {
+            isDataAvailable = true
+        }
+
         if fileManager.fileExists(atPath: airportsFileURL.path) {
             isDataAvailable = true
             if let metadataData = try? Data(contentsOf: metadataFileURL),
@@ -127,7 +134,11 @@ class AirportDataService: ObservableObject {
     /// tolerance, OurAirports gap-fills). No-op when OpenAIP airport data isn't downloaded → OurAirports
     /// is the fallback. Re-sets `airports` (didSet rebuilds the spatial grid). Idempotent. (v4.1.0)
     func applyOpenAIPMergeIfAvailable() async {
-        guard !airports.isEmpty else { return }
+        // NOT guarded on `!airports.isEmpty`. It used to be, which made OpenAIP unusable on its own:
+        // with OurAirports absent this returned immediately, so a pilot who had downloaded OpenAIP
+        // data for their country — and nothing else — got no airports and no frequencies at all,
+        // silently. The merge engine has always appended OpenAIP-only airports (see its `else`
+        // branch); it simply never ran. OurAirports is a backbone when present, not a precondition.
         await OpenAIPAirportDataService.shared.ensureLoaded()
         let oaip = OpenAIPAirportDataService.shared.allLoadedAirports()
         guard !oaip.isEmpty else { return }
@@ -157,6 +168,11 @@ class AirportDataService: ObservableObject {
             runwaysByAirport[ident] = AirportDataMergeEngine.unionRunways(
                 our: runwaysByAirport[ident] ?? [], openAIP: openAIPRwys)
         }
+        // Queryable data now exists, whatever its source. Every frequency/airport surface in the app
+        // gates on this flag, and it used to be set only by OurAirports — so even once the merge
+        // above ran, an OpenAIP-only dataset stayed invisible to the UI.
+        if !merged.isEmpty { isDataAvailable = true }
+
         AppLog.airportData.debugLine("OpenAIP-primary merge applied: \(merged.count) airports, \(openAIPFreqsByIdent.count) airports got OpenAIP frequencies, \(openAIPRwysByIdent.count) got OpenAIP runways")
 
         // The raw OpenAIP array has now been folded into `airports`, `frequenciesByAirport` and

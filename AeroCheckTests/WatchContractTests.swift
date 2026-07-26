@@ -5,6 +5,33 @@ import XCTest
 /// independently, so a payload must survive being decoded by a different app version. (ARCH)
 final class WatchContractTests: XCTestCase {
 
+    /// `SwissCommonFrequency` is the single source for the Info/FIS/emergency frequencies shown in
+    /// the phone's FREQ panel AND, since the Watch's hand-written copy was removed, on the Watch.
+    ///
+    /// That copy had drifted: the Watch served FIS East 124.150 / FIS West 126.600 against the
+    /// canonical 125.225 / 119.175, so a pilot reading the Watch would have tuned a frequency the
+    /// app's own data says is not that FIS sector. Deriving both from this enum makes the two
+    /// physically incapable of diverging — which concentrates the risk here, so pin the values.
+    func testCanonicalSwissFrequencies() {
+        XCTAssertEqual(SwissCommonFrequency.fisEast.frequency, "125.225")
+        XCTAssertEqual(SwissCommonFrequency.fisWest.frequency, "119.175")
+        XCTAssertEqual(SwissCommonFrequency.genevaInfo.frequency, "126.350")
+        XCTAssertEqual(SwissCommonFrequency.zurichInfo.frequency, "124.700")
+        XCTAssertEqual(SwissCommonFrequency.emergency.frequency, "121.500")
+
+        // Every case must carry a non-empty name and a plausible VHF airband frequency, so a new
+        // case cannot ship blank or malformed.
+        for freq in SwissCommonFrequency.allCases {
+            XCTAssertFalse(freq.name.isEmpty, "\(freq) has no name")
+            let value = Double(freq.frequency)
+            XCTAssertNotNil(value, "\(freq) frequency '\(freq.frequency)' is not numeric")
+            if let value {
+                XCTAssertTrue((118.0...137.0).contains(value),
+                              "\(freq) frequency \(value) is outside the VHF airband")
+            }
+        }
+    }
+
     func testRoundTripPreservesFieldsAndVersion() throws {
         var data = WatchFlightData()
         data.isFlightActive = true

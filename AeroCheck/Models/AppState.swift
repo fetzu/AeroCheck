@@ -740,7 +740,6 @@ class AppState {
                 for (id, previous) in previousById where !incomingIds.contains(id) {
                     self.persistence.deleteFlight(previous)
                 }
-                await self.persistence.rebuildFlightsIndexOffMain(flights)
                 AppLog.general.debugLine("Flights updated from iCloud sync")
             }
         }
@@ -1396,20 +1395,10 @@ class AppState {
 
         // Delete the individual flight file from iCloud
         persistence.deleteFlight(flight)
-        scheduleFlightsIndexRebuild()
 
         // Sync deletion to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
             SyncManager.shared.deleteFlight(flight.id)
-        }
-    }
-
-    /// Rebuilds the summary index (PERF-26) off-main from the current in-memory logbook.
-    /// Fire-and-forget: the index is a rebuildable cache, the flight files stay the source of truth.
-    private func scheduleFlightsIndexRebuild() {
-        let snapshot = flights
-        Task { [weak self] in
-            await self?.persistence.rebuildFlightsIndexOffMain(snapshot)
         }
     }
 
@@ -1423,7 +1412,6 @@ class AppState {
         for flight in flightsToDelete {
             persistence.deleteFlight(flight)
         }
-        scheduleFlightsIndexRebuild()
 
         // Sync deletions to iCloud (CloudKit)
         if settings.iCloudSyncEnabled {
@@ -1495,7 +1483,6 @@ class AppState {
     func saveFlight(_ flight: Flight) -> Bool {
         // Save just this flight to its own file
         let saved = persistence.saveFlight(flight)
-        scheduleFlightsIndexRebuild()
 
         if settings.iCloudSyncEnabled {
             SyncManager.shared.syncFlight(flight, allFlights: flights)

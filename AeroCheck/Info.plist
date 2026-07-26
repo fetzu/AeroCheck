@@ -4,6 +4,8 @@
 <dict>
 	<key>APIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>APIBaseURLSandbox</key>
+	<string>$(API_BASE_URL_SANDBOX)</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

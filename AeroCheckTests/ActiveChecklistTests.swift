@@ -173,4 +173,42 @@ final class BundledChecklistParityTests: XCTestCase {
         let frPairs = fr.speeds.map { [$0.name, $0.value] }.sorted { $0[0] < $1[0] }
         XCTAssertEqual(enPairs, frPairs, "Speed reference values must be identical across languages")
     }
+
+    /// The WT9 exists twice: as JSON (`Resources/wt9-dynamic-bundled*.json`, the normal path) and as
+    /// Swift statics in `WT9ChecklistData` (the `.bundled` fallback, reached before the async
+    /// checklist resolve completes and whenever the JSON fails to load). Nothing linked the two, and
+    /// they silently drifted: when the JSON target speeds were corrected to the AFM values the Swift
+    /// copy kept the superseded figures, so the fallback path showed a climb target of 55 kt instead
+    /// of 70 kt (Vy) — wrong reference airspeeds, presented identically to the correct ones.
+    ///
+    /// This is the guard that makes the two copies fail loudly instead of diverging in silence.
+    func testBundledWT9SwiftStaticsMatchBundledJSON() throws {
+        let json = try XCTUnwrap(
+            BundledChecklistService.loadBundledChecklist(for: "wt9-dynamic", language: "en"),
+            "Bundled WT9 EN JSON must load"
+        )
+
+        for phase in ChecklistPhase.allCases {
+            XCTAssertEqual(
+                AircraftType.wt9Dynamic.targetSpeed(for: phase),
+                json.targetSpeed(for: phase),
+                "targetSpeed drift for phase .\(phase): WT9ChecklistData disagrees with the bundled JSON"
+            )
+        }
+
+        XCTAssertEqual(
+            AircraftType.wt9Dynamic.stallSpeed, json.stallSpeed,
+            "stallSpeed drift between WT9ChecklistData and the bundled JSON"
+        )
+
+        // Speed reference values must agree name-for-name. Descriptions are localized copy and the
+        // JSON collapses the two VA weights into one row, so compare the name→value set only.
+        let staticValues = Set(AircraftType.wt9Dynamic.speeds.map { "\($0.name)=\($0.value)" })
+        let jsonValues = Set(json.speeds.map { "\($0.name)=\($0.value)" })
+        for name in ["Vso", "Vs", "Vr", "Vx", "Vy", "Vcc", "Vfe", "Vbg"] {
+            let staticEntry = staticValues.first { $0.hasPrefix("\(name)=") }
+            let jsonEntry = jsonValues.first { $0.hasPrefix("\(name)=") }
+            XCTAssertEqual(staticEntry, jsonEntry, "Speed \(name) drifted between the Swift statics and the JSON")
+        }
+    }
 }

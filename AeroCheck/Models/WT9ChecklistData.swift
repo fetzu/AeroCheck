@@ -93,16 +93,20 @@ struct WT9ChecklistData {
             return nil // Ground operations
         case .lineUp:
             return nil // On ground, preparing for takeoff
+        // AFM values, kept in step with checklist v2.1e/v2.1f and the JSON
+        // (Resources/wt9-dynamic-bundled*.json → targetSpeeds). This copy is only reached when the
+        // JSON checklist fails to resolve, but it must still agree with it — it previously carried
+        // the pre-2.1e figures and drifted for months after the JSON was corrected.
         case .climb:
-            return 55 // Vx - best angle of climb
+            return 70 // Vy - best rate of climb
         case .cruise:
-            return 100 // Cruise speed
+            return 85 // Vcc - cruise climb
         case .descent:
-            return 85 // Vcc - cruise descent
+            return 70 // Vbg / initial approach (clean)
         case .approach:
-            return 65 // Initial approach with F1
+            return 70 // V initial approach (clean)
         case .landing:
-            return 55 // Final approach speed F3
+            return 60 // V final - gate (F2)
         case .afterLanding:
             return nil // On ground
         case .shutdown, .hangar:

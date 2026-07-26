@@ -133,6 +133,7 @@ class OpenAIPCacheManager: ObservableObject {
         // Create cache directory
         do {
             try fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+            DataPersistenceManager.excludeFromBackup(cacheDirectory) // SEC-C28
         } catch {
             downloadError = "Failed to create cache directory: \(error.localizedDescription)"
             isDownloading = false

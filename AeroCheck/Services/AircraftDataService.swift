@@ -1,10 +1,14 @@
 import Foundation
+import CryptoKit
 
 /// Narrow seam over the subscription state `AircraftDataService` needs, so its premium-gating logic
 /// can be exercised with a fake instead of a live `SubscriptionManager` + StoreKit. (ARCH-12)
 @MainActor
 protocol SubscriptionGating {
     func getUserID() async -> String?
+    /// Credential for `Authorization: Bearer …` — the minted session token when one exists,
+    /// otherwise the legacy identifier during migration. (SEC-C3)
+    func getAuthCredential() async -> String?
     func shouldAllowPremiumAccess() -> Bool
     /// True only when premium access is DEFINITIVELY denied (status resolved, not subscribed, no
     /// valid grace window). Used for the cache-DESTROYING decision so a transient cold-launch state
@@ -13,6 +17,9 @@ protocol SubscriptionGating {
 }
 
 extension SubscriptionGating {
+    /// Default for conformers (e.g. test fakes) that predate the session token.
+    func getAuthCredential() async -> String? { await getUserID() }
+
     /// Conservative default for conformers without richer state (e.g. test fakes): defer to the
     /// access check. `SubscriptionManager` overrides this to avoid clearing caches mid-load. (PR-05)
     func isPremiumAccessDefinitivelyDenied() -> Bool { !shouldAllowPremiumAccess() }
@@ -33,6 +40,21 @@ extension URLSession: HTTPClient {
     // protocol's `data(for:)` requirement on its own.
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         try await data(for: request, delegate: nil)
+    }
+}
+
+/// Default `HTTPClient` for this service: the shared `ExternalRequest` path. (SEC-C35)
+///
+/// The three fetch sites here called the injected client directly, and the default was
+/// `URLSession.shared` — so the aircraft-list and checklist downloads were the only external
+/// fetches in the app with NO response-size ceiling, while every other service went through
+/// `ExternalRequest`. A checklist fetch can happen mid-flight (widget/deep-link start), so the
+/// unbounded buffer was reachable at the worst possible moment. Fixing the DEFAULT rather than the
+/// call sites keeps the `HTTPClient` seam intact for tests.
+nonisolated struct SizeLimitedHTTPClient: HTTPClient {
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let (data, response) = try await ExternalRequest.data(for: request)
+        return (data, response)
     }
 }
 
@@ -70,9 +92,9 @@ class AircraftDataService: ObservableObject {
     /// `subscriptionManager` and `httpClient` are injected as protocols (defaulting to the real
     /// implementations) so production wiring is unchanged but tests can supply fakes. (ARCH-12)
     init(
-        apiBaseURL: String = "https://api.aerocheck.app",
+        apiBaseURL: String = APIConfig.baseURL,
         subscriptionManager: SubscriptionGating,
-        httpClient: HTTPClient = URLSession.shared
+        httpClient: HTTPClient = SizeLimitedHTTPClient()
     ) {
         self.apiBaseURL = apiBaseURL
         self.gating = subscriptionManager
@@ -560,9 +582,9 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 15 // Set timeout for poor network conditions
 
-        // Add auth header if available
-        if let userID = await gating.getUserID() {
-            request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
+        // Add auth header if available (minted session token, or legacy id during migration)
+        if let credential = await gating.getAuthCredential() {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await httpClient.data(for: request)
@@ -637,9 +659,9 @@ class AircraftDataService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30 // Checklists can be larger, allow more time
 
-        // Add auth header if available
-        if let userID = await gating.getUserID() {
-            request.setValue("Bearer \(userID)", forHTTPHeaderField: "Authorization")
+        // Add auth header if available (minted session token, or legacy id during migration)
+        if let credential = await gating.getAuthCredential() {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await httpClient.data(for: request)
@@ -667,6 +689,14 @@ class AircraftDataService: ObservableObject {
     }
 
     private func fetchVersion(aircraftId: String, language: String? = nil) async throws -> VersionInfo {
+        // SEC-C29: the SA-23 traversal guard applied to fetchChecklistFromServer (:618) and
+        // cacheFileURL (:748) but NOT here, even though this builds a URL path segment from the
+        // same id — and fetchChecklist calls fetchVersion FIRST, so the unguarded request fired
+        // regardless of what the guarded sibling later did. `.urlPathAllowed` preserves `/` and
+        // `..`, so percent-encoding alone does not stop a traversal.
+        guard AircraftRegistrationToken.isWellFormed(aircraftId) else {
+            throw AircraftDataError.invalidURL
+        }
         // Build URL with optional language/registration parameters (server-supplied id;
         // encode + fail safe). "id~REG" tail tokens split into path id + `reg` query.
         let (baseId, registration) = AircraftRegistrationToken.split(aircraftId)
@@ -770,7 +800,8 @@ class AircraftDataService: ObservableObject {
                 aircraftId: aircraftId,
                 checksum: checksum,
                 cachedAt: Date(),
-                subscriptionVerifiedAt: Date()
+                subscriptionVerifiedAt: Date(),
+                contentHash: data.sha256Hex // SEC-C30
             )
             let metadataData = try encoder.encode(metadata)
             try metadataData.write(to: metadataPath, options: DataPersistenceManager.protectedWriteOptions)
@@ -800,6 +831,17 @@ class AircraftDataService: ObservableObject {
 
         do {
             let data = try Data(contentsOf: path)
+
+            // SEC-C30: verify the bytes are the ones we wrote. The cache was previously
+            // decode-and-trust: any file that happened to parse was served to the pilot as a
+            // genuine checklist. A mismatch means the file was replaced or corrupted, so treat it
+            // as absent — the caller re-downloads rather than displaying unverified procedures.
+            if let expected = loadCacheMetadata(aircraftId: aircraftId)?.contentHash,
+               expected != data.sha256Hex {
+                AppLog.aircraftData.debugLine("Cached checklist failed integrity check; discarding")
+                return nil
+            }
+
             let decoder = JSONDecoder()
             return try decoder.decode(RemoteAircraftChecklist.self, from: data)
         } catch {
@@ -876,4 +918,19 @@ private struct CacheMetadata: Codable {
     let checksum: String?
     let cachedAt: Date
     let subscriptionVerifiedAt: Date?
+    /// SHA-256 of the checklist bytes as written by THIS app. (SEC-C30)
+    ///
+    /// Distinct from `checksum`, which is the server's value and is only ever compared against
+    /// another server value to decide whether an update exists — it was never checked against the
+    /// bytes actually on disk, so a cached checklist was decode-and-trust. Optional so caches
+    /// written before this change still load (they simply skip verification once, then get a hash
+    /// on the next refresh).
+    var contentHash: String?
+}
+
+extension Data {
+    /// Lowercase hex SHA-256, used for at-rest cache integrity. (SEC-C30)
+    var sha256Hex: String {
+        SHA256.hash(data: self).map { String(format: "%02x", $0) }.joined()
+    }
 }

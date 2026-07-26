@@ -95,6 +95,8 @@ class SubscriptionManager: ObservableObject {
 
     /// Cached user ID from StoreKit
     private var cachedUserID: String?
+    /// In-memory mirror of the Keychain session token, to avoid a Keychain read per request. (SEC-C3)
+    private var cachedSessionToken: String?
 
     /// Debug flag to force "not subscribed" state (for testing)
     @Published var debugForceNotSubscribed: Bool = false
@@ -157,7 +159,7 @@ class SubscriptionManager: ObservableObject {
     /// - Parameters:
     ///   - apiBaseURL: The API base URL for receipt verification
     ///   - deferLoadProducts: If true, products won't be loaded automatically (call loadProducts() manually)
-    init(apiBaseURL: String = "https://api.aerocheck.app", deferLoadProducts: Bool = false) {
+    init(apiBaseURL: String = APIConfig.baseURL, deferLoadProducts: Bool = false) {
         self.apiBaseURL = apiBaseURL
 
         // PR-05: honor a persisted grace window synchronously from the first frame. Otherwise
@@ -257,6 +259,10 @@ class SubscriptionManager: ObservableObject {
             try await AppStore.sync()
             debugLogger.log("AppStore.sync() completed", level: .success)
 
+            // The session token authenticates an entitlement that no longer exists — drop it so a
+            // stale credential cannot linger in the Keychain. (SEC-C3)
+            cachedSessionToken = nil
+            KeychainStore.remove(.apiSessionToken)
             // Drop any cached identity (possibly a stale device-id fallback) so getUserID()
             // re-derives from the freshly synced entitlements before we re-check and sync
             // with the server. Without this, a restore rebinds to the wrong id. (ARCH-03)
@@ -663,7 +669,24 @@ class SubscriptionManager: ObservableObject {
         id.count <= 4 ? "****" : "****\(id.suffix(4))"
     }
 
-    /// Gets the user ID for API authentication
+    /// The API credential to send as `Authorization: Bearer …`. (SEC-C3)
+    ///
+    /// Prefers the server-minted session token; falls back to the legacy Apple
+    /// `originalTransactionId` only until the user next verifies (and only while the server still
+    /// dual-accepts it). The legacy value is the finding, not the fix: it is non-secret,
+    /// unrotatable, was rendered in the app's own debug screen, and proved nothing about the
+    /// caller — one shared string unlocked premium on unlimited devices.
+    func getAuthCredential() async -> String? {
+        if let cached = cachedSessionToken { return cached }
+        if let stored = KeychainStore.get(.apiSessionToken) {
+            cachedSessionToken = stored
+            return stored
+        }
+        return await getUserID()
+    }
+
+    /// Gets the user ID — the identity the server binds a transaction to, sent in the `/verify`
+    /// BODY. This is no longer the API auth credential; see `getAuthCredential()`.
     func getUserID() async -> String? {
         if let cached = cachedUserID {
             return cached
@@ -876,6 +899,8 @@ class SubscriptionManager: ObservableObject {
                     let status: String?
                     let expiresAt: String?
                     let sku: String?
+                    /// Opaque credential minted by the server for an entitled result. (SEC-C3)
+                    let sessionToken: String?
                 }
                 let success: Bool?
                 let data: Payload?
@@ -892,6 +917,19 @@ class SubscriptionManager: ObservableObject {
             }()
 
             if decoded?.success == true && (status == "active" || status == "lifetime") && expiresAtOK {
+                // SEC-C3: adopt the minted session token as the API credential. Until this existed
+                // the Bearer WAS the Apple originalTransactionId — a non-secret the app also
+                // displayed — so anyone given that string got the whole catalogue. Stored in the
+                // Keychain, never in UserDefaults/the App Group.
+                if let token = decoded?.data?.sessionToken, !token.isEmpty {
+                    if KeychainStore.set(token, for: .apiSessionToken) {
+                        cachedSessionToken = token
+                        debugLogger.log("Session token stored", level: .success)
+                    } else {
+                        // Non-fatal: the legacy identifier still authenticates during migration.
+                        debugLogger.log("Session token could not be stored in Keychain", level: .warning)
+                    }
+                }
                 recordSuccessfulVerification()
                 debugLogger.log("Server verification: \(status)", level: .success)
             } else {

@@ -111,6 +111,34 @@ final class CompanionServiceContractTests: XCTestCase {
         XCTAssertFalse(peerFix(lat: 47.0, lon: -.infinity).hasValidGeometry, "-inf longitude")
     }
 
+    // SEC-C15: finiteness was not enough. A FINITE but absurd speed/altitude passed every gate and
+    // reached `Int(displaySmoothedSpeedMPS * 1.94384)` in LocationManager — an uncatchable Swift
+    // trap, i.e. a nearby paired device could kill the app in flight. Short of the trap, an
+    // implausible value was simply displayed on the master's instruments and written to the track.
+    func testPeerFixGeometryRejectsImplausibleSpeed() {
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, speed: 1e19).hasValidGeometry,
+                       "finite but absurd speed traps Int(Double) downstream")
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, speed: 500).hasValidGeometry, "≈972 kt")
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, speed: -1).hasValidGeometry)
+        // A realistic light-aircraft envelope must still pass.
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, speed: 60).hasValidGeometry, "≈117 kt")
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, speed: 0).hasValidGeometry, "stationary")
+    }
+
+    func testPeerFixGeometryRejectsImplausibleAltitude() {
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, altitude: 1e19).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, altitude: 50_000).hasValidGeometry, "50 km")
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, altitude: -2_000).hasValidGeometry)
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, altitude: 3_000).hasValidGeometry)
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, altitude: nil).hasValidGeometry, "absent is fine")
+    }
+
+    func testPeerFixGeometryRejectsImplausibleCourse() {
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, course: 720).hasValidGeometry)
+        XCTAssertFalse(peerFix(lat: 47.0, lon: 8.0, course: -10).hasValidGeometry)
+        XCTAssertTrue(peerFix(lat: 47.0, lon: 8.0, course: 359.9).hasValidGeometry)
+    }
+
     func testPeerFixGeometryRejectsOutOfRangeCoordinates() {
         XCTAssertFalse(peerFix(lat: 4.0e9, lon: 8.0).hasValidGeometry, "the report's example value")
         XCTAssertFalse(peerFix(lat: 91, lon: 8.0).hasValidGeometry)

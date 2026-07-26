@@ -232,6 +232,7 @@ class OfflineMapManager: ObservableObject {
         for layer in option.layers {
             do {
                 try FileManager.default.createDirectory(at: cacheDirectory(for: layer), withIntermediateDirectories: true)
+                DataPersistenceManager.excludeFromBackup(cacheDirectory(for: layer)) // SEC-C28
             } catch {
                 downloadError = "Failed to create cache directory: \(error.localizedDescription)"
                 isDownloading = false

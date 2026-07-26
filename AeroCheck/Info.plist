@@ -2,11 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- OpenAIP API key, injected at build time from OPENAIP_API_KEY (Config.xcconfig / untracked Secrets.xcconfig). Read via OpenAIPConfig.apiKey. Empty when unconfigured. -->
-	<key>OpenAIPAPIKey</key>
-	<string>$(OPENAIP_API_KEY)</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<key>APIBaseURL</key>
+	<string>$(API_BASE_URL)</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -33,30 +30,23 @@
 			</array>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>AéroCheck needs access to save flight log images to your photo library.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSUbiquitousContainerName</key>
+	<string>AéroCheck</string>
+	<key>OpenAIPAPIKey</key>
+	<string>$(OPENAIP_API_KEY)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>AéroCheck needs access to save flight log images to your photo library.</string>
-	<!-- WiFiAware companion service. TWO hard requirements, each an UNCATCHABLE trap in WiFiAwareServicesPrivate if wrong:
-	     (1) the name MUST use the ._udp transport label (a ._tcp name fails RFC6335/6763 validation);
-	     (2) the Publishable/Subscribable values MUST be DICTIONARIES (empty is fine), per Apple's "Adopting Wi-Fi Aware" —
-	         a Bool (<true/>) traps with "'Publishable' key ... is malformed (not a dictionary)" on Pair New Device (iOS/iPadOS 26).
-	     Keep the name in sync with companionWiFiAwareServiceName; CompanionServiceContractTests locks both rules. -->
-	<key>WiFiAwareServices</key>
-	<dict>
-		<key>_aerocheck._udp</key>
-		<dict>
-			<key>Publishable</key>
-			<dict/>
-			<key>Subscribable</key>
-			<dict/>
-		</dict>
-	</dict>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
@@ -64,10 +54,6 @@
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
-	<key>NSUbiquitousContainerName</key>
-	<string>AéroCheck</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
@@ -97,5 +83,15 @@
 			</dict>
 		</dict>
 	</array>
+	<key>WiFiAwareServices</key>
+	<dict>
+		<key>_aerocheck._udp</key>
+		<dict>
+			<key>Publishable</key>
+			<dict/>
+			<key>Subscribable</key>
+			<dict/>
+		</dict>
+	</dict>
 </dict>
 </plist>

@@ -590,6 +590,7 @@ class AirportDataService: ObservableObject {
     private func createDataDirectory() throws {
         if !fileManager.fileExists(atPath: dataDirectory.path) {
             try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+            DataPersistenceManager.excludeFromBackup(dataDirectory) // SEC-C28
         }
     }
 

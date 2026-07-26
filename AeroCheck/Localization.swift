@@ -945,6 +945,18 @@ enum L10n {
     }
 
     // MARK: - Navigation / Flight Plans
+    enum ImportLimits {
+        /// Shown when a picked import file exceeds the size budget. (SEC-C31)
+        static let tooLarge = String(localized: "import.errorTooLarge")
+    }
+
+    enum Export {
+        /// Shown in the XLSX/PDF nav log when the route exceeds the fixed table height. (SEC-C21)
+        static func routeTruncated(_ count: Int) -> String {
+            String(format: String(localized: "export.routeTruncated"), count)
+        }
+    }
+
     enum PDF {
         static let title = String(localized: "pdf.title")
         static let pilot = String(localized: "pdf.pilot")
@@ -964,6 +976,11 @@ enum L10n {
     }
 
     enum Nav {
+        // Waypoint validation (SEC-C20)
+        static let invalidValueTitle = String(localized: "nav.invalidValueTitle")
+        static let invalidCoordinatesMessage = String(localized: "nav.invalidCoordinatesMessage")
+        static let invalidAltitudeMessage = String(localized: "nav.invalidAltitudeMessage")
+
         // Flight Plans List
         static let flightPlans = String(localized: "nav.flightPlans")
         static let allFlightPlans = String(localized: "nav.allFlightPlans")
@@ -1179,6 +1196,13 @@ enum L10n {
 
     // MARK: - Companion Mode
     enum Companion {
+        // Companion command authorisation (SEC-C40)
+        static let allowControlTitle = String(localized: "companion.allowControlTitle")
+        static let allowControl = String(localized: "companion.allowControl")
+        static func allowControlMessage(_ device: String) -> String {
+            String(format: String(localized: "companion.allowControlMessage"), device)
+        }
+
         // Connectivity
         static let dataStale = String(localized: "companion.dataStale")
         // Settings

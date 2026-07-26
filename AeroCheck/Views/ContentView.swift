@@ -50,7 +50,9 @@ struct ContentView: View {
                         .transition(.opacity)
                 }
 
-                // Marketing controls overlay (shown when shaking with marketing mode enabled)
+                // Marketing controls overlay (shown when shaking with marketing mode enabled).
+                // SEC-C37: compiled out of Release along with the toggle that reveals it.
+                #if DEBUG
                 if showMarketingControls && appState.settings.marketingMode {
                     VStack {
                         HStack {
@@ -63,6 +65,7 @@ struct ContentView: View {
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
+                #endif
 
                 // PR-41: non-blocking banner when the checklist was served in a fallback language.
                 if let notice = appState.languageFallbackNotice {
@@ -138,10 +141,14 @@ struct ContentView: View {
         }
         #endif
         .onShake {
-            // Toggle marketing controls when shaking (only if marketing mode is enabled)
+            // SEC-C37: the shake trigger is Debug-only too. A shake is a plausible ACCIDENT in a
+            // cockpit (turbulence), and it was the entry point to a control panel that could
+            // discard an active flight.
+            #if DEBUG
             if appState.settings.marketingMode {
                 showMarketingControls.toggle()
             }
+            #endif
         }
         .onChange(of: marketingProvider.currentLocation) { _, newLocation in
             // Inject marketing location into LocationManager when active. Use injectMarketingStaticFix

@@ -144,6 +144,21 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
     /// Defaults to false and resets on every disconnect — an older viewer that never sends
     /// `viewerHello`, or one that sends a malformed one, gets the redacted checklist stream.
     private var peerIsEntitled = false
+
+    /// Whether the connected peer may drive checklist/waypoint state in THIS session. (SEC-C40)
+    ///
+    /// The listener accepts `.allPairedDevices`, and `handleCommand` checked only that we are the
+    /// master — i.e. any device that completed the one-time system pairing at any point in the past
+    /// could mutate the master's checklist and waypoints, forever, with no in-app way to revoke it.
+    /// That is a realistic precondition in this app's actual market: shared aeroclub/rental iPads
+    /// that many student pilots pair their personal phones to over time.
+    ///
+    /// Deliberately per-connection and defaulting to false: a stale pairing from a previous user
+    /// gets nothing until the person holding the master says so, and saying so does not persist.
+    @Published var peerMayIssueCommands = false
+
+    /// Set when a peer attempted a command before being authorised, so the UI can ask. (SEC-C40)
+    @Published var pendingCommandAuthorizationFrom: String?
     private weak var locationManager: LocationManager?
     private weak var flightPlanManager: FlightPlanManager?
 
@@ -749,11 +764,24 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             connectionState = .disconnected
             connectedDeviceName = nil
             peerIsEntitled = false   // a new peer must re-prove entitlement (SA-26)
+            // SEC-C40: authorisation is per-connection, so a reconnecting (or different) device
+            // must be confirmed again rather than inheriting the last session's trust.
+            peerMayIssueCommands = false
+            pendingCommandAuthorizationFrom = nil
         }
     }
 
     private func handleCommand(_ command: CompanionCommand) {
         guard currentRole == .master, let flightPlanManager else { return }
+
+        // SEC-C40: being paired is not authorisation to control this flight.
+        guard peerMayIssueCommands else {
+            if pendingCommandAuthorizationFrom == nil {
+                pendingCommandAuthorizationFrom = connectedDeviceName ?? L10n.Companion.companionDevice
+                diag("Master: blocked command from unauthorised peer; awaiting confirmation")
+            }
+            return
+        }
 
         switch command {
         case .recordATO(let waypointIndex):

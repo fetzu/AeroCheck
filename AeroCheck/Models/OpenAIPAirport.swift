@@ -127,7 +127,10 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
         self.name = p.name
         self.icaoCode = p.icaoCode
         self.typeRaw = p.type
-        self.elevationFeetMSL = p.elevation?.asFeetMSL
+        // SEC-C16: same plausibility clamp as the OurAirports parse — this value reaches the
+        // same AGL thresholds after AirportDataMergeEngine folds the two sources together.
+        self.elevationFeetMSL = (p.elevation?.asFeetMSL ?? nil)
+            .flatMap { PlausibleRange.fieldElevationFeet.contains(Double($0)) ? $0 : nil }
         self.magneticDeclination = p.magneticDeclination
         self.country = p.country
         self.frequencies = (p.frequencies ?? []).map {
@@ -229,8 +232,17 @@ private struct AirportFeatureCollection: Decodable {
         let value: Double
         let unit: Int
         // unit 0 = metres → feet; unit 1 = already feet. (Same convention as elevation.)
-        private var asFeetValue: Int { unit == 0 ? Int((value * 3.28084).rounded()) : Int(value.rounded()) }
-        var asFeetMSL: Int { asFeetValue }
-        var asFeet: Int { asFeetValue }
+        //
+        // SEC-C14: `Int(x.rounded())` TRAPS — kills the process, uncatchably — on a non-finite or
+        // out-of-range Double. These values come from OpenAIP's unauthenticated public GeoJSON
+        // export, and the trip-aware prefetch that reads it runs while airborne, so one bad
+        // feature took the whole app down. Returning nil instead lets the caller drop the single
+        // offending feature, which is what the surrounding parse already does for other bad rows.
+        private var asFeetValue: Int? {
+            let feet = unit == 0 ? value * 3.28084 : value
+            return feet.safeRoundedInt()
+        }
+        var asFeetMSL: Int? { asFeetValue }
+        var asFeet: Int? { asFeetValue }
     }
 }

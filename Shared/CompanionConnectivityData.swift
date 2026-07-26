@@ -252,11 +252,28 @@ struct CompanionPeerGPS: Codable, Equatable {
               (-90.0...90.0).contains(latitude),
               (-180.0...180.0).contains(longitude) else { return false }
         // Optional motion values: absent is fine (they degrade to CoreLocation's "unknown"
-        // sentinels), but a present-and-non-finite value would propagate into speed/altitude
-        // readouts and the recorded track.
-        if let altitudeMeters, !altitudeMeters.isFinite { return false }
-        if let speedMPS, !speedMPS.isFinite { return false }
-        if let courseDegrees, !courseDegrees.isFinite { return false }
+        // sentinels), but a present value must be both finite AND physically plausible.
+        //
+        // SEC-C15: finiteness alone was not enough. A peer could send a finite-but-absurd
+        // `speedMPS` (1e19 passes `.isFinite` and `>= 0`), which flowed through
+        // `effectiveLocation` -> `injectCompanionLocation` -> `processLocation` and reached
+        // `Int(displaySmoothedSpeedMPS * 1.94384)` in LocationManager — an unconditional Swift
+        // TRAP that kills the app, in flight, from a nearby paired device. Short of that, a merely
+        // implausible value (50 km altitude, Mach 9) was displayed on the master's instruments and
+        // written into the recorded track as if it were a real fix. SA-10 closed the coordinate-NaN
+        // hole but left the magnitude one open.
+        if let altitudeMeters,
+           !PlausibleRange.isPlausible(altitudeMeters, in: PlausibleRange.altitudeMeters) {
+            return false
+        }
+        if let speedMPS,
+           !PlausibleRange.isPlausible(speedMPS, in: PlausibleRange.speedMPS) {
+            return false
+        }
+        if let courseDegrees,
+           !PlausibleRange.isPlausible(courseDegrees, in: PlausibleRange.courseDegrees) {
+            return false
+        }
         return horizontalAccuracy.isFinite
     }
 }

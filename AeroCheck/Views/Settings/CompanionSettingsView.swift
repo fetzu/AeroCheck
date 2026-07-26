@@ -57,6 +57,10 @@ struct CompanionSettingsView: View {
         .fullScreenCover(isPresented: $showPairingSheet) {
             CompanionPairingView(role: deviceRole)
         }
+        // SEC-C40: a paired peer asked to drive checklist/waypoint state. Being paired is not
+        // authorisation — on a shared cockpit iPad the pairing may belong to a previous user —
+        // so the person holding the master confirms it, once, for this connection only.
+        .modifier(CompanionCommandAuthorizationAlert(manager: companionConnectivityManager))
     }
 
     // MARK: - Enable Section
@@ -275,5 +279,34 @@ struct CompanionSettingsView: View {
     private func saveSettings() {
         appState.settings.enableCompanionMode = enableCompanionMode
         appState.saveSettings()
+    }
+}
+
+/// Confirmation prompt shown on the master before a paired peer may control the flight. (SEC-C40)
+///
+/// Extracted as a `ViewModifier` to keep it off an already-long body chain (the same type-checker
+/// budget problem the waypoint editor hit).
+private struct CompanionCommandAuthorizationAlert: ViewModifier {
+    @ObservedObject var manager: CompanionConnectivityManager
+
+    private var isPresented: Binding<Bool> {
+        Binding(
+            get: { manager.pendingCommandAuthorizationFrom != nil },
+            set: { if !$0 { manager.pendingCommandAuthorizationFrom = nil } }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.alert(L10n.Companion.allowControlTitle, isPresented: isPresented) {
+            Button(L10n.Companion.allowControl) {
+                manager.peerMayIssueCommands = true
+                manager.pendingCommandAuthorizationFrom = nil
+            }
+            Button(L10n.Button.cancel, role: .cancel) {
+                manager.pendingCommandAuthorizationFrom = nil
+            }
+        } message: {
+            Text(L10n.Companion.allowControlMessage(manager.pendingCommandAuthorizationFrom ?? ""))
+        }
     }
 }

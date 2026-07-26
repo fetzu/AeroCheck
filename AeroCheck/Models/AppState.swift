@@ -8,6 +8,15 @@ enum PhaseCompletionStatus: String, Codable {
     case completed       // User pressed NEXT
     case skipped         // User jumped past without pressing NEXT
     case missingAction   // Phase with required button (e.g., engine start) was skipped without pressing button
+    /// The phase had nothing to display, so there was nothing for the pilot to work through.
+    ///
+    /// SEC-C36: previously indistinguishable from `.completed`. `allItemsCompleted(current: 0,
+    /// visibleCount: 0)` is `0 >= 0` → true, so ANY zero-visible-item phase was stamped green as if
+    /// it had been worked. That is reachable with no attacker at all — an `.unresolved` checklist (a
+    /// premium aircraft whose download has not landed) and a learning-mode configuration that hides
+    /// every item both produce a visible count of 0. Showing a pilot a green phase they never
+    /// touched is the defect; the fix is a state that says "nothing here", not one that claims done.
+    case empty
 }
 
 /// The pilot's progress through the checklist, grouped as one cohesive value extracted from four
@@ -667,7 +676,7 @@ class AppState {
             guard let fileSettings = await self.persistence.loadSettingsOffMain(),
                   fileSettings != launchSettings,
                   self.settings == launchSettings else { return }
-            self.settings = fileSettings
+            self.settings = fileSettings.clampedForIngest() // SEC-C25
             self.saveSettings()
         }
     }
@@ -924,6 +933,22 @@ class AppState {
         // Block times are already set on currentFlight, copy them to the final flight
         // (they're already there since we modify currentFlight directly)
 
+        // SEC-C26: drop individually bad GPS points before the track is measured and written.
+        // The crash-recovery checkpoint is restored into `currentFlight` without validation, so a
+        // corrupt or tampered checkpoint's out-of-range coordinates would otherwise be baked into
+        // the cached distance stats and the exported GPX. Individual points are filtered rather
+        // than the whole flight rejected — this is the pilot's own in-progress logbook data, and
+        // losing all of it to one bad sample would be the worse failure.
+        let originalPointCount = flight.gpsTrack.count
+        flight.gpsTrack = flight.gpsTrack.filter { point in
+            GeoValidation.isValidLatLon(point.latitude, point.longitude) && point.altitude.isFinite
+        }
+        if flight.gpsTrack.count != originalPointCount {
+            AppLog.general.debugLine(
+                "Dropped \(originalPointCount - flight.gpsTrack.count) implausible GPS point(s) when ending flight"
+            )
+        }
+
         // Precompute summary stats once now that the track is final, so the flight-log list
         // never recomputes an O(n) distance per row. (PERF-22)
         flight.computeSummaryStats()
@@ -1009,6 +1034,11 @@ class AppState {
         let visibleCount = activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode)
         let currentIndex = currentHighlightedItem[currentPhase] ?? 0
         return ChecklistHighlighting.allItemsCompleted(current: currentIndex, visibleCount: visibleCount)
+    }
+
+    /// Whether the current phase has nothing to show at all. (SEC-C36)
+    func currentPhaseHasNoVisibleItems(learningMode: Bool) -> Bool {
+        activeChecklist.visibleItemCount(for: currentPhase, learningMode: learningMode) == 0
     }
     
     /// Reset highlighted item for a phase
@@ -1260,6 +1290,10 @@ class AppState {
             linedUp: lineUpTime != nil,
             engineShutDown: engineShutdownTime != nil) {
             phaseCompletionStatus[currentPhase] = .missingAction
+        } else if currentPhaseHasNoVisibleItems(learningMode: settings.learningMode) {
+            // SEC-C36: nothing was displayed, so nothing was worked through. Report that honestly
+            // instead of inheriting `.completed` from the 0 >= 0 comparison.
+            phaseCompletionStatus[currentPhase] = .empty
         } else {
             phaseCompletionStatus[currentPhase] = checklistWorkedThrough ? .completed : .skipped
         }
@@ -1515,7 +1549,11 @@ class AppState {
 
     private func loadSettings() {
         if let loadedSettings = persistence.loadSettings() {
-            settings = loadedSettings
+            // SEC-C25: settings.json lives in the same user-visible iCloud Drive container as
+            // Flights/ and NavigationPlans/, so it is exactly as untrusted as a synced record.
+            // SyncManager.settingsFromRecord already clamps; this sibling path did not, leaving
+            // the numeric ranges (e.g. gpsRecordingInterval) unguarded on the file route.
+            settings = loadedSettings.clampedForIngest()
 
             // Update sync manager with loaded preference
             SyncManager.shared.isSyncEnabled = settings.iCloudSyncEnabled

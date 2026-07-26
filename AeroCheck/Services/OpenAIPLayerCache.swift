@@ -129,6 +129,7 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     /// `onProgress` is called on the main actor after each completed country.
     func downloadData(for countries: [String], onProgress: (Double) -> Void) async -> DownloadResult {
         try? fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        DataPersistenceManager.excludeFromBackup(dataDirectory) // SEC-C28
         var metadata = (try? Data(contentsOf: metadataFileURL))
             .flatMap { try? JSONDecoder().decode(OpenAIPLayerCacheMetadata.self, from: $0) } ?? OpenAIPLayerCacheMetadata()
         var allLoaded: [Feature] = []

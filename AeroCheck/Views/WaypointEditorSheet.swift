@@ -20,6 +20,13 @@ struct WaypointEditorSheet: View {
     }
 
     @State private var showingDeleteConfirmation = false
+    /// Message shown when the entered coordinates/altitude were rejected. (SEC-C20)
+    ///
+    /// A plain `Bool` + `String` pair rather than a computed `Binding<Bool>` over an optional:
+    /// this view body is already at the Swift type-checker's budget, and the computed binding
+    /// tipped it over.
+    @State private var invalidFieldMessage: String = ""
+    @State private var showingInvalidValue = false
 
     // Local state for form fields
     @State private var name: String = ""
@@ -255,6 +262,7 @@ struct WaypointEditorSheet: View {
             } message: {
                 Text(L10n.Nav.deleteWaypointConfirmation)
             }
+            .modifier(InvalidValueAlert(isPresented: $showingInvalidValue, message: invalidFieldMessage))
             .navigationTitle(L10n.Nav.editWaypoint)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -354,14 +362,38 @@ struct WaypointEditorSheet: View {
     }
 
     private func saveWaypoint() {
+        // SEC-C20: `Double("nan")` and `Double("inf")` PARSE SUCCESSFULLY, so a mistyped or pasted
+        // value silently produced a waypoint that persisted, synced to iCloud, and exported as the
+        // literal string `nan` into the GPX/XLSX/PDF handed to a Dynon/Garmin. Both file-import
+        // paths validated these exact fields; the editor — the far likelier source — did not.
         guard let lat = Double(latitudeString),
-              let lon = Double(longitudeString) else { return }
+              let lon = Double(longitudeString),
+              GeoValidation.isValidLatLon(lat, lon) else {
+            invalidFieldMessage = L10n.Nav.invalidCoordinatesMessage
+            showingInvalidValue = true
+            return
+        }
+
+        // An altitude that is present but implausible is rejected outright rather than silently
+        // dropped: the pilot typed something, and quietly discarding it would be worse than saying
+        // so. (An EMPTY field still legitimately means "no planned altitude".)
+        let parsedAltitude = altitudeString.trimmingCharacters(in: .whitespaces).isEmpty
+            ? nil
+            : Double(altitudeString)
+        if !altitudeString.trimmingCharacters(in: .whitespaces).isEmpty {
+            guard let alt = parsedAltitude,
+                  PlausibleRange.isPlausible(alt, in: PlausibleRange.altitudeFeet) else {
+                invalidFieldMessage = L10n.Nav.invalidAltitudeMessage
+                showingInvalidValue = true
+                return
+            }
+        }
 
         var updatedWaypoint = waypoint
         updatedWaypoint.name = name
         updatedWaypoint.latitude = lat
         updatedWaypoint.longitude = lon
-        updatedWaypoint.altitude = Double(altitudeString)
+        updatedWaypoint.altitude = parsedAltitude
         updatedWaypoint.frequency = frequency.isEmpty ? nil : frequency
         updatedWaypoint.callSign = callSign.isEmpty ? nil : callSign
         updatedWaypoint.remarks = remarks
@@ -528,4 +560,22 @@ struct CoordinatePickerView: View {
         onSave: { _ in },
         onDelete: { }
     )
+}
+
+/// Alert shown when a waypoint's coordinates or altitude are rejected. (SEC-C20)
+///
+/// Extracted into a `ViewModifier` purely for compile time: `WaypointEditorSheet`'s body is a long
+/// modifier chain that the Swift type-checker could not resolve within its budget once one more
+/// `.alert` was appended inline.
+private struct InvalidValueAlert: ViewModifier {
+    @Binding var isPresented: Bool
+    let message: String
+
+    func body(content: Content) -> some View {
+        content.alert(L10n.Nav.invalidValueTitle, isPresented: $isPresented) {
+            Button(L10n.Subscription.ok, role: .cancel) {}
+        } message: {
+            Text(message)
+        }
+    }
 }

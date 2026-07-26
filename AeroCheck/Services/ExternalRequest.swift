@@ -36,13 +36,24 @@ enum ExternalRequest {
         }
     }
 
-    /// Cancels a task as soon as the response headers declare a body over the limit, so an
-    /// oversized body is never buffered. A body with no (or a lying) `Content-Length` still gets
-    /// the post-hoc check in `data(for:)` — that one cannot prevent the allocation, but it stops
-    /// the oversized payload being parsed and surfaces the misbehaving origin.
-    private final class SizeLimitingDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    /// Cancels a task as soon as the response headers declare a body over the limit, and strips
+    /// sensitive headers across a cross-host redirect.
+    ///
+    /// SEC-C32: the declared-length check alone was NOT a size ceiling. It only fires when
+    /// `Content-Length` is present and honest; for a chunked response (the norm on many CDNs) or a
+    /// lying small one, the entire body was buffered and the cap applied only afterwards — the
+    /// file's own comment conceded it "cannot prevent the allocation". `data(for:)` now streams and
+    /// counts, so this delegate is the cheap early-out rather than the whole defence.
+    ///
+    /// SEC-C33: CFNetwork strips `Authorization` automatically on a cross-origin redirect, but not
+    /// a CUSTOM header — so `x-openaip-api-key` would have been replayed to whatever host a 3xx
+    /// pointed at. Nothing in the app implemented `willPerformHTTPRedirection` at all.
+    private final class SizeLimitingDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
         let limit: Int
         init(limit: Int) { self.limit = limit }
+
+        /// Headers that must never survive a redirect to a different host.
+        private static let sensitiveHeaders = ["Authorization", OpenAIPConfig.apiKeyHeader]
 
         func urlSession(
             _ session: URLSession,
@@ -54,6 +65,27 @@ enum ExternalRequest {
                 return .cancel
             }
             return .allow
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest
+        ) async -> URLRequest? {
+            guard let originalHost = task.originalRequest?.url?.host,
+                  let newHost = request.url?.host,
+                  originalHost.caseInsensitiveCompare(newHost) != .orderedSame
+            else {
+                return request // same host — nothing to strip
+            }
+
+            var sanitised = request
+            for header in Self.sensitiveHeaders {
+                sanitised.setValue(nil, forHTTPHeaderField: header)
+            }
+            AppLog.general.debugLine("Stripped credential headers on cross-host redirect")
+            return sanitised
         }
     }
 
@@ -130,15 +162,23 @@ enum ExternalRequest {
         while true {
             try Task.checkCancellation()
             do {
-                let (data, response) = try await session.data(for: request, delegate: sizeLimiter)
+                // SEC-C32: stream and count, so the cap bounds what is ALLOCATED rather than
+                // being applied to an already-buffered body. This is what makes the ceiling real
+                // for a chunked or Content-Length-less response.
+                let (byteStream, response) = try await session.bytes(for: request, delegate: sizeLimiter)
                 guard let http = response as? HTTPURLResponse else {
                     throw URLError(.badServerResponse)
                 }
-                // Backstop for an origin that omits or lies about Content-Length. This cannot
-                // prevent the allocation that already happened, but it stops an oversized payload
-                // being parsed and makes the misbehaving origin visible.
-                if data.count > maxResponseBytes {
-                    throw SizeError.tooLarge(declared: http.expectedContentLength, limit: maxResponseBytes)
+
+                var data = Data()
+                if http.expectedContentLength > 0, http.expectedContentLength <= Int64(maxResponseBytes) {
+                    data.reserveCapacity(Int(http.expectedContentLength))
+                }
+                for try await byte in byteStream {
+                    data.append(byte)
+                    if data.count > maxResponseBytes {
+                        throw SizeError.tooLarge(declared: http.expectedContentLength, limit: maxResponseBytes)
+                    }
                 }
                 if shouldRetry(status: http.statusCode, attempt: attempt, maxRetries: maxRetries) {
                     let retryAfter = parseRetryAfter(http.value(forHTTPHeaderField: "Retry-After"))

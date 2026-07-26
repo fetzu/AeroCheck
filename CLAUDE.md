@@ -32,20 +32,22 @@ scripts/run-tests.sh "" ObstacleTests     # one class
 xcodebuild test -scheme AeroCheckTests -destination "platform=iOS Simulator,name=iPad Air 11-inch (M4)"
 ```
 
-> **If a test run hangs with ZERO test cases started** — the build succeeds, the app launches on the
-> simulator, and nothing else happens — the cause is an orphaned host-side `/usr/libexec/testmanagerd`
-> left behind by a **SIGKILLed `xcodebuild test`**. It keeps holding the test session, so later runs
-> launch the app and then wait forever for a bundle that never arrives. Sampling the app shows it
-> *idle in a normal CFRunLoop*, not deadlocked — that is the tell that the harness is stuck, not the code.
+> **If a test run hangs with ZERO test cases started** — the log stops partway and it sits there —
+> the cause is a stalled **build service**, not the test harness. `xcodebuild` blocks in
+> `waitForBuildWithBuildLog:` waiting on `SWBBuildService`, which sits idle in `read`: a lost message
+> between the two, so the build never completes and tests never begin.
 >
-> Fix — **both** steps, in order: `killall -9 testmanagerd` **and** `xcrun simctl shutdown all`.
-> There are two brokers, a host-side one and a runtime-side one inside the booted simulator; killing
-> only the host side leaves the stale runtime broker in the booted device, so the next run still
-> hangs. That half-fix works just often enough to look like flakiness. Killing
-> `CoreSimulatorService` is not the fix on its own either.
+> Fix: `killall SWBBuildService XCBBuildService` (xcodebuild spawns a fresh one), plus
+> `pkill -f "AeroCheck.app/AeroCheck"` to clear leftover simulator app processes.
+> `scripts/run-tests.sh` does both in its preflight.
 >
-> `scripts/run-tests.sh` does all of this automatically. Never stop a test run with `kill -9` —
-> Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
+> **Diagnose by sampling `xcodebuild`, not the app.** An app process left running on the simulator is
+> a red herring — it is usually a leftover from a previous run, and sampling it shows an ordinary idle
+> run loop, which reads convincingly like "the test bundle was never injected" when the build simply
+> never finished. Quick discriminator: if the log stops growing over ~20 s and no test case has
+> started, the build is stuck.
+>
+> Never stop a test run with `kill -9` — Ctrl-C/SIGTERM lets xcodebuild tear its own session down.
 
 Requirements: Xcode 26 (ships the iOS 26 SDK — `CompanionConnectivityManager.swift` and
 `CompanionPairingView.swift` unconditionally `import WiFiAware`, which won't compile under

@@ -7,6 +7,7 @@ struct AboutSettingsView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var dataStatusManager: DataStatusManager
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var aircraftDataService: AircraftDataService
 
     @Environment(\.openURL) private var openURL
 
@@ -259,6 +260,19 @@ struct AboutSettingsView: View {
                 SettingsButtonRow(icon: "arrow.counterclockwise", title: L10n.Settings.resetOnboarding,
                                   tint: tint, showsChevron: false, destructive: true) {
                     appState.replayOnboarding()
+                }
+
+                // An escape hatch that did not exist when it was needed. Checklists cache per
+                // language and survive an app update, so a stale entry could only be cleared by
+                // deleting the app -- which is what it took to see the 2026-07 corrections on
+                // device. Drops every cached checklist and re-resolves the active one.
+                SettingsButtonRow(icon: "trash", title: "Clear checklist cache",
+                                  tint: tint, showsChevron: false, destructive: true) {
+                    Task {
+                        aircraftDataService.clearAllChecklistCaches()
+                        await aircraftDataService.fetchAvailableAircraft()
+                        await appState.loadRemoteChecklistIfNeeded(aircraftDataService: aircraftDataService)
+                    }
                 }
 
                 // Temporary: fire a sample detected event so the restyled confirmation prompt can be

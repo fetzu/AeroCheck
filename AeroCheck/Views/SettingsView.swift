@@ -1005,7 +1005,14 @@ struct PremiumAircraftListView: View {
                                         // read — so a premium aircraft chosen here survives relaunch.
                                         appState.selectAircraft(id: aircraft.id, available: aircraftDataService.availableAircraft)
                                         Task {
-                                            _ = await aircraftDataService.fetchChecklist(for: aircraft.id)
+                                            // Language matters: the cache key is
+                                            // "<id>_<language>", and that is what the checklist
+                                            // readers look up. Omitting it warmed an entry the
+                                            // app never displays.
+                                            _ = await aircraftDataService.fetchChecklist(
+                                                for: aircraft.id,
+                                                language: appState.settings.checklistLanguage.resolvedLanguage
+                                            )
                                         }
                                         dismiss()
                                     } else {

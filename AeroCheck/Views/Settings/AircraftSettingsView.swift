@@ -215,7 +215,11 @@ struct AircraftSettingsView: View {
         Task {
             await subscriptionManager.syncWithServer()
             await aircraftDataService.fetchAvailableAircraft()
-            await aircraftDataService.syncAllChecklists()
+            // Pass the DISPLAYED language: checklists cache per language, and omitting it
+            // refreshed a key nothing reads. (see syncAllChecklists)
+            await aircraftDataService.syncAllChecklists(
+                language: appState.settings.checklistLanguage.resolvedLanguage
+            )
             await MainActor.run {
                 isSyncingAircraftData = false
             }

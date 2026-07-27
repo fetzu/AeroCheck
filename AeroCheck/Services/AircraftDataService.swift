@@ -411,10 +411,25 @@ class AircraftDataService: ObservableObject {
         }
     }
 
-    /// Syncs all cached checklists with the server
-    func syncAllChecklists() async {
+    /// Syncs all cached checklists with the server.
+    ///
+    /// `language` MUST be the language the app is actually displaying. Checklists are cached per
+    /// language under `"<id>_<language>"`, and this used to omit it — so it refreshed the
+    /// language-less key while every reader went through `loadRemoteChecklistIfNeeded`, which
+    /// requests `fetchChecklist(for:language:)` and therefore reads `"<id>_en"`. Pressing "get
+    /// latest aircraft data" updated an entry nothing displays, and reported success. That is how
+    /// the 2026-07 corrected stall speeds stayed invisible on device even after the fix was
+    /// deployed and the version bumped.
+    ///
+    /// Both keys are refreshed: the language-suffixed one because it is what gets displayed, and
+    /// the language-less one because earlier call sites created it and a stale entry there would
+    /// resurface if the user switched language. `syncBundledAircraft` already did this.
+    func syncAllChecklists(language: String? = nil) async {
         for aircraft in availableAircraft where aircraft.hasAccess {
             await checkForUpdate(aircraftId: aircraft.id)
+            if let language {
+                await checkForUpdate(aircraftId: aircraft.id, language: language)
+            }
         }
         lastSyncDate = Date()
     }
@@ -563,6 +578,33 @@ class AircraftDataService: ObservableObject {
             AppLog.aircraftData.debugLine("Cleared cache for \(aircraftId)")
         } catch {
             AppLog.aircraftData.debugLine("Failed to clear cache for \(aircraftId): \(error)")
+        }
+    }
+
+    /// Drops EVERY cached checklist, for every aircraft and every language variant.
+    ///
+    /// `clearCache(for:)` takes one exact cache key, and checklists are keyed `"<id>_<language>"`,
+    /// so clearing "the cache for an aircraft" by id silently missed the language variants — which
+    /// are the entries actually displayed. This walks the cache directory instead of guessing keys,
+    /// so nothing survives on a name the caller did not think of.
+    ///
+    /// Developer escape hatch: before this existed, a stale checklist could only be cleared by
+    /// deleting the app.
+    func clearAllChecklistCaches() {
+        let fileManager = FileManager.default
+        do {
+            let contents = try fileManager.contentsOfDirectory(
+                at: cacheDirectory, includingPropertiesForKeys: nil
+            )
+            var removed = 0
+            for url in contents where url.pathExtension == "json"
+                && url.lastPathComponent != "metadata.json" {
+                try? fileManager.removeItem(at: url)
+                removed += 1
+            }
+            AppLog.aircraftData.debugLine("Cleared \(removed) cached checklist file(s)")
+        } catch {
+            AppLog.aircraftData.debugLine("Failed to clear checklist caches: \(error)")
         }
     }
 

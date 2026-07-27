@@ -286,7 +286,9 @@ struct CompanionSettingsView: View {
 ///
 /// Extracted as a `ViewModifier` to keep it off an already-long body chain (the same type-checker
 /// budget problem the waypoint editor hit).
-private struct CompanionCommandAuthorizationAlert: ViewModifier {
+/// Presents the peer-command authorisation prompt. Mounted in TWO places on purpose — see the call
+/// site in `ContentView` for why. Internal (not private) so the root can mount it too.
+struct CompanionCommandAuthorizationAlert: ViewModifier {
     @ObservedObject var manager: CompanionConnectivityManager
 
     private var isPresented: Binding<Bool> {

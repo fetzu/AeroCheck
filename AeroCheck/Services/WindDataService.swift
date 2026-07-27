@@ -2,7 +2,12 @@ import Foundation
 import CoreLocation
 import Combine
 
-/// Wind data from a MeteoSwiss weather station
+/// Wind data from a MeteoSwiss weather station.
+///
+/// This is a SURFACE observation (10 m above ground at the station's own elevation), which makes it
+/// the right instrument for briefing a departure or an approach — both of which happen at the
+/// surface, near an airfield. It is NOT a wind aloft: over land the surface wind runs roughly half
+/// the 2000 ft wind and backed ~30°, so it must not be used to reason about conditions at altitude.
 struct WindData {
     let stationName: String
     let speedKmh: Double // Wind speed in km/h
@@ -10,6 +15,9 @@ struct WindData {
     let timestamp: Date
     let stationCoordinate: CLLocationCoordinate2D
     let distanceMeters: Double // Distance from aircraft to station
+    let stationAltitudeMeters: Double // Station elevation AMSL — provenance, and how it was selected
+
+    var speedKnots: Double { speedKmh * 0.539957 }
 }
 
 /// Service for fetching wind data from MeteoSwiss Open Data API
@@ -33,7 +41,12 @@ class WindDataService: ObservableObject {
     // MARK: - Private Properties
 
     private var fetchTimer: Timer?
-    private let minimumFetchInterval: TimeInterval = 60 // 1 minute minimum between fetches
+
+    /// Matched to the data's own cadence: the feed is a 10-MINUTE MEAN, republished every 10
+    /// minutes, so anything faster re-downloads a byte-identical 191 KB payload. The old 60 s
+    /// interval existed for the live airspeed readout, which no longer exists — at 1 flight/1.5 h
+    /// it pulled ~17 MB per user per flight from a free public endpoint for ~1.7 MB of new data.
+    private let minimumFetchInterval: TimeInterval = 10 * 60
 
     /// Switzerland bounding box with ~5 NM margin (approximately 9.26 km)
     /// Original: 45.82° - 47.81° N, 5.96° - 10.49° E
@@ -46,14 +59,29 @@ class WindDataService: ObservableObject {
     )
 
     /// MeteoSwiss MEAN-wind endpoint (GeoJSON: 10-minute mean wind speed + direction).
-    /// UX-03: deliberately the mean-wind dataset, NOT the peak-gust feed (boeenspitze) —
-    /// using a 10-minute gust peak as steady wind overstated the headwind correction and could
-    /// suppress a real stall warning (error in the dangerous direction).
-    private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-wind-geschwindigkeit-kmh-10min/ch.meteoschweiz.messwerte-wind-geschwindigkeit-kmh-10min_en.json"
+    /// UX-03: deliberately the mean-wind dataset, NOT the peak-gust feed (boeenspitze) — a
+    /// 10-minute gust peak is not the steady wind a pilot briefs a runway against.
+    ///
+    /// The dataset id was `messwerte-wind-geschwindigkeit-kmh-10min` until MeteoSwiss renamed it to
+    /// `messwerte-windgeschwindigkeit-kmh-10min` (one word). The old id now returns 404 NoSuchKey,
+    /// which this service handled by silently reporting "no wind available" — so the wind went
+    /// missing from the briefings with no error surfaced anywhere. If wind stops appearing again,
+    /// check this URL FIRST.
+    private let windDataURL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min/ch.meteoschweiz.messwerte-windgeschwindigkeit-kmh-10min_en.json"
 
-    /// Maximum age of a wind reading before it is considered stale and no longer used for
-    /// airspeed estimation (the readout falls back to ground speed). (UX-04)
+    /// Maximum age of a wind reading before it is considered stale and no longer shown. (UX-04)
     private let maxWindAgeSeconds: TimeInterval = 20 * 60
+
+    /// Reject stations further away than this. The network is dense enough in the lowlands that a
+    /// nearest station beyond this radius means there is no representative observation — better to
+    /// say "not available" than to brief a runway against a wind measured 60 km away.
+    private let maxStationDistanceMeters: Double = 30_000
+
+    /// Reject stations whose own altitude differs from the aircraft's by more than this. SwissMetNet
+    /// spans 213 m (Magadino) to 3581 m (Jungfraujoch), and 23% of stations sit above 1500 m, so a
+    /// pure nearest-by-distance search in the Alps can select a ridge-top station whose wind has
+    /// nothing to do with conditions in the valley below it.
+    private let maxStationAltitudeDeltaMeters: Double = 500
 
     // MARK: - Public Methods
 
@@ -63,13 +91,15 @@ class WindDataService: ObservableObject {
 
         // Initial fetch
         Task {
-            await fetchWindData(for: locationManager.getCurrentCoordinate())
+            await fetchWindData(for: locationManager.getCurrentCoordinate(),
+                                aircraftAltitudeMeters: locationManager.currentAltitudeMeters)
         }
 
         // Schedule periodic fetches (every minute)
         fetchTimer = Timer.scheduledTimer(withTimeInterval: minimumFetchInterval, repeats: true) { [weak self] _ in
             Task { [weak self] in
-                await self?.fetchWindData(for: locationManager.getCurrentCoordinate())
+                await self?.fetchWindData(for: locationManager.getCurrentCoordinate(),
+                                          aircraftAltitudeMeters: locationManager.currentAltitudeMeters)
             }
         }
     }
@@ -91,51 +121,10 @@ class WindDataService: ObservableObject {
                coordinate.longitude <= switzerlandBounds.maxLon
     }
 
-    /// Calculate estimated indicated airspeed from ground speed and wind
-    /// Returns nil if wind data is not available or aircraft is outside Switzerland
-    func calculateEstimatedAirspeed(groundSpeedKnots: Double, trackDegrees: Double, coordinate: CLLocationCoordinate2D?) -> Double? {
-        guard let windData = currentWindData,
-              isInSwitzerland(coordinate) else {
-            return nil
-        }
-
-        // Stale wind must not drive the stall/airspeed readout — fall back to ground speed. (UX-04)
-        guard Date().timeIntervalSince(windData.timestamp) <= maxWindAgeSeconds else {
-            return nil
-        }
-
-        // Defence-in-depth: a non-finite reading must never reach the speed indicator, where
-        // Int(displaySpeed) on a non-finite Double is a hard trap. Fall back to ground speed.
-        guard windData.speedKmh.isFinite, windData.directionDegrees.isFinite else {
-            return nil
-        }
-
-        // Convert wind speed from km/h to knots
-        let windSpeedKnots = windData.speedKmh * 0.539957
-
-        // Wind direction is where wind comes FROM, we need where it's going TO
-        let windToDirection = (windData.directionDegrees + 180).truncatingRemainder(dividingBy: 360)
-
-        // Calculate headwind/tailwind component
-        // Positive = headwind, Negative = tailwind
-        let trackRadians = trackDegrees * .pi / 180
-        let windToRadians = windToDirection * .pi / 180
-        let angleDifference = trackRadians - windToRadians
-
-        // Component of the wind blowing ALONG the ground track. angleDifference is
-        // (track − windToDirection), so cos() is +1 when the wind blows in the direction of
-        // travel (a tailwind) and −1 when it opposes travel (a headwind).
-        let alongTrackWindComponent = windSpeedKnots * cos(angleDifference)
-
-        // Ground velocity = air velocity + wind velocity, so TAS = ground speed − tailwind
-        // component. A headwind (negative component) therefore correctly INCREASES the
-        // estimated airspeed; a tailwind decreases it. (Previously this added the component,
-        // which inverted the correction — overstating airspeed in a tailwind, the dangerous
-        // direction. Caught by WindDataServiceTests.testHeadwindIncreasesAirspeed.)
-        let estimatedAirspeed = groundSpeedKnots - alongTrackWindComponent
-
-        let result = max(0, estimatedAirspeed)
-        return result.isFinite ? result : nil
+    /// Whether the current reading is fresh enough to show. (UX-04)
+    var hasFreshWind: Bool {
+        guard let w = currentWindData else { return false }
+        return Date().timeIntervalSince(w.timestamp) <= maxWindAgeSeconds
     }
 
     /// Age of the current wind reading in seconds, if any (for provenance display).
@@ -152,7 +141,8 @@ class WindDataService: ObservableObject {
 
     // MARK: - Private Methods
 
-    private func fetchWindData(for coordinate: CLLocationCoordinate2D?) async {
+    private func fetchWindData(for coordinate: CLLocationCoordinate2D?,
+                               aircraftAltitudeMeters: Double?) async {
         // Check if within Switzerland
         let inSwitzerland = isInSwitzerland(coordinate)
         await MainActor.run {
@@ -180,7 +170,8 @@ class WindDataService: ObservableObject {
                 throw WindFetchError.invalidResponse
             }
 
-            let windData = try parseWindData(data, nearCoordinate: coordinate)
+            let windData = try parseWindData(data, nearCoordinate: coordinate,
+                                             aircraftAltitudeMeters: aircraftAltitudeMeters)
 
             await MainActor.run {
                 self.currentWindData = windData
@@ -197,8 +188,16 @@ class WindDataService: ObservableObject {
         }
     }
 
-    /// Parse GeoJSON wind data and find nearest station
-    private func parseWindData(_ data: Data, nearCoordinate: CLLocationCoordinate2D) throws -> WindData {
+    /// Parse the GeoJSON and pick the most REPRESENTATIVE station, which is not simply the nearest.
+    ///
+    /// SwissMetNet spans 213 m (Magadino) to 3581 m (Jungfraujoch) and 23% of its 155 stations sit
+    /// above 1500 m. A pure nearest-by-distance search in the Alps therefore happily returns a
+    /// ridge-top station whose wind describes the ridge, not the valley airfield below it — so
+    /// candidates are filtered on both horizontal distance and altitude difference before the
+    /// nearest is taken. If nothing qualifies we report no wind rather than a misleading one.
+    private func parseWindData(_ data: Data,
+                               nearCoordinate: CLLocationCoordinate2D,
+                               aircraftAltitudeMeters: Double?) throws -> WindData {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let features = json["features"] as? [[String: Any]] else {
             throw WindFetchError.parseError
@@ -242,10 +241,25 @@ class WindDataService: ObservableObject {
             let swissCoord = (x: coordinates[0], y: coordinates[1])
             let wgs84Coord = convertSwissToWGS84(x: swissCoord.x, y: swissCoord.y)
 
+            // Station elevation AMSL. Serialized as a STRING in the feed ("1888.00"), not a number.
+            let stationAltitude = (properties["altitude"] as? String).flatMap(Double.init)
+                ?? (properties["altitude"] as? Double)
+
             // Calculate distance
             let stationLocation = CLLocation(latitude: wgs84Coord.latitude, longitude: wgs84Coord.longitude)
             let aircraftLocation = CLLocation(latitude: nearCoordinate.latitude, longitude: nearCoordinate.longitude)
             let distance = aircraftLocation.distance(from: stationLocation)
+
+            // Too far to describe the air where the aircraft is.
+            guard distance <= maxStationDistanceMeters else { continue }
+
+            // Too far above or below us to be representative. Skipped when either altitude is
+            // unknown — an unfiltered station is still better than no wind at all, and the
+            // distance bound above already excludes the worst cases.
+            if let stationAltitude, let aircraftAltitudeMeters,
+               abs(stationAltitude - aircraftAltitudeMeters) > maxStationAltitudeDeltaMeters {
+                continue
+            }
 
             if distance < nearestDistance {
                 nearestDistance = distance
@@ -255,7 +269,8 @@ class WindDataService: ObservableObject {
                     directionDegrees: directionDegrees,
                     timestamp: timestamp,
                     stationCoordinate: wgs84Coord,
-                    distanceMeters: distance
+                    distanceMeters: distance,
+                    stationAltitudeMeters: stationAltitude ?? .nan
                 )
             }
         }

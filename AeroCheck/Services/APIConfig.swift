@@ -88,4 +88,36 @@ enum APIConfig {
         }
         return production
     }()
+
+    /// Weather proxy base URL, without a trailing slash.
+    ///
+    /// A DIFFERENT worker from `baseURL`, deliberately. `api.aerocheck.app` is the entitlement
+    /// authority; this is a public, unauthenticated cache in front of Open-Meteo. Keeping them apart
+    /// means weather traffic cannot consume the entitlement worker's request budget or attack
+    /// surface. There is no sandbox twin — a forecast is the same forecast in every build, and it
+    /// carries no entitlement.
+    static let weatherBaseURL: String = {
+        endpoint(forKey: "WeatherBaseURL") ?? "https://wx.aerocheck.app"
+    }()
+
+    /// Shared secret sent as `X-AeroCheck-Client` to the weather proxy, or nil when not configured.
+    ///
+    /// A SPEED BUMP, not a credential. It stops someone reading the public repository from pointing
+    /// their own app or site at wx.aerocheck.app; it stops nobody willing to run `strings` on the
+    /// IPA. Nothing behind it is worth protecting — it fronts free public weather data. Treat a
+    /// leak as a reason to rotate (add a value to the worker's list, ship an update, retire the
+    /// old one), not as an incident.
+    ///
+    /// Absent is fine and must stay fine: the worker fails open when its own list is unset, so a
+    /// checkout without Secrets.xcconfig still gets working weather.
+    static let weatherClientSecret: String? = {
+        guard let raw = Bundle.main.object(forInfoDictionaryKey: "WeatherClientSecret") as? String
+        else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An unexpanded build setting ("$(WEATHER_CLIENT_SECRET)") must never be sent as a header —
+        // it would be a guaranteed mismatch that looks like a configured client. Same guard the
+        // endpoint reader applies. (Happens when the setting is undefined rather than empty.)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("$") else { return nil }
+        return trimmed
+    }()
 }

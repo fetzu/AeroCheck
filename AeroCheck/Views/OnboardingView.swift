@@ -62,7 +62,6 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var showSkipConfirm = false
     @State private var showNoDownloadWarning = false
-    @State private var showEstimatedAirspeedWarning = false
     @State private var showSubscription = false
     /// True while the location step is waiting for the user to answer the system permission prompt, so
     /// we advance to the next step only AFTER they've responded. (device-test feedback)
@@ -142,10 +141,6 @@ struct OnboardingView: View {
             Button(String(localized: "Continue anyway")) { withAnimation { currentPage = 3 } }
         } message: {
             Text(String(localized: "Without the recommended airspace, navaid and reporting-point data you won't see airspace or frequencies while navigating. Select your countries and tap Download first."))
-        }
-        .sheet(isPresented: $showEstimatedAirspeedWarning) {
-            EstimatedAirspeedWarningSheet(isPresented: $showEstimatedAirspeedWarning,
-                                          showEstimatedAirspeed: Bindable(appState).settings.showEstimatedAirspeed)
         }
         .sheet(isPresented: $showSubscription) { SubscriptionView() }
         // When a purchase completes from the onboarding paywall sheet, close it and jump straight to the
@@ -560,17 +555,6 @@ struct OnboardingView: View {
                           String(localized: "Flight planning"),
                           String(localized: "Map-first route builder"),
                           Bindable(appState).settings.enableFlightPlanning)
-                toggleRow("wind", .altimeterBlue,
-                          String(localized: "Estimated airspeed"),
-                          String(localized: "MeteoSwiss wind estimate — experimental (Switzerland)"),
-                          // Enabling shows the same experimental-feature warning as Settings. (feedback)
-                          Binding(
-                              get: { appState.settings.showEstimatedAirspeed },
-                              set: { newValue in
-                                  if newValue { showEstimatedAirspeedWarning = true }
-                                  else { appState.settings.showEstimatedAirspeed = false }
-                              }
-                          ))
                 toggleRow("gauge.with.needle", .aviationGold,
                           String(localized: "Log engine hours"),
                           String(localized: "Prompt for the hour meter"),

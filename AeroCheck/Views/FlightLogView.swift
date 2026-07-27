@@ -42,6 +42,11 @@ struct FlightLogView: View {
     @State private var selectedFlightID: UUID? = nil
     /// Non-nil while the stats share-card customization sheet is open (snapshot of the current filter). (v4 UI/UX Revamp)
     @State private var statsShareData: StatsShareCardData? = nil
+    /// Flights a swipe (or Edit-mode delete) has proposed removing, held until the pilot confirms.
+    /// A logbook entry is the only record of a flight and deletion is irreversible, so the list must
+    /// guard it exactly as the detail screen already does — a mis-swipe in turbulence must not be
+    /// able to destroy an entry on its own.
+    @State private var pendingDeletion: [Flight] = []
 
     enum ExportAllType: Sendable {
         case gpx
@@ -422,7 +427,7 @@ struct FlightLogView: View {
                         ForEach(favorites) { flight in
                             flightRow(flight, twoColumn: twoColumn)
                         }
-                        .onDelete { offsets in deleteFlights(favorites, at: offsets) }
+                        .onDelete { offsets in stageDeletion(favorites, at: offsets) }
                     } header: {
                         favoritesHeader(count: favorites.count)
                     }
@@ -434,7 +439,7 @@ struct FlightLogView: View {
                         ForEach(group.flights) { flight in
                             flightRow(flight, twoColumn: twoColumn)
                         }
-                        .onDelete { offsets in deleteFlights(group.flights, at: offsets) }
+                        .onDelete { offsets in stageDeletion(group.flights, at: offsets) }
                     } header: {
                         monthHeader(group)
                     }
@@ -443,6 +448,24 @@ struct FlightLogView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .alert(L10n.FlightDetail.deleteTitle, isPresented: deleteConfirmationPresented) {
+            Button(L10n.Button.cancel, role: .cancel) { pendingDeletion = [] }
+            Button(L10n.Button.delete, role: .destructive) {
+                for flight in pendingDeletion { appState.deleteFlight(flight) }
+                pendingDeletion = []
+            }
+        } message: {
+            Text(L10n.FlightDetail.deleteMessage)
+        }
+    }
+
+    /// Drives the delete alert off `pendingDeletion` so a dismissal by any route (Cancel, tapping
+    /// away, the swipe being undone) clears the staged flights rather than leaving them armed.
+    private var deleteConfirmationPresented: Binding<Bool> {
+        Binding(
+            get: { !pendingDeletion.isEmpty },
+            set: { presented in if !presented { pendingDeletion = [] } }
+        )
     }
 
     @ViewBuilder
@@ -558,11 +581,12 @@ struct FlightLogView: View {
 
     /// Sticky bottom bar so export-all is always reachable without scrolling past every flight. Exports
     /// ALL flights (the header's Export button handles the filtered/listed subset). (round 7)
-    /// Delete swiped flights within a month group.
-    private func deleteFlights(_ flights: [Flight], at offsets: IndexSet) {
-        for index in offsets {
-            appState.deleteFlight(flights[index])
-        }
+    /// Stage swiped flights for deletion. Deliberately does NOT delete: it only records what was
+    /// swiped so `deleteConfirmation` can ask first. Resolving the offsets to `Flight` values here
+    /// (rather than keeping indices) means the confirmation deletes exactly what was swiped even if
+    /// the list re-sorts or re-groups while the alert is up.
+    private func stageDeletion(_ flights: [Flight], at offsets: IndexSet) {
+        pendingDeletion = offsets.compactMap { flights.indices.contains($0) ? flights[$0] : nil }
     }
 
     // MARK: - Dashboard (v4 UI/UX Revamp Flight Log revamp)

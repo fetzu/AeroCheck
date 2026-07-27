@@ -176,6 +176,7 @@ extension MapOrientationMode: Equatable {}
 
 /// Full-screen navigation map view with aircraft position tracking
 struct NavigationMapView: View {
+    @Environment(\.cockpitTheme) private var theme
     @EnvironmentObject var locationManager: LocationManager
     @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
@@ -334,34 +335,34 @@ struct NavigationMapView: View {
 
         // Don't show stall color based on unreliable GPS data
         if locationManager.gpsSignalStatus != .good {
-            return .dimText
+            return theme.textDim
         }
 
         // If below stall speed, always red
         if speedKnots < stallSpeed {
-            return .aviationRed
+            return theme.danger
         }
 
         // If we have a target speed, color based on that
         if let target = targetSpeed {
             if abs(speedKnots - target) <= 5 {
-                return .aviationGreen // On target
+                return theme.onTarget // On target
             } else {
                 return .orange // Off target
             }
         }
 
         // No target speed, use green
-        return .aviationGreen
+        return theme.onTarget
     }
 
     /// GPS status color
     private var gpsStatusColor: Color {
-        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return .dimText }
+        guard locationManager.isTracking || locationManager.isLocationUpdatesActive else { return theme.textDim }
         switch locationManager.gpsSignalStatus {
-        case .good: return .aviationGreen
+        case .good: return theme.onTarget
         case .degraded: return .orange
-        case .lost: return .aviationRed
+        case .lost: return theme.danger
         }
     }
 
@@ -671,7 +672,7 @@ struct NavigationMapView: View {
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .background(
-            Color.panelBackground.opacity(0.97)
+            theme.panel.opacity(0.97)
                 .overlay(GeometryReader { p in
                     Color.clear.preference(key: CompactSheetHeightPreferenceKey.self, value: p.size.height)
                 })
@@ -766,7 +767,7 @@ struct NavigationMapView: View {
                 Text("FREQ").font(.system(size: 11, weight: .bold))
             }
         }
-        .foregroundColor(.aviationGold).lineLimit(1)
+        .foregroundColor(theme.action).lineLimit(1)
     }
 
     // MARK: - Compact Top Bar
@@ -777,7 +778,7 @@ struct NavigationMapView: View {
             Button(action: { isPresented = false }) {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .floatingChromeCircle()
             }
@@ -803,7 +804,7 @@ struct NavigationMapView: View {
                                 .font(.system(size: 8, weight: .bold))
                         }
                     }
-                    .foregroundColor(showCompactPanel ? .aviationGreen : .primaryText)
+                    .foregroundColor(showCompactPanel ? theme.onTarget : theme.textPrimary)
                     .frame(width: 50, height: 44) // HIG minimum tap height (UX-16)
                     .floatingChromeBackground(cornerRadius: 8)
                 }
@@ -812,7 +813,7 @@ struct NavigationMapView: View {
                 Button(action: { showFlightPlanning = true }) {
                     Image(systemName: "map.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(.primaryText)
+                        .foregroundColor(theme.textPrimary)
                         .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                         .floatingChromeBackground(cornerRadius: 8)
                 }
@@ -838,10 +839,10 @@ struct NavigationMapView: View {
                         // Time
                         NavClockText(useUTC: appState.settings.alwaysUseUTC,
                                      font: .system(size: 11, weight: .medium, design: .monospaced),
-                                     color: .primaryText)
+                                     color: theme.textPrimary)
 
                         Rectangle()
-                            .fill(Color.dimText)
+                            .fill(theme.textDim)
                             .frame(width: 1, height: 14)
 
                         // Speed
@@ -863,10 +864,10 @@ struct NavigationMapView: View {
                             Text("ft")
                                 .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
-                        .foregroundColor(.altimeterBlue)
+                        .foregroundColor(theme.info)
 
                         Rectangle()
-                            .fill(Color.dimText)
+                            .fill(theme.textDim)
                             .frame(width: 1, height: 14)
 
                         // Heading
@@ -876,7 +877,7 @@ struct NavigationMapView: View {
                             Text("°")
                                 .font(.system(size: 12)) // ≥12pt (UX-17)
                         }
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -885,7 +886,7 @@ struct NavigationMapView: View {
                 // "Next Check" line integrated in the info box
                 if appState.isFlightActive {
                     Rectangle()
-                        .fill(Color.dimText.opacity(0.3))
+                        .fill(theme.textDim.opacity(0.3))
                         .frame(height: 0.5)
 
                     HStack(spacing: 4) {
@@ -894,7 +895,7 @@ struct NavigationMapView: View {
                         Text("Next: \(appState.currentPhase.title)")
                             .font(.system(size: 10, weight: .medium))
                     }
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(theme.action)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 3)
                 }
@@ -908,7 +909,7 @@ struct NavigationMapView: View {
             Button(action: { showOverlaysSheet = true }) {
                 Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 14))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                     .frame(width: 44, height: 44)
                     .floatingChromeCircle()
             }
@@ -919,9 +920,9 @@ struct NavigationMapView: View {
                 if airspaceDataNeedsAttention {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.aviationAmber)
+                        .foregroundColor(theme.warning)
                         .padding(2)
-                        .background(Color.panelBackground, in: Circle())
+                        .background(theme.panel, in: Circle())
                         .offset(x: 4, y: -4)
                         .accessibilityHidden(true)
                 }
@@ -943,7 +944,7 @@ struct NavigationMapView: View {
             }) {
                 Image(systemName: isOfflineMode ? MapLayerType.icao.icon : selectedLayer.icon)
                     .font(.system(size: 14))
-                    .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
+                    .foregroundColor(isOfflineMode ? theme.textSecondary : theme.textPrimary)
                     .frame(width: 44, height: 44) // HIG minimum tap target (UX-16)
                     .floatingChromeCircle()
             }
@@ -975,7 +976,7 @@ struct NavigationMapView: View {
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                                .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
                         )
                     }
                     .sheet(isPresented: $showCacheInfoModal) {
@@ -1027,13 +1028,13 @@ struct NavigationMapView: View {
                 VStack(spacing: 0) {
                     Button(action: { zoom(by: 0.5) }) {
                         Image(systemName: "plus").font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primaryText).frame(width: 40, height: 36).contentShape(Rectangle())
+                            .foregroundColor(theme.textPrimary).frame(width: 40, height: 36).contentShape(Rectangle())
                     }
                     .accessibilityLabel(L10n.Nav.zoomIn)
                     Rectangle().fill(Color.white.opacity(0.12)).frame(width: 22, height: 0.5)
                     Button(action: { zoom(by: 2.0) }) {
                         Image(systemName: "minus").font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primaryText).frame(width: 40, height: 36).contentShape(Rectangle())
+                            .foregroundColor(theme.textPrimary).frame(width: 40, height: 36).contentShape(Rectangle())
                     }
                     .accessibilityLabel(L10n.Nav.zoomOut)
                 }
@@ -1277,9 +1278,9 @@ struct NavigationMapView: View {
             Button(action: { isPresented = false }) {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                     .frame(width: 44, height: 44)
-                    .background(Color.panelBackground.opacity(0.92), in: Circle())
+                    .background(theme.panel.opacity(0.92), in: Circle())
             }
 
             Spacer()
@@ -1293,7 +1294,7 @@ struct NavigationMapView: View {
                         // Time on first row
                         NavClockText(useUTC: appState.settings.alwaysUseUTC,
                                      font: .system(size: 14, weight: .medium, design: .monospaced),
-                                     color: .primaryText)
+                                     color: theme.textPrimary)
 
                         // Speed, Altitude, Heading on second row
                         HStack(spacing: 10) {
@@ -1313,7 +1314,7 @@ struct NavigationMapView: View {
                                 Text("ft")
                                     .font(.system(size: 10, weight: .medium))
                             }
-                            .foregroundColor(.altimeterBlue)
+                            .foregroundColor(theme.info)
 
                             // Heading
                             HStack(spacing: 2) {
@@ -1322,7 +1323,7 @@ struct NavigationMapView: View {
                                 Text("°")
                                     .font(.system(size: 10, weight: .medium))
                             }
-                            .foregroundColor(.aviationGold)
+                            .foregroundColor(theme.action)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -1331,7 +1332,7 @@ struct NavigationMapView: View {
                     // "Next Check" integrated in info box
                     if appState.isFlightActive {
                         Rectangle()
-                            .fill(Color.dimText.opacity(0.3))
+                            .fill(theme.textDim.opacity(0.3))
                             .frame(height: 0.5)
 
                         HStack(spacing: 4) {
@@ -1340,12 +1341,12 @@ struct NavigationMapView: View {
                             Text(appState.currentPhase.title)
                                 .font(.system(size: 11, weight: .medium))
                         }
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                     }
                 }
-                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
+                .background(theme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             } else {
                 // Horizontal layout for iPad
                 VStack(spacing: 0) {
@@ -1353,11 +1354,11 @@ struct NavigationMapView: View {
                         // Current time
                         NavClockText(useUTC: appState.settings.alwaysUseUTC,
                                      font: .system(size: 16, weight: .medium, design: .monospaced),
-                                     color: .primaryText)
+                                     color: theme.textPrimary)
 
                         // Divider
                         Rectangle()
-                            .fill(Color.dimText)
+                            .fill(theme.textDim)
                             .frame(width: 1, height: 20)
 
                         // Speed (color-coded based on target)
@@ -1376,7 +1377,7 @@ struct NavigationMapView: View {
                             Text("ft")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(.altimeterBlue)
+                        .foregroundColor(theme.info)
 
                         // Heading
                         HStack(spacing: 4) {
@@ -1385,13 +1386,13 @@ struct NavigationMapView: View {
                             Text("°")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
 
                         // Current phase, inline. When a cruise check is due it becomes a tappable amber
                         // ⟳ FREDA badge (tap to acknowledge); otherwise a plain gold phase label —
                         // a disabled Button was dimming the text. (v4 UI/UX Revamp — re-cruise)
                         if appState.isFlightActive {
-                            Rectangle().fill(Color.dimText).frame(width: 1, height: 20)
+                            Rectangle().fill(theme.textDim).frame(width: 1, height: 20)
                             if appState.cruiseCheckDue {
                                 Button(action: { appState.acknowledgeCruiseCheck() }) {
                                     HStack(spacing: 4) {
@@ -1401,13 +1402,13 @@ struct NavigationMapView: View {
                                             .font(.system(size: 13, weight: .semibold))
                                             .lineLimit(1)
                                     }
-                                    .foregroundColor(.aviationAmber)
+                                    .foregroundColor(theme.warning)
                                 }
                                 .buttonStyle(.plain)
                             } else {
                                 Text(appState.currentPhase.title)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.aviationGold)
+                                    .foregroundColor(theme.action)
                                     .lineLimit(1)
                             }
                         }
@@ -1416,7 +1417,7 @@ struct NavigationMapView: View {
                     .padding(.vertical, 8)
                 }
                 .fixedSize(horizontal: true, vertical: false)
-                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
+                .background(theme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             }
 
             Spacer()
@@ -1427,9 +1428,9 @@ struct NavigationMapView: View {
             Button(action: { showOverlaysSheet = true }) {
                 Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
                     .frame(width: 44, height: 44)
-                    .background(Color.panelBackground.opacity(0.92), in: Circle())
+                    .background(theme.panel.opacity(0.92), in: Circle())
             }
             .accessibilityLabel(L10n.Nav.layers)
             .sheet(isPresented: $showOverlaysSheet) {
@@ -1446,14 +1447,14 @@ struct NavigationMapView: View {
             }) {
                 Image(systemName: "shield")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(appState.settings.showOpenAIPOverlay ? .aviationGold : .secondaryText)
+                    .foregroundColor(appState.settings.showOpenAIPOverlay ? theme.action : theme.textSecondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
                             .fill(appState.settings.showOpenAIPOverlay
-                                  ? Color.panelBackground.opacity(0.95)
-                                  : Color.panelBackground.opacity(0.7))
+                                  ? theme.panel.opacity(0.95)
+                                  : theme.panel.opacity(0.7))
                     )
             }
             .overlay(alignment: .topTrailing) {
@@ -1462,9 +1463,9 @@ struct NavigationMapView: View {
                 if airspaceDataNeedsAttention {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.aviationAmber)
+                        .foregroundColor(theme.warning)
                         .padding(2)
-                        .background(Color.panelBackground, in: Circle())
+                        .background(theme.panel, in: Circle())
                         .offset(x: 5, y: -5)
                         // Expose the stale-airspace cue to VoiceOver (reuses the existing translated
                         // string) instead of hiding it — safety-relevant info. (v4.1.1 a11y pass)
@@ -1491,10 +1492,10 @@ struct NavigationMapView: View {
                     }
                 }
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(isOfflineMode ? .secondaryText : .primaryText)
+                .foregroundColor(isOfflineMode ? theme.textSecondary : theme.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.panelBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
+                .background(theme.panel.opacity(0.92), in: RoundedRectangle(cornerRadius: 10))
             }
             .accessibilityLabel(L10n.MapLayer.title)
             .sheet(isPresented: $showLayerPicker) {
@@ -1526,7 +1527,7 @@ struct NavigationMapView: View {
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(isOfflineMode ? Color.aviationRed.opacity(0.9) : Color.aviationGold.opacity(0.9))
+                                    .fill(isOfflineMode ? theme.danger.opacity(0.9) : theme.action.opacity(0.9))
                             )
                         }
                         .sheet(isPresented: $showCacheInfoModal) {
@@ -1562,7 +1563,7 @@ struct NavigationMapView: View {
                 }
             }
             .background(
-                Color.panelBackground.opacity(0.92)
+                theme.panel.opacity(0.92)
                     .ignoresSafeArea(edges: .bottom)
             )
             .overlay(alignment: .top) {
@@ -1652,31 +1653,31 @@ struct NavigationMapView: View {
             HStack(spacing: 6) {
                 Text("WPT \(plan.currentWaypointIndex + 1)/\(plan.waypoints.count)")
                     .font(.system(size: 9, weight: .semibold)).tracking(0.3)
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
                 Text(next.name.isEmpty ? "—" : next.name)
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                 if let distText = nextWaypointDistanceText {
-                    Text("·").foregroundColor(.dimText)
-                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(.aviationGold)
+                    Text("·").foregroundColor(theme.textDim)
+                    Text(distText).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.action)
                 }
                 if let brg = liveBearingText {
-                    Text("·").foregroundColor(.dimText)
-                    Text(brg).font(.system(size: 13, design: .monospaced)).foregroundColor(.secondaryText)
+                    Text("·").foregroundColor(theme.textDim)
+                    Text(brg).font(.system(size: 13, design: .monospaced)).foregroundColor(theme.textSecondary)
                 }
                 if let eto = next.estimatedTimeOver {
-                    Text("·").foregroundColor(.dimText)
+                    Text("·").foregroundColor(theme.textDim)
                     Text("ETO \(eto.formatted(date: .omitted, time: .shortened))")
-                        .font(.system(size: 13, design: .monospaced)).foregroundColor(.dimText)
+                        .font(.system(size: 13, design: .monospaced)).foregroundColor(theme.textDim)
                 }
                 // Chronometer moved to bottom-bar row 2 (always visible). (v4 UI/UX Revamp)
             }
             .lineLimit(1)
         } else {
             Text(L10n.Nav.flightPlan)
-                .font(.system(size: 12)).foregroundColor(.dimText)
+                .font(.system(size: 12)).foregroundColor(theme.textDim)
         }
     }
 
@@ -1696,7 +1697,7 @@ struct NavigationMapView: View {
                     Text("FREQ").font(.system(size: 12, weight: .bold))
                 }
             }
-            .foregroundColor(.aviationGold).lineLimit(1)
+            .foregroundColor(theme.action).lineLimit(1)
         }
         .accessibilityLabel(L10n.Nav.radioFrequencies)
     }
@@ -1997,7 +1998,7 @@ struct NavigationMapView: View {
         return VStack(alignment: .leading, spacing: 0) {
             Text(L10n.Nav.radioFrequencies)
                 .font(.system(size: 9, weight: .semibold)).tracking(0.4)
-                .foregroundColor(.altimeterBlue)
+                .foregroundColor(theme.info)
                 .lineLimit(1)
                 .padding(.bottom, 4)
             ForEach(visible) { freqRow($0) }
@@ -2008,7 +2009,7 @@ struct NavigationMapView: View {
                         Text(showAllFreqs ? L10n.Nav.showLess : "\(L10n.Nav.allFrequencies) (\(nonEmergency.count))")
                         Image(systemName: showAllFreqs ? "chevron.up" : "chevron.down").font(.system(size: 9))
                     }
-                    .font(.system(size: 10)).foregroundColor(.dimText)
+                    .font(.system(size: 10)).foregroundColor(theme.textDim)
                 }
                 .padding(.vertical, 3)
             }
@@ -2019,8 +2020,8 @@ struct NavigationMapView: View {
     /// A short CURRENT/NEXT tag + its colour, or nil for other rows. (v4 UI/UX Revamp)
     private func roleTag(_ role: FreqRole) -> (String, Color)? {
         switch role {
-        case .current: return (L10n.Nav.freqCurrent, .aviationGold)
-        case .next: return (L10n.Nav.freqNext, .altimeterBlue)
+        case .current: return (L10n.Nav.freqCurrent, theme.action)
+        case .next: return (L10n.Nav.freqNext, theme.info)
         default: return nil
         }
     }
@@ -2036,12 +2037,12 @@ struct NavigationMapView: View {
             }
             Text(item.station)
                 .font(.system(size: 11, weight: item.highlighted ? .semibold : .regular))
-                .foregroundColor(item.isEmergency ? .aviationRed : .secondaryText)
+                .foregroundColor(item.isEmergency ? theme.danger : theme.textSecondary)
                 .lineLimit(1)
             Spacer(minLength: 6)
             Text(item.freq)
                 .font(.system(size: 13, weight: item.highlighted ? .bold : .regular, design: .monospaced))
-                .foregroundColor(item.highlighted ? .aviationGold : .primaryText)
+                .foregroundColor(item.highlighted ? theme.action : theme.textPrimary)
         }
         .padding(.vertical, 3)
     }
@@ -2073,14 +2074,14 @@ struct NavigationMapView: View {
                 // Sequence number — matches the numbered disc on the map. (v4 UI/UX Revamp)
                 Text("\(index + 1)")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(isCurrent ? .aviationGold : .secondaryText)
+                    .foregroundColor(isCurrent ? theme.action : theme.textSecondary)
                     .frame(width: 16, alignment: .center)
                 Image(systemName: isPast ? "circle.fill" : (isCurrent ? "location.fill" : "circle"))
                     .font(.system(size: 9))
-                    .foregroundColor(isPast ? .aviationGreen : (isCurrent ? .aviationGold : .dimText))
+                    .foregroundColor(isPast ? theme.onTarget : (isCurrent ? theme.action : theme.textDim))
                 Text(wpt.name.isEmpty ? "WPT \(index + 1)" : wpt.name)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular, design: .monospaced))
-                    .foregroundColor(isCurrent ? .aviationGold : .primaryText)
+                    .foregroundColor(isCurrent ? theme.action : theme.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 6)
                 // Fixed-width columns so every row's heading / distance / PLAN / ACT / Δ line up,
@@ -2089,14 +2090,14 @@ struct NavigationMapView: View {
                     // Heading + distance kept on iPad; dropped on the narrow iPhone table. (v4 UI/UX Revamp)
                     if !compact {
                         Text(leg?.magneticCourse.map { String(format: "%03d°", Int($0)) } ?? "")
-                            .foregroundColor(.secondaryText).frame(width: 38, alignment: .trailing)
+                            .foregroundColor(theme.textSecondary).frame(width: 38, alignment: .trailing)
                         Text(leg?.distance.map { String(format: "%.1f", $0) } ?? "")
-                            .foregroundColor(.secondaryText).frame(width: 40, alignment: .trailing)
+                            .foregroundColor(theme.textSecondary).frame(width: 40, alignment: .trailing)
                     }
                     Text((leg?.totalLegEET).map { formatClock($0) } ?? "")  // PLAN (EET)
-                        .foregroundColor(.dimText).frame(width: 44, alignment: .trailing)
+                        .foregroundColor(theme.textDim).frame(width: 44, alignment: .trailing)
                     Text(actual.map { formatClock($0) } ?? "")            // ACT / live
-                        .foregroundColor(isCurrent ? .aviationGold : .aviationGreen)
+                        .foregroundColor(isCurrent ? theme.action : theme.onTarget)
                         .frame(width: 44, alignment: .trailing)
                     legDeltaText(planned: leg?.totalLegEET, actual: actual)  // Δ ahead/over
                         .frame(width: 52, alignment: .trailing)
@@ -2105,8 +2106,8 @@ struct NavigationMapView: View {
                 .lineLimit(1)
             }
             .padding(.horizontal, 8).padding(.vertical, 7)
-            .background(isPreview ? Color.altimeterBlue.opacity(0.14)
-                        : (isCurrent ? Color.aviationGold.opacity(0.10) : Color.clear))
+            .background(isPreview ? theme.info.opacity(0.14)
+                        : (isCurrent ? theme.action.opacity(0.10) : Color.clear))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
@@ -2133,7 +2134,7 @@ struct NavigationMapView: View {
         if let planned, let actual {
             let d = planned - actual
             Text((d >= 0 ? "▲" : "▼") + formatClock(abs(d)))
-                .foregroundColor(d >= 0 ? .aviationGreen : .aviationAmber)
+                .foregroundColor(d >= 0 ? theme.onTarget : theme.warning)
         } else {
             Text("")
         }
@@ -2188,8 +2189,8 @@ struct NavigationMapView: View {
 
     private func liveStat(_ label: String, _ value: String) -> some View {
         HStack(spacing: 4) {
-            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(.dimText)
-            Text(value).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondaryText)
+            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(theme.textDim)
+            Text(value).font(.system(size: 11, design: .monospaced)).foregroundColor(theme.textSecondary)
         }
     }
 
@@ -2203,12 +2204,12 @@ struct NavigationMapView: View {
         HStack(spacing: 10) {
             ProgressView(value: plan.progress)
                 .progressViewStyle(.linear)
-                .tint(.aviationGreen)
+                .tint(theme.onTarget)
             HStack(spacing: 3) {
                 ForEach(0..<plan.waypoints.count, id: \.self) { i in
                     Circle()
-                        .fill(i < plan.currentWaypointIndex ? Color.aviationGreen
-                              : (i == plan.currentWaypointIndex ? Color.aviationGold : Color.dimText.opacity(0.5)))
+                        .fill(i < plan.currentWaypointIndex ? theme.onTarget
+                              : (i == plan.currentWaypointIndex ? theme.action : theme.textDim.opacity(0.5)))
                         .frame(width: 5, height: 5)
                 }
             }
@@ -2242,19 +2243,19 @@ struct NavigationMapView: View {
             HStack(spacing: 6) {
                 Text("DEST")
                     .font(.system(size: 9, weight: .semibold)).tracking(0.4)
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
                 Text(s.dest)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.primaryText)
-                Text("·").foregroundColor(.dimText)
+                    .foregroundColor(theme.textPrimary)
+                Text("·").foregroundColor(theme.textDim)
                 Text(String(format: "%.0f NM", s.remainingNM))
                     .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
                 if let eta = s.eta {
-                    Text("·").foregroundColor(.dimText)
+                    Text("·").foregroundColor(theme.textDim)
                     Text("ETA \(eta.formatted(date: .omitted, time: .shortened))")
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(.dimText)
+                        .foregroundColor(theme.textDim)
                 }
             }
             .lineLimit(1)
@@ -2282,7 +2283,7 @@ struct NavigationMapView: View {
                 let started = running || elapsed > 0.5
                 HStack(spacing: 6) {
                     if !started {
-                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: .aviationGreen, filled: false, iconOnly: iconOnly) {
+                        legPillButton(icon: "stopwatch", label: L10n.Nav.startLeg, tint: theme.onTarget, filled: false, iconOnly: iconOnly) {
                             flightPlanManager.startChronometer()
                         }
                     } else {
@@ -2290,7 +2291,7 @@ struct NavigationMapView: View {
                         if canMark {
                             let markName = plan.waypoints[plan.currentWaypointIndex].name
                             let markLabel = markName.isEmpty ? L10n.Nav.mark : "\(L10n.Nav.mark) \(markName)"
-                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: .aviationGold, filled: true, iconOnly: iconOnly) {
+                            legPillButton(icon: "mappin.and.ellipse", label: markLabel, tint: theme.action, filled: true, iconOnly: iconOnly) {
                                 flightPlanManager.markWaypoint()
                             }
                         }
@@ -2321,19 +2322,19 @@ struct NavigationMapView: View {
             if let legLabel {
                 Text(legLabel)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.primaryText).lineLimit(1)
+                    .foregroundColor(theme.textPrimary).lineLimit(1)
                 Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 16)
             }
-            Image(systemName: "stopwatch").font(.system(size: 12)).foregroundColor(running ? .aviationGreen : .secondaryText)
+            Image(systemName: "stopwatch").font(.system(size: 12)).foregroundColor(running ? theme.onTarget : theme.textSecondary)
             Text(formatClock(elapsed))
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundColor(running ? .aviationGreen : .secondaryText)
+                .foregroundColor(running ? theme.onTarget : theme.textSecondary)
             if let planned {
-                Text("/ \(formatClock(planned))").font(.system(size: 11, design: .monospaced)).foregroundColor(.dimText)
+                Text("/ \(formatClock(planned))").font(.system(size: 11, design: .monospaced)).foregroundColor(theme.textDim)
                 let delta = planned - elapsed
                 Text((delta >= 0 ? "▲" : "▼") + formatClock(abs(delta)))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundColor(delta >= 0 ? .aviationGreen : .aviationAmber)
+                    .foregroundColor(delta >= 0 ? theme.onTarget : theme.warning)
             }
         }
         .padding(.horizontal, 9).frame(height: 32)
@@ -2360,7 +2361,7 @@ struct NavigationMapView: View {
     private func legIconButton(_ icon: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 13, weight: .medium))
-                .foregroundColor(.secondaryText)
+                .foregroundColor(theme.textSecondary)
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.05)))
                 .frame(minWidth: 44, minHeight: 44)   // 44pt touch target around the 32pt visual
@@ -2384,10 +2385,10 @@ struct NavigationMapView: View {
                         Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
                             .font(.system(size: 17, weight: .medium))
                         if flightPlanManager.activeFlightPlan != nil {
-                            Circle().fill(Color.aviationGreen).frame(width: 7, height: 7)
+                            Circle().fill(theme.onTarget).frame(width: 7, height: 7)
                         }
                     }
-                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? .aviationGreen : .primaryText)
+                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? theme.onTarget : theme.textPrimary)
                     .frame(width: 50, height: 40)
                     .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the flight-planning toggle (UX-16)
                     .contentShape(Rectangle())
@@ -2412,7 +2413,7 @@ struct NavigationMapView: View {
                     StatusIndicator(gpsStatusIndicator, size: 8)
                     Text("GPS")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primaryText)
+                        .foregroundColor(theme.textPrimary)
                 }
                 .padding(.horizontal, 6)
                 .frame(height: 40)
@@ -2440,7 +2441,7 @@ struct NavigationMapView: View {
                     Button(action: { zoom(by: 2.0) }) {
                         Image(systemName: "minus")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primaryText)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 40, height: 40)
                             .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-out button (UX-16)
                             .contentShape(Rectangle())
@@ -2450,7 +2451,7 @@ struct NavigationMapView: View {
                     Button(action: { zoom(by: 0.5) }) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primaryText)
+                            .foregroundColor(theme.textPrimary)
                             .frame(width: 40, height: 40)
                             .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the zoom-in button (UX-16)
                             .contentShape(Rectangle())
@@ -2541,7 +2542,7 @@ struct NavigationMapView: View {
 
     /// Tint for the tracking button — gold once engaged.
     private var trackingTint: Color {
-        isFollowingAircraft ? .aviationGold : .primaryText
+        isFollowingAircraft ? theme.action : theme.textPrimary
     }
 
     /// Zoom the live map by scaling the current region span (factor < 1 zooms in). `mapState.region`
@@ -3582,6 +3583,7 @@ struct NativeMapViewUIKit: UIViewRepresentable {
 // MARK: - Layer Picker Sheet
 
 struct LayerPickerSheet: View {
+    @Environment(\.cockpitTheme) private var theme
     @Binding var selectedLayer: MapLayerType
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) var dismiss
@@ -3595,7 +3597,7 @@ struct LayerPickerSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Apple Maps")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                             .textCase(.uppercase)
                             .padding(.horizontal, 20)
 
@@ -3608,7 +3610,7 @@ struct LayerPickerSheet: View {
                                 }
                             }
                         }
-                        .background(Color.panelBackground)
+                        .background(theme.panel)
                         .cornerRadius(12)
                         .padding(.horizontal, 16)
                     }
@@ -3617,7 +3619,7 @@ struct LayerPickerSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("swisstopo")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
@@ -3629,7 +3631,7 @@ struct LayerPickerSheet: View {
                                 }
                             }
                         }
-                        .background(Color.panelBackground)
+                        .background(theme.panel)
                         .cornerRadius(12)
                         .padding(.horizontal, 16)
                     }
@@ -3639,18 +3641,18 @@ struct LayerPickerSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Data sources")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                             .padding(.horizontal, 20)
                         Text("Charts © swisstopo / BAZL · Wind © MeteoSwiss · Elevation: Open-Meteo & © swisstopo · \(OpenAIPConfig.attributionText)")
                             .font(.system(size: 11))
-                            .foregroundColor(.dimText)
+                            .foregroundColor(theme.textDim)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 20)
                     }
                 }
                 .padding(.vertical, 16)
             }
-            .background(Color.cockpitBackground)
+            .background(theme.background)
             .navigationTitle(L10n.MapLayer.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -3671,23 +3673,23 @@ struct LayerPickerSheet: View {
             HStack {
                 Image(systemName: layer.icon)
                     .font(.system(size: 18))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(theme.action)
                     .frame(width: 30)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(layer.rawValue)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primaryText)
+                        .foregroundColor(theme.textPrimary)
                     Text(layer.description)
                         .font(.system(size: 12))
-                        .foregroundColor(.secondaryText)
+                        .foregroundColor(theme.textSecondary)
                 }
 
                 Spacer()
 
                 if selectedLayer == layer {
                     Image(systemName: "checkmark")
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                 }
             }
             .padding(.horizontal, 16)
@@ -3703,6 +3705,7 @@ struct LayerPickerSheet: View {
 /// optional raster tiles), Map markers (airports/navaids/reporting points/obstacles with a show-all
 /// master), and Flight (track vector). (v4.1.0 ② — entry-point consolidation + tiles/airspace split)
 struct OverlaysSheet: View {
+    @Environment(\.cockpitTheme) private var theme
     @Environment(AppState.self) private var appState
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
@@ -3757,7 +3760,7 @@ struct OverlaysSheet: View {
                                         .accessibilityHidden(true)
                                     Text(L10n.Nav.airspaceNoData)
                                         .font(.caption)
-                                        .foregroundColor(.secondaryText)
+                                        .foregroundColor(theme.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Button {
@@ -3765,7 +3768,7 @@ struct OverlaysSheet: View {
                                 } label: {
                                     Text(L10n.Nav.downloadAirspaceData)
                                         .font(.caption.weight(.semibold))
-                                        .foregroundColor(.aviationGold)
+                                        .foregroundColor(theme.action)
                                 }
                                 .padding(.leading, 24)
                             }
@@ -3782,13 +3785,13 @@ struct OverlaysSheet: View {
                         HStack {
                             Text(L10n.Nav.mapMarkers)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.secondaryText)
+                                .foregroundColor(theme.textSecondary)
                             Spacer()
                             Button(anyMarkerOn ? L10n.Nav.hideAll : L10n.Nav.showAll) {
                                 setAllMarkers(!anyMarkerOn)
                             }
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.aviationGold)
+                            .foregroundColor(theme.action)
                         }
                         .padding(.horizontal, 20)
                         VStack(spacing: 0) {
@@ -3808,7 +3811,7 @@ struct OverlaysSheet: View {
                                 appState.settings.showObstaclesOnMap.toggle(); appState.saveSettings()
                             }
                         }
-                        .background(Color.panelBackground)
+                        .background(theme.panel)
                         .cornerRadius(12)
                         .padding(.horizontal, 16)
                     }
@@ -3821,7 +3824,7 @@ struct OverlaysSheet: View {
                 }
                 .padding(.vertical, 16)
             }
-            .background(Color.cockpitBackground)
+            .background(theme.background)
             .navigationTitle(L10n.Nav.layers)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -3855,15 +3858,15 @@ struct OverlaysSheet: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.aviationAmber)
+                    .foregroundColor(theme.warning)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Airspace data is out of date"))
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundColor(.aviationAmber)
+                        .foregroundColor(theme.warning)
                     Text(String(localized: "It may not reflect recent airspace changes."))
                         .font(.system(size: 12))
-                        .foregroundColor(.secondaryText)
+                        .foregroundColor(theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -3875,7 +3878,7 @@ struct OverlaysSheet: View {
                         ProgressView().scaleEffect(0.8)
                         Text(String(localized: "Updating…"))
                             .font(.system(size: 12.5))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                     }
                 } else {
                     Button(action: updateAeroData) {
@@ -3886,7 +3889,7 @@ struct OverlaysSheet: View {
                         .foregroundColor(.black)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGold))
+                        .background(RoundedRectangle(cornerRadius: 9).fill(theme.action))
                     }
                 }
             }
@@ -3894,8 +3897,8 @@ struct OverlaysSheet: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.aviationAmber.opacity(0.12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.aviationAmber.opacity(0.4), lineWidth: 1))
+                .fill(theme.warning.opacity(0.12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.warning.opacity(0.4), lineWidth: 1))
         )
         .padding(.horizontal, 16)
     }
@@ -3922,10 +3925,10 @@ struct OverlaysSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.secondaryText)
+                .foregroundColor(theme.textSecondary)
                 .padding(.horizontal, 20)
             VStack(spacing: 0) { content() }
-                .background(Color.panelBackground)
+                .background(theme.panel)
                 .cornerRadius(12)
                 .padding(.horizontal, 16)
         }
@@ -3935,11 +3938,11 @@ struct OverlaysSheet: View {
         Button(action: action) {
             HStack {
                 Image(systemName: icon).font(.system(size: 18))
-                    .foregroundColor(isOn ? .aviationGold : .secondaryText).frame(width: 30)
-                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(.primaryText)
+                    .foregroundColor(isOn ? theme.action : theme.textSecondary).frame(width: 30)
+                Text(title).font(.system(size: 16, weight: .medium)).foregroundColor(theme.textPrimary)
                 Spacer()
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isOn ? .aviationGold : .dimText)
+                    .foregroundColor(isOn ? theme.action : theme.textDim)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .contentShape(Rectangle())
@@ -5010,6 +5013,7 @@ class TrackVectorCasingPolyline: TrackVectorPolyline {}
 /// Modal sheet explaining GPS status indicators
 /// GPS Status modal — presented via .fullScreenCover as a centered card over dimmed background
 struct GPSStatusInfoSheet: View {
+    @Environment(\.cockpitTheme) private var theme
     let currentStatus: GPSSignalStatus
     @Binding var isPresented: Bool
 
@@ -5023,9 +5027,9 @@ struct GPSStatusInfoSheet: View {
 
     private var currentStatusColor: Color {
         switch currentStatus {
-        case .good: return .aviationGreen
+        case .good: return theme.onTarget
         case .degraded: return .orange
-        case .lost: return .aviationRed
+        case .lost: return theme.danger
         }
     }
 
@@ -5041,19 +5045,19 @@ struct GPSStatusInfoSheet: View {
                 // Header icon
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 40))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(theme.action)
                     .padding(.top, 24)
 
                 // Title
                 Text(L10n.GPS.statusTitle)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
 
                 // Current status
                 HStack {
                     Text(L10n.GPS.currentStatus)
                         .font(.system(size: 14))
-                        .foregroundColor(.secondaryText)
+                        .foregroundColor(theme.textSecondary)
                     Spacer()
                     HStack(spacing: 6) {
                         Circle()
@@ -5072,7 +5076,7 @@ struct GPSStatusInfoSheet: View {
                 // Status explanations
                 VStack(spacing: 14) {
                     statusRow(
-                        color: .aviationGreen,
+                        color: theme.onTarget,
                         title: L10n.GPS.signalGood,
                         description: L10n.GPS.statusGoodDesc
                     )
@@ -5082,7 +5086,7 @@ struct GPSStatusInfoSheet: View {
                         description: L10n.GPS.statusDegradedDesc
                     )
                     statusRow(
-                        color: .aviationRed,
+                        color: theme.danger,
                         title: L10n.GPS.signalLost,
                         description: L10n.GPS.statusLostDesc
                     )
@@ -5093,14 +5097,14 @@ struct GPSStatusInfoSheet: View {
                 Button(action: { isPresented = false }) {
                     Text(L10n.Button.done)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
-            .background(Color.cockpitBackground)
+            .background(theme.background)
             .cornerRadius(16)
             .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
             .frame(maxWidth: 420)
@@ -5121,10 +5125,10 @@ struct GPSStatusInfoSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                 Text(description)
                     .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -5135,6 +5139,7 @@ struct GPSStatusInfoSheet: View {
 
 /// Modal sheet explaining cache status and usage
 struct CacheInfoSheet: View {
+    @Environment(\.cockpitTheme) private var theme
     let isOfflineMode: Bool
     @Environment(AppState.self) private var appState
     @EnvironmentObject var offlineMapManager: OfflineMapManager
@@ -5150,13 +5155,13 @@ struct CacheInfoSheet: View {
                 // Header icon
                 Image(systemName: isOfflineMode ? "wifi.slash" : "internaldrive.fill")
                     .font(.system(size: 40))
-                    .foregroundColor(isOfflineMode ? .aviationRed : .aviationGold)
+                    .foregroundColor(isOfflineMode ? theme.danger : theme.action)
                     .padding(.top, 20)
 
                 // Title
                 Text(isOfflineMode ? L10n.Nav.offlineModeActive : L10n.Nav.usingCachedCharts)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
 
                 // Description
                 VStack(spacing: 8) {
@@ -5164,32 +5169,32 @@ struct CacheInfoSheet: View {
                         if hasFullOfflineSupport {
                             Text(L10n.Nav.offlineDesc)
                                 .font(.system(size: 13))
-                                .foregroundColor(.secondaryText)
+                                .foregroundColor(theme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
                             Text(L10n.Nav.offlineICAOOnly)
                                 .font(.system(size: 13))
-                                .foregroundColor(.secondaryText)
+                                .foregroundColor(theme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             Text(L10n.Nav.downloadSegelflugkarteDesc)
                                 .font(.system(size: 11))
-                                .foregroundColor(.aviationAmber)
+                                .foregroundColor(theme.warning)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     } else {
                         Text(L10n.Nav.cachedChartsDesc)
                             .font(.system(size: 13))
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text(L10n.Nav.cachedTilesDesc)
                             .font(.system(size: 11))
-                            .foregroundColor(.dimText)
+                            .foregroundColor(theme.textDim)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -5202,33 +5207,33 @@ struct CacheInfoSheet: View {
                     if offlineMapManager.isCacheAvailable {
                         HStack {
                             Text(L10n.Nav.icaoChart)
-                                .foregroundColor(.secondaryText)
+                                .foregroundColor(theme.textSecondary)
                             Spacer()
                             Text(offlineMapManager.cacheVersion)
-                                .foregroundColor(.aviationGreen)
+                                .foregroundColor(theme.onTarget)
                         }
                     }
 
                     // Segelflug Cache
                     HStack {
                         Text(L10n.Nav.segelflugkarte)
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                         Spacer()
                         if offlineMapManager.isSegelflugCacheAvailable {
                             Text(offlineMapManager.segelflugCacheVersion)
-                                .foregroundColor(.aviationGreen)
+                                .foregroundColor(theme.onTarget)
                         } else {
                             Text(L10n.Nav.notCached)
-                                .foregroundColor(.dimText)
+                                .foregroundColor(theme.textDim)
                         }
                     }
 
                     HStack {
                         Text(L10n.Nav.totalSize)
-                            .foregroundColor(.secondaryText)
+                            .foregroundColor(theme.textSecondary)
                         Spacer()
                         Text(offlineMapManager.formattedCacheSize)
-                            .foregroundColor(.primaryText)
+                            .foregroundColor(theme.textPrimary)
                     }
                 }
                 .font(.system(size: 11))
@@ -5236,7 +5241,7 @@ struct CacheInfoSheet: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.panelBackground)
+                        .fill(theme.panel)
                 )
                 .padding(.horizontal, 16)
 
@@ -5257,7 +5262,7 @@ struct CacheInfoSheet: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.aviationGreen)
+                                    .fill(theme.onTarget)
                             )
                         }
                         .padding(.horizontal, 16)
@@ -5269,12 +5274,12 @@ struct CacheInfoSheet: View {
                                 Text(L10n.Nav.stayOffline)
                             }
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.aviationRed.opacity(0.7))
+                            .foregroundColor(theme.danger.opacity(0.7))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.aviationRed.opacity(0.15))
+                                    .fill(theme.danger.opacity(0.15))
                             )
                         }
                         .padding(.horizontal, 16)
@@ -5282,7 +5287,7 @@ struct CacheInfoSheet: View {
                     .padding(.bottom, 16)
                 }
             }
-            .background(Color.cockpitBackground)
+            .background(theme.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if !isOfflineMode {

@@ -91,6 +91,7 @@ extension CockpitTheme {
             mode: .day,
             background: AmbientPalette.background ?? .cockpitBackground,
             panel: AmbientPalette.panel ?? .panelBackground,
+            card: AmbientPalette.card ?? .cardBackground,
             panelStroke: AmbientPalette.hairline ?? accent.opacity(0.28),
             action: accent,
             actionText: .white,

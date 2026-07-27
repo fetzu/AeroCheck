@@ -188,6 +188,15 @@ class FlightPlanManager: ObservableObject {
         updateFlightPlan(plan)
     }
 
+    /// Recompute the active plan's leg data in place. Used after an async input that route
+    /// calculation reads synchronously has landed — currently the winds-aloft forecast, which
+    /// `FlightPlan.windsAloftProvider` can only serve from cache.
+    func recalculateCurrentPlanRouteData() {
+        guard var plan = activeFlightPlan else { return }
+        plan.calculateRouteData()
+        updateFlightPlan(plan)
+    }
+
     /// Update a waypoint in a flight plan
     func updateWaypoint(_ waypoint: FlightPlanWaypoint, in planId: UUID) {
         guard var plan = flightPlans.first(where: { $0.id == planId }) else { return }

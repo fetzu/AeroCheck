@@ -233,13 +233,20 @@ class SubscriptionManager: ObservableObject {
                 break
 
             case .pending:
-                errorMessage = "Purchase is pending approval"
+                // Ask to Buy or an SCA challenge. Nothing is wrong and nothing is owed — the worst
+                // outcome here is the pilot paying twice because the UI implied failure.
+                errorMessage = L10n.Subscription.errorPending
 
             @unknown default:
-                errorMessage = "Unknown purchase result"
+                errorMessage = L10n.Subscription.errorUnknownResult
             }
         } catch {
-            errorMessage = "Purchase failed: \(error.localizedDescription)"
+            // The underlying error goes to the log, not the paywall. `localizedDescription` on a
+            // StoreKit/network error is English-only and frequently internal ("The operation
+            // couldn\u{2019}t be completed. (ASDErrorDomain error 500.)"), which tells a pilot
+            // nothing they can act on and is not localised for a French user either.
+            AppLog.general.debugLine("Purchase failed: \(error.localizedDescription)")
+            errorMessage = L10n.Subscription.errorPurchaseFailed
             throw error
         }
     }
@@ -291,7 +298,8 @@ class SubscriptionManager: ObservableObject {
                 debugLogger.log("Restore completed - no active subscription; downgraded locally", level: .warning)
             }
         } catch {
-            errorMessage = "Failed to restore purchases: \(error.localizedDescription)"
+            AppLog.general.debugLine("Restore failed: \(error.localizedDescription)")
+            errorMessage = L10n.Subscription.errorRestoreFailed
             debugLogger.log("Restore failed: \(error.localizedDescription)", level: .error)
         }
     }

@@ -15,6 +15,7 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var windsAloftService: WindsAloftService
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
     // completions (their @Published downloadedCountries) rather than only to airspace changes. (review #8)
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
@@ -54,6 +55,7 @@ struct FlightPlanMapBuilderView: View {
     @State private var airspaceTask: Task<Void, Never>?
     @State private var terrainData: [(distance: Double, elevation: Double)] = []
     @State private var terrainTask: Task<Void, Never>?
+    @State private var windsAloftTask: Task<Void, Never>?
     @State private var minTerrainClearanceFt: Double?
     @State private var selectedConflictId: String?   // tapped conflict — highlighted on map + profile (#4)
     @State private var focusRegion: MKCoordinateRegion?   // hold a conflict → recenter the map (#4)
@@ -267,11 +269,12 @@ struct FlightPlanMapBuilderView: View {
             updateRouteCountriesCache()
             scheduleAirspaceUpdate()
             scheduleTerrainUpdate()
+            scheduleWindsAloftUpdate()
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
-        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); updateRouteCountriesCache() }
+        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); scheduleWindsAloftUpdate(); updateRouteCountriesCache() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
         // isDataAvailable is metadata-restored at launch (already true before first appear), so the
         // async feature decode landing must retrigger via the count — same first-open race as the
@@ -686,16 +689,26 @@ struct FlightPlanMapBuilderView: View {
     /// download is opt-in and off by default, so an empty conflict set means "not checked", NOT
     /// "clear" — never show a green all-clear when this is false.
     private var airspaceChecked: Bool { openAIPDataService.isDataAvailable }
+    /// The terrain equivalent of `airspaceChecked`, and it exists for the same reason: `terrainWarning`
+    /// collapses to `false` when the check could not run at all, which is indistinguishable from
+    /// "checked and clear" unless we track it separately. `minTerrainClearanceFt` is nil whenever the
+    /// route has no elevation data (it is swisstopo-backed, so empty outside Switzerland, and also
+    /// empty while the debounced fetch is still in flight) or the waypoints carry no planned altitudes
+    /// to measure clearance against. In every one of those cases terrain went unchecked.
+    private var terrainChecked: Bool { minTerrainClearanceFt != nil }
+    /// Both checks must have actually run before the route may be called clear. `nav.noConflicts`
+    /// reads "No airspace or terrain conflicts" — it claims both, so it must be earned by both.
+    private var routeFullyChecked: Bool { airspaceChecked && terrainChecked }
     private var hazardTint: Color {
-        if hazardCount == 0 { return airspaceChecked ? .aviationGreen : .aviationAmber }
+        if hazardCount == 0 { return routeFullyChecked ? .aviationGreen : .aviationAmber }
         if terrainWarning || crossedAirspaces.contains(where: { $0.isRestrictive }) { return .aviationRed }
         return .aviationAmber
     }
     /// Tab badge glyph: the hazard count, a green ✓ for a verified-clear route, or an amber "?" when
-    /// no airspace data is downloaded (route was never checked against airspace).
+    /// either the airspace or the terrain check did not run.
     private var hazardBadge: String {
         if hazardCount > 0 { return "\(hazardCount)" }
-        return airspaceChecked ? "✓" : "?"
+        return routeFullyChecked ? "✓" : "?"
     }
 
     private func tabButton(_ tab: RightTab, _ title: String, badge: String?, tint: Color) -> some View {
@@ -721,24 +734,25 @@ struct FlightPlanMapBuilderView: View {
         .buttonStyle(.plain)
     }
 
-    /// Conflicts tab body — the hazard list, a genuine "clear" state, or an "airspace not checked"
-    /// state. The green all-clear is shown ONLY when airspace data is actually loaded; with no data
-    /// downloaded an empty conflict set means "not checked", so we must not imply the route is clear.
+    /// Conflicts tab body — the hazard list, a genuine "clear" state, or a "not checked" state. The
+    /// green all-clear is shown ONLY when BOTH the airspace and terrain checks actually ran; an empty
+    /// conflict set from a check that never ran means "not checked", never "clear".
     @ViewBuilder private var conflictsTabContent: some View {
         if hasHazards {
-            // A terrain warning can fire without airspace data; flag that airspace went unchecked so
-            // the hazard list isn't read as a complete clearance.
-            if !airspaceChecked { airspaceNotCheckedBanner }
+            // Either check can fire while the other never ran; flag whichever went unchecked so the
+            // hazard list isn't read as a complete clearance.
+            if !airspaceChecked { notCheckedBanner(L10n.Nav.airspaceNotChecked) }
+            if !terrainChecked { notCheckedBanner(L10n.Nav.terrainNotChecked) }
             conflictsList
             Spacer(minLength: 0)
-        } else if airspaceChecked {
+        } else if routeFullyChecked {
             clearStateView
         } else {
-            airspaceNotCheckedView
+            notCheckedView
         }
     }
 
-    /// Genuine all-clear: airspace data is loaded and nothing on the route conflicts.
+    /// Genuine all-clear: both checks ran and nothing on the route conflicts.
     private var clearStateView: some View {
         VStack(spacing: 12) {
             Spacer()
@@ -750,31 +764,47 @@ struct FlightPlanMapBuilderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
     }
 
-    /// No airspace data downloaded for the area — never a green all-clear for a check that never ran.
-    /// Mirrors the airport no-data handling (scheduleAirportUpdate guards on isDataAvailable).
-    private var airspaceNotCheckedView: some View {
-        VStack(spacing: 12) {
+    /// One or both route checks did not run — never a green all-clear for a check that never happened.
+    /// Renders a block per unchecked item so the pilot is told exactly WHICH check is missing rather
+    /// than a generic warning. Mirrors the airport no-data handling (scheduleAirportUpdate guards on
+    /// isDataAvailable).
+    private var notCheckedView: some View {
+        VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "exclamationmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationAmber)
-            Text(L10n.Nav.airspaceNotChecked).font(.system(size: 14, weight: .semibold)).foregroundColor(.primaryText)
-                .multilineTextAlignment(.center)
-            Text(L10n.Nav.airspaceNotCheckedDetail).font(.system(size: 12)).foregroundColor(.secondaryText)
-                .multilineTextAlignment(.center)
+            if !airspaceChecked {
+                notCheckedBlock(title: L10n.Nav.airspaceNotChecked, detail: L10n.Nav.airspaceNotCheckedDetail)
+            }
+            if !terrainChecked {
+                notCheckedBlock(title: L10n.Nav.terrainNotChecked, detail: L10n.Nav.terrainNotCheckedDetail)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
     }
 
-    /// Compact note above the hazard list when terrain triggered but airspace was not checked.
-    private var airspaceNotCheckedBanner: some View {
+    private func notCheckedBlock(title: String, detail: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.shield.fill").font(.system(size: 36)).foregroundColor(.aviationAmber)
+            Text(title).font(.system(size: 14, weight: .semibold)).foregroundColor(.primaryText)
+                .multilineTextAlignment(.center)
+            Text(detail).font(.system(size: 12)).foregroundColor(.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Compact note above the hazard list when one check fired while the other never ran, so a
+    /// partial hazard list is not mistaken for a complete clearance.
+    private func notCheckedBanner(_ text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.shield.fill").foregroundColor(.aviationAmber)
-            Text(L10n.Nav.airspaceNotChecked).font(.system(size: 12, weight: .medium))
+            Text(text).font(.system(size: 12, weight: .medium))
                 .foregroundColor(.secondaryText)
             Spacer()
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Color.aviationAmber.opacity(0.12))
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - On-route hazards: route check + profile + conflict list (#4 redesign)
@@ -987,6 +1017,23 @@ struct FlightPlanMapBuilderView: View {
 
     /// Debounced terrain fetch (swisstopo via `ElevationService`; empty outside Switzerland) + the
     /// minimum clearance of the extrapolated altitude profile over terrain, for the 150 m warning. (#4)
+    /// Warm the winds-aloft cache for every 0.25 deg cell the route crosses, then recalculate so the
+    /// leg ETAs pick the forecast up. `FlightPlan.windsAloftProvider` is a cache-only read (route
+    /// recalculation runs on every drag and must not block on the network), so without this the legs
+    /// would stay on their zero-wind timing forever.
+    private func scheduleWindsAloftUpdate() {
+        let coords = flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? []
+        guard coords.count >= 2 else { return }
+        windsAloftTask?.cancel()
+        windsAloftTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            await windsAloftService.prefetchRoute(coords)
+            guard !Task.isCancelled else { return }
+            flightPlanManager.recalculateCurrentPlanRouteData()
+        }
+    }
+
     private func scheduleTerrainUpdate() {
         terrainTask?.cancel()
         let wpts = waypoints

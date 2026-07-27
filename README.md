@@ -11,7 +11,8 @@ _NOTE: This app has been entirely vibe coded. If you hate that, feel free to clo
 
 An iPad-first application for students and licensed pilots. Works on both iPhone and iPad. This app guides pilots through all checklists during a flight, from preflight to shutdown, while recording GPS tracks and flight data.
 
-> **New in 4.0** — the biggest overhaul yet: a ground-up, iPad-first redesign with a cockpit-style in-flight HUD, a selectable theme engine (auto / day / sunlight / night), a map-first flight-plan builder, **Companion mode** (use an iPhone as a synced second screen for your iPad over Wi-Fi Aware, iOS 26+), an accessibility pass, and full French localization. See the [4.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/4.0.0).
+> **New in 4.0** — the biggest overhaul yet: a ground-up, iPad-first redesign with a cockpit-style in-flight HUD, a selectable theme engine (auto / day / sunlight / night), a map-first flight-plan builder, **Companion mode** (use an iPhone as a synced second screen for your iPad over Wi-Fi Aware, iOS 26+), an accessibility pass, and French localization of the main app UI (the widget, Live Activity, Watch
+app and the iOS permission prompts remain English-only). See the [4.0.0 release notes](https://github.com/fetzu/AeroCheck/releases/tag/4.0.0).
 
 ## Open Source with Premium Content
 
@@ -21,7 +22,7 @@ AéroCheck is open source under the MIT License. The app includes:
   - WT9 Dynamic (F-HVXA)
 
 - **Premium aircraft** (requires AeroCheck Pro subscription):
-  - 13 aircraft delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 (two variants) & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28
+  - 13 aircraft ids (15 registrations) delivered via the AeroCheck API — Piper (Archer II, Warrior II, Cadet, Dakota II, Saratoga II, Super Cub, L4), Robin DR400 (two variants) & DR401, CAP10-C, Pipistrel VELIS Electro and Sportcruiser PS-28. Aircraft with several tails are selectable per registration.
   - Sourced from three Swiss flying clubs (Groupe de Vol à Moteur de Porrentruy, Lausanne Aéroclub, and Groupe de Vol à Moteur Neuchâtel)
   - Automatic updates when checklists change
   - Offline access after initial download
@@ -38,7 +39,7 @@ All subscription payments are handled securely through the Apple App Store. See 
 **Free (bundled)**
 - **F-HVXA** - Aerospool WT9 Dynamic - Free
 
-**Premium (AeroCheck Pro)** — 13 aircraft delivered via the API:
+**Premium (AeroCheck Pro)** — 13 aircraft ids / 15 registrations delivered via the API:
 
 | Registration | Aircraft | Club |
 |--------------|----------|------|
@@ -51,6 +52,7 @@ All subscription payments are handled securely through the Apple App Store. See 
 | HB-ORV | Piper PA18-150 Super Cub | Lausanne Aéroclub |
 | HB-OKN | Piper L4 | Lausanne Aéroclub |
 | HB-KFD | Robin DR400/140B | Lausanne Aéroclub |
+| HB-KFI | Robin DR400/140B | Lausanne Aéroclub |
 | HB-KOJ | Robin DR401/140B | Lausanne Aéroclub |
 | HB-SAX | CAP10-C | Lausanne Aéroclub |
 | HB-SYI | Pipistrel VELIS Electro SW128 | Lausanne Aéroclub |
@@ -183,9 +185,13 @@ Checklists, speeds and limits adapt automatically to the selected aircraft. Some
   - **Gold dot**: Current active phase
 
 ### ♿ Accessibility
-- VoiceOver labels across the redesigned screens
-- Dynamic Type support
-- WCAG-aware contrast and 44-point minimum touch targets
+- VoiceOver labels, values and custom actions across the redesigned screens
+- Dynamic Type on the ground-use screens (planning, settings, onboarding, paywall). The in-flight
+  HUD instruments keep fixed sizes on purpose — a readout scanned at a glance from a fixed distance
+  must not reflow — and expose `accessibilityShowsLargeContentViewer` instead, so a long press
+  gives a large rendition without changing the instrument's geometry.
+- Contrast and touch targets follow Apple's current guidance (44x44 pt recommended, 28x28 pt
+  minimum). Not independently audited; the sunlight/night palettes have not been measured on device.
 - Reduce Motion support
 
 ### 📲 Companion Mode (iPad ↔ iPhone)
@@ -242,10 +248,18 @@ The app includes all 16 phases from the official checklists (same structure for 
 ### From Xcode
 
 1. Clone or download this repository
-2. Open `AeroCheck.xcodeproj` in Xcode 26+
-3. Select your development team in Signing & Capabilities
-4. Connect your iPhone/iPad or select a simulator
-5. Build and run (⌘R)
+2. Provide an OpenAIP API key (optional but recommended):
+   ```bash
+   cp Secrets.example.xcconfig Secrets.xcconfig
+   # then paste your key from https://www.openaip.net/ (account → API keys)
+   ```
+   `Secrets.xcconfig` is gitignored. **Without a key the app still builds and runs**, but every
+   OpenAIP request returns 401, so the airspace overlay, the FREQ panel's controlled-airspace
+   entries and on-route airspace conflicts silently do nothing.
+3. Open `AeroCheck.xcodeproj` in Xcode 26+
+4. Select your development team in Signing & Capabilities
+5. Connect your iPhone/iPad or select a simulator
+6. Build and run (⌘R)
 
 ### Building for Distribution
 
@@ -360,11 +374,17 @@ AeroCheck/
 
 ## GPX Format
 
-Exported flights use the standard GPX 1.1 format with extensions:
+Exported flights use standard GPX 1.1 with AeroCheck metadata in a `pc:` namespace
+(`http://aerocheck.app/gpx/1`). Every extension element is namespaced, and per-point speed/course
+live inside `<extensions>` rather than as direct children of `<trkpt>` — plain GPX readers ignore
+all of it and still see a valid track:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="AéroCheck">
+<gpx version="1.1" creator="AéroCheck v4.3.0"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns:pc="http://aerocheck.app/gpx/1">
   <metadata>
     <name>F-HVXA - Dec 1, 2025</name>
     <time>2025-12-01T10:00:00Z</time>
@@ -372,22 +392,25 @@ Exported flights use the standard GPX 1.1 format with extensions:
   <trk>
     <name>F-HVXA</name>
     <extensions>
-      <airplane>F-HVXA</airplane>
-      <engineStartTime>2025-12-01T10:05:00Z</engineStartTime>
-      <lineUpTime>2025-12-01T10:15:00Z</lineUpTime>
-      <landingTime>2025-12-01T11:00:00Z</landingTime>
-      <engineShutdownTime>2025-12-01T11:05:00Z</engineShutdownTime>
-      <distanceKm>45.2</distanceKm>
-      <notes>Training flight</notes>
+      <pc:flightData>
+        <pc:formatVersion>4</pc:formatVersion>
+        <pc:appVersion>4.3.0</pc:appVersion>
+        <pc:airplane>F-HVXA</pc:airplane>
+        <pc:engineStartTime>2025-12-01T10:00:00Z</pc:engineStartTime>
+        <pc:lineUpTime>2025-12-01T10:12:00Z</pc:lineUpTime>
+        <pc:landingTime>2025-12-01T11:05:00Z</pc:landingTime>
+        <pc:distanceKm>82.4</pc:distanceKm>
+      </pc:flightData>
     </extensions>
     <trkseg>
-      <trkpt lat="47.123" lon="7.456">
-        <ele>430</ele>
-        <time>2025-12-01T10:00:00Z</time>
-        <speed>0</speed>
-        <course>0</course>
+      <trkpt lat="46.9481" lon="7.4474">
+        <ele>540</ele>
+        <time>2025-12-01T10:15:00Z</time>
+        <extensions>
+          <pc:speed>38.2</pc:speed>
+          <pc:course>271</pc:course>
+        </extensions>
       </trkpt>
-      <!-- More track points -->
     </trkseg>
   </trk>
 </gpx>
@@ -395,29 +418,29 @@ Exported flights use the standard GPX 1.1 format with extensions:
 
 ## JSON Format
 
-JSON export includes all flight data in a structured format:
+JSON export wraps the flight in an envelope carrying `metadata` (app name/version, format version,
+export date), the `flight` itself, and the `flightPlan` when one was active. The flight is **not**
+at the top level — it sits under `flight`:
 
 ```json
 {
-  "id": "uuid-string",
-  "airplane": "F-HVXA",
-  "startTime": "2025-12-01T10:00:00Z",
-  "engineStartTime": "2025-12-01T10:05:00Z",
-  "lineUpTime": "2025-12-01T10:15:00Z",
-  "landingTime": "2025-12-01T11:00:00Z",
-  "engineShutdownTime": "2025-12-01T11:05:00Z",
-  "stopTime": "2025-12-01T11:10:00Z",
-  "notes": "Training flight",
-  "gpsTrack": [
-    {
-      "latitude": 47.123,
-      "longitude": 7.456,
-      "altitude": 430,
-      "timestamp": "2025-12-01T10:00:00Z",
-      "speed": 0,
-      "course": 0
-    }
-  ]
+  "metadata": {
+    "appName": "AéroCheck",
+    "appVersion": "4.3.0",
+    "formatVersion": 4,
+    "exportDate": "2025-12-01T12:00:00Z"
+  },
+  "flight": {
+    "id": "uuid-string",
+    "airplane": "F-HVXA",
+    "startTime": "2025-12-01T10:00:00Z",
+    "engineStartTime": "2025-12-01T10:00:00Z",
+    "landingTime": "2025-12-01T11:05:00Z",
+    "gpsTrack": [
+      { "latitude": 46.9481, "longitude": 7.4474, "altitude": 540, "timestamp": "2025-12-01T10:15:00Z" }
+    ]
+  },
+  "flightPlan": null
 }
 ```
 
@@ -479,11 +502,15 @@ Target speeds vary by aircraft. Examples for WT9:
 
 | Phase | Target | Notes |
 |-------|--------|-------|
-| Climb | 55 | Vx - best angle of climb |
-| Cruise | 100 | Cruise speed |
-| Descent | 85 | Vcc - cruise descent |
-| Approach | 65 | Initial approach with F1 |
-| Landing | 55 | Final approach F3 |
+| Climb | 70 | Vy - best rate of climb |
+| Cruise | 85 | Vcc - cruise climb/cruise |
+| Descent | 70 | Vbg - best glide |
+| Approach | 70 | Initial approach, clean |
+| Landing | 60 | Final approach, F2 |
+
+> These mirror `targetSpeeds` in the bundled WT9 checklist. If you change one, change the other —
+> the two drifted apart once already and this table published pre-2.1e values for months, including
+> a climb target labelled Vx when the app targets Vy.
 
 *Note: Speed indicator is hidden during ground operations (taxi, runup, parking)*
 
@@ -494,6 +521,22 @@ Target speeds vary by aircraft. Examples for WT9:
 - SPHAIR Bases et procédures
 
 ## Testing
+
+### Unit Tests
+
+```bash
+scripts/run-tests.sh                      # full suite (~390 tests)
+scripts/run-tests.sh "iPhone 17"          # a different simulator
+scripts/run-tests.sh "" ObstacleTests     # one test class
+```
+
+The script wraps `xcodebuild test -scheme AeroCheckTests` with a preflight cleanup and a stall
+watchdog. Two details cost time if you meet them cold:
+
+- Tests live on the **`AeroCheckTests`** scheme. The app scheme is **`AéroCheck`** (with the
+  accent) and has **no test action**, so a plain build never compiles the tests.
+- If a run hangs with *zero* test cases started, the build service has wedged — not the harness.
+  `killall SWBBuildService XCBBuildService` and retry; the script's preflight does this for you.
 
 ### StoreKit Testing
 
@@ -509,7 +552,14 @@ The app includes a `Configuration.storekit` file for testing subscriptions local
 For testing against the development server:
 
 1. Run the server locally with Wrangler: `cd ../AeroCheck-server && npm run dev`
-2. Update the API URL in `SubscriptionManager.swift` to `http://localhost:8787`
+2. Point the app at it by setting `API_BASE_URL` in `Secrets.xcconfig`:
+   ```
+   API_BASE_URL = http://localhost:8787
+   ```
+   There is no URL to edit in `SubscriptionManager.swift` — it takes `APIConfig.baseURL`, which is
+   resolved from the `APIBaseURL` Info.plist key fed by that build setting. Editing the service
+   would also miss `AircraftDataService`, which resolves the same way. `APIConfig` allows
+   `localhost`/`127.0.0.1` over plain HTTP for exactly this.
 3. Test subscription verification and checklist fetching
 
 ## Privacy

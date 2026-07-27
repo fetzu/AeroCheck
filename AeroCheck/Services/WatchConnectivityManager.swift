@@ -113,6 +113,19 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Notify Watch that a flight has started (triggers Watch app launch)
     func notifyFlightStarted(appState: AppState, locationManager: LocationManager, flightPlanManager: FlightPlanManager) {
+        // Register the intent to stream updates on EVERY path, including the unreachable one below.
+        // `isReachable` means the Watch app is running right now, which is a much narrower condition
+        // than "there is a Watch": a paired Watch whose app is not yet open is unreachable at flight
+        // start, which is the normal case. Returning before this left `wantsUpdates` false, and
+        // because `handleWatchAvailabilityChange` guards on it, raising your wrist mid-flight could
+        // never arm the timer — the Watch stayed dead for the whole flight. `startUpdates` already
+        // handles an absent Watch correctly (records the intent, leaves the timer disarmed), so it is
+        // safe to call unconditionally. Deferred so the reachable path keeps its original ordering:
+        // send `flightStarted` first, then begin streaming. (WATCH-01)
+        defer {
+            startUpdates(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+        }
+
         guard let session = session, session.isReachable else {
             // If not reachable, try to update application context instead
             updateApplicationContext(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
@@ -136,8 +149,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             AppLog.watch.debugLine("Failed to send flight started message: \(error.localizedDescription)")
         }
 
-        // Start periodic updates
-        startUpdates(appState: appState, locationManager: locationManager, flightPlanManager: flightPlanManager)
+        // Periodic updates start in the `defer` above, on every path.
     }
 
     /// Notify Watch that a flight has ended

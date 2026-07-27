@@ -44,6 +44,8 @@
 	<string>AéroCheck</string>
 	<key>OpenAIPAPIKey</key>
 	<string>$(OPENAIP_API_KEY)</string>
+	<key>WeatherClientSecret</key>
+	<string>$(WEATHER_CLIENT_SECRET)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

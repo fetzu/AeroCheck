@@ -8,27 +8,31 @@ final class InstrumentAccessibilityTests: XCTestCase {
 
     func testSpeedValueStatesValueAndStateInWords() {
         let value = SpeedIndicatorView.accessibilityValue(
-            displaySpeed: 45, targetSpeed: 76, state: .offTarget, estimated: false, gpsLost: false)
+            displaySpeed: 45, targetSpeed: 76, state: .offTarget, gpsLost: false)
         XCTAssertEqual(value, "45 knots ground speed, off target. Target 76 knots")
     }
 
     func testSpeedValueOnTarget() {
         let value = SpeedIndicatorView.accessibilityValue(
-            displaySpeed: 74, targetSpeed: 76, state: .onTarget, estimated: false, gpsLost: false)
+            displaySpeed: 74, targetSpeed: 76, state: .onTarget, gpsLost: false)
         XCTAssertTrue(value.contains("on target"))
     }
 
-    func testStallIsSpokenAsBelowStallSpeedAndEstimatedAsApproximate() {
+    /// The readout is GPS ground speed and must say so. It must never speak "airspeed": the app has
+    /// no pitot or AoA source, and the wind-derived estimate that once justified that wording was
+    /// removed along with the stall annunciation it drove.
+    func testSpeedIsAlwaysSpokenAsGroundSpeed() {
         let value = SpeedIndicatorView.accessibilityValue(
-            displaySpeed: 40, targetSpeed: 70, state: .stall, estimated: true, gpsLost: false)
-        XCTAssertTrue(value.contains("below stall speed"))
-        XCTAssertTrue(value.contains("approximately"), "An estimated value is spoken as approximate")
-        XCTAssertTrue(value.contains("estimated airspeed"))
+            displaySpeed: 40, targetSpeed: 70, state: .offTarget, gpsLost: false)
+        XCTAssertTrue(value.contains("ground speed"))
+        XCTAssertFalse(value.lowercased().contains("airspeed"))
+        XCTAssertFalse(value.lowercased().contains("approximately"))
+        XCTAssertFalse(value.lowercased().contains("stall"))
     }
 
     func testGpsLostOverridesTheReading() {
         let value = SpeedIndicatorView.accessibilityValue(
-            displaySpeed: 50, targetSpeed: 70, state: .onTarget, estimated: false, gpsLost: true)
+            displaySpeed: 50, targetSpeed: 70, state: .onTarget, gpsLost: true)
         XCTAssertEqual(value, "GPS signal lost", "A lost signal must not read a stale on-target speed")
     }
 
@@ -91,10 +95,9 @@ final class InstrumentAccessibilityTests: XCTestCase {
         let day = CockpitTheme.day
         XCTAssertEqual(InstrumentTargetState.onTarget.barColor(in: day), day.onTarget)
         XCTAssertEqual(InstrumentTargetState.caution.barColor(in: day), day.warning)
-        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: day), day.danger)
         XCTAssertEqual(InstrumentTargetState.neutral.barColor(in: day), day.textDim)
         // Same states re-theme under night (red-shift).
-        XCTAssertEqual(InstrumentTargetState.stall.barColor(in: .night), CockpitTheme.night.danger)
+        XCTAssertEqual(InstrumentTargetState.caution.barColor(in: CockpitTheme.night), CockpitTheme.night.warning)
     }
 
     // MARK: - On-target proximity bar (v4 UI/UX Revamp)
@@ -103,7 +106,6 @@ final class InstrumentAccessibilityTests: XCTestCase {
         // The bar's state must never disagree with the readout's annunciated speed state.
         XCTAssertEqual(SpeedIndicatorView.barState(for: .onTarget), .onTarget)
         XCTAssertEqual(SpeedIndicatorView.barState(for: .offTarget), .caution)
-        XCTAssertEqual(SpeedIndicatorView.barState(for: .stall), .stall)
     }
 
     func testTargetBarFractionIsFullAtTargetAndShrinksWithDeviation() {

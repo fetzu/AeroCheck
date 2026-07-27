@@ -323,7 +323,14 @@ struct SubscriptionView: View {
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
-                Link(L10n.Subscription.termsOfService, destination: URL(string: "https://aerocheck.app/terms")!)
+                // Apple's standard EULA, not aerocheck.app/terms — that path has never existed and
+                // returned 404, so the paywall shipped a dead Terms link. App Review 3.1.2 requires a
+                // FUNCTIONAL link to the terms, and the standard EULA is the licence that actually
+                // applies when a developer supplies none, so pointing at it is correct rather than a
+                // placeholder. Swap this for aerocheck.app/terms if a custom EULA is ever published —
+                // and check the link resolves before shipping it.
+                Link(L10n.Subscription.termsOfService,
+                     destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
                     .font(.caption2)
                     .foregroundColor(Color.altimeterBlue)
                     .frame(minHeight: 44)

@@ -376,8 +376,6 @@ enum L10n {
 
         // Experimental
         static let experimental = String(localized: "settings.experimental")
-        static let showEstimatedAirspeed = String(localized: "settings.experimental.showEstimatedAirspeed")
-        static let stallAlertSound = String(localized: "settings.experimental.stallAlertSound")
         static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
         static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 
@@ -692,6 +690,10 @@ enum L10n {
         static let termsDescription = String(localized: "subscription.termsDescription")
         static let termsOfService = String(localized: "subscription.termsOfService")
         static let privacyPolicy = String(localized: "subscription.privacyPolicy")
+        static let errorPending = String(localized: "subscription.error.pending")
+        static let errorUnknownResult = String(localized: "subscription.error.unknownResult")
+        static let errorPurchaseFailed = String(localized: "subscription.error.purchaseFailed")
+        static let errorRestoreFailed = String(localized: "subscription.error.restoreFailed")
         static let bestValue = String(localized: "subscription.bestValue")
         static let error = String(localized: "subscription.error")
         static let ok = String(localized: "subscription.ok")
@@ -730,10 +732,6 @@ enum L10n {
         static let onlineAirspaceDownloadRecommended = String(localized: "warning.onlineAirspace.downloadRecommended")
 
         // Estimated Airspeed
-        static let estimatedAirspeedCalculated = String(localized: "warning.estimatedAirspeed.calculated")
-        static let estimatedAirspeedInaccurate = String(localized: "warning.estimatedAirspeed.inaccurate")
-        static let estimatedAirspeedAlwaysRelyOnboard = String(localized: "warning.estimatedAirspeed.alwaysRelyOnboard")
-        static let estimatedAirspeedRequiresCellular = String(localized: "warning.estimatedAirspeed.requiresCellular")
     }
 
     // MARK: - Download
@@ -768,7 +766,27 @@ enum L10n {
     }
 
     // MARK: - Checklist Actions
+    /// Strings spoken by VoiceOver rather than drawn on screen. Localised like any other user-facing
+    /// copy — a French pilot running VoiceOver hears French.
+    enum Accessibility {
+        static let itemCompleted = String(localized: "a11y.item.completed")
+        static let notRecorded = String(localized: "a11y.notRecorded")
+        static let phaseCompleted = String(localized: "a11y.phase.completed")
+        static let phaseSkipped = String(localized: "a11y.phase.skipped")
+        static let phaseMissingAction = String(localized: "a11y.phase.missingAction")
+        static let phaseNothingToDo = String(localized: "a11y.phase.nothingToDo")
+        static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
+        static let phaseCruiseCheckDue = String(localized: "a11y.phase.cruiseCheckDue")
+        static let previousPhase = String(localized: "a11y.previousPhase")
+        static let nextPhase = String(localized: "a11y.nextPhase")
+        static let gpsGood = String(localized: "a11y.gps.good")
+        static let gpsDegraded = String(localized: "a11y.gps.degraded")
+        static let gpsLost = String(localized: "a11y.gps.lost")
+        static let gpsUnknown = String(localized: "a11y.gps.unknown")
+    }
+
     enum ChecklistAction {
+        static let notRecorded = String(localized: "a11y.notRecorded")
         static let engineStart = String(localized: "checklist.engineStart")
         static let started = String(localized: "checklist.started")
         static let readyForLineUp = String(localized: "checklist.readyForLineUp")
@@ -1013,6 +1031,8 @@ enum L10n {
         static let dragToReorder = String(localized: "nav.dragToReorder")
         static let airspaceNotChecked = String(localized: "nav.airspaceNotChecked")
         static let airspaceNotCheckedDetail = String(localized: "nav.airspaceNotCheckedDetail")
+        static let terrainNotChecked = String(localized: "nav.terrainNotChecked")
+        static let terrainNotCheckedDetail = String(localized: "nav.terrainNotCheckedDetail")
         static let terrainProximity = String(localized: "nav.terrainProximity")
         static let terrainProximityDetail = String(localized: "nav.terrainProximityDetail")
         static let exportGPX = String(localized: "nav.exportGPX")

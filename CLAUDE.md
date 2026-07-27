@@ -89,7 +89,7 @@ AeroCheck/
 │       ├── NavigationMapsSettingsView.swift
 │       └── SyncDataSettingsView.swift
 ├── Models/
-│   ├── AppState.swift         # Central state manager (@MainActor ObservableObject); decomposed via facade structs (NavigationMapState, FlightTiming, ChecklistProgress)
+│   ├── AppState.swift         # Central state manager (@MainActor @Observable — NOT ObservableObject; see Architecture); decomposed via facade structs (NavigationMapState, FlightTiming, ChecklistProgress)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
 │   ├── FlightPlan.swift       # Flight plan models and export
 │   ├── FlightPlanManager.swift # Flight plan state management (CRUD, waypoints, route)
@@ -97,7 +97,7 @@ AeroCheck/
 │   ├── ActiveChecklist.swift  # Owned, resolved checklist + speeds for the active aircraft (replaces the old global ChecklistData statics)
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
-│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
+│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist loader — reads the bundled JSON in Resources/
 │   ├── Airport.swift          # Airport, AirportFrequency, and Runway data models
 │   ├── Airspace.swift         # OpenAIP airspace model (CTR boundaries, frequencies, altitude limits)
 │   ├── Navaid.swift           # OpenAIP navaid (VOR/DME/NDB) model, incl. magnetic declination
@@ -120,7 +120,7 @@ AeroCheck/
 │   ├── OpenAIPConfig.swift         # OpenAIP API configuration and constants
 │   ├── OpenAIPTileOverlay.swift    # Custom MKTileOverlay for OpenAIP map tiles
 │   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
-│   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
+│   ├── WindDataService.swift       # MeteoSwiss surface wind for departure/approach briefings (CH only)
 │   ├── ElevationService.swift      # Terrain elevation (swisstopo CH + Open-Meteo worldwide) for route profiles
 │   ├── SwisstopoTileOverlays.swift # Consolidated swisstopo tile overlays (ICAO / Segelflug / Landeskarte / SWISSIMAGE)
 │   ├── OpenAIPCacheManager.swift   # Atomic, crash-safe OpenAIP airspace cache writes
@@ -146,6 +146,9 @@ AeroCheck/
 │   ├── DesignTokens.swift              # Shared cockpit colour palette / ThemePreference
 │   ├── AmbientPalette.swift            # Runtime-overridable accent palette (hidden theme)
 │   └── AppLog.swift                    # Centralized `os.Logger` wrapper (see logging convention below)
+├── Resources/
+│   ├── wt9-dynamic-bundled.json    # Free WT9 checklist (EN) — the bundled aircraft's source of truth
+│   └── wt9-dynamic-bundled-fr.json # Free WT9 checklist (FR)
 └── Assets.xcassets/           # App icon, colors
 
 AeroCheckWidget/
@@ -168,7 +171,8 @@ AeroCheckWatch/
 - `FlightPlanManager`: Flight plan CRUD, waypoint/route management, map-builder state
 - `OpenAIPDataService`: OpenAIP airspace data management (download by country/continent, tile overlay, streaming CTR fallback)
 - `CompanionConnectivityManager`: Companion mode pairing + live-data push (Wi-Fi Aware). Available on iOS 17 but **inert** below 26 (all `WiFiAware`/`NetworkListener` calls gated behind `if #available(iOS 26)`); stores version-agnostic `CompanionPairedDevice` so views on 17 can hold it.
-- **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette injected as `@Environment(\.cockpitTheme)`; views read semantic tokens, never hard-coded colors.
+- **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette
+  injected as `@Environment(\.cockpitTheme)`. **Adoption is PARTIAL — see the note under Theming.**
 - Views observe `AppState` via `@Environment(AppState.self)` (per-property tracking); the other managers via `@EnvironmentObject`
 
 **Data Persistence:**
@@ -191,7 +195,7 @@ AeroCheckWatch/
 | Learning Mode | Hides memorizable items |
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
 | Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
-| Estimated Airspeed | `WindDataService` + MeteoSwiss API (experimental, Switzerland only) |
+| Briefing Wind | `WindDataService` + MeteoSwiss surface stations (Switzerland only) — feeds the departure/approach briefings. Station chosen by distance AND altitude delta, not distance alone. There is deliberately **no** estimated-airspeed readout and **no** stall annunciation: the app has no pitot or AoA source, and a surface-station wind cannot describe air at altitude. |
 | Navigation Mode (3.5) | `NavigationView` — 2-row bottom bar, expandable flight-plan sheet with leg timing, ground-track trend vector, FREDA cruise-check reminder; SwissTopo + OpenAIP layers |
 | FREQ Panel | CURRENT / NEXT / EMERGENCY frequency model in NavigationView (OpenAIP CTR worldwide, FIS, common; OurAirports TWR fallback) |
 | Offline Maps | `OfflineMapManager` for ICAO/Segelflug chart caching |
@@ -210,7 +214,7 @@ AeroCheckWatch/
 | Accessibility | VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion across the redesigned screens |
 | Hold-to-Confirm Events | Go-Around / Touch-and-Go / Full-Stop behind a deliberate hold with brief undo (`EventConfirmationView`) |
 | Dynamic Briefings | `BriefingData` - auto-generated departure/approach briefings with airport/wind detection |
-| Airport Frequencies | `AirportDataService` - OurAirports FREQ panel (nearby airports within 15nm) |
+| Airport Frequencies | `AirportDataService` — FREQ panel, nearest 6 airports within **40 nm** (`NavigationView.swift`); OpenAIP is the primary source with an OurAirports TWR fallback |
 | Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
 | Flight Event Detection | `FlightEventDetector` - automatic go-around, touch-and-go, full-stop detection |
 | OpenAIP Airspace Overlay | `OpenAIPTileOverlay` + `OpenAIPDataService` - 119 countries worldwide |
@@ -263,7 +267,43 @@ if subscriptionManager.isSubscribed {
 
 The v4 cockpit design language lives in `Components/DesignSystem.swift` + `Shared/DesignTokens.swift`.
 
-**Theming:** Views read the active theme via `@Environment(\.cockpitTheme)` and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather than hard-coded colors. The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from the system appearance. Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a `.regularMaterial` fallback on 17.0.
+**Theming:** The intended model is that views read the active theme via `@Environment(\.cockpitTheme)`
+and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather than hard-coded colors.
+The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from
+the system appearance.
+
+> ⚠️ **Adoption is deliberate and partial — know which side of the line you are on.**
+>
+> **Migrated (cycle-2 P7-1):** the three in-flight surfaces — `NavigationView.swift`,
+> `FlightView.swift`, `ChecklistView.swift` — read `@Environment(\.cockpitTheme)` and paint with
+> semantic tokens. These are the surfaces you actually read in glare, so **Sunlight now does
+> something** there.
+>
+> **Not migrated, on purpose:**
+> - **Ground-use screens** (Home, Settings, Flight Log, planning, onboarding, paywall) still use the
+>   legacy `Color` statics. Nobody reads them at 5000 ft in sunlight; migrate opportunistically.
+> - **`MKMapView` delegate code** inside the `UIViewRepresentable`s (`NativeMapViewUIKit`,
+>   `SwissMapView`, `FlightMiniMap`) — annotation views and overlay renderers run outside the
+>   SwiftUI environment, so `@Environment` is unreachable there. Theming those means threading the
+>   palette into the `Coordinator` from `updateUIView`. ~50 sites; a separate, riskier job.
+>
+> **Why the migration was safe:** `CockpitTheme.day` maps 1:1 onto the legacy tokens, so a
+> substitution is byte-identical in day mode and gains sunlight/night for free. Keep that property —
+> if you add a token to `CockpitTheme`, give `.day` the legacy value.
+>
+> **Do NOT "fix" this by making the legacy statics theme-aware.** They already resolve through
+> `AmbientPalette` (`DesignTokens.swift:17-33`) for the hidden accent, and that path needs
+> `.id(ambient.revision)` at the root (`AeroCheckApp.swift`) to invalidate — which **re-creates the
+> view tree and drops all transient `@State`**. Acceptable for a manual, rare toggle; not for
+> `.auto` flipping to night mid-approach and resetting scroll positions and open sheets. That is
+> exactly why the migration went through the environment instead.
+>
+> `\.isNightMode` and `\.cockpitTheme` both derive from the same `themePreference`
+> (`AppState.swift:56-72`), so `isNightMode == true` exactly when the mode is `.night` — they can
+> never disagree, and a site using either is consistent with one using the other.
+
+Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a
+`.regularMaterial` fallback on 17.0.
 
 **Legacy color helpers** (still used as token inputs): `.cockpitBackground`, `.aviationGold` (primary accent), `.aviationGreen` / `.aviationRed` (status).
 

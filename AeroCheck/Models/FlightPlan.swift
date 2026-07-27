@@ -17,7 +17,11 @@ struct FlightPlanWaypoint: Identifiable, Codable, Equatable {
     // Leg data (to next waypoint)
     var magneticCourse: Double?              // Computed MC to next waypoint (degrees)
     var distance: Double?                    // Distance to next waypoint in NM
-    var plannedGroundSpeed: Int?             // User-editable GS for this leg (knots)
+    /// Planned TRUE AIRSPEED for this leg in knots, wind-corrected into a ground speed by
+    /// `calculateRouteData`. Seeded from the aircraft's cruise speed, which is an airspeed; the
+    /// property keeps its original name because it is a persisted Codable key and part of the
+    /// Companion wire contract.
+    var plannedGroundSpeed: Int?
     var windDirection: Double?               // Wind direction (degrees, from)
     var windSpeed: Double?                   // Wind speed (knots)
     var estimatedElapsedTime: TimeInterval?  // EET - leg time to next waypoint (minutes)
@@ -534,6 +538,73 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     /// the nearest navaid's `magneticDeclination`, or the fallback when unset / nothing in range. (v4.1.0)
     static var magneticDeclinationProvider: ((CLLocationCoordinate2D) -> Double)?
 
+    /// App-injected winds-aloft lookup for a position and planned altitude (feet AMSL), set at launch
+    /// from `WindsAloftService`. Returns the wind the leg will actually be flown in, or nil when no
+    /// forecast has been fetched for that area yet — in which case leg timing falls back to the
+    /// zero-wind assumption it has always used.
+    ///
+    /// This is a PLANNING input, deliberately: a forecast wind aloft is the right tool for computing
+    /// a leg's ground speed and ETA on the ground beforehand, and the wrong tool for anything
+    /// resembling a live instrument. (See `WindDataService` for the separate surface-wind briefing
+    /// input, and `SpeedIndicatorView.annunciationState` for why the in-flight readout is ground
+    /// speed only.)
+    static var windsAloftProvider: ((CLLocationCoordinate2D, Double) -> WindAloft?)?
+
+    /// Forecast wind at a point and level.
+    struct WindAloft: Equatable {
+        /// Direction the wind blows FROM, in degrees TRUE (as forecasts and METARs give it).
+        let directionDegTrue: Double
+        let speedKt: Double
+    }
+
+    /// The wind to plan a leg with, in precedence order:
+    ///
+    ///   1. the wind the PILOT entered on the waypoint (`windDirection` / `windSpeed`) — these have
+    ///      been editable in `WaypointEditorSheet` all along but were never read by leg timing, so
+    ///      entering a wind changed nothing. They are authoritative when present: a pilot copying
+    ///      winds from a briefing outranks a model forecast.
+    ///   2. the injected winds-aloft forecast for the leg's start point and planned altitude.
+    ///   3. nothing — the caller falls back to the zero-wind assumption.
+    static func legWind(for waypoint: FlightPlanWaypoint,
+                        at coordinate: CLLocationCoordinate2D) -> WindAloft? {
+        if let direction = waypoint.windDirection, let speed = waypoint.windSpeed,
+           direction.isFinite, speed.isFinite, speed >= 0 {
+            return WindAloft(directionDegTrue: direction, speedKt: speed)
+        }
+        return windsAloftProvider?(coordinate, waypoint.altitude ?? 0)
+    }
+
+    /// Solve the wind triangle for the ground speed actually achievable along a track.
+    ///
+    /// Given a true airspeed and the true course to be made good, the aircraft must crab into the
+    /// wind; the resulting ground speed is `TAS·cos(WCA) − WS·cos(α)`, where `α` is the angle
+    /// between the wind and the course and `WCA = asin(WS·sin(α) / TAS)`.
+    ///
+    /// Returns nil when the wind is too strong to hold the course at all — `|WS·sin(α)| > TAS` means
+    /// no heading exists that makes the track good, so the honest answer is "this leg is not
+    /// flyable at this speed", not a silently clamped number. Also returns nil for a non-positive or
+    /// non-finite TAS.
+    static func windCorrectedGroundSpeed(trueAirspeedKt: Double,
+                                         trueCourseDeg: Double,
+                                         wind: WindAloft) -> Double? {
+        guard trueAirspeedKt.isFinite, trueAirspeedKt > 0,
+              trueCourseDeg.isFinite, wind.speedKt.isFinite, wind.directionDegTrue.isFinite,
+              wind.speedKt >= 0 else { return nil }
+
+        let alpha = (wind.directionDegTrue - trueCourseDeg) * .pi / 180
+        let crossWind = wind.speedKt * sin(alpha)
+        guard abs(crossWind) <= trueAirspeedKt else { return nil }
+
+        let windCorrectionAngle = asin(crossWind / trueAirspeedKt)
+        let groundSpeed = trueAirspeedKt * cos(windCorrectionAngle) - wind.speedKt * cos(alpha)
+
+        // A tailwind stronger than TAS on a reciprocal course can still yield a positive GS; a
+        // negative result means the aircraft is being pushed backwards along the track, which is
+        // not a flyable leg either.
+        guard groundSpeed.isFinite, groundSpeed > 0 else { return nil }
+        return groundSpeed
+    }
+
     /// Calculate magnetic course and distance between consecutive waypoints
     mutating func calculateRouteData() {
         guard waypoints.count >= 2 else { return }
@@ -564,8 +635,25 @@ struct FlightPlan: Identifiable, Codable, Equatable {
                 let magneticCourse = (trueCourse - declination + 360).truncatingRemainder(dividingBy: 360)
                 waypoints[i].magneticCourse = magneticCourse
 
-                // Calculate EET for this leg (time to next waypoint only)
-                let groundSpeed = waypoints[i].plannedGroundSpeed ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+                // Calculate EET for this leg (time to next waypoint only).
+                //
+                // `plannedGroundSpeed` is treated as the leg's planned AIRSPEED and corrected for
+                // wind to get the ground speed timing actually needs. That is what the value already
+                // is: `FlightPlanManager.addWaypoint` seeds it from `defaultCruiseSpeed`, an
+                // airspeed. Dividing distance by it directly — as this did — silently assumed zero
+                // wind on every leg, which is exactly the error a flight plan exists to avoid. On a
+                // 100 kt aircraft a 20 kt wind moves a leg's ETA by ±20%.
+                //
+                // Falls back to the raw value when no wind is known, or when the wind makes the leg
+                // unflyable at that airspeed, rather than inventing a number.
+                let plannedAirspeed = waypoints[i].plannedGroundSpeed
+                    ?? FlightPlan.defaultCruiseSpeed(for: aircraftTypeId)
+                let corrected = FlightPlan.legWind(for: waypoints[i], at: from).flatMap {
+                    FlightPlan.windCorrectedGroundSpeed(trueAirspeedKt: Double(plannedAirspeed),
+                                                        trueCourseDeg: trueCourse,
+                                                        wind: $0)
+                }
+                let groundSpeed = corrected.map { Int($0.rounded()) } ?? plannedAirspeed
                 var legEET: TimeInterval = 0
                 if groundSpeed > 0 {
                     let legTimeHours = distanceNM / Double(groundSpeed)

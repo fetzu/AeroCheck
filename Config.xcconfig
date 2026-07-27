@@ -10,6 +10,12 @@
 // airspace overlay simply doesn't render — the app does not crash.
 OPENAIP_API_KEY =
 
+// Shared secret sent as `X-AeroCheck-Client` to wx.aerocheck.app. A SPEED BUMP against someone
+// repurposing our weather proxy as a free backend — NOT authentication (it ships in the binary and
+// is extractable). Empty is fine: the worker fails open when its own list is unset, and the
+// endpoint stays usable either way.
+WEATHER_CLIENT_SECRET =
+
 // Pull in untracked local secrets if the file exists (the "?" makes it optional,
 // so a fresh checkout without Secrets.xcconfig still builds). Later assignments
 // win, so a value here overrides the empty default above.

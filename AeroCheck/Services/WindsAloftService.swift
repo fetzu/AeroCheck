@@ -120,7 +120,11 @@ final class WindsAloftService: ObservableObject {
         defer { isFetching = false }
 
         do {
-            let (data, response) = try await ExternalRequest.data(from: url)
+            var request = URLRequest(url: url)
+            if let secret = APIConfig.weatherClientSecret {
+                request.setValue(secret, forHTTPHeaderField: "X-AeroCheck-Client")
+            }
+            let (data, response) = try await ExternalRequest.data(for: request)
             guard response.statusCode == 200 else {
                 lastError = "Winds aloft unavailable (\(response.statusCode))"
                 return

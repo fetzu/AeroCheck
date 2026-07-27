@@ -15345,6 +15345,74 @@
         }
       }
     },
+    "subscription.error.pending": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your purchase is waiting for approval. You'll get access as soon as it's approved — there's no need to buy again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre achat est en attente d'approbation. L'accès sera activé dès qu'il sera approuvé — inutile de racheter."
+          }
+        }
+      }
+    },
+    "subscription.error.purchaseFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The purchase couldn't be completed and you haven't been charged. Check your connection and try again."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'achat n'a pas pu être effectué et vous n'avez pas été débité. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
+    },
+    "subscription.error.restoreFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your purchases couldn't be restored. Check your connection and try again — restoring is free and never charges you."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos achats n'ont pas pu être restaurés. Vérifiez votre connexion et réessayez — la restauration est gratuite et ne vous débite jamais."
+          }
+        }
+      }
+    },
+    "subscription.error.unknownResult": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The purchase didn't finish. Check Subscriptions in your Apple Account before trying again, so you don't pay twice."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'achat ne s'est pas terminé. Vérifiez vos abonnements dans votre compte Apple avant de réessayer, afin de ne pas payer deux fois."
+          }
+        }
+      }
+    },
     "subscription.freeTrialDayFormat": {
       "extractionState": "manual",
       "localizations": {

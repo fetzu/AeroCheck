@@ -766,7 +766,27 @@ enum L10n {
     }
 
     // MARK: - Checklist Actions
+    /// Strings spoken by VoiceOver rather than drawn on screen. Localised like any other user-facing
+    /// copy — a French pilot running VoiceOver hears French.
+    enum Accessibility {
+        static let itemCompleted = String(localized: "a11y.item.completed")
+        static let notRecorded = String(localized: "a11y.notRecorded")
+        static let phaseCompleted = String(localized: "a11y.phase.completed")
+        static let phaseSkipped = String(localized: "a11y.phase.skipped")
+        static let phaseMissingAction = String(localized: "a11y.phase.missingAction")
+        static let phaseNothingToDo = String(localized: "a11y.phase.nothingToDo")
+        static let phaseNotStarted = String(localized: "a11y.phase.notStarted")
+        static let phaseCruiseCheckDue = String(localized: "a11y.phase.cruiseCheckDue")
+        static let previousPhase = String(localized: "a11y.previousPhase")
+        static let nextPhase = String(localized: "a11y.nextPhase")
+        static let gpsGood = String(localized: "a11y.gps.good")
+        static let gpsDegraded = String(localized: "a11y.gps.degraded")
+        static let gpsLost = String(localized: "a11y.gps.lost")
+        static let gpsUnknown = String(localized: "a11y.gps.unknown")
+    }
+
     enum ChecklistAction {
+        static let notRecorded = String(localized: "a11y.notRecorded")
         static let engineStart = String(localized: "checklist.engineStart")
         static let started = String(localized: "checklist.started")
         static let readyForLineUp = String(localized: "checklist.readyForLineUp")

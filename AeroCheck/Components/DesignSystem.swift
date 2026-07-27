@@ -1238,6 +1238,21 @@ struct CockpitInstrumentStrip: View {
             content()
         }
         .frame(maxWidth: .infinity)
+        // The Apple-sanctioned answer for UI that genuinely cannot scale.
+        //
+        // These instruments keep fixed point sizes on purpose: a HUD read at a glance from a fixed
+        // distance must not reflow or shrink because the pilot raised system text size for reading
+        // elsewhere. That is a justified flight-deck deviation, not an oversight — but it left a
+        // large-text user with no recourse at all, which is the part that was not justified.
+        //
+        // `accessibilityShowsLargeContentViewer` is what Apple ships for exactly this case (its
+        // canonical use is tab bars): a long press surfaces a large HUD rendition of the element
+        // while the element itself stays dimensionally stable. So the instrument keeps its fixed
+        // geometry AND a pilot who needs bigger text can read it, without clamping Dynamic Type or
+        // rebuilding the layout. (UX-24)
+        .accessibilityShowsLargeContentViewer {
+            Label(label, systemImage: "gauge.with.needle")
+        }
     }
 
 

@@ -162,6 +162,10 @@ struct CompanionFlightView: View {
         }
         // Merge the fragments so VoiceOver reads "GPS <source>" as one element instead of three. (v4.1.0)
         .accessibilityElement(children: .combine)
+        // Signal quality was an 8 pt COLOURED DOT and nothing else — invisible to VoiceOver, and
+        // green/amber/red is the worst possible palette for a colour vision deficiency. Speak it.
+        // (UX-10)
+        .accessibilityValue(gpsQualityLabel)
     }
 
     /// On the viewer: "own" = the iPad's GPS, "peer" = THIS iPhone's GPS borrowed by the iPad.
@@ -170,6 +174,16 @@ struct CompanionFlightView: View {
         case "peer": return "iPhone"
         case "own": return "iPad"
         default: return "—"
+        }
+    }
+
+    /// Spoken counterpart to `gpsColor`. Same four states, in words.
+    private var gpsQualityLabel: String {
+        switch flightData?.gpsSignalStatus {
+        case "good":     return L10n.Accessibility.gpsGood
+        case "degraded": return L10n.Accessibility.gpsDegraded
+        case "lost":     return L10n.Accessibility.gpsLost
+        default:         return L10n.Accessibility.gpsUnknown
         }
     }
 
@@ -510,9 +524,14 @@ struct CompanionFlightView: View {
     private func checklistPhaseHeader(_ cl: CompanionChecklistSnapshot) -> some View {
         VStack(spacing: 2) {
             HStack {
+                // 34x30 was below Apple's 28x28 floor on one axis and well under the 44x44
+                // recommendation on both. Padding grows the target without moving the chevron.
                 Button { companionConnectivityManager.sendCommand(.previousChecklistPhase) } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 15)).foregroundColor(theme.action).frame(width: 34, height: 30)
+                    Image(systemName: "chevron.left").font(.system(size: 15)).foregroundColor(theme.action)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(L10n.Accessibility.previousPhase)
                 Spacer()
                 Text(cl.phaseTitle).font(.system(size: 16, weight: .bold)).foregroundColor(theme.action)
                     .textCase(.uppercase).tracking(1).lineLimit(1)

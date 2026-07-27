@@ -1653,9 +1653,26 @@ struct PhaseProgressBar: View {
                             .fill(color(for: phase, isCurrent: isCurrent))
                             .frame(height: isCurrent ? 8 : 5)
                             .frame(maxWidth: .infinity)
+                            // Hit area ~45 pt tall while the bar still DRAWS at 5–8 pt. The
+                            // pad/contentShape/negative-pad sandwich grows the touch region without
+                            // growing the layout, so the HUD keeps its thin progress bar.
+                            //
+                            // This is not cosmetic. Tapping a segment calls `goToPhase`, and a
+                            // forward jump marks every phase it passes as `.skipped` or
+                            // `.missingAction` — silently, by design, because a deliberate jump
+                            // should not nag. At 5 pt that made an ACCIDENTAL jump likely, and in
+                            // turbulence a mis-tap quietly marked checklist phases skipped. Apple's
+                            // current floor is 28x28 pt (44x44 recommended); this was well under it.
+                            // Enlarging the target is the right fix rather than confirming the jump:
+                            // phase navigation is frequent and deliberate, and a prompt on every
+                            // jump would be worse in a cockpit than the thing it guards. (UX-10)
+                            .padding(.vertical, 20)
+                            .contentShape(Rectangle())
+                            .padding(.vertical, -20)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(phase.shortTitle)
+                    .accessibilityValue(accessibilityStatus(for: phase))
                     .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
                 }
             }
@@ -1697,6 +1714,25 @@ struct PhaseProgressBar: View {
         }
         .frame(height: 9)
         .accessibilityLabel("Circuit pattern repeats from climb to landing")
+    }
+
+    /// Spoken status for a segment. Six states are drawn as six FILL COLOURS and nothing else —
+    /// green completed, orange skipped, red missing-action, amber cruise-check-due, two greys — so
+    /// on a 5 pt bar the entire meaning is carried by colour. That fails VoiceOver outright, and
+    /// fails the ~8% of male pilots with a colour vision deficiency for whom the green/orange/red
+    /// triple is the hardest possible palette. HIG: "Convey information with more than color
+    /// alone." (UX-10)
+    private func accessibilityStatus(for phase: ChecklistPhase) -> String {
+        if phase == .cruise && phase == currentPhase && cruiseCheckDue {
+            return L10n.Accessibility.phaseCruiseCheckDue
+        }
+        switch status(phase) {
+        case .completed:     return L10n.Accessibility.phaseCompleted
+        case .skipped:       return L10n.Accessibility.phaseSkipped
+        case .missingAction: return L10n.Accessibility.phaseMissingAction
+        case .empty:         return L10n.Accessibility.phaseNothingToDo
+        case .notStarted:    return L10n.Accessibility.phaseNotStarted
+        }
     }
 
     private func color(for phase: ChecklistPhase, isCurrent: Bool) -> Color {

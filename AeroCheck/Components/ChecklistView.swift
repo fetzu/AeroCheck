@@ -104,6 +104,31 @@ struct TimestampActionButton: View {
         } message: {
             Text(L10n.ChecklistAction.updateConfirm(timestampLabel.lowercased()))
         }
+        // VoiceOver: this control is a DragGesture on a VStack, not a Button, so it exposed no
+        // button trait, no name and no activation path — ENGINE START, LINE UP, LANDED and SHUTDOWN
+        // were literally inoperable with VoiceOver running, on the HUD bottom bar of an app used in
+        // flight. Semantics are added HERE rather than by converting to a Button so the press feel,
+        // long-press progress fill and haptics are untouched.
+        //
+        // Hold-to-update becomes a NAMED ACTION rather than a 1.5 s hold: holding a control steady
+        // is exactly what VoiceOver's own gesture handling makes hardest, so a rotor action is both
+        // more reliable and more discoverable than the sighted gesture. (UX-10)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(
+            timestamp.map { "\(timestampLabel) \($0)\(timestampSuffix)" }
+                ?? L10n.ChecklistAction.notRecorded
+        )
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(hasBeenPressed ? L10n.ChecklistAction.holdToUpdate : "")
+        .accessibilityAction {
+            // Mirrors the gesture: the first press records, and a control already recorded is not
+            // re-recorded by activation — that is what the named action below is for.
+            if !hasBeenPressed { onFirstPress() }
+        }
+        .accessibilityAction(named: L10n.ChecklistAction.update) {
+            if hasBeenPressed { showUpdateConfirmation = true }
+        }
     }
     
     private func startLongPressTimer() {
@@ -817,6 +842,18 @@ struct ChecklistItemRow: View {
                     .padding(.leading, isCompact ? 22 : 28)
             }
         }
+        // VoiceOver: read the row as ONE element. Left alone, a checklist item is three separate
+        // elements — challenge, dot leader, response — so a pilot swipes twice per line and hears
+        // the two halves of a challenge/response pair split apart, with the dot leader in between.
+        //
+        // Completion is spoken, not just drawn. It was conveyed ONLY by a green checkmark glyph and
+        // dimmer text, both invisible to VoiceOver and the second of which is colour alone. On a
+        // checklist, "have I done this one" is the entire question the control exists to answer.
+        // (UX-10)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(item.challenge), \(item.response)")
+        .accessibilityValue(isCompleted ? L10n.Accessibility.itemCompleted : "")
+        .accessibilityAddTraits(isHighlighted ? [.isStaticText, .isSelected] : .isStaticText)
     }
 }
 

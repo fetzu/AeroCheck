@@ -211,8 +211,8 @@ struct ContentView: View {
                 if !appState.isFlightActive {
                     flightPlanManager.deactivateFlightPlan()
                 }
-                // Resume wind data fetching if flight is active and estimated airspeed is enabled
-                if appState.isFlightActive && appState.settings.showEstimatedAirspeed {
+                // Resume wind fetching for the briefings if a flight is active.
+                if appState.isFlightActive {
                     windDataService.startFetching(locationManager: locationManager)
                 }
                 // Re-check entitlement on foreground and enforce offline/grace expiry by

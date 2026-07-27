@@ -2,73 +2,93 @@ import XCTest
 import CoreLocation
 @testable import AeroCheck
 
-/// Tests for estimated-airspeed wind handling: staleness fall-back and geofencing.
-/// (UX-04 stale wind is ignored; estimation only inside Switzerland.)
-/// @MainActor because WindDataService is now main-actor isolated like every other service. (CQ-07)
+/// Tests for the MeteoSwiss wind feed: freshness, geofencing, and unit conversion.
+///
+/// Wind is a BRIEFING input, not an instrument input. It is a surface observation (10 m above ground
+/// at the station's own elevation), which is the right instrument for a departure or approach
+/// briefing — both happen at the surface, near an airfield — and the wrong one for reasoning about
+/// air at altitude. The former `calculateEstimatedAirspeed` was removed for that reason; see
+/// `SpeedIndicatorTests` for the annunciation side.
+///
+/// @MainActor because WindDataService is main-actor isolated like every other service. (CQ-07)
 @MainActor
 final class WindDataServiceTests: XCTestCase {
 
     private let swissCoord = CLLocationCoordinate2D(latitude: 47.0, longitude: 8.0)
 
-    private func wind(ageMinutes: Double, speedKmh: Double = 20, dir: Double = 0) -> WindData {
+    private func wind(ageMinutes: Double,
+                      speedKmh: Double = 20,
+                      dir: Double = 0,
+                      stationAltitude: Double = 500) -> WindData {
         WindData(
             stationName: "TEST",
             speedKmh: speedKmh,
             directionDegrees: dir,
             timestamp: Date().addingTimeInterval(-ageMinutes * 60),
             stationCoordinate: swissCoord,
-            distanceMeters: 1000
+            distanceMeters: 1000,
+            stationAltitudeMeters: stationAltitude
         )
     }
 
-    func testFreshWindProducesEstimate() {
+    // MARK: - Freshness (UX-04)
+
+    func testFreshWindIsUsable() {
         let service = WindDataService()
         service.currentWindData = wind(ageMinutes: 1)
-        let est = service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord)
-        XCTAssertNotNil(est, "Fresh wind should yield an estimate")
+        XCTAssertTrue(service.hasFreshWind)
+        XCTAssertFalse(service.isWindDataStale)
     }
 
-    func testStaleWindFallsBackToGroundSpeed() {
+    /// A reading past the 20-minute window must not be briefed as current.
+    func testStaleWindIsNotFresh() {
         let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 30) // older than the 20-min max age
-        let est = service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord)
-        XCTAssertNil(est, "Stale wind (>20 min) must not drive airspeed; caller falls back to GND SPD")
+        service.currentWindData = wind(ageMinutes: 45)
+        XCTAssertFalse(service.hasFreshWind)
+        XCTAssertTrue(service.isWindDataStale)
     }
 
-    func testOutsideSwitzerlandReturnsNil() {
-        let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 1)
-        let outside = CLLocationCoordinate2D(latitude: 40.0, longitude: 8.0)
-        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: outside))
-    }
-
-    func testNoWindDataReturnsNil() {
+    func testNoWindDataIsNeitherFreshNorStale() {
         let service = WindDataService()
         service.currentWindData = nil
-        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord))
+        XCTAssertFalse(service.hasFreshWind)
+        XCTAssertFalse(service.isWindDataStale, "absent wind is not the same as stale wind")
+        XCTAssertNil(service.windDataAgeSeconds)
     }
 
-    func testHeadwindIncreasesAirspeed() {
+    func testAgeIsReported() {
         let service = WindDataService()
-        // Wind FROM 360° (north) at 20 km/h; flying track 360° → pure headwind → IAS > GND.
-        service.currentWindData = wind(ageMinutes: 1, speedKmh: 37.04 /* ~20 kt */, dir: 360)
-        let est = service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 360, coordinate: swissCoord)
-        XCTAssertNotNil(est)
-        XCTAssertGreaterThan(est ?? 0, 80)
+        service.currentWindData = wind(ageMinutes: 5)
+        guard let age = service.windDataAgeSeconds else { return XCTFail("age must be reported") }
+        XCTAssertEqual(age, 300, accuracy: 5)
     }
 
-    // A non-finite wind reading (e.g. a JSON overflow exponent decoding to ±inf) must never produce
-    // an estimate — otherwise it reaches the speed indicator and traps at Int(displaySpeed). The
-    // caller falls back to ground speed when this returns nil. (v4.0.0 review P1)
-    func testNonFiniteWindSpeedFallsBackToGroundSpeed() {
-        let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 1, speedKmh: .infinity, dir: 0)
-        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord))
+    // MARK: - Geofence
+
+    func testInsideSwitzerland() {
+        XCTAssertTrue(WindDataService().isInSwitzerland(swissCoord))
     }
 
-    func testNonFiniteWindDirectionFallsBackToGroundSpeed() {
+    func testOutsideSwitzerland() {
         let service = WindDataService()
-        service.currentWindData = wind(ageMinutes: 1, speedKmh: 20, dir: .nan)
-        XCTAssertNil(service.calculateEstimatedAirspeed(groundSpeedKnots: 80, trackDegrees: 0, coordinate: swissCoord))
+        XCTAssertFalse(service.isInSwitzerland(CLLocationCoordinate2D(latitude: 48.85, longitude: 2.35)))
+        XCTAssertFalse(service.isInSwitzerland(nil))
+    }
+
+    // MARK: - Units
+
+    /// The feed reports km/h; briefings and aviation everywhere else in the app use knots.
+    func testSpeedConvertsToKnots() {
+        XCTAssertEqual(wind(ageMinutes: 0, speedKmh: 100).speedKnots, 53.9957, accuracy: 0.001)
+        XCTAssertEqual(wind(ageMinutes: 0, speedKmh: 0).speedKnots, 0, accuracy: 0.001)
+    }
+
+    /// Station provenance must survive onto the model — it is what lets a pilot judge whether the
+    /// reading is representative, and it is how the service filters candidates.
+    func testStationProvenanceIsCarried() {
+        let w = wind(ageMinutes: 1, stationAltitude: 1888)
+        XCTAssertEqual(w.stationAltitudeMeters, 1888)
+        XCTAssertEqual(w.distanceMeters, 1000)
+        XCTAssertEqual(w.stationName, "TEST")
     }
 }

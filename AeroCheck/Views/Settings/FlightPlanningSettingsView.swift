@@ -7,11 +7,7 @@ struct FlightPlanningSettingsView: View {
     @State private var enableFlightPlanning: Bool = false
     @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
-    @State private var showEstimatedAirspeed: Bool = false
-    @State private var stallAlertSound: Bool = false
     @State private var showFlightPlanningWarning: Bool = false
-    @State private var showEstimatedAirspeedWarning: Bool = false
-    @State private var pendingEstimatedAirspeedValue: Bool = false
     @State private var isLoadingSettings: Bool = false
 
     private let tint: Color = .orange
@@ -19,7 +15,6 @@ struct FlightPlanningSettingsView: View {
     var body: some View {
         SettingsPage {
             flightPlanningSection
-            experimentalAirspeedSection
         }
         .navigationTitle(L10n.Settings.flightPlanning)
         .navigationBarTitleDisplayMode(.inline)
@@ -28,18 +23,10 @@ struct FlightPlanningSettingsView: View {
         .onChange(of: enableFlightPlanning) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: waypointProximityThreshold) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: terrainAltitudeUnit) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: showEstimatedAirspeed) { _, _ in if !isLoadingSettings { saveSettings() } }
-        .onChange(of: stallAlertSound) { _, _ in if !isLoadingSettings { saveSettings() } }
         .sheet(isPresented: $showFlightPlanningWarning) {
             FlightPlanningWarningSheet(
                 isPresented: $showFlightPlanningWarning,
                 enableFlightPlanning: $enableFlightPlanning
-            )
-        }
-        .sheet(isPresented: $showEstimatedAirspeedWarning) {
-            EstimatedAirspeedWarningSheet(
-                isPresented: $showEstimatedAirspeedWarning,
-                showEstimatedAirspeed: $showEstimatedAirspeed
             )
         }
     }
@@ -99,39 +86,6 @@ struct FlightPlanningSettingsView: View {
         }
     }
 
-    // MARK: - Experimental Airspeed Section
-
-    private var experimentalAirspeedSection: some View {
-        SettingsGroup(title: "\(L10n.Settings.experimental) · \(L10n.Tag.beta)",
-                      tint: tint,
-                      footer: "\(L10n.Settings.experimentalFooter)\n\(L10n.Settings.switzerlandOnly)") {
-            SettingsToggleRow(
-                icon: "exclamationmark.triangle.fill",
-                title: L10n.Settings.showEstimatedAirspeed,
-                tint: tint,
-                isOn: Binding(
-                    get: { showEstimatedAirspeed },
-                    set: { newValue in
-                        if newValue {
-                            pendingEstimatedAirspeedValue = true
-                            showEstimatedAirspeedWarning = true
-                        } else {
-                            showEstimatedAirspeed = false
-                        }
-                    }
-                )
-            )
-            if showEstimatedAirspeed {
-                SettingsToggleRow(
-                    icon: "speaker.wave.2.fill",
-                    title: L10n.Settings.stallAlertSound,
-                    tint: tint,
-                    isOn: $stallAlertSound
-                )
-            }
-        }
-    }
-
     // MARK: - Settings Persistence
 
     private func loadSettings() {
@@ -139,8 +93,6 @@ struct FlightPlanningSettingsView: View {
         enableFlightPlanning = appState.settings.enableFlightPlanning
         waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
-        showEstimatedAirspeed = appState.settings.showEstimatedAirspeed
-        stallAlertSound = appState.settings.stallAlertSound
         DispatchQueue.main.async {
             self.isLoadingSettings = false
         }
@@ -150,8 +102,6 @@ struct FlightPlanningSettingsView: View {
         appState.settings.enableFlightPlanning = enableFlightPlanning
         appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit
-        appState.settings.showEstimatedAirspeed = showEstimatedAirspeed
-        appState.settings.stallAlertSound = stallAlertSound
         appState.saveSettings()
     }
 }

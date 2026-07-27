@@ -376,8 +376,6 @@ enum L10n {
 
         // Experimental
         static let experimental = String(localized: "settings.experimental")
-        static let showEstimatedAirspeed = String(localized: "settings.experimental.showEstimatedAirspeed")
-        static let stallAlertSound = String(localized: "settings.experimental.stallAlertSound")
         static let experimentalFooter = String(localized: "settings.experimental.whenEnabled")
         static let switzerlandOnly = String(localized: "settings.experimental.onlyInSwitzerland")
 
@@ -730,10 +728,6 @@ enum L10n {
         static let onlineAirspaceDownloadRecommended = String(localized: "warning.onlineAirspace.downloadRecommended")
 
         // Estimated Airspeed
-        static let estimatedAirspeedCalculated = String(localized: "warning.estimatedAirspeed.calculated")
-        static let estimatedAirspeedInaccurate = String(localized: "warning.estimatedAirspeed.inaccurate")
-        static let estimatedAirspeedAlwaysRelyOnboard = String(localized: "warning.estimatedAirspeed.alwaysRelyOnboard")
-        static let estimatedAirspeedRequiresCellular = String(localized: "warning.estimatedAirspeed.requiresCellular")
     }
 
     // MARK: - Download

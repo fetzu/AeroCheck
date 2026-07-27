@@ -13400,23 +13400,6 @@
         }
       }
     },
-    "settings.experimental.stallAlertSound": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aural stall alert"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alerte de décrochage sonore"
-          }
-        }
-      }
-    },
     "settings.experimental.whenEnabled": {
       "extractionState": "manual",
       "localizations": {
@@ -15771,74 +15754,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annuler"
-          }
-        }
-      }
-    },
-    "warning.estimatedAirspeed.alwaysRelyOnboard": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always rely on your aircraft's onboard airspeed indicator for actual IAS readings."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fiez-vous toujours à l'indicateur de vitesse air de bord de votre avion pour les lectures IAS réelles."
-          }
-        }
-      }
-    },
-    "warning.estimatedAirspeed.calculated": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The estimated indicated airspeed (IAS) shown is calculated from GPS ground speed and wind data from MeteoSwiss weather stations."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La vitesse air indiquée (IAS) estimée affichée est calculée à partir de la vitesse sol GPS et des données de vent des stations météo de MétéoSuisse."
-          }
-        }
-      }
-    },
-    "warning.estimatedAirspeed.inaccurate": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This estimation can be highly inaccurate due to local wind variations, altitude differences, and station distance."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette estimation peut être très imprécise en raison des variations de vent locales, des différences d'altitude et de la distance de la station."
-          }
-        }
-      }
-    },
-    "warning.estimatedAirspeed.requiresCellular": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This feature requires a constant cellular connection and only works within Switzerland."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette fonctionnalité nécessite une connexion cellulaire constante et ne fonctionne qu'en Suisse."
           }
         }
       }

@@ -87,16 +87,6 @@ struct FlightView: View {
         locationManager.currentCourseDegrees ?? 0
     }
 
-    /// Estimated airspeed if the feature is enabled, otherwise nil
-    private var estimatedAirspeed: Double? {
-        guard appState.settings.showEstimatedAirspeed else { return nil }
-        return windDataService.calculateEstimatedAirspeed(
-            groundSpeedKnots: locationManager.displaySpeedKnots,
-            trackDegrees: currentTrackDegrees,
-            coordinate: locationManager.getCurrentCoordinate()
-        )
-    }
-
     /// Build briefing context from current state
     private var briefingContext: BriefingContext {
         // Get speeds from current checklist
@@ -364,21 +354,12 @@ struct FlightView: View {
             Text(L10n.Alert.abandonFlightMessage)
         }
         .onAppear {
-            // Start wind data fetching if estimated airspeed is enabled
-            if appState.settings.showEstimatedAirspeed {
-                windDataService.startFetching(locationManager: locationManager)
-            }
+            // Wind feeds the departure and approach briefings, so it is fetched for the whole
+            // flight rather than gated behind a toggle. The service no-ops outside Switzerland.
+            windDataService.startFetching(locationManager: locationManager)
         }
         .onDisappear {
-            // Stop wind data fetching when leaving flight view
             windDataService.stopFetching()
-        }
-        .onChange(of: appState.settings.showEstimatedAirspeed) { _, newValue in
-            if newValue {
-                windDataService.startFetching(locationManager: locationManager)
-            } else {
-                windDataService.stopFetching()
-            }
         }
         .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
@@ -427,10 +408,7 @@ struct FlightView: View {
                 CockpitInstrumentStrip(
                     speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                    stallSpeed: appState.activeChecklist.stallSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed,
-                    stallAlertEnabled: appState.settings.stallAlertSound,
                     altitudeFeet: locationManager.currentAltitudeFeet,
                     headingDegrees: locationManager.currentCourseDegrees,
                     verticalSpeedFPM: locationManager.verticalSpeedFpm
@@ -1034,10 +1012,7 @@ struct FlightView: View {
                 CockpitInstrumentStrip(
                     speedKnots: locationManager.displaySpeedKnots,
                     targetSpeed: appState.activeChecklist.targetSpeed(for: appState.currentPhase),
-                    stallSpeed: appState.activeChecklist.stallSpeed,
                     gpsSignalStatus: locationManager.gpsSignalStatus,
-                    estimatedAirspeed: estimatedAirspeed,
-                    stallAlertEnabled: appState.settings.stallAlertSound,
                     altitudeFeet: locationManager.currentAltitudeFeet,
                     headingDegrees: locationManager.currentCourseDegrees,
                     verticalSpeedFPM: locationManager.verticalSpeedFpm
@@ -1862,40 +1837,26 @@ struct SpeedReferenceSheet: View {
 struct CompactSpeedView: View {
     let speedKnots: Double // Ground speed in knots
     let targetSpeed: Int
-    let stallSpeed: Int // Stall speed (clean) of the active aircraft
     let gpsSignalStatus: GPSSignalStatus
-    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
-    var stallAlertEnabled: Bool = false // Fire aural+haptic alert on stall, mirroring the iPad indicator (UX-02)
 
-    /// The speed value to display (estimated airspeed if available, otherwise ground speed)
-    private var displaySpeed: Double {
-        estimatedAirspeed ?? speedKnots
-    }
+    /// Always GPS ground speed — the app has no pitot or AoA source. See
+    /// `SpeedIndicatorView.annunciationState` for why the wind-derived estimate was removed.
+    private var displaySpeed: Double { speedKnots }
 
-    /// Whether we're showing estimated airspeed
-    private var showingEstimatedAirspeed: Bool {
-        estimatedAirspeed != nil
-    }
-
-    // Delegates to the shared pure function so the iPhone annunciates a stall identically to the
-    // iPad — crucially, only from a reliable airspeed estimate, never raw GPS ground speed. (UX-02)
+    // Delegates to the shared pure function so the iPhone annunciates identically to the iPad.
     private var speedState: SpeedState {
         switch SpeedIndicatorView.annunciationState(
-            displaySpeed: displaySpeed, targetSpeed: targetSpeed, stallSpeed: stallSpeed,
-            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus) {
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed, gpsSignalStatus: gpsSignalStatus) {
         case .onTarget: return .onTarget
         case .offTarget: return .offTarget
-        case .stall: return .stall
         }
     }
 
     enum SpeedState {
-        case onTarget, offTarget, stall
+        case onTarget, offTarget
     }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isNightMode) private var nightMode
-    @State private var isFlashing = false
 
     /// Whether to show failure flag overlay
     private var showFailureFlag: Bool {
@@ -1909,12 +1870,11 @@ struct CompactSpeedView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Speed type label (GS / EST. IAS). The stall warning now lives inside the value box as
-            // a legible annunciation, matching the iPad instrument. (UX-02)
+            // Speed type label. Always ground speed — the app has no airspeed source.
             VStack(alignment: .trailing, spacing: 2) {
-                Text(showingEstimatedAirspeed ? L10n.Speed.ias : L10n.Speed.gs)
+                Text(L10n.Speed.gs)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .dimText)
+                    .foregroundColor(.dimText)
             }
 
             // Speed value with failure flag, plus the color-blind-safe proximity bar beneath it
@@ -1922,14 +1882,6 @@ struct CompactSpeedView: View {
                 ZStack {
                     VStack(spacing: 0) {
                         if gpsSignalStatus != .lost {
-                            // Static, always-on STALL annunciation inside the value box — heavy white on
-                            // the red fill, never dependent on the flash or colour alone (and steady under
-                            // Reduce Motion), at parity with the iPad indicator. (UX-02 / UX-18)
-                            if speedState == .stall {
-                                Text("STALL")
-                                    .font(.system(size: 13, weight: .heavy))
-                                    .foregroundColor(.white)
-                            }
                             HStack(spacing: 4) {
                                 // Live airspeed is primary flight data — give it the largest, heaviest type
                                 // in the in-flight bar so it's the glance focal point. (UX-15)
@@ -1986,25 +1938,11 @@ struct CompactSpeedView: View {
                 .foregroundColor(.secondaryText)
             }
         }
-        .onAppear {
-            if speedState == .stall {
-                startFlashing()
-                if stallAlertEnabled { StallAlert.shared.trigger() }
-            }
-        }
-        .onChange(of: speedState) { _, newState in
-            if newState == .stall {
-                startFlashing()
-                if stallAlertEnabled { StallAlert.shared.trigger() }
-            } else {
-                stopFlashing()
-            }
-        }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityLabel("Ground speed")
         .accessibilityValue(SpeedIndicatorView.accessibilityValue(
             displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed, state: mappedSpeedState,
-            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+            gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
     }
 
@@ -2013,7 +1951,6 @@ struct CompactSpeedView: View {
         switch speedState {
         case .onTarget: return .onTarget
         case .offTarget: return .offTarget
-        case .stall: return .stall
         }
     }
 
@@ -2023,10 +1960,6 @@ struct CompactSpeedView: View {
         switch speedState {
         case .onTarget: return nightMode ? .nightOnTarget : .aviationGreen
         case .offTarget: return nightMode ? .nightOffTarget : .orange
-        case .stall:
-            if nightMode { return .nightStall }
-            if reduceMotion { return Color.aviationRed } // steady solid red under Reduce Motion (UX-18)
-            return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
 
@@ -2034,7 +1967,6 @@ struct CompactSpeedView: View {
         if nightMode { return .nightInstrumentText }
         switch speedState {
         case .onTarget, .offTarget: return .black
-        case .stall: return .white
         }
     }
 
@@ -2045,18 +1977,6 @@ struct CompactSpeedView: View {
         else { return "checkmark" }
     }
 
-    private func startFlashing() {
-        guard !reduceMotion else { return } // no repeatForever flash under Reduce Motion (UX-18)
-        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
-            isFlashing = true
-        }
-    }
-
-    private func stopFlashing() {
-        withAnimation(.easeInOut(duration: 0.1)) {
-            isFlashing = false
-        }
-    }
 }
 
 // MARK: - Flight Mini-Map (persistent HUD glance map)

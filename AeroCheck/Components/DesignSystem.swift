@@ -296,37 +296,27 @@ struct StatusIndicator: View {
 struct SpeedIndicatorView: View {
     let currentSpeed: Double // Ground speed in knots (from GPS, m/s converted)
     let targetSpeed: Int
-    let stallSpeed: Int // Stall speed (clean) of the active aircraft
     let gpsSignalStatus: GPSSignalStatus
-    var estimatedAirspeed: Double? = nil // Optional estimated airspeed in knots
-    var stallAlertEnabled: Bool = false // When true, fire an aural+haptic alert on stall (UX-02)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isNightMode) private var nightMode
-    @State private var isFlashing = false
 
-    /// The speed value to display (estimated airspeed if available, otherwise ground speed)
-    private var displaySpeed: Double {
-        estimatedAirspeed ?? currentSpeed
-    }
-
-    /// Whether we're showing estimated airspeed
-    private var showingEstimatedAirspeed: Bool {
-        estimatedAirspeed != nil
-    }
+    /// The speed value to display. Always GPS ground speed: the app has no pitot or AoA source, so
+    /// there is no airspeed to show. (The former wind-derived "estimated IAS" was removed — a
+    /// surface-station wind cannot describe the air at altitude, and its error ran to ±18 kt, which
+    /// is comparable to the entire Vs→Vapp margin on a light aircraft.)
+    private var displaySpeed: Double { currentSpeed }
 
     // Speed state categories — delegates to the shared pure function so iPad and iPhone
     // annunciate identically. (UX-02)
     private var speedState: SpeedState {
         SpeedIndicatorView.annunciationState(
-            displaySpeed: displaySpeed, targetSpeed: targetSpeed, stallSpeed: stallSpeed,
-            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus)
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed, gpsSignalStatus: gpsSignalStatus)
     }
 
     enum SpeedState {
         case onTarget   // Green (solid): within 5 kt of target
-        case offTarget  // Orange (solid): above Vs but outside 5 kt range
-        case stall      // Flashing red/white: below stall speed
+        case offTarget  // Orange (solid): outside the 5 kt target band
     }
 
     /// Whether to show failure flag overlay
@@ -342,9 +332,9 @@ struct SpeedIndicatorView: View {
     var body: some View {
         VStack(spacing: 4) {
             // Speed label - shows type of speed being displayed
-            Text(showingEstimatedAirspeed ? "EST. IAS" : "GND SPD")
+            Text("GND SPD")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(showingEstimatedAirspeed ? .aviationAmber : .secondaryText)
+                .foregroundColor(.secondaryText)
 
             // Current speed display
             ZStack {
@@ -355,19 +345,11 @@ struct SpeedIndicatorView: View {
                 // Speed value (hidden when GPS lost)
                 if gpsSignalStatus != .lost {
                     VStack(spacing: 0) {
-                        // Static, always-on STALL annunciation: the warning never depends on the
-                        // flash animation or colour alone (and is steady under Reduce Motion). (UX-18)
-                        if speedState == .stall {
-                            Text("STALL")
-                                .font(.system(size: 13, weight: .heavy))
-                                .foregroundColor(.white)
-                        }
-                        // "~" marks an estimated (wind-derived) value, not a measured airspeed. (UX-12)
-                        Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(displaySpeed))")
+                        Text("\(Int(displaySpeed))")
                             .font(.system(size: 32, weight: .bold, design: .monospaced))
                             .foregroundColor(textColor)
 
-                        Text(showingEstimatedAirspeed ? "KIAS" : "kt")
+                        Text("kt")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(textColor.opacity(0.8))
                     }
@@ -403,63 +385,43 @@ struct SpeedIndicatorView: View {
                 .accessibilityHidden(true) // the composed speed value already states the target state in words
             }
         }
-        .onAppear {
-            startFlashingIfNeeded()
-        }
-        .onChange(of: speedState) { _, newState in
-            if newState == .stall {
-                startFlashing()
-                if stallAlertEnabled { StallAlert.shared.trigger() }
-            } else {
-                stopFlashing()
-            }
-        }
         // VoiceOver: read the speed as one element with a composed value, so state is conveyed by
-        // words (on/off target, below stall speed), never colour alone. (UX-10)
+        // words (on/off target), never colour alone. (UX-10)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityLabel("Ground speed")
         .accessibilityValue(SpeedIndicatorView.accessibilityValue(
             displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed, state: speedState,
-            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+            gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
     }
 
     /// Composes the VoiceOver value string. Pure + static so the wording is unit-tested — a
     /// mis-stated speed/state on a safety instrument is the main risk of accessibility text. (UX-10)
     static func accessibilityValue(displaySpeed: Int, targetSpeed: Int, state: SpeedState,
-                                   estimated: Bool, gpsLost: Bool) -> String {
+                                   gpsLost: Bool) -> String {
         if gpsLost { return "GPS signal lost" }
-        let source = estimated ? "knots estimated airspeed" : "knots ground speed"
-        let prefix = estimated ? "approximately " : ""
         let stateText: String
         switch state {
         case .onTarget: stateText = "on target"
         case .offTarget: stateText = "off target"
-        case .stall: stateText = "below stall speed"
         }
-        return "\(prefix)\(displaySpeed) \(source), \(stateText). Target \(targetSpeed) knots"
+        return "\(displaySpeed) knots ground speed, \(stateText). Target \(targetSpeed) knots"
     }
 
     /// Pure, unit-testable speed-state computation shared by the iPad `SpeedIndicatorView` and the
-    /// iPhone `CompactSpeedView`, so both annunciate a stall identically. A `.stall` is annunciated
-    /// ONLY from a reliable airspeed estimate (`showingEstimatedAirspeed`): with only GPS ground
-    /// speed the value can be wrong by the wind component — a tailwind can mask a real stall and a
-    /// headwind can fake one — so it is suppressed to `.offTarget`. Unreliable GPS likewise never
-    /// annunciates a stall (the failure flag already communicates the GPS issue). (UX-02)
-    static func annunciationState(displaySpeed: Double, targetSpeed: Int, stallSpeed: Int,
-                                  showingEstimatedAirspeed: Bool,
+    /// iPhone `CockpitInstrumentStrip`, so both annunciate identically.
+    ///
+    /// There is deliberately NO stall annunciation. It used to fire when a wind-derived airspeed
+    /// estimate fell below Vs, but that estimate was ground speed corrected by a MeteoSwiss SURFACE
+    /// station wind — bidirectionally wrong by up to ~18 kt at altitude, against a Vs→Vapp margin of
+    /// 23 kt on the WT9. Stall is an angle-of-attack phenomenon anyway (Vs is only valid at 1g, max
+    /// gross, wings level), and the app has neither pitot nor AoA. A warning that cannot be right is
+    /// worse than none, because it teaches the pilot to ignore it. Do not reintroduce one without a
+    /// real airspeed source. (UX-02)
+    static func annunciationState(displaySpeed: Double, targetSpeed: Int,
                                   gpsSignalStatus: GPSSignalStatus) -> SpeedState {
         let speedInt = displaySpeed.isFinite ? Int(displaySpeed) : 0
-        if gpsSignalStatus == .degraded || gpsSignalStatus == .lost {
-            return abs(speedInt - targetSpeed) <= 5 ? .onTarget : .offTarget
-        }
-        if showingEstimatedAirspeed && speedInt < stallSpeed {
-            return .stall
-        } else if abs(speedInt - targetSpeed) <= 5 {
-            return .onTarget
-        } else {
-            return .offTarget
-        }
+        return abs(speedInt - targetSpeed) <= 5 ? .onTarget : .offTarget
     }
 
     /// Maps the annunciated speed state to the color-blind-safe instrument-bar state. Pure + testable
@@ -468,7 +430,6 @@ struct SpeedIndicatorView: View {
         switch state {
         case .onTarget: return .onTarget
         case .offTarget: return .caution
-        case .stall: return .stall
         }
     }
 
@@ -489,12 +450,6 @@ struct SpeedIndicatorView: View {
             return nightMode ? .nightOnTarget : .aviationGreen
         case .offTarget:
             return nightMode ? .nightOffTarget : .orange
-        case .stall:
-            if nightMode { return .nightStall }
-            // Under Reduce Motion, a steady solid red (the brightest, most-alarming state) — never
-            // the dimmer 0.7 — so a non-flashing stall is still unmistakable. Otherwise flash. (UX-18)
-            if reduceMotion { return Color.aviationRed }
-            return isFlashing ? Color.aviationRed : Color.aviationRed.opacity(0.7)
         }
     }
 
@@ -503,8 +458,6 @@ struct SpeedIndicatorView: View {
         switch speedState {
         case .onTarget, .offTarget:
             return .black // black on the solid green/orange fill for max sunlight contrast (UX-17)
-        case .stall:
-            return .white // white on solid red (never red-on-red, which was unreadable when unlit)
         }
     }
 
@@ -519,59 +472,6 @@ struct SpeedIndicatorView: View {
         }
     }
 
-    private func startFlashingIfNeeded() {
-        if speedState == .stall {
-            startFlashing()
-            if stallAlertEnabled { StallAlert.shared.trigger() }
-        }
-    }
-
-    private func startFlashing() {
-        // Respect Reduce Motion: no repeatForever flashing. The stall background stays a solid,
-        // high-contrast red (see backgroundColor) and the static "STALL" text carries the warning. (UX-18)
-        guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
-            isFlashing = true
-        }
-    }
-
-    private func stopFlashing() {
-        withAnimation(.easeInOut(duration: 0.1)) {
-            isFlashing = false
-        }
-    }
-}
-
-// MARK: - Stall Aural/Haptic Alert
-
-/// Speaks a "stall" warning (ducking other cockpit audio) plus a warning haptic when the
-/// airspeed indicator enters the stall state. Throttled so it doesn't repeat on every
-/// recompute/flash. Opt-in via Settings. (UX-02)
-final class StallAlert {
-    static let shared = StallAlert()
-    private let synthesizer = AVSpeechSynthesizer()
-    private let haptic = UINotificationFeedbackGenerator()
-    private var lastFired: Date?
-    private let minInterval: TimeInterval = 4.0
-
-    private init() {}
-
-    func trigger() {
-        let now = Date()
-        if let last = lastFired, now.timeIntervalSince(last) < minInterval { return }
-        lastFired = now
-
-        // Play over other cockpit audio (intercom/music), ducking it briefly.
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default, options: [.duckOthers, .mixWithOthers])
-        try? session.setActive(true, options: [])
-
-        let utterance = AVSpeechUtterance(string: "Stall. Stall.")
-        utterance.volume = 1.0
-        synthesizer.speak(utterance)
-
-        haptic.notificationOccurred(.warning)
-    }
 }
 
 // MARK: - Night Mode (UX-09)
@@ -1162,7 +1062,6 @@ struct SettingsMenuRow<T: Hashable, Options: View>: View {
 enum InstrumentTargetState: Equatable {
     case onTarget
     case caution
-    case stall
     case neutral
 
     /// Bar/accent color for this state in the given theme.
@@ -1170,7 +1069,6 @@ enum InstrumentTargetState: Equatable {
         switch self {
         case .onTarget: return theme.onTarget
         case .caution: return theme.warning
-        case .stall: return theme.danger
         case .neutral: return theme.textDim
         }
     }
@@ -1202,18 +1100,14 @@ struct InstrumentTargetBar: View {
 
 /// The real in-flight instrument strip for the revamped HUD: SPD / ALT / HDG in one horizontal
 /// Liquid-Glass panel with the color-blind-safe on-target bar — the look of `CockpitInstrumentPanel`,
-/// but carrying the live SAFETY behavior (stall annunciation + aural/haptic alert, GPS-failure flags,
-/// VoiceOver values). The safety LOGIC is the same shared, unit-tested code the boxed instruments use
+/// but carrying the live SAFETY behavior (GPS-failure flags, VoiceOver values). The safety LOGIC is the same shared, unit-tested code the boxed instruments use
 /// (`SpeedIndicatorView.annunciationState` / `.accessibilityValue` / `.targetBarFraction` / `.barState`,
-/// `AltimeterView.accessibilityValue`, `StallAlert`, `InstrumentFailureFlag`); only the visual layout
+/// `AltimeterView.accessibilityValue`, `InstrumentFailureFlag`); only the visual layout
 /// is new. (v4 UI/UX Revamp)
 struct CockpitInstrumentStrip: View {
     let speedKnots: Double           // ground speed (display fallback)
     let targetSpeed: Int?
-    let stallSpeed: Int
     let gpsSignalStatus: GPSSignalStatus
-    var estimatedAirspeed: Double? = nil
-    var stallAlertEnabled: Bool = false
     let altitudeFeet: Double
     var headingDegrees: Double? = nil
     var verticalSpeedFPM: Double? = nil
@@ -1226,17 +1120,15 @@ struct CockpitInstrumentStrip: View {
         return (vs > 0 ? "↑\(abs(rounded))" : "↓\(abs(rounded))", vs > 0 ? theme.onTarget : theme.info)
     }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.cockpitTheme) private var theme
-    @State private var isFlashing = false
 
-    private var displaySpeed: Double { estimatedAirspeed ?? speedKnots }
-    private var showingEstimatedAirspeed: Bool { estimatedAirspeed != nil }
+    /// Always GPS ground speed — the app has no pitot or AoA source. See
+    /// `SpeedIndicatorView.annunciationState` for why the wind-derived estimate was removed.
+    private var displaySpeed: Double { speedKnots }
 
     private var speedState: SpeedIndicatorView.SpeedState {
         SpeedIndicatorView.annunciationState(
-            displaySpeed: displaySpeed, targetSpeed: targetSpeed ?? 0, stallSpeed: stallSpeed,
-            showingEstimatedAirspeed: showingEstimatedAirspeed, gpsSignalStatus: gpsSignalStatus)
+            displaySpeed: displaySpeed, targetSpeed: targetSpeed ?? 0, gpsSignalStatus: gpsSignalStatus)
     }
 
     private var showFailureFlag: Bool { gpsSignalStatus == .degraded || gpsSignalStatus == .lost }
@@ -1246,9 +1138,6 @@ struct CockpitInstrumentStrip: View {
         switch speedState {
         case .onTarget: return theme.onTarget
         case .offTarget: return theme.warning
-        case .stall:
-            if reduceMotion { return theme.danger }
-            return isFlashing ? theme.danger : theme.danger.opacity(0.7)
         }
     }
 
@@ -1264,22 +1153,14 @@ struct CockpitInstrumentStrip: View {
         .padding(.horizontal, 8)
         .background(theme.glassFill, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(theme.glassStroke, lineWidth: 0.5))
-        .onAppear { if speedState == .stall { startFlash(); fireStallAlert() } }
-        .onChange(of: speedState) { _, newState in
-            if newState == .stall { startFlash(); fireStallAlert() } else { stopFlash() }
-        }
     }
 
     private var speedCell: some View {
-        cell(label: showingEstimatedAirspeed ? "IAS kt" : "SPD kt") {
+        cell(label: "SPD kt") {
             ZStack {
                 VStack(spacing: 0) {
                     if gpsSignalStatus != .lost {
-                        // Static STALL annunciation — never colour/flash alone, steady under Reduce Motion.
-                        if speedState == .stall {
-                            Text("STALL").font(.system(size: 11, weight: .heavy)).foregroundColor(theme.danger)
-                        }
-                        Text("\(showingEstimatedAirspeed ? "~" : "")\(Int(max(0, displaySpeed)))")
+                        Text("\(Int(max(0, displaySpeed)))")
                             .font(.system(size: 30, weight: .medium, design: .monospaced))
                             .foregroundColor(speedColor)
                             .minimumScaleFactor(0.6).lineLimit(1)
@@ -1299,10 +1180,10 @@ struct CockpitInstrumentStrip: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(showingEstimatedAirspeed ? "Estimated airspeed" : "Ground speed")
+        .accessibilityLabel("Ground speed")
         .accessibilityValue(SpeedIndicatorView.accessibilityValue(
             displaySpeed: Int(displaySpeed), targetSpeed: targetSpeed ?? 0, state: speedState,
-            estimated: showingEstimatedAirspeed, gpsLost: gpsSignalStatus == .lost))
+            gpsLost: gpsSignalStatus == .lost))
         .accessibilityAddTraits(.updatesFrequently)
     }
 
@@ -1359,15 +1240,7 @@ struct CockpitInstrumentStrip: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func fireStallAlert() { if stallAlertEnabled { StallAlert.shared.trigger() } }
 
-    private func startFlash() {
-        guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) { isFlashing = true }
-    }
-    private func stopFlash() {
-        withAnimation(.easeInOut(duration: 0.1)) { isFlashing = false }
-    }
 }
 
 // MARK: - Cockpit Hero Checklist Item (v4 UI/UX Revamp HUD)

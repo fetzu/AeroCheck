@@ -120,7 +120,7 @@ AeroCheck/
 │   ├── OpenAIPConfig.swift         # OpenAIP API configuration and constants
 │   ├── OpenAIPTileOverlay.swift    # Custom MKTileOverlay for OpenAIP map tiles
 │   ├── BundledChecklistService.swift # Loading bundled (free) aircraft checklists
-│   ├── WindDataService.swift       # MeteoSwiss wind data (experimental)
+│   ├── WindDataService.swift       # MeteoSwiss surface wind for departure/approach briefings (CH only)
 │   ├── ElevationService.swift      # Terrain elevation (swisstopo CH + Open-Meteo worldwide) for route profiles
 │   ├── SwisstopoTileOverlays.swift # Consolidated swisstopo tile overlays (ICAO / Segelflug / Landeskarte / SWISSIMAGE)
 │   ├── OpenAIPCacheManager.swift   # Atomic, crash-safe OpenAIP airspace cache writes
@@ -191,7 +191,7 @@ AeroCheckWatch/
 | Learning Mode | Hides memorizable items |
 | GPS Tracking | `LocationManager` + `GPSPoint` in Flight |
 | Ground Speed Indicator | Real-time GPS ground speed in knots with color coding |
-| Estimated Airspeed | `WindDataService` + MeteoSwiss API (experimental, Switzerland only) |
+| Briefing Wind | `WindDataService` + MeteoSwiss surface stations (Switzerland only) — feeds the departure/approach briefings. Station chosen by distance AND altitude delta, not distance alone. There is deliberately **no** estimated-airspeed readout and **no** stall annunciation: the app has no pitot or AoA source, and a surface-station wind cannot describe air at altitude. |
 | Navigation Mode (3.5) | `NavigationView` — 2-row bottom bar, expandable flight-plan sheet with leg timing, ground-track trend vector, FREDA cruise-check reminder; SwissTopo + OpenAIP layers |
 | FREQ Panel | CURRENT / NEXT / EMERGENCY frequency model in NavigationView (OpenAIP CTR worldwide, FIS, common; OurAirports TWR fallback) |
 | Offline Maps | `OfflineMapManager` for ICAO/Segelflug chart caching |

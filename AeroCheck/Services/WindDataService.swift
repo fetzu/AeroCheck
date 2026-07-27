@@ -41,7 +41,12 @@ class WindDataService: ObservableObject {
     // MARK: - Private Properties
 
     private var fetchTimer: Timer?
-    private let minimumFetchInterval: TimeInterval = 60 // 1 minute minimum between fetches
+
+    /// Matched to the data's own cadence: the feed is a 10-MINUTE MEAN, republished every 10
+    /// minutes, so anything faster re-downloads a byte-identical 191 KB payload. The old 60 s
+    /// interval existed for the live airspeed readout, which no longer exists — at 1 flight/1.5 h
+    /// it pulled ~17 MB per user per flight from a free public endpoint for ~1.7 MB of new data.
+    private let minimumFetchInterval: TimeInterval = 10 * 60
 
     /// Switzerland bounding box with ~5 NM margin (approximately 9.26 km)
     /// Original: 45.82° - 47.81° N, 5.96° - 10.49° E

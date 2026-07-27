@@ -371,17 +371,12 @@ class AircraftDataService: ObservableObject {
             // Determine the current version we have (cached or bundled)
             let currentVersion = cachedChecklist?.version ?? bundledChecklist?.version ?? ""
 
-            // Compare checksums if available, otherwise fall back to version comparison
-            let needsUpdate: Bool
-            if let serverChecksum = serverVersion.checksum,
-               let cachedChecksum = cachedMetadata?.checksum {
-                needsUpdate = serverChecksum != cachedChecksum
-            } else if currentVersion.isEmpty {
-                // No local version (new language from API) - always update
-                needsUpdate = true
-            } else {
-                needsUpdate = serverVersion.version != currentVersion
-            }
+            let needsUpdate = ChecklistUpdateDecision.needsUpdate(
+                serverChecksum: serverVersion.checksum,
+                cachedChecksum: cachedMetadata?.checksum,
+                serverVersion: serverVersion.version,
+                currentVersion: currentVersion
+            )
 
             if needsUpdate {
                 // For bundled aircraft with bundled language, only update if server version is newer than bundled
@@ -871,6 +866,51 @@ class AircraftDataService: ObservableObject {
             AppLog.aircraftData.debugLine("Failed to load cached checklist: \(error)")
             return nil
         }
+    }
+}
+
+// MARK: - Checklist Update Decision
+
+/// Whether a cached checklist should be re-downloaded.
+///
+/// Extracted as a pure rule because it is the single point where a correct, deployed checklist
+/// either reaches the pilot or silently does not — and it had no test until it failed in the field.
+///
+/// In the 2026-07 cycle, ten aircraft were corrected, merged and deployed, and every install kept
+/// serving the old figures — including a stall speed that read LOW, so an aircraft in that band was
+/// stalled and shown green. The old rule required BOTH checksums to be present and otherwise fell
+/// back to comparing version strings. `version` mirrors the club document revision, so correcting
+/// our transcription of an unchanged document does not move it; any install whose cache carried no
+/// checksum was therefore permanently blind to content-only changes, while reporting itself
+/// up to date.
+enum ChecklistUpdateDecision {
+
+    /// - Parameters:
+    ///   - serverChecksum: content hash from `/version`; nil when the caller is not entitled to it.
+    ///   - cachedChecksum: hash stored alongside the local copy; nil if it was cached without one.
+    ///   - serverVersion: the server's version string (the club document revision).
+    ///   - currentVersion: the local version string; empty when nothing is cached.
+    static func needsUpdate(
+        serverChecksum: String?,
+        cachedChecksum: String?,
+        serverVersion: String,
+        currentVersion: String
+    ) -> Bool {
+        // The checksum is the only signal that reflects CONTENT, so it wins whenever the server
+        // gives us one. A missing *cached* checksum means "unknown", NOT "up to date" — treating
+        // nil as "differs" costs at most one redundant download per aircraft and is self-healing,
+        // because that download stores a checksum.
+        if let serverChecksum {
+            return serverChecksum != cachedChecksum
+        }
+        // Nothing cached at all (e.g. a language newly offered by the API).
+        if currentVersion.isEmpty {
+            return true
+        }
+        // No checksum available (premium content without entitlement): the version string is all
+        // there is, and content-only edits are invisible to it. That is why AeroCheck-checklists
+        // enforces a version bump in CI (`scripts/check-version-bump.py`).
+        return serverVersion != currentVersion
     }
 }
 

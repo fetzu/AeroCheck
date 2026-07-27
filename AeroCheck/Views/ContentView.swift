@@ -173,6 +173,18 @@ struct ContentView: View {
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
         }
+        // SEC-C40 follow-up: a paired peer asking to drive checklist/waypoint state must be
+        // authorised by whoever holds the master. That prompt was mounted ONLY on the Companion
+        // settings page, which is reachable only from HomeView — and HomeView is not in the
+        // hierarchy while a flight is active. So during flight, exactly when a viewer is most
+        // likely to reach for a control, the request had nowhere to present and was silently
+        // swallowed. Mounting it here covers Home, FlightView and CompanionFlightView.
+        //
+        // It stays mounted on the settings page as well: Settings is presented as a
+        // `fullScreenCover` over HomeView, and this root alert cannot present above that cover.
+        // The two are mutually exclusive in practice — whichever host is actually on screen owns
+        // the prompt — and they share one binding, so answering either clears both.
+        .modifier(CompanionCommandAuthorizationAlert(manager: companionConnectivityManager))
         // PR-01: a crash-recovered flight resumed GPS recording automatically — tell the pilot so
         // they know tracking is live again (presented over FlightView, which a restored flight shows).
         .alert(L10n.Alert.flightRestoredTitle, isPresented: Binding(

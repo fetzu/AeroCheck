@@ -89,7 +89,7 @@ AeroCheck/
 │       ├── NavigationMapsSettingsView.swift
 │       └── SyncDataSettingsView.swift
 ├── Models/
-│   ├── AppState.swift         # Central state manager (@MainActor ObservableObject); decomposed via facade structs (NavigationMapState, FlightTiming, ChecklistProgress)
+│   ├── AppState.swift         # Central state manager (@MainActor @Observable — NOT ObservableObject; see Architecture); decomposed via facade structs (NavigationMapState, FlightTiming, ChecklistProgress)
 │   ├── Flight.swift           # Flight data + GPX/JSON export/import
 │   ├── FlightPlan.swift       # Flight plan models and export
 │   ├── FlightPlanManager.swift # Flight plan state management (CRUD, waypoints, route)
@@ -97,7 +97,7 @@ AeroCheck/
 │   ├── ActiveChecklist.swift  # Owned, resolved checklist + speeds for the active aircraft (replaces the old global ChecklistData statics)
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
-│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist data (bundled)
+│   ├── WT9ChecklistData.swift # WT9 Dynamic checklist loader — reads the bundled JSON in Resources/
 │   ├── Airport.swift          # Airport, AirportFrequency, and Runway data models
 │   ├── Airspace.swift         # OpenAIP airspace model (CTR boundaries, frequencies, altitude limits)
 │   ├── Navaid.swift           # OpenAIP navaid (VOR/DME/NDB) model, incl. magnetic declination
@@ -146,6 +146,9 @@ AeroCheck/
 │   ├── DesignTokens.swift              # Shared cockpit colour palette / ThemePreference
 │   ├── AmbientPalette.swift            # Runtime-overridable accent palette (hidden theme)
 │   └── AppLog.swift                    # Centralized `os.Logger` wrapper (see logging convention below)
+├── Resources/
+│   ├── wt9-dynamic-bundled.json    # Free WT9 checklist (EN) — the bundled aircraft's source of truth
+│   └── wt9-dynamic-bundled-fr.json # Free WT9 checklist (FR)
 └── Assets.xcassets/           # App icon, colors
 
 AeroCheckWidget/
@@ -210,7 +213,7 @@ AeroCheckWatch/
 | Accessibility | VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion across the redesigned screens |
 | Hold-to-Confirm Events | Go-Around / Touch-and-Go / Full-Stop behind a deliberate hold with brief undo (`EventConfirmationView`) |
 | Dynamic Briefings | `BriefingData` - auto-generated departure/approach briefings with airport/wind detection |
-| Airport Frequencies | `AirportDataService` - OurAirports FREQ panel (nearby airports within 15nm) |
+| Airport Frequencies | `AirportDataService` — FREQ panel, nearest 6 airports within **40 nm** (`NavigationView.swift`); OpenAIP is the primary source with an OurAirports TWR fallback |
 | Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
 | Flight Event Detection | `FlightEventDetector` - automatic go-around, touch-and-go, full-stop detection |
 | OpenAIP Airspace Overlay | `OpenAIPTileOverlay` + `OpenAIPDataService` - 119 countries worldwide |

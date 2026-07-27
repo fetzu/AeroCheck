@@ -15,6 +15,7 @@ struct FlightPlanMapBuilderView: View {
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
     @EnvironmentObject var locationManager: LocationManager
+    @EnvironmentObject var windsAloftService: WindsAloftService
     // Observe the per-country layer singletons so the trip-prefetch banner reacts to download
     // completions (their @Published downloadedCountries) rather than only to airspace changes. (review #8)
     @ObservedObject private var navaidService = OpenAIPNavaidDataService.shared
@@ -54,6 +55,7 @@ struct FlightPlanMapBuilderView: View {
     @State private var airspaceTask: Task<Void, Never>?
     @State private var terrainData: [(distance: Double, elevation: Double)] = []
     @State private var terrainTask: Task<Void, Never>?
+    @State private var windsAloftTask: Task<Void, Never>?
     @State private var minTerrainClearanceFt: Double?
     @State private var selectedConflictId: String?   // tapped conflict — highlighted on map + profile (#4)
     @State private var focusRegion: MKCoordinateRegion?   // hold a conflict → recenter the map (#4)
@@ -267,11 +269,12 @@ struct FlightPlanMapBuilderView: View {
             updateRouteCountriesCache()
             scheduleAirspaceUpdate()
             scheduleTerrainUpdate()
+            scheduleWindsAloftUpdate()
         }
         .onChange(of: region.center.latitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         .onChange(of: region.center.longitude) { _, _ in scheduleAirportUpdate(); scheduleNavaidUpdate() }
         // Recompute on-route hazards (airspace + terrain) whenever the route geometry changes (#4).
-        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); updateRouteCountriesCache() }
+        .onChange(of: routeGeometryKey) { _, _ in selectedConflictId = nil; scheduleAirspaceUpdate(); scheduleTerrainUpdate(); scheduleWindsAloftUpdate(); updateRouteCountriesCache() }
         .onChange(of: openAIPDataService.isDataAvailable) { _, _ in scheduleAirspaceUpdate() }
         // isDataAvailable is metadata-restored at launch (already true before first appear), so the
         // async feature decode landing must retrigger via the count — same first-open race as the
@@ -1014,6 +1017,23 @@ struct FlightPlanMapBuilderView: View {
 
     /// Debounced terrain fetch (swisstopo via `ElevationService`; empty outside Switzerland) + the
     /// minimum clearance of the extrapolated altitude profile over terrain, for the 150 m warning. (#4)
+    /// Warm the winds-aloft cache for every 0.25 deg cell the route crosses, then recalculate so the
+    /// leg ETAs pick the forecast up. `FlightPlan.windsAloftProvider` is a cache-only read (route
+    /// recalculation runs on every drag and must not block on the network), so without this the legs
+    /// would stay on their zero-wind timing forever.
+    private func scheduleWindsAloftUpdate() {
+        let coords = flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? []
+        guard coords.count >= 2 else { return }
+        windsAloftTask?.cancel()
+        windsAloftTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            await windsAloftService.prefetchRoute(coords)
+            guard !Task.isCancelled else { return }
+            flightPlanManager.recalculateCurrentPlanRouteData()
+        }
+    }
+
     private func scheduleTerrainUpdate() {
         terrainTask?.cancel()
         let wpts = waypoints

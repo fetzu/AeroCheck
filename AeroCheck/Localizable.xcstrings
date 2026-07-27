@@ -9161,13 +9161,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ground Speed"
+            "value": "True Airspeed"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vitesse sol"
+            "value": "Vitesse propre"
           }
         }
       }

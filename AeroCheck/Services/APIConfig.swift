@@ -88,4 +88,15 @@ enum APIConfig {
         }
         return production
     }()
+
+    /// Weather proxy base URL, without a trailing slash.
+    ///
+    /// A DIFFERENT worker from `baseURL`, deliberately. `api.aerocheck.app` is the entitlement
+    /// authority; this is a public, unauthenticated cache in front of Open-Meteo. Keeping them apart
+    /// means weather traffic cannot consume the entitlement worker's request budget or attack
+    /// surface. There is no sandbox twin — a forecast is the same forecast in every build, and it
+    /// carries no entitlement.
+    static let weatherBaseURL: String = {
+        endpoint(forKey: "WeatherBaseURL") ?? "https://wx.aerocheck.app"
+    }()
 }

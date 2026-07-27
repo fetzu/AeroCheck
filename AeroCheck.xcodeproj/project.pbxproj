@@ -41,6 +41,7 @@
 		A5000023111111110000002 /* FlightFavoriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000023111111110000001 /* FlightFavoriteTests.swift */; };
 		A5000019111111110000002 /* FlightPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000019111111110000001 /* FlightPlanTests.swift */; };
 		A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000020111111110000001 /* SpeedIndicatorTests.swift */; };
+		A1000001211111110000904 /* WindsAloftPlanningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000904 /* WindsAloftPlanningTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
@@ -68,6 +69,7 @@
 		A1000001211111110000099 /* FlightLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000099 /* FlightLauncher.swift */; };
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
+		A1000001211111110000903 /* WindsAloftService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000903 /* WindsAloftService.swift */; };
 		A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000071 /* OpenAIPLayerCache.swift */; };
 		A9000001211111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
 		A9000001311111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
@@ -247,6 +249,7 @@
 		A5000023111111110000001 /* FlightFavoriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightFavoriteTests.swift; sourceTree = "<group>"; };
 		A5000019111111110000001 /* FlightPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanTests.swift; sourceTree = "<group>"; };
 		A5000020111111110000001 /* SpeedIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicatorTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000904 /* WindsAloftPlanningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindsAloftPlanningTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -277,6 +280,7 @@
 		A1000001111111110000099 /* FlightLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLauncher.swift; sourceTree = "<group>"; };
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
+		A1000001111111110000903 /* WindsAloftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindsAloftService.swift; sourceTree = "<group>"; };
 		A1000001111111110000071 /* OpenAIPLayerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPLayerCache.swift; sourceTree = "<group>"; };
 		A9000001111111110000001 /* FlightActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityAttributes.swift; sourceTree = "<group>"; };
 		A9000001111111110000002 /* FlightActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityController.swift; sourceTree = "<group>"; };
@@ -435,6 +439,7 @@
 				A5000023111111110000001 /* FlightFavoriteTests.swift */,
 				A5000019111111110000001 /* FlightPlanTests.swift */,
 				A5000020111111110000001 /* SpeedIndicatorTests.swift */,
+				A1000001111111110000904 /* WindsAloftPlanningTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
 			);
 			path = AeroCheckTests;
@@ -569,6 +574,7 @@
 				A1000001111111110000071 /* OpenAIPLayerCache.swift */,
 				A9000001111111110000002 /* FlightActivityController.swift */,
 				A1000001111111110000065 /* OpenAIPNavaidDataService.swift */,
+				A1000001111111110000903 /* WindsAloftService.swift */,
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
 				A1000001111111110000068 /* RouteDataCalculator.swift */,
@@ -857,6 +863,7 @@
 				A5000023111111110000002 /* FlightFavoriteTests.swift in Sources */,
 				A5000019111111110000002 /* FlightPlanTests.swift in Sources */,
 				A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */,
+				A1000001211111110000904 /* WindsAloftPlanningTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -890,6 +897,7 @@
 				A9000001211111110000001 /* FlightActivityAttributes.swift in Sources */,
 				A9000001211111110000002 /* FlightActivityController.swift in Sources */,
 				A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */,
+				A1000001211111110000903 /* WindsAloftService.swift in Sources */,
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
 				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,

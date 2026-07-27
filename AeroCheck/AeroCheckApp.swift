@@ -8,6 +8,7 @@ struct AeroCheckApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager: OfflineMapManager
     @StateObject private var windDataService = WindDataService()
+    @StateObject private var windsAloftService: WindsAloftService
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
@@ -51,6 +52,14 @@ struct AeroCheckApp: App {
         FlightPlan.magneticDeclinationProvider = { [weak navaids] coordinate in
             navaids?.nearestNavaid(to: coordinate, maxDistanceNm: 250)?.magneticDeclination ?? FlightPlan.defaultMagneticDeclination
         }
+        // Forecast winds aloft for per-leg ground speed and ETA. Reads cache only — route
+        // recalculation runs on every waypoint drag and must not block on the network — so a cold
+        // cell returns nil and the leg keeps its zero-wind timing until the forecast lands.
+        let windsAloft = WindsAloftService()
+        _windsAloftService = StateObject(wrappedValue: windsAloft)
+        FlightPlan.windsAloftProvider = { [weak windsAloft] coordinate, altitudeFt in
+            windsAloft?.wind(at: coordinate, altitudeFt: altitudeFt)
+        }
         let net = NetworkMonitor()
         _networkMonitor = StateObject(wrappedValue: net)
         _dataStatusManager = StateObject(wrappedValue: DataStatusManager(
@@ -75,6 +84,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(watchConnectivityManager)
                 .environmentObject(companionConnectivityManager)
@@ -220,6 +230,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)

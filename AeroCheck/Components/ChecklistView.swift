@@ -4,6 +4,7 @@ import SwiftUI
 
 /// A button that can only be pressed once, but allows long-press (3+ seconds) to update the time
 struct TimestampActionButton: View {
+    @Environment(\.cockpitTheme) private var theme
     let title: String
     let icon: String
     let color: Color
@@ -93,7 +94,7 @@ struct TimestampActionButton: View {
             if !compact, hasBeenPressed {
                 Text(L10n.ChecklistAction.holdToUpdate)
                     .font(.system(size: 10))
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
             }
         }
         .alert(L10n.ChecklistAction.updateTimeTitle, isPresented: $showUpdateConfirmation) {
@@ -208,6 +209,7 @@ struct CounterActionButton: View {
 
 /// Main checklist display view - shows checklist items exactly as in the document
 struct ChecklistView: View {
+    @Environment(\.cockpitTheme) private var theme
     let phase: ChecklistPhase
     /// The owned, resolved checklist for the active aircraft (items + learning-mode counts).
     var activeChecklist: ActiveChecklist = .bundledDefault
@@ -365,7 +367,7 @@ struct ChecklistView: View {
                 if !hudMode {
                     Text(L10n.ChecklistAction.page(phase.pageNumber))
                         .font(isCompact ? .system(size: 11) : .captionText)
-                        .foregroundColor(.dimText)
+                        .foregroundColor(theme.textDim)
                 }
 
                 Spacer()
@@ -377,7 +379,7 @@ struct ChecklistView: View {
                         Text(L10n.ChecklistAction.tapToAdvance)
                             .font(.system(size: isCompact ? 10 : 11))
                     }
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
                 }
             }
             .padding(.bottom, isCompact ? 4 : 8)
@@ -388,20 +390,20 @@ struct ChecklistView: View {
                     HStack {
                         Text(briefingText)
                             .font(.system(size: isCompact ? 13 : 16, weight: .medium, design: .monospaced))
-                            .foregroundColor(.aviationAmber)
+                            .foregroundColor(theme.warning)
                             .italic()
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .foregroundColor(.aviationAmber)
+                            .foregroundColor(theme.warning)
                     }
                     .padding(.vertical, isCompact ? 8 : 12)
                     .padding(.horizontal, isCompact ? 8 : 12)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.aviationAmber.opacity(0.1))
+                            .fill(theme.warning.opacity(0.1))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1)
+                                    .stroke(theme.warning.opacity(0.3), lineWidth: 1)
                             )
                     )
                 }
@@ -414,7 +416,7 @@ struct ChecklistView: View {
                 HStack {
                     Text(phase.title)
                         .font(isCompact ? .system(size: 20, weight: .bold) : .checklistTitle)
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                         .textCase(.uppercase)
                         .tracking(isCompact ? 1 : 2)
                     Spacer()
@@ -491,7 +493,7 @@ struct ChecklistView: View {
                     Spacer()
                     Text(phase.completionText)
                         .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundColor(.aviationGreen)
+                        .foregroundColor(theme.onTarget)
                     Spacer()
                 }
             }
@@ -522,7 +524,7 @@ struct ChecklistView: View {
                         TimestampActionButton(
                             title: L10n.ChecklistAction.engineStart(language: checklistLanguage),
                             icon: "engine.combustion.fill",
-                            color: .aviationGreen,
+                            color: theme.onTarget,
                             timestamp: engineStartTime,
                             timestampLabel: L10n.ChecklistAction.started(language: checklistLanguage),
                             isPulsing: pulseActionButton,
@@ -536,7 +538,7 @@ struct ChecklistView: View {
                         TimestampActionButton(
                             title: L10n.ChecklistAction.readyForLineUp(language: checklistLanguage),
                             icon: "airplane.departure",
-                            color: .aviationAmber,
+                            color: theme.warning,
                             timestamp: lineUpTime,
                             timestampLabel: L10n.ChecklistAction.lineUp(language: checklistLanguage),
                             timestampSuffix: " (+2 min)",
@@ -551,7 +553,7 @@ struct ChecklistView: View {
                         TimestampActionButton(
                             title: L10n.ChecklistAction.engineShutdown(language: checklistLanguage),
                             icon: "engine.combustion.fill",
-                            color: .aviationRed,
+                            color: theme.danger,
                             timestamp: engineShutdownTime,
                             timestampLabel: L10n.ChecklistAction.shutdown(language: checklistLanguage),
                             isPulsing: pulseActionButton,
@@ -576,7 +578,7 @@ struct ChecklistView: View {
                     CounterActionButton(
                         title: L10n.ChecklistAction.goAround(language: checklistLanguage),
                         icon: "arrow.up.right.circle.fill",
-                        color: .aviationAmber,
+                        color: theme.warning,
                         count: goAroundCount,
                         countLabel: L10n.ChecklistAction.goArounds(language: checklistLanguage),
                         onPress: { onGoAround?() }
@@ -628,22 +630,22 @@ struct ChecklistView: View {
 
     private var learningModeIndicator: some View {
         VStack(spacing: 12) {
-            AviationDivider(color: .aviationAmber.opacity(0.3))
+            AviationDivider(color: theme.warning.opacity(0.3))
                 .padding(.top, 16)
 
             HStack {
                 Image(systemName: "eye.slash.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.aviationAmber)
+                    .foregroundColor(theme.warning)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.ChecklistAction.hiddenItemsTitle)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.aviationAmber)
+                        .foregroundColor(theme.warning)
 
                     Text(L10n.ChecklistAction.hiddenItemsCount(hiddenItemCount, hiddenItemCount == 1 ? "" : "s"))
                         .font(.system(size: 12))
-                        .foregroundColor(.secondaryText)
+                        .foregroundColor(theme.textSecondary)
                 }
 
                 Spacer()
@@ -653,17 +655,17 @@ struct ChecklistView: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.aviationAmber.opacity(0.1))
+                        .fill(theme.warning.opacity(0.1))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.aviationAmber.opacity(0.3), lineWidth: 1)
+                                .stroke(theme.warning.opacity(0.3), lineWidth: 1)
                         )
 
                     // Long press progress indicator
                     if revealLongPressProgress > 0 {
                         GeometryReader { geo in
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.aviationAmber.opacity(0.3))
+                                .fill(theme.warning.opacity(0.3))
                                 .frame(width: geo.size.width * revealLongPressProgress)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -716,27 +718,27 @@ struct ChecklistView: View {
         Button(action: onEdit) {
             HStack(spacing: 8) {
                 Image(systemName: "gauge.with.dots.needle.50percent")
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(theme.action)
                     .font(.system(size: 14))
                 Text(L10n.FlightDetail.engineHours.uppercased())
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
                 Spacer()
                 Text(format == "time" ? Flight.formatHoursTime(hours) : Flight.formatHoursDecimal(hours))
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(theme.action)
                 Image(systemName: "pencil")
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
                     .font(.system(size: 12))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.aviationGold.opacity(0.08))
+                    .fill(theme.action.opacity(0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.aviationGold.opacity(0.2), lineWidth: 1)
+                            .stroke(theme.action.opacity(0.2), lineWidth: 1)
                     )
             )
         }
@@ -746,6 +748,7 @@ struct ChecklistView: View {
 
 /// Single checklist item row
 struct ChecklistItemRow: View {
+    @Environment(\.cockpitTheme) private var theme
     let item: ChecklistItem
     let showSeparator: Bool
     var isHighlighted: Bool = false
@@ -764,11 +767,11 @@ struct ChecklistItemRow: View {
     // card) is the focus. (v4 UI/UX Revamp)
 
     private var challengeColor: Color {
-        isCompleted ? .dimText : .secondaryText
+        isCompleted ? theme.textDim : theme.textSecondary
     }
 
     private var responseColor: Color {
-        isCompleted ? .dimText.opacity(0.7) : .dimText
+        isCompleted ? theme.textDim.opacity(0.7) : theme.textDim
     }
 
     // Smaller than the old fixed 22 pt rows (still text-style-based for Dynamic Type — challenge/response
@@ -790,7 +793,7 @@ struct ChecklistItemRow: View {
                     if isCompleted {
                         Image(systemName: "checkmark")
                             .font(.system(size: isCompact ? 10 : 12, weight: .bold))
-                            .foregroundColor(.aviationGreen.opacity(0.7))
+                            .foregroundColor(theme.onTarget.opacity(0.7))
                     }
                 }
                 .frame(width: isCompact ? 18 : 22, alignment: .leading)
@@ -824,10 +827,10 @@ struct ChecklistItemRow: View {
                 Group {
                     if isHighlighted {
                         RoundedRectangle(cornerRadius: isCompact ? 6 : 8)
-                            .fill(Color.aviationGold.opacity(0.15))
+                            .fill(theme.action.opacity(0.15))
                             .overlay(
                                 RoundedRectangle(cornerRadius: isCompact ? 6 : 8)
-                                    .stroke(Color.aviationGold.opacity(0.4), lineWidth: isCompact ? 1.5 : 2)
+                                    .stroke(theme.action.opacity(0.4), lineWidth: isCompact ? 1.5 : 2)
                             )
                     }
                 }
@@ -859,13 +862,14 @@ struct ChecklistItemRow: View {
 
 /// Custom dot leader view with consistent spacing - aligned to text baseline
 struct DotLeader: View {
+    @Environment(\.cockpitTheme) private var theme
     var body: some View {
         GeometryReader { geometry in
             let dotCount = max(3, Int(geometry.size.width / 8))
             HStack(spacing: 0) {
                 ForEach(0..<dotCount, id: \.self) { _ in
                     Circle()
-                        .fill(Color.dimText.opacity(0.5))
+                        .fill(theme.textDim.opacity(0.5))
                         .frame(width: 2, height: 2)
                         .frame(maxWidth: .infinity)
                 }
@@ -881,6 +885,7 @@ struct DotLeader: View {
 // MARK: - Speed Reference View
 
 struct SpeedReferenceView: View {
+    @Environment(\.cockpitTheme) private var theme
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
 
     /// The owned, resolved checklist for the active aircraft (registration, speeds, limits).
@@ -923,7 +928,7 @@ struct SpeedReferenceView: View {
                 Spacer()
                 Text(currentRegistration)
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
             }
             .padding(.top, 8)
 
@@ -960,12 +965,12 @@ struct SpeedReferenceView: View {
             HStack {
                 Text(L10n.ChecklistAction.maxCrosswind)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
                 Spacer()
                 let crosswind = currentCrosswindLimits
                 Text(L10n.ChecklistAction.crosswindFormat(takeoff: crosswind.takeoff, landing: crosswind.landing))
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(.aviationAmber)
+                    .foregroundColor(theme.warning)
             }
             .padding(.top, 8)
             .padding(.bottom, 12)
@@ -993,7 +998,7 @@ struct SpeedReferenceView: View {
             // Name (e.g., "Vso")
             Text(speed.name)
                 .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundColor(.aviationGold)
+                .foregroundColor(theme.action)
 
             Spacer(minLength: 4)
 
@@ -1001,17 +1006,17 @@ struct SpeedReferenceView: View {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(speed.value)
                     .font(.system(size: 17, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                 Text("kt")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
             }
         }
         .overlay(alignment: .bottomLeading) {
             // Description below the name
             Text(speed.description)
                 .font(.system(size: 11))
-                .foregroundColor(.dimText)
+                .foregroundColor(theme.textDim)
                 .offset(y: 14)
         }
         .padding(.bottom, 12)
@@ -1019,6 +1024,7 @@ struct SpeedReferenceView: View {
 }
 
 struct CompactSpeedRow: View {
+    @Environment(\.cockpitTheme) private var theme
     let name: String
     let description: String
     let value: String
@@ -1027,14 +1033,14 @@ struct CompactSpeedRow: View {
         HStack(spacing: 4) {
             Text(name)
                 .font(.system(size: 15, weight: .bold, design: .monospaced))
-                .foregroundColor(.aviationGold)
+                .foregroundColor(theme.action)
                 .frame(width: 55, alignment: .leading)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(description)
                 .font(.system(size: 12))
-                .foregroundColor(.dimText)
+                .foregroundColor(theme.textDim)
                 .frame(minWidth: 75, alignment: .leading)
                 .lineLimit(1)
 
@@ -1043,12 +1049,12 @@ struct CompactSpeedRow: View {
             HStack(spacing: 2) {
                 Text(value)
                     .font(.system(size: 15, weight: .bold, design: .monospaced))
-                    .foregroundColor(.primaryText)
+                    .foregroundColor(theme.textPrimary)
                     .lineLimit(1)
 
                 Text("kt")
                     .font(.system(size: 11))
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
             }
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -1061,6 +1067,7 @@ struct CompactSpeedRow: View {
 /// Departure briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
 /// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
 struct DepartureBriefingContent: View {
+    @Environment(\.cockpitTheme) private var theme
     let context: BriefingContext
 
     var body: some View {
@@ -1081,7 +1088,7 @@ struct DepartureBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
                                 .font(.system(size: 11))
-                                .foregroundColor(.dimText)
+                                .foregroundColor(theme.textDim)
                                 .italic()
                         }
                     }
@@ -1145,6 +1152,7 @@ struct DepartureBriefingContent: View {
 /// Approach briefing content, hosted in the HUD reference panel (Pattern B). The section blocks are
 /// unchanged; only the NavigationStack/sheet chrome was lifted out so the panel owns it. (v4 UI/UX Revamp)
 struct ApproachBriefingContent: View {
+    @Environment(\.cockpitTheme) private var theme
     let context: BriefingContext
 
     var body: some View {
@@ -1165,7 +1173,7 @@ struct ApproachBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
                                 .font(.system(size: 11))
-                                .foregroundColor(.dimText)
+                                .foregroundColor(theme.textDim)
                                 .italic()
                         }
                     }
@@ -1209,6 +1217,7 @@ struct ApproachBriefingContent: View {
 // MARK: - Speed Grid View
 
 struct SpeedGridView: View {
+    @Environment(\.cockpitTheme) private var theme
     let speeds: AircraftSpeeds
     let phase: BriefingPhase
 
@@ -1242,11 +1251,11 @@ struct SpeedGridView: View {
                 HStack {
                     Text(item.label)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondaryText)
+                        .foregroundColor(theme.textSecondary)
                     Spacer()
                     Text(item.value)
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundColor(item.value == L10n.Briefing.speedNA ? .dimText : .aviationGreen)
+                        .foregroundColor(item.value == L10n.Briefing.speedNA ? theme.textDim : theme.onTarget)
                 }
                 .padding(.vertical, 4)
             }
@@ -1257,6 +1266,7 @@ struct SpeedGridView: View {
 // MARK: - Runway Row View
 
 struct RunwayRowView: View {
+    @Environment(\.cockpitTheme) private var theme
     let runway: Runway
     var isSuggested: Bool = false
 
@@ -1266,19 +1276,19 @@ struct RunwayRowView: View {
                 if isSuggested {
                     Image(systemName: "star.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(.aviationGold)
+                        .foregroundColor(theme.action)
                 }
 
                 Text(runway.identifier)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(isSuggested ? .aviationGold : .primaryText)
+                    .foregroundColor(isSuggested ? theme.action : theme.textPrimary)
 
                 Text("-")
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
 
                 Text(runway.descriptionString)
                     .font(.system(size: 12))
-                    .foregroundColor(.secondaryText)
+                    .foregroundColor(theme.textSecondary)
 
                 Spacer()
             }
@@ -1287,12 +1297,12 @@ struct RunwayRowView: View {
             if let extra = runway.extraInfoLine {
                 Text(extra)
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.dimText)
+                    .foregroundColor(theme.textDim)
                     .padding(.leading, isSuggested ? 20 : 0)
             }
         }
         .padding(.vertical, 4)
-        .background(isSuggested ? Color.aviationGold.opacity(0.1) : Color.clear)
+        .background(isSuggested ? theme.action.opacity(0.1) : Color.clear)
         .cornerRadius(4)
     }
 }
@@ -1341,6 +1351,7 @@ struct EmergencyBriefingContent: View {
 }
 
 struct BriefingSection<Content: View>: View {
+    @Environment(\.cockpitTheme) private var theme
     let title: String
     var isWarning: Bool = false
     @ViewBuilder let content: Content
@@ -1349,7 +1360,7 @@ struct BriefingSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(isWarning ? .aviationRed : .aviationGold)
+                .foregroundColor(isWarning ? theme.danger : theme.action)
                 .tracking(1)
             
             content
@@ -1358,16 +1369,17 @@ struct BriefingSection<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.cardBackground)
+                .fill(theme.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isWarning ? Color.aviationRed.opacity(0.3) : Color.aviationGold.opacity(0.2), lineWidth: 1)
+                        .stroke(isWarning ? theme.danger.opacity(0.3) : theme.action.opacity(0.2), lineWidth: 1)
                 )
         )
     }
 }
 
 struct BriefingItem: View {
+    @Environment(\.cockpitTheme) private var theme
     let label: String
     let value: String
     
@@ -1375,12 +1387,12 @@ struct BriefingItem: View {
         HStack(alignment: .top) {
             Text(label)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondaryText)
+                .foregroundColor(theme.textSecondary)
                 .frame(width: 100, alignment: .leading)
             
             Text(value)
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundColor(.primaryText)
+                .foregroundColor(theme.textPrimary)
             
             Spacer()
         }
@@ -1388,17 +1400,18 @@ struct BriefingItem: View {
 }
 
 struct EmergencyItem: View {
+    @Environment(\.cockpitTheme) private var theme
     let text: String
     
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
-                .foregroundColor(.aviationRed)
+                .foregroundColor(theme.danger)
             
             Text(text)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primaryText)
+                .foregroundColor(theme.textPrimary)
         }
     }
 }

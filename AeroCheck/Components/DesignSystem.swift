@@ -555,6 +555,9 @@ struct CockpitTheme: Equatable {
     let mode: CockpitThemeMode
     let background: Color
     let panel: Color
+    /// One step lighter than `panel`, for a card sitting ON a panel. Kept distinct rather than
+    /// folded into `panel` so the background → panel → card layering survives a mode switch.
+    let card: Color
     let panelStroke: Color
     let action: Color
     let actionText: Color
@@ -580,10 +583,14 @@ struct CockpitTheme: Equatable {
 extension CockpitTheme {
     static let day = CockpitTheme(
         mode: .day,
-        background: .cockpitBackground, panel: .panelBackground,
+        background: .cockpitBackground, panel: .panelBackground, card: .cardBackground,
         panelStroke: Color(white: 0.18),
         action: .aviationGold, actionText: Color(red: 0.16, green: 0.12, blue: 0.03),
-        onTarget: .aviationGreen, warning: Color(red: 0.91, green: 0.56, blue: 0.18),
+        // `warning` was the one token that did NOT map to its legacy counterpart: it was a custom
+        // orange (0.91, 0.56, 0.18) while every caution surface in the app paints `.aviationAmber`
+        // (1.0, 0.75, 0.0). That broke `.day`'s contract of reproducing the legacy palette exactly,
+        // and amber — not orange — is the aviation caution colour. Aligned. (cycle-2 P7-1)
+        onTarget: .aviationGreen, warning: .aviationAmber,
         danger: .aviationRed, info: .altimeterBlue,
         textPrimary: .primaryText, textSecondary: .secondaryText, textDim: .dimText,
         glassFill: Color(white: 1.0).opacity(0.06), glassStroke: Color(white: 1.0).opacity(0.14)
@@ -591,7 +598,7 @@ extension CockpitTheme {
 
     static let sunlight = CockpitTheme(
         mode: .sunlight,
-        background: .black, panel: Color(white: 0.10),
+        background: .black, panel: Color(white: 0.10), card: Color(white: 0.16),
         panelStroke: Color(white: 0.30),
         action: Color(red: 1.0, green: 0.78, blue: 0.18), actionText: .black,
         onTarget: Color(red: 0.30, green: 0.92, blue: 0.45),
@@ -606,6 +613,7 @@ extension CockpitTheme {
         mode: .night,
         background: Color(red: 0.06, green: 0.02, blue: 0.02),
         panel: Color(red: 0.10, green: 0.045, blue: 0.045),
+        card: Color(red: 0.14, green: 0.065, blue: 0.065),
         panelStroke: Color(red: 0.20, green: 0.09, blue: 0.09),
         action: Color(red: 0.78, green: 0.28, blue: 0.16),
         actionText: Color(red: 0.95, green: 0.80, blue: 0.76),

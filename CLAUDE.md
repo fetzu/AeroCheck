@@ -272,21 +272,38 @@ and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather th
 The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from
 the system appearance.
 
-> ⚠️ **That describes the destination, not the current state.** `\.cockpitTheme` is read by exactly
-> three view types (`DesignSystem.swift`, `CompanionFlightView.swift`, `AmbientCelebration.swift`),
-> while **24 view files** paint with the legacy `Color` statics directly. A parallel
-> `\.isNightMode` key does re-theme the safety-bearing instruments, so **Night works where it
-> matters most** — but **Sunlight changes almost nothing outside the HUD**, despite the setting
-> promising "high-contrast for bright cockpits".
+> ⚠️ **Adoption is deliberate and partial — know which side of the line you are on.**
 >
-> The obvious fix — make the legacy statics resolve through the active theme the way they already
-> resolve through `AmbientPalette` (`DesignTokens.swift:17-33`) — has a real obstacle: those are
-> `static var`s with no view context, so they **cannot read a SwiftUI Environment value**. Making
-> them theme-aware means promoting the resolved theme to a global store like `AmbientPalette`, and
-> then solving invalidation, since SwiftUI does not observe a plain static. Migrating the 24 files to
-> `@Environment(\.cockpitTheme)` avoids that but is the larger job. Either way it is a deliberate
-> piece of work, not a mechanical substitution — do not assume it is half-done and finish it
-> casually. (cycle-2 P7-1) Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a `.regularMaterial` fallback on 17.0.
+> **Migrated (cycle-2 P7-1):** the three in-flight surfaces — `NavigationView.swift`,
+> `FlightView.swift`, `ChecklistView.swift` — read `@Environment(\.cockpitTheme)` and paint with
+> semantic tokens. These are the surfaces you actually read in glare, so **Sunlight now does
+> something** there.
+>
+> **Not migrated, on purpose:**
+> - **Ground-use screens** (Home, Settings, Flight Log, planning, onboarding, paywall) still use the
+>   legacy `Color` statics. Nobody reads them at 5000 ft in sunlight; migrate opportunistically.
+> - **`MKMapView` delegate code** inside the `UIViewRepresentable`s (`NativeMapViewUIKit`,
+>   `SwissMapView`, `FlightMiniMap`) — annotation views and overlay renderers run outside the
+>   SwiftUI environment, so `@Environment` is unreachable there. Theming those means threading the
+>   palette into the `Coordinator` from `updateUIView`. ~50 sites; a separate, riskier job.
+>
+> **Why the migration was safe:** `CockpitTheme.day` maps 1:1 onto the legacy tokens, so a
+> substitution is byte-identical in day mode and gains sunlight/night for free. Keep that property —
+> if you add a token to `CockpitTheme`, give `.day` the legacy value.
+>
+> **Do NOT "fix" this by making the legacy statics theme-aware.** They already resolve through
+> `AmbientPalette` (`DesignTokens.swift:17-33`) for the hidden accent, and that path needs
+> `.id(ambient.revision)` at the root (`AeroCheckApp.swift`) to invalidate — which **re-creates the
+> view tree and drops all transient `@State`**. Acceptable for a manual, rare toggle; not for
+> `.auto` flipping to night mid-approach and resetting scroll positions and open sheets. That is
+> exactly why the migration went through the environment instead.
+>
+> `\.isNightMode` and `\.cockpitTheme` both derive from the same `themePreference`
+> (`AppState.swift:56-72`), so `isNightMode == true` exactly when the mode is `.night` — they can
+> never disagree, and a site using either is consistent with one using the other.
+
+Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a
+`.regularMaterial` fallback on 17.0.
 
 **Legacy color helpers** (still used as token inputs): `.cockpitBackground`, `.aviationGold` (primary accent), `.aviationGreen` / `.aviationRed` (status).
 

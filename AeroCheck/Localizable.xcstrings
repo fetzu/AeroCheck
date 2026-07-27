@@ -10462,6 +10462,40 @@
         }
       }
     },
+    "nav.terrainNotChecked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terrain not checked"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relief non vérifié"
+          }
+        }
+      }
+    },
+    "nav.terrainNotCheckedDetail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No terrain clearance was calculated for this route. Elevation data covers Switzerland only, and every waypoint needs a planned altitude. This route has not been checked against terrain."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune marge par rapport au relief n'a été calculée pour cette route. Les données d'altitude couvrent uniquement la Suisse, et chaque point de report doit avoir une altitude planifiée. Cette route n'a pas été vérifiée par rapport au relief."
+          }
+        }
+      }
+    },
     "nav.terrainProximity": {
       "localizations": {
         "en": {

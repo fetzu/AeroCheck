@@ -1013,6 +1013,8 @@ enum L10n {
         static let dragToReorder = String(localized: "nav.dragToReorder")
         static let airspaceNotChecked = String(localized: "nav.airspaceNotChecked")
         static let airspaceNotCheckedDetail = String(localized: "nav.airspaceNotCheckedDetail")
+        static let terrainNotChecked = String(localized: "nav.terrainNotChecked")
+        static let terrainNotCheckedDetail = String(localized: "nav.terrainNotCheckedDetail")
         static let terrainProximity = String(localized: "nav.terrainProximity")
         static let terrainProximityDetail = String(localized: "nav.terrainProximityDetail")
         static let exportGPX = String(localized: "nav.exportGPX")

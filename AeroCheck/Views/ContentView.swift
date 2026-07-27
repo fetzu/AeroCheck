@@ -44,8 +44,21 @@ struct ContentView: View {
                         .transition(.opacity)
                 }
 
-                // Show rotation prompt on iPhone in landscape
-                if isCompactDevice && isLandscape {
+                // Rotation prompt on iPhone in landscape — but NEVER over a flight surface.
+                //
+                // This is a full-screen OPAQUE cover. Shown during a flight it hides the entire HUD:
+                // phase, checklist, instruments, everything. A phone can end up in landscape for
+                // reasons that have nothing to do with intent — a kneeboard or vent mount, or simply
+                // being knocked — and the app's answer was to blank the flight display until the
+                // pilot rotated it back. A cramped landscape HUD is worse than the portrait one; it
+                // is enormously better than no HUD.
+                //
+                // The Companion viewer is a flight surface too, so it is excluded on the same
+                // grounds even though the master iPad holds the flight.
+                let onFlightSurface = appState.isFlightActive
+                    || (companionConnectivityManager.currentRole == .viewer
+                        && companionConnectivityManager.connectionState == .connected)
+                if isCompactDevice && isLandscape && !onFlightSurface {
                     RotateToPortraitView()
                         .transition(.opacity)
                 }

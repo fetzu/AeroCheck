@@ -171,7 +171,8 @@ AeroCheckWatch/
 - `FlightPlanManager`: Flight plan CRUD, waypoint/route management, map-builder state
 - `OpenAIPDataService`: OpenAIP airspace data management (download by country/continent, tile overlay, streaming CTR fallback)
 - `CompanionConnectivityManager`: Companion mode pairing + live-data push (Wi-Fi Aware). Available on iOS 17 but **inert** below 26 (all `WiFiAware`/`NetworkListener` calls gated behind `if #available(iOS 26)`); stores version-agnostic `CompanionPairedDevice` so views on 17 can hold it.
-- **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette injected as `@Environment(\.cockpitTheme)`; views read semantic tokens, never hard-coded colors.
+- **Theme engine:** `ThemePreference` (auto/day/sunlight/night) → resolved `CockpitThemeMode` palette
+  injected as `@Environment(\.cockpitTheme)`. **Adoption is PARTIAL — see the note under Theming.**
 - Views observe `AppState` via `@Environment(AppState.self)` (per-property tracking); the other managers via `@EnvironmentObject`
 
 **Data Persistence:**
@@ -266,7 +267,26 @@ if subscriptionManager.isSubscribed {
 
 The v4 cockpit design language lives in `Components/DesignSystem.swift` + `Shared/DesignTokens.swift`.
 
-**Theming:** Views read the active theme via `@Environment(\.cockpitTheme)` and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather than hard-coded colors. The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from the system appearance. Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a `.regularMaterial` fallback on 17.0.
+**Theming:** The intended model is that views read the active theme via `@Environment(\.cockpitTheme)`
+and use semantic tokens (`action`, `onTarget`, surfaces, text, chrome) rather than hard-coded colors.
+The user picks a `ThemePreference` (auto / day / sunlight / night); `auto` resolves day vs night from
+the system appearance.
+
+> ⚠️ **That describes the destination, not the current state.** `\.cockpitTheme` is read by exactly
+> three view types (`DesignSystem.swift`, `CompanionFlightView.swift`, `AmbientCelebration.swift`),
+> while **24 view files** paint with the legacy `Color` statics directly. A parallel
+> `\.isNightMode` key does re-theme the safety-bearing instruments, so **Night works where it
+> matters most** — but **Sunlight changes almost nothing outside the HUD**, despite the setting
+> promising "high-contrast for bright cockpits".
+>
+> The obvious fix — make the legacy statics resolve through the active theme the way they already
+> resolve through `AmbientPalette` (`DesignTokens.swift:17-33`) — has a real obstacle: those are
+> `static var`s with no view context, so they **cannot read a SwiftUI Environment value**. Making
+> them theme-aware means promoting the resolved theme to a global store like `AmbientPalette`, and
+> then solving invalidation, since SwiftUI does not observe a plain static. Migrating the 24 files to
+> `@Environment(\.cockpitTheme)` avoids that but is the larger job. Either way it is a deliberate
+> piece of work, not a mechanical substitution — do not assume it is half-done and finish it
+> casually. (cycle-2 P7-1) Liquid Glass chrome (`DesignSystem.floatingChromeBackground/Circle`) is iOS 26+ with a `.regularMaterial` fallback on 17.0.
 
 **Legacy color helpers** (still used as token inputs): `.cockpitBackground`, `.aviationGold` (primary accent), `.aviationGreen` / `.aviationRed` (status).
 

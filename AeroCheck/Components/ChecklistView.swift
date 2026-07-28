@@ -1083,7 +1083,9 @@ struct DepartureBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
+                            // Value first, provenance last: the pilot reads the wind, then decides
+                            // how much to trust it. "240° 8 kt (METAR LSGG, 21 nm)".
+                            BriefingItem(label: L10n.Briefing.wind, value: wind.display)
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
@@ -1168,7 +1170,9 @@ struct ApproachBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
+                            // Value first, provenance last: the pilot reads the wind, then decides
+                            // how much to trust it. "240° 8 kt (METAR LSGG, 21 nm)".
+                            BriefingItem(label: L10n.Briefing.wind, value: wind.display)
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)

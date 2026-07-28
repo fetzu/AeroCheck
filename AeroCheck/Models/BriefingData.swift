@@ -111,14 +111,13 @@ struct BriefingContext {
     let departureFirstFix: String?          // name of the first en-route waypoint
     let departureCruiseAltitude: Int?       // planned cruise altitude (feet)
 
-    // Wind data (if available)
-    let currentWind: WindData?
-
-    /// Wind data structure
-    struct WindData {
-        let direction: Double  // Degrees
-        let speed: Double      // Knots
-    }
+    /// The briefing wind, WITH its provenance.
+    ///
+    /// Was a bare `(direction, speed)` pair, which was safe only while there was exactly one
+    /// source. With three of quite different authority — an aerodrome METAR, a MeteoSwiss station,
+    /// and a model grid cell — a value that has lost track of where it came from can be shown to a
+    /// pilot with more confidence than it earns. `BriefingWind` keeps the two together.
+    let currentWind: BriefingWind?
 
     /// Field elevation at departure (feet)
     var departureElevation: Int? {
@@ -162,8 +161,7 @@ struct BriefingContextBuilder {
         aircraftType: String,
         currentLocation: CLLocationCoordinate2D?,
         airportDataService: AirportDataService?,
-        windDirection: Double? = nil,
-        windSpeed: Double? = nil,
+        wind: BriefingWind? = nil,
         destinationIdent: String? = nil,
         flightPlan: FlightPlan? = nil
     ) -> BriefingContext {
@@ -181,7 +179,11 @@ struct BriefingContextBuilder {
 
             if let airport = departureAirport {
                 departureRunways = service.getRunways(for: airport.ident).filter { !$0.closed }
-                suggestedDepartureRunway = service.suggestRunway(for: airport, windDirection: windDirection)
+                // nil for a variable wind: with no direction there is no favoured runway, and
+                // inventing one is worse than offering none.
+                suggestedDepartureRunway = service.suggestRunway(
+                    for: airport, windDirection: wind?.directionDeg.map(Double.init)
+                )
             }
         }
 
@@ -201,7 +203,9 @@ struct BriefingContextBuilder {
 
             if let airport = destinationAirport {
                 destinationRunways = service.getRunways(for: airport.ident).filter { !$0.closed }
-                suggestedArrivalRunway = service.suggestRunway(for: airport, windDirection: windDirection)
+                suggestedArrivalRunway = service.suggestRunway(
+                    for: airport, windDirection: wind?.directionDeg.map(Double.init)
+                )
             }
         }
 
@@ -225,11 +229,6 @@ struct BriefingContextBuilder {
                 .compactMap { $0.altitude }.first.map { Int($0) }
         }
 
-        // Build wind data if available
-        var windData: BriefingContext.WindData?
-        if let direction = windDirection, let speed = windSpeed {
-            windData = BriefingContext.WindData(direction: direction, speed: speed)
-        }
 
         return BriefingContext(
             aircraftRegistration: aircraftRegistration,
@@ -247,7 +246,7 @@ struct BriefingContextBuilder {
             departureInitialTrack: departureInitialTrack,
             departureFirstFix: departureFirstFix,
             departureCruiseAltitude: departureCruiseAltitude,
-            currentWind: windData
+            currentWind: wind
         )
     }
 }

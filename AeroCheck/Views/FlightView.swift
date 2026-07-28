@@ -119,6 +119,16 @@ struct FlightView: View {
         // Get destination from flight plan if available (waypoint name is often the ICAO code)
         let destinationIdent = flightPlanManager.activeFlightPlan?.waypoints.last?.name
 
+        // Show a TAF only when it is for the field this briefing is ABOUT. The service holds one
+        // forecast at a time, so a stale one for the departure field must not surface during an
+        // approach briefing to somewhere else — matching on ICAO is what prevents that.
+        let briefingTaf = aviationWeatherService.taf
+            .flatMap { forecast -> BriefingContext.TafSummary? in
+                guard let first = forecast.forecasts.first, let raw = first.raw else { return nil }
+                return .init(icao: forecast.icao, issuedAt: first.issuedAt,
+                             validFrom: first.validFrom, validTo: first.validTo, raw: raw)
+            }
+
         return BriefingContextBuilder.build(
             speeds: speeds,
             hasParachute: hasParachute,
@@ -127,6 +137,7 @@ struct FlightView: View {
             currentLocation: locationManager.getCurrentCoordinate(),
             airportDataService: airportDataService,
             wind: briefingWind,
+            taf: briefingTaf,
             destinationIdent: destinationIdent,
             flightPlan: flightPlanManager.activeFlightPlan
         )
@@ -140,6 +151,24 @@ struct FlightView: View {
     private func refreshAviationWeather() async {
         guard let coordinate = locationManager.getCurrentCoordinate() else { return }
         await aviationWeatherService.refresh(near: coordinate)
+
+        // A TAF is issued FOR an aerodrome, so the phase decides which field to ask about: the
+        // planned destination while briefing an approach, the field underneath while briefing a
+        // departure. Falls back to the nearest reporting station, which is usually the same place.
+        if let icao = briefingAerodromeIcao() {
+            await aviationWeatherService.refreshTaf(icao: icao)
+        }
+    }
+
+    /// The aerodrome the current briefing is about, as an ICAO code.
+    private func briefingAerodromeIcao() -> String? {
+        if appState.currentPhase.briefingType == .approach,
+           let destination = flightPlanManager.activeFlightPlan?.waypoints.last?.name,
+           destination.count == 4 {
+            return destination.uppercased()
+        }
+        // Nearest station with an actual report — the field being flown from, in practice.
+        return aviationWeatherService.observations.first?.icao
     }
 
     /// Width of the left (checklist) column in the iPad two-column layout; the HUD context column

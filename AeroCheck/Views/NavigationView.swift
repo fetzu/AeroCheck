@@ -202,6 +202,7 @@ struct NavigationMapView: View {
         return freshness == .aging || freshness == .stale
     }
     @EnvironmentObject var flightEventDetector: FlightEventDetector
+    @EnvironmentObject var aviationWeatherService: AviationWeatherService
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -211,6 +212,7 @@ struct NavigationMapView: View {
     @State private var showLayerPicker: Bool = false
     @State private var showOverlaysSheet: Bool = false   // v4.1.0 ② — the Layers sheet
     @State private var showCacheInfoModal: Bool = false
+    @State private var showSigmets: Bool = false
     @State private var showFlightPlanning: Bool = false
     /// Whether the flight-plan sheet (bottom bar) is expanded to show the full plan detail. (v4 UI/UX Revamp — inc C)
     @State private var navSheetExpanded: Bool = false
@@ -598,6 +600,13 @@ struct NavigationMapView: View {
                     .padding(.horizontal)
                     .padding(.top)
 
+                // Hazard chip. Sits UNDER the top bar rather than floating at the map's top-left,
+                // where it would collide with the layer controls, and only exists when a hazard is
+                // actually in range — a chip that is always present stops being read.
+                SigmetChip(hazards: aviationWeatherService.sigmets) { showSigmets = true }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
                 Spacer()
 
                 bottomControls
@@ -606,6 +615,9 @@ struct NavigationMapView: View {
             // The floating FLIGHT INFO overlay and the separate radio-frequency panel are both retired
             // (inc C / C2) — flight-plan data + the phase-aware frequencies live in the expandable
             // bottom sheet (bottomControls / navSheetContent / freqColumn).
+        }
+        .sheet(isPresented: $showSigmets) {
+            SigmetSheet(hazards: aviationWeatherService.sigmets)
         }
         .onAppear {
             mapWidth = geometry.size.width

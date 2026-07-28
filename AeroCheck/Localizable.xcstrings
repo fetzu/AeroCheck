@@ -3851,6 +3851,23 @@
         }
       }
     },
+    "briefing.taf.accessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raw aerodrome forecast for %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prévision d’aérodrome brute pour %@"
+          }
+        }
+      }
+    },
     "briefing.toBeBriefed": {
       "extractionState": "manual",
       "localizations": {
@@ -10608,6 +10625,108 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afficher moins"
+          }
+        }
+      }
+    },
+    "nav.sigmet.accessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld en-route hazards"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dangers en route"
+          }
+        }
+      }
+    },
+    "nav.sigmet.disclaimer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET only — not a substitute for a full weather briefing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGMET uniquement — ne remplace pas un briefing météo complet."
+          }
+        }
+      }
+    },
+    "nav.sigmet.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows the hazards in range"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les dangers à proximité"
+          }
+        }
+      }
+    },
+    "nav.sigmet.overhead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "overhead"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "au-dessus"
+          }
+        }
+      }
+    },
+    "nav.sigmet.unknownHazard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazard"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danger"
+          }
+        }
+      }
+    },
+    "nav.sigmet.until": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "until"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "jusqu’à"
           }
         }
       }

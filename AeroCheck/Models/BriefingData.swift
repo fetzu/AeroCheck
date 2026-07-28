@@ -119,6 +119,39 @@ struct BriefingContext {
     /// pilot with more confidence than it earns. `BriefingWind` keeps the two together.
     let currentWind: BriefingWind?
 
+    /// Aerodrome forecast for the field this briefing is about, when one exists.
+    ///
+    /// Most GA fields have no TAF at all, so absence is the normal case and the row simply does not
+    /// render. The RAW text is carried deliberately: pilots read a TAF in its native form, and any
+    /// prose rendering is a paraphrase that can be wrong in ways the original cannot.
+    let taf: TafSummary?
+
+    struct TafSummary: Equatable {
+        let icao: String
+        let issuedAt: Date?
+        let validFrom: Date?
+        let validTo: Date?
+        let raw: String
+
+        /// `"issued 2325Z, valid 00-06"` — the qualifier, in the same value-then-provenance shape
+        /// the wind row uses.
+        var validity: String {
+            let z = DateFormatter()
+            z.dateFormat = "HHmm"
+            z.timeZone = TimeZone(identifier: "UTC")
+            let hour = DateFormatter()
+            hour.dateFormat = "HH"
+            hour.timeZone = TimeZone(identifier: "UTC")
+
+            var parts: [String] = []
+            if let issuedAt { parts.append("issued \(z.string(from: issuedAt))Z") }
+            if let validFrom, let validTo {
+                parts.append("valid \(hour.string(from: validFrom))-\(hour.string(from: validTo))")
+            }
+            return parts.joined(separator: ", ")
+        }
+    }
+
     /// Field elevation at departure (feet)
     var departureElevation: Int? {
         departureAirport?.elevation
@@ -142,7 +175,8 @@ struct BriefingContext {
             departureInitialTrack: nil,
             departureFirstFix: nil,
             departureCruiseAltitude: nil,
-            currentWind: nil
+            currentWind: nil,
+            taf: nil
         )
     }
 }
@@ -162,6 +196,7 @@ struct BriefingContextBuilder {
         currentLocation: CLLocationCoordinate2D?,
         airportDataService: AirportDataService?,
         wind: BriefingWind? = nil,
+        taf: BriefingContext.TafSummary? = nil,
         destinationIdent: String? = nil,
         flightPlan: FlightPlan? = nil
     ) -> BriefingContext {
@@ -246,7 +281,8 @@ struct BriefingContextBuilder {
             departureInitialTrack: departureInitialTrack,
             departureFirstFix: departureFirstFix,
             departureCruiseAltitude: departureCruiseAltitude,
-            currentWind: wind
+            currentWind: wind,
+            taf: taf
         )
     }
 }

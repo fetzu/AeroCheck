@@ -108,6 +108,10 @@ struct AboutSettingsView: View {
             dataSourceRow(name: "OpenAIP", detail: L10n.DataStorage.sourceAirspace, url: "https://www.openaip.net")
             dataSourceRow(name: "OurAirports", detail: L10n.DataStorage.sourceAirports, url: "https://ourairports.com")
             dataSourceRow(name: "MeteoSwiss", detail: L10n.DataStorage.sourceWind, url: "https://www.meteoswiss.admin.ch")
+            // NOAA AWC is a US Government work, so METAR/TAF/SIGMET are public domain and need no
+            // licence — but attribution is still the honest thing to show a pilot who is about to
+            // act on an observation, alongside the two sources it is chosen over.
+            dataSourceRow(name: "NOAA Aviation Weather Center", detail: L10n.DataStorage.sourceObservations, url: "https://aviationweather.gov")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
         }
     }

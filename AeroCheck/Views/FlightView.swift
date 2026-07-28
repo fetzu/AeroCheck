@@ -1258,13 +1258,30 @@ struct FlightView: View {
 
     // MARK: - Compact bottom dock (iPhone, v4)
 
-    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, replacing the old blue NAV/SPEEDS buttons.
-    /// MAP opens the full nav map; V-SPEEDS and FREQ open the themed bottom drawers.
+    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, plus BRIEFING in the phases that have one.
+    /// MAP opens the full nav map; the others open the themed bottom drawers.
+    ///
+    /// BRIEFING was reachable on iPad (a `PhaseContextTile` in the regular layout) and **on iPhone
+    /// only through the inline checklist button, which scrolls away** — so in Before Departure or
+    /// Descent, once the list had moved, there was no way to open the briefing at all. The dock is
+    /// the one thing that never scrolls, which is why the other three references live here.
+    /// Conditional rather than permanent: a briefing outside its phase has no content to show, and
+    /// a fourth button is only worth the width when it does something.
     private var compactDock: some View {
         HStack(spacing: 8) {
             dockButton(icon: "map.fill", title: L10n.Button.nav) { showNavigationMode = true }
             dockButton(icon: "speedometer", title: L10n.Button.speeds) { openReference(.vSpeeds) }
             dockButton(icon: "antenna.radiowaves.left.and.right", title: L10n.Nav.freq) { openReference(.freq) }
+            if let briefing = appState.currentPhase.briefingType {
+                dockButton(
+                    icon: briefing == .departure ? "airplane.departure" : "airplane.arrival",
+                    // Literal, matching the iPad PhaseContextTile and HUDReference.title: BRIEFING
+                    // is an aviation term used untranslated in FR, per the localization convention.
+                    title: "BRIEFING"
+                ) {
+                    openReference(briefing == .departure ? .departureBriefing : .approachBriefing)
+                }
+            }
         }
     }
 

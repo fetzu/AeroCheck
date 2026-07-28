@@ -9,19 +9,34 @@ import SwiftUI
 /// Deliberately not a full weather briefing: SIGMET is one hazard class, with no AIRMET, no NOTAM
 /// and no DABS behind it. The sheet says so rather than letting the absence imply all-clear.
 
+/// A hazard paired with its LIVE relevance — distance recomputed from the polygon against current
+/// position, plus whether the planned route passes through it. `assessment` is nil only when there
+/// is no position fix, in which case the proxy's fetch-time figure is all there is.
+struct SigmetHazardItem: Identifiable, Equatable {
+    let sigmet: AviationWeatherService.Sigmet
+    let assessment: SigmetRelevance.Assessment?
+
+    var id: String { sigmet.id }
+    var containsAircraft: Bool { assessment?.containsAircraft ?? sigmet.containsPoint }
+    var intersectsRoute: Bool { assessment?.intersectsRoute ?? false }
+    var liveDistanceNm: Double { assessment?.distanceNm ?? sigmet.distanceNm }
+    /// Anything you are inside, or that your route crosses, deserves the loud treatment.
+    var isOnPath: Bool { containsAircraft || intersectsRoute }
+}
+
 /// Compact chip shown on the navigation map when a hazard is within range.
 struct SigmetChip: View {
     @Environment(\.cockpitTheme) private var theme
-    let hazards: [AviationWeatherService.Sigmet]
+    let hazards: [SigmetHazardItem]
     let action: () -> Void
 
-    /// Containment is the distinction that matters: a hazard you are inside is a different message
-    /// from one 90 nm away, and colour is the fastest way to carry it — reinforced by the wording,
-    /// never by colour alone.
-    private var isOverhead: Bool { hazards.contains { $0.containsPoint } }
+    /// Being inside a hazard — or having a planned leg run through one — is a different message
+    /// from one sitting 90 nm off track. Colour carries it fastest, and the wording carries it too,
+    /// so the distinction never rests on colour alone.
+    private var isOnPath: Bool { hazards.contains(where: \.isOnPath) }
 
-    private var headline: AviationWeatherService.Sigmet? {
-        hazards.first { $0.containsPoint } ?? hazards.first
+    private var headline: SigmetHazardItem? {
+        hazards.first(where: \.isOnPath) ?? hazards.first
     }
 
     var body: some View {
@@ -30,7 +45,7 @@ struct SigmetChip: View {
                 HStack(spacing: 7) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 14))
-                    Text(SigmetFormat.summary(headline))
+                    Text(SigmetFormat.summary(headline.sigmet))
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
                     if hazards.count > 1 {
@@ -39,7 +54,7 @@ struct SigmetChip: View {
                             .opacity(0.8)
                     }
                 }
-                .foregroundColor(isOverhead ? theme.warning : theme.textSecondary)
+                .foregroundColor(isOnPath ? theme.warning : theme.textSecondary)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
                 .background(
@@ -47,8 +62,8 @@ struct SigmetChip: View {
                         .fill(theme.panel.opacity(0.92))
                         .overlay(
                             Capsule().strokeBorder(
-                                isOverhead ? theme.warning : theme.panelStroke,
-                                lineWidth: isOverhead ? 1 : 0.5
+                                isOnPath ? theme.warning : theme.panelStroke,
+                                lineWidth: isOnPath ? 1 : 0.5
                             )
                         )
                 )
@@ -65,7 +80,7 @@ struct SigmetChip: View {
 struct SigmetSheet: View {
     @Environment(\.cockpitTheme) private var theme
     @Environment(\.dismiss) private var dismiss
-    let hazards: [AviationWeatherService.Sigmet]
+    let hazards: [SigmetHazardItem]
 
     var body: some View {
         NavigationStack {
@@ -97,23 +112,23 @@ struct SigmetSheet: View {
         }
     }
 
-    private func row(_ hazard: AviationWeatherService.Sigmet) -> some View {
+    private func row(_ item: SigmetHazardItem) -> some View {
         // A leading rule rather than a filled card: the list can be long, and a stack of filled
         // warning cards reads as panic regardless of how far away any of them is.
         HStack(alignment: .top, spacing: 10) {
             Rectangle()
-                .fill(hazard.containsPoint ? theme.warning : theme.panelStroke)
+                .fill(item.isOnPath ? theme.warning : theme.panelStroke)
                 .frame(width: 2)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(SigmetFormat.hazardName(hazard))
+                    Text(SigmetFormat.hazardName(item.sigmet))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(theme.textPrimary)
-                    Text(SigmetFormat.proximity(hazard))
+                    Text(SigmetFormat.proximity(item))
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(hazard.containsPoint ? theme.warning : theme.textDim)
+                        .foregroundColor(item.isOnPath ? theme.warning : theme.textDim)
                 }
-                Text(SigmetFormat.detail(hazard))
+                Text(SigmetFormat.detail(item.sigmet))
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -138,11 +153,13 @@ enum SigmetFormat {
     }
 
     /// `"overhead"` when the polygon contains the aircraft — never `"0 nm"`, which reads as a
-    /// rounding artefact rather than as "you are in it".
-    static func proximity(_ hazard: AviationWeatherService.Sigmet) -> String {
-        hazard.containsPoint
-            ? "· \(L10n.Nav.sigmetOverhead)"
-            : String(format: "· %.0f nm", hazard.distanceNm)
+    /// rounding artefact rather than as "you are in it". A hazard the planned route crosses says so
+    /// explicitly, because distance alone would understate it: 90 nm ahead ON TRACK matters more
+    /// than 30 nm abeam.
+    static func proximity(_ item: SigmetHazardItem) -> String {
+        if item.containsAircraft { return "· \(L10n.Nav.sigmetOverhead)" }
+        if item.intersectsRoute { return "· \(L10n.Nav.sigmetOnRoute)" }
+        return String(format: "· %.0f nm", item.liveDistanceNm)
     }
 
     /// `"LSAS SWITZERLAND · SFC-15000 ft · until 0600Z"`.

@@ -1006,6 +1006,7 @@ enum L10n {
 
     enum Nav {
         static let sigmetOverhead = String(localized: "nav.sigmet.overhead")
+        static let sigmetOnRoute = String(localized: "nav.sigmet.onRoute")
         static let sigmetUntil = String(localized: "nav.sigmet.until")
         static let sigmetUnknownHazard = String(localized: "nav.sigmet.unknownHazard")
         static let sigmetDisclaimer = String(localized: "nav.sigmet.disclaimer")

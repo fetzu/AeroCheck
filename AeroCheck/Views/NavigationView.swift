@@ -586,6 +586,39 @@ struct NavigationMapView: View {
         }
     }
 
+    // MARK: - Hazards
+
+    /// Hazards with distance recomputed against LIVE position and the planned route, ranked.
+    ///
+    /// The proxy's own figure is measured to the nearest polygon vertex and frozen at fetch time,
+    /// so it drifts as the aircraft moves and overstates distance for long thin areas. With the
+    /// polygon in hand the app recomputes properly — nearest EDGE, current position — and also
+    /// tests the planned route, so a hazard sitting over the destination ranks above a closer one
+    /// that will never be reached.
+    private var rankedSigmets: [SigmetHazardItem] {
+        guard let aircraft = locationManager.getCurrentCoordinate() else {
+            return aviationWeatherService.sigmets.map { SigmetHazardItem(sigmet: $0, assessment: nil) }
+        }
+        let route = flightPlanManager.activeFlightPlan?.waypoints.map(\.coordinate) ?? []
+        return aviationWeatherService.sigmets
+            .map { SigmetHazardItem(
+                sigmet: $0,
+                assessment: SigmetRelevance.assess(polygon: $0.ring, aircraft: aircraft, route: route)
+            ) }
+            .sorted {
+                let l = $0.assessment, r = $1.assessment
+                if l?.severityRank != r?.severityRank {
+                    return (l?.severityRank ?? 9) < (r?.severityRank ?? 9)
+                }
+                return (l?.distanceNm ?? $0.sigmet.distanceNm) < (r?.distanceNm ?? $1.sigmet.distanceNm)
+            }
+    }
+
+    private func refreshHazards() async {
+        guard let coordinate = locationManager.getCurrentCoordinate() else { return }
+        await aviationWeatherService.refresh(near: coordinate)
+    }
+
     // MARK: - Standard Layout (iPad and iPhone without active flight plan)
 
     private func standardLayoutBody(geometry: GeometryProxy) -> some View {
@@ -603,7 +636,7 @@ struct NavigationMapView: View {
                 // Hazard chip. Sits UNDER the top bar rather than floating at the map's top-left,
                 // where it would collide with the layer controls, and only exists when a hazard is
                 // actually in range — a chip that is always present stops being read.
-                SigmetChip(hazards: aviationWeatherService.sigmets) { showSigmets = true }
+                SigmetChip(hazards: rankedSigmets) { showSigmets = true }
                     .padding(.horizontal)
                     .padding(.top, 8)
 
@@ -617,7 +650,14 @@ struct NavigationMapView: View {
             // bottom sheet (bottomControls / navSheetContent / freqColumn).
         }
         .sheet(isPresented: $showSigmets) {
-            SigmetSheet(hazards: aviationWeatherService.sigmets)
+            SigmetSheet(hazards: rankedSigmets)
+        }
+        .task {
+            // The fetch belongs HERE, next to the only consumer. It previously lived only in
+            // FlightView, so opening Navigation from Home — with no active flight — showed no chip
+            // at all, because nothing had ever fetched. Self-throttled to the proxy's 5-minute
+            // window, so appearing repeatedly costs nothing.
+            await refreshHazards()
         }
         .onAppear {
             mapWidth = geometry.size.width

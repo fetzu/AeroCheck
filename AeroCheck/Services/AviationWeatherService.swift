@@ -68,9 +68,22 @@ final class AviationWeatherService: ObservableObject {
         let topFt: Int?
         let validFrom: Date?
         let validTo: Date?
+        /// Distance at FETCH time, measured to the nearest vertex. Kept for ordering when no
+        /// position is available; `SigmetRelevance` recomputes it properly against live position.
         let distanceNm: Double
         let containsPoint: Bool
+        /// The hazard polygon, so distance can be recomputed as the aircraft moves and the planned
+        /// route can be tested against the area.
+        let coords: [Coordinate]
         let raw: String?
+
+        struct Coordinate: Codable, Equatable {
+            let lat: Double
+            let lon: Double
+            var clLocation: CLLocationCoordinate2D { .init(latitude: lat, longitude: lon) }
+        }
+
+        var ring: [CLLocationCoordinate2D] { coords.map(\.clLocation) }
 
         var id: String { "\(firId ?? "?")-\(hazard ?? "?")-\(validFrom?.timeIntervalSince1970 ?? 0)" }
     }

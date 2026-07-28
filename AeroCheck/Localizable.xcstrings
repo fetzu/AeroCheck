@@ -10680,6 +10680,23 @@
         }
       }
     },
+    "nav.sigmet.onRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on route"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sur la route"
+          }
+        }
+      }
+    },
     "nav.sigmet.overhead": {
       "extractionState": "manual",
       "localizations": {

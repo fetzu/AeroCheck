@@ -5,7 +5,11 @@ import FeatureRow from '../components/FeatureRow.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import Pills from '../components/Pills.astro';
 import { loadSite } from '../lib/site';
-const site = loadSite('en');
+import { loadFleetCounts, applyFleetTokensDeep } from '../lib/fleet';
+// Fleet figures come from the API, never from the copy. The home page used to state them
+// as prose and drifted the moment a tail was added; the /aircraft page never did, because
+// it derives. Same source now.
+const site = applyFleetTokensDeep(loadSite('en'), await loadFleetCounts());
 ---
 <Base site={site} lang="en">
   <Hero site={site} />

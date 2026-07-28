@@ -31,7 +31,7 @@ flagship:
     - step: "02 · Fly"
       title: "The right checklist step, right now"
       description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases. Engine time, block time and go-arounds, touch-and-gos and landings are detected and logged automatically."
-      chips: ["16 phases", "13 aircraft", "On-target instrument strip", "Departure & approach briefings", "Circuit mode", "Auto go-around / touch-and-go / landing"]
+      chips: ["16 phases", "16 aircraft", "On-target instrument strip", "Departure & approach briefings", "Circuit mode", "Auto go-around / touch-and-go / landing"]
       shot: "hud"
     - step: "03 · Navigate"
       title: "Full-screen charts, frequencies in reach"
@@ -48,7 +48,7 @@ supporting:
   heading: "Everything else"
   items:
     - title: "AéroCheck Pro"
-      description: "The WT9 Dynamic is free; the other 12 aircraft unlock with AéroCheck Pro — a subscription with a 7-day free trial, or a one-time Lifetime purchase. Coming soon to the App Store."
+      description: "The WT9 Dynamic is free; the other 15 aircraft unlock with AéroCheck Pro — a subscription with a 7-day free trial, or a one-time Lifetime purchase. Coming soon to the App Store."
       icon: "sparkles"
     - title: "Companion mode"
       description: "Pair an iPad and iPhone over Wi-Fi Aware for a synced second screen — swipe between charts and checklist, and control either from either device. A Wi-Fi-only iPad can even fly on the iPhone's GPS."
@@ -61,7 +61,7 @@ supporting:
       icon: "school"
 
 ecosystem:
-  - { label: "13 aircraft · 16 phases", icon: "plane" }
+  - { label: "16 aircraft · 16 phases", icon: "plane" }
   - { label: "Apple Watch", icon: "clock" }
   - { label: "Cockpit themes", icon: "adjustments" }
   - { label: "iCloud sync", icon: "cloud" }

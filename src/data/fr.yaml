@@ -31,7 +31,7 @@ flagship:
     - step: "02 · Voler"
       title: "La bonne étape de checklist, au bon moment"
       description: "L'élément en cours devient le centre tandis que les étapes passées et futures s'effacent ; un bandeau d'instruments affiche vitesse, altitude et cap avec une barre « dans la cible », sur les 16 phases. Temps moteur, temps-bloc, remises de gaz, touch-and-gos et atterrissages sont détectés et journalisés automatiquement."
-      chips: ["16 phases", "13 aéronefs", "Bandeau « dans la cible »", "Briefings départ & approche", "Mode tour de piste", "Détection auto remise de gaz / touch-and-go / atterrissage"]
+      chips: ["16 phases", "16 aéronefs", "Bandeau « dans la cible »", "Briefings départ & approche", "Mode tour de piste", "Détection auto remise de gaz / touch-and-go / atterrissage"]
       shot: "hud"
     - step: "03 · Naviguer"
       title: "Cartes plein écran, fréquences à portée"
@@ -48,7 +48,7 @@ supporting:
   heading: "Tout le reste"
   items:
     - title: "AéroCheck Pro"
-      description: "Le WT9 Dynamic est gratuit ; les 12 autres aéronefs se débloquent avec AéroCheck Pro — un abonnement avec essai gratuit de 7 jours, ou un achat unique à vie. Bientôt sur l'App Store."
+      description: "Le WT9 Dynamic est gratuit ; les 15 autres aéronefs se débloquent avec AéroCheck Pro — un abonnement avec essai gratuit de 7 jours, ou un achat unique à vie. Bientôt sur l'App Store."
       icon: "sparkles"
     - title: "Mode Compagnon"
       description: "Associez un iPad et un iPhone via Wi-Fi Aware pour un second écran synchronisé — basculez entre carte et checklist, pilotez l'un depuis l'autre. Un iPad en Wi-Fi seul peut même voler grâce au GPS de l'iPhone."
@@ -61,7 +61,7 @@ supporting:
       icon: "school"
 
 ecosystem:
-  - { label: "13 aéronefs · 16 phases", icon: "plane" }
+  - { label: "16 aéronefs · 16 phases", icon: "plane" }
   - { label: "Apple Watch", icon: "clock" }
   - { label: "Thèmes cockpit", icon: "adjustments" }
   - { label: "Sync iCloud", icon: "cloud" }

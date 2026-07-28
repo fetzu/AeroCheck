@@ -40,6 +40,23 @@ final class WindsAloftService: ObservableObject {
         let lon: Double
         let validAt: String
         let levels: [Level]
+        /// Model 10 m wind, when the proxy supplied one. Optional because it is absent whenever
+        /// the upstream omitted a component — never zero-filled, since 000/00 is a real reading.
+        ///
+        /// `var` with a default purely so the synthesized memberwise initialiser keeps this
+        /// parameter optional: every existing construction site describes a forecast's LEVELS, and
+        /// a genuinely additive field should not force each of them to say `surface: nil`.
+        /// Decoding is unaffected — `init(from:)` populates it from JSON when the key is present.
+        var surface: Surface? = nil
+    }
+
+    /// Model surface wind. NOT an observation: a 2-11 km cell measured 154 degrees out on
+    /// direction against the MeteoSwiss station at Sion. Only ever the last rung of the ladder.
+    struct Surface: Decodable, Equatable {
+        let speedKt: Int
+        let directionDeg: Int
+        let gustKt: Int?
+        let validAt: String?
     }
 
     private struct Envelope: Decodable {
@@ -100,6 +117,24 @@ final class WindsAloftService: ObservableObject {
         forecast.levels
             .filter { $0.heightFt >= 0 } // -1 marks a level whose height the model omitted
             .min { abs(Double($0.heightFt) - altitudeFt) < abs(Double($1.heightFt) - altitudeFt) }
+    }
+
+    /// The model surface wind for a coordinate, shaped for `BriefingWindLadder`.
+    ///
+    /// Reads the cache only — deliberately does NOT trigger a fetch. The ladder runs while a
+    /// briefing view is being built, and a briefing must not fire network requests as a side
+    /// effect of rendering. Winds aloft are already prefetched for route planning, so in practice
+    /// the entry is usually warm; when it is not, the ladder simply has one fewer rung.
+    func surfaceCandidate(near coordinate: CLLocationCoordinate2D?) -> BriefingWindLadder.ModelCandidate? {
+        guard let coordinate else { return nil }
+        let key = Self.cacheKey(lat: coordinate.latitude, lon: coordinate.longitude)
+        guard let surface = cache[key]?.surface else { return nil }
+        return .init(
+            directionDeg: surface.directionDeg,
+            speedKt: surface.speedKt,
+            gustKt: surface.gustKt,
+            validAt: surface.validAt.flatMap(ISO8601DateFormatter().date(from:))
+        )
     }
 
     // MARK: - Fetch

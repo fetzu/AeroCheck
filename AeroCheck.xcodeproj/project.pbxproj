@@ -43,6 +43,8 @@
 		A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000020111111110000001 /* SpeedIndicatorTests.swift */; };
 		A1000001211111110000904 /* WindsAloftPlanningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000904 /* WindsAloftPlanningTests.swift */; };
 		A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */; };
+		A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000907 /* BriefingWindLadderTests.swift */; };
+		A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000911 /* SigmetRelevanceTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
@@ -71,6 +73,7 @@
 		A1000001211111110000050 /* ExternalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000050 /* ExternalRequest.swift */; };
 		A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000065 /* OpenAIPNavaidDataService.swift */; };
 		A1000001211111110000903 /* WindsAloftService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000903 /* WindsAloftService.swift */; };
+		A1000001211111110000908 /* AviationWeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000908 /* AviationWeatherService.swift */; };
 		A1000001211111110000071 /* OpenAIPLayerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000071 /* OpenAIPLayerCache.swift */; };
 		A9000001211111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
 		A9000001311111110000001 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9000001111111110000001 /* FlightActivityAttributes.swift */; };
@@ -120,6 +123,7 @@
 		A300000B411111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
 		A300000B411111110000903 /* SafeNumeric.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000903 /* SafeNumeric.swift */; };
 		A1000001211111110000062 /* AmbientCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000062 /* AmbientCelebration.swift */; };
+		A1000001211111110000909 /* SigmetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000909 /* SigmetViews.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B3000001211111110000001 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3000001111111110000001 /* SubscriptionManager.swift */; };
@@ -144,6 +148,8 @@
 		G1000001211111110000001 /* HourMeterInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000001111111110000001 /* HourMeterInputView.swift */; };
 
 		H1000001211111110000001 /* BriefingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = H1000001111111110000001 /* BriefingData.swift */; };
+		A1000001211111110000906 /* BriefingWind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000906 /* BriefingWind.swift */; };
+		A1000001211111110000910 /* SigmetRelevance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000910 /* SigmetRelevance.swift */; };
 		I1000001211111110000001 /* AircraftSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000001 /* AircraftSettingsView.swift */; };
 		I1000001211111110000002 /* ChecklistFlightSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000002 /* ChecklistFlightSettingsView.swift */; };
 		I1000001211111110000003 /* NavigationMapsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001111111110000003 /* NavigationMapsSettingsView.swift */; };
@@ -252,6 +258,8 @@
 		A5000020111111110000001 /* SpeedIndicatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicatorTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000904 /* WindsAloftPlanningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindsAloftPlanningTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistUpdateDecisionTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000907 /* BriefingWindLadderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingWindLadderTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000911 /* SigmetRelevanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevanceTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -271,6 +279,7 @@
 		A1000001111111110000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001111111110000003 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		A1000001111111110000062 /* AmbientCelebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientCelebration.swift; sourceTree = "<group>"; };
+		A1000001111111110000909 /* SigmetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetViews.swift; sourceTree = "<group>"; };
 		A1000001111111110000004 /* FlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightView.swift; sourceTree = "<group>"; };
 		A1000001111111110000005 /* FlightLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLogView.swift; sourceTree = "<group>"; };
 		A1000001111111110000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -283,6 +292,7 @@
 		A1000001111111110000050 /* ExternalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalRequest.swift; sourceTree = "<group>"; };
 		A1000001111111110000065 /* OpenAIPNavaidDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPNavaidDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000903 /* WindsAloftService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindsAloftService.swift; sourceTree = "<group>"; };
+		A1000001111111110000908 /* AviationWeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherService.swift; sourceTree = "<group>"; };
 		A1000001111111110000071 /* OpenAIPLayerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPLayerCache.swift; sourceTree = "<group>"; };
 		A9000001111111110000001 /* FlightActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityAttributes.swift; sourceTree = "<group>"; };
 		A9000001111111110000002 /* FlightActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightActivityController.swift; sourceTree = "<group>"; };
@@ -347,6 +357,8 @@
 		G1000001111111110000001 /* HourMeterInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourMeterInputView.swift; sourceTree = "<group>"; };
 
 		H1000001111111110000001 /* BriefingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingData.swift; sourceTree = "<group>"; };
+		A1000001111111110000906 /* BriefingWind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingWind.swift; sourceTree = "<group>"; };
+		A1000001111111110000910 /* SigmetRelevance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevance.swift; sourceTree = "<group>"; };
 		I1000001111111110000001 /* AircraftSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AircraftSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000002 /* ChecklistFlightSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistFlightSettingsView.swift; sourceTree = "<group>"; };
 		I1000001111111110000003 /* NavigationMapsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationMapsSettingsView.swift; sourceTree = "<group>"; };
@@ -443,6 +455,8 @@
 				A5000020111111110000001 /* SpeedIndicatorTests.swift */,
 				A1000001111111110000904 /* WindsAloftPlanningTests.swift */,
 				A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */,
+				A1000001111111110000907 /* BriefingWindLadderTests.swift */,
+				A1000001111111110000911 /* SigmetRelevanceTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
 			);
 			path = AeroCheckTests;
@@ -511,6 +525,7 @@
 				A1000001111111110000002 /* ContentView.swift */,
 				A1000001111111110000003 /* HomeView.swift */,
 				A1000001111111110000062 /* AmbientCelebration.swift */,
+				A1000001111111110000909 /* SigmetViews.swift */,
 				A1000001111111110000004 /* FlightView.swift */,
 				D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */,
 				E4FA2F1A98E04367ABB300EF /* CompanionPairingView.swift */,
@@ -554,6 +569,8 @@
 				E1000001111111110000022 /* ReportingPoint.swift */,
 				E1000001111111110000023 /* OpenAIPAirport.swift */,
 				H1000001111111110000001 /* BriefingData.swift */,
+				A1000001111111110000906 /* BriefingWind.swift */,
+				A1000001111111110000910 /* SigmetRelevance.swift */,
 				A1000001111111110000007 /* Flight.swift */,
 				04F1C6F02EF9CD5100192A14 /* FlightPlan.swift */,
 				04F1C6F22EF9CD5A00192A14 /* FlightPlanManager.swift */,
@@ -578,6 +595,7 @@
 				A9000001111111110000002 /* FlightActivityController.swift */,
 				A1000001111111110000065 /* OpenAIPNavaidDataService.swift */,
 				A1000001111111110000903 /* WindsAloftService.swift */,
+				A1000001111111110000908 /* AviationWeatherService.swift */,
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
 				A1000001111111110000068 /* RouteDataCalculator.swift */,
@@ -868,6 +886,8 @@
 				A5000020111111110000002 /* SpeedIndicatorTests.swift in Sources */,
 				A1000001211111110000904 /* WindsAloftPlanningTests.swift in Sources */,
 				A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */,
+				A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */,
+				A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -902,6 +922,7 @@
 				A9000001211111110000002 /* FlightActivityController.swift in Sources */,
 				A1000001211111110000065 /* OpenAIPNavaidDataService.swift in Sources */,
 				A1000001211111110000903 /* WindsAloftService.swift in Sources */,
+				A1000001211111110000908 /* AviationWeatherService.swift in Sources */,
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
 				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,
@@ -930,6 +951,7 @@
 				A300000B211111110000009 /* AppLog.swift in Sources */,
 				A300000B211111110000903 /* SafeNumeric.swift in Sources */,
 				A1000001211111110000062 /* AmbientCelebration.swift in Sources */,
+				A1000001211111110000909 /* SigmetViews.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,
 				3C226443148C497A84702219 /* CompanionFlightView.swift in Sources */,
@@ -949,6 +971,8 @@
 				E1000001211111110000002 /* AirportDataService.swift in Sources */,
 				F1000001211111110000001 /* FlightEventDetector.swift in Sources */,
 				H1000001211111110000001 /* BriefingData.swift in Sources */,
+				A1000001211111110000906 /* BriefingWind.swift in Sources */,
+				A1000001211111110000910 /* SigmetRelevance.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,
 				I1000001211111110000001 /* AircraftSettingsView.swift in Sources */,
@@ -1027,7 +1051,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1047,7 +1071,7 @@
 				DEVELOPMENT_TEAM = H2N329D9U8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1209,7 +1233,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1262,7 +1286,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-weak_framework",
@@ -1304,7 +1328,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1337,7 +1361,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.widget;
 				PRODUCT_NAME = AeroCheckWidgetExtension;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1370,7 +1394,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1402,7 +1426,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.3.0;
+				MARKETING_VERSION = 4.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fetzu.aerocheck.watchkitapp;
 				PRODUCT_NAME = AeroCheckWatch;
 				PROVISIONING_PROFILE_SPECIFIER = "";

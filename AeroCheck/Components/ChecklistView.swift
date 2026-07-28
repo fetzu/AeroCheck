@@ -1083,7 +1083,10 @@ struct DepartureBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
+                            // Value first, provenance last: the pilot reads the wind, then decides
+                            // how much to trust it. "240° 8 kt (METAR LSGG, 21 nm)".
+                            BriefingItem(label: L10n.Briefing.wind, value: wind.display)
+                            BriefingTafRow(taf: context.taf)
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
@@ -1168,7 +1171,10 @@ struct ApproachBriefingContent: View {
                             BriefingItem(label: L10n.Briefing.airport, value: L10n.Briefing.notDetected)
                         }
                         if let wind = context.currentWind {
-                            BriefingItem(label: L10n.Briefing.wind, value: String(format: "%03.0f\u{00B0} / %.0f \(L10n.Unit.kt)", wind.direction, wind.speed))
+                            // Value first, provenance last: the pilot reads the wind, then decides
+                            // how much to trust it. "240° 8 kt (METAR LSGG, 21 nm)".
+                            BriefingItem(label: L10n.Briefing.wind, value: wind.display)
+                            BriefingTafRow(taf: context.taf)
                         } else {
                             BriefingItem(label: L10n.Briefing.wind, value: L10n.Briefing.notAvailable)
                             Text(L10n.Briefing.windCheckHint)
@@ -1375,6 +1381,38 @@ struct BriefingSection<Content: View>: View {
                         .stroke(isWarning ? theme.danger.opacity(0.3) : theme.action.opacity(0.2), lineWidth: 1)
                 )
         )
+    }
+}
+
+/// The aerodrome forecast, under the wind it qualifies.
+///
+/// Renders nothing when there is no TAF — most GA fields have none, so an "unavailable" row would
+/// be permanent furniture on the majority of briefings.
+///
+/// The RAW text is shown rather than a prose rendering: pilots read a TAF in its native form, and a
+/// paraphrase can be wrong in ways the original cannot. Selectable, so it can be copied into a
+/// flight-plan filing or read back verbatim.
+struct BriefingTafRow: View {
+    @Environment(\.cockpitTheme) private var theme
+    let taf: BriefingContext.TafSummary?
+
+    var body: some View {
+        if let taf {
+            VStack(alignment: .leading, spacing: 4) {
+                BriefingItem(
+                    label: "TAF",
+                    value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
+                )
+                Text(taf.raw)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(theme.textSecondary)
+                    .lineSpacing(2)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 108) // aligns under the value column, not the label
+                    .accessibilityLabel(Text(L10n.Briefing.tafAccessibility(taf.icao)))
+            }
+        }
     }
 }
 

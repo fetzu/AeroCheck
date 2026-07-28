@@ -111,13 +111,45 @@ struct BriefingContext {
     let departureFirstFix: String?          // name of the first en-route waypoint
     let departureCruiseAltitude: Int?       // planned cruise altitude (feet)
 
-    // Wind data (if available)
-    let currentWind: WindData?
+    /// The briefing wind, WITH its provenance.
+    ///
+    /// Was a bare `(direction, speed)` pair, which was safe only while there was exactly one
+    /// source. With three of quite different authority — an aerodrome METAR, a MeteoSwiss station,
+    /// and a model grid cell — a value that has lost track of where it came from can be shown to a
+    /// pilot with more confidence than it earns. `BriefingWind` keeps the two together.
+    let currentWind: BriefingWind?
 
-    /// Wind data structure
-    struct WindData {
-        let direction: Double  // Degrees
-        let speed: Double      // Knots
+    /// Aerodrome forecast for the field this briefing is about, when one exists.
+    ///
+    /// Most GA fields have no TAF at all, so absence is the normal case and the row simply does not
+    /// render. The RAW text is carried deliberately: pilots read a TAF in its native form, and any
+    /// prose rendering is a paraphrase that can be wrong in ways the original cannot.
+    let taf: TafSummary?
+
+    struct TafSummary: Equatable {
+        let icao: String
+        let issuedAt: Date?
+        let validFrom: Date?
+        let validTo: Date?
+        let raw: String
+
+        /// `"issued 2325Z, valid 00-06"` — the qualifier, in the same value-then-provenance shape
+        /// the wind row uses.
+        var validity: String {
+            let z = DateFormatter()
+            z.dateFormat = "HHmm"
+            z.timeZone = TimeZone(identifier: "UTC")
+            let hour = DateFormatter()
+            hour.dateFormat = "HH"
+            hour.timeZone = TimeZone(identifier: "UTC")
+
+            var parts: [String] = []
+            if let issuedAt { parts.append("issued \(z.string(from: issuedAt))Z") }
+            if let validFrom, let validTo {
+                parts.append("valid \(hour.string(from: validFrom))-\(hour.string(from: validTo))")
+            }
+            return parts.joined(separator: ", ")
+        }
     }
 
     /// Field elevation at departure (feet)
@@ -143,7 +175,8 @@ struct BriefingContext {
             departureInitialTrack: nil,
             departureFirstFix: nil,
             departureCruiseAltitude: nil,
-            currentWind: nil
+            currentWind: nil,
+            taf: nil
         )
     }
 }
@@ -162,8 +195,8 @@ struct BriefingContextBuilder {
         aircraftType: String,
         currentLocation: CLLocationCoordinate2D?,
         airportDataService: AirportDataService?,
-        windDirection: Double? = nil,
-        windSpeed: Double? = nil,
+        wind: BriefingWind? = nil,
+        taf: BriefingContext.TafSummary? = nil,
         destinationIdent: String? = nil,
         flightPlan: FlightPlan? = nil
     ) -> BriefingContext {
@@ -181,7 +214,11 @@ struct BriefingContextBuilder {
 
             if let airport = departureAirport {
                 departureRunways = service.getRunways(for: airport.ident).filter { !$0.closed }
-                suggestedDepartureRunway = service.suggestRunway(for: airport, windDirection: windDirection)
+                // nil for a variable wind: with no direction there is no favoured runway, and
+                // inventing one is worse than offering none.
+                suggestedDepartureRunway = service.suggestRunway(
+                    for: airport, windDirection: wind?.directionDeg.map(Double.init)
+                )
             }
         }
 
@@ -201,7 +238,9 @@ struct BriefingContextBuilder {
 
             if let airport = destinationAirport {
                 destinationRunways = service.getRunways(for: airport.ident).filter { !$0.closed }
-                suggestedArrivalRunway = service.suggestRunway(for: airport, windDirection: windDirection)
+                suggestedArrivalRunway = service.suggestRunway(
+                    for: airport, windDirection: wind?.directionDeg.map(Double.init)
+                )
             }
         }
 
@@ -225,11 +264,6 @@ struct BriefingContextBuilder {
                 .compactMap { $0.altitude }.first.map { Int($0) }
         }
 
-        // Build wind data if available
-        var windData: BriefingContext.WindData?
-        if let direction = windDirection, let speed = windSpeed {
-            windData = BriefingContext.WindData(direction: direction, speed: speed)
-        }
 
         return BriefingContext(
             aircraftRegistration: aircraftRegistration,
@@ -247,7 +281,8 @@ struct BriefingContextBuilder {
             departureInitialTrack: departureInitialTrack,
             departureFirstFix: departureFirstFix,
             departureCruiseAltitude: departureCruiseAltitude,
-            currentWind: windData
+            currentWind: wind,
+            taf: taf
         )
     }
 }

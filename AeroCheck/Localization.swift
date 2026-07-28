@@ -74,8 +74,9 @@ enum L10n {
         static let sourceCharts = String(localized: "Aeronautical charts · © swisstopo / BAZL")
         static let sourceAirspace = String(localized: "Airspace · © OpenAIP and contributors, CC BY-NC 4.0")
         static let sourceAirports = String(localized: "Airport database · public domain")
-        static let sourceWind = String(localized: "Wind data · © MeteoSwiss")
-        static let sourceElevation = String(localized: "Terrain elevation · Open-Meteo (CC BY 4.0), © swisstopo")
+        static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
+        static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
+        static let sourceObservations = String(localized: "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain")
         static let navaidsName = String(localized: "Navaids")
         static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
         static let showNavaidsOnMap = String(localized: "Show navaids on map")
@@ -262,6 +263,12 @@ enum L10n {
 
     // MARK: - Briefing
     enum Briefing {
+        /// Provenance qualifier when the briefing wind came from the model rather than a station.
+        static let windModelForecast = String(localized: "briefing.wind.modelForecast")
+        /// VoiceOver label for the raw TAF, which is unreadable letter-by-letter.
+        static func tafAccessibility(_ icao: String) -> String {
+            String(format: String(localized: "briefing.taf.accessibility"), icao)
+        }
         static let departureTitle = String(localized: "briefing.departure.title")
         static let approachTitle = String(localized: "briefing.approach.title")
         static let departure = String(localized: "briefing.departure")
@@ -998,6 +1005,15 @@ enum L10n {
     }
 
     enum Nav {
+        static let sigmetOverhead = String(localized: "nav.sigmet.overhead")
+        static let sigmetOnRoute = String(localized: "nav.sigmet.onRoute")
+        static let sigmetUntil = String(localized: "nav.sigmet.until")
+        static let sigmetUnknownHazard = String(localized: "nav.sigmet.unknownHazard")
+        static let sigmetDisclaimer = String(localized: "nav.sigmet.disclaimer")
+        static let sigmetHint = String(localized: "nav.sigmet.hint")
+        static func sigmetAccessibility(_ count: Int) -> String {
+            String(format: String(localized: "nav.sigmet.accessibility"), count)
+        }
         // Waypoint validation (SEC-C20)
         static let invalidValueTitle = String(localized: "nav.invalidValueTitle")
         static let invalidCoordinatesMessage = String(localized: "nav.invalidCoordinatesMessage")

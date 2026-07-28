@@ -8,6 +8,7 @@ struct AeroCheckApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager: OfflineMapManager
     @StateObject private var windDataService = WindDataService()
+    @StateObject private var aviationWeatherService = AviationWeatherService()
     @StateObject private var windsAloftService: WindsAloftService
     @StateObject private var flightPlanManager = FlightPlanManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
@@ -84,6 +85,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(watchConnectivityManager)
@@ -230,6 +232,7 @@ struct AeroCheckApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(offlineMapManager)
                 .environmentObject(windDataService)
+                .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
                 .environmentObject(subscriptionManager)

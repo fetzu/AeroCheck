@@ -10,6 +10,8 @@ struct FlightView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var windDataService: WindDataService
+    @EnvironmentObject var aviationWeatherService: AviationWeatherService
+    @EnvironmentObject var windsAloftService: WindsAloftService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
@@ -102,19 +104,30 @@ struct FlightView: View {
         registration = checklist.registration
         aircraftType = checklist.shortModelName
 
-        // Get wind data if available (from MeteoSwiss)
-        let windDirection: Double?
-        let windSpeed: Double?
-        if let windData = windDataService.currentWindData {
-            windDirection = windData.directionDegrees
-            windSpeed = windData.speedKmh * 0.539957  // Convert km/h to knots
-        } else {
-            windDirection = nil
-            windSpeed = nil
-        }
+        // Resolve the briefing wind across all available sources. The CHOICE is a pure rule
+        // (`BriefingWindLadder`) rather than a preference expressed here, so it can be tested
+        // without a network: METAR where a real aerodrome report is in range, a MeteoSwiss station
+        // where one is closer and better matched in altitude, and the model only when neither
+        // exists — always labelled as such.
+        let briefingWind = BriefingWindLadder.select(
+            metars: aviationWeatherService.ladderCandidates,
+            station: windDataService.currentWindData,
+            model: windsAloftService.surfaceCandidate(near: locationManager.getCurrentCoordinate()),
+            aircraftAltitudeM: locationManager.currentAltitudeMeters
+        )
 
         // Get destination from flight plan if available (waypoint name is often the ICAO code)
         let destinationIdent = flightPlanManager.activeFlightPlan?.waypoints.last?.name
+
+        // Show a TAF only when it is for the field this briefing is ABOUT. The service holds one
+        // forecast at a time, so a stale one for the departure field must not surface during an
+        // approach briefing to somewhere else — matching on ICAO is what prevents that.
+        let briefingTaf = aviationWeatherService.taf
+            .flatMap { forecast -> BriefingContext.TafSummary? in
+                guard let first = forecast.forecasts.first, let raw = first.raw else { return nil }
+                return .init(icao: forecast.icao, issuedAt: first.issuedAt,
+                             validFrom: first.validFrom, validTo: first.validTo, raw: raw)
+            }
 
         return BriefingContextBuilder.build(
             speeds: speeds,
@@ -123,11 +136,39 @@ struct FlightView: View {
             aircraftType: aircraftType,
             currentLocation: locationManager.getCurrentCoordinate(),
             airportDataService: airportDataService,
-            windDirection: windDirection,
-            windSpeed: windSpeed,
+            wind: briefingWind,
+            taf: briefingTaf,
             destinationIdent: destinationIdent,
             flightPlan: flightPlanManager.activeFlightPlan
         )
+    }
+
+    /// Refresh aerodrome observations and en-route hazards around the aircraft.
+    ///
+    /// Silent by design: every failure inside the service degrades to "no data" and the ladder
+    /// simply falls to its next rung. A briefing that cannot reach the network shows the sources it
+    /// does have — which, before this existed, was nothing outside Switzerland.
+    private func refreshAviationWeather() async {
+        guard let coordinate = locationManager.getCurrentCoordinate() else { return }
+        await aviationWeatherService.refresh(near: coordinate)
+
+        // A TAF is issued FOR an aerodrome, so the phase decides which field to ask about: the
+        // planned destination while briefing an approach, the field underneath while briefing a
+        // departure. Falls back to the nearest reporting station, which is usually the same place.
+        if let icao = briefingAerodromeIcao() {
+            await aviationWeatherService.refreshTaf(icao: icao)
+        }
+    }
+
+    /// The aerodrome the current briefing is about, as an ICAO code.
+    private func briefingAerodromeIcao() -> String? {
+        if appState.currentPhase.briefingType == .approach,
+           let destination = flightPlanManager.activeFlightPlan?.waypoints.last?.name,
+           destination.count == 4 {
+            return destination.uppercased()
+        }
+        // Nearest station with an actual report — the field being flown from, in practice.
+        return aviationWeatherService.observations.first?.icao
     }
 
     /// Width of the left (checklist) column in the iPad two-column layout; the HUD context column
@@ -358,12 +399,20 @@ struct FlightView: View {
             // Wind feeds the departure and approach briefings, so it is fetched for the whole
             // flight rather than gated behind a toggle. The service no-ops outside Switzerland.
             windDataService.startFetching(locationManager: locationManager)
+            // METAR/SIGMET are the worldwide half of the same briefing. Self-throttled to the
+            // proxy's own 5-minute cache window, so this is safe to call on every appearance.
+            Task { await refreshAviationWeather() }
         }
         .onDisappear {
             windDataService.stopFetching()
         }
         .onReceive(cruiseEvalTimer) { _ in
             appState.evaluateCruiseCheck()
+        }
+        .onChange(of: appState.currentPhase) { _, phase in
+            // A briefing phase is exactly when a stale observation matters most: an approach
+            // briefing read off a departure-time METAR is an hour old at the worst moment.
+            if phase.briefingType != nil { Task { await refreshAviationWeather() } }
         }
         .onChange(of: appState.currentPhase) { oldPhase, newPhase in
             appState.evaluateCruiseCheck()
@@ -1258,13 +1307,30 @@ struct FlightView: View {
 
     // MARK: - Compact bottom dock (iPhone, v4)
 
-    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, replacing the old blue NAV/SPEEDS buttons.
-    /// MAP opens the full nav map; V-SPEEDS and FREQ open the themed bottom drawers.
+    /// The iPhone HUD bottom dock — MAP / V-SPEEDS / FREQ, plus BRIEFING in the phases that have one.
+    /// MAP opens the full nav map; the others open the themed bottom drawers.
+    ///
+    /// BRIEFING was reachable on iPad (a `PhaseContextTile` in the regular layout) and **on iPhone
+    /// only through the inline checklist button, which scrolls away** — so in Before Departure or
+    /// Descent, once the list had moved, there was no way to open the briefing at all. The dock is
+    /// the one thing that never scrolls, which is why the other three references live here.
+    /// Conditional rather than permanent: a briefing outside its phase has no content to show, and
+    /// a fourth button is only worth the width when it does something.
     private var compactDock: some View {
         HStack(spacing: 8) {
             dockButton(icon: "map.fill", title: L10n.Button.nav) { showNavigationMode = true }
             dockButton(icon: "speedometer", title: L10n.Button.speeds) { openReference(.vSpeeds) }
             dockButton(icon: "antenna.radiowaves.left.and.right", title: L10n.Nav.freq) { openReference(.freq) }
+            if let briefing = appState.currentPhase.briefingType {
+                dockButton(
+                    icon: briefing == .departure ? "airplane.departure" : "airplane.arrival",
+                    // Literal, matching the iPad PhaseContextTile and HUDReference.title: BRIEFING
+                    // is an aviation term used untranslated in FR, per the localization convention.
+                    title: "BRIEFING"
+                ) {
+                    openReference(briefing == .departure ? .departureBriefing : .approachBriefing)
+                }
+            }
         }
     }
 

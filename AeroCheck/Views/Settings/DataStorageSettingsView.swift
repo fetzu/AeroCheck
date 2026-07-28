@@ -4,6 +4,7 @@ import SwiftUI
 /// Freshness). Reads `DataStatusManager` for per-source status and dispatches refresh/delete back to it.
 /// The scattered download buttons in Navigation & Maps will be relocated here in a follow-up.
 struct DataStorageSettingsView: View {
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var dataStatusManager: DataStatusManager
     @EnvironmentObject private var aircraftDataService: AircraftDataService
     @EnvironmentObject private var flightPlanManager: FlightPlanManager
@@ -319,8 +320,15 @@ struct DataStorageSettingsView: View {
 
     private func syncChecklists() async {
         isSyncingChecklists = true
-        await aircraftDataService.syncBundledAircraft()
         await aircraftDataService.fetchAvailableAircraft()
+        await aircraftDataService.syncBundledAircraft()
+        // Premium checklists were never synced here at all — this button only ever refreshed the
+        // BUNDLED aircraft, so on a fleet where one aircraft is bundled and thirteen are not it
+        // appeared to do nothing. The language must be passed: checklists cache per language and
+        // the key omitting it is not the one any reader looks up. (device-test feedback)
+        await aircraftDataService.syncAllChecklists(
+            language: appState.settings.checklistLanguage.resolvedLanguage
+        )
         isSyncingChecklists = false
     }
 

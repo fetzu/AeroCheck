@@ -515,10 +515,15 @@ class AircraftDataService: ObservableObject {
             processedIds.insert(aircraftId)
         }
 
-        // Add non-bundled remote aircraft that are cached
-        for aircraft in availableAircraft where isChecklistCached(aircraftId: aircraft.id) && !processedIds.contains(aircraft.id) {
-            // Load the cached checklist to get the actual lastUpdated value
-            if let cachedChecklist = loadCachedChecklist(aircraftId: aircraft.id) {
+        // Add non-bundled remote aircraft that are cached.
+        //
+        // Looked up WITHOUT assuming a cache key. Checklists are cached per language as
+        // "<id>_<language>", but this used `aircraft.id` alone, so it never found a premium entry
+        // and Data & Storage listed only the WT9 — which appears only because the bundled branch
+        // above falls back to the in-app resource when its own lookup misses. The list therefore
+        // claimed no premium checklist was stored while several were. (device-test feedback)
+        for aircraft in availableAircraft where !processedIds.contains(aircraft.id) {
+            if let cachedChecklist = loadAnyCachedChecklist(aircraftId: aircraft.id) {
                 cached.append(CachedAircraftInfo(
                     registration: aircraft.registration,
                     modelName: aircraft.shortModelName,
@@ -540,6 +545,44 @@ class AircraftDataService: ObservableObject {
             case (let a?, let b?): return a == b ? lhs.registration < rhs.registration : a < b
             }
         }
+    }
+
+    /// The cached checklist for an aircraft under ANY language key, newest first.
+    ///
+    /// Callers that only know an aircraft id cannot construct the real cache key, because
+    /// checklists are stored per language as `"<id>_<language>"`. Guessing the bare id silently
+    /// finds nothing — that is how Data & Storage came to report only the bundled WT9 while several
+    /// premium checklists were cached. This matches on the filename instead, so it works whichever
+    /// key the writer used.
+    ///
+    /// Prefers the most recently written entry, so the figure shown matches the copy most likely
+    /// being displayed.
+    func loadAnyCachedChecklist(aircraftId: String) -> RemoteAircraftChecklist? {
+        if let exact = loadCachedChecklist(aircraftId: aircraftId) {
+            return exact
+        }
+        guard let files = try? fileManager.contentsOfDirectory(
+            at: cacheDirectory, includingPropertiesForKeys: [.contentModificationDateKey]
+        ) else { return nil }
+
+        let prefix = "\(aircraftId)_"
+        let candidates = files
+            .filter { $0.pathExtension == "json"
+                && !$0.lastPathComponent.hasSuffix(".metadata.json")
+                && $0.lastPathComponent.hasPrefix(prefix) }
+            .sorted { lhs, rhs in
+                let l = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                let r = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                return l > r
+            }
+
+        for url in candidates {
+            let key = String(url.lastPathComponent.dropLast(".json".count))
+            if let checklist = loadCachedChecklist(aircraftId: key) {
+                return checklist
+            }
+        }
+        return nil
     }
 
     /// Gets the cache date for a checklist

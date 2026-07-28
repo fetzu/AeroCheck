@@ -324,23 +324,12 @@ class OpenAIPCacheManager: ObservableObject {
 
         let directory = cacheDirectory
         let deleted = await Task.detached(priority: .utility) { () -> Int in
-            let fm = FileManager.default
-            guard let walker = fm.enumerator(at: directory, includingPropertiesForKeys: nil) else { return 0 }
-            var removed = 0
-            for case let url as URL in walker where url.pathExtension == "png" {
-                // .../OpenAIP/{z}/{x}/{y}.png — take the key back out of the path itself, so this
-                // stays correct if the cache root ever moves.
-                let parts = url.pathComponents
-                guard parts.count >= 3 else { continue }
-                let z = parts[parts.count - 3]
-                let x = parts[parts.count - 2]
-                let y = url.deletingPathExtension().lastPathComponent
-                if !desired.contains("\(z)/\(x)/\(y)") {
-                    try? fm.removeItem(at: url)
-                    removed += 1
-                }
-            }
-            return removed
+            // The walk lives in a SYNCHRONOUS function on purpose. `FileManager.enumerator` returns
+            // an `NSEnumerator`, whose `makeIterator()` is unavailable from an asynchronous context
+            // — a warning under the Swift 5 language mode this target uses, and a hard error under
+            // Swift 6. Xcode Cloud already fails the build on it. Calling a sync function from the
+            // detached task keeps the iteration out of async context entirely.
+            Self.removeTiles(under: directory, keeping: desired)
         }.value
 
         if deleted > 0 {
@@ -348,6 +337,34 @@ class OpenAIPCacheManager: ObservableObject {
             await calculateCacheSize()
         }
         return deleted
+    }
+
+    /// Deletes every `.png` under `directory` whose `{z}/{x}/{y}` key is not in `keeping`.
+    ///
+    /// `nonisolated` and synchronous so the `NSEnumerator` is never iterated from an async context
+    /// (see the call site). Kept lazy rather than materialising `walker.allObjects`: a tile cache
+    /// spanning several countries holds tens of thousands of files, and the enumerator streams them
+    /// instead of building one large array.
+    ///
+    /// - Returns: the number of files deleted.
+    nonisolated static func removeTiles(under directory: URL, keeping: Set<String>) -> Int {
+        let fm = FileManager.default
+        guard let walker = fm.enumerator(at: directory, includingPropertiesForKeys: nil) else { return 0 }
+        var removed = 0
+        for case let url as URL in walker where url.pathExtension == "png" {
+            // .../OpenAIP/{z}/{x}/{y}.png — take the key back out of the path itself, so this
+            // stays correct if the cache root ever moves.
+            let parts = url.pathComponents
+            guard parts.count >= 3 else { continue }
+            let z = parts[parts.count - 3]
+            let x = parts[parts.count - 2]
+            let y = url.deletingPathExtension().lastPathComponent
+            if !keeping.contains("\(z)/\(x)/\(y)") {
+                try? fm.removeItem(at: url)
+                removed += 1
+            }
+        }
+        return removed
     }
 
     #if DEBUG

@@ -45,6 +45,7 @@
 		A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */; };
 		A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000907 /* BriefingWindLadderTests.swift */; };
 		A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000911 /* SigmetRelevanceTests.swift */; };
+		A1000001211111110000913 /* FlightPlanActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000913 /* FlightPlanActivationTests.swift */; };
 		A1000001211111110000912 /* OpenAIPCoreAPIFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
@@ -264,6 +265,7 @@
 		A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistUpdateDecisionTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000907 /* BriefingWindLadderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingWindLadderTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000911 /* SigmetRelevanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevanceTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000913 /* FlightPlanActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanActivationTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPCoreAPIFallbackTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
@@ -465,6 +467,7 @@
 				A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */,
 				A1000001111111110000907 /* BriefingWindLadderTests.swift */,
 				A1000001111111110000911 /* SigmetRelevanceTests.swift */,
+				A1000001111111110000913 /* FlightPlanActivationTests.swift */,
 				A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
 			);
@@ -901,6 +904,7 @@
 				A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */,
 				A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */,
 				A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */,
+				A1000001211111110000913 /* FlightPlanActivationTests.swift in Sources */,
 				A1000001211111110000912 /* OpenAIPCoreAPIFallbackTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,
 			);

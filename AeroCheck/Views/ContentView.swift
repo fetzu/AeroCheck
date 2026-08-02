@@ -121,6 +121,12 @@ struct ContentView: View {
 
             // Apply screen setting
             UIApplication.shared.isIdleTimerDisabled = appState.settings.keepScreenOn
+
+            // Retire an activation that was never flown. Runs once, at launch, and only when no
+            // flight is in progress — a restored flight keeps its plan whatever its age.
+            if !appState.isFlightActive {
+                flightPlanManager.expireStaleActivation()
+            }
         }
         #if DEBUG
         .task {
@@ -218,12 +224,16 @@ struct ContentView: View {
                 // Stop wind data fetching in background to save battery
                 windDataService.stopFetching()
             case .active:
-                // On app start, deactivate flight plan if no flight is in progress
-                // This is handled after flight state restoration, so if a flight was
-                // restored, isFlightActive will be true and we keep the flight plan
-                if !appState.isFlightActive {
-                    flightPlanManager.deactivateFlightPlan()
-                }
+                // An activated flight plan is NOT discarded here.
+                //
+                // This used to call `deactivateFlightPlan()` whenever no flight was running. The
+                // intent was "deactivate on app start", but `scenePhase == .active` fires on every
+                // foreground — so activating a plan in the clubhouse and then glancing at any other
+                // app silently threw it away, along with the route the nav map was drawing. The
+                // condition was wrong too: activating before engine start is the normal order of
+                // work, not a stale leftover. Staleness is now a question of AGE, checked once at
+                // launch — see `expireStaleActivation` and `FlightPlanManager.activationLifetime`.
+
                 // Resume wind fetching for the briefings if a flight is active.
                 if appState.isFlightActive {
                     windDataService.startFetching(locationManager: locationManager)

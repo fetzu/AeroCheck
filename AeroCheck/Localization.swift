@@ -65,6 +65,12 @@ enum L10n {
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
         static let noChecklists = String(localized: "No checklists cached yet")
         static let syncChecklists = String(localized: "Check for checklist updates")
+        /// Shown only when the device is missing checklists it owns — an update check cannot fetch a
+        /// first copy, so this is a separate, honestly-labelled action. The count is parenthesised so
+        /// neither language needs a plural form. (v4.4.0)
+        static func downloadMissingChecklists(_ count: Int) -> String {
+            String(format: String(localized: "dataStorage.downloadMissingChecklists"), count)
+        }
         static let simulateStaleData = String(localized: "Simulate stale data")
         static let rowActions = String(localized: "More options")
         static let manageRegions = String(localized: "Manage regions & downloads")
@@ -102,6 +108,7 @@ enum L10n {
         static let end = String(localized: "button.end")
         static let done = String(localized: "button.done")
         static let close = String(localized: "button.close")
+        static let retry = String(localized: "button.retry")
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
         static let nav = String(localized: "button.nav")
@@ -1057,6 +1064,9 @@ enum L10n {
         static let logbookTimes = String(localized: "nav.logbookTimes")
         static let navLog = String(localized: "nav.navLog")
         static let expandProfile = String(localized: "nav.expandProfile")
+        static let shrinkProfile = String(localized: "nav.shrinkProfile")
+        static let collapseProfile = String(localized: "nav.collapseProfile")
+        static let showProfile = String(localized: "nav.showProfile")
         static let waypointsTab = String(localized: "nav.waypointsTab")
         static let conflictsTab = String(localized: "nav.conflictsTab")
         static let noConflicts = String(localized: "nav.noConflicts")
@@ -1162,6 +1172,10 @@ enum L10n {
         static let airspaceNoData = String(localized: "nav.airspaceNoData")
         static let downloadAirspaceData = String(localized: "nav.downloadAirspaceData")
         static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
+        /// Shown in the same banner when the download ran but some layers came back empty — so the
+        /// banner stops silently re-offering a button that cannot succeed. (v4.4.0)
+        static let tripDataFailed = String(localized: "Some data could not be downloaded")
+        static let tripDataFailedDetail = String(localized: "The provider is not serving these layers right now. Try again later.")
         static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
         static let airspaceCharts = String(localized: "Airspace & charts")
         static let mapTiles = String(localized: "Map tiles")

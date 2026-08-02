@@ -2104,6 +2104,16 @@
         }
       }
     },
+    "Some data could not be downloaded": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines données n’ont pas pu être téléchargées"
+          }
+        }
+      }
+    },
     "Speed": {},
     "Speed:": {
       "localizations": {
@@ -2272,6 +2282,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Altitude du terrain et vents en altitude · Open-Meteo (CC BY 4.0), © swisstopo"
+          }
+        }
+      }
+    },
+    "The provider is not serving these layers right now. Try again later.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fournisseur ne diffuse pas ces couches pour l’instant. Réessayez plus tard."
           }
         }
       }
@@ -4123,6 +4143,23 @@
         }
       }
     },
+    "button.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer"
+          }
+        }
+      }
+    },
     "button.speeds": {
       "extractionState": "manual",
       "localizations": {
@@ -5890,6 +5927,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tournez votre appareil"
+          }
+        }
+      }
+    },
+    "dataStorage.downloadMissingChecklists": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download missing checklists (%d)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Télécharger les listes manquantes (%d)"
           }
         }
       }
@@ -8564,6 +8618,23 @@
         }
       }
     },
+    "nav.collapseProfile": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide profile"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer le profil"
+          }
+        }
+      }
+    },
     "nav.conflictsTab": {
       "localizations": {
         "en": {
@@ -10625,6 +10696,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afficher moins"
+          }
+        }
+      }
+    },
+    "nav.showProfile": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show profile"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le profil"
+          }
+        }
+      }
+    },
+    "nav.shrinkProfile": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shrink profile"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réduire le profil"
           }
         }
       }

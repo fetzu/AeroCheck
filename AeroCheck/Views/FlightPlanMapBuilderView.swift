@@ -76,6 +76,7 @@ struct FlightPlanMapBuilderView: View {
     @State private var rightTab: RightTab = .waypoints
     @State private var profileCollapsed = false
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
+    @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
     @State private var isPrefetchingTrip = false
     /// Cached route→countries (the expensive resample+bbox scan) — recomputed only on route change, not
     /// every render. The cheap coverage diff stays in `tripNeededCountries`. (review #12)
@@ -118,16 +119,23 @@ struct FlightPlanMapBuilderView: View {
     }
 
     /// Download the 4 per-country layers for the route's missing countries (merged with what's cached).
+    ///
+    /// If coverage is still incomplete afterwards the banner says the download failed rather than
+    /// resetting to the same "Download data" offer — pressing a button, watching a spinner for ten
+    /// seconds and getting the identical banner back tells a pilot nothing about whether they have the
+    /// data. (device-test feedback, v4.4.0)
     private func prefetchTripData() async {
         let needed = tripNeededCountries
         guard !needed.isEmpty else { return }
         isPrefetchingTrip = true
+        tripPrefetchFailed = false
         func union(_ existing: [String]) -> [String] { Array(Set(existing).union(needed)) }
         await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries))
         await navaidService.downloadData(for: union(navaidService.downloadedCountries))
         await obstacleService.downloadData(for: union(obstacleService.downloadedCountries))
         await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries))
         isPrefetchingTrip = false
+        tripPrefetchFailed = !tripNeededCountries.isEmpty
     }
 
     /// Floating, dismissible banner offered when the route crosses areas without downloaded data.
@@ -135,44 +143,51 @@ struct FlightPlanMapBuilderView: View {
     private var tripDataBanner: some View {
         let needed = tripNeededCountries
         if !tripBannerDismissed, !needed.isEmpty {
+            let tint: Color = tripPrefetchFailed ? .aviationAmber : .aviationGold
             HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.down")
+                Image(systemName: tripPrefetchFailed ? "exclamationmark.triangle" : "square.and.arrow.down")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(tint)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(L10n.Nav.tripDataMissing)
+                    Text(tripPrefetchFailed ? L10n.Nav.tripDataFailed : L10n.Nav.tripDataMissing)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.primaryText)
-                    Text(needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", "))
+                    Text(tripPrefetchFailed
+                         ? L10n.Nav.tripDataFailedDetail
+                         : needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", "))
                         .font(.system(size: 11))
                         .foregroundColor(.secondaryText)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 if isPrefetchingTrip {
                     ProgressView().controlSize(.small)
                 } else {
-                    Button(L10n.Settings.downloadData) {
+                    Button(tripPrefetchFailed ? L10n.Button.retry : L10n.Settings.downloadData) {
                         Task { await prefetchTripData() }
                     }
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.aviationGold)
+                    .foregroundColor(tint)
                     Button {
                         tripBannerDismissed = true
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.secondaryText)
-                            .padding(6)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel(L10n.Button.close)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.leading, 14)
+            .padding(.trailing, 4)
+            .padding(.vertical, 4)
             .floatingChromeBackground(cornerRadius: 12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.aviationGold.opacity(0.35), lineWidth: 1)
+                    .strokeBorder(tint.opacity(0.35), lineWidth: 1)
             )
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -643,26 +658,47 @@ struct FlightPlanMapBuilderView: View {
     /// old Terrain sheet).
     private var routeProfileStrip: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Text(L10n.Nav.routeProfileTitle.uppercased())
-                    .font(.system(size: 10, weight: .semibold)).tracking(0.6)
-                    .foregroundColor(.secondaryText)
-                Spacer()
+            // A 44 pt control strip. The glyphs stay 12 pt — what changed is the HIT BOX: each button
+            // now owns a full 44 × 44 target, and the title itself is the collapse control (the
+            // disclosure convention), so most of the row is tappable. Previously the only tappable
+            // area WAS the glyph — a ~12 pt target on a phone, far under the 44 pt minimum the rest of
+            // the app honours, and effectively unhittable one-handed. (device-test feedback, v4.4.0)
+            HStack(spacing: 0) {
+                Button { toggleProfileCollapsed() } label: {
+                    HStack(spacing: 0) {
+                        Text(L10n.Nav.routeProfileTitle.uppercased())
+                            .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                            .foregroundColor(.secondaryText)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(profileCollapsed ? L10n.Nav.showProfile : L10n.Nav.collapseProfile)
+
                 if !profileCollapsed {
                     // Resize the profile IN PLACE (no popup) — taller = easier to read / edit precisely.
                     Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) { profileExpanded.toggle() } } label: { // (UX-18)
                         Image(systemName: profileExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondaryText)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                    .accessibilityLabel(L10n.Nav.expandProfile)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(profileExpanded ? L10n.Nav.shrinkProfile : L10n.Nav.expandProfile)
                 }
-                Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { profileCollapsed.toggle() } } label: { // (UX-18)
+                Button { toggleProfileCollapsed() } label: {
                     Image(systemName: profileCollapsed ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .bold))
                         .foregroundColor(.secondaryText)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(profileCollapsed ? L10n.Nav.showProfile : L10n.Nav.collapseProfile)
             }
-            .padding(.horizontal, 14).padding(.vertical, 7)
+            .padding(.leading, 14).padding(.trailing, 2)
             if !profileCollapsed {
                 RouteProfileView(waypoints: waypoints, terrain: terrainData, blocks: airspaceBlocks,
                                  selectedId: selectedConflictId, terrainId: Self.terrainConflictId,
@@ -674,6 +710,10 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .background(Color.cockpitBackground)
+    }
+
+    private func toggleProfileCollapsed() {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { profileCollapsed.toggle() } // (UX-18)
     }
 
     private var rightTabBar: some View {
@@ -2254,17 +2294,6 @@ private struct RouteProfileView: View {
                      at: CGPoint(x: leftPad - 4, y: gy), anchor: .trailing)
         }
 
-        // "Looking here" band — the along-track window currently visible on the map. (#9)
-        if let region = visibleRegion, waypoints.count >= 2,
-           let (lo, hi) = visibleWindowNM(region, cumNM: g.prof.cumNM), hi > lo {
-            let band = CGRect(x: g.px(lo), y: g.plot.minY, width: max(2, g.px(hi) - g.px(lo)), height: g.plot.height)
-            ctx.fill(Path(band), with: .color(.white.opacity(0.05)))
-            for edge in [g.px(lo), g.px(hi)] {
-                var e = Path(); e.move(to: CGPoint(x: edge, y: g.plot.minY)); e.addLine(to: CGPoint(x: edge, y: g.plot.maxY))
-                ctx.stroke(e, with: .color(.white.opacity(0.28)), lineWidth: 1)
-            }
-        }
-
         // airspace blocks (conflicts solid, context faded/dashed; the selected one emphasised)
         for b in blocks where b.floorFt <= g.yMax {
             let color = Color(red: b.airspace.mapColor.red, green: b.airspace.mapColor.green, blue: b.airspace.mapColor.blue)
@@ -2326,6 +2355,31 @@ private struct RouteProfileView: View {
             let color: Color = i == 0 ? .aviationGreen : (i == g.prof.cumNM.count - 1 ? .aviationGold : .secondaryText)
             ctx.draw(Text(name).font(.system(size: 8, design: .monospaced)).foregroundColor(color),
                      at: CGPoint(x: g.px(nm), y: g.size.height - 5), anchor: .center)
+        }
+
+        // "You are looking here" — the along-track window the map above currently shows. (#9)
+        //
+        // Drawn LAST (only the live drag readouts go on top) and inverted: instead of tinting the
+        // visible window, everything OUTSIDE it is dimmed. The old version painted a 5%-white band
+        // UNDER the airspace blocks, so the conflict rectangles covered it and what survived was
+        // indistinguishable from another faint context block — the one thing it must never look like.
+        // Dimming the off-route parts is the minimap/range-selector convention: it removes emphasis
+        // rather than adding another coloured box, so it cannot be misread as a hazard, and the
+        // white bracket along the top says which slice of the route is on screen.
+        // (device-test feedback, v4.4.0)
+        if let region = visibleRegion, waypoints.count >= 2,
+           let (lo, hi) = visibleWindowNM(region, cumNM: g.prof.cumNM), hi > lo,
+           (hi - lo) / g.totalNM < 0.98 {   // covers the whole route → nothing to point at
+            let x0 = g.px(lo), x1 = max(g.px(hi), g.px(lo) + 2)
+            let scrim = GraphicsContext.Shading.color(.black.opacity(0.5))
+            ctx.fill(Path(CGRect(x: 0, y: 0, width: x0, height: g.size.height)), with: scrim)
+            ctx.fill(Path(CGRect(x: x1, y: 0, width: max(0, g.size.width - x1), height: g.size.height)), with: scrim)
+
+            let bracket = GraphicsContext.Shading.color(.white.opacity(0.9))
+            ctx.fill(Path(CGRect(x: x0, y: g.plot.minY, width: x1 - x0, height: 3)), with: bracket)
+            for edge in [x0, x1 - 1] {
+                ctx.fill(Path(CGRect(x: edge, y: g.plot.minY, width: 1, height: 9)), with: bracket)
+            }
         }
 
         // live altitude readout while dragging an existing dot

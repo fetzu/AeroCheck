@@ -259,9 +259,26 @@ enum OpenAIPConfig {
     /// "Data sources" line; the hub uses a tappable markdown variant (L10n.DataStorage.openAIPAttribution).
     static let attributionText = "Airspace data from OpenAIP.net (© OpenAIP and contributors, CC BY-NC 4.0)"
 
-    /// Public, keyless GeoJSON exports bucket (per-country `{cc}_<layer>.geojson`). Used for the new
-    /// structured layers (navaids / obstacles / reporting points) — no API key required. (v4.1.0)
+    /// Public GeoJSON exports bucket (per-country `{cc}_<layer>.geojson`) for the structured layers
+    /// (airports / navaids / obstacles / reporting points). One request per country, no API key.
+    /// (v4.1.0)
+    ///
+    /// ⚠️ **Not currently readable.** OpenAIP switched this bucket to Google Cloud Storage
+    /// "Requester Pays" on ~21 July 2026, so every anonymous read now returns HTTP 400
+    /// `UserProjectMissing`. It was a deliberate, announced measure against egress abuse and is
+    /// described by OpenAIP as an interim state (openAIP/openaip#468, #469) — so the URL stays as the
+    /// preferred path and `OpenAIPLayerCache` falls back to the authenticated core REST API, which
+    /// serves the same objects. Delete the fallback only once the bucket is public again AND you have
+    /// verified an anonymous `curl` of one of these files returns 200.
     static let geoJSONExportBaseURL = "https://storage.googleapis.com/29f98e10-a489-4c82-ae5e-489dbcd4912f"
+
+    /// Page size for the core-API fallback. 1000 is the server's ceiling (2000 is rejected).
+    static let layerPageLimit = 1000
+
+    /// Hard cap on fallback pages per country, so a runaway `totalPages` can't page forever while a
+    /// pilot waits. 40 × 1000 covers the largest layer in the roster by a wide margin (Germany's
+    /// obstacles, ~30 000).
+    static let layerMaxPages = 40
 
     /// After a country-set download, drop every country NOT in `keep` from the per-country cache: its
     /// metadata (counts + lastSyncDates) and its on-disk file. Shared by all five OpenAIP layers

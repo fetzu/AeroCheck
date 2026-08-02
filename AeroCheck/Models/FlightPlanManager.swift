@@ -10,6 +10,8 @@ class FlightPlanManager: ObservableObject {
     @Published var flightPlans: [FlightPlan] = []
     @Published var activeFlightPlan: FlightPlan?
     @Published var chronometerElapsed: TimeInterval = 0
+    /// Set once at launch when an activation is retired by age; drives the notice banner. (v4.4.0)
+    @Published var expiredActivation: ExpiredActivation?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
@@ -21,10 +23,28 @@ class FlightPlanManager: ObservableObject {
     private let activeFlightPlanKey = "activeFlightPlan"
     private var chronometerTimer: Timer?
     private let persistence = DataPersistenceManager.shared
+    /// Where the active-plan pointer lives. Injectable so tests get their own suite: the test host
+    /// shares the app's bundle id, so a test that activated a plan against `.standard` left a
+    /// synthetic route showing as ACTIVE in the real app on that simulator.
+    private let defaults: UserDefaults
+
+    /// How long an activation survives without a flight ever starting.
+    ///
+    /// Activating a plan is an intention ("this is the flight I'm about to make"), and it is normal
+    /// to form that intention well before engine start — in the clubhouse, or the evening before. So
+    /// an activation must survive backgrounding and relaunch. It should NOT survive forever, though:
+    /// a plan activated and never flown would otherwise still be framing the nav map weeks later,
+    /// beside a flight it has nothing to do with.
+    ///
+    /// 72 hours covers planning on a Friday for a Sunday flight, which is the longest gap that came
+    /// up as realistic, while still expiring an abandoned activation on a human timescale. Only
+    /// checked at launch, and only when no flight is in progress.
+    static let activationLifetime: TimeInterval = 72 * 60 * 60
 
     // MARK: - Initialization
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         // Active plan + chronometer come from UserDefaults (local, fast) and are needed for
         // initial UI. The plans themselves live in iCloud Drive: enumerating/reading them can
         // stall on iCloud — for an evicted file, long enough on a slow network to trip the launch
@@ -246,6 +266,7 @@ class FlightPlanManager: ObservableObject {
         activePlan.isActive = true
         activePlan.currentWaypointIndex = 0
         activePlan.chronometerStartTime = nil
+        activePlan.activatedAt = Date()
 
         // Reset ATO values for all waypoints (fresh start for new flight)
         for i in 0..<activePlan.waypoints.count {
@@ -262,6 +283,68 @@ class FlightPlanManager: ObservableObject {
         chronometerAccumulated = 0
         saveFlightPlans()
         saveActiveFlightPlan()
+    }
+
+    /// Whether the active plan has anything a deactivation would destroy.
+    ///
+    /// `activateFlightPlan` resets `currentWaypointIndex` and clears every `actualTimeOver`, so a
+    /// deactivate → re-activate round trip loses the waypoint times recorded on this flight. Before
+    /// departure there is nothing to lose; once the flight is under way there is. The UI asks for
+    /// confirmation exactly when this is true. (v4.4.0)
+    var activePlanHasRecordedProgress: Bool {
+        guard let plan = activeFlightPlan else { return false }
+        return plan.currentWaypointIndex > 0
+            || plan.chronometerStartTime != nil
+            || plan.waypoints.contains { $0.actualTimeOver != nil }
+    }
+
+    /// Drop an activation that was made long ago and never flown. Call ONCE at launch, after flight
+    /// restoration, and only when no flight is in progress.
+    ///
+    /// This is what remains of "deactivate flight plans on app start", which used to run on every
+    /// `scenePhase == .active` — so backgrounding the app for thirty seconds silently discarded the
+    /// plan the pilot had just activated. Activation is user intent and now survives; only its age
+    /// can retire it. Returns true if a plan was expired, for the test to assert on.
+    @discardableResult
+    func expireStaleActivation(now: Date = Date()) -> Bool {
+        guard let plan = activeFlightPlan else { return false }
+        // No timestamp means the plan predates v4.4.0. An unknown age is not evidence of staleness,
+        // so it is kept — the user can always deactivate it.
+        guard let activatedAt = plan.activatedAt else { return false }
+        guard now.timeIntervalSince(activatedAt) > Self.activationLifetime else { return false }
+        AppLog.general.debugLine("Expiring flight-plan activation from \(activatedAt) (never flown)")
+        // Remembered BEFORE deactivating, so the notice can name the plan and offer to re-arm it. An
+        // expiry is still the app changing state on its own — the same shape as the bug it replaced,
+        // only slower and better justified — so it says so instead of leaving an empty nav map to
+        // explain itself. (v4.4.0)
+        expiredActivation = ExpiredActivation(planId: plan.id, routeLabel: routeLabel(for: plan))
+        deactivateFlightPlan()
+        return true
+    }
+
+    /// A plan whose activation was retired at launch, pending a one-shot notice. Cleared when the
+    /// user acts on it or dismisses it.
+    struct ExpiredActivation: Equatable {
+        let planId: UUID
+        let routeLabel: String
+    }
+
+    /// Re-arm the plan whose activation just expired, if it is still around.
+    func rearmExpiredActivation() {
+        guard let expired = expiredActivation,
+              let plan = flightPlans.first(where: { $0.id == expired.planId }) else {
+            expiredActivation = nil
+            return
+        }
+        activateFlightPlan(plan)
+        expiredActivation = nil
+    }
+
+    /// `"LSGG → LSZS"`, else the plan's name — the same identity the plan list shows.
+    private func routeLabel(for plan: FlightPlan) -> String {
+        let names = plan.waypoints.map(\.name).filter { !$0.isEmpty }
+        if names.count >= 2, let first = names.first, let last = names.last { return "\(first) → \(last)" }
+        return plan.name.isEmpty ? (names.first ?? L10n.Nav.flightPlan) : plan.name
     }
 
     /// Deactivate the current flight plan
@@ -739,14 +822,14 @@ class FlightPlanManager: ObservableObject {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(plan)
-            UserDefaults.standard.set(data, forKey: activeFlightPlanKey)
+            defaults.set(data, forKey: activeFlightPlanKey)
         } catch {
             AppLog.general.debugLine("Failed to save active flight plan: \(error.localizedDescription)")
         }
     }
 
     private func loadActiveFlightPlan() {
-        guard let data = UserDefaults.standard.data(forKey: activeFlightPlanKey) else { return }
+        guard let data = defaults.data(forKey: activeFlightPlanKey) else { return }
         do {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
@@ -757,6 +840,6 @@ class FlightPlanManager: ObservableObject {
     }
 
     private func clearActiveFlightPlan() {
-        UserDefaults.standard.removeObject(forKey: activeFlightPlanKey)
+        defaults.removeObject(forKey: activeFlightPlanKey)
     }
 }

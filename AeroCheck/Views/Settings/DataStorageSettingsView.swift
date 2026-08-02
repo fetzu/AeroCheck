@@ -17,6 +17,12 @@ struct DataStorageSettingsView: View {
     @State private var showRemoveAllConfirm = false
     /// On-disk sizes computed off the main thread on appear (the descriptors don't carry them yet).
     @State private var sizes: [String: Int64] = [:]
+    /// Snapshotted on appear and after a sync. `getAllCachedAircraft()` reads and decodes cached
+    /// checklists, so calling it from `body` re-ran that disk work on every render.
+    @State private var checklists: [CachedAircraftInfo] = []
+    /// Trip-prefetch state, likewise snapshotted rather than recomputed per render. (v4.4.0)
+    @State private var tripNeededCountries: [String] = []
+    @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?
 
     private let tint: Color = .aviationGreen
 
@@ -76,7 +82,9 @@ struct DataStorageSettingsView: View {
         .onAppear {
             dataStatusManager.recompute()
             recomputeSizes()
+            checklists = aircraftDataService.getAllCachedAircraft()
         }
+        .task { await refreshTripPrefetchState() }
         .alert(L10n.DataStorage.deleteConfirmTitle, isPresented: deleteAlertBinding, presenting: pendingDelete) { dataSet in
             Button(L10n.DataStorage.delete, role: .destructive) {
                 dataStatusManager.delete(dataSet)
@@ -103,27 +111,62 @@ struct DataStorageSettingsView: View {
     /// cover. Hidden when there's no active plan, the route is a single point, or coverage is complete.
     @ViewBuilder
     private var tripPrefetchSection: some View {
-        if let plan = flightPlanManager.activeFlightPlan, plan.waypoints.count >= 2 {
-            let routeCountries = RouteDataCalculator.countries(crossing: plan.waypoints.map { $0.coordinate })
-            let needed = dataStatusManager.tripCountriesNeedingData(routeCountries: routeCountries)
-            if !needed.isEmpty {
-                let neededNames = needed.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
-                SettingsGroup(title: L10n.DataStorage.tripSection, tint: tint,
-                              footer: "\(L10n.DataStorage.tripFooter) \(neededNames)") {
-                    SettingsButtonRow(icon: "arrow.down.circle",
-                                      title: isPrefetchingTrip ? L10n.DataStorage.tripDownloading : L10n.DataStorage.tripDownload,
-                                      tint: tint, showsChevron: false) {
-                        guard !isPrefetchingTrip else { return }
-                        Task {
-                            isPrefetchingTrip = true
-                            await dataStatusManager.prefetchTripData(countries: needed)
-                            recomputeSizes()
-                            isPrefetchingTrip = false
-                        }
+        if !tripNeededCountries.isEmpty {
+            let neededNames = tripNeededCountries.map { OpenAIPConfig.countryName(for: $0) }.joined(separator: ", ")
+            // Footer carries the size, so the button is never a blank cheque. See TripDataSizeEstimator.
+            let size = tripSizeEstimate.flatMap(TripDataSizeEstimator.displayString)
+            let footer = size.map { "\(L10n.DataStorage.tripFooter) \(neededNames) · \($0)" }
+                ?? "\(L10n.DataStorage.tripFooter) \(neededNames)"
+            SettingsGroup(title: L10n.DataStorage.tripSection, tint: tint, footer: footer) {
+                SettingsButtonRow(icon: "arrow.down.circle",
+                                  title: isPrefetchingTrip ? L10n.DataStorage.tripDownloading : L10n.DataStorage.tripDownload,
+                                  tint: tint, showsChevron: false) {
+                    guard !isPrefetchingTrip else { return }
+                    Task {
+                        isPrefetchingTrip = true
+                        await dataStatusManager.prefetchTripData(countries: tripNeededCountries)
+                        recomputeSizes()
+                        await refreshTripPrefetchState()
+                        isPrefetchingTrip = false
                     }
+                }
+                if let breakdown = tripSizeEstimate.flatMap(Self.breakdownLine) {
+                    // "29 841 obstacles · 152 navaids" explains a big number better than the number
+                    // does, and makes it obvious which layer is responsible.
+                    Text(breakdown)
+                        .font(.caption2)
+                        .foregroundColor(.dimText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
                 }
             }
         }
+    }
+
+    /// Recompute which countries the active plan needs and what that costs. Kept out of `body`: the
+    /// border test samples the route and runs point-in-polygon over the bundled boundaries, and the
+    /// size estimate is a network call — neither belongs on a render path.
+    private func refreshTripPrefetchState() async {
+        guard let plan = flightPlanManager.activeFlightPlan, plan.waypoints.count >= 2 else {
+            tripNeededCountries = []; tripSizeEstimate = nil; return
+        }
+        let routeCountries = RouteDataCalculator.countries(crossing: plan.waypoints.map { $0.coordinate })
+        tripNeededCountries = dataStatusManager.tripCountriesNeedingData(routeCountries: routeCountries)
+        guard !tripNeededCountries.isEmpty else { tripSizeEstimate = nil; return }
+        let byLayer = dataStatusManager.tripCountriesNeedingDataByLayer(routeCountries: routeCountries)
+        let estimate = await TripDataSizeEstimator.estimate(countriesByLayer: byLayer)
+        tripSizeEstimate = estimate.isEmpty ? nil : estimate
+    }
+
+    private static func breakdownLine(_ estimate: TripDataSizeEstimator.Estimate) -> String? {
+        let parts = TripDataSizeEstimator.Layer.allCases.compactMap { layer -> (Int, String)? in
+            guard let count = estimate.recordsByLayer[layer.rawValue], count > 0 else { return nil }
+            return (count, "\(count.formatted()) \(L10n.DataStorage.layerName(layer))")
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.sorted { $0.0 > $1.0 }.map(\.1).joined(separator: " · ")
     }
 
     // MARK: - Rows
@@ -241,7 +284,7 @@ struct DataStorageSettingsView: View {
 
     private var checklistsSection: some View {
         SettingsGroup(title: L10n.DataStorage.checklistsSection, tint: tint, footer: L10n.DataStorage.checklistsDetail) {
-            let cached = aircraftDataService.getAllCachedAircraft()
+            let cached = checklists
             if cached.isEmpty {
                 Text(L10n.DataStorage.noChecklists)
                     .font(.caption)
@@ -267,6 +310,16 @@ struct DataStorageSettingsView: View {
                                   tint: tint, showsChevron: false) {
                     Task { await syncChecklists() }
                 }
+                // Only when something is actually absent — "check for updates" cannot fetch a first
+                // copy, so without this row there was no way to get one short of selecting each
+                // aircraft in turn. Separate from the update check so the label stays truthful.
+                let missing = checklists.filter { !$0.isDownloaded }.count
+                if missing > 0 {
+                    SettingsButtonRow(icon: "arrow.down.circle", title: L10n.DataStorage.downloadMissingChecklists(missing),
+                                      tint: tint, showsChevron: false) {
+                        Task { await syncChecklists() }
+                    }
+                }
             }
         }
     }
@@ -285,7 +338,7 @@ struct DataStorageSettingsView: View {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
                             .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
-                            .foregroundColor(.primaryText)
+                            .foregroundColor(aircraft.isDownloaded ? .primaryText : .secondaryText)
                         if aircraft.isPremium {
                             Image(systemName: "star.fill").scaledFont(size: 9, relativeTo: .caption2).foregroundColor(.aviationGold)
                         }
@@ -295,9 +348,14 @@ struct DataStorageSettingsView: View {
                             ForEach(aircraft.checklistLanguages, id: \.self) { LanguageFlagView(languageCode: $0) }
                         }
                     }
-                    Text("\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)")
-                        .font(.caption2).foregroundColor(.dimText)
+                    // An owned-but-absent checklist says so plainly instead of being left off the list.
+                    Text(aircraft.isDownloaded
+                         ? "\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)"
+                         : L10n.DataStorage.statusMissing)
+                        .font(.caption2)
+                        .foregroundColor(aircraft.isDownloaded ? .dimText : .aviationAmber)
                 }
+                .opacity(aircraft.isDownloaded ? 1 : 0.75)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -326,9 +384,14 @@ struct DataStorageSettingsView: View {
         // BUNDLED aircraft, so on a fleet where one aircraft is bundled and thirteen are not it
         // appeared to do nothing. The language must be passed: checklists cache per language and
         // the key omitting it is not the one any reader looks up. (device-test feedback)
-        await aircraftDataService.syncAllChecklists(
-            language: appState.settings.checklistLanguage.resolvedLanguage
-        )
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        await aircraftDataService.syncAllChecklists(language: language)
+        // …and fetch the ones this device has never had. `syncAllChecklists` only refreshes what is
+        // already stored, so on a device that had opened seven of fifteen owned aircraft it refreshed
+        // seven and reported success — the other eight stayed absent, and offline. (v4.4.0)
+        await aircraftDataService.downloadMissingChecklists(language: language)
+        checklists = aircraftDataService.getAllCachedAircraft()
+        recomputeSizes()
         isSyncingChecklists = false
     }
 

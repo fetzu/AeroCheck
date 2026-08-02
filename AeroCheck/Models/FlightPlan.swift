@@ -219,6 +219,10 @@ struct FlightPlan: Identifiable, Codable, Equatable {
     var isActive: Bool
     var currentWaypointIndex: Int
     var chronometerStartTime: Date?
+    /// When the pilot activated this plan. Used only to expire an activation that was never flown —
+    /// see `FlightPlanManager.activationLifetime`. nil on plans saved before v4.4.0, which are then
+    /// never expired: an unknown age is not evidence of staleness. (v4.4.0)
+    var activatedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -261,7 +265,8 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         aircraftColour: String? = nil,
         isActive: Bool = false,
         currentWaypointIndex: Int = 0,
-        chronometerStartTime: Date? = nil
+        chronometerStartTime: Date? = nil,
+        activatedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -304,6 +309,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         self.isActive = isActive
         self.currentWaypointIndex = currentWaypointIndex
         self.chronometerStartTime = chronometerStartTime
+        self.activatedAt = activatedAt
     }
 
     // MARK: - Codable Migration
@@ -320,7 +326,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         case remarks, debriefing, createdAt, updatedAt
         case icaoAircraftType, wakeTurbulenceCategory, equipmentCodes, surveillanceCodes
         case alternateAerodrome, personsOnBoard, aircraftColour
-        case isActive, currentWaypointIndex, chronometerStartTime
+        case isActive, currentWaypointIndex, chronometerStartTime, activatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -386,6 +392,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? false
         currentWaypointIndex = try container.decodeIfPresent(Int.self, forKey: .currentWaypointIndex) ?? 0
         chronometerStartTime = try container.decodeIfPresent(Date.self, forKey: .chronometerStartTime)
+        activatedAt = try container.decodeIfPresent(Date.self, forKey: .activatedAt)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -431,6 +438,7 @@ struct FlightPlan: Identifiable, Codable, Equatable {
         try container.encode(isActive, forKey: .isActive)
         try container.encode(currentWaypointIndex, forKey: .currentWaypointIndex)
         try container.encodeIfPresent(chronometerStartTime, forKey: .chronometerStartTime)
+        try container.encodeIfPresent(activatedAt, forKey: .activatedAt)
     }
 
     // MARK: - Computed Properties

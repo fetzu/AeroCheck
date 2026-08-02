@@ -26,6 +26,7 @@ struct FlightPlanningView: View {
     @State private var showingEmptyActivateAlert = false
     @State private var planToActivate: FlightPlan?
     @State private var showingDeleteAlert = false
+    @State private var showingDeactivateAlert = false
     @State private var planToDelete: FlightPlan?
     @State private var showingImporter = false
     @State private var showingExporter = false
@@ -83,6 +84,12 @@ struct FlightPlanningView: View {
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(locationManager)
+        }
+        .alert(L10n.Nav.deactivateConfirmTitle, isPresented: $showingDeactivateAlert) {
+            Button(L10n.Button.cancel, role: .cancel) { }
+            Button(L10n.Nav.deactivate, role: .destructive) { flightPlanManager.deactivateFlightPlan() }
+        } message: {
+            Text(L10n.Nav.deactivateConfirmMessage)
         }
         .alert(L10n.Nav.deleteFlightPlan, isPresented: $showingDeleteAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
@@ -234,7 +241,8 @@ struct FlightPlanningView: View {
                         plan: plan,
                         isActive: plan.id == flightPlanManager.activeFlightPlan?.id,
                         loadPriority: index,
-                        onActivate: { activate(plan) }
+                        onActivate: { activate(plan) },
+                        onDeactivate: { requestDeactivate() }
                     )
                     .id("\(plan.id)-\(plan.waypoints.count)-\(plan.updatedAt)")
                     .listRowBackground(Color.clear)
@@ -364,6 +372,21 @@ struct FlightPlanningView: View {
         editingPlan = plan
     }
 
+    /// Deactivate the active plan, asking first ONLY when there is something to lose.
+    ///
+    /// `activateFlightPlan` resets `currentWaypointIndex` to 0 and clears every `actualTimeOver`, so a
+    /// deactivate → re-activate round trip destroys the waypoint times already recorded on this
+    /// flight. Before departure there is nothing recorded and a prompt is pure friction; once the
+    /// flight is under way an accidental tap is expensive. So the confirmation appears exactly when
+    /// the mistake would cost something. (v4.4.0)
+    private func requestDeactivate() {
+        if flightPlanManager.activePlanHasRecordedProgress {
+            showingDeactivateAlert = true
+        } else {
+            flightPlanManager.deactivateFlightPlan()
+        }
+    }
+
     /// Activate a plan; if it has no waypoints, prompt to add some instead of silently refusing. (revamp)
     private func activate(_ plan: FlightPlan) {
         if plan.waypoints.isEmpty {
@@ -441,6 +464,7 @@ struct FlightPlanRow: View {
     let isActive: Bool
     var loadPriority: Int = 0   // row index — top rows render their map preview first
     var onActivate: () -> Void
+    var onDeactivate: () -> Void = {}
 
     /// The route endpoints (departure → destination) — the plan's identity. (revamp #1b)
     private var routeEndpoints: String {
@@ -462,6 +486,30 @@ struct FlightPlanRow: View {
             Image(systemName: icon).scaledFont(size: 10, relativeTo: .caption2).foregroundColor(.dimText)
             Text(value).scaledFont(size: 12, weight: .semibold, design: .monospaced, relativeTo: .caption).foregroundColor(.secondaryText)
         }
+    }
+
+    /// Activate, or Deactivate when this row is the active plan. Both are 62 × 44 in the same slot.
+    private var planActionButton: some View {
+        Button(action: isActive ? onDeactivate : onActivate) {
+            VStack(spacing: 3) {
+                Image(systemName: isActive ? "airplane.arrival" : "airplane.departure")
+                    .scaledFont(size: 15, relativeTo: .subheadline)
+                Text(isActive ? L10n.Nav.deactivate : L10n.Nav.activate)
+                    .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundColor(isActive ? .aviationAmber : .aviationGreen)
+            .frame(width: 62)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .fill((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.14))
+                    .overlay(RoundedRectangle(cornerRadius: 9)
+                        .stroke((isActive ? Color.aviationAmber : .aviationGreen).opacity(0.4), lineWidth: 1))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     var body: some View {
@@ -511,28 +559,13 @@ struct FlightPlanRow: View {
 
             Spacer(minLength: 6)
 
-            // One-tap activate (or "in use") — was buried in a swipe / context menu. (revamp)
-            if isActive {
-                VStack(spacing: 3) {
-                    Image(systemName: "airplane.departure").scaledFont(size: 14, relativeTo: .subheadline)
-                    Text(L10n.Nav.inUse).scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
-                }
-                .foregroundColor(.aviationGreen)
-                .frame(width: 62)
-            } else {
-                Button(action: onActivate) {
-                    VStack(spacing: 3) {
-                        Image(systemName: "airplane.departure").scaledFont(size: 15, relativeTo: .subheadline)
-                        Text(L10n.Nav.activate).scaledFont(size: 10, weight: .semibold, relativeTo: .caption2)
-                    }
-                    .foregroundColor(.aviationGreen)
-                    .frame(width: 62)
-                    .padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Color.aviationGreen.opacity(0.14))
-                        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.aviationGreen.opacity(0.4), lineWidth: 1)))
-                }
-                .buttonStyle(.plain)
-            }
+            // One-tap activate / deactivate — was buried in a swipe / context menu. (revamp)
+            //
+            // The active row used to show "In use" as a static label, so the one state change a pilot
+            // makes under time pressure — "that's not the flight I'm doing" — was the only one with no
+            // button. Same slot, same size, opposite action: the row no longer changes shape with
+            // state. Swipe and long-press stay as accelerators. (v4.4.0 device-test feedback)
+            planActionButton
         }
         .padding(10)
         .background(

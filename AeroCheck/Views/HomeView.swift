@@ -680,12 +680,49 @@ struct HomeView: View {
     @ViewBuilder
     private var flightPlanStrip: some View {
         if let active = flightPlanManager.activeFlightPlan {
-            flightPlanStripCard(title: planRoute(active), detail: "\(active.waypoints.count) WP", accent: .altimeterBlue)
+            // ARMED. This state used to differ from the others only by an icon tint and a 22 %-opacity
+            // border — and in altimeter blue, which reads as "flight plan", not as "ready to fly". Home
+            // is the screen you look at before pressing START FLIGHT, so the answer to "am I armed?"
+            // has to be free here rather than two taps away in the plan list. Green rail + chip, the
+            // same device the plan list already uses for its active section. (v4.4.0)
+            flightPlanStripCard(title: planRoute(active),
+                                detail: armedDetail(active),
+                                accent: .aviationGreen,
+                                badge: L10n.Home.flightPlanArmed,
+                                showsRail: true)
         } else if let today = todaysFlightPlan, let departure = today.plannedDepartureTime {
-            flightPlanStripCard(title: planRoute(today), detail: departure.formatted(date: .omitted, time: .shortened), accent: .aviationGold)
+            // Departing today but not armed — kept gold and distinct, so P1 doesn't collapse three
+            // states into two.
+            flightPlanStripCard(title: planRoute(today),
+                                detail: departure.formatted(date: .omitted, time: .shortened),
+                                accent: .aviationGold)
         } else if !flightPlanManager.flightPlans.isEmpty {
-            flightPlanStripCard(title: L10n.Nav.flightPlans, detail: "\(flightPlanManager.flightPlans.count)", accent: .secondaryText)
+            flightPlanStripCard(title: L10n.Nav.flightPlans,
+                                detail: "\(flightPlanManager.flightPlans.count)",
+                                accent: .secondaryText)
         }
+    }
+
+    /// Detail line for an armed plan, longest-first. `ViewThatFits` in the card picks one.
+    ///
+    /// Needed because the strip is NARROWER on iPad than on iPhone: landscape puts the last-flight and
+    /// flight-plan strips side by side inside a 620 pt hero, so each gets ~300 pt, where an iPhone
+    /// stacks them full-width. The big screen has less room here, not more.
+    private func armedDetail(_ plan: FlightPlan) -> [String] {
+        let waypoints = L10n.Home.flightPlanWaypointCount(plan.waypoints.count)
+        // "NM" is an ICAO abbreviation and deliberately untranslated, like the rest of the app.
+        let distance = plan.totalDistance > 0 ? "\(Int(plan.totalDistance.rounded())) NM" : nil
+        let time = plan.totalEET > 0 ? formattedEET(plan.totalEET) : nil
+        return [
+            [waypoints, distance, time].compactMap { $0 }.joined(separator: " · "),
+            [waypoints, distance].compactMap { $0 }.joined(separator: " · "),
+            waypoints
+        ]
+    }
+
+    private func formattedEET(_ interval: TimeInterval) -> String {
+        let minutes = Int(interval / 60)
+        return String(format: "%d:%02d", minutes / 60, minutes % 60)
     }
 
     /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
@@ -700,7 +737,10 @@ struct HomeView: View {
             .min { ($0.plannedDepartureTime ?? .distantFuture) < ($1.plannedDepartureTime ?? .distantFuture) }
     }
 
-    private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
+    /// `detail` is a longest-first list of candidate strings; the widest that fits is used. A single
+    /// string is just a one-element list. `badge` and `showsRail` mark the armed state.
+    private func flightPlanStripCard(title: String, detail: [String], accent: Color,
+                                     badge: String? = nil, showsRail: Bool = false) -> some View {
         Button { showFlightPlanning = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
@@ -708,16 +748,38 @@ struct HomeView: View {
                     .foregroundColor(accent)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.Home.flightPlan)
-                        .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
-                        .foregroundColor(.dimText)
+                    HStack(spacing: 6) {
+                        Text(L10n.Home.flightPlan)
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
+                            .foregroundColor(badge == nil ? .dimText : accent)
+                        if let badge {
+                            Text(badge)
+                                .scaledFont(size: 8.5, weight: .bold, relativeTo: .caption2).tracking(0.8)
+                                .foregroundColor(accent)
+                                .padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(accent.opacity(0.18))
+                                        .overlay(RoundedRectangle(cornerRadius: 3)
+                                            .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
+                                )
+                        }
+                    }
                     HStack(spacing: 6) {
                         Text(title)
                             .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
                             .foregroundColor(.primaryText)
                             .lineLimit(1)
-                        if let detail {
-                            Text("· \(detail)").scaledFont(size: 12, relativeTo: .caption).foregroundColor(.dimText).lineLimit(1)
+                        // Longest detail that fits. See `armedDetail` — the iPad's side-by-side strip
+                        // is narrower than the iPhone's full-width one.
+                        ViewThatFits(in: .horizontal) {
+                            ForEach(detail, id: \.self) { candidate in
+                                Text("· \(candidate)")
+                                    .scaledFont(size: 12, relativeTo: .caption)
+                                    .foregroundColor(.dimText)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
                         }
                     }
                 }
@@ -726,17 +788,33 @@ struct HomeView: View {
                     .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
                     .foregroundColor(.dimText.opacity(0.7))
             }
-            .padding(.horizontal, 14)
+            .padding(.leading, showsRail ? 11 : 14)
+            .padding(.trailing, 14)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.cardBackground)
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(accent.opacity(0.22), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(accent.opacity(showsRail ? 0.4 : 0.22), lineWidth: 1))
+                    .overlay(alignment: .leading) {
+                        if showsRail {
+                            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12)
+                                .fill(accent)
+                                .frame(width: 3)
+                        }
+                    }
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(L10n.Home.flightPlan), \(title)")
+        .accessibilityLabel(
+            [L10n.Home.flightPlan, badge, title, detail.first].compactMap { $0 }.joined(separator: ", ")
+        )
+    }
+
+    /// Overload keeping the single-detail call sites unchanged.
+    private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
+        flightPlanStripCard(title: title, detail: [detail].compactMap { $0 }, accent: accent)
     }
 
     /// Departure → destination from a plan's first/last waypoint, else the plan name.

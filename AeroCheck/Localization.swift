@@ -65,6 +65,12 @@ enum L10n {
         static let checklistsDetail = String(localized: "Auto-updating · aircraft checklists from aerocheck.app")
         static let noChecklists = String(localized: "No checklists cached yet")
         static let syncChecklists = String(localized: "Check for checklist updates")
+        /// Shown only when the device is missing checklists it owns — an update check cannot fetch a
+        /// first copy, so this is a separate, honestly-labelled action. The count is parenthesised so
+        /// neither language needs a plural form. (v4.4.0)
+        static func downloadMissingChecklists(_ count: Int) -> String {
+            String(format: String(localized: "dataStorage.downloadMissingChecklists"), count)
+        }
         static let simulateStaleData = String(localized: "Simulate stale data")
         static let rowActions = String(localized: "More options")
         static let manageRegions = String(localized: "Manage regions & downloads")
@@ -77,6 +83,7 @@ enum L10n {
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
         static let sourceObservations = String(localized: "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain")
+        static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")
         static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
         static let showNavaidsOnMap = String(localized: "Show navaids on map")
@@ -86,6 +93,20 @@ enum L10n {
         static let reportingPointsName = String(localized: "Reporting points")
         static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        /// Lower-case layer name for the trip-size breakdown ("29 841 obstacles · 152 navaids").
+        ///
+        /// Reuses the row titles, which are already plural and read correctly after a count in both
+        /// languages — except the airspace row, which is the singular mass noun "Airspace" /
+        /// "Espace aérien" and would produce "1 557 airspace". That one gets its own countable form.
+        /// (v4.4.0)
+        static func layerName(_ layer: TripDataSizeEstimator.Layer) -> String {
+            switch layer {
+            case .airspace: return String(localized: "dataStorage.countAirspaces")
+            case .navaids: return navaidsName.lowercased()
+            case .obstacles: return obstaclesName.lowercased()
+            case .reportingPoints: return reportingPointsName.lowercased()
+            }
+        }
         static let tripSection = String(localized: "Trip data")
         static let tripFooter = String(localized: "Your active flight plan crosses areas without downloaded data:")
         static let tripDownload = String(localized: "Download data for this trip")
@@ -102,6 +123,7 @@ enum L10n {
         static let end = String(localized: "button.end")
         static let done = String(localized: "button.done")
         static let close = String(localized: "button.close")
+        static let retry = String(localized: "button.retry")
         static let cancel = String(localized: "button.cancel")
         static let delete = String(localized: "button.delete")
         static let nav = String(localized: "button.nav")
@@ -114,6 +136,13 @@ enum L10n {
         static let flightInfo = String(localized: "home.flightInfo")
         static let lastFlight = String(localized: "home.lastFlight")
         static let flightPlan = String(localized: "home.flightPlan")
+        /// Chip on the Home flight-plan strip when a plan is activated. Deliberately not "ACTIVE":
+        /// that word is already the plan list's badge for the same state, and this one has to read as
+        /// "ready to fly" at a glance on a card that also has a "departing today" state. (v4.4.0)
+        static let flightPlanArmed = String(localized: "home.flightPlanArmed")
+        static func flightPlanWaypointCount(_ count: Int) -> String {
+            String(format: String(localized: "home.flightPlanWaypointCount"), count)
+        }
         static func version(_ v: String) -> String {
             String(format: String(localized: "home.version"), v)
         }
@@ -1057,6 +1086,9 @@ enum L10n {
         static let logbookTimes = String(localized: "nav.logbookTimes")
         static let navLog = String(localized: "nav.navLog")
         static let expandProfile = String(localized: "nav.expandProfile")
+        static let shrinkProfile = String(localized: "nav.shrinkProfile")
+        static let collapseProfile = String(localized: "nav.collapseProfile")
+        static let showProfile = String(localized: "nav.showProfile")
         static let waypointsTab = String(localized: "nav.waypointsTab")
         static let conflictsTab = String(localized: "nav.conflictsTab")
         static let noConflicts = String(localized: "nav.noConflicts")
@@ -1123,6 +1155,20 @@ enum L10n {
         // Actions
         static let activateFlightPlan = String(localized: "nav.activateFlightPlan")
         static let deactivateFlightPlan = String(localized: "nav.deactivateFlightPlan")
+        /// Only shown when the plan has recorded progress — re-activating clears every ATO and
+        /// resets the leg index, so an accidental tap mid-flight destroys logged times. (v4.4.0)
+        static let deactivateConfirmTitle = String(localized: "nav.deactivateConfirmTitle")
+        static let deactivateConfirmMessage = String(localized: "nav.deactivateConfirmMessage")
+        /// Nav map: an armed route with no part of it on screen. "096 NM · 264°".
+        static func routeOffScreen(_ distanceNm: Int, _ bearing: String) -> String {
+            String(format: String(localized: "nav.routeOffScreen"), distanceNm, bearing)
+        }
+        static let showRoute = String(localized: "nav.showRoute")
+        static let activationExpiredTitle = String(localized: "nav.activationExpiredTitle")
+        static func activationExpiredMessage(_ route: String) -> String {
+            String(format: String(localized: "nav.activationExpiredMessage"), route)
+        }
+        static let rearm = String(localized: "nav.rearm")
 
         // Waypoint Editor
         static let waypointName = String(localized: "nav.waypointName")
@@ -1162,6 +1208,10 @@ enum L10n {
         static let airspaceNoData = String(localized: "nav.airspaceNoData")
         static let downloadAirspaceData = String(localized: "nav.downloadAirspaceData")
         static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
+        /// Shown in the same banner when the download ran but some layers came back empty — so the
+        /// banner stops silently re-offering a button that cannot succeed. (v4.4.0)
+        static let tripDataFailed = String(localized: "Some data could not be downloaded")
+        static let tripDataFailedDetail = String(localized: "The provider is not serving these layers right now. Try again later.")
         static let layers = String(localized: "Layers")   // v4.1.0 ② (literal-keyed; FR in pass)
         static let airspaceCharts = String(localized: "Airspace & charts")
         static let mapTiles = String(localized: "Map tiles")

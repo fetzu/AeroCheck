@@ -113,6 +113,10 @@ struct AboutSettingsView: View {
             // act on an observation, alongside the two sources it is chosen over.
             dataSourceRow(name: "NOAA Aviation Weather Center", detail: L10n.DataStorage.sourceObservations, url: "https://aviationweather.gov")
             dataSourceRow(name: "Open-Meteo", detail: L10n.DataStorage.sourceElevation, url: "https://open-meteo.com")
+            // Natural Earth is public domain and explicitly waives attribution, so this is courtesy
+            // rather than obligation — but the bundled borders decide which countries a trip prefetch
+            // offers, and a pilot should be able to see where that answer comes from. (v4.4.0)
+            dataSourceRow(name: "Natural Earth", detail: L10n.DataStorage.sourceBorders, url: "https://www.naturalearthdata.com")
         }
     }
 

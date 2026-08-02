@@ -36,13 +36,19 @@ final class AircraftDataServiceSeamTests: XCTestCase {
         }
     }
 
-    private func premiumMetadata() throws -> RemoteAircraftMetadata {
+    private func premiumMetadata(id: String = "pa28-181") throws -> RemoteAircraftMetadata {
         try JSONDecoder().decode(RemoteAircraftMetadata.self, from: Data(#"""
-        {"id":"pa28-181","aircraftType":"PA28","registration":"HB-PFA","modelName":"Piper Archer",
+        {"id":"\#(id)","aircraftType":"PA28","registration":"HB-PFA","modelName":"Piper Archer",
          "shortModelName":"PA-28","version":"1.0","lastUpdated":"x","isFree":false,"stallSpeed":53,
          "pageCount":4,"hasAccess":false}
         """#.utf8))
     }
+
+    /// An id no real aircraft uses, so the listing tests can assert on a cache entry that provably
+    /// does not exist. The service caches into the test host's real Application Support directory,
+    /// which persists between runs — asserting "not cached" on `pa28-181` would pass or fail
+    /// depending on what an earlier test or a manual run happened to leave behind.
+    private static let unusedAircraftId = "zz-listing-test-aircraft"
 
     // MARK: - Tests
 
@@ -321,6 +327,42 @@ final class AircraftDataServiceSeamTests: XCTestCase {
     func testOverlongIdsAreRejected() {
         XCTAssertTrue(AircraftRegistrationToken.isWellFormed(String(repeating: "a", count: 64)))
         XCTAssertFalse(AircraftRegistrationToken.isWellFormed(String(repeating: "a", count: 65)))
+    }
+
+    // MARK: - Data & Storage checklist listing (v4.4.0 device-test feedback)
+
+    /// An owned aircraft with no cached checklist is LISTED, flagged undownloaded — it is not dropped.
+    ///
+    /// Dropping it is what made Data & Storage under-report: nothing fetches a premium checklist until
+    /// its aircraft is selected, so a device that had opened seven of fifteen owned aircraft listed
+    /// seven, with nothing on screen to distinguish "you don't own the rest" from "the rest aren't on
+    /// this device". Those are opposite answers to the question a pilot asks that screen before losing
+    /// signal.
+    func testOwnedButUndownloadedChecklistIsListedAsMissing() async throws {
+        let service = AircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
+        var owned = try premiumMetadata(id: Self.unusedAircraftId)
+        owned.hasAccess = true
+        service.availableAircraft = [owned]
+        service.clearCache(for: Self.unusedAircraftId)
+
+        let listed = service.getAllCachedAircraft()
+
+        let entry = try XCTUnwrap(listed.first { $0.aircraftId == Self.unusedAircraftId },
+                                  "an owned aircraft must appear even with nothing cached")
+        XCTAssertFalse(entry.isDownloaded)
+        XCTAssertTrue(entry.isPremium)
+        XCTAssertEqual(entry.registration, "HB-PFA")
+    }
+
+    /// The mirror image: an aircraft the user does NOT own and has nothing cached for stays off the
+    /// list entirely. This screen inventories the user's own offline data — padding it with the rest
+    /// of the catalogue would turn a storage inventory into an advert.
+    func testUnownedAircraftWithNoCacheIsNotListed() async throws {
+        let service = AircraftDataService(subscriptionManager: FakeGating(), httpClient: FakeHTTPClient())
+        service.availableAircraft = [try premiumMetadata(id: Self.unusedAircraftId)]   // hasAccess: false
+        service.clearCache(for: Self.unusedAircraftId)
+
+        XCTAssertFalse(service.getAllCachedAircraft().contains { $0.aircraftId == Self.unusedAircraftId })
     }
 
     func testIngestClampNullsOutAnUnsafeAircraftId() {

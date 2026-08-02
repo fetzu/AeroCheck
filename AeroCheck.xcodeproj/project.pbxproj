@@ -45,6 +45,9 @@
 		A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */; };
 		A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000907 /* BriefingWindLadderTests.swift */; };
 		A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000911 /* SigmetRelevanceTests.swift */; };
+		A1000001211111110000914 /* RouteVisibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000914 /* RouteVisibilityTests.swift */; };
+		A1000001211111110000913 /* FlightPlanActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000913 /* FlightPlanActivationTests.swift */; };
+		A1000001211111110000912 /* OpenAIPCoreAPIFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */; };
 		A5000021111111110000002 /* LocationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000021111111110000001 /* LocationManagerTests.swift */; };
 		047B5F7D2EF492D5009F1317 /* MarketingLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */; };
 		04A712992F1A39B000E24712 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04A712982F1A39B000E24712 /* StoreKit.framework */; };
@@ -82,6 +85,9 @@
 		A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000066 /* OpenAIPObstacleDataService.swift */; };
 		A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */; };
 		A1000001211111110000068 /* RouteDataCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000068 /* RouteDataCalculator.swift */; };
+		B1000001211111110000033 /* RouteVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000033 /* RouteVisibility.swift */; };
+		B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000032 /* TripDataSizeEstimator.swift */; };
+		B1000001211111110000031 /* CountryBoundaries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001111111110000031 /* CountryBoundaries.swift */; };
 		A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000069 /* OpenAIPAirportDataService.swift */; };
 		A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000070 /* AirportDataMergeEngine.swift */; };
 		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
@@ -136,6 +142,7 @@
 		C1000001211111110000002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C1000001111111110000002 /* Localizable.xcstrings */; };
 		D1000001211111110000001 /* BundledChecklistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000001 /* BundledChecklistService.swift */; };
 		D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000002 /* wt9-dynamic-bundled.json */; };
+		D1000001211111110000009 /* country-boundaries.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000009 /* country-boundaries.json */; };
 		D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */ = {isa = PBXBuildFile; fileRef = D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */; };
 		E1000001211111110000001 /* Airport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000001 /* Airport.swift */; };
 		E1000001211111110000020 /* Navaid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000020 /* Navaid.swift */; };
@@ -260,6 +267,9 @@
 		A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChecklistUpdateDecisionTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000907 /* BriefingWindLadderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefingWindLadderTests.swift; sourceTree = "<group>"; };
 		A1000001111111110000911 /* SigmetRelevanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetRelevanceTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000914 /* RouteVisibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteVisibilityTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000913 /* FlightPlanActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightPlanActivationTests.swift; sourceTree = "<group>"; };
+		A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPCoreAPIFallbackTests.swift; sourceTree = "<group>"; };
 		A5000021111111110000001 /* LocationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManagerTests.swift; sourceTree = "<group>"; };
 		047B5F7C2EF492D5009F1317 /* MarketingLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketingLocationProvider.swift; sourceTree = "<group>"; };
 		04A712982F1A39B000E24712 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -300,6 +310,9 @@
 		A1000001111111110000066 /* OpenAIPObstacleDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPObstacleDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPReportingPointDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000068 /* RouteDataCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculator.swift; sourceTree = "<group>"; };
+		B1000001111111110000033 /* RouteVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteVisibility.swift; sourceTree = "<group>"; };
+		B1000001111111110000032 /* TripDataSizeEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDataSizeEstimator.swift; sourceTree = "<group>"; };
+		B1000001111111110000031 /* CountryBoundaries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryBoundaries.swift; sourceTree = "<group>"; };
 		A1000001111111110000069 /* OpenAIPAirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000070 /* AirportDataMergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataMergeEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
@@ -345,6 +358,7 @@
 		C1000001111111110000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		D1000001111111110000001 /* BundledChecklistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledChecklistService.swift; sourceTree = "<group>"; };
 		D1000001111111110000002 /* wt9-dynamic-bundled.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled.json"; sourceTree = "<group>"; };
+		D1000001111111110000009 /* country-boundaries.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "country-boundaries.json"; sourceTree = "<group>"; };
 		D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "wt9-dynamic-bundled-fr.json"; sourceTree = "<group>"; };
 		E1000001111111110000001 /* Airport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Airport.swift; sourceTree = "<group>"; };
 		E1000001111111110000020 /* Navaid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Navaid.swift; sourceTree = "<group>"; };
@@ -457,6 +471,9 @@
 				A1000001111111110000905 /* ChecklistUpdateDecisionTests.swift */,
 				A1000001111111110000907 /* BriefingWindLadderTests.swift */,
 				A1000001111111110000911 /* SigmetRelevanceTests.swift */,
+				A1000001111111110000914 /* RouteVisibilityTests.swift */,
+				A1000001111111110000913 /* FlightPlanActivationTests.swift */,
+				A1000001111111110000912 /* OpenAIPCoreAPIFallbackTests.swift */,
 				A5000021111111110000001 /* LocationManagerTests.swift */,
 			);
 			path = AeroCheckTests;
@@ -502,6 +519,7 @@
 			isa = PBXGroup;
 			children = (
 				D1000001111111110000002 /* wt9-dynamic-bundled.json */,
+				D1000001111111110000009 /* country-boundaries.json */,
 				D1000001111111110000003 /* wt9-dynamic-bundled-fr.json */,
 			);
 			path = Resources;
@@ -599,6 +617,9 @@
 				A1000001111111110000066 /* OpenAIPObstacleDataService.swift */,
 				A1000001111111110000067 /* OpenAIPReportingPointDataService.swift */,
 				A1000001111111110000068 /* RouteDataCalculator.swift */,
+				B1000001111111110000033 /* RouteVisibility.swift */,
+				B1000001111111110000032 /* TripDataSizeEstimator.swift */,
+				B1000001111111110000031 /* CountryBoundaries.swift */,
 				A1000001111111110000069 /* OpenAIPAirportDataService.swift */,
 				A1000001111111110000070 /* AirportDataMergeEngine.swift */,
 				A1000001111111110000064 /* DataStatusManager.swift */,
@@ -823,6 +844,7 @@
 				B3000001211111110000904 /* PrivacyInfo.xcprivacy in Resources */,
 				C1000001211111110000002 /* Localizable.xcstrings in Resources */,
 				D1000001211111110000002 /* wt9-dynamic-bundled.json in Resources */,
+				D1000001211111110000009 /* country-boundaries.json in Resources */,
 				D1000001211111110000003 /* wt9-dynamic-bundled-fr.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -888,6 +910,9 @@
 				A1000001211111110000905 /* ChecklistUpdateDecisionTests.swift in Sources */,
 				A1000001211111110000907 /* BriefingWindLadderTests.swift in Sources */,
 				A1000001211111110000911 /* SigmetRelevanceTests.swift in Sources */,
+				A1000001211111110000914 /* RouteVisibilityTests.swift in Sources */,
+				A1000001211111110000913 /* FlightPlanActivationTests.swift in Sources */,
+				A1000001211111110000912 /* OpenAIPCoreAPIFallbackTests.swift in Sources */,
 				A5000021111111110000002 /* LocationManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -926,6 +951,9 @@
 				A1000001211111110000066 /* OpenAIPObstacleDataService.swift in Sources */,
 				A1000001211111110000067 /* OpenAIPReportingPointDataService.swift in Sources */,
 				A1000001211111110000068 /* RouteDataCalculator.swift in Sources */,
+				B1000001211111110000033 /* RouteVisibility.swift in Sources */,
+				B1000001211111110000032 /* TripDataSizeEstimator.swift in Sources */,
+				B1000001211111110000031 /* CountryBoundaries.swift in Sources */,
 				A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */,
 				A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */,
 				A1000001211111110000064 /* DataStatusManager.swift in Sources */,

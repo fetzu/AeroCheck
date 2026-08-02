@@ -104,6 +104,80 @@ final class FlightPlanActivationTests: XCTestCase {
         XCTAssertNotNil(manager.activeFlightPlan)
     }
 
+    // MARK: - Deactivate confirmation (P2) and the expiry notice (P5)
+
+    /// Nothing recorded yet — the pre-flight case. Deactivating costs nothing, so the UI must not
+    /// stop and ask.
+    func testFreshlyArmedPlanHasNoProgressToLose() {
+        let manager = manager()
+        manager.activateFlightPlan(plan())
+        XCTAssertFalse(manager.activePlanHasRecordedProgress)
+    }
+
+    /// A logged waypoint time is exactly what a deactivate → re-activate round trip destroys, so it
+    /// must count as progress.
+    func testARecordedWaypointTimeCountsAsProgress() {
+        let manager = manager()
+        manager.activateFlightPlan(plan())
+        manager.activeFlightPlan?.waypoints[0].actualTimeOver = Date()
+        XCTAssertTrue(manager.activePlanHasRecordedProgress)
+    }
+
+    func testAdvancingPastTheFirstWaypointCountsAsProgress() {
+        let manager = manager()
+        manager.activateFlightPlan(plan())
+        manager.activeFlightPlan?.currentWaypointIndex = 1
+        XCTAssertTrue(manager.activePlanHasRecordedProgress)
+    }
+
+    /// A running leg timer is progress too — deactivating resets it.
+    func testARunningChronometerCountsAsProgress() {
+        let manager = manager()
+        manager.activateFlightPlan(plan())
+        manager.activeFlightPlan?.chronometerStartTime = Date()
+        XCTAssertTrue(manager.activePlanHasRecordedProgress)
+    }
+
+    /// An expiry must leave enough behind to explain itself and to be undone — the whole point of the
+    /// notice is that the app no longer changes this state silently.
+    func testExpiryRecordsWhatItRetired() throws {
+        let manager = manager()
+        manager.activateFlightPlan(plan())
+        let wellPast = Date().addingTimeInterval(FlightPlanManager.activationLifetime + 60)
+
+        XCTAssertTrue(manager.expireStaleActivation(now: wellPast))
+        let expired = try XCTUnwrap(manager.expiredActivation)
+        XCTAssertEqual(expired.routeLabel, "LSZQ → LSZB", "the notice names the route, as the plan list does")
+    }
+
+    /// …and re-arming from the notice actually re-arms, rather than just clearing the banner.
+    func testRearmingRestoresTheActivation() throws {
+        let manager = manager()
+        let subject = plan()
+        manager.flightPlans = [subject]
+        manager.activateFlightPlan(subject)
+        _ = manager.expireStaleActivation(now: Date().addingTimeInterval(FlightPlanManager.activationLifetime + 60))
+        XCTAssertNil(manager.activeFlightPlan)
+
+        manager.rearmExpiredActivation()
+
+        XCTAssertEqual(manager.activeFlightPlan?.id, subject.id)
+        XCTAssertNil(manager.expiredActivation, "the notice clears once acted on")
+    }
+
+    /// If the plan was deleted while the notice was up, re-arming clears the notice instead of
+    /// resurrecting something that no longer exists.
+    func testRearmingADeletedPlanJustClearsTheNotice() {
+        let manager = manager()
+        manager.activateFlightPlan(plan())          // never added to `flightPlans`
+        _ = manager.expireStaleActivation(now: Date().addingTimeInterval(FlightPlanManager.activationLifetime + 60))
+
+        manager.rearmExpiredActivation()
+
+        XCTAssertNil(manager.activeFlightPlan)
+        XCTAssertNil(manager.expiredActivation)
+    }
+
     func testNoActivePlanIsNotAnExpiry() {
         XCTAssertFalse(manager().expireStaleActivation())
     }

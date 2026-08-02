@@ -136,6 +136,13 @@ enum L10n {
         static let flightInfo = String(localized: "home.flightInfo")
         static let lastFlight = String(localized: "home.lastFlight")
         static let flightPlan = String(localized: "home.flightPlan")
+        /// Chip on the Home flight-plan strip when a plan is activated. Deliberately not "ACTIVE":
+        /// that word is already the plan list's badge for the same state, and this one has to read as
+        /// "ready to fly" at a glance on a card that also has a "departing today" state. (v4.4.0)
+        static let flightPlanArmed = String(localized: "home.flightPlanArmed")
+        static func flightPlanWaypointCount(_ count: Int) -> String {
+            String(format: String(localized: "home.flightPlanWaypointCount"), count)
+        }
         static func version(_ v: String) -> String {
             String(format: String(localized: "home.version"), v)
         }
@@ -1148,6 +1155,20 @@ enum L10n {
         // Actions
         static let activateFlightPlan = String(localized: "nav.activateFlightPlan")
         static let deactivateFlightPlan = String(localized: "nav.deactivateFlightPlan")
+        /// Only shown when the plan has recorded progress — re-activating clears every ATO and
+        /// resets the leg index, so an accidental tap mid-flight destroys logged times. (v4.4.0)
+        static let deactivateConfirmTitle = String(localized: "nav.deactivateConfirmTitle")
+        static let deactivateConfirmMessage = String(localized: "nav.deactivateConfirmMessage")
+        /// Nav map: an armed route with no part of it on screen. "096 NM · 264°".
+        static func routeOffScreen(_ distanceNm: Int, _ bearing: String) -> String {
+            String(format: String(localized: "nav.routeOffScreen"), distanceNm, bearing)
+        }
+        static let showRoute = String(localized: "nav.showRoute")
+        static let activationExpiredTitle = String(localized: "nav.activationExpiredTitle")
+        static func activationExpiredMessage(_ route: String) -> String {
+            String(format: String(localized: "nav.activationExpiredMessage"), route)
+        }
+        static let rearm = String(localized: "nav.rearm")
 
         // Waypoint Editor
         static let waypointName = String(localized: "nav.waypointName")

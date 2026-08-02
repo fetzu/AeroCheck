@@ -10,6 +10,8 @@ class FlightPlanManager: ObservableObject {
     @Published var flightPlans: [FlightPlan] = []
     @Published var activeFlightPlan: FlightPlan?
     @Published var chronometerElapsed: TimeInterval = 0
+    /// Set once at launch when an activation is retired by age; drives the notice banner. (v4.4.0)
+    @Published var expiredActivation: ExpiredActivation?
     /// Elapsed accumulated from completed run segments, so pause/resume preserves the leg time. (v4 UI/UX Revamp)
     private var chronometerAccumulated: TimeInterval = 0
 
@@ -283,6 +285,19 @@ class FlightPlanManager: ObservableObject {
         saveActiveFlightPlan()
     }
 
+    /// Whether the active plan has anything a deactivation would destroy.
+    ///
+    /// `activateFlightPlan` resets `currentWaypointIndex` and clears every `actualTimeOver`, so a
+    /// deactivate → re-activate round trip loses the waypoint times recorded on this flight. Before
+    /// departure there is nothing to lose; once the flight is under way there is. The UI asks for
+    /// confirmation exactly when this is true. (v4.4.0)
+    var activePlanHasRecordedProgress: Bool {
+        guard let plan = activeFlightPlan else { return false }
+        return plan.currentWaypointIndex > 0
+            || plan.chronometerStartTime != nil
+            || plan.waypoints.contains { $0.actualTimeOver != nil }
+    }
+
     /// Drop an activation that was made long ago and never flown. Call ONCE at launch, after flight
     /// restoration, and only when no flight is in progress.
     ///
@@ -298,8 +313,38 @@ class FlightPlanManager: ObservableObject {
         guard let activatedAt = plan.activatedAt else { return false }
         guard now.timeIntervalSince(activatedAt) > Self.activationLifetime else { return false }
         AppLog.general.debugLine("Expiring flight-plan activation from \(activatedAt) (never flown)")
+        // Remembered BEFORE deactivating, so the notice can name the plan and offer to re-arm it. An
+        // expiry is still the app changing state on its own — the same shape as the bug it replaced,
+        // only slower and better justified — so it says so instead of leaving an empty nav map to
+        // explain itself. (v4.4.0)
+        expiredActivation = ExpiredActivation(planId: plan.id, routeLabel: routeLabel(for: plan))
         deactivateFlightPlan()
         return true
+    }
+
+    /// A plan whose activation was retired at launch, pending a one-shot notice. Cleared when the
+    /// user acts on it or dismisses it.
+    struct ExpiredActivation: Equatable {
+        let planId: UUID
+        let routeLabel: String
+    }
+
+    /// Re-arm the plan whose activation just expired, if it is still around.
+    func rearmExpiredActivation() {
+        guard let expired = expiredActivation,
+              let plan = flightPlans.first(where: { $0.id == expired.planId }) else {
+            expiredActivation = nil
+            return
+        }
+        activateFlightPlan(plan)
+        expiredActivation = nil
+    }
+
+    /// `"LSGG → LSZS"`, else the plan's name — the same identity the plan list shows.
+    private func routeLabel(for plan: FlightPlan) -> String {
+        let names = plan.waypoints.map(\.name).filter { !$0.isEmpty }
+        if names.count >= 2, let first = names.first, let last = names.last { return "\(first) → \(last)" }
+        return plan.name.isEmpty ? (names.first ?? L10n.Nav.flightPlan) : plan.name
     }
 
     /// Deactivate the current flight plan

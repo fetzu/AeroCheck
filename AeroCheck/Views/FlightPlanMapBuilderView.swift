@@ -76,6 +76,7 @@ struct FlightPlanMapBuilderView: View {
     @State private var rightTab: RightTab = .waypoints
     @State private var profileCollapsed = false
     @State private var tripBannerDismissed = false   // v4.1.0 trip-aware prefetch banner
+    @State private var showDeactivateConfirm = false   // v4.4.0 — arm/disarm from the builder
     @State private var tripPrefetchFailed = false    // v4.4.0 — coverage still incomplete after a download
     @State private var tripSizeEstimate: TripDataSizeEstimator.Estimate?   // v4.4.0 — what the offer costs
     @State private var tripSizeEstimateKey = ""      // the missing-set the estimate above belongs to
@@ -275,23 +276,67 @@ struct FlightPlanMapBuilderView: View {
                 ToolbarItem(placement: .principal) {
                     if waypoints.count >= 1 { toolbarSummary }
                 }
-                // Two surfaced icon buttons (there's room on iPad): Nav Log + gold Export GPX. (#5 feedback)
+                // Arm the route you just drew, while it is still on screen. Without this, building a
+                // plan on a phone ends at Done → back to the list → find the row → Activate, or four
+                // taps through the nav-log sheet. (v4.4.0 device-test feedback)
+                //
+                // Icon-only on both sizes. A labelled variant was tried for iPad — a navigation bar
+                // renders a `Label` icon-only regardless, `.labelStyle(.titleAndIcon)` included — and
+                // it would have been the odd one out anyway beside the nav-log and export icons.
+                // The colour carries the state: green to arm, amber to disarm, matching the buttons
+                // in the plan list.
                 ToolbarItem(placement: .primaryAction) {
-                    Button { showTableEditor = true } label: {
-                        Image(systemName: "list.clipboard")
+                    Button { toggleActivation() } label: {
+                        Image(systemName: isPlanActive ? "airplane.arrival" : "airplane.departure")
+                            .foregroundColor(isPlanActive ? .aviationAmber : .aviationGreen)
                     }
                     .disabled(waypoints.isEmpty)
-                    .accessibilityLabel(L10n.Nav.navLog)
+                    .accessibilityLabel(isPlanActive ? L10n.Nav.deactivateFlightPlan : L10n.Nav.activateFlightPlan)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { exportGPX() } label: {
-                        Image(systemName: "square.and.arrow.up").foregroundColor(.aviationGold)
+                // Nav Log + Export GPX. Two surfaced icons on iPad, where there is room; folded into
+                // one overflow menu on iPhone, because Done + summary + Activate + two icons is one
+                // item too many — the principal route summary collapsed to "8 … · … · 1…". The
+                // summary is the more useful of the two, so the secondary actions give way.
+                if horizontalSizeClass == .compact {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button { showTableEditor = true } label: {
+                                Label(L10n.Nav.navLog, systemImage: "list.clipboard")
+                            }
+                            .disabled(waypoints.isEmpty)
+                            Button { exportGPX() } label: {
+                                Label(L10n.Nav.exportGPX, systemImage: "square.and.arrow.up")
+                            }
+                            .disabled(waypoints.count < 2)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .accessibilityLabel(L10n.DataStorage.rowActions)
                     }
-                    .disabled(waypoints.count < 2)
-                    .accessibilityLabel(L10n.Nav.exportGPX)
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { showTableEditor = true } label: {
+                            Image(systemName: "list.clipboard")
+                        }
+                        .disabled(waypoints.isEmpty)
+                        .accessibilityLabel(L10n.Nav.navLog)
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { exportGPX() } label: {
+                            Image(systemName: "square.and.arrow.up").foregroundColor(.aviationGold)
+                        }
+                        .disabled(waypoints.count < 2)
+                        .accessibilityLabel(L10n.Nav.exportGPX)
+                    }
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: focusToken)
+            .alert(L10n.Nav.deactivateConfirmTitle, isPresented: $showDeactivateConfirm) {
+                Button(L10n.Button.cancel, role: .cancel) { }
+                Button(L10n.Nav.deactivate, role: .destructive) { flightPlanManager.deactivateFlightPlan() }
+            } message: {
+                Text(L10n.Nav.deactivateConfirmMessage)
+            }
             .sheet(isPresented: $showTableEditor) {
                 if let plan {
                     FlightPlanEditorView(flightPlan: plan)
@@ -758,6 +803,23 @@ struct FlightPlanMapBuilderView: View {
             }
         }
         .background(Color.cockpitBackground)
+    }
+
+    private var isPlanActive: Bool { flightPlanManager.activeFlightPlan?.id == planId }
+
+    /// Arm or disarm this plan from the builder. Deactivation confirms only when there is recorded
+    /// progress to lose — same rule as the plan list. (v4.4.0)
+    private func toggleActivation() {
+        guard let plan else { return }
+        if isPlanActive {
+            if flightPlanManager.activePlanHasRecordedProgress {
+                showDeactivateConfirm = true
+            } else {
+                flightPlanManager.deactivateFlightPlan()
+            }
+        } else {
+            flightPlanManager.activateFlightPlan(plan)
+        }
     }
 
     private func toggleProfileCollapsed() {

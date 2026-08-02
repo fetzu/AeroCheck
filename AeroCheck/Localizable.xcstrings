@@ -7808,6 +7808,40 @@
         }
       }
     },
+    "home.flightPlanArmed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARMED"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ARMÉ"
+          }
+        }
+      }
+    },
+    "home.flightPlanWaypointCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d WP"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d WP"
+          }
+        }
+      }
+    },
     "home.lastFlight": {
       "extractionState": "manual",
       "localizations": {
@@ -8256,6 +8290,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activer le plan de vol"
+          }
+        }
+      }
+    },
+    "nav.activationExpiredMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ was activated more than three days ago and never flown."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a été armé il y a plus de trois jours et n’a jamais été volé."
+          }
+        }
+      }
+    },
+    "nav.activationExpiredTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight plan no longer armed"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan de vol désarmé"
           }
         }
       }
@@ -8792,6 +8860,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Désactiver"
+          }
+        }
+      }
+    },
+    "nav.deactivateConfirmMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The waypoint times already recorded on this flight will be cleared. Re-activating starts the plan again from the first waypoint."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les heures de passage déjà enregistrées pour ce vol seront effacées. Réactiver le plan le reprend depuis le premier point."
+          }
+        }
+      }
+    },
+    "nav.deactivateConfirmTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deactivate this flight plan?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactiver ce plan de vol ?"
           }
         }
       }
@@ -10410,6 +10512,23 @@
         }
       }
     },
+    "nav.rearm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-arm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réarmer"
+          }
+        }
+      }
+    },
     "nav.remarks": {
       "extractionState": "manual",
       "localizations": {
@@ -10537,6 +10656,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revenir à cette étape ?"
+          }
+        }
+      }
+    },
+    "nav.routeOffScreen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route %1$d NM · %2$@°"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route à %1$d NM · %2$@°"
           }
         }
       }
@@ -10740,6 +10876,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Afficher le profil"
+          }
+        }
+      }
+    },
+    "nav.showRoute": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher"
           }
         }
       }

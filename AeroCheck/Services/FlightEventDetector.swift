@@ -220,7 +220,11 @@ class FlightEventDetector: ObservableObject {
     /// `recordingInterval` is accepted for API compatibility; the v2 state machine uses
     /// wall-clock dwells throughout, so it needs no reading-count scaling.
     func configure(speeds: [SpeedReference], stallSpeed: Int, recordingInterval: TimeInterval = 5.0) {
-        speedConfig = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
+        let config = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
+        // An unresolved checklist (no speeds, stall 0) would collapse every threshold —
+        // taxiing at 6 kt would read as a takeoff roll. Fall back to the validated
+        // defaults; they are aircraft-agnostic enough for every type in the fleet.
+        speedConfig = (config.vsoKts > 0 && config.vrKts > 0) ? config : .defaults
         AppLog.flightEvents.debugLine("Configured v2: Vso=\(Int(speedConfig.vsoKts)) Vr=\(Int(speedConfig.vrKts)) → touchdown<\(Int(speedConfig.touchdownSpeedKts)) kt, rollout dip<\(Int(speedConfig.rolloutSpeedKts)) kt")
     }
 

@@ -65,6 +65,10 @@ class LocationManager: NSObject, ObservableObject {
     private weak var appState: AppState?
     private weak var airportDataService: AirportDataService?
     private weak var flightEventDetector: FlightEventDetector?
+    /// Relative barometric altitude, started/stopped with GPS tracking. Recorded on every
+    /// GPSPoint and fed to the flight-event detector as its preferred vertical reference.
+    /// Inert on devices without a barometer (and on the simulator).
+    private let barometer = BarometricAltitudeService()
     /// The resolved checklist for the active flight, used to configure the event detector with
     /// the right aircraft's speeds. Captured at `startTracking` so it never reads global state.
     private var activeChecklist: ActiveChecklist?
@@ -220,6 +224,11 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.allowsBackgroundLocationUpdates = true
         applyGPSPriority(appState.settings.gpsPriority)
         locationManager.startUpdatingLocation()
+        // Barometric altitude rides along with GPS tracking: recorded on every GPSPoint and
+        // consumed by the flight-event detector as its vertical reference. Inert on devices
+        // without a barometer (and on the simulator). CoreMotion keeps delivering in the
+        // background while the location background session above is active.
+        barometer.start()
         startSignalCheckTimer()
         requestAlwaysUpgradeIfNeeded()
         updateBackgroundTrackingLimited()
@@ -252,6 +261,14 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.allowsBackgroundLocationUpdates = false
         locationManager.stopUpdatingLocation()
         stopSignalCheckTimer()
+        barometer.stop()
+        // End-of-flight flush: a landing in progress when recording stops is still a landing.
+        // Six of the 53 corpus flights stop recording seconds after vacating the runway — the
+        // stillness dwell never completes and the flight's only landing would be lost. Must run
+        // BEFORE reset() and before appState is dropped (stopTracking precedes endFlight()).
+        if let flushed = flightEventDetector?.flushEndOfFlight() {
+            appState?.applyEndOfFlightLanding(flushed)
+        }
         appState = nil
         airportDataService = nil
         flightEventDetector?.reset()
@@ -765,7 +782,9 @@ class LocationManager: NSObject, ObservableObject {
         if shouldRecord, fixIsUsable, let appState = appState {
             // A borrowed companion fix carries the peer device's clock; re-stamp it with our own clock
             // (`now`) so the recorded track and the flight events stay in one clock domain. (v4.1.0)
-            let point = GPSPoint(from: location, timestampOverride: isOwnFix ? nil : now)
+            let point = GPSPoint(from: location,
+                                 timestampOverride: isOwnFix ? nil : now,
+                                 baroAltitude: barometer.rawRelativeAltitudeM)
             appState.addGPSPoint(point, airportDataService: airportDataService)
             lastRecordedTime = now
         }
@@ -795,13 +814,16 @@ class LocationManager: NSObject, ObservableObject {
                 hasNotifiedTakeoffTime = true
             }
 
-            // Get nearby airports for event detection
+            // Get nearby airports for event detection. Fixed-wing only: the v2 detector's
+            // altitude anchor must never land on a heliport or closed strip (its "AGL"
+            // flapped ±440 ft at LSZQ when it did — failure mechanism M4).
             let nearbyAirports = airportService.findNearestAirports(
                 to: location.coordinate,
                 limit: 3,
-                maxDistanceNm: 5.0
+                maxDistanceNm: 5.0,
+                types: AirportType.fixedWing
             )
-            detector.processLocation(location, nearbyAirports: nearbyAirports)
+            detector.processLocation(location, nearbyAirports: nearbyAirports, baroSample: barometer.currentSample)
         }
     }
 }

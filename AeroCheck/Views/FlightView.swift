@@ -482,35 +482,40 @@ struct FlightView: View {
                             onEngineShutdown: { performEngineShutdown() },
                             onEngineShutdownUpdate: { performEngineShutdownUpdate() },
                             onGoAround: {
-                                appState.recordGoAround()
-                                flightEventDetector.notifyManualEvent(.goAround) // PR-07: suppress a duplicate auto-detect
+                                // PR-07: notify first so the detector suppresses a duplicate
+                                // auto-detect; it returns the physical timestamp (approach low
+                                // point) when it knows one, so the record carries the real time.
+                                let physicalTime = flightEventDetector.notifyManualEvent(.goAround)
+                                appState.recordGoAround(at: physicalTime)
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
                             onTouchAndGo: {
-                                appState.recordTouchAndGo()
-                                flightEventDetector.notifyManualEvent(.touchAndGo) // PR-07
+                                let physicalTime = flightEventDetector.notifyManualEvent(.touchAndGo) // PR-07
+                                appState.recordTouchAndGo(at: physicalTime)
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
                             onFullStop: {
-                                appState.recordFullStop()
-                                flightEventDetector.notifyManualEvent(.fullStop) // PR-07
+                                let physicalTime = flightEventDetector.notifyManualEvent(.fullStop) // PR-07
+                                appState.recordFullStop(at: physicalTime)
                                 // Reset UI state since we're jumping to a new phase
                                 pulseActionButton = false
                                 pulseNextButton = false
                                 allItemsChecked = false
                             },
                             onLanded: {
-                                appState.recordLanding()
                                 // PR-07: notify the detector so it doesn't emit a duplicate full stop
                                 // ~40 s later (dismissFullStop only cleared an already-pending event;
                                 // a LANDED tap while vacating fires the pending full stop afterwards).
-                                flightEventDetector.notifyManualEvent(.fullStop)
+                                // The detector returns the real touchdown time when a rollout is in
+                                // progress — that, not "now minus a minute", becomes the landing time.
+                                let physicalTime = flightEventDetector.notifyManualEvent(.fullStop)
+                                appState.recordLanding(at: physicalTime)
                                 pulseActionButton = false
                                 // Now pulse NEXT button if all items checked
                                 if allItemsChecked {
@@ -979,24 +984,24 @@ struct FlightView: View {
     // These mirror the in-checklist event callbacks exactly (record + PR-07 manual-event dedup), so
     // the HUD buttons and the checklist buttons log identically — no double-counting. (v4 UI/UX Revamp)
     private func performGoAround() {
-        appState.recordGoAround()
-        flightEventDetector.notifyManualEvent(.goAround)
+        let physicalTime = flightEventDetector.notifyManualEvent(.goAround)
+        appState.recordGoAround(at: physicalTime)
         pulseActionButton = false
         pulseNextButton = false
         allItemsChecked = false
     }
 
     private func performTouchAndGo() {
-        appState.recordTouchAndGo()
-        flightEventDetector.notifyManualEvent(.touchAndGo)
+        let physicalTime = flightEventDetector.notifyManualEvent(.touchAndGo)
+        appState.recordTouchAndGo(at: physicalTime)
         pulseActionButton = false
         pulseNextButton = false
         allItemsChecked = false
     }
 
     private func performLanded() {
-        appState.recordLanding()
-        flightEventDetector.notifyManualEvent(.fullStop)
+        let physicalTime = flightEventDetector.notifyManualEvent(.fullStop)
+        appState.recordLanding(at: physicalTime)
         pulseActionButton = false
     }
 

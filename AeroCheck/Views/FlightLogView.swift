@@ -4295,6 +4295,19 @@ struct FlightShareCard: View {
                     color: .altimeterBlue
                 )
             }
+
+            // Stop-and-gos (decision D1): every non-final full stop is a stop-and-go — the
+            // aircraft stopped ≥10 s on the runway and took off again (another landing can
+            // only follow after flying again). They COUNT as full stops for EASA currency;
+            // the label preserves the intent in the log detail.
+            if flight.fullStopCount > 1 {
+                bottomStatItem(
+                    icon: "stop.circle",
+                    value: "\(flight.fullStopCount - 1)",
+                    label: "STOP & GO",
+                    color: .aviationAmber
+                )
+            }
         }
         .padding(.vertical, 16)
         .padding(.horizontal, 8)

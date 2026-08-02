@@ -32,6 +32,27 @@ final class ActiveFlightStatePersistenceTests: XCTestCase {
         )
     }
 
+    /// A checkpoint write queued just before the clear must never resurrect the file.
+    ///
+    /// `persistActiveFlightState` writes on a background serial queue (PR-12);
+    /// `clearActiveFlightState` used to delete the file immediately, so a write queued
+    /// moments earlier landed AFTER the delete and brought the checkpoint back. In
+    /// production that resurrects a CANCELLED flight as a phantom "Flight Restored" on
+    /// next launch (RES-12 only guards flights that reached endFlight()); in the test
+    /// host it leaked phantom checkpoints into the shared simulator container — observed
+    /// live 2026-08-02 as a restored 1970-epoch flight from BlockTimeBackdatingTests,
+    /// which does call cancelFlight() and still leaked. The clear now flushes the queue
+    /// first, making it a strict barrier.
+    func testClearWinsOverQueuedCheckpointWrite() {
+        let appState = AppState()
+        startWT9Flight(on: appState)
+        appState.recordEngineStart()          // checkpointActiveFlight(force:) → ASYNC write queued
+        appState.cancelFlight()               // clear must flush the queue before deleting
+        appState.flushPendingCheckpoint()     // drain anything that could still be in flight
+        XCTAssertFalse(appState.hasActiveFlightState,
+                       "a queued checkpoint write must never resurrect a cleared checkpoint")
+    }
+
     /// Encode → decode → restore preserves the flight, phase, and the typed status/highlight maps.
     func testSnapshotRoundTripPreservesState() throws {
         let source = AppState()

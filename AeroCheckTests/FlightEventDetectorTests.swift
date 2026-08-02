@@ -354,6 +354,9 @@ final class BlockTimeBackdatingTests: XCTestCase {
 
     private func startedAppState() -> AppState {
         let appState = AppState()
+        // AppState.init restores any checkpoint left in the shared simulator container —
+        // neutralize an inherited phantom flight so this test starts from a clean slate.
+        appState.cancelFlight()
         appState.settings.selectedRemoteAircraftId = nil
         appState.settings.selectedAircraft = .wt9Dynamic
         appState.startFlight(

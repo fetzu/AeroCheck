@@ -1846,6 +1846,16 @@ class AppState {
 
     /// Clear the saved active flight state (file + pointer + legacy blob).
     func clearActiveFlightState() {
+        // Flush the checkpoint queue FIRST: `persistActiveFlightState` writes asynchronously
+        // (PR-12), so a checkpoint queued moments before this clear (e.g. the forced write on
+        // block-off detection, seconds before the pilot abandons the flight) would otherwise
+        // land AFTER the delete and resurrect the checkpoint — and a resurrected checkpoint
+        // for a CANCELLED flight is restored on next launch as a phantom "Flight Restored"
+        // (the RES-12 already-saved guard only covers flights that reached endFlight()).
+        // The serial queue makes this a strict barrier; the write closure never blocks back
+        // on the main actor, so a main-actor sync here cannot deadlock. Cost is at most one
+        // slim (PERF-29) metadata encode + write, on flight-end paths only.
+        flushPendingCheckpoint()
         persistence.clearActiveFlightStateFile()
         UserDefaults.standard.removeObject(forKey: activeFlightPointerKey)
         UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)

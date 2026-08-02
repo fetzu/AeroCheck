@@ -91,6 +91,21 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // v4.4.0: an activation retired by age says so, with a one-tap way to put it back.
+                // Never during a flight — the expiry cannot fire then, and a banner over the HUD would
+                // be exactly the wrong moment.
+                if let expired = flightPlanManager.expiredActivation, !appState.isFlightActive {
+                    VStack {
+                        ActivationExpiredBanner(
+                            routeLabel: expired.routeLabel,
+                            onRearm: { flightPlanManager.rearmExpiredActivation() },
+                            onDismiss: { flightPlanManager.expiredActivation = nil }
+                        )
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
                 if dataStatusManager.showStaleNudge && !appState.isFlightActive && appState.settings.hasCompletedOnboarding {
                     VStack {
@@ -256,6 +271,24 @@ struct ContentView: View {
 
 // MARK: - Language Fallback Banner
 
+/// Caps a top banner's width and centres it.
+///
+/// These banners are full-width overlays, which on a 13" iPad turns a minor notice into a wall.
+/// 620 pt is the same measure Home uses for its hero column, so a banner lines up with the content
+/// underneath it instead of spanning the whole slab. Below that width nothing changes, so the phone
+/// is untouched. (v4.4.0)
+private struct AppBannerWidth: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: 620)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+extension View {
+    func appBannerWidth() -> some View { modifier(AppBannerWidth()) }
+}
+
 /// A non-blocking top banner shown when a checklist was served in a language other than the one
 /// requested. Auto-dismisses after a few seconds and is tappable to dismiss early. (PR-41 / UX-08)
 struct LanguageFallbackBanner: View {
@@ -275,6 +308,7 @@ struct LanguageFallbackBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
+        .appBannerWidth()
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
@@ -286,6 +320,69 @@ struct LanguageFallbackBanner: View {
             try? await Task.sleep(for: .seconds(6))
             onDismiss()
         }
+    }
+}
+
+/// Shown once when a flight-plan activation is retired by age (`FlightPlanManager.activationLifetime`).
+///
+/// Carries actions rather than just words: the pilot who left a plan armed on Friday and opens the app
+/// on Monday morning almost certainly still wants it, so re-arming is one tap and does not send them
+/// back through the plan list. No auto-dismiss — this reports a state change, and a notice you might
+/// not have seen is no better than the silence it replaced. (v4.4.0)
+struct ActivationExpiredBanner: View {
+    let routeLabel: String
+    let onRearm: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "airplane.arrival")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.aviationAmber)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.Nav.activationExpiredTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(L10n.Nav.activationExpiredMessage(routeLabel))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button(action: onRearm) {
+                        Text(L10n.Nav.rearm)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.aviationGreen)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.16))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationGreen.opacity(0.45), lineWidth: 1)))
+                            .contentShape(Rectangle())
+                    }
+                    Button(action: onDismiss) {
+                        Text(L10n.Button.close)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+                            .contentShape(Rectangle())
+                    }
+                }
+                .padding(.top, 3)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.aviationAmber.opacity(0.45), lineWidth: 1))
+        )
+        .appBannerWidth()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
     }
 }
 
@@ -308,6 +405,7 @@ struct DataFreshnessNudgeBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color.aviationAmber, in: RoundedRectangle(cornerRadius: 12))
+        .appBannerWidth()
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .shadow(color: .black.opacity(0.3), radius: 6, y: 3)

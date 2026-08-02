@@ -34,6 +34,7 @@ final class OpenAIPNavaidDataService: ObservableObject {
         directoryName: "OpenAIPNavaidData",
         filePrefix: "navaids",
         endpointSuffix: "nav",
+        restPath: "navaids",
         logLabel: "Navaid",
         parse: Navaid.parse(geoJSON:))
 
@@ -97,6 +98,10 @@ final class OpenAIPNavaidDataService: ObservableObject {
         lastUpdated = result.summary.lastUpdated
         isDataAvailable = result.summary.isDataAvailable
         isLoaded = true
+        // A country no source could serve is reported, not swallowed. Silence here is what let the
+        // trip-prefetch banner re-offer a download that had just failed, with nothing on screen to
+        // say so. (device-test feedback, v4.4.0)
+        downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
     }
 
     // MARK: - Queries

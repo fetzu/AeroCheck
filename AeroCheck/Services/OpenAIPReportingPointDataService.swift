@@ -32,6 +32,7 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         directoryName: "OpenAIPReportingPointData",
         filePrefix: "reportingpoints",
         endpointSuffix: "rpp",
+        restPath: "reporting-points",
         logLabel: "Reporting-point",
         parse: ReportingPoint.parse(geoJSON:))
 
@@ -92,6 +93,10 @@ final class OpenAIPReportingPointDataService: ObservableObject {
         lastUpdated = result.summary.lastUpdated
         isDataAvailable = result.summary.isDataAvailable
         isLoaded = true
+        // A country no source could serve is reported, not swallowed. Silence here is what let the
+        // trip-prefetch banner re-offer a download that had just failed, with nothing on screen to
+        // say so. (device-test feedback, v4.4.0)
+        downloadError = result.failedCountries.isEmpty ? nil : result.failedCountries.joined(separator: ", ")
     }
 
     // MARK: - Queries

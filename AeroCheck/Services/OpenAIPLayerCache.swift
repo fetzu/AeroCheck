@@ -46,12 +46,16 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     struct DownloadResult {
         let features: [Feature]
         let summary: Summary
+        /// Countries no source could serve. Callers surface this instead of silently re-offering a
+        /// download button that cannot succeed. (v4.4.0)
+        var failedCountries: [String] = []
     }
 
     private let fileManager = FileManager.default
     private let directoryName: String
     private let filePrefix: String
     private let endpointSuffix: String
+    private let restPath: String
     private let logLabel: String
     private let parse: (Data) throws -> [Feature]
 
@@ -59,17 +63,21 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     ///   - directoryName: Application Support subdirectory (e.g. `"OpenAIPNavaidData"`).
     ///   - filePrefix: per-country file prefix (e.g. `"navaids"` → `navaids_CH.json`).
     ///   - endpointSuffix: GeoJSON-export layer suffix (e.g. `"nav"` → `ch_nav.geojson`).
+    ///   - restPath: core-API collection for the same layer (e.g. `"navaids"`), used as the fallback
+    ///     when the export bucket refuses the request.
     ///   - logLabel: prefix for the per-country download-failure debug line (kept verbatim from
     ///     each service's previous message, e.g. `"Navaid"` / `"OpenAIP airport"`).
     ///   - parse: the layer's GeoJSON parser (e.g. `Navaid.parse(geoJSON:)`).
     init(directoryName: String,
          filePrefix: String,
          endpointSuffix: String,
+         restPath: String,
          logLabel: String,
          parse: @escaping (Data) throws -> [Feature]) {
         self.directoryName = directoryName
         self.filePrefix = filePrefix
         self.endpointSuffix = endpointSuffix
+        self.restPath = restPath
         self.logLabel = logLabel
         self.parse = parse
     }
@@ -134,16 +142,16 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
             .flatMap { try? JSONDecoder().decode(OpenAIPLayerCacheMetadata.self, from: $0) } ?? OpenAIPLayerCacheMetadata()
         var allLoaded: [Feature] = []
 
+        var failed: [String] = []
         for (index, country) in countries.enumerated() {
-            let cc = country.lowercased()
-            guard let url = URL(string: "\(OpenAIPConfig.geoJSONExportBaseURL)/\(cc)_\(endpointSuffix).geojson") else { continue }
             do {
-                let (data, response) = try await ExternalRequest.data(from: url)
-                guard response.statusCode == 200 else {
-                    appendExistingCache(for: country, into: &allLoaded)
-                    continue
+                // Bucket first (one request), core API second (paged). See `fetchViaCoreAPI`.
+                let parsed: [Feature]
+                if let fromBucket = try await fetchViaExportBucket(country: country) {
+                    parsed = fromBucket
+                } else {
+                    parsed = try await fetchViaCoreAPI(country: country)
                 }
-                let parsed = try parse(data)
                 let encoded = try JSONEncoder().encode(parsed)
                 try encoded.write(to: featureFileURL(for: country), options: .atomic)
                 metadata.counts[country] = parsed.count
@@ -151,6 +159,7 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
                 allLoaded.append(contentsOf: parsed)
             } catch {
                 AppLog.openAIP.debugLine("\(logLabel) download failed for \(country): \(error)")
+                failed.append(country)
                 appendExistingCache(for: country, into: &allLoaded)
             }
             onProgress(Double(index + 1) / Double(countries.count))
@@ -165,7 +174,83 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
         if let metaEncoded = try? JSONEncoder().encode(metadata) {
             try? metaEncoded.write(to: metadataFileURL, options: .atomic)
         }
-        return DownloadResult(features: allLoaded, summary: Summary(metadata: metadata))
+        return DownloadResult(features: allLoaded, summary: Summary(metadata: metadata),
+                              failedCountries: failed)
+    }
+
+    // MARK: - Sources
+
+    /// The keyless per-country GeoJSON export. Returns nil — rather than throwing — when the bucket
+    /// refuses the request, so the caller moves on to the core API instead of recording a failure.
+    private func fetchViaExportBucket(country: String) async throws -> [Feature]? {
+        let cc = country.lowercased()
+        guard let url = URL(string: "\(OpenAIPConfig.geoJSONExportBaseURL)/\(cc)_\(endpointSuffix).geojson") else { return nil }
+        do {
+            let (data, response) = try await ExternalRequest.data(from: url)
+            guard response.statusCode == 200 else {
+                AppLog.openAIP.debugLine("\(logLabel) export bucket returned \(response.statusCode) for \(country); trying core API")
+                return nil
+            }
+            return try parse(data)
+        } catch {
+            AppLog.openAIP.debugLine("\(logLabel) export bucket unreachable for \(country) (\(error)); trying core API")
+            return nil
+        }
+    }
+
+    /// The authenticated core REST API, paged, reshaped into the export's FeatureCollection form.
+    ///
+    /// This exists because the export bucket went Requester Pays in July 2026 and now 400s every
+    /// anonymous read (see `OpenAIPConfig.geoJSONExportBaseURL`) — which silently took navaids,
+    /// obstacles, reporting points and OpenAIP airports out of the app while airspace, alone in coming
+    /// from the REST API, kept working. That asymmetry is what made "Download data" spin for ten
+    /// seconds and leave the banner up.
+    ///
+    /// No new parsers: a core-API item is a GeoJSON feature turned inside out — the same property keys
+    /// at the top level, with `geometry` beside them instead of wrapping them. Rebuilding the
+    /// FeatureCollection shape is a re-nesting, so every layer keeps its existing lossy, hardened
+    /// decoder rather than gaining a second one to keep in sync.
+    private func fetchViaCoreAPI(country: String) async throws -> [Feature] {
+        var items: [Any] = []
+        var page = 1
+        while page <= OpenAIPConfig.layerMaxPages {
+            let urlString = "\(OpenAIPConfig.coreAPIBaseURL)/\(restPath)"
+                + "?country=\(country)&limit=\(OpenAIPConfig.layerPageLimit)&page=\(page)"
+            guard let url = URL(string: urlString) else { throw OpenAIPLayerCacheError.invalidURL }
+            var request = URLRequest(url: url)
+            request.setValue(OpenAIPConfig.apiKey, forHTTPHeaderField: OpenAIPConfig.apiKeyHeader)
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            let (data, response) = try await ExternalRequest.data(for: request)
+            guard response.statusCode == 200 else {
+                throw OpenAIPLayerCacheError.apiError(statusCode: response.statusCode)
+            }
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let pageItems = object["items"] as? [Any] else {
+                throw OpenAIPLayerCacheError.malformedResponse
+            }
+            items.append(contentsOf: pageItems)
+            let totalPages = (object["totalPages"] as? Int) ?? page
+            if page >= totalPages { break }
+            page += 1
+        }
+
+        return try parse(Self.featureCollectionData(fromCoreAPIItems: items))
+    }
+
+    /// Re-nests core-API items into the export's FeatureCollection shape.
+    ///
+    /// Pure and `nonisolated` so it can be tested against real payloads without a network or an actor
+    /// hop. An item without a `geometry` is dropped here rather than reaching the parser as a feature
+    /// it would have to reject — matching the export's own lossy-per-feature contract.
+    nonisolated static func featureCollectionData(fromCoreAPIItems items: [Any]) throws -> Data {
+        let features = items.compactMap { item -> [String: Any]? in
+            guard let properties = item as? [String: Any],
+                  let geometry = properties["geometry"] else { return nil }
+            return ["type": "Feature", "properties": properties, "geometry": geometry]
+        }
+        let collection: [String: Any] = ["type": "FeatureCollection", "features": features]
+        return try JSONSerialization.data(withJSONObject: collection)
     }
 
     private func appendExistingCache(for country: String, into accumulator: inout [Feature]) {
@@ -179,5 +264,19 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
 
     func deleteData() {
         try? fileManager.removeItem(at: dataDirectory)
+    }
+}
+
+enum OpenAIPLayerCacheError: LocalizedError {
+    case invalidURL
+    case apiError(statusCode: Int)
+    case malformedResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "Invalid OpenAIP URL"
+        case .apiError(let statusCode): return "OpenAIP API error \(statusCode)"
+        case .malformedResponse: return "Malformed OpenAIP response"
+        }
     }
 }

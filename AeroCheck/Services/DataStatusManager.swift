@@ -232,6 +232,32 @@ final class DataStatusManager: ObservableObject {
         }
     }
 
+    /// The same gap, split by layer, so the download can be sized before it is offered. Coverage is
+    /// per-layer — a device can hold Swiss airspace and no Swiss obstacles — and quoting the size of
+    /// data already on disk would overstate what the button is about to do. (v4.4.0)
+    func tripCountriesNeedingDataByLayer(routeCountries: [String]) -> [TripDataSizeEstimator.Layer: [String]] {
+        var result: [TripDataSizeEstimator.Layer: [String]] = [:]
+        for provider in providers {
+            guard let layer = Self.sizedLayer(forProviderID: provider.id),
+                  let coverage = provider.perCountryCoverage else { continue }
+            let missing = routeCountries.filter { !coverage.contains($0) }
+            if !missing.isEmpty { result[layer] = missing }
+        }
+        return result
+    }
+
+    /// Provider id → the layer the size estimator knows how to price. Providers with no entry (map
+    /// tiles, the OurAirports database) are not part of the trip top-up and carry no per-country cost.
+    private static func sizedLayer(forProviderID id: String) -> TripDataSizeEstimator.Layer? {
+        switch id {
+        case "openaip.airspace": return .airspace
+        case "openaip.navaids": return .navaids
+        case "openaip.obstacles": return .obstacles
+        case "openaip.reportingpoints": return .reportingPoints
+        default: return nil
+        }
+    }
+
     /// Download the given countries (merged with each layer's existing cache) across every per-country
     /// layer, then recompute. Heavy tile layers opt out via the default no-op. This is an explicit,
     /// user-initiated action, so it isn't subject to the silent-refresh network gate.

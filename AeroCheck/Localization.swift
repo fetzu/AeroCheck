@@ -83,6 +83,7 @@ enum L10n {
         static let sourceWind = String(localized: "Surface wind (Switzerland) · © MeteoSwiss")
         static let sourceElevation = String(localized: "Terrain elevation & winds aloft · Open-Meteo (CC BY 4.0), © swisstopo")
         static let sourceObservations = String(localized: "METAR / TAF / SIGMET · NOAA Aviation Weather Center, public domain")
+        static let sourceBorders = String(localized: "National borders (trip data coverage) · Natural Earth, public domain")
         static let navaidsName = String(localized: "Navaids")
         static let navaidsDetail = String(localized: "OpenAIP · VOR / DME / NDB radio navigation aids")
         static let showNavaidsOnMap = String(localized: "Show navaids on map")
@@ -92,6 +93,20 @@ enum L10n {
         static let reportingPointsName = String(localized: "Reporting points")
         static let reportingPointsDetail = String(localized: "OpenAIP · VFR reporting points")
         static let showReportingPointsOnMap = String(localized: "Show reporting points on map")
+        /// Lower-case layer name for the trip-size breakdown ("29 841 obstacles · 152 navaids").
+        ///
+        /// Reuses the row titles, which are already plural and read correctly after a count in both
+        /// languages — except the airspace row, which is the singular mass noun "Airspace" /
+        /// "Espace aérien" and would produce "1 557 airspace". That one gets its own countable form.
+        /// (v4.4.0)
+        static func layerName(_ layer: TripDataSizeEstimator.Layer) -> String {
+            switch layer {
+            case .airspace: return String(localized: "dataStorage.countAirspaces")
+            case .navaids: return navaidsName.lowercased()
+            case .obstacles: return obstaclesName.lowercased()
+            case .reportingPoints: return reportingPointsName.lowercased()
+            }
+        }
         static let tripSection = String(localized: "Trip data")
         static let tripFooter = String(localized: "Your active flight plan crosses areas without downloaded data:")
         static let tripDownload = String(localized: "Download data for this trip")

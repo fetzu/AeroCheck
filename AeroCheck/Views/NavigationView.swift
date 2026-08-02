@@ -111,6 +111,14 @@ class SharedMapState: ObservableObject {
     @Published var cameraHeading: Double = 0
     // Flag to indicate a heading reset was requested (user tapped compass)
     var pendingHeadingReset: Bool = false
+    /// Coordinates the map should frame on its next update (user tapped "Show" on the off-screen
+    /// route pill). Consumed by the representables, same idiom as `pendingHeadingReset`.
+    ///
+    /// It has to be done map-side rather than by computing a region here: fitting a bounding box into
+    /// a viewport depends on the viewport's aspect ratio, and only `setVisibleMapRect(edgePadding:)`
+    /// knows it. Deriving a camera distance from the route's extent framed a 200 NM east–west route
+    /// as if it were 20 NM tall and zoomed into the middle of it. (v4.4.0)
+    var pendingFitCoordinates: [CLLocationCoordinate2D]?
 
     init() {
         // Default to Switzerland center
@@ -410,6 +418,14 @@ struct NavigationMapView: View {
                 // Standard layout for large devices or when no flight plan
                 standardLayoutBody(geometry: geometry)
             }
+        }
+        // Attached ONCE here rather than inside each layout body: the two bodies don't share an
+        // overlay stack, and the pill is identical on both — only the top inset differs, because the
+        // compact bar is taller than the regular one. (v4.4.0)
+        .overlay(alignment: .top) {
+            routeOffScreenPill
+                .padding(.top, shouldUseCompactLayout ? 104 : 92)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: routeOffScreenHint) // (UX-18)
         }
         .preferredColorScheme(.dark)
         // Immersive full-screen map: hide the system status bar so the top chrome (airspace / layer)
@@ -2526,6 +2542,68 @@ struct NavigationMapView: View {
         return String(format: "%.1f NM", dist)
     }
 
+    // MARK: - Off-screen route (v4.4.0)
+
+    /// Where the armed route is, when none of it is on the map. nil the moment any of it is visible,
+    /// so this never nags in flight.
+    ///
+    /// Computed rather than cached: it is a pure function of the plan and the region, and re-deriving
+    /// it costs a handful of segment tests against a map that is redrawing chart tiles anyway. Caching
+    /// it would mean observing `mapState.region`, which changes on every pan.
+    private var routeOffScreenHint: RouteVisibility.OffScreenHint? {
+        guard appState.settings.enableFlightPlanning,
+              let plan = flightPlanManager.activeFlightPlan,
+              !flightPlanManager.isFlightPlanCompleted else { return nil }
+        return RouteVisibility.offScreenHint(route: plan.waypoints.map(\.coordinate),
+                                             region: mapState.region)
+    }
+
+    /// The pill itself. Shared by both layouts — the map opening on the aircraft with the route
+    /// somewhere else is not an iPhone-only situation, it is just far more common there because the
+    /// viewport is smaller. (v4.4.0 device-test feedback)
+    @ViewBuilder
+    private var routeOffScreenPill: some View {
+        if let hint = routeOffScreenHint {
+            Button { fitActiveRoute() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(theme.action)
+                    Text(L10n.Nav.routeOffScreen(Int(hint.distanceNm.rounded()), hint.bearingLabel))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(theme.textPrimary)
+                    Text(L10n.Nav.showRoute)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(theme.action)
+                }
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)   // 44 pt like every other control on this map
+                .floatingChromeBackground(cornerRadius: 22)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .strokeBorder(theme.action.opacity(0.45), lineWidth: 1)
+                )
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    /// Frame the whole active route, and stop following the aircraft — the pilot asked to look
+    /// somewhere else, so snapping straight back would undo the tap.
+    private func fitActiveRoute() {
+        guard let plan = flightPlanManager.activeFlightPlan else { return }
+        let coordinates = plan.waypoints.map(\.coordinate).filter { CLLocationCoordinate2DIsValid($0) }
+        guard !coordinates.isEmpty else { return }
+        // Stop following the aircraft first: the pilot asked to look somewhere else, and snapping
+        // straight back would undo the tap. Then hand the framing to the map, which is the only party
+        // that knows the viewport's aspect ratio.
+        isFollowingAircraft = false
+        mapState.pendingFitCoordinates = coordinates
+        mapState.objectWillChange.send()   // the fit flag isn't @Published; nudge updateUIView
+    }
+
     // MARK: - Actions
 
     private func centerOnAircraft() {
@@ -3011,6 +3089,30 @@ struct NativeMapViewUIKit: UIViewRepresentable {
                 heading: 0
             )
             mapView.setCamera(camera, animated: true)
+            return
+        }
+
+        // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
+        // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
+        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+            mapState.pendingFitCoordinates = nil
+            let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
+            let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+            mapView.setVisibleMapRect(union,
+                                      edgePadding: UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50),
+                                      animated: false)
+            // Sync the shared state to what the map now shows. Without this the next update pass sees
+            // a changed region alongside the PRE-FIT `cameraDistance` and re-applies that camera,
+            // silently undoing the fit — which looked like "Show" zooming into the middle of the route
+            // instead of framing it. Non-animated for the same reason: nothing may observe an
+            // in-between state and write it back.
+            //
+            // On the swisstopo layers the result is CENTRED but may not be fully contained:
+            // `cameraZoomRange` caps zoom-out at 600 km because the chart tiles stop existing beyond
+            // it, and a long east–west route in a portrait viewport needs more than that. That is the
+            // layer's limit, not a framing bug — the route ends up under the pilot's thumb either way.
+            mapState.cameraDistance = mapView.camera.centerCoordinateDistance
+            mapState.updateFromRegion(mapView.region)
             return
         }
 
@@ -4197,6 +4299,30 @@ struct SwissMapView: UIViewRepresentable {
                 heading: 0
             )
             mapView.setCamera(camera, animated: true)
+            return
+        }
+
+        // Frame the whole active route ("Show" on the off-screen route pill). MapKit does the
+        // aspect-ratio maths; the top inset clears the floating chrome, as the builder's fit does.
+        if let fit = mapState.pendingFitCoordinates, !fit.isEmpty {
+            mapState.pendingFitCoordinates = nil
+            let rects = fit.map { MKMapRect(origin: MKMapPoint($0), size: MKMapSize(width: 0, height: 0)) }
+            let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+            mapView.setVisibleMapRect(union,
+                                      edgePadding: UIEdgeInsets(top: 130, left: 50, bottom: 130, right: 50),
+                                      animated: false)
+            // Sync the shared state to what the map now shows. Without this the next update pass sees
+            // a changed region alongside the PRE-FIT `cameraDistance` and re-applies that camera,
+            // silently undoing the fit — which looked like "Show" zooming into the middle of the route
+            // instead of framing it. Non-animated for the same reason: nothing may observe an
+            // in-between state and write it back.
+            //
+            // On the swisstopo layers the result is CENTRED but may not be fully contained:
+            // `cameraZoomRange` caps zoom-out at 600 km because the chart tiles stop existing beyond
+            // it, and a long east–west route in a portrait viewport needs more than that. That is the
+            // layer's limit, not a framing bug — the route ends up under the pilot's thumb either way.
+            mapState.cameraDistance = mapView.camera.centerCoordinateDistance
+            mapState.updateFromRegion(mapView.region)
             return
         }
 

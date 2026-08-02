@@ -1254,14 +1254,20 @@ struct SpeedGridView: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
             ForEach(speedItems, id: \.label) { item in
-                HStack {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    // Two columns on an iPhone leave ~150 pt per cell, and the French labels
+                    // ("Meilleur taux de montée") are far wider than that — so the label wraps and the
+                    // speed, which is short and must stay whole, never gives up a character.
+                    // (device-test feedback, v4.4.0)
                     Text(item.label)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(theme.textSecondary)
-                    Spacer()
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                     Text(item.value)
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
                         .foregroundColor(item.value == L10n.Briefing.speedNA ? theme.textDim : theme.onTarget)
+                        .fixedSize()
                 }
                 .padding(.vertical, 4)
             }
@@ -1288,15 +1294,20 @@ struct RunwayRowView: View {
                 Text(runway.identifier)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(isSuggested ? theme.action : theme.textPrimary)
+                    .fixedSize()
 
                 Text("-")
                     .foregroundColor(theme.textDim)
+                    .fixedSize()
 
+                // Wraps rather than truncating: a long surface/lighting string must stay readable on a
+                // narrow screen, like every other briefing line. (device-test feedback, v4.4.0)
                 Text(runway.descriptionString)
                     .font(.system(size: 12))
                     .foregroundColor(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Spacer()
+                Spacer(minLength: 0)
             }
 
             // OpenAIP extras (PCN + declared distances), only when present. Indented under the runway id.
@@ -1304,6 +1315,7 @@ struct RunwayRowView: View {
                 Text(extra)
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(theme.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, isSuggested ? 20 : 0)
             }
         }
@@ -1398,42 +1410,99 @@ struct BriefingTafRow: View {
 
     var body: some View {
         if let taf {
-            VStack(alignment: .leading, spacing: 4) {
-                BriefingItem(
-                    label: "TAF",
-                    value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
-                )
+            // The raw text is the row's continuation block, so it follows whichever layout the row
+            // picked: indented under the value when the label sits beside it, flush left once the row
+            // stacks on a narrow screen. It used to carry a hard-coded 108 pt inset that stayed put
+            // regardless, squeezing the forecast into a sliver of an iPhone's width.
+            BriefingItem(
+                label: "TAF",
+                value: taf.validity.isEmpty ? taf.icao : "\(taf.icao) (\(taf.validity))"
+            ) {
                 Text(taf.raw)
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(theme.textSecondary)
                     .lineSpacing(2)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 108) // aligns under the value column, not the label
                     .accessibilityLabel(Text(L10n.Briefing.tafAccessibility(taf.icao)))
             }
         }
     }
 }
 
-struct BriefingItem: View {
+/// Shared geometry for a briefing row, so a continuation block (the raw TAF) can line up under the
+/// value column instead of hard-coding the same number twice.
+enum BriefingRowMetrics {
+    static let labelWidth: CGFloat = 100
+    static let labelGap: CGFloat = 8
+    /// Left inset that puts continuation text under the value, not the label.
+    static var valueIndent: CGFloat { labelWidth + labelGap }
+}
+
+/// A `label   value` briefing row, plus an optional continuation block under the value.
+///
+/// The row is laid out by `ViewThatFits`: label-beside-value while that fits, label-above-value once
+/// it doesn't. Both variants let the value WRAP.
+///
+/// This matters more than it looks. The previous fixed layout — a 100 pt label column, the value in an
+/// `HStack` next to a `Spacer` — silently truncated on iPhone: "Geneva International Air…",
+/// "070° 7 kt (METAR LSGG, 5…", "LSGG (issued 1125Z, vali…". A `Text` that shares an `HStack` with a
+/// `Spacer` is offered a single line and tail-truncates rather than wrapping. A briefing is read to be
+/// acted on, so no part of one may be hidden on any screen size — an elided TAF validity or wind
+/// provenance is exactly the part a pilot needs. iPad is unaffected: the values fit, so the first
+/// variant still wins and the layout is byte-identical to before. (device-test feedback, v4.4.0)
+struct BriefingItem<Detail: View>: View {
     @Environment(\.cockpitTheme) private var theme
     let label: String
     let value: String
-    
+    @ViewBuilder var detail: Detail
+
     var body: some View {
-        HStack(alignment: .top) {
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(theme.textSecondary)
-                .frame(width: 100, alignment: .leading)
-            
-            Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundColor(theme.textPrimary)
-            
-            Spacer()
+        ViewThatFits(in: .horizontal) {
+            sideBySide
+            stacked
         }
+    }
+
+    private var sideBySide: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: BriefingRowMetrics.labelGap) {
+                labelText
+                    .frame(width: BriefingRowMetrics.labelWidth, alignment: .leading)
+                valueText
+                Spacer(minLength: 0)
+            }
+            detail.padding(.leading, BriefingRowMetrics.valueIndent)
+        }
+    }
+
+    private var stacked: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            labelText
+            valueText
+            detail
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var valueText: some View {
+        Text(value)
+            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            .foregroundColor(theme.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension BriefingItem where Detail == EmptyView {
+    init(label: String, value: String) {
+        self.init(label: label, value: value) { EmptyView() }
     }
 }
 

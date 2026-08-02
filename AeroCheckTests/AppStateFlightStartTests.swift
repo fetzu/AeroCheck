@@ -40,7 +40,9 @@ final class AppStateFlightStartTests: XCTestCase {
 
         XCTAssertTrue(appState.isFlightActive, "A resolved-checklist flight should start")
         XCTAssertNil(appState.flightStartError)
-        appState.isFlightActive = false
+        // Cancel (not just isFlightActive = false): tears down the flight AND clears any
+        // checkpoint, so nothing leaks into the shared simulator container (test-host trap).
+        appState.cancelFlight()
     }
 
     // MARK: - Cruise check (manual-start countdown, 3.5)

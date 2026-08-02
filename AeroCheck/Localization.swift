@@ -969,6 +969,22 @@ enum L10n {
         }
     }
 
+    // MARK: - Post-Flight Reconciliation
+    enum Reconciliation {
+        static let title = String(localized: "reconciliation.title")
+        static let subtitle = String(localized: "reconciliation.subtitle")
+        static let apply = String(localized: "reconciliation.apply")
+        static let keepRecorded = String(localized: "reconciliation.keepRecorded")
+        static let badgeConfirmed = String(localized: "reconciliation.badge.confirmed")
+        static let badgeDetected = String(localized: "reconciliation.badge.detected")
+        static func badgeWas(_ type: String) -> String {
+            String(format: String(localized: "reconciliation.badge.was"), type)
+        }
+        static let blockBackfill = String(localized: "reconciliation.blockBackfill")
+        static let includedLabel = String(localized: "reconciliation.included")
+        static let excludedLabel = String(localized: "reconciliation.excluded")
+    }
+
     // MARK: - Hour Meter
     enum HourMeter {
         static let beforeStartTitle = String(localized: "hourMeter.beforeStart.title")

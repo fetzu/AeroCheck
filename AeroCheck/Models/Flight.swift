@@ -589,6 +589,11 @@ struct GPSPoint: Codable, Identifiable {
     let speed: Double
     let course: Double
     let horizontalAccuracy: Double?
+    /// RAW relative barometric altitude in meters (CMAltimeter session datum), when the
+    /// device has a barometer. Relative only — never MSL (weather drift makes absolute
+    /// pressure altitude meaningless). Optional so pre-baro flight JSON keeps decoding
+    /// (synthesized Codable uses decodeIfPresent for optionals); export is additive.
+    let baroAltitude: Double?
 
     init(
         id: UUID = UUID(),
@@ -598,7 +603,8 @@ struct GPSPoint: Codable, Identifiable {
         timestamp: Date = Date(),
         speed: Double = 0,
         course: Double = 0,
-        horizontalAccuracy: Double? = nil
+        horizontalAccuracy: Double? = nil,
+        baroAltitude: Double? = nil
     ) {
         self.id = id
         self.latitude = latitude
@@ -608,12 +614,13 @@ struct GPSPoint: Codable, Identifiable {
         self.speed = speed
         self.course = course
         self.horizontalAccuracy = horizontalAccuracy
+        self.baroAltitude = baroAltitude
     }
 
     /// `timestampOverride` re-stamps the point with a chosen clock. Used when recording a *borrowed*
     /// companion fix (whose `location.timestamp` is the peer device's clock) so the persisted track and
     /// the flight-event timeline share the master's single clock domain. (v4.1.0 pre-tag fix)
-    init(from location: CLLocation, timestampOverride: Date? = nil) {
+    init(from location: CLLocation, timestampOverride: Date? = nil, baroAltitude: Double? = nil) {
         self.id = UUID()
         self.latitude = location.coordinate.latitude
         self.longitude = location.coordinate.longitude
@@ -622,6 +629,7 @@ struct GPSPoint: Codable, Identifiable {
         self.speed = location.speed
         self.course = location.course
         self.horizontalAccuracy = location.horizontalAccuracy
+        self.baroAltitude = baroAltitude
     }
     
     var coordinate: CLLocationCoordinate2D {

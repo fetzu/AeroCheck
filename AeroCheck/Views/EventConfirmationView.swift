@@ -215,19 +215,19 @@ struct FlightEventConfirmationOverlay: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay { overlay(for: flightEventDetector.pendingGoAround,
-                               record: appState.recordGoAround,
+                               record: appState.recordGoAround(at:),
                                dismiss: flightEventDetector.dismissGoAround) }
             .overlay { overlay(for: flightEventDetector.pendingTouchAndGo,
-                               record: appState.recordTouchAndGo,
+                               record: appState.recordTouchAndGo(at:),
                                dismiss: flightEventDetector.dismissTouchAndGo) }
             .overlay { overlay(for: flightEventDetector.pendingFullStop,
-                               record: appState.recordFullStop,
+                               record: appState.recordFullStop(at:),
                                dismiss: flightEventDetector.dismissFullStop) }
     }
 
     @ViewBuilder
     private func overlay(for event: DetectedFlightEvent?,
-                         record: @escaping () -> Void,
+                         record: @escaping (Date?) -> Void,
                          dismiss: @escaping () -> Void) -> some View {
         if let event {
             Color.black.opacity(0.5)
@@ -237,7 +237,9 @@ struct FlightEventConfirmationOverlay: ViewModifier {
                 .accessibilityAction(.escape) { dismiss() }
             EventConfirmationView(
                 event: event,
-                onConfirm: { record(); dismiss() },
+                // The confirmed record carries the event's PHYSICAL timestamp (touchdown /
+                // approach low point), not the confirmation tap's wall time.
+                onConfirm: { record(event.timestamp); dismiss() },
                 onDismiss: { dismiss() }
             )
         }

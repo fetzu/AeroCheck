@@ -591,15 +591,16 @@ class AppState {
     private let lowSpeedThreshold: Double = 2.0 // m/s (about 4 knots)
     private let requiredLowSpeedReadings: Int = 3
 
-    // Block time detection
+    // Block time detection (both stamps are run-start backdated — see checkForBlockOff/On)
     private var consecutiveMovingReadings: Int = 0
-    private var recentStoppedTimestamps: [Date] = [] // Time-window approach for block on
-    private var lastStopLocation: (latitude: Double, longitude: Double)?
+    private var movementRunStart: (time: Date, latitude: Double, longitude: Double)?
+    private var stillnessRunStart: (time: Date, latitude: Double, longitude: Double)?
+    private var stillnessRunReadings: Int = 0
+    private var movingWhileParkedRun: Int = 0
     private let blockOffSpeedThreshold: Double = 2.0 // m/s (about 4 knots) - sustained movement
     private let blockOnSpeedThreshold: Double = 2.0 // m/s (about 4 knots) - matches GPS noise floor for parked aircraft
     private let requiredMovingReadings: Int = 2 // At 5-second intervals, this is ~10 seconds
-    private let blockOnTimeWindow: TimeInterval = 30.0 // 30-second window for block on detection
-    private let requiredStoppedInWindow: Int = 2 // 2 low-speed readings within window = stopped
+    private let requiredStoppedInWindow: Int = 2 // 2 stationary readings confirm a stillness run
 
     // Circuit mode - skips CRUISE and DESCENT phases
     var isCircuitMode: Bool = false
@@ -907,8 +908,10 @@ class AppState {
         hasLandingBeenDetected = false
         consecutiveLowSpeedReadings = 0
         consecutiveMovingReadings = 0
-        recentStoppedTimestamps = []
-        lastStopLocation = nil
+        movementRunStart = nil
+        stillnessRunStart = nil
+        stillnessRunReadings = 0
+        movingWhileParkedRun = 0
         currentHighlightedItem = [:] // Reset highlighting
         // Surface the new flight on the Lock Screen / Dynamic Island right away. (UX-25)
         FlightActivityController.shared.sync(from: self)
@@ -964,8 +967,10 @@ class AppState {
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
-        recentStoppedTimestamps = []
-        lastStopLocation = nil
+        movementRunStart = nil
+        stillnessRunStart = nil
+        stillnessRunReadings = 0
+        movingWhileParkedRun = 0
 
         if saved {
             // Flight ended normally AND was persisted — safe to clear the checkpoint.
@@ -989,8 +994,10 @@ class AppState {
         currentPhase = .preflight
         hasLandingBeenDetected = false
         consecutiveMovingReadings = 0
-        recentStoppedTimestamps = []
-        lastStopLocation = nil
+        movementRunStart = nil
+        stillnessRunStart = nil
+        stillnessRunReadings = 0
+        movingWhileParkedRun = 0
         currentHighlightedItem = [:]
 
         // Clear saved flight state since flight was cancelled
@@ -1052,32 +1059,49 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
-    /// A detected stop/landing is back-dated ~1 min (the aircraft was already slowing) but never
-    /// before line-up — otherwise flight time (landing − line-up) goes negative. (v4.0.0 review P2)
-    private func backDatedStopTime() -> Date {
-        let candidate = Date().addingTimeInterval(-60)
-        if let lineUp = lineUpTime, candidate < lineUp { return lineUp }
-        return candidate
-    }
-
-    func recordLanding() {
-        // Removes 1 minute (while vacating the runway)
-        landingTime = backDatedStopTime()
-        currentFlight?.landingTime = landingTime
+    /// Record the (final) landing. `time` is the physical touchdown time when the caller
+    /// knows it (the v2 detector's rollout carries it — see notifyManualEvent); "now"
+    /// otherwise. The old backDatedStopTime() 1-minute guess is retired: the detector
+    /// stamps full stops at the actual touchdown, and the post-flight reconciliation
+    /// (PR-B) corrects purely-manual entries.
+    func recordLanding(at time: Date? = nil) {
+        let landing = clampedToLineUp(time ?? Date())
+        landingTime = landing
+        currentFlight?.landingTime = landing
         hasLandingBeenDetected = true
 
-        // The final landing is always a full-stop landing
-        if let time = landingTime {
+        // The final landing is always a full-stop landing — but never double-count one
+        // physical landing (a manual LANDED right after a confirmed full stop).
+        if !isDuplicateLandingEvent(at: landing) {
             currentFlight?.fullStopCount += 1
-            currentFlight?.fullStopTimes.append(time)
+            currentFlight?.fullStopTimes.append(landing)
         }
         checkpointActiveFlight(force: true)
     }
 
-    /// Update landing time to current time minus 1 minute (for long-press update)
+    /// Update landing time (long-press update): "now", since there is no detector context here.
     func updateLandingTime() {
-        landingTime = backDatedStopTime()
+        landingTime = clampedToLineUp(Date())
         currentFlight?.landingTime = landingTime
+    }
+
+    /// A landing can never precede line-up — otherwise flight time (landing − line-up)
+    /// goes negative. (v4.0.0 review P2, kept from the backDatedStopTime era)
+    private func clampedToLineUp(_ candidate: Date) -> Date {
+        if let lineUp = lineUpTime, candidate < lineUp { return lineUp }
+        return candidate
+    }
+
+    /// Two landings (T&G or full stop) closer than this are one physical event — these
+    /// aircraft cannot land twice in under a minute. Guards manual double-taps and
+    /// manual/auto duplicates; the corpus contains real pairs 7–35 s apart. (R5)
+    private let landingDedupeWindow: TimeInterval = 60.0
+
+    private func isDuplicateLandingEvent(at time: Date) -> Bool {
+        guard let flight = currentFlight else { return false }
+        let last = [flight.touchAndGoTimes.last, flight.fullStopTimes.last].compactMap { $0 }.max()
+        guard let last else { return false }
+        return abs(time.timeIntervalSince(last)) < landingDedupeWindow
     }
     
     func recordEngineShutdown() {
@@ -1097,9 +1121,17 @@ class AppState {
         checkpointActiveFlight(force: true)
     }
 
-    /// Record a go-around and return to climb phase, resetting subsequent phases
-    func recordGoAround() {
-        let goAroundTime = Date()
+    /// Record a go-around and return to climb phase, resetting subsequent phases.
+    /// `time` is the physical timestamp (the approach's lowest point, decision D4) when
+    /// the detector knows it; "now" for a purely manual entry.
+    func recordGoAround(at time: Date? = nil) {
+        let goAroundTime = time ?? Date()
+        // Duplicate guard: a second go-around within a minute is the same physical event.
+        if let last = currentFlight?.goAroundTimes.last,
+           abs(goAroundTime.timeIntervalSince(last)) < landingDedupeWindow {
+            AppLog.flightEvents.debugLine("Go-around ignored (duplicate within \(Int(landingDedupeWindow)) s)")
+            return
+        }
         currentFlight?.goAroundCount += 1
         currentFlight?.goAroundTimes.append(goAroundTime)
 
@@ -1115,9 +1147,14 @@ class AppState {
         currentPhase = .climb
     }
 
-    /// Record a touch-and-go and return to climb phase, resetting subsequent phases
-    func recordTouchAndGo() {
-        let touchAndGoTime = Date()
+    /// Record a touch-and-go and return to climb phase, resetting subsequent phases.
+    /// `time` is the physical touchdown time when the detector knows it; "now" otherwise.
+    func recordTouchAndGo(at time: Date? = nil) {
+        let touchAndGoTime = time ?? Date()
+        if isDuplicateLandingEvent(at: touchAndGoTime) {
+            AppLog.flightEvents.debugLine("Touch-and-go ignored (duplicate landing within \(Int(landingDedupeWindow)) s)")
+            return
+        }
         currentFlight?.touchAndGoCount += 1
         currentFlight?.touchAndGoTimes.append(touchAndGoTime)
 
@@ -1133,11 +1170,24 @@ class AppState {
         currentPhase = .climb
     }
 
-    /// Record a full stop landing and return to taxi phase, resetting subsequent phases
-    func recordFullStop() {
-        let fullStopTime = backDatedStopTime() // Remove 1 min, but never before line-up
+    /// Record a full stop landing and return to taxi phase, resetting subsequent phases.
+    /// `time` is the physical TOUCHDOWN time when the detector knows it (v2 stamps full
+    /// stops at touchdown, not at the end of the stillness dwell); "now" otherwise.
+    /// Stop-and-gos count as full stops (decision D1) — the flight log labels every
+    /// non-final full stop "stop-and-go" at display time.
+    func recordFullStop(at time: Date? = nil) {
+        let fullStopTime = clampedToLineUp(time ?? Date())
+        if isDuplicateLandingEvent(at: fullStopTime) {
+            AppLog.flightEvents.debugLine("Full stop ignored (duplicate landing within \(Int(landingDedupeWindow)) s)")
+            return
+        }
         currentFlight?.fullStopCount += 1
         currentFlight?.fullStopTimes.append(fullStopTime)
+        // A full stop is a landing: keep landingTime tracking the latest one (the final
+        // full stop of the flight is the flight's landing time).
+        landingTime = fullStopTime
+        currentFlight?.landingTime = fullStopTime
+        hasLandingBeenDetected = true
 
         // Reset phases from taxi onwards (taxi through afterLanding)
         for phase in ChecklistPhase.allCases {
@@ -1149,6 +1199,70 @@ class AppState {
 
         // Go to taxi phase
         currentPhase = .taxi
+    }
+
+    // MARK: - Post-flight reconciliation (D2)
+
+    /// The review diff computed right after END FLIGHT, when the offline re-segmentation
+    /// disagrees with what was confirmed in flight. Non-nil drives the review sheet
+    /// (`FlightReconciliationView` via ContentView); cleared by apply or keep.
+    var pendingReconciliation: FlightReconciliation.Result?
+
+    /// Apply the reviewed diff to the just-saved flight: rewrite its events from the
+    /// review rows, back-fill missing block times, refresh stats, persist and re-sync.
+    func applyReconciliation(_ result: FlightReconciliation.Result) {
+        defer { pendingReconciliation = nil }
+        guard let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return }
+        var flight = flights[index]
+        FlightReconciliation.apply(result, to: &flight)
+        flight.computeSummaryStats()
+        flights[index] = flight
+        _ = saveFlight(flight)
+        AppLog.flightEvents.debugLine("Reconciliation applied to flight \(result.flightId): \(flight.fullStopCount) FS, \(flight.touchAndGoCount) TG, \(flight.goAroundCount) GA")
+    }
+
+    /// "Keep as recorded": confirmed events stay untouched (D2). Missing block times are
+    /// still back-filled — that is additive, not a change to anything the pilot entered.
+    func keepRecordedReconciliation() {
+        guard let result = pendingReconciliation else { return }
+        pendingReconciliation = nil
+        backfillBlockTimes(result)
+    }
+
+    /// Additive block-time back-fill, used both by "keep as recorded" and directly when
+    /// the analysis found no event diff at all (no sheet shown for block times alone).
+    func backfillBlockTimes(_ result: FlightReconciliation.Result) {
+        guard result.backfillsBlockOff || result.backfillsBlockOn,
+              let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return }
+        var flight = flights[index]
+        FlightReconciliation.backfillBlockTimes(result, to: &flight)
+        flight.modifiedAt = Date()
+        flights[index] = flight
+        _ = saveFlight(flight)
+        AppLog.flightEvents.debugLine("Block times back-filled from track for flight \(result.flightId)")
+    }
+
+    /// Apply the detector's end-of-flight flush: a landing that was in progress when
+    /// recording stopped (rollout with touchdown evidence, stillness dwell never
+    /// completed). Called from LocationManager.stopTracking() BEFORE endFlight() snapshots
+    /// the timing fields. Skipped when the pilot already recorded a landing near the
+    /// touchdown — the flush recovers *missed* landings, it never double-counts.
+    func applyEndOfFlightLanding(_ event: DetectedFlightEvent) {
+        guard currentFlight != nil else { return }
+        let dedupeWindow: TimeInterval = 180
+        let landingTimes = (currentFlight?.fullStopTimes ?? []) + (currentFlight?.touchAndGoTimes ?? [])
+        if landingTimes.contains(where: { abs($0.timeIntervalSince(event.timestamp)) < dedupeWindow }) {
+            AppLog.flightEvents.debugLine("End-of-flight flush skipped (landing already recorded near \(event.timestamp))")
+            return
+        }
+        currentFlight?.fullStopCount += 1
+        currentFlight?.fullStopTimes.append(event.timestamp)
+        if landingTime == nil || landingTime! < event.timestamp {
+            landingTime = event.timestamp
+            currentFlight?.landingTime = event.timestamp
+        }
+        hasLandingBeenDetected = true
+        AppLog.flightEvents.debugLine("End-of-flight flush: recorded full stop at \(event.timestamp)")
     }
 
     func addGPSPoint(_ point: GPSPoint, airportDataService: AirportDataService? = nil) {
@@ -1188,8 +1302,9 @@ class AppState {
         if speed < 0 || speed < lowSpeedThreshold {
             consecutiveLowSpeedReadings += 1
             if consecutiveLowSpeedReadings >= requiredLowSpeedReadings {
-                // Plane has stopped - record landing time (minus 1 minute)
-                landingTime = backDatedStopTime()
+                // Plane has stopped — record landing time (the detector's confirmed full
+                // stop carries the real touchdown time and supersedes this fallback)
+                landingTime = clampedToLineUp(Date())
                 currentFlight?.landingTime = landingTime
                 hasLandingBeenDetected = true
             }
@@ -1198,16 +1313,20 @@ class AppState {
         }
     }
 
-    /// Check for block off time (first sustained movement after ENGINE START)
+    /// Check for block off time (first sustained movement after ENGINE START).
+    /// EASA FCL.010: "first moves for the purpose of taking off" — so when the 2-reading
+    /// movement filter confirms, the stamp is BACKDATED to the first moving fix of the
+    /// run, not "now" (+7 s median late before, measured over 34 corpus flights).
     private func checkForBlockOff(point: GPSPoint, airportDataService: AirportDataService?) {
         if point.speed >= blockOffSpeedThreshold {
+            if movementRunStart == nil {
+                movementRunStart = (point.timestamp, point.latitude, point.longitude)
+            }
             consecutiveMovingReadings += 1
-            if consecutiveMovingReadings >= requiredMovingReadings {
-                // Aircraft is moving - record block off
-                let blockOffTime = Date()
-                currentFlight?.blockOffTime = blockOffTime
-                currentFlight?.blockOffLatitude = point.latitude
-                currentFlight?.blockOffLongitude = point.longitude
+            if consecutiveMovingReadings >= requiredMovingReadings, let start = movementRunStart {
+                currentFlight?.blockOffTime = start.time
+                currentFlight?.blockOffLatitude = start.latitude
+                currentFlight?.blockOffLongitude = start.longitude
 
                 // Find nearest airport
                 if let airportService = airportDataService {
@@ -1218,41 +1337,45 @@ class AppState {
                         AppLog.general.debugLine("Block off detected at \(nearest.ident) (\(nearest.name))")
                     }
                 }
-                AppLog.general.debugLine("Block off time recorded: \(blockOffTime)")
+                AppLog.general.debugLine("Block off time recorded (backdated to first moving fix): \(start.time)")
             }
         } else {
             consecutiveMovingReadings = 0
+            movementRunStart = nil
         }
     }
 
-    /// Check for block on time (sustained stop before ENGINE STOP)
-    /// Uses a time-window approach: if enough low-speed readings occur within a window,
-    /// the aircraft is considered stopped. This handles GPS gaps and noise gracefully.
+    /// Check for block on time (final coming-to-rest before ENGINE STOP).
+    /// EASA FCL.010: "finally comes to rest" — block on is the START of the stillness run
+    /// that lasts until shutdown, not the last still moment before engine stop. The old
+    /// implementation overwrote it with "now" on every stationary sample (+55 s median /
+    /// +159 s worst late ≈ +1 min of logged block time per flight). A new stillness run
+    /// after more taxiing supersedes the previous candidate; a single noisy "moving"
+    /// sample does not break a run (two consecutive moving samples do — mirrors the
+    /// validated track-derived rule, −0.1 min median vs the club's entries).
     /// CLLocation speed of -1 (indeterminate) is treated as stopped since it typically
     /// occurs when the device is stationary.
     private func checkForBlockOn(point: GPSPoint, airportDataService: AirportDataService?) {
-        let now = Date()
-
         if point.speed < 0 || point.speed < blockOnSpeedThreshold {
-            // Low speed or indeterminate (-1) — record as a stopped reading
-            recentStoppedTimestamps.append(now)
+            movingWhileParkedRun = 0
+            if stillnessRunStart == nil {
+                stillnessRunStart = (point.timestamp, point.latitude, point.longitude)
+                stillnessRunReadings = 0
+            }
+            stillnessRunReadings += 1
 
-            // Prune timestamps older than the time window
-            recentStoppedTimestamps = recentStoppedTimestamps.filter { now.timeIntervalSince($0) <= blockOnTimeWindow }
-
-            if recentStoppedTimestamps.count >= requiredStoppedInWindow {
-                // Aircraft has stopped - update block on time (keep updating until engine shutdown)
-                let blockOnTime = now
-                currentFlight?.blockOnTime = blockOnTime
-                currentFlight?.blockOnLatitude = point.latitude
-                currentFlight?.blockOnLongitude = point.longitude
+            if stillnessRunReadings >= requiredStoppedInWindow, let start = stillnessRunStart,
+               currentFlight?.blockOnTime != start.time {
+                currentFlight?.blockOnTime = start.time
+                currentFlight?.blockOnLatitude = start.latitude
+                currentFlight?.blockOnLongitude = start.longitude
+                AppLog.general.debugLine("Block on candidate (start of stillness run): \(start.time)")
 
                 // Find nearest airport (only if changed or not set)
                 if let airportService = airportDataService {
                     let coordinate = point.coordinate
                     let nearestAirports = airportService.findNearestAirports(to: coordinate, limit: 1, maxDistanceNm: 5.0)
                     if let nearest = nearestAirports.first {
-                        // Only update if different from current or not set
                         if currentFlight?.arrivalAirportIdent != nearest.ident {
                             currentFlight?.arrivalAirportIdent = nearest.ident
                             AppLog.general.debugLine("Block on location updated: \(nearest.ident) (\(nearest.name))")
@@ -1261,8 +1384,13 @@ class AppState {
                 }
             }
         } else {
-            // Aircraft is moving — clear stopped timestamps
-            recentStoppedTimestamps = []
+            // Moving — but require two consecutive moving samples before discarding the
+            // run, so one noisy parked sample can't restart the block-on clock.
+            movingWhileParkedRun += 1
+            if movingWhileParkedRun >= 2 {
+                stillnessRunStart = nil
+                stillnessRunReadings = 0
+            }
         }
     }
     
@@ -1718,6 +1846,16 @@ class AppState {
 
     /// Clear the saved active flight state (file + pointer + legacy blob).
     func clearActiveFlightState() {
+        // Flush the checkpoint queue FIRST: `persistActiveFlightState` writes asynchronously
+        // (PR-12), so a checkpoint queued moments before this clear (e.g. the forced write on
+        // block-off detection, seconds before the pilot abandons the flight) would otherwise
+        // land AFTER the delete and resurrect the checkpoint — and a resurrected checkpoint
+        // for a CANCELLED flight is restored on next launch as a phantom "Flight Restored"
+        // (the RES-12 already-saved guard only covers flights that reached endFlight()).
+        // The serial queue makes this a strict barrier; the write closure never blocks back
+        // on the main actor, so a main-actor sync here cannot deadlock. Cost is at most one
+        // slim (PERF-29) metadata encode + write, on flight-end paths only.
+        flushPendingCheckpoint()
         persistence.clearActiveFlightStateFile()
         UserDefaults.standard.removeObject(forKey: activeFlightPointerKey)
         UserDefaults.standard.removeObject(forKey: legacyActiveFlightStateKey)

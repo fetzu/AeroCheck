@@ -17,29 +17,51 @@ struct DetectedFlightEvent: Identifiable {
     let message: String
 }
 
-/// Internal state for the detection state machine
-private enum DetectorState {
-    case idle
-    case airportZone
-    case lowApproach
-    case touchdown
+/// Every event the detector emitted this flight, whether or not the pilot confirmed it.
+/// The corpus fixture tests assert against this sequence; the reconciliation pass (PR-B)
+/// reads it as the detector's own record of the flight.
+struct EmittedFlightEvent: Equatable {
+    let type: FlightEventType
+    let timestamp: Date
+    let airportIdent: String?
 }
 
-/// Aircraft-specific speed thresholds for event detection.
-/// Derived from the aircraft's published speeds (Vso, Vr, etc.)
-struct AircraftSpeedConfig {
-    let touchdownSpeedKts: Double       // Below this = on/near ground
-    let goAroundMinSpeedKts: Double     // If never below this in low approach = go-around
-    let touchAndGoAccelSpeedKts: Double // Acceleration above this after touchdown = T&G
-    let taxiSpeedKts: Double            // Below this for extended time = full stop
+/// A median-filtered relative barometric altitude sample from `BarometricAltitudeService`.
+struct BaroAltitudeSample {
+    /// Relative altitude in feet since the altimeter session started (CMAltimeter datum).
+    let relativeAltitudeFt: Double
+    let timestamp: Date
+}
 
-    /// Default thresholds (fallback when no aircraft data available)
-    static let defaults = AircraftSpeedConfig(
-        touchdownSpeedKts: 40.0,
-        goAroundMinSpeedKts: 25.0,
-        touchAndGoAccelSpeedKts: 40.0,
-        taxiSpeedKts: 10.0
-    )
+/// Internal state for the v2 detection state machine (port of detector_v2.py)
+private enum DetectorState {
+    case ground     // parked / taxiing
+    case climbout   // takeoff roll completed, climbing, not yet 300 ft
+    case airborne   // has climbed ≥300 ft since last ground contact
+    case approach   // descended into the <400 ft / 1.5 nm window
+    case rollout    // touchdown evidence — rolling / stopping on the runway
+}
+
+/// Aircraft-specific speed thresholds for event detection, derived from the aircraft's
+/// published speeds (Vso, Vr). The v2 detector consumes Vso/Vr directly; the derived
+/// thresholds mirror the validated Python prototype exactly.
+struct AircraftSpeedConfig {
+    let vsoKts: Double
+    let vrKts: Double
+
+    /// Below this near the field = possible touchdown (Vr + 5).
+    var touchdownSpeedKts: Double { vrKts + 5.0 }
+    /// Raw speed dip below this during a rollout = wheels-on evidence (max(Vso − 5, 24)).
+    var rolloutSpeedKts: Double { max(vsoKts - 5.0, 24.0) }
+
+    /// Default thresholds (fallback when no aircraft data available).
+    /// Matches the validated harness defaults (vso 38 / vr 45).
+    static let defaults = AircraftSpeedConfig(vsoKts: 38.0, vrKts: 45.0)
+
+    init(vsoKts: Double, vrKts: Double) {
+        self.vsoKts = vsoKts
+        self.vrKts = vrKts
+    }
 
     /// Create configuration from aircraft speed references
     /// - Parameters:
@@ -48,34 +70,8 @@ struct AircraftSpeedConfig {
     init(speeds: [SpeedReference], stallSpeed: Int) {
         let vso = AircraftSpeedConfig.extractSpeed(named: "Vso", from: speeds)
         let vr = AircraftSpeedConfig.extractSpeed(named: "Vr", from: speeds)
-
-        let vsoValue = vso ?? Double(stallSpeed) * 0.85
-        let vrValue = vr ?? Double(stallSpeed) * 1.1
-
-        // Touchdown threshold: Vr + 5 kts
-        // During a touch-and-go, the plane briefly decelerates below rotation speed.
-        // Using Vr + margin ensures we detect touchdown even with GPS smoothing.
-        self.touchdownSpeedKts = vrValue + 5.0
-
-        // Go-around minimum speed: Vso + 5 kts
-        // If the plane's minimum speed during low approach never drops below this,
-        // it was never configured for landing = go-around.
-        self.goAroundMinSpeedKts = vsoValue + 5.0
-
-        // Touch-and-go acceleration: equal to touchdownSpeed (provides hysteresis)
-        // Previously touchdownSpeed - 5, but the narrow 5 kts gap caused false TGs
-        // from GPS ground speed fluctuations during approach with headwind.
-        self.touchAndGoAccelSpeedKts = self.touchdownSpeedKts
-
-        // Taxi speed: universal across aircraft types
-        self.taxiSpeedKts = 10.0
-    }
-
-    private init(touchdownSpeedKts: Double, goAroundMinSpeedKts: Double, touchAndGoAccelSpeedKts: Double, taxiSpeedKts: Double) {
-        self.touchdownSpeedKts = touchdownSpeedKts
-        self.goAroundMinSpeedKts = goAroundMinSpeedKts
-        self.touchAndGoAccelSpeedKts = touchAndGoAccelSpeedKts
-        self.taxiSpeedKts = taxiSpeedKts
+        self.vsoKts = vso ?? Double(stallSpeed) * 0.85
+        self.vrKts = vr ?? Double(stallSpeed) * 1.1
     }
 
     /// Extract a numeric speed value from the speeds array by name.
@@ -96,15 +92,24 @@ struct AircraftSpeedConfig {
     }
 }
 
-/// Detects go-arounds, touch-and-goes, and full-stop landings during flight using GPS data and airport proximity.
+/// Detects takeoffs, go-arounds, touch-and-goes, and full-stop landings from GPS (and,
+/// when available, barometric) data. Swift port of the validated v2 prototype
+/// (CLAUDE/review/flight-events/detector_v2.py — 19/20 labeled flights, 43/49 exact vs
+/// club billing). The Python prototype is the authoritative spec for the GPS path; any
+/// behavioural change must be re-validated against that harness.
 ///
-/// Uses a finite state machine with four states:
-/// - **idle**: Not near any airport
-/// - **airportZone**: Within 2 NM of airport and below 500 ft AGL
-/// - **lowApproach**: Within 1 NM and below 100 ft AGL (go-around detection zone)
-/// - **touchdown**: Speed dropped below touchdown threshold near airport
-///
-/// Speed thresholds are aircraft-specific when configured via `configure(speeds:stallSpeed:)`.
+/// v2 design, in five rules:
+/// 1. The takeoff is a first-class event (ground → acceleration through Vr → climb). It
+///    anchors the 60 s suppression window at the real liftoff and defines "has flown"
+///    (300 ft of climb, not 30 kt of taxi).
+/// 2. GPS altitude bias is calibrated while parked, with a sticky fixed-wing-only anchor,
+///    and refreshed from flat ground samples at every confirmed touch.
+/// 3. Wheels-on evidence = a raw-speed dip below max(Vso−5, 24) OR altitude flat at ground
+///    level (<15 ft corrected AGL) — never a 15 s speed mean (median-of-3 raw instead).
+/// 4. Touches classify at climb-away: stopped ≥10 s → FS (emitted at the stop, stamped at
+///    touchdown), ground evidence → T&G, neither → GA.
+/// 5. Go-around = descended into the <400 ft / 1.5 nm window then climbed 150 ft off the
+///    minimum without touchdown evidence — stamped at the lowest point (decision D4).
 @MainActor
 class FlightEventDetector: ObservableObject {
     // MARK: - Published Properties
@@ -121,286 +126,416 @@ class FlightEventDetector: ObservableObject {
     // MARK: - Clock Seam
 
     /// Injectable clock. Defaults to wall-clock; scripted-trajectory tests substitute a synthetic
-    /// clock so the time-based cooldown / takeoff-suppression / pending-expiry logic is exercised
+    /// clock so the time-based suppression / stillness / pending-expiry logic is exercised
     /// deterministically without real-time sleeps. Behaviour in production is identical. (PR-34)
     var clock: () -> Date = { Date() }
 
-    // MARK: - State Machine
+    // MARK: - Event Record
 
-    private var state: DetectorState = .idle
-    private var stateAirport: Airport?
-    private var stateEntryTime: Date?
+    /// Every emission this flight, in order (see `EmittedFlightEvent`).
+    private(set) var emittedEvents: [EmittedFlightEvent] = []
 
-    /// Whether touchdown state was entered via low approach (altitude confirmed < 100 ft AGL)
-    /// vs speed-based fallback from airportZone (altitude unconfirmed).
-    /// Used to gate touch-and-go detection: TG from speed-based fallback requires altitude validation.
-    private var touchdownViaLowApproach: Bool = false
+    /// Detected liftoff times (first fast sample of each initial takeoff acceleration run).
+    private(set) var takeoffTimes: [Date] = []
 
-    // MARK: - Airborne Tracking
-
-    /// Whether the aircraft has exceeded airborne speed at least once during this session.
-    /// Full-stop detection is suppressed until the aircraft has actually flown.
-    /// Reset to false after each full stop to require proof of flight before detecting another.
-    private var hasBeenAirborne: Bool = false
-
-    /// Speed threshold (knots) that must be exceeded to consider the aircraft "has been airborne".
-    /// Well above max taxi speed (~15 kts) and well below any aircraft's Vso (~42+ kts).
-    private let airborneEvidenceSpeedKts: Double = 30.0
-
-    /// Whether the aircraft has been airborne since the last landing event (full stop or T&G).
-    /// Prevents false positives from ground taxi/parking after a confirmed landing.
-    /// Starts as true so the first landing of the flight can be detected.
-    private var airborneAfterLanding: Bool = true
-
-    /// Altitude (feet MSL) at which the last landing event was detected.
-    /// Used with airborneAfterLanding to require altitude gain before allowing another landing.
-    private var lastLandingAltMsl: Double = 0
-
-    /// Current altitude (feet MSL) from most recent GPS reading. Used by emit functions.
-    private var currentAltMslFt: Double = 0
-
-    // MARK: - Speed Tracking
-
-    /// Speed history for smoothing (last `speedSmoothingReadings`, interval-scaled)
-    private var speedHistory: [(timestamp: Date, speedKts: Double)] = []
-
-    /// Minimum speed recorded during low approach (knots)
-    private var minSpeedInLowApproach: Double = .infinity
-
-    /// Lowest altitude AGL (feet) seen during the current low-approach pass. Used for the
-    /// descent-then-climb go-around gate: a genuine go-around descends toward the runway and then
-    /// climbs away, so an exit only counts as a go-around if the aircraft actually climbed from this
-    /// low point — not merely left the zone laterally at the same low altitude. (PR-23)
-    private var minAltAglInLowApproach: Double = .infinity
-
-    /// Minimum speed recorded during touchdown (knots)
-    private var minSpeedInTouchdown: Double = .infinity
-
-    /// Number of GPS readings below touchdown speed threshold
-    private var touchdownSpeedReadings: Int = 0
-
-    /// Time when touchdown state was entered
-    private var touchdownEntryTime: Date?
-
-    /// Altitude AGL (feet) when touchdown state was entered.
-    /// Used for altitude-based go-around detection from touchdown state.
-    private var touchdownAltAglFt: Double = 0
-
-    // MARK: - Cooldown
-
-    /// Timestamp of last detected event (for cooldown)
-    private var lastEventTime: Date?
-
-    // MARK: - Takeoff Suppression
-
-    /// Time of last takeoff (line-up or post-T&G/go-around departure).
-    /// Events are suppressed for a window after takeoff to prevent false positives.
-    private var lastTakeoffTime: Date?
-
-    /// Suppression window after takeoff (seconds).
-    /// A touch-and-go cannot occur this soon after departure.
-    private let takeoffSuppressionSeconds: TimeInterval = 90.0
-
-    // MARK: - Full-Stop Detection
-
-    /// Number of consecutive readings at taxi speed or below in touchdown state
-    private var consecutiveTaxiSpeedReadings: Int = 0
-
-    /// GPS recording interval (seconds) the detector is currently tuned for. Set via
-    /// `configure(...)` at flight start. Detection thresholds below are derived from
-    /// wall-clock durations so they are correct at any user-selected interval (1–30 s),
-    /// not just the legacy 5 s cadence (PERF-05). At 5 s these reproduce the previous
-    /// constants exactly (40 s → 8 readings, 15 s → 3 readings).
-    private var recordingInterval: TimeInterval = 5.0
-
-    /// Target dwell at taxi speed to declare a full stop (~40 s).
-    private let fullStopDwellSeconds: TimeInterval = 40.0
-    /// Target dwell below touchdown speed to confirm a touchdown (~15 s).
-    private let touchdownConfirmDwellSeconds: TimeInterval = 15.0
-    /// Speed-smoothing window (~15 s) to reduce GPS noise.
-    private let speedSmoothingSeconds: TimeInterval = 15.0
-
-    /// Number of consecutive readings spanning `seconds` at the current interval (min 2,
-    /// so a single noisy sample can never trigger a transition).
-    private func readings(forSeconds seconds: TimeInterval) -> Int {
-        max(2, Int((seconds / max(recordingInterval, 0.5)).rounded(.up)))
-    }
-
-    /// Readings at taxi speed needed to declare a full stop (≈ `fullStopDwellSeconds`).
-    /// `internal` (not `private`) so the interval scaling is unit-testable (PERF-05).
-    var requiredTaxiSpeedReadings: Int { readings(forSeconds: fullStopDwellSeconds) }
-    /// Number of recent readings averaged for speed smoothing (≈ `speedSmoothingSeconds`).
-    var speedSmoothingReadings: Int { readings(forSeconds: speedSmoothingSeconds) }
-
-    /// Extended cooldown after a full-stop landing (seconds).
-    /// Prevents subsequent taxi + takeoff from being classified as T&G.
-    private let fullStopCooldownSeconds: TimeInterval = 180.0
-
-    /// End time of full-stop cooldown period
-    private var fullStopCooldownUntil: Date?
-
-    // MARK: - Detection Thresholds
-
-    // Speed thresholds (configured per-aircraft, with sensible defaults)
-    private var speedConfig: AircraftSpeedConfig = .defaults
-    /// Readings below touchdown speed needed to confirm a touchdown (≈ `touchdownConfirmDwellSeconds`).
-    var minTouchdownReadings: Int { readings(forSeconds: touchdownConfirmDwellSeconds) }
-
-    // Airport zone entry/exit (with hysteresis to prevent oscillation)
-    private let airportZoneEntryDistanceNm: Double = 2.0
-    private let airportZoneExitDistanceNm: Double = 2.5
-    private let airportZoneEntryAltAglFt: Double = 500.0
-    private let airportZoneExitAltAglFt: Double = 600.0
-
-    // Low approach zone entry/exit (with hysteresis)
-    private let lowApproachEntryDistanceNm: Double = 1.0
-    private let lowApproachExitDistanceNm: Double = 1.5
-    private let lowApproachEntryAltAglFt: Double = 100.0
-    private let lowApproachExitAltAglFt: Double = 150.0
-    /// Climb (feet) above the low-approach low point required to treat an exit as a go-around. (PR-23)
-    private let goAroundClimbMarginFt: Double = 50.0
-
-    // Cooldown between events
-    private let eventCooldownSeconds: TimeInterval = 45.0
-
-    // Touchdown timeout (full stop fallback)
-    private let touchdownTimeoutSeconds: TimeInterval = 300.0
+    /// Test / reconciliation seam: called on every emission, before the pending-event publish.
+    var onEvent: ((FlightEventType, Date) -> Void)?
 
     // MARK: - Conversion Constants
 
-    private let metersPerSecondToKnots: Double = 1.94384
-    private let nauticalMilesToMeters: Double = 1852.0
-    private let feetToMeters: Double = 0.3048
+    private let metersPerSecondToKnots = 1.94384
+    private let nauticalMilesToMeters = 1852.0
+    private let feetToMeters = 0.3048
 
-    // MARK: - Public Methods
+    // MARK: - Tunables (validated against the 53-flight corpus — do not tweak casually;
+    // the Python harness in CLAUDE/review/flight-events/ is the referee)
+
+    /// Suppression window after a takeoff / climb-away (seconds). Anchored at real liftoff.
+    private let takeoffSuppressionSeconds: TimeInterval = 60.0
+    /// Stillness dwell that turns a rollout into a full stop (matches the real
+    /// after-landing-check stop: land → roll to exit → stop ~10 s → roll to parking).
+    private let fullStopStillnessSeconds: TimeInterval = 10.0
+    /// Rollout timeout: crawling around the field this long after touchdown = full stop.
+    private let rolloutTimeoutSeconds: TimeInterval = 300.0
+    /// Corrected AGL below which a flat sample counts as ground contact. 15 ft, not 40:
+    /// instructor go-arounds bottom flat at 19–52 ft; wheels-on reads ~0 ± 10 ft once the
+    /// bias is calibrated. Deliberate ground effect below 15 ft is the barometer's job.
+    private let flatAglBarFt: Double = 15.0
+    /// Max |Δaltitude| between consecutive samples for a "flat pair" (ft).
+    private let flatPairMaxDeltaFt: Double = 12.0
+    /// Barometer freshness window: a baro sample older than this falls back to GPS.
+    private let baroFreshnessSeconds: TimeInterval = 3.0
+    /// Duplicate-event guard: auto-emissions within this window of a manual event of the
+    /// same class are suppressed (a second landing <60 s after the first is physically
+    /// impossible in these aircraft).
+    private let manualEventDedupeSeconds: TimeInterval = 60.0
+
+    // MARK: - State Machine (mirrors detector_v2.py field-for-field)
+
+    private var state: DetectorState = .ground
+    private var anchor: Airport?                 // sticky fixed-wing airport anchor
+    private var altBiasFt: Double?               // GPS alt − field elev measured while parked
+    private var biasSamples: [Double] = []
+    private var lastTakeoffTime: Date?
+    private var hasFlown = false                 // climbed ≥300 ft AGL since last landing
+    private var rawSpeedWindow: [Double] = []    // median-of-3 raw speed
+    private var altHistory: [(time: Date, altFt: Double)] = []
+    private var minAglInApproach: Double?
+    private var minAglTime: Date?
+    private var minRawSpeedInRollout: Double?
+    private var touchdownTime: Date?
+    private var stillSince: Date?
+    private var accelRun = 0
+    private var rolloutMinAgl: Double?
+    private var firstFastSample: Date?           // first >25 kt sample of the takeoff run
+    private var approachFlatPairs = 0
+    private var flatAltSamples: [Double] = []    // altitudes of flat samples (per-touch bias refresh)
+    private var flatRun = 0
+    private var flatPeak = 0
+    private var lastAltFt: Double?
+
+    // MARK: - Barometer Fusion
+
+    /// Latest median-filtered relative baro altitude, fed by LocationManager per fix.
+    private var latestBaroSample: BaroAltitudeSample?
+    /// Relative baro altitude at the last detected ground contact — the zero for baro AGL.
+    /// Re-zeroed at every parked calibration sample and every confirmed touch, so weather
+    /// drift (~28 ft/h) never accumulates. The baro is NEVER used as absolute altitude.
+    private var baroGroundZeroFt: Double?
+    /// Baro relative altitude at the previous processed fix (for the flat-pair Δ test).
+    private var prevBaroRelFt: Double?
+    private var prevBaroTimestamp: Date?
+
+    // MARK: - Manual-Event Dedupe
+
+    private var lastManualLandingTime: Date?     // TG or FS (shared physical-impossibility window)
+    private var lastManualGoAroundTime: Date?
+
+    // MARK: - Configuration
+
+    private var speedConfig: AircraftSpeedConfig = .defaults
 
     /// Configure detection thresholds based on the current aircraft's speed data.
     /// Call this when a flight starts, after the checklist is loaded.
-    /// - Parameters:
-    ///   - speeds: Speed reference data from the aircraft checklist
-    ///   - stallSpeed: Aircraft's clean stall speed (Vs) in KIAS
+    /// `recordingInterval` is accepted for API compatibility; the v2 state machine uses
+    /// wall-clock dwells throughout, so it needs no reading-count scaling.
     func configure(speeds: [SpeedReference], stallSpeed: Int, recordingInterval: TimeInterval = 5.0) {
-        speedConfig = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
-        self.recordingInterval = recordingInterval > 0 ? recordingInterval : 5.0
-        AppLog.flightEvents.debugLine("Configured for aircraft: touchdown=\(Int(speedConfig.touchdownSpeedKts)) kts, goAroundMin=\(Int(speedConfig.goAroundMinSpeedKts)) kts, T&G accel=\(Int(speedConfig.touchAndGoAccelSpeedKts)) kts; interval=\(self.recordingInterval)s → fullStop=\(requiredTaxiSpeedReadings) readings, touchdown=\(minTouchdownReadings), smoothing=\(speedSmoothingReadings)")
+        let config = AircraftSpeedConfig(speeds: speeds, stallSpeed: stallSpeed)
+        // An unresolved checklist (no speeds, stall 0) would collapse every threshold —
+        // taxiing at 6 kt would read as a takeoff roll. Fall back to the validated
+        // defaults; they are aircraft-agnostic enough for every type in the fleet.
+        speedConfig = (config.vsoKts > 0 && config.vrKts > 0) ? config : .defaults
+        AppLog.flightEvents.debugLine("Configured v2: Vso=\(Int(speedConfig.vsoKts)) Vr=\(Int(speedConfig.vrKts)) → touchdown<\(Int(speedConfig.touchdownSpeedKts)) kt, rollout dip<\(Int(speedConfig.rolloutSpeedKts)) kt")
     }
 
-    /// Set the takeoff time (call when line-up or first departure occurs)
+    /// Direct Vso/Vr configuration — used by the corpus fixture tests and the offline
+    /// reconciliation pass, which carry the aircraft's speeds as plain numbers.
+    func configure(vsoKts: Double, vrKts: Double) {
+        speedConfig = AircraftSpeedConfig(vsoKts: vsoKts, vrKts: vrKts)
+    }
+
+    /// Seed the takeoff/suppression anchor before the first detected liftoff
+    /// (call when line-up occurs; the detected liftoff supersedes it).
     func setTakeoffTime(_ time: Date) {
         lastTakeoffTime = time
     }
 
-    /// Process a new location update to detect flight events
+    // MARK: - Main Processing
+
+    /// Process a new location update to detect flight events.
     /// - Parameters:
     ///   - location: Current GPS location
-    ///   - nearbyAirports: Airports near the current position (from AirportDataService)
-    func processLocation(_ location: CLLocation, nearbyAirports: [Airport]) {
-        let rawSpeedKts = max(0, location.speed * metersPerSecondToKnots)
+    ///   - nearbyAirports: Airports near the current position (fixed-wing filtered upstream)
+    ///   - baroSample: Latest median-filtered relative baro altitude, if the device has a
+    ///     barometer. Consumed as the vertical reference for the ground-contact and
+    ///     descend/climb tests when fresh (<3 s); GPS otherwise.
+    func processLocation(_ location: CLLocation, nearbyAirports: [Airport], baroSample: BaroAltitudeSample? = nil) {
         let now = clock()
 
-        // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded window.
-        // Each emit guards `pendingX == nil`, so a pending event that's never consumed (e.g. its
-        // confirmation overlay was behind the full-screen map) would otherwise silently block EVERY
-        // subsequent event of that type for the rest of the flight.
+        // PR-40: expire a pending event the pilot never confirmed/dismissed within a bounded
+        // window, so a never-consumed confirmation can't block later events of that type.
         expireStalePendingEvents(now: now)
 
-        // Update speed history (keep enough readings for the interval-scaled smoothing window)
-        speedHistory.append((timestamp: now, speedKts: rawSpeedKts))
-        while speedHistory.count > speedSmoothingReadings {
-            speedHistory.removeFirst()
+        if let baroSample { latestBaroSample = baroSample }
+
+        // Invalid GPS speed (CLLocation -1) is never converted to 0 kt: the sample still
+        // updates the altitude trend and anchor below, but takes no speed-based decision.
+        let rawSpeedKts: Double? = location.speed >= 0 ? location.speed * metersPerSecondToKnots : nil
+
+        let altFt = location.altitude / feetToMeters
+        altHistory.append((now, altFt))
+        altHistory.removeAll { now.timeIntervalSince($0.time) > 20 }
+
+        // Anchor: fixed-wing airports only, sticky while within 3 nm. (The feed is already
+        // fixed-wing filtered; the filter here keeps the detector correct on any feed.)
+        let fixedWing = nearbyAirports.filter { AirportType.fixedWing.contains($0.type) }
+        if let current = anchor {
+            let dAnchorNm = distanceNm(from: location, to: current)
+            if dAnchorNm > 3.0 {
+                anchor = fixedWing.first
+                if anchor != nil { altBiasFt = nil }   // new field → stale bias
+            }
+        }
+        if anchor == nil { anchor = fixedWing.first }
+        guard let anchor else { return }
+
+        let distNm = distanceNm(from: location, to: anchor)
+        // Bias-corrected GPS AGL (uncorrected until the parked calibration lands).
+        let gpsAgl = altFt - Double(anchor.elevation ?? 0) - (altBiasFt ?? 0)
+        let agl: Double? = effectiveAgl(gpsAgl: gpsAgl, now: now)
+
+        guard let raw = rawSpeedKts else {
+            trackPrevBaro(now: now)
+            return   // invalid fix: never treated as 0 kt in flight logic
+        }
+        let spd = medianOf3(raw)
+        let prevAlt = lastAltFt
+        lastAltFt = altFt
+
+        switch state {
+        case .ground:
+            handleGround(now: now, raw: raw, altFt: altFt, distNm: distNm)
+        case .climbout:
+            handleClimbout(agl: agl, spd: spd)
+        case .airborne:
+            handleAirborne(now: now, raw: raw, spd: spd, agl: agl, distNm: distNm)
+        case .approach:
+            handleApproach(now: now, raw: raw, altFt: altFt, prevAlt: prevAlt, agl: agl, distNm: distNm)
+        case .rollout:
+            handleRollout(now: now, raw: raw, spd: spd, altFt: altFt, agl: agl)
         }
 
-        let speedKts = smoothedSpeedKts()
+        trackPrevBaro(now: now)
+    }
 
-        // Track whether aircraft has been airborne during this session
-        if !hasBeenAirborne && speedKts > airborneEvidenceSpeedKts {
-            hasBeenAirborne = true
-            AppLog.flightEvents.debugLine("Aircraft has been airborne (speed: \(Int(speedKts)) kts)")
+    // MARK: - State Handlers
+
+    private func handleGround(now: Date, raw: Double, altFt: Double, distNm: Double) {
+        // Calibrate the GPS altitude bias while parked near the field, and zero the baro
+        // reference at the same moment — this is known ground contact.
+        if raw < 5, distNm < 1.5 {
+            biasSamples.append(altFt - Double(anchor?.elevation ?? 0))
+            if biasSamples.count >= 4 {
+                let recent = biasSamples.suffix(20).sorted()
+                altBiasFt = recent[recent.count / 2]
+            }
+            zeroBaroReference(now: now)
         }
-
-        // Track current altitude for use by emit functions
-        let altMslFt = location.altitude * 3.28084
-        currentAltMslFt = altMslFt
-
-        // Track whether aircraft has been airborne since last landing event.
-        // Requires both speed > 30 kts AND altitude gain > 200 ft above landing altitude.
-        if !airborneAfterLanding && speedKts > airborneEvidenceSpeedKts && altMslFt > lastLandingAltMsl + 200.0 {
-            airborneAfterLanding = true
-            AppLog.flightEvents.debugLine("Airborne after landing (speed: \(Int(speedKts)) kts, alt: \(Int(altMslFt)) ft MSL, landing was at \(Int(lastLandingAltMsl)) ft MSL)")
+        // Takeoff: acceleration run through Vr with the liftoff anchored at the first fast
+        // sample, so suppression starts at the real liftoff — not a checklist tap.
+        if raw > 25, firstFastSample == nil {
+            firstFastSample = now
         }
+        if raw < 15 {
+            firstFastSample = nil
+            accelRun = 0
+        }
+        if raw > speedConfig.vrKts + 5 {
+            accelRun += 1
+            if accelRun >= 2 {
+                let liftoff = firstFastSample ?? now
+                lastTakeoffTime = liftoff
+                takeoffTimes.append(liftoff)
+                state = .climbout
+                firstFastSample = nil
+                accelRun = 0
+                AppLog.flightEvents.debugLine("Takeoff detected at \(anchor?.ident ?? "?") (liftoff \(liftoff))")
+            }
+        } else {
+            accelRun = 0
+        }
+    }
 
-        // Check cooldown - skip detection if too soon after last event
-        if let lastEvent = lastEventTime, now.timeIntervalSince(lastEvent) < eventCooldownSeconds {
+    private func handleClimbout(agl: Double?, spd: Double) {
+        if let agl, agl > 300 {
+            hasFlown = true
+            state = .airborne
+        } else if spd < 15 {
+            // Aborted takeoff — back to ground, nothing logged (a non-event by construction).
+            state = .ground
+        }
+    }
+
+    private func handleAirborne(now: Date, raw: Double, spd: Double, agl: Double?, distNm: Double) {
+        if let agl, agl < 400, distNm < 1.5, climbRateFpm(now: now) < -100 {
+            state = .approach
+            minAglInApproach = agl
+            minAglTime = now
+            approachFlatPairs = 0
+        } else if spd < speedConfig.touchdownSpeedKts, distNm < 1.0, let agl, agl < 250 {
+            // Direct touchdown fallback (steep/fast approach missed the window).
+            enterRollout(now: now, raw: raw, agl: agl)
+        }
+    }
+
+    private func handleApproach(now: Date, raw: Double, altFt: Double, prevAlt: Double?, agl: Double?, distNm: Double) {
+        if let agl, let minAgl = minAglInApproach, agl < minAgl {
+            minAglInApproach = agl
+            minAglTime = now
+        }
+        // Ground-contact evidence INDEPENDENT of speed: a flat pair (|Δalt| < 12 ft) at
+        // ground level. High-speed rolling touches (roulés at 45–60 kt GS) never drop below
+        // the touchdown speed threshold, yet their altitude flatlines on the runway.
+        // Requires a calibrated bias, so an uncalibrated GPS day cannot fake touches.
+        // The Δ prefers baro (±1 ft @1 Hz) over GPS when a fresh sample exists.
+        if altBiasFt != nil, let agl, agl < flatAglBarFt, distNm < 0.6,
+           let delta = verticalDelta(altFt: altFt, prevAlt: prevAlt, now: now),
+           abs(delta) < flatPairMaxDeltaFt {
+            approachFlatPairs += 1
+            flatAltSamples.append(altFt)
+        }
+        // Touchdown: raw speed low near the field (or below Vso anywhere in the window).
+        if (raw < speedConfig.touchdownSpeedKts && distNm < 1.2 && (agl == nil || agl! < 150))
+            || raw < speedConfig.vsoKts {
+            enterRollout(now: now, raw: raw, agl: agl)
             return
         }
-
-        // Check full-stop cooldown - longer cooldown after confirmed full stop
-        if let fullStopUntil = fullStopCooldownUntil, now < fullStopUntil {
-            if state == .touchdown {
-                transitionToIdle()
+        // Go-around: descended into the window, then climbed ≥150 ft above the minimum.
+        if let agl, let minAgl = minAglInApproach, minAgl < 300, agl - minAgl > 150 {
+            if isSuppressed(at: now) {
+                state = .climbout
+            } else {
+                if hasFlown {
+                    // Flat at ground level on the way through → the wheels were on (or as
+                    // near as the sensors can know): a touch-and-go, not a go-around.
+                    let kind: FlightEventType = approachFlatPairs >= 1 ? .touchAndGo : .goAround
+                    emit(kind, at: minAglTime ?? now)
+                }
+                afterLiftoff(now: now)
             }
             return
         }
+        // Drifted away without descending to the window → back to airborne.
+        if distNm > 2.0 || (agl ?? 0) > 600 {
+            state = .airborne
+        }
+    }
 
-        // Find nearest airport and calculate distance + AGL
-        guard let nearestAirport = nearbyAirports.first else {
-            if state != .idle { transitionToIdle() }
+    private func handleRollout(now: Date, raw: Double, spd: Double, altFt: Double, agl: Double?) {
+        minRawSpeedInRollout = min(minRawSpeedInRollout ?? raw, raw)
+        if rolloutMinAgl == nil || (agl != nil && agl! < rolloutMinAgl!) {
+            rolloutMinAgl = agl
+        }
+        // Ground-roll signature: at ground level (<15 ft corrected AGL) while below
+        // touchdown speed. A go-around's altitude is V-shaped and never lingers there; a
+        // rolling wheel's does. (The prototype's per-sample Δalt term self-compares after
+        // the history update and is identically zero — the validated behaviour is this
+        // level test alone, preserved exactly. The corpus numbers depend on it.)
+        let flat = raw < speedConfig.touchdownSpeedKts + 5 && (agl == nil || agl! < flatAglBarFt)
+        flatRun = flat ? flatRun + 1 : 0
+        if flat { flatAltSamples.append(altFt) }
+        flatPeak = max(flatPeak, flatRun)
+
+        // Stillness → full stop, stamped at TOUCHDOWN, not at the end of the dwell.
+        if raw < 5 {
+            if stillSince == nil { stillSince = now }
+            if now.timeIntervalSince(stillSince!) >= fullStopStillnessSeconds {
+                if hasFlown, !isSuppressed(at: now) {
+                    emit(.fullStop, at: touchdownTime ?? now)
+                }
+                hasFlown = false
+                state = .ground
+                zeroBaroReference(now: now)
+                resetRollout()
+                return
+            }
+        } else {
+            stillSince = nil
+        }
+
+        // Liftoff again → classify T&G vs GA at the climb-away (one decision point).
+        let climbed = agl != nil && rolloutMinAgl != nil && agl! - rolloutMinAgl! > 120
+        if spd > speedConfig.vrKts + 8, climbed {
+            let groundEvidence = (minRawSpeedInRollout ?? .infinity) <= speedConfig.rolloutSpeedKts
+                || flatPeak >= 1 || approachFlatPairs >= 1
+            if !isSuppressed(at: now), hasFlown {
+                emit(groundEvidence ? .touchAndGo : .goAround, at: touchdownTime ?? now)
+            }
+            afterLiftoff(now: now)
             return
         }
 
-        let airportLocation = CLLocation(latitude: nearestAirport.latitude, longitude: nearestAirport.longitude)
-        let distanceNm = location.distance(from: airportLocation) / nauticalMilesToMeters
-        let fieldElevationM = Double(nearestAirport.elevation ?? 0) * feetToMeters
-        let altAglM = location.altitude - fieldElevationM
-        let altAglFt = altAglM / feetToMeters
-
-        // State machine dispatch
-        switch state {
-        case .idle:
-            handleIdle(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
-        case .airportZone:
-            handleAirportZone(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
-        case .lowApproach:
-            handleLowApproach(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
-        case .touchdown:
-            handleTouchdown(speedKts: speedKts, distanceNm: distanceNm, altAglFt: altAglFt, airport: nearestAirport, now: now)
+        // Timeout: crawling around the field → treat as full stop.
+        if let touch = touchdownTime, now.timeIntervalSince(touch) > rolloutTimeoutSeconds {
+            if hasFlown, !isSuppressed(at: now) {
+                emit(.fullStop, at: touch)
+            }
+            hasFlown = false
+            state = .ground
+            zeroBaroReference(now: now)
+            resetRollout()
         }
     }
 
-    /// Reset all detection state (call when flight ends)
+    // MARK: - End-of-Flight Flush
+
+    /// Flight ended (recording stopped). Six of the 53 corpus flights end within seconds of
+    /// vacating the runway — the stillness dwell never completes and the flight's only
+    /// landing would be silently lost. If the aircraft was in a rollout with touchdown
+    /// evidence when the flight ended, that WAS the landing. Returns the flushed full-stop
+    /// (stamped at touchdown) for the caller to record; the caller dedupes against events
+    /// the pilot already recorded.
+    func flushEndOfFlight() -> DetectedFlightEvent? {
+        guard state == .rollout, hasFlown, let touch = touchdownTime else { return nil }
+        hasFlown = false
+        state = .ground
+        resetRollout()
+        let event = DetectedFlightEvent(
+            type: .fullStop,
+            timestamp: touch,
+            airport: anchor,
+            message: fullStopMessage(airport: anchor)
+        )
+        emittedEvents.append(EmittedFlightEvent(type: .fullStop, timestamp: touch, airportIdent: anchor?.ident))
+        AppLog.flightEvents.debugLine("End-of-flight flush: full stop at \(touch) (\(anchor?.ident ?? "?"))")
+        return event
+    }
+
+    // MARK: - Reset / Dismiss
+
+    /// Reset all detection state (call when flight ends, after `flushEndOfFlight()`)
     func reset() {
-        transitionToIdle()
-        speedHistory = []
-        lastEventTime = nil
+        state = .ground
+        anchor = nil
+        altBiasFt = nil
+        biasSamples = []
+        lastTakeoffTime = nil
+        hasFlown = false
+        rawSpeedWindow = []
+        altHistory = []
+        minAglInApproach = nil
+        minAglTime = nil
+        firstFastSample = nil
+        accelRun = 0
+        approachFlatPairs = 0
+        flatAltSamples = []
+        lastAltFt = nil
+        resetRollout()
         pendingGoAround = nil
         pendingTouchAndGo = nil
         pendingFullStop = nil
-        lastTakeoffTime = nil
-        fullStopCooldownUntil = nil
+        emittedEvents = []
+        takeoffTimes = []
         speedConfig = .defaults
-        hasBeenAirborne = false
-        airborneAfterLanding = true
-        lastLandingAltMsl = 0
-        currentAltMslFt = 0
+        latestBaroSample = nil
+        baroGroundZeroFt = nil
+        prevBaroRelFt = nil
+        prevBaroTimestamp = nil
+        lastManualLandingTime = nil
+        lastManualGoAroundTime = nil
     }
 
     /// Dismiss pending go-around without recording
-    func dismissGoAround() {
-        pendingGoAround = nil
-    }
+    func dismissGoAround() { pendingGoAround = nil }
 
     /// Dismiss pending touch-and-go without recording
-    func dismissTouchAndGo() {
-        pendingTouchAndGo = nil
-    }
+    func dismissTouchAndGo() { pendingTouchAndGo = nil }
 
     /// Dismiss pending full-stop without recording
-    func dismissFullStop() {
-        pendingFullStop = nil
-    }
+    func dismissFullStop() { pendingFullStop = nil }
 
-    /// PR-40: clear pending events older than the expiry window so a never-consumed confirmation
-    /// can't block all future detections of that type.
+    /// PR-40: clear pending events older than the expiry window so a never-consumed
+    /// confirmation can't block all future detections of that type.
     private static let pendingEventExpirySeconds: TimeInterval = 180
     private func expireStalePendingEvents(now: Date) {
         if let e = pendingGoAround, now.timeIntervalSince(e.timestamp) > Self.pendingEventExpirySeconds {
@@ -414,352 +549,196 @@ class FlightEventDetector: ObservableObject {
         }
     }
 
-    /// Called by the manual event buttons (LANDED / GO AROUND / TOUCH AND GO) so the automatic
-    /// detector doesn't then emit a DUPLICATE for the same physical event. Mirrors the suppression
-    /// the emit* paths apply: clears any matching pending event, stamps the event/cooldown times,
-    /// and (for landings) requires fresh airborne evidence before the next auto landing event.
-    /// dismissFullStop() only cleared an already-pending event; a manual LANDED while vacating fires
-    /// the detector's pending full stop AFTERWARDS, so the suppression must be set proactively. (PR-07)
-    func notifyManualEvent(_ type: FlightEventType, at explicitTime: Date? = nil) {
+    // MARK: - Manual Events
+
+    /// Called by the manual event buttons (LANDED / GO AROUND / TOUCH AND GO) so the
+    /// automatic detector doesn't emit a DUPLICATE for the same physical event (PR-07),
+    /// and so the state machine follows the pilot's declaration.
+    /// Returns the detector's best physical timestamp for the event — the touchdown time
+    /// if a rollout is in progress, the approach minimum for a go-around — so the manual
+    /// record can carry the real time instead of "now" (replaces backDatedStopTime()).
+    @discardableResult
+    func notifyManualEvent(_ type: FlightEventType, at explicitTime: Date? = nil) -> Date? {
         let time = explicitTime ?? clock()
-        lastEventTime = time
-        touchdownSpeedReadings = 0
-        minSpeedInTouchdown = .infinity
-        consecutiveTaxiSpeedReadings = 0
         switch type {
         case .fullStop:
             pendingFullStop = nil
-            airborneAfterLanding = false
-            hasBeenAirborne = false
-            lastLandingAltMsl = currentAltMslFt
-            fullStopCooldownUntil = time.addingTimeInterval(fullStopCooldownSeconds)
-            transitionToIdle()
+            lastManualLandingTime = time
+            let physical = (state == .rollout) ? touchdownTime : nil
+            hasFlown = false
+            state = .ground
+            zeroBaroReference(now: time)
+            resetRollout()
+            return physical
         case .touchAndGo:
             pendingTouchAndGo = nil
-            airborneAfterLanding = false
-            lastLandingAltMsl = currentAltMslFt
+            lastManualLandingTime = time
+            let physical = (state == .rollout) ? touchdownTime : nil
             lastTakeoffTime = time
+            if state == .rollout || state == .approach {
+                afterLiftoff(now: time)
+            }
+            return physical
         case .goAround:
             pendingGoAround = nil
+            lastManualGoAroundTime = time
+            let physical = (state == .approach || state == .rollout) ? minAglTime : nil
             lastTakeoffTime = time
-        }
-    }
-
-    // MARK: - State Handlers
-
-    private func handleIdle(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        if distanceNm <= airportZoneEntryDistanceNm && altAglFt < airportZoneEntryAltAglFt {
-            state = .airportZone
-            stateAirport = airport
-            stateEntryTime = now
-            AppLog.flightEvents.debugLine("Entered airport zone for \(airport.ident) (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
-        }
-    }
-
-    private func handleAirportZone(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        // Check for exit (with hysteresis)
-        if distanceNm > airportZoneExitDistanceNm || altAglFt > airportZoneExitAltAglFt {
-            AppLog.flightEvents.debugLine("Exited airport zone (dist: \(String(format: "%.2f", distanceNm)) NM, altAGL: \(Int(altAglFt)) ft)")
-            transitionToIdle()
-            return
-        }
-
-        // Check for descent into low approach zone
-        if distanceNm <= lowApproachEntryDistanceNm && altAglFt < lowApproachEntryAltAglFt {
-            state = .lowApproach
-            stateEntryTime = now
-            minSpeedInLowApproach = speedKts
-            minAltAglInLowApproach = altAglFt
-            AppLog.flightEvents.debugLine("Entered low approach at \(airport.ident) (speed: \(Int(speedKts)) kts, altAGL: \(Int(altAglFt)) ft)")
-            return
-        }
-
-        // Speed-based fallback: detect touchdown even if altitude AGL is inaccurate
-        // (GPS altitude can have significant error, but speed is reliable)
-        if speedKts < speedConfig.touchdownSpeedKts && distanceNm <= lowApproachEntryDistanceNm {
-            state = .touchdown
-            stateEntryTime = now
-            touchdownEntryTime = now
-            touchdownAltAglFt = altAglFt
-            minSpeedInTouchdown = speedKts
-            touchdownSpeedReadings = 1
-            consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
-            touchdownViaLowApproach = false  // Altitude not confirmed
-            AppLog.flightEvents.debugLine("Speed-based touchdown at \(airport.ident) (speed: \(Int(speedKts)) kts)")
-        }
-    }
-
-    private func handleLowApproach(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        // Track minimum speed and lowest altitude (for the descent-then-climb go-around gate)
-        minSpeedInLowApproach = min(minSpeedInLowApproach, speedKts)
-        minAltAglInLowApproach = min(minAltAglInLowApproach, altAglFt)
-
-        // Check for touchdown (speed drops below threshold)
-        if speedKts < speedConfig.touchdownSpeedKts {
-            state = .touchdown
-            stateEntryTime = now
-            touchdownEntryTime = now
-            touchdownAltAglFt = altAglFt
-            minSpeedInTouchdown = speedKts
-            touchdownSpeedReadings = 1
-            consecutiveTaxiSpeedReadings = speedKts < speedConfig.taxiSpeedKts ? 1 : 0
-            touchdownViaLowApproach = true  // Altitude confirmed < 100 ft AGL
-            AppLog.flightEvents.debugLine("Touchdown in low approach at \(airport.ident) (speed: \(Int(speedKts)) kts)")
-            return
-        }
-
-        // Check for go-around: exiting low approach zone without touching down. Require BOTH that the
-        // minimum speed stayed above the go-around threshold (never slowed to landing speed) AND a
-        // genuine descent-then-climb profile — the aircraft climbed clear of its lowest point — so a
-        // low lateral pass that simply leaves the zone at the same altitude isn't mislabelled a
-        // go-around. (PR-23)
-        if distanceNm > lowApproachExitDistanceNm || altAglFt > lowApproachExitAltAglFt {
-            let climbedOut = altAglFt - minAltAglInLowApproach > goAroundClimbMarginFt
-            if minSpeedInLowApproach > speedConfig.goAroundMinSpeedKts && climbedOut {
-                emitGoAround(airport: stateAirport)
+            if state == .rollout || state == .approach {
+                afterLiftoff(now: time)
             }
-            // Transition back to airport zone if still within it, otherwise idle
-            if distanceNm <= airportZoneExitDistanceNm && altAglFt < airportZoneExitAltAglFt {
-                state = .airportZone
-                stateEntryTime = now
-            } else {
-                transitionToIdle()
-            }
+            return physical
         }
     }
 
-    private func handleTouchdown(speedKts: Double, distanceNm: Double, altAglFt: Double, airport: Airport, now: Date) {
-        minSpeedInTouchdown = min(minSpeedInTouchdown, speedKts)
+    // MARK: - Helpers (state machine)
 
-        // Count readings below touchdown speed
-        if speedKts < speedConfig.touchdownSpeedKts {
-            touchdownSpeedReadings += 1
+    private func enterRollout(now: Date, raw: Double, agl: Double?) {
+        state = .rollout
+        touchdownTime = now
+        minRawSpeedInRollout = raw
+        rolloutMinAgl = agl
+        stillSince = nil
+        AppLog.flightEvents.debugLine("Rollout entered at \(anchor?.ident ?? "?") (raw \(Int(raw)) kt, agl \(agl.map { String(Int($0)) } ?? "—") ft)")
+    }
+
+    private func afterLiftoff(now: Date) {
+        lastTakeoffTime = now
+        state = .climbout
+        resetRollout()
+        minAglInApproach = nil
+        approachFlatPairs = 0
+    }
+
+    private func resetRollout() {
+        touchdownTime = nil
+        minRawSpeedInRollout = nil
+        rolloutMinAgl = nil
+        stillSince = nil
+        flatRun = 0
+        flatPeak = 0
+    }
+
+    private func isSuppressed(at now: Date) -> Bool {
+        guard let takeoff = lastTakeoffTime else { return false }
+        return now.timeIntervalSince(takeoff) < takeoffSuppressionSeconds
+    }
+
+    private func medianOf3(_ value: Double) -> Double {
+        rawSpeedWindow.append(value)
+        if rawSpeedWindow.count > 3 { rawSpeedWindow.removeFirst() }
+        return rawSpeedWindow.sorted()[rawSpeedWindow.count / 2]
+    }
+
+    private func climbRateFpm(now: Date) -> Double {
+        let window = altHistory.filter { now.timeIntervalSince($0.time) <= 14 }
+        guard let first = window.first, let last = window.last, window.count >= 2 else { return 0 }
+        let dt = last.time.timeIntervalSince(first.time)
+        guard dt > 0 else { return 0 }
+        return (last.altFt - first.altFt) / dt * 60.0
+    }
+
+    private func distanceNm(from location: CLLocation, to airport: Airport) -> Double {
+        location.distance(from: CLLocation(latitude: airport.latitude, longitude: airport.longitude)) / nauticalMilesToMeters
+    }
+
+    // MARK: - Helpers (barometer fusion)
+
+    /// The vertical reference for the ground-contact and descend/climb tests: baro AGL
+    /// (relative altitude re-zeroed at the last detected ground contact) when a fresh
+    /// sample exists and a zero is established, bias-corrected GPS AGL otherwise. The
+    /// baro is never used as absolute altitude — weather drift makes that meaningless.
+    private func effectiveAgl(gpsAgl: Double, now: Date) -> Double {
+        if let sample = latestBaroSample, let zero = baroGroundZeroFt,
+           now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds {
+            return sample.relativeAltitudeFt - zero
         }
+        return gpsAgl
+    }
 
-        // Track consecutive taxi-speed readings for full-stop detection
-        if speedKts < speedConfig.taxiSpeedKts {
-            consecutiveTaxiSpeedReadings += 1
-        } else {
-            consecutiveTaxiSpeedReadings = 0
+    /// Per-sample vertical delta for the approach flat-pair test. Prefers consecutive baro
+    /// samples (±1 ft) over consecutive GPS altitudes; falls back to GPS when either end of
+    /// the pair lacks fresh baro.
+    private func verticalDelta(altFt: Double, prevAlt: Double?, now: Date) -> Double? {
+        if let sample = latestBaroSample, let prevRel = prevBaroRelFt, let prevAt = prevBaroTimestamp,
+           now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds,
+           now.timeIntervalSince(prevAt) < 15 {
+            return sample.relativeAltitudeFt - prevRel
         }
+        guard let prevAlt else { return nil }
+        return altFt - prevAlt
+    }
 
-        // Go-around from touchdown: aircraft altitude climbing significantly above touchdown level.
-        // This catches go-arounds where speed briefly dipped below touchdown threshold
-        // during approach before the pilot applied full power.
-        let altGainFt = altAglFt - touchdownAltAglFt
-        if altGainFt > 150 && speedKts > speedConfig.goAroundMinSpeedKts {
-            AppLog.flightEvents.debugLine("Go-around from touchdown (alt gain: \(Int(altGainFt)) ft, speed: \(Int(speedKts)) kts)")
-            emitGoAround(airport: stateAirport)
-            // Transition back to airport zone
-            state = .airportZone
-            stateEntryTime = now
-            touchdownEntryTime = nil
-            touchdownSpeedReadings = 0
-            minSpeedInTouchdown = .infinity
-            consecutiveTaxiSpeedReadings = 0
-            return
-        }
-
-        // Full-stop detection: sustained very low speed = the plane has stopped
-        if consecutiveTaxiSpeedReadings >= requiredTaxiSpeedReadings {
-            AppLog.flightEvents.debugLine("Full stop detected (speed < \(Int(speedConfig.taxiSpeedKts)) kts for \(consecutiveTaxiSpeedReadings) readings)")
-            emitFullStop(airport: stateAirport)
-            fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
-            transitionToIdle()
-            return
-        }
-
-        // PR-22: a balked landing (go-around) recovers speed in seconds, but 150 ft of raw GPS climb
-        // takes ~13 s — so the touch-and-go branch below would fire first and mislabel it. "Ground
-        // evidence" means the aircraft actually slowed to a true ground-roll speed (below taxi speed);
-        // without it, a speed recovery while climbing away is a go-around, not a touch-and-go. This
-        // catches it on a much smaller (faster) climb confirmation than the 150 ft branch above.
-        let hasGroundEvidence = minSpeedInTouchdown < speedConfig.taxiSpeedKts
-        if speedKts >= speedConfig.touchAndGoAccelSpeedKts
-            && touchdownSpeedReadings >= minTouchdownReadings
-            && !hasGroundEvidence
-            && altGainFt > 50 {
-            AppLog.flightEvents.debugLine("Go-around (speed recovered, climbing \(Int(altGainFt)) ft, no ground evidence)")
-            emitGoAround(airport: stateAirport)
-            state = .airportZone
-            stateEntryTime = now
-            touchdownEntryTime = nil
-            touchdownSpeedReadings = 0
-            minSpeedInTouchdown = .infinity
-            consecutiveTaxiSpeedReadings = 0
-            return
-        }
-
-        // Check for touch-and-go: speed increases back above acceleration threshold after having at
-        // least minTouchdownReadings below touchdownSpeedKts, AND there is ground evidence (slowed to
-        // a true rollout speed) or the touchdown was altitude-confirmed via low approach. Without
-        // either, the speed-recovery case above has already classified it as a go-around. (PR-22)
-        if speedKts >= speedConfig.touchAndGoAccelSpeedKts
-            && touchdownSpeedReadings >= minTouchdownReadings
-            && (hasGroundEvidence || touchdownViaLowApproach || altAglFt < lowApproachEntryAltAglFt) {
-            emitTouchAndGo(airport: stateAirport)
-            // Transition back to airport zone (aircraft will likely do another circuit)
-            state = .airportZone
-            stateEntryTime = now
-            touchdownEntryTime = nil
-            touchdownSpeedReadings = 0
-            minSpeedInTouchdown = .infinity
-            consecutiveTaxiSpeedReadings = 0
-            return
-        }
-
-        // Check for exit from airport zone entirely
-        if distanceNm > airportZoneExitDistanceNm {
-            transitionToIdle()
-            return
-        }
-
-        // Safety timeout: if in touchdown state for too long, it's likely a full stop
-        if let entry = touchdownEntryTime, now.timeIntervalSince(entry) > touchdownTimeoutSeconds {
-            AppLog.flightEvents.debugLine("Touchdown timeout - likely full stop")
-            emitFullStop(airport: stateAirport)
-            fullStopCooldownUntil = now.addingTimeInterval(fullStopCooldownSeconds)
-            transitionToIdle()
+    private func trackPrevBaro(now: Date) {
+        if let sample = latestBaroSample, now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds {
+            prevBaroRelFt = sample.relativeAltitudeFt
+            prevBaroTimestamp = sample.timestamp
         }
     }
 
-    // MARK: - Speed Smoothing
-
-    /// Returns smoothed speed (average of the interval-scaled recent window) to reduce GPS noise
-    private func smoothedSpeedKts() -> Double {
-        let count = min(speedSmoothingReadings, speedHistory.count)
-        guard count > 0 else { return 0 }
-        let recent = speedHistory.suffix(count)
-        return recent.map { $0.speedKts }.reduce(0, +) / Double(count)
+    /// Re-zero the relative-baro ground reference at a known ground contact.
+    private func zeroBaroReference(now: Date) {
+        if let sample = latestBaroSample, now.timeIntervalSince(sample.timestamp) < baroFreshnessSeconds * 2 {
+            baroGroundZeroFt = sample.relativeAltitudeFt
+        }
     }
 
     // MARK: - Event Emission
 
-    private func emitGoAround(airport: Airport?) {
-        // Suppress if aircraft has never been airborne in this session
-        guard hasBeenAirborne else {
-            AppLog.flightEvents.debugLine("Go-around suppressed (aircraft has not been airborne)")
-            return
-        }
-
-        guard pendingGoAround == nil else { return }
-
-        // Suppress events within the takeoff suppression window
-        if let takeoffTime = lastTakeoffTime,
-           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            AppLog.flightEvents.debugLine("Go-around suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
-            return
-        }
-
-        let message: String
-        if let airport = airport {
-            message = String(localized: "Go-around detected at \(airport.name)")
-        } else {
-            message = String(localized: "Go-around detected")
-        }
-
+    private func emit(_ kind: FlightEventType, at time: Date) {
+        // Manual-event dedupe: an auto event of the same physical class within 60 s of a
+        // manual one is the same event.
         let now = clock()
-        let event = DetectedFlightEvent(type: .goAround, timestamp: now, airport: airport, message: message)
-        pendingGoAround = event
-        lastEventTime = now
-        lastTakeoffTime = now
-        AppLog.flightEvents.debugLine("GO-AROUND: \(message)")
+        switch kind {
+        case .touchAndGo, .fullStop:
+            if let manual = lastManualLandingTime, abs(now.timeIntervalSince(manual)) < manualEventDedupeSeconds {
+                AppLog.flightEvents.debugLine("\(kind.rawValue) suppressed (manual landing \(Int(abs(now.timeIntervalSince(manual)))) s ago)")
+                return
+            }
+        case .goAround:
+            if let manual = lastManualGoAroundTime, abs(now.timeIntervalSince(manual)) < manualEventDedupeSeconds {
+                AppLog.flightEvents.debugLine("Go-around suppressed (manual go-around \(Int(abs(now.timeIntervalSince(manual)))) s ago)")
+                return
+            }
+        }
+
+        emittedEvents.append(EmittedFlightEvent(type: kind, timestamp: time, airportIdent: anchor?.ident))
+        onEvent?(kind, time)
+
+        // Per-touch bias refresh: GPS bias drifts 10–20 ft across a session; the flat
+        // samples of a confirmed touch are a fresh ground-truth measurement of it.
+        if kind != .goAround, flatAltSamples.count >= 2, let anchor {
+            let sorted = flatAltSamples.sorted()
+            altBiasFt = sorted[sorted.count / 2] - Double(anchor.elevation ?? 0)
+        }
+        if kind != .goAround {
+            zeroBaroReference(now: now)
+        }
+        flatAltSamples = []
+
+        let airport = anchor
+        switch kind {
+        case .goAround:
+            guard pendingGoAround == nil else { return }
+            let message = airport.map { String(localized: "Go-around detected at \($0.name)") }
+                ?? String(localized: "Go-around detected")
+            pendingGoAround = DetectedFlightEvent(type: .goAround, timestamp: time, airport: airport, message: message)
+            AppLog.flightEvents.debugLine("GO-AROUND at \(time) (\(airport?.ident ?? "?"))")
+        case .touchAndGo:
+            guard pendingTouchAndGo == nil else { return }
+            let message = airport.map { String(localized: "Touch-and-go detected at \($0.name)") }
+                ?? String(localized: "Touch-and-go detected")
+            pendingTouchAndGo = DetectedFlightEvent(type: .touchAndGo, timestamp: time, airport: airport, message: message)
+            AppLog.flightEvents.debugLine("TOUCH-AND-GO at \(time) (\(airport?.ident ?? "?"))")
+        case .fullStop:
+            guard pendingFullStop == nil else { return }
+            pendingFullStop = DetectedFlightEvent(type: .fullStop, timestamp: time, airport: airport, message: fullStopMessage(airport: airport))
+            AppLog.flightEvents.debugLine("FULL STOP at \(time) (\(airport?.ident ?? "?"))")
+        }
     }
 
-    private func emitTouchAndGo(airport: Airport?) {
-        // Suppress if aircraft has never been airborne in this session
-        guard hasBeenAirborne else {
-            AppLog.flightEvents.debugLine("Touch-and-go suppressed (aircraft has not been airborne)")
-            return
-        }
-
-        // Suppress if aircraft hasn't been airborne since last landing event
-        guard airborneAfterLanding else {
-            AppLog.flightEvents.debugLine("Touch-and-go suppressed (not airborne since last landing)")
-            return
-        }
-
-        guard pendingTouchAndGo == nil else { return }
-
-        // Suppress events within the takeoff suppression window
-        if let takeoffTime = lastTakeoffTime,
-           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            AppLog.flightEvents.debugLine("Touch-and-go suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
-            return
-        }
-
-        let message: String
-        if let airport = airport {
-            message = String(localized: "Touch-and-go detected at \(airport.name)")
-        } else {
-            message = String(localized: "Touch-and-go detected")
-        }
-
-        let now = clock()
-        let event = DetectedFlightEvent(type: .touchAndGo, timestamp: now, airport: airport, message: message)
-        pendingTouchAndGo = event
-        lastEventTime = now
-        lastTakeoffTime = now
-        // Record landing altitude and require airborne evidence before next landing event
-        lastLandingAltMsl = currentAltMslFt
-        airborneAfterLanding = false
-        AppLog.flightEvents.debugLine("TOUCH-AND-GO: \(message)")
-    }
-
-    private func emitFullStop(airport: Airport?) {
-        // Suppress full-stop if aircraft has never been airborne in this session
-        guard hasBeenAirborne else {
-            AppLog.flightEvents.debugLine("Full stop suppressed (aircraft has not been airborne)")
-            transitionToIdle()
-            return
-        }
-
-        // Suppress if aircraft hasn't been airborne since last landing event
-        guard airborneAfterLanding else {
-            AppLog.flightEvents.debugLine("Full stop suppressed (not airborne since last landing)")
-            transitionToIdle()
-            return
-        }
-
-        guard pendingFullStop == nil else { return }
-
-        // Suppress events within the takeoff suppression window
-        if let takeoffTime = lastTakeoffTime,
-           clock().timeIntervalSince(takeoffTime) < takeoffSuppressionSeconds {
-            AppLog.flightEvents.debugLine("Full stop suppressed (within \(Int(takeoffSuppressionSeconds))s of takeoff)")
-            return
-        }
-
-        let message: String
-        if let airport = airport {
-            message = String(localized: "Full-stop landing detected at \(airport.name)")
-        } else {
-            message = String(localized: "Full-stop landing detected")
-        }
-
-        let event = DetectedFlightEvent(type: .fullStop, timestamp: clock(), airport: airport, message: message)
-        pendingFullStop = event
-        lastEventTime = clock()
-        // Record landing altitude and require airborne evidence before next landing event
-        lastLandingAltMsl = currentAltMslFt
-        airborneAfterLanding = false
-        hasBeenAirborne = false
-        AppLog.flightEvents.debugLine("FULL STOP: \(message)")
-    }
-
-    // MARK: - State Transitions
-
-    private func transitionToIdle() {
-        state = .idle
-        stateAirport = nil
-        stateEntryTime = nil
-        minSpeedInLowApproach = .infinity
-        minAltAglInLowApproach = .infinity
-        minSpeedInTouchdown = .infinity
-        touchdownEntryTime = nil
-        touchdownAltAglFt = 0
-        touchdownSpeedReadings = 0
-        consecutiveTaxiSpeedReadings = 0
-        touchdownViaLowApproach = false
+    private func fullStopMessage(airport: Airport?) -> String {
+        airport.map { String(localized: "Full-stop landing detected at \($0.name)") }
+            ?? String(localized: "Full-stop landing detected")
     }
 }

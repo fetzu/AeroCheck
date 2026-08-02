@@ -17,6 +17,9 @@ struct DataStorageSettingsView: View {
     @State private var showRemoveAllConfirm = false
     /// On-disk sizes computed off the main thread on appear (the descriptors don't carry them yet).
     @State private var sizes: [String: Int64] = [:]
+    /// Snapshotted on appear and after a sync. `getAllCachedAircraft()` reads and decodes cached
+    /// checklists, so calling it from `body` re-ran that disk work on every render.
+    @State private var checklists: [CachedAircraftInfo] = []
 
     private let tint: Color = .aviationGreen
 
@@ -76,6 +79,7 @@ struct DataStorageSettingsView: View {
         .onAppear {
             dataStatusManager.recompute()
             recomputeSizes()
+            checklists = aircraftDataService.getAllCachedAircraft()
         }
         .alert(L10n.DataStorage.deleteConfirmTitle, isPresented: deleteAlertBinding, presenting: pendingDelete) { dataSet in
             Button(L10n.DataStorage.delete, role: .destructive) {
@@ -241,7 +245,7 @@ struct DataStorageSettingsView: View {
 
     private var checklistsSection: some View {
         SettingsGroup(title: L10n.DataStorage.checklistsSection, tint: tint, footer: L10n.DataStorage.checklistsDetail) {
-            let cached = aircraftDataService.getAllCachedAircraft()
+            let cached = checklists
             if cached.isEmpty {
                 Text(L10n.DataStorage.noChecklists)
                     .font(.caption)
@@ -267,6 +271,16 @@ struct DataStorageSettingsView: View {
                                   tint: tint, showsChevron: false) {
                     Task { await syncChecklists() }
                 }
+                // Only when something is actually absent — "check for updates" cannot fetch a first
+                // copy, so without this row there was no way to get one short of selecting each
+                // aircraft in turn. Separate from the update check so the label stays truthful.
+                let missing = checklists.filter { !$0.isDownloaded }.count
+                if missing > 0 {
+                    SettingsButtonRow(icon: "arrow.down.circle", title: L10n.DataStorage.downloadMissingChecklists(missing),
+                                      tint: tint, showsChevron: false) {
+                        Task { await syncChecklists() }
+                    }
+                }
             }
         }
     }
@@ -285,7 +299,7 @@ struct DataStorageSettingsView: View {
                     HStack(spacing: 6) {
                         Text(aircraft.registration)
                             .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
-                            .foregroundColor(.primaryText)
+                            .foregroundColor(aircraft.isDownloaded ? .primaryText : .secondaryText)
                         if aircraft.isPremium {
                             Image(systemName: "star.fill").scaledFont(size: 9, relativeTo: .caption2).foregroundColor(.aviationGold)
                         }
@@ -295,9 +309,14 @@ struct DataStorageSettingsView: View {
                             ForEach(aircraft.checklistLanguages, id: \.self) { LanguageFlagView(languageCode: $0) }
                         }
                     }
-                    Text("\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)")
-                        .font(.caption2).foregroundColor(.dimText)
+                    // An owned-but-absent checklist says so plainly instead of being left off the list.
+                    Text(aircraft.isDownloaded
+                         ? "\(L10n.Settings.version(aircraft.version)) · \(aircraft.lastUpdated)"
+                         : L10n.DataStorage.statusMissing)
+                        .font(.caption2)
+                        .foregroundColor(aircraft.isDownloaded ? .dimText : .aviationAmber)
                 }
+                .opacity(aircraft.isDownloaded ? 1 : 0.75)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -326,9 +345,14 @@ struct DataStorageSettingsView: View {
         // BUNDLED aircraft, so on a fleet where one aircraft is bundled and thirteen are not it
         // appeared to do nothing. The language must be passed: checklists cache per language and
         // the key omitting it is not the one any reader looks up. (device-test feedback)
-        await aircraftDataService.syncAllChecklists(
-            language: appState.settings.checklistLanguage.resolvedLanguage
-        )
+        let language = appState.settings.checklistLanguage.resolvedLanguage
+        await aircraftDataService.syncAllChecklists(language: language)
+        // …and fetch the ones this device has never had. `syncAllChecklists` only refreshes what is
+        // already stored, so on a device that had opened seven of fifteen owned aircraft it refreshed
+        // seven and reported success — the other eight stayed absent, and offline. (v4.4.0)
+        await aircraftDataService.downloadMissingChecklists(language: language)
+        checklists = aircraftDataService.getAllCachedAircraft()
+        recomputeSizes()
         isSyncingChecklists = false
     }
 

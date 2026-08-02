@@ -434,6 +434,46 @@ class AircraftDataService: ObservableObject {
         lastSyncDate = Date()
     }
 
+    /// Downloads the checklists the user owns but this device has never fetched.
+    ///
+    /// `checkForUpdate` deliberately returns early when there is no local copy — it compares versions,
+    /// and there is nothing to compare against. That makes it the wrong tool for a first fetch, which
+    /// is why "check for updates" could report success while leaving eight of fifteen owned aircraft
+    /// absent: nothing anywhere fetched a premium checklist until its aircraft was selected. This is
+    /// the explicit, user-initiated first fetch, so a pilot can fill the device before losing signal.
+    ///
+    /// Returns the number of checklists actually stored. Failures are logged and skipped — a partial
+    /// result is better than none, and the next run retries whatever is still missing.
+    @discardableResult
+    func downloadMissingChecklists(language: String? = nil) async -> Int {
+        var stored = 0
+        for aircraft in availableAircraft where aircraft.hasAccess {
+            guard !hasAnyCachedChecklist(aircraftId: aircraft.id) else { continue }
+            let cacheKey = language.map { "\(aircraft.id)_\($0)" } ?? aircraft.id
+            do {
+                let checklist = try await fetchChecklistFromServer(aircraftId: aircraft.id, language: language)
+                let checksum = try? await fetchVersion(aircraftId: aircraft.id, language: language).checksum
+                cacheChecklist(checklist, aircraftId: cacheKey, checksum: checksum)
+                stored += 1
+                AppLog.aircraftData.debugLine("Downloaded missing checklist for \(cacheKey)")
+            } catch {
+                AppLog.aircraftData.debugLine("Failed to download missing checklist for \(cacheKey): \(error.localizedDescription)")
+            }
+        }
+        return stored
+    }
+
+    /// Whether ANY language variant of a checklist is on disk, WITHOUT decoding it.
+    ///
+    /// `loadAnyCachedChecklist` answers the same question but decodes a ~20 KB JSON to do it, which is
+    /// far too heavy for a per-row "is this downloaded?" test.
+    func hasAnyCachedChecklist(aircraftId: String) -> Bool {
+        if isChecklistCached(aircraftId: aircraftId) { return true }
+        guard let files = try? fileManager.contentsOfDirectory(atPath: cacheDirectory.path) else { return false }
+        let prefix = "\(aircraftId)_"
+        return files.contains { $0.hasPrefix(prefix) && $0.hasSuffix(".json") && !$0.hasSuffix(".metadata.json") }
+    }
+
     /// Syncs bundled aircraft checklists with the server
     /// Call this on app launch to check for updates to bundled aircraft
     /// Also checks for new language variants available from the API
@@ -473,7 +513,14 @@ class AircraftDataService: ObservableObject {
         return fileManager.fileExists(atPath: path.path)
     }
 
-    /// Gets all cached aircraft (combines remote and bundled), sorted by aeroclub
+    /// Every checklist the user owns (bundled + accessible remote), sorted by aeroclub.
+    ///
+    /// Entries the device has NOT downloaded are included with `isDownloaded == false` rather than
+    /// omitted. Omitting them is what made Data & Storage under-report: nothing in the app ever
+    /// fetches a premium checklist until you select that aircraft (`checkForUpdate` returns early with
+    /// no local copy to compare against), so a device that had opened seven of fifteen owned aircraft
+    /// listed seven — and the screen whose job is to say what is available offline gave no hint the
+    /// rest were missing. (device-test feedback, v4.4.0)
     func getAllCachedAircraft() -> [CachedAircraftInfo] {
         var cached: [CachedAircraftInfo] = []
         var processedIds: Set<String> = []
@@ -498,7 +545,8 @@ class AircraftDataService: ObservableObject {
                     version: cachedChecklist.version,
                     lastUpdated: cachedChecklist.lastUpdated,
                     isPremium: false, // Bundled aircraft are always free
-                    checklistLanguages: Array(allLanguages).sorted()
+                    checklistLanguages: Array(allLanguages).sorted(),
+                    aircraftId: aircraftId
                 ))
             } else if let bundled = BundledChecklistService.loadBundledChecklist(for: aircraftId) {
                 // Use bundled version
@@ -509,7 +557,8 @@ class AircraftDataService: ObservableObject {
                     version: bundled.version,
                     lastUpdated: bundled.lastUpdated,
                     isPremium: false,
-                    checklistLanguages: bundledLanguages
+                    checklistLanguages: bundledLanguages,
+                    aircraftId: aircraftId
                 ))
             }
             processedIds.insert(aircraftId)
@@ -523,17 +572,22 @@ class AircraftDataService: ObservableObject {
         // above falls back to the in-app resource when its own lookup misses. The list therefore
         // claimed no premium checklist was stored while several were. (device-test feedback)
         for aircraft in availableAircraft where !processedIds.contains(aircraft.id) {
-            if let cachedChecklist = loadAnyCachedChecklist(aircraftId: aircraft.id) {
-                cached.append(CachedAircraftInfo(
-                    registration: aircraft.registration,
-                    modelName: aircraft.shortModelName,
-                    aeroclub: aircraft.aeroclub,
-                    version: cachedChecklist.version,
-                    lastUpdated: cachedChecklist.lastUpdated,
-                    isPremium: !aircraft.isFree,
-                    checklistLanguages: aircraft.checklistLanguages
-                ))
-            }
+            let cachedChecklist = loadAnyCachedChecklist(aircraftId: aircraft.id)
+            // An aircraft the user cannot open is not theirs to store, so it stays off the list. One
+            // they own but haven't downloaded IS listed, marked undownloaded — that gap is the thing
+            // this screen exists to reveal.
+            guard cachedChecklist != nil || aircraft.hasAccess else { continue }
+            cached.append(CachedAircraftInfo(
+                registration: aircraft.registration,
+                modelName: aircraft.shortModelName,
+                aeroclub: aircraft.aeroclub,
+                version: cachedChecklist?.version ?? aircraft.version,
+                lastUpdated: cachedChecklist?.lastUpdated ?? aircraft.lastUpdated,
+                isPremium: !aircraft.isFree,
+                checklistLanguages: aircraft.checklistLanguages,
+                isDownloaded: cachedChecklist != nil,
+                aircraftId: aircraft.id
+            ))
         }
 
         // Sort by aeroclub (nil values first, then alphabetically)
@@ -1001,7 +1055,12 @@ enum ChecklistUpdateDecision {
 
 // MARK: - Cached Aircraft Info
 
-/// Information about a cached aircraft checklist
+/// Information about an aircraft checklist the user owns — downloaded or not.
+///
+/// `isDownloaded == false` entries exist so Data & Storage can show the whole owned fleet. Listing
+/// only what happened to be cached made a device that had opened seven aircraft report seven
+/// checklists while the account owned fifteen, with nothing on screen to say the other eight were
+/// simply absent — indistinguishable from them not existing. (device-test feedback, v4.4.0)
 struct CachedAircraftInfo: Identifiable {
     let id = UUID()
     let registration: String
@@ -1011,6 +1070,9 @@ struct CachedAircraftInfo: Identifiable {
     let lastUpdated: String
     let isPremium: Bool
     let checklistLanguages: [String]
+    var isDownloaded: Bool = true
+    /// The aircraft id, so the caller can ask for a missing checklist to be fetched.
+    var aircraftId: String = ""
 }
 
 // MARK: - Error Types

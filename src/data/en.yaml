@@ -30,8 +30,8 @@ flagship:
       shot: "planning"
     - step: "02 · Fly"
       title: "The right checklist step, right now"
-      description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases. Engine time, block time and go-arounds, touch-and-gos and landings are detected and logged automatically."
-      chips: ["16 phases", "{total} aircraft", "On-target instrument strip", "Departure & approach briefings", "Circuit mode", "Auto go-around / touch-and-go / landing"]
+      description: "The active item is the hero while past and future steps recede; a cockpit instrument strip shows speed, altitude and heading with an on-target bar, across all 16 phases. Engine time, block time and go-arounds, touch-and-gos and landings are detected and logged automatically — with an engine validated against real flights and the barometer as its precision altitude reference."
+      chips: ["16 phases", "{total} aircraft", "On-target instrument strip", "Departure & approach briefings", "Circuit mode", "Auto go-around / touch-and-go / landing", "Barometer-assisted"]
       shot: "hud"
     - step: "03 · Navigate"
       title: "Full-screen charts, frequencies in reach"
@@ -40,8 +40,8 @@ flagship:
       shot: "nav"
     - step: "04 · Log"
       title: "Every flight, logged automatically"
-      description: "A full GPS track with speed and altitude profile, automatic engine, block, line-up and landing times, and a tidy logbook you can filter, replay and share. Export GPX, JSON or ZIP for your records or avionics."
-      chips: ["GPS track & altitude profile", "Flight history & stats", "Filter & replay", "Share cards", "Export GPX / JSON / ZIP"]
+      description: "A full GPS track with speed and altitude profile, automatic engine, block, line-up and landing times, and a tidy logbook you can filter, replay and share. A post-flight review re-reads the whole track and shows anything you missed confirming in the circuit — nothing changes without your say-so. Export GPX, JSON or ZIP for your records or avionics."
+      chips: ["GPS track & altitude profile", "Post-flight review", "Flight history & stats", "Filter & replay", "Share cards", "Export GPX / JSON / ZIP"]
       shot: "log"
 
 supporting:

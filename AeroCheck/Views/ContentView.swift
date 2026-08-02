@@ -200,6 +200,23 @@ struct ContentView: View {
                 locationManager.clearGPSStatusOverride()
             }
         }
+        // Post-flight reconciliation review (D2): presented over Home right after END
+        // FLIGHT when the track re-analysis disagrees with the confirmed events. Swipe
+        // dismissal is disabled inside the sheet; both exits are explicit buttons, and
+        // "keep as recorded" is the safe default wired to the binding's dismiss path.
+        .sheet(isPresented: Binding(
+            get: { appState.pendingReconciliation != nil },
+            set: { if !$0 { appState.keepRecordedReconciliation() } }
+        )) {
+            if let result = appState.pendingReconciliation {
+                FlightReconciliationView(
+                    result: result,
+                    onApply: { appState.applyReconciliation($0) },
+                    onKeep: { appState.keepRecordedReconciliation() }
+                )
+                .presentationDetents([.large])
+            }
+        }
         .fullScreenCover(isPresented: Bindable(appState).showFlightLog) {
             FlightLogView()
                 .environment(appState)

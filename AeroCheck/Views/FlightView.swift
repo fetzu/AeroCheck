@@ -373,6 +373,8 @@ struct FlightView: View {
         .alert(L10n.Alert.endFlightTitle, isPresented: $showEndFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
             Button(L10n.Button.endFlight, role: .destructive) {
+                let endedFlightId = appState.currentFlight?.id
+                let checklist = appState.activeChecklist
                 locationManager.stopTracking()
                 // Populate timing fields on the active flight plan from the current flight
                 if let activePlan = flightPlanManager.activeFlightPlan,
@@ -381,6 +383,29 @@ struct FlightView: View {
                 }
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
+
+                // Post-flight reconciliation (D2): re-segment the saved track offline and
+                // build the review diff. Shown only when it would change EVENTS; a pure
+                // block-time back-fill (additive) is applied without ceremony.
+                if let endedFlightId,
+                   let flight = appState.flights.first(where: { $0.id == endedFlightId }) {
+                    let result = FlightReconciliation.analyze(
+                        flight: flight,
+                        speeds: checklist.speeds,
+                        stallSpeed: checklist.stallSpeed,
+                        nearbyAirports: { coordinate in
+                            airportDataService.findNearestAirports(
+                                to: coordinate, limit: 3, maxDistanceNm: 5.0,
+                                types: AirportType.fixedWing
+                            )
+                        }
+                    )
+                    if result.hasEventDiff {
+                        appState.pendingReconciliation = result
+                    } else {
+                        appState.backfillBlockTimes(result)
+                    }
+                }
             }
         } message: {
             Text(L10n.Alert.endFlightMessage)

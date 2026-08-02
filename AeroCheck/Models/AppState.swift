@@ -1201,6 +1201,47 @@ class AppState {
         currentPhase = .taxi
     }
 
+    // MARK: - Post-flight reconciliation (D2)
+
+    /// The review diff computed right after END FLIGHT, when the offline re-segmentation
+    /// disagrees with what was confirmed in flight. Non-nil drives the review sheet
+    /// (`FlightReconciliationView` via ContentView); cleared by apply or keep.
+    var pendingReconciliation: FlightReconciliation.Result?
+
+    /// Apply the reviewed diff to the just-saved flight: rewrite its events from the
+    /// review rows, back-fill missing block times, refresh stats, persist and re-sync.
+    func applyReconciliation(_ result: FlightReconciliation.Result) {
+        defer { pendingReconciliation = nil }
+        guard let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return }
+        var flight = flights[index]
+        FlightReconciliation.apply(result, to: &flight)
+        flight.computeSummaryStats()
+        flights[index] = flight
+        _ = saveFlight(flight)
+        AppLog.flightEvents.debugLine("Reconciliation applied to flight \(result.flightId): \(flight.fullStopCount) FS, \(flight.touchAndGoCount) TG, \(flight.goAroundCount) GA")
+    }
+
+    /// "Keep as recorded": confirmed events stay untouched (D2). Missing block times are
+    /// still back-filled — that is additive, not a change to anything the pilot entered.
+    func keepRecordedReconciliation() {
+        guard let result = pendingReconciliation else { return }
+        pendingReconciliation = nil
+        backfillBlockTimes(result)
+    }
+
+    /// Additive block-time back-fill, used both by "keep as recorded" and directly when
+    /// the analysis found no event diff at all (no sheet shown for block times alone).
+    func backfillBlockTimes(_ result: FlightReconciliation.Result) {
+        guard result.backfillsBlockOff || result.backfillsBlockOn,
+              let index = flights.firstIndex(where: { $0.id == result.flightId }) else { return }
+        var flight = flights[index]
+        FlightReconciliation.backfillBlockTimes(result, to: &flight)
+        flight.modifiedAt = Date()
+        flights[index] = flight
+        _ = saveFlight(flight)
+        AppLog.flightEvents.debugLine("Block times back-filled from track for flight \(result.flightId)")
+    }
+
     /// Apply the detector's end-of-flight flush: a landing that was in progress when
     /// recording stopped (rollout with touchdown evidence, stillness dwell never
     /// completed). Called from LocationManager.stopTracking() BEFORE endFlight() snapshots

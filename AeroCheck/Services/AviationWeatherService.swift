@@ -104,6 +104,19 @@ final class AviationWeatherService: ObservableObject {
     /// Matches the proxy's own METAR cache window. Re-asking faster cannot produce a newer report.
     private let minimumRefreshInterval: TimeInterval = 5 * 60
 
+    /// Coordinate grid applied BEFORE a position leaves the device.
+    ///
+    /// The proxy snaps every incoming lat/lon to this same 0.25° grid (`GRID_DEGREES` in the weather
+    /// worker) before it builds a cache key, an upstream URL, or a distance sort — so sending full
+    /// precision changes nothing about the response. It only writes a live flight track into query
+    /// strings that land in edge request logs. `WindsAloftService` already snaps client-side; this
+    /// matches it. 0.25° is ~10-15 nm, well inside the 60 nm / 150 nm search radii below.
+    nonisolated private static let gridDegrees = 0.25
+
+    nonisolated static func snap(_ value: Double) -> Double {
+        (value / gridDegrees).rounded() * gridDegrees
+    }
+
     private var inFlight = false
 
     private static let decoder: JSONDecoder = {
@@ -147,16 +160,20 @@ final class AviationWeatherService: ObservableObject {
     }
 
     private func fetchMetars(near coordinate: CLLocationCoordinate2D) async -> [Metar]? {
+        let lat = Self.snap(coordinate.latitude)
+        let lon = Self.snap(coordinate.longitude)
         guard let url = URL(string:
-            "\(baseURL)/v1/metar?lat=\(coordinate.latitude)&lon=\(coordinate.longitude)&radius=60"
+            "\(baseURL)/v1/metar?lat=\(lat)&lon=\(lon)&radius=60"
         ) else { return nil }
         let payload: MetarPayload? = await get(url)
         return payload?.observations
     }
 
     private func fetchSigmets(near coordinate: CLLocationCoordinate2D) async -> [Sigmet]? {
+        let lat = Self.snap(coordinate.latitude)
+        let lon = Self.snap(coordinate.longitude)
         guard let url = URL(string:
-            "\(baseURL)/v1/sigmet?lat=\(coordinate.latitude)&lon=\(coordinate.longitude)&radius=150"
+            "\(baseURL)/v1/sigmet?lat=\(lat)&lon=\(lon)&radius=150"
         ) else { return nil }
         let payload: SigmetPayload? = await get(url)
         return payload?.hazards

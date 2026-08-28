@@ -36,6 +36,8 @@
 	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSMotionUsageDescription</key>
+	<string>AéroCheck reads the barometric altimeter to record altitude on your flight track and to detect take-offs, touch-and-gos and landings accurately. Motion data never leaves your device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>AéroCheck needs access to save flight log images to your photo library.</string>
 	<key>NSSupportsLiveActivities</key>

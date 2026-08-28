@@ -378,8 +378,25 @@ ecosystem `CLAUDE.md` for the full roster.
 
 - `NSLocationWhenInUseUsageDescription`
 - `NSLocationAlwaysAndWhenInUseUsageDescription`
+- `NSMotionUsageDescription` — CoreMotion `CMAltimeter`, started with GPS tracking by
+  `LocationManager.beginTrackingNow()` (barometric altitude for the flight-event detector)
 - `NSPhotoLibraryAddUsageDescription` — saving flight-log share cards to Photos
 - `UIBackgroundModes: [location, remote-notification]`
+
+> ⚠️ **A missing TCC usage description is a crash, not a denied permission.** iOS terminates the
+> process, uncatchably, the first time the protected API is called. That is what 4.4.0 shipped:
+> `BarometricAltitudeService` (CoreMotion) went in without `NSMotionUsageDescription`, so every
+> barometer-equipped device — every iPhone since the 6, every cellular iPad — died on the first
+> tap of **START FLIGHT**. It survived review because the simulator has **no barometer**:
+> `CMAltimeter.isRelativeAltitudeAvailable()` is false there, `start()` returns early, and the
+> protected call is never reached in the simulator or in the test suite.
+>
+> The keys are locked by `AeroCheckTests/PrivacyUsageDescriptionTests.swift` (the TCC sibling of
+> `CompanionServiceContractTests`, which guards the same class of Info.plist-induced flight-start
+> crash for Wi-Fi Aware). **Adding any privacy-protected API means adding its key and a row there
+> in the same change.** Note the app target uses `INFOPLIST_FILE = AeroCheck/Info.plist` *and*
+> `GENERATE_INFOPLIST_FILE = YES`, so a key may live in either the file or an `INFOPLIST_KEY_*`
+> build setting — the location keys are build settings, the rest are in the file.
 
 ## Entitlements
 

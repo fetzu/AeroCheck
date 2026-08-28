@@ -410,57 +410,30 @@ class SubscriptionManager: ObservableObject {
         AppLog.subscription.debugLine("Subscription state reset")
     }
 
-    /// Manually syncs subscription with server
+    /// Manually syncs subscription with server.
+    ///
+    /// Verifies the DETERMINISTICALLY preferred entitlement (`preferredEntitlement()`), not whichever
+    /// one `Transaction.currentEntitlements` yields first. The old first-match walk meant a dual owner
+    /// (subscription + lifetime) synced a different transaction on different launches, so the stored
+    /// session token kept moving between two server-side account records — and once the subscription's
+    /// record lapsed, the token in the Keychain was the lapsed one while the lifetime entitlement sat
+    /// under an id the app had stopped sending. Preferring the lifetime keeps the credential on the
+    /// permanent record. A non-consumable is verified with the server for the same reason it always
+    /// was: a restore on a NEW device otherwise re-establishes only the LOCAL `.lifetime` status and
+    /// never (re)creates the server-side entitlement that gates premium checklist downloads.
     func syncWithServer() async {
         debugLogger.log("Manually syncing subscription with server", level: .info)
 
-        var transactionCount = 0
-        var foundActiveSubscription = false
-
-        // Get current active transaction
-        for await result in Transaction.currentEntitlements {
-            transactionCount += 1
-            debugLogger.log("Checking transaction #\(transactionCount)", level: .info)
-
-            if case .verified(let transaction) = result {
-                debugLogger.log("Transaction verified: \(transaction.productID)", level: .info)
-
-                if productIdentifiers.contains(transaction.productID) {
-                    debugLogger.log("Transaction is for our product: \(transaction.productID)", level: .info)
-
-                    if let expirationDate = transaction.expirationDate {
-                        let isActive = expirationDate > Date()
-                        debugLogger.log("Expiration: \(expirationDate), Active: \(isActive)", level: .info)
-
-                        if isActive {
-                            debugLogger.log("Found active subscription, verifying with server", level: .success)
-                            foundActiveSubscription = true
-                            await verifyWithServer(verificationResult: result)
-                            return
-                        } else {
-                            debugLogger.log("Transaction expired", level: .warning)
-                        }
-                    } else {
-                        // No expiration date → a non-consumable (lifetime) entitlement. Verify it with the
-                        // server too, otherwise a restore on a NEW device re-establishes only the LOCAL
-                        // .lifetime status and never (re)creates the server-side entitlement that gates
-                        // premium checklist downloads — locking a paid lifetime owner out of the content.
-                        debugLogger.log("Found lifetime (non-expiring) entitlement, verifying with server", level: .success)
-                        foundActiveSubscription = true
-                        await verifyWithServer(verificationResult: result)
-                        return
-                    }
-                } else {
-                    debugLogger.log("Transaction is not for our product (found: \(transaction.productID))", level: .warning)
-                }
-            } else if case .unverified(let transaction, let error) = result {
-                debugLogger.log("Unverified transaction: \(transaction.productID) - Error: \(error.localizedDescription)", level: .error)
-            }
+        guard let result = await preferredEntitlement() else {
+            debugLogger.log("No active entitlement found to sync", level: .warning)
+            return
         }
 
-        if !foundActiveSubscription {
-            debugLogger.log("No active subscription found to sync (checked \(transactionCount) transactions)", level: .warning)
+        if case .verified(let transaction) = result {
+            let expiry = transaction.expirationDate.map { "expires \($0)" } ?? "no expiry (lifetime)"
+            debugLogger.log("Syncing entitlement \(transaction.productID) (\(expiry))", level: .success)
         }
+        await verifyWithServer(verificationResult: result)
     }
 
     // MARK: - Subscription Verification & Grace Period
@@ -693,8 +666,52 @@ class SubscriptionManager: ObservableObject {
         return await getUserID()
     }
 
+    /// The entitlement this install treats as authoritative, chosen DETERMINISTICALLY.
+    ///
+    /// `Transaction.currentEntitlements` has undefined iteration order, so "the first one" is not a
+    /// stable answer for an account holding more than one entitlement. Order of preference:
+    ///  1. a lifetime (non-consumable) — permanent, never leaves `currentEntitlements`, so it is the
+    ///     most durable identity available and the one that actually grants access;
+    ///  2. otherwise the latest-expiring active subscription;
+    ///  3. ties broken by `originalID` so the choice is reproducible run to run.
+    ///
+    /// Returns the `VerificationResult` rather than the `Transaction` because the server needs the
+    /// JWS representation, which only the result carries.
+    private func preferredEntitlement() async -> VerificationResult<Transaction>? {
+        var lifetime: (result: VerificationResult<Transaction>, originalID: UInt64)?
+        var subscription: (result: VerificationResult<Transaction>, expiresAt: Date, originalID: UInt64)?
+
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+            guard productIdentifiers.contains(transaction.productID) else { continue }
+            if transaction.revocationDate != nil { continue }
+
+            if transaction.productID == lifetimeProductID {
+                if lifetime == nil || transaction.originalID < lifetime!.originalID {
+                    lifetime = (result, transaction.originalID)
+                }
+                continue
+            }
+
+            guard let expiresAt = transaction.expirationDate, expiresAt > Date() else { continue }
+            if subscription == nil
+                || expiresAt > subscription!.expiresAt
+                || (expiresAt == subscription!.expiresAt && transaction.originalID < subscription!.originalID) {
+                subscription = (result, expiresAt, transaction.originalID)
+            }
+        }
+
+        return lifetime?.result ?? subscription?.result
+    }
+
     /// Gets the user ID — the identity the server binds a transaction to, sent in the `/verify`
     /// BODY. This is no longer the API auth credential; see `getAuthCredential()`.
+    ///
+    /// Derived from `preferredEntitlement()`, NOT from whichever entitlement `currentEntitlements`
+    /// happened to yield first. That ordering is undefined, so an account holding both a subscription
+    /// and a lifetime purchase produced a DIFFERENT id run to run — and since the server binds one
+    /// transaction to one account, the second id to show up was refused with 409 TRANSACTION_OWNED,
+    /// no session token was minted, and a paying lifetime owner lost every premium checklist. (SUB-4)
     func getUserID() async -> String? {
         if let cached = cachedUserID {
             return cached
@@ -702,11 +719,9 @@ class SubscriptionManager: ObservableObject {
 
         // Derive the durable identity from the StoreKit transaction (originalID is stable
         // per Apple ID for the subscription). This is what the server binds to. (ARCH-03)
-        for await result in Transaction.currentEntitlements {
-            if case .verified(let transaction) = result {
-                cachedUserID = String(transaction.originalID)
-                return cachedUserID
-            }
+        if case .verified(let transaction)? = await preferredEntitlement() {
+            cachedUserID = String(transaction.originalID)
+            return cachedUserID
         }
 
         // Last-resort, non-durable fallback. Deliberately NOT cached, so that once a real
@@ -831,10 +846,14 @@ class SubscriptionManager: ObservableObject {
 
         debugLogger.log("Starting server verification for: \(transaction.productID)", level: .info)
 
-        guard let userID = await getUserID() else {
-            debugLogger.log("No user ID available for server verification", level: .error)
-            return
-        }
+        // The identity is the ORIGINAL ID OF THE TRANSACTION BEING VERIFIED — never a separately
+        // derived one. The server binds one transaction to one account, so deriving the account id
+        // from a *different* entitlement (which `getUserID()` may legitimately do when several are
+        // present) makes the claim inconsistent with the token proving it, and the server answers
+        // 409 TRANSACTION_OWNED forever after. Sending the token's own id is self-consistent by
+        // construction: the same transaction always claims the same account, on every device and
+        // every launch, so this request can no longer conflict with a past one. (SUB-4)
+        let userID = String(transaction.originalID)
 
         // Redact the identity in logs — only a short suffix, never the full id. (SEC-19)
         debugLogger.log("User ID: \(Self.redactedIdentifier(userID))", level: .info)
@@ -895,6 +914,21 @@ class SubscriptionManager: ObservableObject {
                 let code = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
                 let serverCode = code?["code"] as? String ?? "unknown"
                 debugLogger.log("Error response: code=\(serverCode)", level: .error)
+                // Name the two failures that mean "the entitlement is real but this install can never
+                // present it", so the log says what is wrong instead of only that something is. Both
+                // are configuration/binding faults, not a lapsed purchase — a pilot reading this
+                // screen was previously left to infer a refund from an opaque status code. (SUB-4)
+                if serverCode == "TRANSACTION_OWNED" {
+                    debugLogger.log(
+                        "This purchase is bound to a different account id on the server. Update the app, then use Restore Purchases.",
+                        level: .error
+                    )
+                } else if serverCode == "SANDBOX_IN_PRODUCTION" || serverCode == "LIFETIME_SANDBOX" {
+                    debugLogger.log(
+                        "A Sandbox/TestFlight purchase was sent to the production API. Check APIBaseURLSandbox in Info.plist.",
+                        level: .error
+                    )
+                }
                 return
             }
 
@@ -1033,8 +1067,16 @@ struct TransactionDebugInfo: Identifiable {
     let isVerified: Bool
     var verificationError: String?
 
+    /// A transaction with NO expiration date is a non-consumable (the lifetime purchase), which never
+    /// expires — it is permanently entitled, not lapsed.
+    var isLifetime: Bool {
+        return expirationDate == nil
+    }
+
     var isActive: Bool {
-        guard let expirationDate = expirationDate else { return false }
+        // No expiry → lifetime → entitled forever. This returned `false`, which is what painted the
+        // count red and the row "EXPIRED" for an owner whose purchase was perfectly valid.
+        guard let expirationDate = expirationDate else { return true }
         return expirationDate > Date()
     }
 
@@ -1047,6 +1089,12 @@ struct TransactionDebugInfo: Identifiable {
         }
         if isUpgraded {
             return "⬆️ UPGRADED"
+        }
+        // A nil expiry meant "not active" here, so the debug screen labelled every lifetime purchase
+        // "⏱️ EXPIRED" — the exact opposite of the truth, on the one screen a confused owner is sent
+        // to when premium content will not unlock.
+        if isLifetime {
+            return "♾️ LIFETIME"
         }
         if isActive {
             return "✅ ACTIVE"

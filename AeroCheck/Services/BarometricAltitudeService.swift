@@ -25,6 +25,22 @@ final class BarometricAltitudeService {
     /// Whether this device has a barometer (false on the simulator).
     static var isAvailable: Bool { CMAltimeter.isRelativeAltitudeAvailable() }
 
+    /// Whether the bundle declares `NSMotionUsageDescription`.
+    ///
+    /// CoreMotion is TCC-protected: `startRelativeAltitudeUpdates` on a bundle without this key
+    /// does not fail, it **terminates the process** — an uncatchable crash on the first tap of
+    /// START FLIGHT on every barometer-equipped device (which is every iPhone since the 6 and
+    /// every cellular iPad). The simulator has no barometer, so `isAvailable` is false there and
+    /// the call is never reached: neither the simulator nor the test suite can reproduce it, which
+    /// is exactly how 4.4.0 shipped with the key missing.
+    ///
+    /// The key is now declared (and locked by `PrivacyUsageDescriptionTests`); this check is the
+    /// second line of defence, so losing it again costs the barometer, not the flight.
+    static var isPermittedByBundle: Bool {
+        let description = Bundle.main.object(forInfoDictionaryKey: "NSMotionUsageDescription") as? String
+        return !(description ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Latest median-filtered sample (feet, relative to the CMAltimeter session datum).
     private(set) var currentSample: BaroAltitudeSample?
 
@@ -43,6 +59,11 @@ final class BarometricAltitudeService {
 
     func start() {
         guard !isActive, Self.isAvailable else { return }
+        guard Self.isPermittedByBundle else {
+            AppLog.flightEvents.debugLine(
+                "Barometer NOT started: Info.plist is missing NSMotionUsageDescription. Running GPS-only.")
+            return
+        }
         isActive = true
         window = []
         rawRelativeAltitudeM = nil

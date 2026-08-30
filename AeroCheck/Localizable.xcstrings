@@ -16779,23 +16779,6 @@
         }
       }
     },
-    "subscription.termsOfService": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terms of Service"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conditions d'utilisation"
-          }
-        }
-      }
-    },
     "subscription.unableToLoad": {
       "extractionState": "manual",
       "localizations": {

@@ -322,33 +322,25 @@ struct SubscriptionView: View {
                 .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
-            // Three links now, and both "terms" are deliberate rather than a duplication:
+            // Terms of use → aerocheck.app/terms, ours: the safety notice (not certified, the
+            // AFM/POH wins, the PIC is responsible) plus the subscription terms.
             //
-            //  * Terms of use → aerocheck.app/terms. Ours. Carries the safety notice (not certified,
-            //    the AFM/POH wins, the PIC is responsible) and the subscription terms. This page did
-            //    NOT exist when this section was written, which is exactly why the link below used to
-            //    point elsewhere; it exists now.
-            //  * Licence → Apple's standard EULA, unchanged. App Store Connect is set to the standard
-            //    licence agreement, so this is the licence that actually governs the App Store
-            //    download, and App Review 3.1.2 wants a functional link to it. Our terms defer to it
-            //    for the licence itself (§2.0) rather than trying to replace it.
+            // It used to point at Apple's standard EULA instead, because aerocheck.app/terms had
+            // never existed and 404'd — App Review 3.1.2 needs the link to WORK, and the standard
+            // EULA is what applies when a developer supplies none. The page exists now, so the link
+            // goes where the label says. Apple's EULA is not dropped, it is deferred to: §2.0 of
+            // that page names and links it as the licence governing the App Store download itself,
+            // and §3.0 points back at §2.0 from the subscription terms.
             //
-            // ViewThatFits because three .caption2 links overflow a narrow iPhone in French, where
-            // every one of these labels is longer.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) { termsLinks }
-                VStack(spacing: 0) { termsLinks }
+            // So: if aerocheck.app/terms ever moves or breaks, this is a 3.1.2 problem, not a
+            // cosmetic one. DisclaimerView.termsURL is the single definition; keep it that way.
+            HStack(spacing: 16) {
+                legalLink(L10n.Subscription.termsOfUse, DisclaimerView.termsURL)
+                legalLink(L10n.Subscription.privacyPolicy,
+                          URL(string: "https://aerocheck.app/privacy")!)
             }
         }
         .padding(.top)
-    }
-
-    @ViewBuilder
-    private var termsLinks: some View {
-        legalLink(L10n.Subscription.termsOfUse, DisclaimerView.termsURL)
-        legalLink(L10n.Subscription.termsOfService,
-                  URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-        legalLink(L10n.Subscription.privacyPolicy, URL(string: "https://aerocheck.app/privacy")!)
     }
 
     private func legalLink(_ title: String, _ destination: URL) -> some View {

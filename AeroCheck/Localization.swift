@@ -750,7 +750,6 @@ enum L10n {
         static let restorePurchases = String(localized: "subscription.restorePurchases")
         static let termsDescription = String(localized: "subscription.termsDescription")
         static let termsOfUse = String(localized: "subscription.termsOfUse")
-        static let termsOfService = String(localized: "subscription.termsOfService")
         static let privacyPolicy = String(localized: "subscription.privacyPolicy")
         static let errorPending = String(localized: "subscription.error.pending")
         static let errorUnknownResult = String(localized: "subscription.error.unknownResult")

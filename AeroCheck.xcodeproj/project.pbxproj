@@ -24,6 +24,7 @@
 		A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000029111111110000001 /* RouteDataCalculatorTests.swift */; };
 		A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
+		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
 		A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002D111111110000001 /* AviationWeatherServiceTests.swift */; };
 		A500002C111111110000002 /* AirspaceRegionQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002C111111110000001 /* AirspaceRegionQueryTests.swift */; };
 		A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000025111111110000001 /* DataStatusManagerTests.swift */; };
@@ -132,6 +133,7 @@
 		A300000B411111110000009 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000009 /* AppLog.swift */; };
 		A300000B411111110000903 /* SafeNumeric.swift in Sources */ = {isa = PBXBuildFile; fileRef = A300000B111111110000903 /* SafeNumeric.swift */; };
 		A1000001211111110000062 /* AmbientCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000062 /* AmbientCelebration.swift */; };
+		A1000001211111110000072 /* DisclaimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000072 /* DisclaimerView.swift */; };
 		A1000001211111110000909 /* SigmetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000909 /* SigmetViews.swift */; };
 		A4000001211111110000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4000001111111110000005 /* Assets.xcassets */; };
 		A4000001211111110000006 /* AeroCheckWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A4000001111111110000000 /* AeroCheckWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -253,6 +255,7 @@
 		A5000029111111110000001 /* RouteDataCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDataCalculatorTests.swift; sourceTree = "<group>"; };
 		A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportMergeTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
+		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
 		A500002D111111110000001 /* AviationWeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherServiceTests.swift; sourceTree = "<group>"; };
 		A500002C111111110000001 /* AirspaceRegionQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirspaceRegionQueryTests.swift; sourceTree = "<group>"; };
 		A5000025111111110000001 /* DataStatusManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManagerTests.swift; sourceTree = "<group>"; };
@@ -298,6 +301,7 @@
 		A1000001111111110000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001111111110000003 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		A1000001111111110000062 /* AmbientCelebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientCelebration.swift; sourceTree = "<group>"; };
+		A1000001111111110000072 /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
 		A1000001111111110000909 /* SigmetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigmetViews.swift; sourceTree = "<group>"; };
 		A1000001111111110000004 /* FlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightView.swift; sourceTree = "<group>"; };
 		A1000001111111110000005 /* FlightLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLogView.swift; sourceTree = "<group>"; };
@@ -466,6 +470,7 @@
 				A5000029111111110000001 /* RouteDataCalculatorTests.swift */,
 				A500002A111111110000001 /* OpenAIPAirportMergeTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
+				A500002E111111110000001 /* DisclaimerGateTests.swift */,
 				A500002D111111110000001 /* AviationWeatherServiceTests.swift */,
 				A500002C111111110000001 /* AirspaceRegionQueryTests.swift */,
 				A5000025111111110000001 /* DataStatusManagerTests.swift */,
@@ -561,6 +566,7 @@
 				A1000001111111110000002 /* ContentView.swift */,
 				A1000001111111110000003 /* HomeView.swift */,
 				A1000001111111110000062 /* AmbientCelebration.swift */,
+				A1000001111111110000072 /* DisclaimerView.swift */,
 				A1000001111111110000909 /* SigmetViews.swift */,
 				A1000001111111110000004 /* FlightView.swift */,
 				D3A1E39F906E4080982C26BB /* CompanionFlightView.swift */,
@@ -911,6 +917,7 @@
 				A5000029111111110000002 /* RouteDataCalculatorTests.swift in Sources */,
 				A500002A111111110000002 /* OpenAIPAirportMergeTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
+				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,
 				A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */,
 				A500002C111111110000002 /* AirspaceRegionQueryTests.swift in Sources */,
 				A5000025111111110000002 /* DataStatusManagerTests.swift in Sources */,
@@ -1004,6 +1011,7 @@
 				A300000B211111110000009 /* AppLog.swift in Sources */,
 				A300000B211111110000903 /* SafeNumeric.swift in Sources */,
 				A1000001211111110000062 /* AmbientCelebration.swift in Sources */,
+				A1000001211111110000072 /* DisclaimerView.swift in Sources */,
 				A1000001211111110000909 /* SigmetViews.swift in Sources */,
 				EC22E3A0DBAD43EA911E2321 /* CompanionConnectivityManager.swift in Sources */,
 				62889D5E704D465089384ECD /* CompanionConnectivityData.swift in Sources */,

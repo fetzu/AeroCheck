@@ -16,6 +16,7 @@ struct AboutSettingsView: View {
     @State private var showTransactionDebug: Bool = false
     @State private var showSubscriptionLogs: Bool = false
     @State private var marketingMode: Bool = false
+    @State private var showSafetyNotice: Bool = false
     @State private var simulateLSZS: Bool = false   // dev: hold a static fix at LSZS to test briefings
     @State private var previewEvent: DetectedFlightEvent?   // dev: preview the restyled event prompt
 
@@ -24,6 +25,7 @@ struct AboutSettingsView: View {
     var body: some View {
         SettingsPage {
             aboutSection
+            legalSection
             dataSourcesSection
             replayOnboardingSection
             developerOptionsSection
@@ -39,6 +41,9 @@ struct AboutSettingsView: View {
         .onChange(of: marketingMode) { _, newValue in
             appState.settings.marketingMode = newValue
             appState.saveSettings() // UX-14: persist the toggle (was a mutation with no save)
+        }
+        .sheet(isPresented: $showSafetyNotice) {
+            DisclaimerView(mode: .review)
         }
         .sheet(isPresented: $showTransactionDebug) {
             TransactionDebugView()
@@ -96,6 +101,31 @@ struct AboutSettingsView: View {
             }
 
             openSourceRow
+        }
+    }
+
+    // MARK: - Legal
+
+    /// The safety notice has to stay reachable after the first-run gate is behind you — a pilot who
+    /// tapped through it on day one should be able to find it again on day two, and the paywall's
+    /// Terms link should not be the only route to it. Placed directly under About so it sits above
+    /// the (longer) data-sources list rather than at the bottom of the page.
+    private var legalSection: some View {
+        SettingsGroup(title: L10n.Settings.legal, tint: tint, footer: L10n.Settings.legalFooter) {
+            SettingsButtonRow(icon: "exclamationmark.triangle",
+                              title: L10n.Settings.safetyNotice,
+                              subtitle: L10n.Settings.safetyNoticeSubtitle,
+                              tint: .aviationAmber) {
+                showSafetyNotice = true
+            }
+            SettingsButtonRow(icon: "doc.text", title: L10n.Settings.termsOfUse,
+                              tint: tint, showsChevron: false) {
+                openURL(DisclaimerView.termsURL)
+            }
+            SettingsButtonRow(icon: "hand.raised", title: L10n.Settings.privacyPolicy,
+                              tint: tint, showsChevron: false) {
+                openURL(URL(string: "https://aerocheck.app/privacy")!)
+            }
         }
     }
 

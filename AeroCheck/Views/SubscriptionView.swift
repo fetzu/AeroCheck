@@ -322,28 +322,33 @@ struct SubscriptionView: View {
                 .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
+            // Terms of use → aerocheck.app/terms, ours: the safety notice (not certified, the
+            // AFM/POH wins, the PIC is responsible) plus the subscription terms.
+            //
+            // It used to point at Apple's standard EULA instead, because aerocheck.app/terms had
+            // never existed and 404'd — App Review 3.1.2 needs the link to WORK, and the standard
+            // EULA is what applies when a developer supplies none. The page exists now, so the link
+            // goes where the label says. Apple's EULA is not dropped, it is deferred to: §2.0 of
+            // that page names and links it as the licence governing the App Store download itself,
+            // and §3.0 points back at §2.0 from the subscription terms.
+            //
+            // So: if aerocheck.app/terms ever moves or breaks, this is a 3.1.2 problem, not a
+            // cosmetic one. DisclaimerView.termsURL is the single definition; keep it that way.
             HStack(spacing: 16) {
-                // Apple's standard EULA, not aerocheck.app/terms — that path has never existed and
-                // returned 404, so the paywall shipped a dead Terms link. App Review 3.1.2 requires a
-                // FUNCTIONAL link to the terms, and the standard EULA is the licence that actually
-                // applies when a developer supplies none, so pointing at it is correct rather than a
-                // placeholder. Swap this for aerocheck.app/terms if a custom EULA is ever published —
-                // and check the link resolves before shipping it.
-                Link(L10n.Subscription.termsOfService,
-                     destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-                    .font(.caption2)
-                    .foregroundColor(Color.altimeterBlue)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-
-                Link(L10n.Subscription.privacyPolicy, destination: URL(string: "https://aerocheck.app/privacy")!)
-                    .font(.caption2)
-                    .foregroundColor(Color.altimeterBlue)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+                legalLink(L10n.Subscription.termsOfUse, DisclaimerView.termsURL)
+                legalLink(L10n.Subscription.privacyPolicy,
+                          URL(string: "https://aerocheck.app/privacy")!)
             }
         }
         .padding(.top)
+    }
+
+    private func legalLink(_ title: String, _ destination: URL) -> some View {
+        Link(title, destination: destination)
+            .font(.caption2)
+            .foregroundColor(Color.altimeterBlue)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
     }
 }
 

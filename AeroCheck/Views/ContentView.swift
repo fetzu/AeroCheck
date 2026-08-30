@@ -23,7 +23,15 @@ struct ContentView: View {
             let isLandscape = geometry.size.width > geometry.size.height
 
             ZStack {
-                if !appState.hasSeenOnboarding {
+                if appState.needsDisclaimerAcceptance {
+                    // Ahead of onboarding, not inside it: onboarding's "Skip" jumps straight to
+                    // completeOnboarding(), so a disclaimer page in that TabView would be one tap
+                    // from being skipped. An acknowledgement that can be skipped is not one.
+                    DisclaimerView(mode: .gate) {
+                        withAnimation { appState.acceptDisclaimer() }
+                    }
+                    .transition(.opacity)
+                } else if !appState.hasSeenOnboarding {
                     OnboardingView()
                         .transition(.opacity)
                 } else if companionConnectivityManager.currentRole == .viewer &&
@@ -81,7 +89,7 @@ struct ContentView: View {
                 #endif
 
                 // PR-41: non-blocking banner when the checklist was served in a fallback language.
-                if let notice = appState.languageFallbackNotice {
+                if let notice = appState.languageFallbackNotice, !appState.needsDisclaimerAcceptance {
                     VStack {
                         LanguageFallbackBanner(message: notice) {
                             appState.languageFallbackNotice = nil
@@ -94,7 +102,8 @@ struct ContentView: View {
                 // v4.4.0: an activation retired by age says so, with a one-tap way to put it back.
                 // Never during a flight — the expiry cannot fire then, and a banner over the HUD would
                 // be exactly the wrong moment.
-                if let expired = flightPlanManager.expiredActivation, !appState.isFlightActive {
+                if let expired = flightPlanManager.expiredActivation, !appState.isFlightActive,
+                   !appState.needsDisclaimerAcceptance {
                     VStack {
                         ActivationExpiredBanner(
                             routeLabel: expired.routeLabel,
@@ -107,7 +116,8 @@ struct ContentView: View {
                 }
 
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
-                if dataStatusManager.showStaleNudge && !appState.isFlightActive && appState.settings.hasCompletedOnboarding {
+                if dataStatusManager.showStaleNudge && !appState.isFlightActive
+                    && appState.settings.hasCompletedOnboarding && !appState.needsDisclaimerAcceptance {
                     VStack {
                         DataFreshnessNudgeBanner(message: L10n.DataStorage.nudgeMessage) {
                             dataStatusManager.snoozeNudge()
@@ -117,6 +127,7 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: appState.acceptedDisclaimerVersion)
             .animation(.easeInOut(duration: 0.3), value: appState.settings.hasCompletedOnboarding)
             .animation(.easeInOut(duration: 0.3), value: appState.isFlightActive)
             .animation(.easeInOut(duration: 0.3), value: companionConnectivityManager.connectionState)

@@ -69,6 +69,8 @@ Base features and the bundled aircraft are free. AéroCheck Pro is an optional a
 - Refunds are handled by Apple under their own policy. We cannot issue them.
 - Premium checklists require a working internet connection to download. Once downloaded they are cached on the device, but continued access depends on an active subscription.
 
+The App Store licence for the app itself is Apple's Licensed Application End User License Agreement, linked in section 2.0 above; these terms govern how you may use AéroCheck and what you can expect of it, not that licence.
+
 A subscription buys you access to checklist content. It does not make that content authoritative: section 1.2 applies to paid aircraft exactly as it does to free ones.
 
 

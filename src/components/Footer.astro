@@ -9,11 +9,12 @@ const f = site.footer;
 const version = await appVersion();
 const changelogHref = site.lang === 'fr' ? '/fr/changelog' : '/changelog';
 const privacyHref = site.lang === 'fr' ? '/fr/privacy' : '/privacy';
+const termsHref = site.lang === 'fr' ? '/fr/terms' : '/terms';
 ---
 <footer class="site-footer">
   <div class="container footer-inner">
     <span>{f.made_by} <a href={f.author_url} class="footer-link" target="_blank" rel="noopener">{f.author}</a> {f.with} <Icon name="heart" size={12} class="heart" /> {f.in} {f.city}</span>
-    <span class="footer-meta"><a href={changelogHref} class="footer-link">v{version}</a> · <a href={privacyHref} class="footer-link">{f.privacy}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
+    <span class="footer-meta"><a href={changelogHref} class="footer-link">v{version}</a> · <a href={termsHref} class="footer-link">{f.terms}</a> · <a href={privacyHref} class="footer-link">{f.privacy}</a> · <a href={f.license_url} class="footer-link" target="_blank" rel="noopener">{f.license}</a></span>
   </div>
 </footer>
 

@@ -1,12 +1,23 @@
 ---
 import type { Lang } from '../lib/site';
-interface Props { lang: Lang; }
-const { lang } = Astro.props;
+type Doc = 'privacy' | 'terms';
+interface Props { lang: Lang; doc?: Doc; }
+const { lang, doc = 'privacy' } = Astro.props;
+// Both legal documents are authored in English only (see the FR note): the translation would have
+// to be maintained in lockstep to stay trustworthy, and a stale French safety notice is worse than
+// an English one. The heading and eyebrow are still localised so the page does not read as a
+// dead end to a French visitor.
 const COPY = {
-  en: { eyebrow: 'Privacy', heading: 'Privacy policy', note: null as string | null },
-  fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: 'Ce document est disponible en anglais.' },
+  privacy: {
+    en: { eyebrow: 'Privacy', heading: 'Privacy policy', note: null as string | null },
+    fr: { eyebrow: 'Confidentialité', heading: 'Politique de confidentialité', note: 'Ce document est disponible en anglais.' },
+  },
+  terms: {
+    en: { eyebrow: 'Legal', heading: 'Terms of use', note: null as string | null },
+    fr: { eyebrow: 'Mentions légales', heading: "Conditions d'utilisation", note: 'Ce document est disponible en anglais.' },
+  },
 } as const;
-const t = COPY[lang];
+const t = COPY[doc][lang];
 ---
 <section class="legal container">
   <p class="eyebrow">{t.eyebrow}</p>

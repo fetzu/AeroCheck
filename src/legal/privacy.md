@@ -66,3 +66,5 @@ We may update this privacy policy from time to time. Changes will be posted on t
 ## 7.0 Contact
 
 If you have questions about this privacy policy, please open an issue on our [GitHub repository](https://github.com/fetzu/AeroCheck/issues).
+
+See also the [terms of use](/terms), which cover what AéroCheck is, what it is not, and why the pilot in command remains responsible for everything it shows you.

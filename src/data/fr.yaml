@@ -78,5 +78,6 @@ footer:
   in: "en"
   city: "Suisse"
   privacy: "Confidentialité"
+  terms: "Conditions"
   license: "MIT"
   license_url: "https://github.com/fetzu/AeroCheck/blob/main/LICENSE"

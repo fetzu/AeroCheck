@@ -322,28 +322,41 @@ struct SubscriptionView: View {
                 .foregroundColor(Color.dimText)
                 .multilineTextAlignment(.center)
 
-            HStack(spacing: 16) {
-                // Apple's standard EULA, not aerocheck.app/terms — that path has never existed and
-                // returned 404, so the paywall shipped a dead Terms link. App Review 3.1.2 requires a
-                // FUNCTIONAL link to the terms, and the standard EULA is the licence that actually
-                // applies when a developer supplies none, so pointing at it is correct rather than a
-                // placeholder. Swap this for aerocheck.app/terms if a custom EULA is ever published —
-                // and check the link resolves before shipping it.
-                Link(L10n.Subscription.termsOfService,
-                     destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-                    .font(.caption2)
-                    .foregroundColor(Color.altimeterBlue)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-
-                Link(L10n.Subscription.privacyPolicy, destination: URL(string: "https://aerocheck.app/privacy")!)
-                    .font(.caption2)
-                    .foregroundColor(Color.altimeterBlue)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+            // Three links now, and both "terms" are deliberate rather than a duplication:
+            //
+            //  * Terms of use → aerocheck.app/terms. Ours. Carries the safety notice (not certified,
+            //    the AFM/POH wins, the PIC is responsible) and the subscription terms. This page did
+            //    NOT exist when this section was written, which is exactly why the link below used to
+            //    point elsewhere; it exists now.
+            //  * Licence → Apple's standard EULA, unchanged. App Store Connect is set to the standard
+            //    licence agreement, so this is the licence that actually governs the App Store
+            //    download, and App Review 3.1.2 wants a functional link to it. Our terms defer to it
+            //    for the licence itself (§2.0) rather than trying to replace it.
+            //
+            // ViewThatFits because three .caption2 links overflow a narrow iPhone in French, where
+            // every one of these labels is longer.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { termsLinks }
+                VStack(spacing: 0) { termsLinks }
             }
         }
         .padding(.top)
+    }
+
+    @ViewBuilder
+    private var termsLinks: some View {
+        legalLink(L10n.Subscription.termsOfUse, DisclaimerView.termsURL)
+        legalLink(L10n.Subscription.termsOfService,
+                  URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+        legalLink(L10n.Subscription.privacyPolicy, URL(string: "https://aerocheck.app/privacy")!)
+    }
+
+    private func legalLink(_ title: String, _ destination: URL) -> some View {
+        Link(title, destination: destination)
+            .font(.caption2)
+            .foregroundColor(Color.altimeterBlue)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
     }
 }
 

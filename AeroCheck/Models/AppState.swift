@@ -522,6 +522,15 @@ class AppState {
     /// offers per-device setup (data downloads, location), so it must show once per device — including a
     /// reinstall, where the synced flag would otherwise restore from iCloud and suppress it. (bug 1)
     var hasSeenOnboarding: Bool = false
+
+    /// Version of the safety notice this device has acknowledged; 0 = never. Gates the app behind
+    /// `DisclaimerView` until it reaches `AppState.currentDisclaimerVersion`.
+    ///
+    /// Device-local and deliberately NOT synced through iCloud, unlike most of `settings`: an
+    /// acknowledgement is made by a person on a device, and a pilot picking up a second iPad should
+    /// be shown it there too rather than have it silently pre-accepted from the cloud. A reinstall
+    /// re-asks for the same reason.
+    var acceptedDisclaimerVersion: Int = 0
     var settings: AppSettings = AppSettings()
     var showFlightLog: Bool = false
 
@@ -647,6 +656,11 @@ class AppState {
         } else {
             hasSeenOnboarding = UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
         }
+
+        // Safety notice. Absent key = 0 = never acknowledged, which is the right answer for a fresh
+        // install AND for an in-place upgrade from a build that predates the notice: an existing user
+        // has never been shown it either, so they see it once on the next launch.
+        acceptedDisclaimerVersion = UserDefaults.standard.integer(forKey: acceptedDisclaimerVersionKey)
 
         syncAircraftType()
         setupSyncCallbacks()
@@ -1640,6 +1654,28 @@ class AppState {
 
     /// Device-local key backing `hasSeenOnboarding` (see that property).
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
+
+    /// Device-local key backing `acceptedDisclaimerVersion` (see that property).
+    private let acceptedDisclaimerVersionKey = "acceptedDisclaimerVersion"
+
+    /// Current revision of the safety notice. **Bump this when the notice changes materially** — a
+    /// new limitation, a new data source with its own caveat, a reworded responsibility clause — and
+    /// every device is asked to acknowledge the new text once. Do NOT bump it for a typo or a layout
+    /// change: re-prompting for nothing is how a gate becomes something people tap through.
+    static let currentDisclaimerVersion = 1
+
+    /// True until this device has acknowledged the current safety notice. Drives the gate in
+    /// `ContentView`, ahead of onboarding.
+    var needsDisclaimerAcceptance: Bool {
+        acceptedDisclaimerVersion < AppState.currentDisclaimerVersion
+    }
+
+    /// Record acknowledgement of the current safety notice on THIS device.
+    func acceptDisclaimer() {
+        acceptedDisclaimerVersion = AppState.currentDisclaimerVersion
+        UserDefaults.standard.set(acceptedDisclaimerVersion, forKey: acceptedDisclaimerVersionKey)
+        AppLog.general.info("Safety notice v\(AppState.currentDisclaimerVersion) acknowledged")
+    }
 
     /// Mark onboarding finished on THIS device (the gate) and record completion in the synced settings.
     /// Always persists — onboarding (incl. a replay from Settings) can change the feature toggles.

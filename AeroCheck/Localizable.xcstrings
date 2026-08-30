@@ -1,6 +1,346 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "disclaimer.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before you fly"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avant de voler"
+          }
+        }
+      }
+    },
+    "disclaimer.intro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck is a training aid, not certified avionics. Please read this before you use it in an aircraft."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck est une aide à la formation, pas un équipement de bord certifié. Merci de lire ceci avant de l'utiliser en vol."
+          }
+        }
+      }
+    },
+    "disclaimer.notCertified.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not certified, and provided as is"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non certifié, et fourni en l'état"
+          }
+        }
+      }
+    },
+    "disclaimer.notCertified.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck is approved by no aviation authority and is not a certified navigation system. Everything it shows is supplemental information, and it may be incomplete, out of date or simply wrong."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck n'est approuvé par aucune autorité aéronautique et n'est pas un système de navigation certifié. Tout ce qu'il affiche est une information complémentaire, qui peut être incomplète, périmée ou tout simplement fausse."
+          }
+        }
+      }
+    },
+    "disclaimer.checklist.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The aircraft's own checklist wins"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist de l'avion fait foi"
+          }
+        }
+      }
+    },
+    "disclaimer.checklist.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checklists here are transcriptions of club documents, not approved checklists. The AFM/POH and your operator's approved checklist remain authoritative. Compare them before you fly, and carry the paper one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les checklists sont des transcriptions de documents de club, pas des checklists approuvées. L'AFM/POH et la checklist approuvée de l'exploitant font autorité. Comparez-les avant le vol, et emportez la version papier."
+          }
+        }
+      }
+    },
+    "disclaimer.data.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data and weather can be wrong"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données et la météo peuvent être fausses"
+          }
+        }
+      }
+    },
+    "disclaimer.data.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airspace, airports, frequencies, obstacles, terrain and weather come from third parties and are not guaranteed to be current. Verify against the official AIP, NOTAMs and a proper pre-flight briefing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espaces aériens, aérodromes, fréquences, obstacles, relief et météo proviennent de tiers et ne sont pas garantis à jour. Vérifiez avec l'AIP officielle, les NOTAM et un briefing avant vol en règle."
+          }
+        }
+      }
+    },
+    "disclaimer.pilot.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are the pilot in command"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes le commandant de bord"
+          }
+        }
+      }
+    },
+    "disclaimer.pilot.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You remain solely responsible for the safe conduct of the flight, for complying with the applicable regulations, and for every decision you make. Nothing in this app relieves you of that."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous restez seul responsable de la conduite sûre du vol, du respect de la réglementation applicable et de chacune de vos décisions. Rien dans cette application ne vous en décharge."
+          }
+        }
+      }
+    },
+    "disclaimer.readTerms": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read the full terms of use"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire les conditions d'utilisation complètes"
+          }
+        }
+      }
+    },
+    "disclaimer.asIs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provided as is, without warranty of any kind. Use at your own risk."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fourni en l'état, sans garantie d'aucune sorte. Utilisation à vos propres risques."
+          }
+        }
+      }
+    },
+    "disclaimer.accept": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I understand and accept"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J'ai compris et j'accepte"
+          }
+        }
+      }
+    },
+    "settings.legal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mentions légales"
+          }
+        }
+      }
+    },
+    "settings.legal.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The safety notice is shown once on first launch. You can re-read it here at any time."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'avertissement de sécurité est affiché une fois au premier lancement. Vous pouvez le relire ici à tout moment."
+          }
+        }
+      }
+    },
+    "settings.legal.safetyNotice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safety notice"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avertissement de sécurité"
+          }
+        }
+      }
+    },
+    "settings.legal.safetyNoticeSubtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What AéroCheck is, and what it is not"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce qu'AéroCheck est, et ce qu'il n'est pas"
+          }
+        }
+      }
+    },
+    "settings.legal.termsOfUse": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of use"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conditions d'utilisation"
+          }
+        }
+      }
+    },
+    "settings.legal.privacyPolicy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy policy"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Politique de confidentialité"
+          }
+        }
+      }
+    },
+    "subscription.termsOfUse": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of use"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conditions d'utilisation"
+          }
+        }
+      }
+    },
     "": {},
     "%@ %@": {
       "comment": "A label that combines the value and label of a quick stat.",

@@ -563,6 +563,14 @@ enum L10n {
         static let about = String(localized: "settings.about")
         static let appVersion = String(localized: "settings.about.appVersion")
         static let website = String(localized: "settings.about.website")
+
+        // Legal (About → Legal)
+        static let legal = String(localized: "settings.legal")
+        static let legalFooter = String(localized: "settings.legal.footer")
+        static let safetyNotice = String(localized: "settings.legal.safetyNotice")
+        static let safetyNoticeSubtitle = String(localized: "settings.legal.safetyNoticeSubtitle")
+        static let termsOfUse = String(localized: "settings.legal.termsOfUse")
+        static let privacyPolicy = String(localized: "settings.legal.privacyPolicy")
         static let author = String(localized: "settings.about.author")
         static let openSource = String(localized: "settings.about.openSource")
         static let openSourceDescription = String(localized: "settings.about.openSourceDesc")
@@ -631,6 +639,23 @@ enum L10n {
         static let skip = String(localized: "onboarding.skip")
         static let getStarted = String(localized: "onboarding.getStarted")
         static let next = String(localized: "onboarding.next")
+    }
+
+    // MARK: - Safety notice
+    enum Disclaimer {
+        static let title = String(localized: "disclaimer.title")
+        static let intro = String(localized: "disclaimer.intro")
+        static let notCertifiedTitle = String(localized: "disclaimer.notCertified.title")
+        static let notCertifiedBody = String(localized: "disclaimer.notCertified.body")
+        static let checklistTitle = String(localized: "disclaimer.checklist.title")
+        static let checklistBody = String(localized: "disclaimer.checklist.body")
+        static let dataTitle = String(localized: "disclaimer.data.title")
+        static let dataBody = String(localized: "disclaimer.data.body")
+        static let pilotTitle = String(localized: "disclaimer.pilot.title")
+        static let pilotBody = String(localized: "disclaimer.pilot.body")
+        static let readTerms = String(localized: "disclaimer.readTerms")
+        static let asIs = String(localized: "disclaimer.asIs")
+        static let accept = String(localized: "disclaimer.accept")
     }
 
     // MARK: - Sheets
@@ -724,6 +749,7 @@ enum L10n {
         static let retry = String(localized: "subscription.retry")
         static let restorePurchases = String(localized: "subscription.restorePurchases")
         static let termsDescription = String(localized: "subscription.termsDescription")
+        static let termsOfUse = String(localized: "subscription.termsOfUse")
         static let termsOfService = String(localized: "subscription.termsOfService")
         static let privacyPolicy = String(localized: "subscription.privacyPolicy")
         static let errorPending = String(localized: "subscription.error.pending")

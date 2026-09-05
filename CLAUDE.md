@@ -98,6 +98,8 @@ AeroCheck/
 │   ├── Aircraft.swift         # Bundled aircraft types and metadata
 │   ├── RemoteAircraft.swift   # Remote/premium aircraft API models
 │   ├── WT9ChecklistData.swift # WT9 Dynamic checklist loader — reads the bundled JSON in Resources/
+│   ├── FlightThread.swift     # Flight Thread: chapters, tasks, state machine (v5.0.0)
+│   ├── FlightThreadManager.swift # Thread CRUD, task state, persistence, the two reminders (v5.0.0)
 │   ├── Airport.swift          # Airport, AirportFrequency, and Runway data models
 │   ├── Airspace.swift         # OpenAIP airspace model (CTR boundaries, frequencies, altitude limits)
 │   ├── Navaid.swift           # OpenAIP navaid (VOR/DME/NDB) model, incl. magnetic declination
@@ -114,6 +116,8 @@ AeroCheck/
 │   ├── DataPersistenceManager.swift # File-based data persistence
 │   ├── SyncManager.swift           # iCloud sync (CKSyncEngine)
 │   ├── OfflineMapManager.swift     # ICAO chart caching for offline use
+│   ├── ThreadTaskEngine.swift      # PURE rules: which admin tasks a flight deserves (v5.0.0)
+│   ├── NotificationService.swift   # UNUserNotifications: close-flight-plan + prep reminders (v5.0.0)
 │   ├── FlightEventDetector.swift   # Automatic detection of go-arounds, touch-and-gos, full-stop landings
 │   ├── AirportDataService.swift    # OurAirports data management (download, cache, query ~40K airports)
 │   ├── OpenAIPDataService.swift    # OpenAIP airspace data (download, cache, spatial queries, streaming fallback)
@@ -213,6 +217,8 @@ AeroCheckWatch/
 | Companion Mode | `CompanionConnectivityManager` — iPad (master) ↔ iPhone (viewer) synced second screen over Wi-Fi Aware (iOS 26+) |
 | Accessibility | VoiceOver labels, Dynamic Type, WCAG contrast, 44pt targets, Reduce Motion across the redesigned screens |
 | Hold-to-Confirm Events | Go-Around / Touch-and-Go / Full-Stop behind a deliberate hold with brief undo (`EventConfirmationView`) |
+| Flight Thread (v5.0.0) | `FlightThread` + `FlightThreadManager` + `ThreadTaskEngine` — the admin bracket around a flight (PLAN / PREPARE / FLY / CLOSE). Optional: a flight can always run without one |
+| Local Notifications | `NotificationService` — two reminders only: close your flight plan (after landing, armed by the "filed" tick) and a T−24 h preparation nudge |
 | Dynamic Briefings | `BriefingData` - auto-generated departure/approach briefings with airport/wind detection |
 | Airport Frequencies | `AirportDataService` — FREQ panel, nearest 6 airports within **40 nm** (`NavigationView.swift`); OpenAIP is the primary source with an OurAirports TWR fallback |
 | Engine Hour Logging | `HourMeterInputView` - Hobbs meter input at engine start/stop |
@@ -262,6 +268,36 @@ if subscriptionManager.isSubscribed {
     // Premium content
 }
 ```
+
+## Flight Thread (v5.0.0)
+
+The app follows a flight through four chapters — **PLAN → PREPARE → FLY → CLOSE**. FLY is the
+existing 16-phase flight and is deliberately untouched; the thread only carries the admin work that
+brackets it. Every item is a check, so the metaphor is the one pilots already use.
+
+> ⚠️ **A thread is OPTIONAL and must stay that way.** START FLIGHT works with no thread in sight, and
+> a flight that ran without one ends exactly as it always did. `FlightView`'s END FLIGHT resolves the
+> thread with `threadToCloseOut(flightId:planId:)` **before** `deactivateFlightPlan()` (afterwards
+> there is no plan left to resolve from); `nil` means nothing below it runs. Resolving at END rather
+> than linking at START is what makes a widget- or deep-link-launched flight close out correctly
+> without touching `FlightLauncher`'s guard sequence.
+
+- **`ThreadTaskEngine` is pure** — `Context` in, `[ThreadTask]` out, no services. Regeneration is
+  non-destructive: tasks match on `key#subject`, so a tick survives a route edit. Auto tasks are
+  ALWAYS recomputed, so a fuel row can never keep claiming a stale computation.
+- **Tasks store a key, never copy.** `ThreadTaskPresentation` resolves title/hint/icon/links at
+  render time, so a persisted thread is language-agnostic and wording changes need no migration.
+- **The close-flight-plan reminder is the load-bearing feature.** It exists only when the pilot
+  ticked "flight plan filed" (`FlightThread.hasOpenFlightPlan`) — that is what keeps circuit sessions
+  and unfiled flights silent. Zurich RCC is alerted 30 min after the ETA, which is why this one is
+  red, has no auto-dismiss, and carries the FIC number as its primary action.
+- **Profiles:** `.full` for cross-country, `.local` for circuits (weather, DABS, logbook, debrief).
+- **Reminders and links, not integrations.** skybriefing and DABS are opened, then ticked. Nothing
+  here breaks when an upstream changes its interface.
+- `FlightThreadManager` mirrors `FlightPlanManager` exactly (ObservableObject + `@Published`,
+  injectable `defaults:` because the test host shares the app's bundle id, dirty-diffed off-main file
+  writes). `context(for:profile:)` is `@MainActor` (the border test reads `CountryBoundaries.shared`);
+  the `countries:` overload is `nonisolated` and is what tests drive.
 
 ## Design System
 

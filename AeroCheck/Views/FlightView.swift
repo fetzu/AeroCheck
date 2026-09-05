@@ -13,6 +13,7 @@ struct FlightView: View {
     @EnvironmentObject var aviationWeatherService: AviationWeatherService
     @EnvironmentObject var windsAloftService: WindsAloftService
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightEventDetector: FlightEventDetector
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var companionConnectivityManager: CompanionConnectivityManager
@@ -381,8 +382,21 @@ struct FlightView: View {
                    let flight = appState.currentFlight {
                     flightPlanManager.populateTimingFromFlight(activePlan.id, flight: flight)
                 }
+                // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
+                // there is no plan left to resolve it from. A flight with no thread resolves to nil
+                // and nothing below changes, which is what "start a flight without a thread" means.
+                let closingThreadId = threadManager.threadToCloseOut(
+                    flightId: endedFlightId,
+                    planId: flightPlanManager.activeFlightPlan?.id
+                )
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
+
+                // Move the thread into close-out. This is what raises the open-flight-plan banner and
+                // arms the reminder, so it must run after the flight is actually over.
+                if let closingThreadId {
+                    threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
+                }
 
                 // Post-flight reconciliation (D2): re-segment the saved track offline and
                 // build the review diff. Shown only when it would change EVENTS; a pure

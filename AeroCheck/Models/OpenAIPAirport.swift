@@ -99,6 +99,32 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
     let latitude: Double
     let longitude: Double
 
+    // MARK: - Operational flags (v5.0.0)
+    //
+    // These four are plain booleans carried at the top level of the OpenAIP record and were being
+    // dropped on the floor: a Codable struct silently ignores unknown keys, so they arrived with
+    // every download and never reached the app. `ppr` is the one the flight thread needs — a
+    // destination that requires prior permission gets its own task instead of the pilot having to
+    // remember which fields are PPR.
+
+    /// Prior permission required before landing.
+    let isPPR: Bool
+    /// Private field: permission needed even to be there, not merely to land.
+    let isPrivate: Bool
+    let hasSkydiveActivity: Bool
+    let isWinchOnly: Bool
+
+    /// Raw `services.fuelTypes` codes, kept unmapped ON PURPOSE.
+    ///
+    /// The codes are an integer enum (0-6) and OpenAIP does not publish the ordering anywhere the
+    /// app can cite. Probing the live API for Switzerland gives 41 fields for code 3, 8 for code 6
+    /// and none at all for 2, 4 and 5 — consistent with 3 = AVGAS and 6 = UL91, but codes 0 and 1
+    /// cannot be separated behaviourally, and Yverdon (LSGY) claims a jet fuel it almost certainly
+    /// does not sell. Labelling a fuel wrongly sends a pilot somewhere to refuel that cannot serve
+    /// them, which is worse than saying nothing, so the codes are decoded and stored but not
+    /// rendered until the enum is confirmed from OpenAIP's own documentation.
+    let fuelTypeCodes: [Int]
+
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
 
     /// Best-effort mapping of OpenAIP's `type` code onto the app's `AirportType`. Coarse — used only to
@@ -151,6 +177,13 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
                 lighted: rwy.pilotCtrlLighting ?? false
             )
         }
+        // Absent flags mean "not stated", which for an advisory prompt is the same as false: a
+        // missing `ppr` must not manufacture a PPR task the field does not require.
+        self.isPPR = p.ppr ?? false
+        self.isPrivate = p.private ?? false
+        self.hasSkydiveActivity = p.skydiveActivity ?? false
+        self.isWinchOnly = p.winchOnly ?? false
+        self.fuelTypeCodes = p.services?.fuelTypes ?? []
         self.longitude = feature.geometry.coordinates[0]   // GeoJSON is [lon, lat]
         self.latitude = feature.geometry.coordinates[1]
     }
@@ -193,10 +226,21 @@ private struct AirportFeatureCollection: Decodable {
         let country: String?
         let frequencies: [FrequencyJSON]?
         let runways: [RunwayJSON]?
+        // v5.0.0: operational flags + services. All optional — the keyless GeoJSON export and the
+        // core REST API carry slightly different subsets, and an older cached file has none of them.
+        let ppr: Bool?
+        let `private`: Bool?
+        let skydiveActivity: Bool?
+        let winchOnly: Bool?
+        let services: ServicesJSON?
         enum CodingKeys: String, CodingKey {
             case oaipId = "_id"
             case name, icaoCode, type, elevation, magneticDeclination, country, frequencies, runways
+            case ppr, `private`, skydiveActivity, winchOnly, services
         }
+    }
+    struct ServicesJSON: Decodable {
+        let fuelTypes: [Int]?
     }
     struct FrequencyJSON: Decodable {
         let name: String?

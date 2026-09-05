@@ -93,6 +93,7 @@ struct HomeView: View {
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var offlineMapManager: OfflineMapManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var airportDataService: AirportDataService
@@ -120,8 +121,13 @@ struct HomeView: View {
     /// frozen while this holds. (orientation reliability)
     private var anyDestinationOpen: Bool {
         showSettings || showFlightLog || showSpeedReference || showNavigation
-            || showFlightPlanning || lastFlightForDetail != nil
+            || showFlightPlanning || lastFlightForDetail != nil || threadToOpen != nil
     }
+
+    /// The thread being viewed. Presented as a cover in BOTH layouts (the `showFlightPlanning`
+    /// precedent) rather than a rail overlay: the admin chapters are read sitting down, often on the
+    /// phone, and they do not need the rail beside them. (v5.0.0)
+    @State private var threadToOpen: UUID?
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
     @State private var flightLogSelectionID: UUID? = nil
@@ -232,10 +238,24 @@ struct HomeView: View {
             FlightPlanningView()
                 .environment(appState)
                 .environmentObject(flightPlanManager)
+                .environmentObject(threadManager)
                 .environmentObject(airportDataService)
                 .environmentObject(aircraftDataService)
                 .environmentObject(openAIPDataService)
                 .environmentObject(locationManager)
+        }
+        // Derived binding rather than `item:` — UUID is not Identifiable, and a retroactive
+        // conformance on a stdlib type is not worth it for one presentation. (Same shape as
+        // ContentView's reconciliation sheet.)
+        .fullScreenCover(isPresented: Binding(
+            get: { threadToOpen != nil },
+            set: { if !$0 { threadToOpen = nil } }
+        )) {
+            if let id = threadToOpen {
+                FlightThreadView(threadId: id, onClose: { threadToOpen = nil })
+                    .environmentObject(threadManager)
+                    .environmentObject(flightPlanManager)
+            }
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
         // returns to Home, not the Flight Log list. (v4 UI/UX Revamp — feedback round 2)
@@ -679,7 +699,11 @@ struct HomeView: View {
     /// Taps into the flight-plan list. (v4 UI/UX Revamp — device feedback)
     @ViewBuilder
     private var flightPlanStrip: some View {
-        if let active = flightPlanManager.activeFlightPlan {
+        if let thread = homeThread {
+            // A followed flight takes this slot: while a thread is live it IS the flight-plan status,
+            // and a third strip would not survive the ~300 pt the iPad gives each one.
+            flightThreadStripCard(thread)
+        } else if let active = flightPlanManager.activeFlightPlan {
             // ARMED. This state used to differ from the others only by an icon tint and a 22 %-opacity
             // border — and in altimeter blue, which reads as "flight plan", not as "ready to fly". Home
             // is the screen you look at before pressing START FLIGHT, so the answer to "am I armed?"
@@ -815,6 +839,126 @@ struct HomeView: View {
     /// Overload keeping the single-detail call sites unchanged.
     private func flightPlanStripCard(title: String, detail: String?, accent: Color) -> some View {
         flightPlanStripCard(title: title, detail: [detail].compactMap { $0 }, accent: accent)
+    }
+
+    // MARK: - Flight thread strip (v5.0.0)
+
+    /// The thread Home advertises: close-out work first because it is already overdue (a filed flight
+    /// plan may still be open), otherwise the flight currently being followed.
+    private var homeThread: FlightThread? {
+        if let closing = threadManager.threadAwaitingCloseOut { return closing }
+        if let current = threadManager.currentThread, !current.isFinished { return current }
+        return nil
+    }
+
+    /// Replaces the flight-plan strip while a flight is being followed: route, readiness, and the one
+    /// thing to do next. Taps into the thread.
+    private func flightThreadStripCard(_ thread: FlightThread) -> some View {
+        let isCloseOut = thread.state == .closeOut
+        let urgent = thread.hasOpenFlightPlan
+        let accent: Color = urgent ? .aviationRed : (isCloseOut ? .aviationAmber : .aviationGold)
+        let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress
+
+        return Button { threadToOpen = thread.id } label: {
+            HStack(spacing: 10) {
+                threadReadinessRing(progress: progress, accent: accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(L10n.Thread.title)
+                            .scaledFont(size: 10, weight: .semibold, relativeTo: .caption2).tracking(0.5)
+                            .foregroundColor(accent)
+                        Text(threadBadge(thread))
+                            .scaledFont(size: 8.5, weight: .bold, relativeTo: .caption2).tracking(0.8)
+                            .foregroundColor(accent)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(accent.opacity(0.18))
+                                    .overlay(RoundedRectangle(cornerRadius: 3)
+                                        .strokeBorder(accent.opacity(0.55), lineWidth: 0.5))
+                            )
+                    }
+                    Text(thread.routeLabel)
+                        .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    // Same longest-first ladder as the plan strip: this card is narrower on iPad than
+                    // on iPhone, so the next-task line has to be able to shrink.
+                    ViewThatFits(in: .horizontal) {
+                        ForEach(threadDetail(thread), id: \.self) { candidate in
+                            Text(candidate)
+                                .scaledFont(size: 12, relativeTo: .caption)
+                                .foregroundColor(.dimText)
+                                .lineLimit(1)
+                                .fixedSize()
+                        }
+                    }
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                    .foregroundColor(.dimText.opacity(0.7))
+            }
+            .padding(.leading, 11)
+            .padding(.trailing, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(accent.opacity(0.4), lineWidth: 1))
+                    .overlay(alignment: .leading) {
+                        UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12)
+                            .fill(accent)
+                            .frame(width: 3)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            [L10n.Thread.title, threadBadge(thread), thread.routeLabel, threadDetail(thread).first]
+                .compactMap { $0 }.joined(separator: ", ")
+        )
+    }
+
+    private func threadReadinessRing(progress: (done: Int, total: Int), accent: Color) -> some View {
+        let fraction = progress.total > 0 ? Double(progress.done) / Double(progress.total) : 0
+        return ZStack {
+            Circle().stroke(Color.white.opacity(0.12), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: fraction)
+                .stroke(fraction >= 1 ? Color.aviationGreen : accent,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text("\(progress.done)/\(progress.total)")
+                .scaledFont(size: 8.5, weight: .semibold, design: .monospaced, relativeTo: .caption2)
+                .foregroundColor(.primaryText)
+        }
+        .frame(width: 32, height: 32)
+        .accessibilityHidden(true)
+    }
+
+    private func threadBadge(_ thread: FlightThread) -> String {
+        if thread.hasOpenFlightPlan { return L10n.Thread.openFlightPlanBanner }
+        switch thread.state {
+        case .planned:  return L10n.Thread.statePlanned
+        case .ready:    return L10n.Thread.stateReady
+        case .flying:   return L10n.Thread.stateFlying
+        case .closeOut: return L10n.Thread.stateCloseOut
+        case .done:     return L10n.Thread.stateDone
+        }
+    }
+
+    /// Longest-first detail candidates: the next task if there is one, else the readiness count.
+    private func threadDetail(_ thread: FlightThread) -> [String] {
+        let progress = thread.state == .closeOut ? thread.closeOutProgress : thread.preFlightProgress
+        let count = L10n.Thread.readiness(progress.done, progress.total)
+        guard let next = thread.nextTask else {
+            return [L10n.Thread.allDone, L10n.Thread.allDone]
+        }
+        let title = ThreadTaskPresentation.make(for: next).title
+        return ["\(L10n.Thread.nextUp): \(title)", title, count]
     }
 
     /// Departure → destination from a plan's first/last waypoint, else the plan name.

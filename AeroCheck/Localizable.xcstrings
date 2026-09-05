@@ -1,6 +1,146 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Border crossing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passage de frontière"
+          }
+        }
+      }
+    },
+    "Required" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requis"
+          }
+        }
+      }
+    },
+    "Under conditions" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sous conditions"
+          }
+        }
+      }
+    },
+    "Not required" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non requis"
+          }
+        }
+      }
+    },
+    "Not established" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non établi"
+          }
+        }
+      }
+    },
+    "Customs aerodrome" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aérodrome douanier"
+          }
+        }
+      }
+    },
+    "Prior notification" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annonce préalable"
+          }
+        }
+      }
+    },
+    "Lead time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Délai"
+          }
+        }
+      }
+    },
+    "Swiss side" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Côté suisse"
+          }
+        }
+      }
+    },
+    "Official rules" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Règles officielles"
+          }
+        }
+      }
+    },
+    "Checked %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifié le %@"
+          }
+        }
+      }
+    },
+    "Not checked for this country yet — open the AIP and the national customs authority" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore vérifié pour ce pays — consultez l'AIP et la douane nationale"
+          }
+        }
+      }
+    },
+    "A reminder, not a clearance — the authority's own page is the source" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un rappel, pas une autorisation — la page de l'autorité fait foi"
+          }
+        }
+      }
+    },
+    "Treat an unestablished requirement as one that applies until you have checked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Considérez une exigence non établie comme applicable jusqu'à vérification"
+          }
+        }
+      }
+    },
     "Logbook line" : {
       "localizations" : {
         "fr" : {

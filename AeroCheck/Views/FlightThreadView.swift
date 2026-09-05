@@ -36,7 +36,19 @@ struct ThreadTaskPresentation {
         case .pprObtained:
             return .init(title: L10n.Thread.taskPPR(task.subject ?? ""), hint: L10n.Thread.hintPPR, icon: "phone")
         case .customsNotified:
-            return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: L10n.Thread.hintCustoms, icon: "globe.europe.africa")
+            // The hint carries the two facts that decide the pilot's afternoon: whether they must
+            // land at a customs field, and whether anyone has to be told first. A country nobody has
+            // curated says so rather than implying there is nothing to do.
+            let hint: String = {
+                guard let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) else {
+                    return L10n.Border.notCurated
+                }
+                var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
+                             "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
+                if let lead = rule.noticeLeadTime { parts.append(lead) }
+                return parts.joined(separator: " · ")
+            }()
+            return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: hint, icon: "globe.europe.africa")
         case .flightPlanClosed:
             return .init(title: L10n.Thread.taskFlightPlanClose, hint: L10n.Thread.hintFlightPlanClose, icon: "checkmark.shield")
         case .feesPaid:
@@ -70,6 +82,16 @@ struct ThreadTaskPresentation {
             // nobody has verified yet, which is the honest state rather than a guessed link.
             guard let tariffURL else { return [] }
             return [(L10n.Cost.openTariff, tariffURL)]
+        case .customsNotified:
+            // The authority's own page, in its own language, is the source — the app only points at
+            // it. The Swiss side applies whichever country is at the other end.
+            var links: [(label: String, url: URL)] = [
+                (L10n.Border.swissSide, BorderCrossingGuide.switzerland.officialURL)
+            ]
+            if let country = task.subject, let rule = BorderCrossingGuide.rule(for: country) {
+                links.insert((L10n.Border.openOfficial, rule.officialURL), at: 0)
+            }
+            return links
         default:
             return []
         }

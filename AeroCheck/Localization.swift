@@ -131,6 +131,26 @@ enum L10n {
         static let flightLog = String(localized: "button.flightLog")
     }
 
+    // MARK: - Border crossing (v5.0.0)
+    enum Border {
+        static let title = String(localized: "Border crossing")
+        static let required = String(localized: "Required")
+        static let conditional = String(localized: "Under conditions")
+        static let notRequired = String(localized: "Not required")
+        static let unknown = String(localized: "Not established")
+        static let customsAerodrome = String(localized: "Customs aerodrome")
+        static let priorNotification = String(localized: "Prior notification")
+        static let noticeLeadTime = String(localized: "Lead time")
+        static let swissSide = String(localized: "Swiss side")
+        static let openOfficial = String(localized: "Official rules")
+        static func reviewed(_ date: String) -> String {
+            String(localized: "Checked \(date)")
+        }
+        static let notCurated = String(localized: "Not checked for this country yet — open the AIP and the national customs authority")
+        static let advisory = String(localized: "A reminder, not a clearance — the authority's own page is the source")
+        static let unknownWarning = String(localized: "Treat an unestablished requirement as one that applies until you have checked")
+    }
+
     // MARK: - Logbook line (v5.0.0)
     enum Logbook {
         static let title = String(localized: "Logbook line")

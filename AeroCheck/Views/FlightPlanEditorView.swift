@@ -8,13 +8,15 @@ enum FlightPlanExportFormat {
     case gpx  // Avionics-compatible GPX route format (Dynon SkyView, Garmin G3X)
     case xlsx
     case pdf
+    /// The same nav log on kneeboard-sized paper. (v5.0.0)
+    case pdfA5
 
     var fileExtension: String {
         switch self {
         case .json: return "json"
         case .gpx: return "gpx"
         case .xlsx: return "xlsx"
-        case .pdf: return "pdf"
+        case .pdf, .pdfA5: return "pdf"
         }
     }
 
@@ -23,7 +25,7 @@ enum FlightPlanExportFormat {
         case .json: return .json
         case .gpx: return .xml  // GPX is XML-based
         case .xlsx: return .spreadsheet
-        case .pdf: return .pdf
+        case .pdf, .pdfA5: return .pdf
         }
     }
 }
@@ -149,7 +151,8 @@ struct FlightPlanEditorView: View {
             Button { exportFlightPlan(format: .gpx) } label: { Label("GPX", systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
             Button { exportFlightPlan(format: .json) } label: { Label("JSON", systemImage: "doc.text") }
             Button { exportFlightPlan(format: .xlsx) } label: { Label("Excel", systemImage: "tablecells") }
-            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF", systemImage: "doc.richtext") }
+            Button { exportFlightPlan(format: .pdf) } label: { Label("PDF · A4", systemImage: "doc.richtext") }
+            Button { exportFlightPlan(format: .pdfA5) } label: { Label("PDF · A5", systemImage: "doc.richtext") }
             Divider()
             Button {
                 UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
@@ -637,7 +640,9 @@ struct FlightPlanEditorView: View {
         case .xlsx:
             generatedData = FlightPlanExportService.exportToXLSX(flightPlan)
         case .pdf:
-            generatedData = FlightPlanExportService.exportToPDF(flightPlan)
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a4)
+        case .pdfA5:
+            generatedData = FlightPlanExportService.exportToPDF(flightPlan, paperSize: .a5)
         }
 
         // Only proceed if data was generated successfully

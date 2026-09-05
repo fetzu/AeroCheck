@@ -480,15 +480,56 @@ class FlightPlanExportService {
 
     // MARK: - PDF Export
 
-    /// Export flight plan to PDF format matching GVMP template
-    static func exportToPDF(_ flightPlan: FlightPlan) -> Data? {
-        let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 595, height: 842)) // A4
+    /// Paper the nav log is rendered onto. (v5.0.0)
+    enum PaperSize: String, CaseIterable, Sendable {
+        case a4
+        case a5
+
+        /// Points, at 72 dpi.
+        var bounds: CGRect {
+            switch self {
+            case .a4: return CGRect(x: 0, y: 0, width: 595, height: 842)
+            case .a5: return CGRect(x: 0, y: 0, width: 420, height: 595)
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .a4: return "A4"
+            case .a5: return "A5"
+            }
+        }
+    }
+
+    /// Export flight plan to PDF format matching GVMP template.
+    ///
+    /// A5 renders the SAME form scaled to fit rather than a reflowed layout, and that is deliberate.
+    /// The drawing is width-relative but its type sizes and its 16 route rows are fixed, so dropping
+    /// the A4 geometry into an A5 box would crush the columns and overflow the page. Scaling keeps
+    /// every column, every row and the proportions a pilot already knows from the A4 sheet — it is
+    /// the same form on a kneeboard-sized page, which is what asking for A5 means. The cost is
+    /// smaller type: about 71 % of A4, so the 8 pt labels land near 5.7 pt. Legible on a kneeboard,
+    /// but A4 stays the default for a reason.
+    static func exportToPDF(_ flightPlan: FlightPlan, paperSize: PaperSize = .a4) -> Data? {
+        let page = paperSize.bounds
+        let a4 = PaperSize.a4.bounds
+        let pdfRenderer = UIGraphicsPDFRenderer(bounds: page)
 
         let data = pdfRenderer.pdfData { context in
             context.beginPage()
+            let ctx = context.cgContext
 
-            let pageRect = context.pdfContextBounds
-            drawFlightPlan(flightPlan, in: pageRect, context: context.cgContext)
+            if paperSize != .a4 {
+                // Uniform scale so the aspect ratio is preserved — A4 and A5 differ slightly in
+                // ratio, and stretching a form to fill the page would skew every column.
+                let scale = min(page.width / a4.width, page.height / a4.height)
+                ctx.saveGState()
+                ctx.scaleBy(x: scale, y: scale)
+                drawFlightPlan(flightPlan, in: a4, context: ctx)
+                ctx.restoreGState()
+            } else {
+                drawFlightPlan(flightPlan, in: context.pdfContextBounds, context: ctx)
+            }
         }
 
         return data

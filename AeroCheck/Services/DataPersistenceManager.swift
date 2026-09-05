@@ -21,6 +21,9 @@ class DataPersistenceManager: ObservableObject {
     /// Subfolder for navigation plans
     private let navigationPlansFolderName = "NavigationPlans"
 
+    /// Subfolder for flight threads (the admin bracket around a flight). (v5.0.0)
+    private let flightThreadsFolderName = "FlightThreads"
+
     /// Subfolder for map tiles (local only)
     private let mapDataFolderName = "MapData"
 
@@ -89,6 +92,14 @@ class DataPersistenceManager: ObservableObject {
             return iCloudDocs.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
         }
         return localAppDirectory.appendingPathComponent(navigationPlansFolderName, isDirectory: true)
+    }
+
+    /// Flight threads directory — beside the plans, so a thread syncs with the plan it follows. (v5.0.0)
+    var flightThreadsDirectory: URL {
+        if let iCloudDocs = iCloudDocumentsURL {
+            return iCloudDocs.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
+        }
+        return localAppDirectory.appendingPathComponent(flightThreadsFolderName, isDirectory: true)
     }
 
     /// Map tiles directory — kept in local Documents (On this iPhone/AéroCheck/MapData).
@@ -266,6 +277,7 @@ class DataPersistenceManager: ObservableObject {
             // Create flights and navigation plans folders (iCloud or local)
             try fileManager.createDirectory(at: flightsDirectory, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: navigationPlansDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: flightThreadsDirectory, withIntermediateDirectories: true)
 
             if isICloudAvailable {
                 AppLog.general.debugLine("Directory structure created with iCloud at: \(flightsDirectory.path)")
@@ -848,6 +860,125 @@ class DataPersistenceManager: ObservableObject {
             }
         } catch {
             AppLog.general.debugLine("Failed to delete navigation plan: \(error.localizedDescription)")
+        }
+    }
+
+
+    // MARK: - Flight Thread Persistence (Individual Files) — v5.0.0
+
+    /// Filename for a thread: YYYYMMDD-HHMM_ROUTE_<id8>.json.
+    ///
+    /// The 8-character id suffix is the PR-19 fix applied from the start: a thread's route label can
+    /// change (the plan gets another waypoint), which changes the filename, and without the suffix the
+    /// stale file would linger and duplicate the thread on the next load.
+    nonisolated static func flightThreadFilename(for thread: FlightThread) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        let dateStr = formatter.string(from: thread.createdAt)
+        let label = thread.routeLabel.isEmpty ? "Thread" : thread.routeLabel
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: "→", with: "-")
+            .prefix(24)
+        return "\(dateStr)_\(label)_\(thread.id.uuidString.prefix(8)).json"
+    }
+
+    /// Encode + write the given threads on the calling executor (no main-actor state), so a task tick
+    /// never touches the main thread. Returns the ids **confirmed written** (RES-01), so the manager
+    /// only marks those persisted and a failed write self-heals on the next save.
+    @discardableResult
+    nonisolated static func writeFlightThreadFiles(_ changed: [FlightThread], to directory: URL) -> [UUID] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        var written: [UUID] = []
+        for thread in changed {
+            let url = directory.appendingPathComponent(flightThreadFilename(for: thread))
+            do {
+                let data = try encoder.encode(thread)
+                try data.write(to: url, options: protectedWriteOptions)
+                written.append(thread.id)
+            } catch {
+                AppLog.general.debugLine(
+                    "Failed to save flight thread \(flightThreadFilename(for: thread)): \(error.localizedDescription)")
+            }
+        }
+        return written
+    }
+
+    /// Saves only the changed threads, OFF the main actor.
+    @discardableResult
+    func saveFlightThreadsOffMain(changed: [FlightThread]) async -> [UUID] {
+        guard !changed.isEmpty else { return [] }
+        let directory = flightThreadsDirectory
+        return await Task.detached(priority: .utility) {
+            Self.writeFlightThreadFiles(changed, to: directory)
+        }.value
+    }
+
+    /// Loads + decodes all threads OFF the main actor (same reasoning as plans and flights: the
+    /// directory sits in iCloud and can stall during launch).
+    func loadFlightThreadsOffMain() async -> [FlightThread] {
+        let directory = flightThreadsDirectory
+        return await Task.detached(priority: .utility) {
+            Self.requestICloudDownloads(in: directory)
+            return Self.decodeFlightThreads(in: directory)
+        }.value
+    }
+
+    /// Pure directory-enumerate + decode, no main-actor state.
+    nonisolated static func decodeFlightThreads(in directory: URL) -> [FlightThread] {
+        var threads: [FlightThread] = []
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: directory.path) else { return [] }
+
+        do {
+            let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            let jsonFiles = files.filter { $0.pathExtension == "json" }
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            for fileURL in jsonFiles {
+                do {
+                    let data = try Data(contentsOf: fileURL)
+                    threads.append(try decoder.decode(FlightThread.self, from: data))
+                } catch {
+                    AppLog.general.debugLine(
+                        "Failed to load flight thread \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+
+            // One thread per id, freshest by updatedAt — belt and braces alongside the id-suffixed
+            // filename, since an iCloud merge can still land two files for the same thread.
+            var byId: [UUID: FlightThread] = [:]
+            for thread in threads {
+                if let existing = byId[thread.id], existing.updatedAt >= thread.updatedAt { continue }
+                byId[thread.id] = thread
+            }
+            threads = Array(byId.values).sorted { $0.createdAt > $1.createdAt }
+        } catch {
+            AppLog.general.debugLine("Failed to enumerate flight threads directory: \(error.localizedDescription)")
+        }
+
+        return threads
+    }
+
+    /// Delete a thread's file. Matches on the id suffix rather than the whole filename, so a thread
+    /// whose route label changed since it was written still gets its old file removed.
+    func deleteFlightThread(_ thread: FlightThread) {
+        let fileManager = FileManager.default
+        let directory = flightThreadsDirectory
+        let idSuffix = "_\(thread.id.uuidString.prefix(8)).json"
+        do {
+            let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            for url in files where url.lastPathComponent.hasSuffix(idSuffix) {
+                try fileManager.removeItem(at: url)
+                AppLog.general.debugLine("Deleted flight thread: \(url.lastPathComponent)")
+            }
+        } catch {
+            AppLog.general.debugLine("Failed to delete flight thread: \(error.localizedDescription)")
         }
     }
 

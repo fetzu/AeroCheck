@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var locationManager: LocationManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var windDataService: WindDataService
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -115,6 +116,24 @@ struct ContentView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // v5.0.0: a filed VFR flight plan that is still open after landing. Deliberately the
+                // most insistent banner in the app and the only one in red — Zurich RCC is alerted 30
+                // minutes after the ETA, so this is the one piece of admin with a search-and-rescue
+                // consequence for forgetting it.
+                if let notice = threadManager.openFlightPlanNotice, !appState.isFlightActive,
+                   !appState.needsDisclaimerAcceptance {
+                    VStack {
+                        OpenFlightPlanBanner(
+                            routeLabel: notice.routeLabel,
+                            onMarkClosed: { threadManager.markFlightPlanClosed(threadId: notice.threadId) },
+                            onOpen: { appState.pendingThreadToOpen = notice.threadId },
+                            onDismiss: { threadManager.openFlightPlanNotice = nil }
+                        )
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // v4.1.0 Data Freshness: snoozable nudge when a dataset is stale (Home only, not in flight).
                 if dataStatusManager.showStaleNudge && !appState.isFlightActive
                     && appState.settings.hasCompletedOnboarding && !appState.needsDisclaimerAcceptance {
@@ -136,6 +155,7 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: showMarketingControls)
             .animation(.easeInOut(duration: 0.3), value: appState.languageFallbackNotice)
             .animation(.easeInOut(duration: 0.3), value: dataStatusManager.showStaleNudge)
+            .animation(.easeInOut(duration: 0.3), value: threadManager.openFlightPlanNotice)
         }
         .onAppear {
             // Only ask for location at launch for users who've already been through onboarding — a fresh
@@ -234,6 +254,18 @@ struct ContentView: View {
                 .environmentObject(flightPlanManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
+        }
+        // A thread opened from its notification, or from the open-flight-plan banner. Lives at the
+        // root so it works over Home and over the close-out banner alike. (v5.0.0)
+        .fullScreenCover(isPresented: Binding(
+            get: { appState.pendingThreadToOpen != nil },
+            set: { if !$0 { appState.pendingThreadToOpen = nil } }
+        )) {
+            if let id = appState.pendingThreadToOpen {
+                FlightThreadView(threadId: id, onClose: { appState.pendingThreadToOpen = nil })
+                    .environmentObject(threadManager)
+                    .environmentObject(flightPlanManager)
+            }
         }
         // SEC-C40 follow-up: a paired peer asking to drive checklist/waypoint state must be
         // authorised by whoever holds the master. That prompt was mounted ONLY on the Companion
@@ -348,6 +380,85 @@ struct LanguageFallbackBanner: View {
             try? await Task.sleep(for: .seconds(6))
             onDismiss()
         }
+    }
+}
+
+/// Shown after landing when a filed VFR flight plan has not been closed. (v5.0.0)
+///
+/// The one banner in the app that is red, and the one with no auto-dismiss: Skyguide's RCC is alerted
+/// 30 minutes after the ETA on an open plan, so a notice the pilot might have missed is worth nothing
+/// here. Carries the phone number as the primary action because that is how a plan actually gets
+/// closed — the app's job is to remember, not to file.
+struct OpenFlightPlanBanner: View {
+    let routeLabel: String
+    let onMarkClosed: () -> Void
+    let onOpen: () -> Void
+    let onDismiss: () -> Void
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.aviationRed)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.Thread.closeFlightPlanTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryText)
+                Text(L10n.Thread.closeFlightPlanBody(routeLabel))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button {
+                        if let url = URL(string: "tel://0800437837") { openURL(url) }
+                    } label: {
+                        Text(L10n.Thread.callFIC)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.aviationRed)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationRed.opacity(0.16))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationRed.opacity(0.5), lineWidth: 1)))
+                            .contentShape(Rectangle())
+                    }
+                    Button(action: onMarkClosed) {
+                        Text(L10n.Thread.markFlightPlanClosed)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.aviationGreen)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.aviationGreen.opacity(0.16))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.aviationGreen.opacity(0.45), lineWidth: 1)))
+                            .contentShape(Rectangle())
+                    }
+                    Button(action: onDismiss) {
+                        Text(L10n.Button.close)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondaryText)
+                            .padding(.horizontal, 12).frame(minHeight: 34)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+                            .contentShape(Rectangle())
+                    }
+                }
+                .padding(.top, 3)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.panelBackground)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.aviationRed.opacity(0.6), lineWidth: 1.5))
+        )
+        .appBannerWidth()
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
     }
 }
 

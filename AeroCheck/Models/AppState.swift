@@ -552,6 +552,10 @@ class AppState {
     /// silently shown a foreign-language checklist. Surfaced as a non-blocking banner. (PR-41 / UX-08)
     var languageFallbackNotice: String?
 
+    /// A flight thread the app should open — set when the pilot taps a thread notification. Consumed
+    /// and cleared by the root router, same one-shot contract as the notices above. (v5.0.0)
+    var pendingThreadToOpen: UUID?
+
     // Navigation view session state (not persisted to disk — resets on app restart).
     // One cohesive value (selected layer + orientation) instead of two loose @Published properties.
     var navigationMapState = NavigationMapState()

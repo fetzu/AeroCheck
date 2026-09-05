@@ -11,6 +11,8 @@ struct AeroCheckApp: App {
     @StateObject private var aviationWeatherService = AviationWeatherService()
     @StateObject private var windsAloftService: WindsAloftService
     @StateObject private var flightPlanManager = FlightPlanManager()
+    /// The admin bracket around a flight — planning, preparation and close-out. (v5.0.0)
+    @StateObject private var flightThreadManager = FlightThreadManager()
     @StateObject private var watchConnectivityManager = WatchConnectivityManager.shared
     @StateObject private var companionConnectivityManager = CompanionConnectivityManager.shared
     @StateObject private var subscriptionManager: SubscriptionManager
@@ -88,6 +90,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(flightThreadManager)
                 .environmentObject(watchConnectivityManager)
                 .environmentObject(companionConnectivityManager)
                 .environmentObject(subscriptionManager)
@@ -124,6 +127,18 @@ struct AeroCheckApp: App {
                     // reference, so the controller pulls the name through this closure at sync time.
                     FlightActivityController.shared.nextWaypointProvider = {
                         flightPlanManager.activeNextWaypointName
+                    }
+
+                    // v5.0.0: register the notification delegate + the actionable close-flight-plan
+                    // category. No permission is requested here — that happens when the pilot first
+                    // follows a flight, so the prompt arrives with context instead of at cold launch.
+                    NotificationService.shared.configure()
+                    NotificationService.shared.markFlightPlanClosedHandler = { threadId in
+                        flightThreadManager.markFlightPlanClosed(threadId: threadId)
+                    }
+                    NotificationService.shared.openThreadHandler = { threadId in
+                        flightThreadManager.setCurrentThread(threadId)
+                        appState.pendingThreadToOpen = threadId
                     }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)
@@ -235,6 +250,7 @@ struct AeroCheckApp: App {
                 .environmentObject(aviationWeatherService)
                 .environmentObject(windsAloftService)
                 .environmentObject(flightPlanManager)
+                .environmentObject(flightThreadManager)
                 .environmentObject(subscriptionManager)
                 .environmentObject(aircraftDataService)
                 .environmentObject(airportDataService)

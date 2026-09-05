@@ -13,6 +13,7 @@ extension FlightPlan: Hashable {
 struct FlightPlanningView: View {
     @Environment(AppState.self) private var appState
     @EnvironmentObject var flightPlanManager: FlightPlanManager
+    @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
@@ -305,6 +306,17 @@ struct FlightPlanningView: View {
                             }
                         }
 
+                        // v5.0.0: start following this flight — the admin bracket around it. Opt-in,
+                        // and one per plan: a second thread for the same plan would split the pilot's
+                        // ticks across two lists.
+                        if threadManager.thread(forPlanId: plan.id) == nil {
+                            Button {
+                                followFlight(plan)
+                            } label: {
+                                Label(L10n.Thread.followFlight, systemImage: "checklist")
+                            }
+                        }
+
                         Divider()
 
                         Menu {
@@ -395,6 +407,14 @@ struct FlightPlanningView: View {
         } else {
             flightPlanManager.activateFlightPlan(plan)
         }
+    }
+
+    /// Start following a plan: create its thread and ask for notification permission, since the whole
+    /// point of following a flight is the two reminders it can send. The prompt arrives here — with
+    /// the pilot having just asked for it — rather than at cold launch. (v5.0.0)
+    private func followFlight(_ plan: FlightPlan) {
+        threadManager.createThread(from: plan)
+        Task { await NotificationService.shared.requestAuthorization() }
     }
 
     /// Cockpit-style section header: tracked uppercase label with an optional status dot. (v4 UI/UX Revamp)

@@ -284,6 +284,16 @@ struct FlightPlanningView: View {
                             }
                             .tint(.orange)
                         }
+                        // v5.0.0: also here, not only in the context menu — a long-press is a poor
+                        // way to discover the feature that follows the whole flight.
+                        if threadManager.thread(forPlanId: plan.id) == nil {
+                            Button {
+                                followFlight(plan)
+                            } label: {
+                                Label(L10n.Thread.followFlight, systemImage: "checklist")
+                            }
+                            .tint(.aviationGold)
+                        }
                     }
                     .contextMenu {
                         Button {

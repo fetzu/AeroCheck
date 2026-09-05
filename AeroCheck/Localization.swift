@@ -131,6 +131,86 @@ enum L10n {
         static let flightLog = String(localized: "button.flightLog")
     }
 
+    // MARK: - Logbook line (v5.0.0)
+    enum Logbook {
+        static let title = String(localized: "Logbook line")
+        static let subtitle = String(localized: "EASA AMC1 FCL.050")
+        static let functionPIC = String(localized: "PIC")
+        static let functionDual = String(localized: "Dual")
+        static let functionCoPilot = String(localized: "Co-pilot")
+        static let functionInstructor = String(localized: "Instructor")
+        static func remarkTouchAndGo(_ count: Int) -> String {
+            String(localized: "\(count) touch-and-go")
+        }
+        static func remarkGoAround(_ count: Int) -> String {
+            String(localized: "\(count) go-around")
+        }
+        static let copyLine = String(localized: "Copy line")
+        static let exportCSV = String(localized: "Export CSV")
+        static let picName = String(localized: "PIC name")
+        static let function = String(localized: "Function")
+        static let nightTime = String(localized: "Night")
+        static let ifrTime = String(localized: "IFR")
+        static let remarks = String(localized: "Remarks")
+        static let notALogbook = String(localized: "A draft for your logbook — AeroCheck is not a logbook of record")
+        static let timesAreUTC = String(localized: "Times are UTC, from block off and block on")
+        static let nightNotComputed = String(localized: "Night and IFR time are yours to enter — the app does not compute twilight")
+    }
+
+    // MARK: - Flight cost (v5.0.0)
+    enum Cost {
+        static let title = String(localized: "Flight cost")
+        static let basisBlock = String(localized: "Block time")
+        static let basisFlight = String(localized: "Flight time")
+        static let basisEngineHours = String(localized: "Engine hours")
+        static let hourlyRate = String(localized: "Hourly rate")
+        static let billingBasis = String(localized: "Billed on")
+        static let currency = String(localized: "Currency")
+        static let aircraft = String(localized: "Aircraft")
+        static let fees = String(localized: "Fees")
+        static let addFee = String(localized: "Add fee")
+        static let feeLabel = String(localized: "What for")
+        static let feeAmount = String(localized: "Amount")
+        static let total = String(localized: "Total")
+        static let noRateSet = String(localized: "No hourly rate set for this aircraft")
+        static let setRate = String(localized: "Set a rate")
+        static let notRecorded = String(localized: "No cost recorded")
+        static func missingCost(_ count: Int) -> String {
+            String(localized: "\(count) flights without a recorded cost")
+        }
+        static let ledgerTitle = String(localized: "Spend")
+        static let openTariff = String(localized: "Operator's tariff")
+        static let rateProfiles = String(localized: "Aircraft rates")
+        static let rateProfilesHint = String(localized: "Your club's hourly rate per aircraft, and the time it bills on")
+    }
+
+    // MARK: - Mass & balance (v5.0.0)
+    enum WeightBalance {
+        static let title = String(localized: "Mass & balance")
+        static let emptyWeight = String(localized: "Empty mass")
+        static let emptyArm = String(localized: "Empty arm")
+        static let mtow = String(localized: "MTOW")
+        static let stations = String(localized: "Stations")
+        static let addStation = String(localized: "Add station")
+        static let stationName = String(localized: "Station")
+        static let arm = String(localized: "Arm")
+        static let weight = String(localized: "Mass")
+        static let totalWeight = String(localized: "Total mass")
+        static let centreOfGravity = String(localized: "CG")
+        static let insideEnvelope = String(localized: "Inside the envelope")
+        static let outsideEnvelope = String(localized: "OUTSIDE the envelope")
+        static let envelopeUnknown = String(localized: "No envelope entered — mass and CG only")
+        static let overweight = String(localized: "OVER MTOW")
+        static let remainingPayload = String(localized: "Remaining payload")
+        static let notConfigured = String(localized: "Enter this aircraft's figures to use the calculator")
+        static let setup = String(localized: "Set up this aircraft")
+        static let advisory = String(localized: "Advisory only — check against the load sheet and the AFM")
+        static let fromWeighingReport = String(localized: "From the aircraft's weighing report and AFM — nothing here is shipped with the app")
+        static let envelope = String(localized: "Envelope")
+        static let addEnvelopePoint = String(localized: "Add envelope point")
+        static let envelopeHint = String(localized: "Corners of the AFM envelope, in order around it")
+    }
+
     // MARK: - Flight Thread (v5.0.0)
     // Literal-keyed strings: English renders immediately; FR translations are added in the
     // localization pass (xcstrings), like the other newer UI strings in this file.

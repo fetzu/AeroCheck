@@ -80,7 +80,8 @@ class FlightThreadManager: ObservableObject {
                       profile: ThreadProfile = .full,
                       routeLabel: String? = nil,
                       aircraftRegistration: String? = nil,
-                      pprIdents: [String] = []) -> FlightThread {
+                      pprIdents: [String] = [],
+                      destinationFuels: [String] = []) -> FlightThread {
         var thread = FlightThread(
             flightPlanId: plan?.id,
             profile: profile,
@@ -90,6 +91,7 @@ class FlightThreadManager: ObservableObject {
         )
         var context = Self.context(for: plan, profile: profile)
         context.pprIdents = pprIdents
+        context.destinationFuels = destinationFuels
         thread.tasks = ThreadTaskEngine.generate(context: context)
 
         threads.insert(thread, at: 0)

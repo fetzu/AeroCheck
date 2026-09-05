@@ -1,6 +1,606 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Logbook line" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne de carnet de vol"
+          }
+        }
+      }
+    },
+    "EASA AMC1 FCL.050" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EASA AMC1 FCL.050"
+          }
+        }
+      }
+    },
+    "PIC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIC"
+          }
+        }
+      }
+    },
+    "Dual" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Double commande"
+          }
+        }
+      }
+    },
+    "Co-pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copilote"
+          }
+        }
+      }
+    },
+    "Instructor" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instructeur"
+          }
+        }
+      }
+    },
+    "%lld touch-and-go" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld touch-and-go"
+          }
+        }
+      }
+    },
+    "%lld go-around" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld remise de gaz"
+          }
+        }
+      }
+    },
+    "Copy line" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier la ligne"
+          }
+        }
+      }
+    },
+    "Export CSV" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter en CSV"
+          }
+        }
+      }
+    },
+    "PIC name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du PIC"
+          }
+        }
+      }
+    },
+    "Function" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fonction"
+          }
+        }
+      }
+    },
+    "Night" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuit"
+          }
+        }
+      }
+    },
+    "IFR" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IFR"
+          }
+        }
+      }
+    },
+    "Remarks" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remarques"
+          }
+        }
+      }
+    },
+    "A draft for your logbook — AeroCheck is not a logbook of record" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un brouillon pour votre carnet — AéroCheck n'est pas un carnet de vol officiel"
+          }
+        }
+      }
+    },
+    "Times are UTC, from block off and block on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heures en UTC, depuis block off et block on"
+          }
+        }
+      }
+    },
+    "Night and IFR time are yours to enter — the app does not compute twilight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le temps de nuit et IFR est à saisir — l'app ne calcule pas le crépuscule"
+          }
+        }
+      }
+    },
+    "Flight cost" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coût du vol"
+          }
+        }
+      }
+    },
+    "Block time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temps block"
+          }
+        }
+      }
+    },
+    "Flight time" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temps de vol"
+          }
+        }
+      }
+    },
+    "Engine hours" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heures moteur"
+          }
+        }
+      }
+    },
+    "Hourly rate" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarif horaire"
+          }
+        }
+      }
+    },
+    "Billed on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Facturé sur"
+          }
+        }
+      }
+    },
+    "Currency" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monnaie"
+          }
+        }
+      }
+    },
+    "Fees" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taxes"
+          }
+        }
+      }
+    },
+    "Add fee" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une taxe"
+          }
+        }
+      }
+    },
+    "What for" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Motif"
+          }
+        }
+      }
+    },
+    "Amount" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Montant"
+          }
+        }
+      }
+    },
+    "Total" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "No hourly rate set for this aircraft" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun tarif horaire défini pour cet avion"
+          }
+        }
+      }
+    },
+    "Set a rate" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Définir un tarif"
+          }
+        }
+      }
+    },
+    "No cost recorded" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun coût enregistré"
+          }
+        }
+      }
+    },
+    "%lld flights without a recorded cost" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld vols sans coût enregistré"
+          }
+        }
+      }
+    },
+    "Spend" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dépenses"
+          }
+        }
+      }
+    },
+    "Operator's tariff" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarif de l'exploitant"
+          }
+        }
+      }
+    },
+    "Aircraft rates" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarifs avion"
+          }
+        }
+      }
+    },
+    "Your club's hourly rate per aircraft, and the time it bills on" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le tarif horaire de votre club par avion, et le temps facturé"
+          }
+        }
+      }
+    },
+    "Empty mass" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse à vide"
+          }
+        }
+      }
+    },
+    "Empty arm" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bras à vide"
+          }
+        }
+      }
+    },
+    "MTOW" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTOW"
+          }
+        }
+      }
+    },
+    "Stations" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Postes"
+          }
+        }
+      }
+    },
+    "Add station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un poste"
+          }
+        }
+      }
+    },
+    "Station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste"
+          }
+        }
+      }
+    },
+    "Arm" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bras"
+          }
+        }
+      }
+    },
+    "Mass" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse"
+          }
+        }
+      }
+    },
+    "Total mass" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masse totale"
+          }
+        }
+      }
+    },
+    "CG" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Centrage"
+          }
+        }
+      }
+    },
+    "Inside the envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans le domaine"
+          }
+        }
+      }
+    },
+    "OUTSIDE the envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HORS du domaine"
+          }
+        }
+      }
+    },
+    "No envelope entered — mass and CG only" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun domaine saisi — masse et centrage seulement"
+          }
+        }
+      }
+    },
+    "OVER MTOW" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AU-DESSUS DE LA MTOW"
+          }
+        }
+      }
+    },
+    "Remaining payload" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charge utile restante"
+          }
+        }
+      }
+    },
+    "Enter this aircraft's figures to use the calculator" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez les données de cet avion pour utiliser le calculateur"
+          }
+        }
+      }
+    },
+    "Set up this aircraft" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer cet avion"
+          }
+        }
+      }
+    },
+    "Advisory only — check against the load sheet and the AFM" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À titre indicatif — à vérifier avec la fiche de charge et le manuel de vol"
+          }
+        }
+      }
+    },
+    "From the aircraft's weighing report and AFM — nothing here is shipped with the app" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis la fiche de pesée et le manuel de vol — rien n'est fourni par l'app"
+          }
+        }
+      }
+    },
+    "Envelope" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Domaine de centrage"
+          }
+        }
+      }
+    },
+    "Add envelope point" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un point"
+          }
+        }
+      }
+    },
+    "Corners of the AFM envelope, in order around it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sommets du domaine du manuel de vol, dans l'ordre"
+          }
+        }
+      }
+    },
     "Follow this flight" : {
       "localizations" : {
         "fr" : {

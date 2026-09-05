@@ -623,6 +623,8 @@ struct FlightLogView: View {
                 hoursByAircraft(stats.byAircraft)
             }
 
+            spendRow
+
             // List header: count + aircraft filter.
             HStack {
                 Text("\(stats.flights) FLIGHTS")
@@ -633,6 +635,42 @@ struct FlightLogView: View {
                 filterMenu
             }
             .padding(.top, 2)
+        }
+    }
+
+    /// Spend for the selected period, shown only once at least one flight has a cost recorded.
+    ///
+    /// It always says how many flights have NOTHING recorded, because a total built from three of
+    /// forty flights is not a period total and a bare sum invites reading it as one. (v5.0.0)
+    @ViewBuilder
+    private var spendRow: some View {
+        let summary = CostLedger.summarize(flights: filteredFlights)
+        if summary.flightsWithCost > 0 {
+            HStack(spacing: 10) {
+                Text(L10n.Cost.ledgerTitle.uppercased())
+                    .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                    .tracking(0.5)
+                    .foregroundColor(.dimText)
+                Text(FlightCostCalculator.formatAmount(summary.total, currency: summary.currency))
+                    .scaledFont(size: 16, weight: .bold, design: .monospaced, relativeTo: .subheadline)
+                    .foregroundColor(.aviationGold)
+                Spacer(minLength: 6)
+                if summary.flightsMissingCost > 0 {
+                    Text(L10n.Cost.missingCost(summary.flightsMissingCost))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.aviationAmber.opacity(0.9))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground)
+                    .overlay(RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.aviationGold.opacity(0.22), lineWidth: 1))
+            )
         }
     }
 
@@ -1534,6 +1572,8 @@ struct FlightDetailView: View {
     @State private var notes: String = ""
     @State private var showExportSheet = false
     @State private var showDeleteAlert = false
+    /// Cost + logbook line for this flight. (v5.0.0)
+    @State private var showNumbers = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
     @State private var selectedTime: Date?
@@ -1611,6 +1651,10 @@ struct FlightDetailView: View {
                 flight: flight,
                 appState: appState
             )
+        }
+        .sheet(isPresented: $showNumbers) {
+            FlightNumbersView(flightId: flight.id, onClose: { showNumbers = false })
+                .environment(appState)
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {
@@ -1888,6 +1932,9 @@ struct FlightDetailView: View {
             if flight.flightPlan != nil {
                 detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
             }
+            // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
+            // without a thread still has a cost and still produces a logbook line.
+            detailActionButton(title: L10n.Cost.title, icon: "banknote", tint: .secondaryText) { showNumbers = true }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {
                 HStack(spacing: 5) {

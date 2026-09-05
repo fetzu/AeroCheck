@@ -342,6 +342,76 @@ final class FlightThreadTests: XCTestCase {
                         "filing a plan is what creates the obligation to close it")
     }
 
+    // MARK: - Fuel type enum (v5.0.0)
+
+    /// The mapping was established twice from independent directions; these pin it so a future edit
+    /// cannot quietly renumber it. See `OpenAIPFuelType` for the derivation.
+    func testFuelTypeCodesMapToTheGradesTheyWereProvenToBe() {
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 0)?.label, "Super PLUS")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 1)?.label, "AVGAS")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 3)?.label, "Jet A1")
+        XCTAssertEqual(OpenAIPFuelType(rawValue: 6)?.label, "UL91")
+        XCTAssertNil(OpenAIPFuelType(rawValue: 7), "an unknown code must not resolve to a grade")
+    }
+
+    func testAirlineHubReportsJetFuelAlone() throws {
+        // EDDF and LFPG both return [3] and nothing else — the observation that pinned 3 = Jet A1.
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"eddf","name":"FRANKFURT MAIN","icaoCode":"EDDF","type":3,"country":"DE",
+          "services":{"fuelTypes":[3]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[8.57,50.03]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["Jet A1"])
+    }
+
+    func testPistonGradesAreListedFirst() throws {
+        // A pilot scanning chips is asking "can I get AVGAS here", so the answer leads.
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"lsgy","name":"YVERDON","icaoCode":"LSGY","type":2,"country":"CH",
+          "services":{"fuelTypes":[3,0,1]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[6.61,46.76]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["Super PLUS", "AVGAS", "Jet A1"])
+    }
+
+    func testUnknownFuelCodeIsSkippedButKeptRaw() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"x","name":"SOMEWHERE","icaoCode":"LSZZ","type":2,"country":"CH",
+          "services":{"fuelTypes":[1,99]},"frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[7.0,47.0]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertEqual(airport.fuelTypes.map(\.label), ["AVGAS"])
+        XCTAssertEqual(airport.fuelTypeCodes, [1, 99], "an unrecognised code is preserved, not dropped")
+    }
+
+    func testFuelTaskDetailNamesWhatTheDestinationSells() {
+        var c = context()
+        c.fuelRequiredLitres = 54
+        c.fuelOnBoardLitres = 80
+        c.destinationFuels = ["AVGAS", "UL91"]
+
+        let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(fuel?.detail, "54 L / 80 L · LSGY: AVGAS, UL91")
+    }
+
+    func testFuelTaskOmitsTheDestinationWhenNothingIsKnown() {
+        var c = context()
+        c.fuelRequiredLitres = 54
+        c.fuelOnBoardLitres = 80
+
+        let fuel = ThreadTaskEngine.generate(context: c).first { $0.key == .fuelPlanned }
+        XCTAssertEqual(fuel?.detail, "54 L / 80 L", "absent data is not 'no fuel available'")
+    }
+
     // MARK: - OpenAIP operational flags (v5.0.0)
 
     /// Shaped from a real `api.core.openaip.net` response for LSGY (Yverdon), which genuinely is

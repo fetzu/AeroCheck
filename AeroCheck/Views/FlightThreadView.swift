@@ -51,7 +51,9 @@ struct ThreadTaskPresentation {
     /// External destinations a task offers. Deep links out rather than integrating: skybriefing is
     /// the official Swiss filing channel and DABS is a public no-login PDF, so a link plus a tick
     /// beats an integration that can be switched off upstream.
-    static func links(for task: ThreadTask) -> [(label: String, url: URL)] {
+    /// `tariffURL` is resolved by the caller (which is on the main actor) rather than looked up
+    /// here, so this stays a pure presentation helper with no service reach-through.
+    static func links(for task: ThreadTask, tariffURL: URL? = nil) -> [(label: String, url: URL)] {
         switch task.key {
         case .flightPlanFiled:
             return [(L10n.Thread.openSkybriefing, URL(string: "https://www.skybriefing.com/flightplan")!)]
@@ -63,6 +65,11 @@ struct ThreadTaskPresentation {
         case .flightPlanClosed:
             // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
             return [(L10n.Thread.callFIC, URL(string: "tel://0800437837")!)]
+        case .feesPaid:
+            // The operator's OWN tariff page, from the server registry. Absent for an aerodrome
+            // nobody has verified yet, which is the honest state rather than a guessed link.
+            guard let tariffURL else { return [] }
+            return [(L10n.Cost.openTariff, tariffURL)]
         default:
             return []
         }
@@ -83,6 +90,10 @@ struct FlightThreadView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var expandedChapter: ThreadChapter?
+    /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
+    @State private var weightBalanceRegistration: String?
+    /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
+    @State private var numbersFlightId: UUID?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -125,6 +136,28 @@ struct FlightThreadView: View {
                 }
             }
         }
+        // Derived bindings rather than `item:` — neither String nor UUID is Identifiable, and a
+        // retroactive conformance on a stdlib type is not worth two presentations.
+        .sheet(isPresented: Binding(
+            get: { weightBalanceRegistration != nil },
+            set: { if !$0 { weightBalanceRegistration = nil } }
+        )) {
+            if let registration = weightBalanceRegistration {
+                WeightBalanceView(registration: registration,
+                                  onClose: { weightBalanceRegistration = nil })
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { numbersFlightId != nil },
+            set: { if !$0 { numbersFlightId = nil } }
+        )) {
+            if let id = numbersFlightId {
+                FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
+            }
+        }
+        // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
+        // and silent on failure — a missing link is a missing convenience, never an error.
+        .task { await AirfieldTariffService.shared.refreshIfNeeded() }
     }
 
     // MARK: - Header
@@ -290,7 +323,12 @@ struct FlightThreadView: View {
                         task: task,
                         onToggle: { toggle(task, in: thread) },
                         onDismissTask: { setState(.notApplicable, task, in: thread) },
-                        onOpen: { url in openURL(url) }
+                        onOpen: { url in openURL(url) },
+                        tariffURL: tariffURL(for: task),
+                        // v5.0.0: three tasks now open a calculator instead of only taking a tick.
+                        // The tick still works on its own — the tool is an aid, not a gate.
+                        toolLabel: toolLabel(for: task, in: thread),
+                        onOpenTool: { openTool(for: task, in: thread) }
                     )
                     if task.id != tasks.last?.id {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
@@ -402,6 +440,39 @@ struct FlightThreadView: View {
 
     // MARK: - Actions
 
+    /// The operator's tariff page for a fee task, when the registry has a verified one.
+    private func tariffURL(for task: ThreadTask) -> URL? {
+        guard task.key == .feesPaid, let icao = task.subject,
+              let tariff = AirfieldTariffService.shared.tariff(for: icao),
+              tariff.publishesTariff else { return nil }
+        return tariff.destination
+    }
+
+    /// The in-app tool a task can open, when there is one. Nil leaves the row as a plain check.
+    private func toolLabel(for task: ThreadTask, in thread: FlightThread) -> String? {
+        switch task.key {
+        case .massAndBalance:
+            return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
+        case .feesPaid, .logbookEntry:
+            // Only once there is a flight to compute from — before that there are no hours to bill
+            // and no times to log.
+            return thread.flightId != nil ? L10n.Cost.title : nil
+        default:
+            return nil
+        }
+    }
+
+    private func openTool(for task: ThreadTask, in thread: FlightThread) {
+        switch task.key {
+        case .massAndBalance:
+            weightBalanceRegistration = thread.aircraftRegistration
+        case .feesPaid, .logbookEntry:
+            numbersFlightId = thread.flightId
+        default:
+            break
+        }
+    }
+
     private func toggle(_ task: ThreadTask, in thread: FlightThread) {
         // Auto tasks are computed, not ticked.
         guard task.kind != .auto else { return }
@@ -427,9 +498,15 @@ struct ThreadTaskRow: View {
     let onToggle: () -> Void
     let onDismissTask: () -> Void
     let onOpen: (URL) -> Void
+    /// Operator tariff page for a fee task, resolved by the parent view. (v5.0.0)
+    var tariffURL: URL?
+    /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
+    /// that is only ever a tick.
+    var toolLabel: String?
+    var onOpenTool: (() -> Void)?
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task) }
+    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task, tariffURL: tariffURL) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -472,8 +549,19 @@ struct ThreadTaskRow: View {
                     .foregroundColor(.dimText.opacity(0.6))
             }
 
-            if !links.isEmpty && task.state != .notApplicable {
+            if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
                 HStack(spacing: 8) {
+                    if let toolLabel, let onOpenTool {
+                        // Gold rather than blue: this one stays inside the app, where the blue chips
+                        // all leave it.
+                        Button(toolLabel) { onOpenTool() }
+                            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                            .foregroundColor(.aviationGold)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .overlay(Capsule().strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
+                            .buttonStyle(.plain)
+                    }
                     ForEach(links, id: \.label) { link in
                         Button(link.label) { onOpen(link.url) }
                             .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)

@@ -83,6 +83,59 @@ enum OpenAIPRunwaySurface {
     }
 }
 
+/// OpenAIP's `services.fuelTypes` integer enum.
+///
+/// OpenAIP does not publish this ordering anywhere citable, so it was established twice, from
+/// independent directions, and the two agree:
+///
+///  1. **Label pairing.** LSGY and LSZB return `[0,1,3]` and their OpenAIP page lists AVGAS,
+///     Super PLUS and Jet A1; LSZQ and LSGL return `[1,3,6]` and list AVGAS, AVGAS UL91 and Jet A1.
+///     The sets differ in exactly one code and one label, which pins `0 = Super PLUS` and
+///     `6 = AVGAS UL91`, leaving `{1,3} = {AVGAS, Jet A1}`.
+///  2. **Airline hubs settle the rest.** Frankfurt (EDDF) and Paris CDG (LFPG) both return `[3]`
+///     alone. A major hub sells jet fuel and no piston fuel, so `3 = Jet A1`, and therefore
+///     `1 = AVGAS`.
+///
+/// Both results match the documented value set (Super PLUS, AVGAS, Jet A, Jet A1, Jet B, Diesel,
+/// AVGAS UL91) read in order, which is the third agreement.
+///
+/// Note this settles the CODES, not the per-aerodrome DATA: OpenAIP is community-maintained and
+/// claims Jet A1 at several grass fields that certainly do not sell it. Treat a chip as "OpenAIP
+/// says so", the same community provenance `DataStatusManager` already assigns this source.
+enum OpenAIPFuelType: Int, CaseIterable, Sendable {
+    case superPlus = 0
+    case avgas = 1
+    case jetA = 2
+    case jetA1 = 3
+    case jetB = 4
+    case diesel = 5
+    case avgasUL91 = 6
+
+    /// Fuel grades are trade names and deliberately NOT localized, like the aviation abbreviations
+    /// elsewhere in the app.
+    var label: String {
+        switch self {
+        case .superPlus:  return "Super PLUS"
+        case .avgas:      return "AVGAS"
+        case .jetA:       return "Jet A"
+        case .jetA1:      return "Jet A1"
+        case .jetB:       return "Jet B"
+        case .diesel:     return "Diesel"
+        case .avgasUL91:  return "UL91"
+        }
+    }
+
+    /// True for the grades an aircraft in this app's roster can actually burn. Used for ordering,
+    /// not filtering — a pilot scanning chips wants "can I get AVGAS here" answered first, but
+    /// hiding the rest would be the app deciding what they may see.
+    var isPistonGrade: Bool {
+        switch self {
+        case .avgas, .avgasUL91, .superPlus: return true
+        case .jetA, .jetA1, .jetB, .diesel:  return false
+        }
+    }
+}
+
 /// An airport from OpenAIP's keyless per-country GeoJSON export (`{cc}_apt.geojson`). Distinct from the
 /// OurAirports-shaped `Airport` struct — this is the raw OpenAIP record that the
 /// `AirportDataMergeEngine` folds into the `Airport` backbone. (v4.1.0, increment 9)
@@ -114,16 +167,21 @@ struct OpenAIPAirport: Codable, Identifiable, Equatable {
     let hasSkydiveActivity: Bool
     let isWinchOnly: Bool
 
-    /// Raw `services.fuelTypes` codes, kept unmapped ON PURPOSE.
-    ///
-    /// The codes are an integer enum (0-6) and OpenAIP does not publish the ordering anywhere the
-    /// app can cite. Probing the live API for Switzerland gives 41 fields for code 3, 8 for code 6
-    /// and none at all for 2, 4 and 5 — consistent with 3 = AVGAS and 6 = UL91, but codes 0 and 1
-    /// cannot be separated behaviourally, and Yverdon (LSGY) claims a jet fuel it almost certainly
-    /// does not sell. Labelling a fuel wrongly sends a pilot somewhere to refuel that cannot serve
-    /// them, which is worse than saying nothing, so the codes are decoded and stored but not
-    /// rendered until the enum is confirmed from OpenAIP's own documentation.
+    /// Raw `services.fuelTypes` codes. Kept alongside the mapped values so an unrecognised future
+    /// code is preserved rather than silently dropped.
     let fuelTypeCodes: [Int]
+
+    /// Fuel grades this aerodrome reports, piston grades first — see `OpenAIPFuelType` for how the
+    /// enum was established. Unknown codes are skipped rather than guessed at.
+    var fuelTypes: [OpenAIPFuelType] {
+        fuelTypeCodes
+            .compactMap(OpenAIPFuelType.init(rawValue:))
+            .sorted { lhs, rhs in
+                lhs.isPistonGrade == rhs.isPistonGrade
+                    ? lhs.rawValue < rhs.rawValue
+                    : lhs.isPistonGrade && !rhs.isPistonGrade
+            }
+    }
 
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
 

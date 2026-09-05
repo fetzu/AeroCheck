@@ -855,7 +855,10 @@ struct HomeView: View {
     /// thing to do next. Taps into the thread.
     private func flightThreadStripCard(_ thread: FlightThread) -> some View {
         let isCloseOut = thread.state == .closeOut
-        let urgent = thread.hasOpenFlightPlan
+        // Urgency belongs to an OPEN plan AFTER the flight, not before it. A filed plan sitting
+        // there the day before departure is the normal state of a well-prepared flight; painting
+        // Home red for it teaches the pilot to ignore the colour that matters after landing.
+        let urgent = thread.hasOpenFlightPlan && isCloseOut
         let accent: Color = urgent ? .aviationRed : (isCloseOut ? .aviationAmber : .aviationGold)
         let progress = isCloseOut ? thread.closeOutProgress : thread.preFlightProgress
 
@@ -940,7 +943,10 @@ struct HomeView: View {
     }
 
     private func threadBadge(_ thread: FlightThread) -> String {
-        if thread.hasOpenFlightPlan { return L10n.Thread.openFlightPlanBanner }
+        // Same rule as the accent: only shout about an open plan once the flight is over.
+        if thread.hasOpenFlightPlan && thread.state == .closeOut {
+            return L10n.Thread.openFlightPlanBanner
+        }
         switch thread.state {
         case .planned:  return L10n.Thread.statePlanned
         case .ready:    return L10n.Thread.stateReady

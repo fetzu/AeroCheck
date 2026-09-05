@@ -1508,6 +1508,7 @@ enum L10n {
         static let personsOnBoard = String(localized: "nav.personsOnBoard")
         static let aircraftColour = String(localized: "nav.aircraftColour")
         static let copyICAOFlightPlan = String(localized: "nav.copyICAOFlightPlan")
+        static let icaoFlightPlanCopied = String(localized: "nav.icaoFlightPlanCopied")
     }
 
     // MARK: - Companion Mode

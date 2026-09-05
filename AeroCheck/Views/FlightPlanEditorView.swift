@@ -109,6 +109,7 @@ struct FlightPlanEditorView: View {
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
             }
+            .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $showingICAOCopied)
         }
         .preferredColorScheme(.dark)
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
@@ -157,7 +158,6 @@ struct FlightPlanEditorView: View {
             Button {
                 UIPasteboard.general.string = flightPlan.toICAOFlightPlan()
                 showingICAOCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showingICAOCopied = false }
             } label: { Label(L10n.Nav.copyICAOFlightPlan, systemImage: "doc.on.clipboard") }
                 .disabled(flightPlan.waypoints.count < 2)
         } label: {

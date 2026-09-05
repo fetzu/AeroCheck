@@ -520,6 +520,36 @@ extension View {
             self.background(.regularMaterial, in: Capsule())
         }
     }
+
+    /// A brief "copied" confirmation over the bottom of the view. (v5.0.0)
+    ///
+    /// A copy to the pasteboard is invisible — nothing on screen moves — so without this the pilot
+    /// taps again, unsure it worked. It clears itself after `duration`; the caller owns the flag only
+    /// so the confirmation can be dismissed early by a navigation change.
+    func copiedConfirmation(_ message: String,
+                            isPresented: Binding<Bool>,
+                            duration: TimeInterval = 2) -> some View {
+        overlay(alignment: .bottom) {
+            if isPresented.wrappedValue {
+                Label(message, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.aviationGreen)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .floatingChromeCapsule()
+                    .padding(.bottom, 32)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .task {
+                        // A transient overlay is never focused, so VoiceOver would otherwise get the
+                        // same silence a sighted user gets from an unannotated copy.
+                        AccessibilityNotification.Announcement(message).post()
+                        try? await Task.sleep(for: .seconds(duration))
+                        isPresented.wrappedValue = false
+                    }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isPresented.wrappedValue)
+    }
 }
 
 private struct NightModeKey: EnvironmentKey {

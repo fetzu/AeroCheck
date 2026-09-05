@@ -11378,6 +11378,23 @@
         }
       }
     },
+    "nav.icaoFlightPlanCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight plan copied"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan de vol copié"
+          }
+        }
+      }
+    },
     "nav.importError": {
       "extractionState": "manual",
       "localizations": {

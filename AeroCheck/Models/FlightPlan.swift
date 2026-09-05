@@ -830,30 +830,51 @@ extension FlightPlan {
         let altAerodrome = (alternateAerodrome ?? "").uppercased()
         let altStr = altAerodrome.isEmpty ? "" : " \(altAerodrome)"
 
-        // Field 18 - Other information
+        // Field 18 - Other information.
+        //
+        // A SPACE separates indicators here, so no value may contain one, and the indicators have a
+        // prescribed order (… DEP, DEST, DOF, … RMK). An aerodrome with no ICAO code is therefore
+        // given as ICAO lat/long rather than by name: `DEP/4712N00723E` is both the standard form and
+        // the only one a name with a space cannot corrupt into a second, meaningless indicator.
+        //
+        // The pilot's name is NOT here. `PIC/` is not an ICAO indicator — the pilot in command is
+        // Field 19 `C/`, which is where it goes below.
         var otherInfo: [String] = []
         if depAerodrome == "ZZZZ", let firstWP = waypoints.first {
-            otherInfo.append("DEP/\(firstWP.name.uppercased())")
+            otherInfo.append("DEP/\(FlightPlan.icaoLatLong(firstWP.latitude, firstWP.longitude))")
         }
         if destAerodrome == "ZZZZ", let lastWP = waypoints.last {
-            otherInfo.append("DEST/\(lastWP.name.uppercased())")
+            otherInfo.append("DEST/\(FlightPlan.icaoLatLong(lastWP.latitude, lastWP.longitude))")
         }
-        if let pob = personsOnBoard {
-            otherInfo.append("0/\(pob)")
+        if let dep = plannedDepartureTime {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyMMdd"
+            fmt.timeZone = TimeZone(identifier: "UTC")
+            otherInfo.append("DOF/\(fmt.string(from: dep))")
         }
         let pic = pilot.isEmpty ? "UNKNOWN" : pilot.uppercased()
-        otherInfo.append("PIC/\(pic)")
 
-        // Field 19 - Supplementary information
+        // Field 19 - Supplementary information, in the prescribed order E/ P/ R/ S/ J/ D/ A/ N/ C/.
+        //
+        // S/ (survival equipment), J/ (life jackets) and D/ (dinghies) are deliberately ABSENT rather
+        // than guessed. Search and rescue reads exactly those three to decide how to look for a
+        // downed aircraft, and the app cannot see what is in the baggage compartment — this is the
+        // one field where inventing a plausible default could cost a life. The pilot completes them
+        // on the filing form.
+        //
+        // R/ is the exception, and only because it is mandatory and structurally certain: an aircraft
+        // that cannot be flown cross-border without VHF is one we can assert has VHF. Anything beyond
+        // that letter (an ELT, UHF) is equipment we would be inventing, so it stays out.
         var suppInfo: [String] = []
         if let endur = endurance {
-            let endurHours = Int(endur)
-            let endurMinutes = Int((endur - Double(endurHours)) * 60)
-            suppInfo.append(String(format: "E/%02d%02d", endurHours, endurMinutes))
+            // Round to whole minutes BEFORE splitting, so 1.9999 h reads 0200 rather than 0159.
+            let totalMinutes = Int((endur * 60).rounded())
+            suppInfo.append(String(format: "E/%02d%02d", totalMinutes / 60, totalMinutes % 60))
         }
         if let pob = personsOnBoard {
             suppInfo.append("P/\(pob)")
         }
+        suppInfo.append("R/V")
         if let colour = aircraftColour, !colour.isEmpty {
             suppInfo.append("A/\(colour.uppercased())")
         }
@@ -867,19 +888,33 @@ extension FlightPlan {
         fpl += "-\(routeStr)\n"
         fpl += "-\(destAerodrome)\(eetStr)\(altStr)\n"
 
-        if !otherInfo.isEmpty {
-            fpl += "-\(otherInfo.joined(separator: " "))\n"
-        } else {
-            fpl += "-0\n"
-        }
-
-        if !suppInfo.isEmpty {
-            fpl += "-\(suppInfo.joined(separator: " ")))"
-        } else {
-            fpl += "-)"
-        }
+        // Field 18 is never omitted: with nothing to say it is the literal `0`, not an empty line.
+        fpl += otherInfo.isEmpty ? "-0\n" : "-\(otherInfo.joined(separator: " "))\n"
+        fpl += "-\(suppInfo.joined(separator: " ")))"
 
         return fpl
+    }
+
+    /// A point with no ICAO code, in the ICAO degrees-and-minutes form: `4712N00723E`.
+    ///
+    /// Used for Field 18 DEP/DEST when the departure or destination is a field without a four-letter
+    /// code — a name would carry spaces, and space is what separates Field 18's indicators.
+    static func icaoLatLong(_ latitude: Double, _ longitude: Double) -> String {
+        func degreesMinutes(_ value: Double) -> (degrees: Int, minutes: Int) {
+            var degrees = Int(abs(value))
+            var minutes = Int(((abs(value) - Double(degrees)) * 60).rounded())
+            // Rounding can carry: 47.99999 must read 48°00', never 47°60'.
+            if minutes == 60 {
+                minutes = 0
+                degrees += 1
+            }
+            return (degrees, minutes)
+        }
+        let lat = degreesMinutes(latitude)
+        let lon = degreesMinutes(longitude)
+        return String(format: "%02d%02d%@%03d%02d%@",
+                      lat.degrees, lat.minutes, latitude >= 0 ? "N" : "S",
+                      lon.degrees, lon.minutes, longitude >= 0 ? "E" : "W")
     }
 }
 

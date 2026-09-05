@@ -170,4 +170,117 @@ final class FlightPlanTests: XCTestCase {
         // …and a point near the A→B leg inserts at index 1.
         XCTAssertEqual(FlightPlanManager.bestInsertionIndex(for: CLLocationCoordinate2D(latitude: 46.02, longitude: 6.5), in: plan), 1)
     }
+
+    // MARK: - ICAO flight plan message (Doc 4444)
+    //
+    // This text gets read off the screen while filling in skybriefing's form, so a field that is
+    // syntactically wrong is worse than one that is absent: it looks authoritative and gets copied.
+
+    private func filedPlan(departure: Date? = nil) -> FlightPlan {
+        var plan = FlightPlan(
+            name: "LSZQ → LSGY",
+            waypoints: [
+                FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 47.4247, longitude: 7.1869)),
+                FlightPlanWaypoint(name: "LSGY", coordinate: CLLocationCoordinate2D(latitude: 46.7619, longitude: 6.6141)),
+            ],
+            pilot: "Jean Dupont",
+            plannedDepartureTime: departure,
+            fuelFlow: 20,
+            fuelOnBoard: 60,
+            personsOnBoard: 2,
+            aircraftColour: "white red"
+        )
+        plan.calculateRouteData()
+        return plan
+    }
+
+    func testFieldEighteenNeverEmitsAMalformedIndicator() {
+        // The old output was "0/2 PIC/JEAN DUPONT": "0" is Field 18's *nothing to declare* marker,
+        // not an indicator prefix, and neither "0/" nor "PIC/" exists in Doc 4444. Persons on board
+        // is Field 19 P/, and the pilot in command is Field 19 C/.
+        let fpl = filedPlan().toICAOFlightPlan()
+        XCTAssertFalse(fpl.contains("0/2"), "0/ is not an ICAO Field 18 indicator")
+        XCTAssertFalse(fpl.contains("PIC/"), "PIC/ is not an ICAO Field 18 indicator")
+        XCTAssertTrue(fpl.contains("C/JEAN DUPONT"), "the pilot belongs in Field 19 C/")
+    }
+
+    func testFieldEighteenIsTheLiteralZeroWhenThereIsNothingToDeclare() {
+        // Both aerodromes have ICAO codes and no departure date is set, so there is genuinely
+        // nothing to say — which is written "0", not an empty line.
+        let fpl = filedPlan().toICAOFlightPlan()
+        XCTAssertTrue(fpl.contains("\n-0\n"), "Field 18 must be the literal 0, got:\n\(fpl)")
+    }
+
+    func testDateOfFlightIsDeclaredWhenTheDepartureIsKnown() {
+        var components = DateComponents()
+        components.year = 2026; components.month = 9; components.day = 5
+        components.hour = 8; components.minute = 30
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let fpl = filedPlan(departure: calendar.date(from: components)!).toICAOFlightPlan()
+
+        XCTAssertTrue(fpl.contains("DOF/260905"), "DOF is yyMMdd in UTC, got:\n\(fpl)")
+        XCTAssertTrue(fpl.contains("-LSZQ0830\n"), "Field 13 time is UTC HHmm, got:\n\(fpl)")
+    }
+
+    /// Field 19 is the last line of the message. Worth isolating: Field 10 renders equipment and
+    /// surveillance as "S/N", so searching the whole message for "S/" finds a match that has nothing
+    /// to do with survival equipment.
+    private func fieldNineteen(of fpl: String) -> String {
+        String(fpl.split(separator: "\n").last ?? "")
+    }
+
+    func testSurvivalEquipmentIsNeverInvented() {
+        // S/, J/ and D/ tell search and rescue how to look for a downed aircraft. The app cannot see
+        // the baggage compartment, so it must leave them for the pilot rather than guess a default.
+        let field19 = fieldNineteen(of: filedPlan().toICAOFlightPlan())
+        for indicator in ["S/", "J/", "D/"] {
+            XCTAssertFalse(field19.contains(indicator),
+                           "\(indicator) is equipment we cannot observe and must not assert: \(field19)")
+        }
+    }
+
+    func testRadioIsDeclaredBecauseFieldNineteenRequiresIt() {
+        // R/ is mandatory and VHF is structurally certain — an aircraft that cannot legally fly this
+        // airspace without it. Nothing beyond that letter is asserted.
+        let field19 = fieldNineteen(of: filedPlan().toICAOFlightPlan())
+        XCTAssertTrue(field19.contains("R/V"), field19)
+        XCTAssertFalse(field19.contains("R/VE"), "an ELT is equipment we have no way of knowing about")
+    }
+
+    func testFieldNineteenKeepsThePrescribedOrder() {
+        let field19 = fieldNineteen(of: filedPlan().toICAOFlightPlan())
+        let positions = ["E/", "P/", "R/", "A/", "C/"].map { field19.range(of: $0)?.lowerBound }
+        XCTAssertFalse(positions.contains(where: { $0 == nil }), "all five should be present: \(field19)")
+        XCTAssertEqual(positions.compactMap { $0 }, positions.compactMap { $0 }.sorted(),
+                       "Field 19 order is E/ P/ R/ S/ J/ D/ A/ N/ C/: \(field19)")
+    }
+
+    func testEnduranceRoundsToWholeMinutesWithoutLosingAnHour() {
+        // 60 L at 20 L/h is exactly 3 h. Truncating the fractional part of a value that lands a hair
+        // under would have read 0259.
+        let fpl = filedPlan().toICAOFlightPlan()
+        XCTAssertTrue(fpl.contains("E/0300"), "got:\n\(fpl)")
+    }
+
+    func testAnAerodromeWithoutAnICAOCodeIsGivenAsCoordinatesNotAName() {
+        // Field 18 separates indicators with a space, so "DEP/GRENCHEN FIELD" would split into a
+        // second, meaningless indicator. ICAO lat/long is the standard form and has no spaces.
+        var plan = FlightPlan(waypoints: [
+            FlightPlanWaypoint(name: "Grenchen field", coordinate: CLLocationCoordinate2D(latitude: 47.1817, longitude: 7.4172)),
+            FlightPlanWaypoint(name: "LSGY", coordinate: CLLocationCoordinate2D(latitude: 46.7619, longitude: 6.6141)),
+        ])
+        plan.calculateRouteData()
+        let fpl = plan.toICAOFlightPlan()
+
+        XCTAssertTrue(fpl.contains("DEP/4711N00725E"), "got:\n\(fpl)")
+        XCTAssertFalse(fpl.contains("GRENCHEN FIELD"))
+    }
+
+    func testICAOLatLongCarriesRoundedMinutesIntoTheDegree() {
+        // 47.99999° is 48°00', never 47°60'.
+        XCTAssertEqual(FlightPlan.icaoLatLong(47.99999, 7.99999), "4800N00800E")
+        XCTAssertEqual(FlightPlan.icaoLatLong(-33.5, -70.75), "3330S07045W")
+        XCTAssertEqual(FlightPlan.icaoLatLong(0, 0), "0000N00000E")
+    }
 }

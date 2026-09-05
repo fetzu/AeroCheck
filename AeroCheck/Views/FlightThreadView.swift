@@ -116,6 +116,8 @@ struct FlightThreadView: View {
     @State private var weightBalanceRegistration: String?
     /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
     @State private var numbersFlightId: UUID?
+    /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
+    @State private var copiedFPL = false
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -177,6 +179,7 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
+        .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
@@ -473,6 +476,11 @@ struct FlightThreadView: View {
     /// The in-app tool a task can open, when there is one. Nil leaves the row as a plain check.
     private func toolLabel(for task: ThreadTask, in thread: FlightThread) -> String? {
         switch task.key {
+        case .flightPlanFiled:
+            // Only with a real route behind it. skybriefing's form is filled in by hand, so what this
+            // saves is retyping the route and identification — not the filing itself.
+            guard let plan = plan(for: thread), plan.waypoints.count >= 2 else { return nil }
+            return L10n.Nav.copyICAOFlightPlan
         case .massAndBalance:
             return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
         case .feesPaid, .logbookEntry:
@@ -484,8 +492,19 @@ struct FlightThreadView: View {
         }
     }
 
+    /// The plan this thread follows, if it still exists. A thread outlives the plan it came from, so
+    /// this is deliberately optional rather than force-unwrapped anywhere.
+    private func plan(for thread: FlightThread) -> FlightPlan? {
+        guard let planId = thread.flightPlanId else { return nil }
+        return flightPlanManager.flightPlans.first { $0.id == planId }
+    }
+
     private func openTool(for task: ThreadTask, in thread: FlightThread) {
         switch task.key {
+        case .flightPlanFiled:
+            guard let plan = plan(for: thread) else { return }
+            UIPasteboard.general.string = plan.toICAOFlightPlan()
+            copiedFPL = true
         case .massAndBalance:
             weightBalanceRegistration = thread.aircraftRegistration
         case .feesPaid, .logbookEntry:

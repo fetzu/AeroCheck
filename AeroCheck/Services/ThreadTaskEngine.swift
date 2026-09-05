@@ -32,6 +32,10 @@ enum ThreadTaskEngine {
         var fuelOnBoardLitres: Double = 0
         /// A one-line weather summary for the route, when one has been fetched.
         var weatherSummary: String?
+        /// Fuel grades reported at the destination, e.g. ["AVGAS", "UL91"]. Empty when the airport
+        /// layer is not downloaded or the aerodrome reports none — absent is "not stated", never
+        /// "none available". (v5.0.0)
+        var destinationFuels: [String] = []
         /// Whether a flight plan has been filed for this thread — the close-out reminder only exists
         /// once there is something to close.
         var flightPlanFiled: Bool = false
@@ -170,9 +174,18 @@ enum ThreadTaskEngine {
     }
 
     private static func fuelDetail(_ c: Context) -> String? {
-        guard c.fuelRequiredLitres > 0 else { return nil }
-        let required = Int(c.fuelRequiredLitres.rounded())
-        let onBoard = Int(c.fuelOnBoardLitres.rounded())
-        return "\(required) L / \(onBoard) L"
+        var parts: [String] = []
+        if c.fuelRequiredLitres > 0 {
+            let required = Int(c.fuelRequiredLitres.rounded())
+            let onBoard = Int(c.fuelOnBoardLitres.rounded())
+            parts.append("\(required) L / \(onBoard) L")
+        }
+        // What the destination can actually put in the tanks. This is the "refuelling options on
+        // route" the fuel row is the natural home for — a pilot reading a fuel line is already
+        // asking whether they can fill up at the far end.
+        if let arrival = c.arrivalIdent, !c.destinationFuels.isEmpty {
+            parts.append("\(arrival): \(c.destinationFuels.joined(separator: ", "))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

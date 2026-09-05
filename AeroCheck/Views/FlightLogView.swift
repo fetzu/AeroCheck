@@ -29,6 +29,9 @@ struct FlightLogView: View {
     /// The export bundle is built off the main actor (PERF-12); the share sheet presents only once
     /// `exportAllZipData` is ready. `isPreparingExportAll` drives a progress indicator meanwhile.
     @State private var exportAllZipData: Data?
+    /// The AMC1 FCL.050 logbook extract, held until its share sheet is up. (v5.0.0)
+    @State private var logbookPDFData: Data?
+    @State private var showLogbookPDFSheet = false
     @State private var isPreparingExportAll = false
     
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -121,6 +124,15 @@ struct FlightLogView: View {
         .sheet(item: $statsShareData) { data in
             StatsShareCardCustomizationView(data: data, appState: appState)
         }
+        .sheet(isPresented: $showLogbookPDFSheet) {
+            if let pdf = logbookPDFData {
+                ShareSheet(activityItems: [
+                    ShareFile(data: pdf,
+                              filename: "AeroCheck_\(formattedExportDate)_Logbook.pdf",
+                              dataTypeIdentifier: "com.adobe.pdf")
+                ])
+            }
+        }
         .overlay {
             if isPreparingExportAll {
                 ZStack {
@@ -168,6 +180,23 @@ struct FlightLogView: View {
             exportAllZipData = data
             isPreparingExportAll = false
             showExportAllSheet = (data != nil)
+        }
+    }
+
+    /// Render the logbook extract off the main actor and present its share sheet. Same shape as
+    /// `prepareExportAll` and for the same reason: a hundred flights is a lot of PDF drawing, and
+    /// none of it belongs in a `.sheet` content builder. (v5.0.0)
+    private func prepareLogbookPDF(_ flights: [Flight]) {
+        let pilotName = appState.settings.pilotName
+        isPreparingExportAll = true
+        Task { @MainActor in
+            let data = await Task.detached(priority: .userInitiated) {
+                LogbookPDFExportService.export(flights: flights,
+                                               options: .init(pilotName: pilotName))
+            }.value
+            logbookPDFData = data
+            isPreparingExportAll = false
+            showLogbookPDFSheet = (data != nil)
         }
     }
 
@@ -754,6 +783,11 @@ struct FlightLogView: View {
             Section("All flights (\(appState.flights.count))") {
                 Button("GPX") { exportAllType = .gpx; prepareExportAll(appState.flights) }
                 Button("JSON") { exportAllType = .json; prepareExportAll(appState.flights) }
+            }
+            // The logbook extract is a single PDF rather than a bundle of tracks, so it gets its own
+            // section instead of a third format alongside GPX and JSON.
+            Section(L10n.Logbook.subtitle) {
+                Button(L10n.Logbook.exportPDF) { prepareLogbookPDF(filteredFlights) }
             }
         } label: {
             HStack(spacing: 5) {

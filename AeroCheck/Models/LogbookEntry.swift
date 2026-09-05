@@ -77,6 +77,78 @@ struct LogbookLine: Equatable, Sendable {
     }
 }
 
+// MARK: - Totals
+
+/// The numbers the AMC1 FCL.050 form's three total rows want: TOTAL THIS PAGE, TOTAL FROM PREVIOUS
+/// PAGES, TOTAL TIME.
+///
+/// Minutes, not the formatted strings `LogbookLine` carries — a total has to be added up, and adding
+/// up "1:30" strings is how a logbook ends up not balancing.
+struct LogbookTotals: Equatable, Sendable {
+    var totalMinutes = 0
+    /// Single-pilot single-engine. Every aircraft this app knows is SE piston, so this tracks the
+    /// total; the column exists because the form has it.
+    var singlePilotSEMinutes = 0
+    var multiPilotMinutes = 0
+    var nightMinutes = 0
+    var ifrMinutes = 0
+    var landingsDay = 0
+    var landingsNight = 0
+    var picMinutes = 0
+    var coPilotMinutes = 0
+    var dualMinutes = 0
+    var instructorMinutes = 0
+
+    static let zero = LogbookTotals()
+
+    static func + (a: LogbookTotals, b: LogbookTotals) -> LogbookTotals {
+        LogbookTotals(
+            totalMinutes: a.totalMinutes + b.totalMinutes,
+            singlePilotSEMinutes: a.singlePilotSEMinutes + b.singlePilotSEMinutes,
+            multiPilotMinutes: a.multiPilotMinutes + b.multiPilotMinutes,
+            nightMinutes: a.nightMinutes + b.nightMinutes,
+            ifrMinutes: a.ifrMinutes + b.ifrMinutes,
+            landingsDay: a.landingsDay + b.landingsDay,
+            landingsNight: a.landingsNight + b.landingsNight,
+            picMinutes: a.picMinutes + b.picMinutes,
+            coPilotMinutes: a.coPilotMinutes + b.coPilotMinutes,
+            dualMinutes: a.dualMinutes + b.dualMinutes,
+            instructorMinutes: a.instructorMinutes + b.instructorMinutes
+        )
+    }
+
+    /// A kept logbook balances: the four function columns must add up to the total. Worth asserting
+    /// rather than assuming, since it is the first thing an auditor adds up.
+    var functionMinutesBalance: Bool {
+        picMinutes + coPilotMinutes + dualMinutes + instructorMinutes == totalMinutes
+    }
+
+    static func forFlights(_ flights: [Flight]) -> LogbookTotals {
+        flights.reduce(.zero) { $0 + forFlight($1) }
+    }
+
+    static func forFlight(_ flight: Flight) -> LogbookTotals {
+        // No block times means no duration to log. The date columns fall back to engine or GPS
+        // times, but a total is arithmetic and must not be invented from a weaker source.
+        let minutes = flight.blockTime.map { Int(($0 / 60).rounded()) } ?? 0
+        var totals = LogbookTotals(
+            totalMinutes: minutes,
+            singlePilotSEMinutes: minutes,
+            nightMinutes: flight.logbook?.nightMinutes ?? 0,
+            ifrMinutes: flight.logbook?.ifrMinutes ?? 0,
+            landingsDay: flight.totalLandings,
+            landingsNight: 0
+        )
+        switch LogbookLineBuilder.function(for: flight, overrides: flight.logbook) {
+        case .pic:        totals.picMinutes = minutes
+        case .coPilot:    totals.coPilotMinutes = minutes
+        case .dual:       totals.dualMinutes = minutes
+        case .instructor: totals.instructorMinutes = minutes
+        }
+        return totals
+    }
+}
+
 // MARK: - Builder
 
 /// Turns a recorded flight into a logbook line. Pure and testable: everything it needs arrives as a
@@ -96,13 +168,7 @@ enum LogbookLineBuilder {
         let total = flight.blockTime
         let totalText = formatHoursMinutes(total)
 
-        // A flight plan carrying an instructor is the one honest signal the app has that the flight
-        // was dual. Everything else defaults to PIC, which is what a private pilot flying alone logs.
-        let inferredFunction: LogbookFunction = {
-            if let explicit = overrides?.function { return explicit }
-            let instructor = flight.flightPlan?.instructor?.trimmingCharacters(in: .whitespaces)
-            return (instructor?.isEmpty == false) ? .dual : .pic
-        }()
+        let inferredFunction = function(for: flight, overrides: overrides)
 
         // Landings: the detector separates full stops from touch-and-gos, and a logbook counts
         // landings, so both belong in the day column unless the pilot says otherwise.
@@ -132,6 +198,18 @@ enum LogbookLineBuilder {
             functionTime: totalText,
             remarks: overrides?.remarks ?? defaultRemarks(for: flight)
         )
+    }
+
+    /// A flight plan carrying an instructor is the one honest signal the app has that the flight was
+    /// dual. Everything else defaults to PIC, which is what a private pilot flying alone logs.
+    ///
+    /// Shared with the totals builder rather than duplicated: the page total and the lines above it
+    /// disagreeing about which column a flight belongs in is exactly the kind of arithmetic error an
+    /// audit finds.
+    static func function(for flight: Flight, overrides: LogbookOverrides?) -> LogbookFunction {
+        if let explicit = overrides?.function { return explicit }
+        let instructor = flight.flightPlan?.instructor?.trimmingCharacters(in: .whitespaces)
+        return (instructor?.isEmpty == false) ? .dual : .pic
     }
 
     /// On a dual flight the PIC is the instructor, not the pilot writing the logbook — logging

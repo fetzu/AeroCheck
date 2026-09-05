@@ -133,11 +133,11 @@ enum L10n {
 
     // MARK: - Border crossing (v5.0.0)
     enum Border {
-        static let title = String(localized: "Border crossing")
         static let required = String(localized: "Required")
         static let conditional = String(localized: "Under conditions")
         static let notRequired = String(localized: "Not required")
         static let unknown = String(localized: "Not established")
+        static let disputed = String(localized: "Official sources disagree")
         static let customsAerodrome = String(localized: "Customs aerodrome")
         static let priorNotification = String(localized: "Prior notification")
         static let noticeLeadTime = String(localized: "Lead time")

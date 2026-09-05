@@ -1,16 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Border crossing" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Passage de frontière"
-          }
-        }
-      }
-    },
     "Required" : {
       "localizations" : {
         "fr" : {
@@ -47,6 +37,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Non établi"
+          }
+        }
+      }
+    },
+    "Official sources disagree" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sources officielles divergentes"
           }
         }
       }

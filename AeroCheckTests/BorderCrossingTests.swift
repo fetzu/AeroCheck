@@ -24,11 +24,35 @@ final class BorderCrossingTests: XCTestCase {
 
     func testUnknownIsTreatedAsDemandingNotAsAbsent() {
         // "Not established" must never read like "not required" — an obligation nobody has verified
-        // is one the pilot still has to satisfy.
+        // is one the pilot still has to satisfy. Only an established "no" is not demanding.
         XCTAssertTrue(BorderRequirement.unknown.isDemanding)
+        XCTAssertTrue(BorderRequirement.disputed.isDemanding)
         XCTAssertTrue(BorderRequirement.required.isDemanding)
         XCTAssertTrue(BorderRequirement.conditional.isDemanding)
         XCTAssertFalse(BorderRequirement.notRequired.isDemanding)
+    }
+
+    func testEveryStateHasItsOwnWording() {
+        // A state that renders as another state's label is a silent mistranslation of an obligation.
+        let labels = [BorderRequirement.required, .conditional, .notRequired, .unknown, .disputed]
+            .map(\.label)
+        XCTAssertEqual(Set(labels).count, labels.count, "each state needs distinct wording: \(labels)")
+        XCTAssertFalse(labels.contains(where: \.isEmpty))
+    }
+
+    func testEverySourceIsAGovernmentHost() {
+        // The pack's whole premise is that it points at the authority. A community wiki or a forum
+        // thread would look identical in the UI, so the host is checked mechanically rather than by
+        // reviewer attention.
+        let governmentSuffixes = [".admin.ch", ".gouv.fr", ".gov.uk", ".gv.at", ".gov.it", ".zoll.de",
+                                  ".legifrance.gouv.fr", ".bund.de"]
+        let all = BorderCrossingGuide.curatedCountries.compactMap { BorderCrossingGuide.rule(for: $0) }
+            + [BorderCrossingGuide.switzerland]
+        for rule in all {
+            let host = rule.officialURL.host ?? ""
+            XCTAssertTrue(governmentSuffixes.contains { host.hasSuffix($0) },
+                          "\(rule.country): \(host) is not a government host")
+        }
     }
 
     func testEveryCuratedRuleCarriesAnHTTPSSourceAndAReviewDate() {
@@ -63,6 +87,42 @@ final class BorderCrossingTests: XCTestCase {
         XCTAssertEqual(ch.country, "CH")
         XCTAssertEqual(ch.officialURL.scheme, "https")
         XCTAssertTrue(ch.customsAerodrome.isDemanding, "category A-C is the rule, D only under conditions")
+    }
+
+    func testGermanyIsRecordedAsContradictingItselfRatherThanResolved() {
+        // Two official German sources disagree about the customs-airport obligation and the app must
+        // not pick a winner. Picking "not required" would be the dangerous direction, and picking
+        // "required" would send pilots to airports they no longer need.
+        let de = try! XCTUnwrap(BorderCrossingGuide.rule(for: "DE"))
+        XCTAssertEqual(de.customsAerodrome, .disputed)
+        XCTAssertTrue(de.hasOpenQuestion, "a disputed fact is an open question, like an unknown one")
+        XCTAssertTrue(de.customsAerodrome.isDemanding)
+    }
+
+    func testItalyRequiresACustomsAirportOutright() {
+        // Keyed to the EU customs territory, which Switzerland is outside — so unlike the Schengen
+        // questions, this one is not softened by Switzerland's Schengen membership.
+        let it = try! XCTUnwrap(BorderCrossingGuide.rule(for: "IT"))
+        XCTAssertEqual(it.customsAerodrome, .required)
+        XCTAssertEqual(it.priorNotification, .required)
+        XCTAssertNotNil(it.noticeLeadTime)
+    }
+
+    func testAustriaCarriesTheLeadTimeAsAFloorNotAWindow() {
+        // Austrian airfields may demand more than the statutory hour, so the value must not read as
+        // an upper bound the pilot can plan against.
+        let at = try! XCTUnwrap(BorderCrossingGuide.rule(for: "AT"))
+        XCTAssertEqual(at.priorNotification, .required)
+        let lead = try! XCTUnwrap(at.noticeLeadTime)
+        XCTAssertTrue(lead.contains("\u{2265}"), "expected a 'at least' floor, got \(lead)")
+    }
+
+    func testTheSwissNeighboursAreAllCurated() {
+        // Every country a Swiss GA flight can reach without crossing a third one. Liechtenstein is
+        // deliberately not here: customs union with Switzerland, and no aerodrome.
+        for neighbour in ["FR", "DE", "AT", "IT"] {
+            XCTAssertNotNil(BorderCrossingGuide.rule(for: neighbour), "\(neighbour) should be curated")
+        }
     }
 
     func testUKRequiresNotificationWithALeadTime() {

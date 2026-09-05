@@ -45,7 +45,13 @@ struct ThreadTaskPresentation {
                 }
                 var parts = ["\(L10n.Border.customsAerodrome): \(rule.customsAerodrome.label)",
                              "\(L10n.Border.priorNotification): \(rule.priorNotification.label)"]
-                if let lead = rule.noticeLeadTime { parts.append(lead) }
+                if let lead = rule.noticeLeadTime {
+                    parts.append("\(L10n.Border.noticeLeadTime): \(lead)")
+                }
+                // The review date is part of the answer, not a footnote. Nothing here refreshes
+                // itself, so how recently a human read the source is what tells the pilot whether to
+                // trust these four words or go and look.
+                parts.append(L10n.Border.reviewed(rule.lastReviewed))
                 return parts.joined(separator: " · ")
             }()
             return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: hint, icon: "globe.europe.africa")

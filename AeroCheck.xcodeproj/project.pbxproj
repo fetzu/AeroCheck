@@ -96,6 +96,7 @@
 		A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000069 /* OpenAIPAirportDataService.swift */; };
 		A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000070 /* AirportDataMergeEngine.swift */; };
 		A1000001211111110000074 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000074 /* NotificationService.swift */; };
+		A1000001211111110000076 /* AirfieldTariffService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000076 /* AirfieldTariffService.swift */; };
 		A1000001211111110000073 /* ThreadTaskEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000073 /* ThreadTaskEngine.swift */; };
 		A1000001211111110000064 /* DataStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000064 /* DataStatusManager.swift */; };
 		A1000001211111110000063 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001111111110000063 /* NetworkMonitor.swift */; };
@@ -343,6 +344,7 @@
 		A1000001111111110000069 /* OpenAIPAirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIPAirportDataService.swift; sourceTree = "<group>"; };
 		A1000001111111110000070 /* AirportDataMergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataMergeEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000074 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		A1000001111111110000076 /* AirfieldTariffService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirfieldTariffService.swift; sourceTree = "<group>"; };
 		A1000001111111110000073 /* ThreadTaskEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadTaskEngine.swift; sourceTree = "<group>"; };
 		A1000001111111110000064 /* DataStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStatusManager.swift; sourceTree = "<group>"; };
 		A1000001111111110000063 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
@@ -682,6 +684,7 @@
 				A1000001111111110000069 /* OpenAIPAirportDataService.swift */,
 				A1000001111111110000070 /* AirportDataMergeEngine.swift */,
 				A1000001111111110000074 /* NotificationService.swift */,
+				A1000001111111110000076 /* AirfieldTariffService.swift */,
 				A1000001111111110000073 /* ThreadTaskEngine.swift */,
 				A1000001111111110000064 /* DataStatusManager.swift */,
 				A1000001111111110000063 /* NetworkMonitor.swift */,
@@ -1027,6 +1030,7 @@
 				A1000001211111110000069 /* OpenAIPAirportDataService.swift in Sources */,
 				A1000001211111110000070 /* AirportDataMergeEngine.swift in Sources */,
 				A1000001211111110000074 /* NotificationService.swift in Sources */,
+				A1000001211111110000076 /* AirfieldTariffService.swift in Sources */,
 				A1000001211111110000073 /* ThreadTaskEngine.swift in Sources */,
 				A1000001211111110000064 /* DataStatusManager.swift in Sources */,
 				A1000001211111110000063 /* NetworkMonitor.swift in Sources */,

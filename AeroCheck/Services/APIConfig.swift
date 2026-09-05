@@ -110,6 +110,27 @@ enum APIConfig {
     ///
     /// Absent is fine and must stay fine: the worker fails open when its own list is unset, so a
     /// checkout without Secrets.xcconfig still gets working weather.
+    /// Shared secret sent as `X-AeroCheck-Client` to `api.aerocheck.app`'s `/airfields` routes, or
+    /// nil when not configured. (v5.0.0)
+    ///
+    /// A SEPARATE value from `weatherClientSecret` on purpose: the two workers keep separate lists,
+    /// so rotating one must not force rotating the other.
+    ///
+    /// What it actually achieves: `Secrets.xcconfig` is gitignored, so someone who clones the public
+    /// repository and builds gets an empty value here, sends no header, and is refused by the worker.
+    /// That is the whole intent. It stops nobody holding the shipped IPA, where `strings` recovers
+    /// it — so nothing behind it is worth protecting, and a leak is a reason to rotate rather than
+    /// an incident. Absent stays fine: the worker fails open when its own list is unset.
+    static let appClientSecret: String? = {
+        guard let raw = Bundle.main.object(forInfoDictionaryKey: "AppClientSecret") as? String
+        else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An unexpanded build setting ("$(APP_CLIENT_SECRET)") must never be sent — it would be a
+        // guaranteed mismatch that looks like a configured client.
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("$") else { return nil }
+        return trimmed
+    }()
+
     static let weatherClientSecret: String? = {
         guard let raw = Bundle.main.object(forInfoDictionaryKey: "WeatherClientSecret") as? String
         else { return nil }

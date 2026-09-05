@@ -51,7 +51,9 @@ struct ThreadTaskPresentation {
     /// External destinations a task offers. Deep links out rather than integrating: skybriefing is
     /// the official Swiss filing channel and DABS is a public no-login PDF, so a link plus a tick
     /// beats an integration that can be switched off upstream.
-    static func links(for task: ThreadTask) -> [(label: String, url: URL)] {
+    /// `tariffURL` is resolved by the caller (which is on the main actor) rather than looked up
+    /// here, so this stays a pure presentation helper with no service reach-through.
+    static func links(for task: ThreadTask, tariffURL: URL? = nil) -> [(label: String, url: URL)] {
         switch task.key {
         case .flightPlanFiled:
             return [(L10n.Thread.openSkybriefing, URL(string: "https://www.skybriefing.com/flightplan")!)]
@@ -63,6 +65,11 @@ struct ThreadTaskPresentation {
         case .flightPlanClosed:
             // Skyguide's free flight-plan closing number. A `tel:` link is the whole feature here.
             return [(L10n.Thread.callFIC, URL(string: "tel://0800437837")!)]
+        case .feesPaid:
+            // The operator's OWN tariff page, from the server registry. Absent for an aerodrome
+            // nobody has verified yet, which is the honest state rather than a guessed link.
+            guard let tariffURL else { return [] }
+            return [(L10n.Cost.openTariff, tariffURL)]
         default:
             return []
         }
@@ -148,6 +155,9 @@ struct FlightThreadView: View {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
+        // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
+        // and silent on failure — a missing link is a missing convenience, never an error.
+        .task { await AirfieldTariffService.shared.refreshIfNeeded() }
     }
 
     // MARK: - Header
@@ -314,6 +324,7 @@ struct FlightThreadView: View {
                         onToggle: { toggle(task, in: thread) },
                         onDismissTask: { setState(.notApplicable, task, in: thread) },
                         onOpen: { url in openURL(url) },
+                        tariffURL: tariffURL(for: task),
                         // v5.0.0: three tasks now open a calculator instead of only taking a tick.
                         // The tick still works on its own — the tool is an aid, not a gate.
                         toolLabel: toolLabel(for: task, in: thread),
@@ -429,6 +440,14 @@ struct FlightThreadView: View {
 
     // MARK: - Actions
 
+    /// The operator's tariff page for a fee task, when the registry has a verified one.
+    private func tariffURL(for task: ThreadTask) -> URL? {
+        guard task.key == .feesPaid, let icao = task.subject,
+              let tariff = AirfieldTariffService.shared.tariff(for: icao),
+              tariff.publishesTariff else { return nil }
+        return tariff.destination
+    }
+
     /// The in-app tool a task can open, when there is one. Nil leaves the row as a plain check.
     private func toolLabel(for task: ThreadTask, in thread: FlightThread) -> String? {
         switch task.key {
@@ -479,13 +498,15 @@ struct ThreadTaskRow: View {
     let onToggle: () -> Void
     let onDismissTask: () -> Void
     let onOpen: (URL) -> Void
+    /// Operator tariff page for a fee task, resolved by the parent view. (v5.0.0)
+    var tariffURL: URL?
     /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
     /// that is only ever a tick.
     var toolLabel: String?
     var onOpenTool: (() -> Void)?
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
-    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task) }
+    private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task, tariffURL: tariffURL) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

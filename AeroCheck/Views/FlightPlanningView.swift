@@ -423,8 +423,20 @@ struct FlightPlanningView: View {
     /// point of following a flight is the two reminders it can send. The prompt arrives here — with
     /// the pilot having just asked for it — rather than at cold launch. (v5.0.0)
     private func followFlight(_ plan: FlightPlan) {
-        threadManager.createThread(from: plan)
+        threadManager.createThread(from: plan, pprIdents: pprIdents(on: plan))
         Task { await NotificationService.shared.requestAuthorization() }
+    }
+
+    /// Aerodromes on the route that OpenAIP flags as PPR, so the thread can raise the call-ahead
+    /// task by itself. Returns nothing when the airport layer has not been downloaded — a missing
+    /// dataset must not invent a requirement, and the pilot can still add the task by hand. (v5.0.0)
+    private func pprIdents(on plan: FlightPlan) -> [String] {
+        let onRoute = Set(plan.waypoints.map(\.name).filter(FlightThreadManager.looksLikeICAO))
+        guard !onRoute.isEmpty else { return [] }
+        return OpenAIPAirportDataService.shared.allLoadedAirports()
+            .filter { $0.isPPR }
+            .compactMap(\.icaoCode)
+            .filter(onRoute.contains)
     }
 
     /// Cockpit-style section header: tracked uppercase label with an optional status dot. (v4 UI/UX Revamp)

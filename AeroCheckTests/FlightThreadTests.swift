@@ -342,6 +342,47 @@ final class FlightThreadTests: XCTestCase {
                         "filing a plan is what creates the obligation to close it")
     }
 
+    // MARK: - OpenAIP operational flags (v5.0.0)
+
+    /// Shaped from a real `api.core.openaip.net` response for LSGY (Yverdon), which genuinely is
+    /// flagged PPR — these keys were arriving with every download and being dropped at the parser.
+    func testOperationalFlagsAreParsedFromTheAirportRecord() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"abc123","name":"YVERDON-LES-BAINS","icaoCode":"LSGY","type":2,
+          "elevation":{"value":433,"unit":0},"country":"CH",
+          "ppr":true,"private":true,"skydiveActivity":true,"winchOnly":false,
+          "services":{"fuelTypes":[0,1,3]},
+          "frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[6.6141,46.7619]}}]}
+        """.data(using: .utf8)!
+
+        let airports = try OpenAIPAirport.parse(geoJSON: json)
+        let lsgy = try XCTUnwrap(airports.first)
+
+        XCTAssertEqual(lsgy.icaoCode, "LSGY")
+        XCTAssertTrue(lsgy.isPPR)
+        XCTAssertTrue(lsgy.isPrivate)
+        XCTAssertTrue(lsgy.hasSkydiveActivity)
+        XCTAssertFalse(lsgy.isWinchOnly)
+        XCTAssertEqual(lsgy.fuelTypeCodes, [0, 1, 3])
+    }
+
+    /// An older cached file, or a source that omits the flags, must not manufacture requirements.
+    func testMissingFlagsDefaultToNotRequired() throws {
+        let json = """
+        {"features":[{"type":"Feature","properties":{
+          "_id":"x","name":"SOMEWHERE","icaoCode":"LSZZ","type":2,"country":"CH",
+          "frequencies":[],"runways":[]
+        },"geometry":{"type":"Point","coordinates":[7.0,47.0]}}]}
+        """.data(using: .utf8)!
+
+        let airport = try XCTUnwrap(try OpenAIPAirport.parse(geoJSON: json).first)
+        XCTAssertFalse(airport.isPPR, "an absent flag is 'not stated', never a manufactured PPR task")
+        XCTAssertFalse(airport.isPrivate)
+        XCTAssertTrue(airport.fuelTypeCodes.isEmpty)
+    }
+
     /// The test host shares the app's bundle id, so a manager built against `.standard` would write
     /// its pointer into the real app's slot on that simulator. (Same trap as FlightPlanManager.)
     private func throwawayDefaults() -> UserDefaults {

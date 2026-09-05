@@ -1151,6 +1151,16 @@
         }
       }
     },
+    "Open NOTAM briefing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir le briefing NOTAM"
+          }
+        }
+      }
+    },
     "Open skybriefing" : {
       "localizations" : {
         "fr" : {

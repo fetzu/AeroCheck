@@ -74,7 +74,13 @@ struct ThreadTaskPresentation {
     static func links(for task: ThreadTask, tariffURL: URL? = nil) -> [(label: String, url: URL)] {
         switch task.key {
         case .flightPlanFiled:
-            return [(L10n.Thread.openSkybriefing, URL(string: "https://www.skybriefing.com/flightplan")!)]
+            return [(L10n.Thread.openSkybriefing,
+                     URL(string: "https://www.skybriefing.com/services/flightplan-services")!)]
+        case .notamChecked:
+            // Was a bare tick with nowhere to go, which is the one task state that teaches a pilot to
+            // tick without doing. skybriefing is the Swiss briefing channel, same as for filing.
+            return [(L10n.Thread.openNotamBriefing,
+                     URL(string: "https://www.skybriefing.com/services/notam-briefing")!)]
         case .dabsChecked:
             return [(L10n.Thread.openDabs, URL(string: "https://www.skybriefing.com/dabs")!)]
         case .gaforChecked:

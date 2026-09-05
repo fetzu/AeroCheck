@@ -289,6 +289,7 @@ enum L10n {
         static let copyICAOPlan = String(localized: "Copy ICAO plan")
         static let openSkybriefing = String(localized: "Open skybriefing")
         static let openDabs = String(localized: "Open DABS")
+        static let openNotamBriefing = String(localized: "Open NOTAM briefing")
         static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let callFIC = String(localized: "Call 0800 437 837")

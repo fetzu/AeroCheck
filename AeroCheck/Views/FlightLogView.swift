@@ -1534,6 +1534,8 @@ struct FlightDetailView: View {
     @State private var notes: String = ""
     @State private var showExportSheet = false
     @State private var showDeleteAlert = false
+    /// Cost + logbook line for this flight. (v5.0.0)
+    @State private var showNumbers = false
     @State private var showExportOptions = false
     @State private var exportType: ExportType = .gpx
     @State private var selectedTime: Date?
@@ -1611,6 +1613,10 @@ struct FlightDetailView: View {
                 flight: flight,
                 appState: appState
             )
+        }
+        .sheet(isPresented: $showNumbers) {
+            FlightNumbersView(flightId: flight.id, onClose: { showNumbers = false })
+                .environment(appState)
         }
         .confirmationDialog(L10n.FlightDetail.exportFormatTitle, isPresented: $showExportOptions, titleVisibility: .visible) {
             Button(L10n.FlightDetail.exportFormatGPX) {
@@ -1888,6 +1894,9 @@ struct FlightDetailView: View {
             if flight.flightPlan != nil {
                 detailActionButton(title: L10n.Nav.navLog, icon: "point.topleft.down.to.point.bottomright.curvepath", tint: .secondaryText) { showFlightPlan = true }
             }
+            // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
+            // without a thread still has a cost and still produces a logbook line.
+            detailActionButton(title: L10n.Cost.title, icon: "banknote", tint: .secondaryText) { showNumbers = true }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {
                 HStack(spacing: 5) {

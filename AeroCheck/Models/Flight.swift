@@ -135,6 +135,15 @@ struct Flight: Identifiable, Codable {
     /// so it rides the CloudKit conflict tiebreaker like any other scalar edit. (v4 UI/UX Revamp favorites)
     var isFavorite: Bool
 
+    /// What this flight cost: the aircraft's billed hours at the rate the pilot recorded, plus what
+    /// they paid on the ground. Optional and additive — a flight with nothing recorded decodes to
+    /// nil and is counted as "no cost recorded" rather than as a free flight. (v5.0.0)
+    var costEntry: FlightCostEntry?
+
+    /// The pilot's edits to the derived EASA logbook line (function time, night, remarks). Absent
+    /// means "use what the flight says", so the line stays correct after a reconciliation. (v5.0.0)
+    var logbook: LogbookOverrides?
+
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
     static let currentSchemaVersion = 1
@@ -155,6 +164,7 @@ struct Flight: Identifiable, Codable {
         case modifiedAt, schemaVersion
         case cachedDistanceKm, cachedMaxAltitudeMeters, cachedDurationSeconds
         case isFavorite
+        case costEntry, logbook
     }
 
     // MARK: - Custom Decodable for backward compatibility
@@ -222,6 +232,10 @@ struct Flight: Identifiable, Codable {
 
         // New in 3.3 — legacy records (and imports) default to not-favorited.
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+
+        // New in v5.0.0 — nil on every existing record, which reads as "nothing recorded".
+        costEntry = try container.decodeIfPresent(FlightCostEntry.self, forKey: .costEntry)
+        logbook = try container.decodeIfPresent(LogbookOverrides.self, forKey: .logbook)
     }
 
     init(

@@ -110,6 +110,15 @@ struct AppSettings: Codable, Equatable {
     var openAIPOfflineCountries: [String] = [] // ISO alpha-2 country codes for cached airspace data
     var enableAirspaceStreaming: Bool = false // When true, fetches nearby CTRs from OpenAIP API when no downloaded data
 
+    // Numbers (v5.0.0) — all user-entered. Rates and mass & balance data are not published as
+    // data anywhere, differ per member category and per registration, and are the pilot's to own.
+    /// Name written into the logbook line's PIC column; empty falls back to the "SELF" convention.
+    var pilotName: String = ""
+    /// Hourly rate + billing basis per aircraft, keyed by registration (falling back to type).
+    var aircraftRates: [String: AircraftRateProfile] = [:]
+    /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
+    var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
+
     // Flight logging
     var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
 
@@ -205,6 +214,7 @@ struct AppSettings: Codable, Equatable {
         case enableAirspaceStreaming
         case enableCompanionMode
         case companionRole
+        case pilotName, aircraftRates, weightBalanceProfiles
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -276,6 +286,12 @@ struct AppSettings: Codable, Equatable {
         enableCompanionMode = try container.decodeIfPresent(Bool.self, forKey: .enableCompanionMode) ?? false
         companionRole = try container.decodeIfPresent(CompanionRoleSetting.self, forKey: .companionRole) ?? .auto
         // marketingMode and developerMode intentionally excluded - always default to false each launch
+        // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
+        // which is exactly how the calculators treat them.
+        pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
+        aircraftRates = try container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates) ?? [:]
+        weightBalanceProfiles = try container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles) ?? [:]
+
     }
 
     /// Returns a copy with flight-relevant numeric settings clamped to sane ranges, for applying
@@ -1582,6 +1598,24 @@ class AppState {
             flights[index].touch() // stamp local edit for CloudKit conflict resolution (ARCH-02)
             // PR-09: persist + sync ONLY this flight. Editing one note previously rewrote every
             // flight file on the main actor and re-queued the whole logbook to CloudKit.
+            saveFlight(flights[index])
+        }
+    }
+
+    /// Record what a flight cost. Same single-flight persist as the other per-field edits. (v5.0.0)
+    func updateFlightCost(_ flight: Flight, cost: FlightCostEntry?) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].costEntry = (cost?.isEmpty ?? true) ? nil : cost
+            flights[index].touch()
+            saveFlight(flights[index])
+        }
+    }
+
+    /// Record the pilot's edits to the derived logbook line. (v5.0.0)
+    func updateFlightLogbook(_ flight: Flight, overrides: LogbookOverrides?) {
+        if let index = flights.firstIndex(where: { $0.id == flight.id }) {
+            flights[index].logbook = (overrides?.isEmpty ?? true) ? nil : overrides
+            flights[index].touch()
             saveFlight(flights[index])
         }
     }

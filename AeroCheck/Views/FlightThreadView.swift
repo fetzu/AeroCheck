@@ -83,6 +83,10 @@ struct FlightThreadView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var expandedChapter: ThreadChapter?
+    /// Registration whose mass & balance is open, from the PLAN task. (v5.0.0)
+    @State private var weightBalanceRegistration: String?
+    /// Flight whose cost and logbook line are open, from the CLOSE tasks. (v5.0.0)
+    @State private var numbersFlightId: UUID?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -123,6 +127,25 @@ struct FlightThreadView: View {
                     Button(L10n.Button.close) { close() }
                         .buttonStyle(SecondaryButtonStyle())
                 }
+            }
+        }
+        // Derived bindings rather than `item:` — neither String nor UUID is Identifiable, and a
+        // retroactive conformance on a stdlib type is not worth two presentations.
+        .sheet(isPresented: Binding(
+            get: { weightBalanceRegistration != nil },
+            set: { if !$0 { weightBalanceRegistration = nil } }
+        )) {
+            if let registration = weightBalanceRegistration {
+                WeightBalanceView(registration: registration,
+                                  onClose: { weightBalanceRegistration = nil })
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { numbersFlightId != nil },
+            set: { if !$0 { numbersFlightId = nil } }
+        )) {
+            if let id = numbersFlightId {
+                FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
             }
         }
     }
@@ -290,7 +313,11 @@ struct FlightThreadView: View {
                         task: task,
                         onToggle: { toggle(task, in: thread) },
                         onDismissTask: { setState(.notApplicable, task, in: thread) },
-                        onOpen: { url in openURL(url) }
+                        onOpen: { url in openURL(url) },
+                        // v5.0.0: three tasks now open a calculator instead of only taking a tick.
+                        // The tick still works on its own — the tool is an aid, not a gate.
+                        toolLabel: toolLabel(for: task, in: thread),
+                        onOpenTool: { openTool(for: task, in: thread) }
                     )
                     if task.id != tasks.last?.id {
                         Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 46)
@@ -402,6 +429,31 @@ struct FlightThreadView: View {
 
     // MARK: - Actions
 
+    /// The in-app tool a task can open, when there is one. Nil leaves the row as a plain check.
+    private func toolLabel(for task: ThreadTask, in thread: FlightThread) -> String? {
+        switch task.key {
+        case .massAndBalance:
+            return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
+        case .feesPaid, .logbookEntry:
+            // Only once there is a flight to compute from — before that there are no hours to bill
+            // and no times to log.
+            return thread.flightId != nil ? L10n.Cost.title : nil
+        default:
+            return nil
+        }
+    }
+
+    private func openTool(for task: ThreadTask, in thread: FlightThread) {
+        switch task.key {
+        case .massAndBalance:
+            weightBalanceRegistration = thread.aircraftRegistration
+        case .feesPaid, .logbookEntry:
+            numbersFlightId = thread.flightId
+        default:
+            break
+        }
+    }
+
     private func toggle(_ task: ThreadTask, in thread: FlightThread) {
         // Auto tasks are computed, not ticked.
         guard task.kind != .auto else { return }
@@ -427,6 +479,10 @@ struct ThreadTaskRow: View {
     let onToggle: () -> Void
     let onDismissTask: () -> Void
     let onOpen: (URL) -> Void
+    /// Label for an in-app tool this task can open (mass & balance, cost & logbook). Nil for a task
+    /// that is only ever a tick.
+    var toolLabel: String?
+    var onOpenTool: (() -> Void)?
 
     private var presentation: ThreadTaskPresentation { .make(for: task) }
     private var links: [(label: String, url: URL)] { ThreadTaskPresentation.links(for: task) }
@@ -472,8 +528,19 @@ struct ThreadTaskRow: View {
                     .foregroundColor(.dimText.opacity(0.6))
             }
 
-            if !links.isEmpty && task.state != .notApplicable {
+            if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
                 HStack(spacing: 8) {
+                    if let toolLabel, let onOpenTool {
+                        // Gold rather than blue: this one stays inside the app, where the blue chips
+                        // all leave it.
+                        Button(toolLabel) { onOpenTool() }
+                            .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                            .foregroundColor(.aviationGold)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .overlay(Capsule().strokeBorder(Color.aviationGold.opacity(0.5), lineWidth: 1))
+                            .buttonStyle(.plain)
+                    }
                     ForEach(links, id: \.label) { link in
                         Button(link.label) { onOpen(link.url) }
                             .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)

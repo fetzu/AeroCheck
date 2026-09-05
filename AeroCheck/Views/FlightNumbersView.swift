@@ -23,6 +23,8 @@ struct FlightNumbersView: View {
     @State private var showLogbookEditor = false
     @State private var exportedCSV: Data?
     @State private var csvFilename = "logbook.csv"
+    /// Registration whose mass & balance is open. (v5.0.0)
+    @State private var weightBalanceRegistration: String?
 
     private var flight: Flight? { appState.flights.first { $0.id == flightId } }
 
@@ -35,6 +37,7 @@ struct FlightNumbersView: View {
                         VStack(spacing: 16) {
                             costSection(flight)
                             logbookSection(flight)
+                            massBalanceSection(flight)
                         }
                         .padding(20)
                         .frame(maxWidth: 720)
@@ -55,6 +58,16 @@ struct FlightNumbersView: View {
         }
         // Reuses the Flight Log's ShareSheet/ShareFile pair rather than writing a temp file:
         // ShareFile hands UIActivityViewController the bytes with a filename and a UTI directly.
+        .sheet(isPresented: Binding(
+            get: { weightBalanceRegistration != nil },
+            set: { if !$0 { weightBalanceRegistration = nil } }
+        )) {
+            if let registration = weightBalanceRegistration {
+                WeightBalanceView(registration: registration,
+                                  onClose: { weightBalanceRegistration = nil })
+                    .environment(appState)
+            }
+        }
         .sheet(isPresented: Binding(
             get: { exportedCSV != nil },
             set: { if !$0 { exportedCSV = nil } }
@@ -267,6 +280,50 @@ struct FlightNumbersView: View {
             },
             onCancel: { showLogbookEditor = false }
         )
+    }
+
+    // MARK: - Mass & balance
+
+    /// The mass & balance calculator for this flight's aircraft.
+    ///
+    /// Here rather than in the Flight Log's action row for two reasons: that row is already five
+    /// controls wide on an iPhone, and the profile is per AIRCRAFT rather than per flight — reaching
+    /// it from a past flight is really "set up or check this tail", which is exactly what a pilot
+    /// wants the evening before the next one. Without a thread there was previously no way in at all.
+    @ViewBuilder
+    private func massBalanceSection(_ flight: Flight) -> some View {
+        card(title: L10n.WeightBalance.title.uppercased(), tint: .aviationGold) {
+            if let registration = flight.aircraftRegistration, !registration.isEmpty {
+                let profile = appState.settings.weightBalanceProfiles[registration]
+                Button { weightBalanceRegistration = registration } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(registration)
+                                .scaledFont(size: 14, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                                .foregroundColor(.primaryText)
+                            Text(profile?.isConfigured == true
+                                 ? L10n.WeightBalance.setup
+                                 : L10n.WeightBalance.notConfigured)
+                                .scaledFont(size: 12, relativeTo: .caption)
+                                .foregroundColor(.dimText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 6)
+                        Image(systemName: "chevron.right")
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .caption)
+                            .foregroundColor(.dimText.opacity(0.7))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                // The profile is keyed by registration, so a flight recorded without one has no
+                // aircraft to open. Say that rather than offering a button that cannot work.
+                Text(L10n.WeightBalance.notConfigured)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+            }
+        }
     }
 
     // MARK: - Building blocks

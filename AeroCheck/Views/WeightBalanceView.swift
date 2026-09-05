@@ -156,9 +156,7 @@ struct WeightBalanceView: View {
             }
             Spacer(minLength: 8)
             if editable {
-                TextField("0", value: weight, format: .number)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
+                NumberField(placeholder: "0", value: weight, alignment: .trailing)
                     .scaledFont(size: 15, design: .monospaced, relativeTo: .subheadline)
                     .frame(width: 78)
                     .padding(7)
@@ -301,9 +299,8 @@ private struct WeightBalanceSetupSheet: View {
                         .scaledFont(size: 14, relativeTo: .subheadline)
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
-                    TextField("0.000", value: $station.armMeters, format: .number)
-                        .keyboardType(.numbersAndPunctuation)
-                        .multilineTextAlignment(.trailing)
+                    NumberField(placeholder: "0.000", value: $station.armMeters,
+                                keyboard: .numbersAndPunctuation, alignment: .trailing)
                         .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                         .frame(width: 80)
                         .padding(8)
@@ -346,19 +343,17 @@ private struct WeightBalanceSetupSheet: View {
                         .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.dimText)
                         .frame(width: 18)
-                    TextField("arm", value: Binding(
+                    NumberField(placeholder: "arm", value: Binding(
                         get: { point.armMeters },
                         set: { profile.envelope?[index].armMeters = $0 }
-                    ), format: .number)
-                        .keyboardType(.numbersAndPunctuation)
+                    ), keyboard: .numbersAndPunctuation)
                         .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
-                    TextField("kg", value: Binding(
+                    NumberField(placeholder: "kg", value: Binding(
                         get: { point.weightKg },
                         set: { profile.envelope?[index].weightKg = $0 }
-                    ), format: .number)
-                        .keyboardType(.decimalPad)
+                    ))
                         .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
@@ -388,11 +383,56 @@ private struct WeightBalanceSetupSheet: View {
             Text("\(label) (\(unit))")
                 .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
                 .foregroundColor(.dimText)
-            TextField("0", value: value, format: .number)
-                .keyboardType(decimals ? .numbersAndPunctuation : .decimalPad)
+            NumberField(placeholder: "0", value: value,
+                        keyboard: decimals ? .numbersAndPunctuation : .decimalPad)
                 .scaledFont(size: 16, design: .monospaced, relativeTo: .body)
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.panelBackground))
         }
+    }
+}
+
+/// A `Double` field that shows EMPTY rather than `0`.
+///
+/// `TextField(value:format:.number)` renders a zero as "0", so typing 300 into a fresh field yields
+/// "0300" — and worse, tapping a field that already holds a value and typing appends to it. Both were
+/// hit within a minute of using the setup sheet. Showing nothing for zero makes an unset field
+/// obviously unset and lets the first keystroke start the number.
+private struct NumberField: View {
+    let placeholder: String
+    @Binding var value: Double
+    var keyboard: UIKeyboardType = .decimalPad
+    var alignment: TextAlignment = .leading
+
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .keyboardType(keyboard)
+            .multilineTextAlignment(alignment)
+            .focused($focused)
+            .onAppear { text = Self.display(value) }
+            .onChange(of: value) { _, new in
+                // Keep in step when the model changes underneath (e.g. a profile is loaded), but
+                // never fight the pilot mid-edit.
+                if !focused { text = Self.display(new) }
+            }
+            .onChange(of: text) { _, new in
+                // Both separators: a Swiss tariff page writes 23,50 and 19.50 in the same table.
+                let normalised = new.replacingOccurrences(of: ",", with: ".")
+                value = Double(normalised) ?? 0
+            }
+            .onChange(of: focused) { _, isFocused in
+                if !isFocused { text = Self.display(value) }
+            }
+    }
+
+    private static func display(_ value: Double) -> String {
+        guard value != 0 else { return "" }
+        // Trim a trailing ".0" so 300.0 reads as 300.
+        return value == value.rounded() && abs(value) < 1e9
+            ? String(Int(value))
+            : String(value)
     }
 }

@@ -142,6 +142,10 @@ struct FlightThreadView: View {
     @State private var copiedFPL = false
     /// The nav log rendered for sharing, held until its share sheet is up. (v5.0.0)
     @State private var navLogExport: Data?
+    /// Plan open in the map builder, from the route task. (v5.0.0)
+    @State private var routeBuilderPlanId: UUID?
+    /// Plan open in the details editor, from the fuel task. (v5.0.0)
+    @State private var planEditorPlan: FlightPlan?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -214,6 +218,17 @@ struct FlightThreadView: View {
                               dataTypeIdentifier: "com.adobe.pdf")
                 ])
             }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { routeBuilderPlanId != nil },
+            set: { if !$0 { routeBuilderPlanId = nil } }
+        )) {
+            if let id = routeBuilderPlanId {
+                FlightPlanMapBuilderView(planId: id)
+            }
+        }
+        .sheet(item: $planEditorPlan) { plan in
+            FlightPlanEditorView(flightPlan: plan)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
@@ -326,7 +341,14 @@ struct FlightThreadView: View {
         let done = tasks.filter { $0.state == .done }.count
         let relevant = tasks.filter { $0.state != .notApplicable }.count
         let isComplete = relevant > 0 && done >= relevant
-        let color: Color = chapter == .fly ? .altimeterBlue : (isComplete ? .aviationGreen : .aviationGold)
+        // FLY used to be blue, which read as "different kind of thing" when what a pilot wants to
+        // know is the same question as every other chapter: is it done? Gold until the flight has
+        // been recorded, green once it has — and it is the flight that feeds CLOSE, so its state is
+        // exactly what says whether the logbook line and the cost can be filled in yet.
+        let flown = thread.flightId != nil
+        let color: Color = chapter == .fly
+            ? (flown ? .aviationGreen : .aviationGold)
+            : (isComplete ? .aviationGreen : .aviationGold)
 
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -541,6 +563,14 @@ struct FlightThreadView: View {
             return L10n.Nav.copyICAOFlightPlan
         case .massAndBalance:
             return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
+        case .routePlanned:
+            // The route is the one thing this screen could describe but not open, which left the
+            // app's most-used editor unreachable from the flight it belongs to.
+            return plan(for: thread) != nil ? L10n.Thread.editRoute : nil
+        case .fuelPlanned:
+            // Fuel on board is entered on the plan's own sheet. Without this, the row could tell you
+            // the numbers disagreed and give you nowhere to fix them.
+            return plan(for: thread) != nil ? L10n.Thread.editFuel : nil
         case .navLogReady:
             // The nav log is the one artefact this task is about, so the task should hand it over
             // rather than send the pilot to the plan editor to find the same export.
@@ -573,6 +603,12 @@ struct FlightThreadView: View {
             copiedFPL = true
         case .massAndBalance:
             weightBalanceRegistration = thread.aircraftRegistration
+        case .routePlanned:
+            guard let plan = plan(for: thread) else { return }
+            routeBuilderPlanId = plan.id
+        case .fuelPlanned:
+            guard let plan = plan(for: thread) else { return }
+            planEditorPlan = plan
         case .navLogReady:
             guard let plan = plan(for: thread) else { return }
             navLogExport = FlightPlanExportService.exportToPDF(plan)
@@ -656,6 +692,13 @@ struct ThreadTaskRow: View {
                             .scaledFont(size: 12, relativeTo: .caption)
                             .foregroundColor(.aviationGold)
                     }
+                    // Inside the text column, not a sibling of it. These used to hang off the outer
+                    // stack with a hand-tuned `.leading` padding that did not match the tick button's
+                    // real width, so every chip sat a few points LEFT of the title it belonged to.
+                    // Nesting them makes the alignment structural instead of a guess.
+                    if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
+                        actionChips.padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: presentation.icon)
@@ -663,8 +706,25 @@ struct ThreadTaskRow: View {
                     .foregroundColor(.dimText.opacity(0.6))
             }
 
-            if (!links.isEmpty || toolLabel != nil) && task.state != .notApplicable {
-                HStack(spacing: 8) {
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+        .contextMenu {
+            if task.kind != .auto {
+                Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(presentation.title)
+        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
+        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
+    }
+
+    /// The row's actions. Wraps rather than overflowing: a task can carry a tool button and two
+    /// links, which does not fit on one line on an iPhone.
+    private var actionChips: some View {
+        FlowLayout(spacing: 8) {
                     if let toolLabel, let onOpenTool {
                         // Gold rather than blue: this one stays inside the app, where the blue chips
                         // all leave it.
@@ -685,22 +745,7 @@ struct ThreadTaskRow: View {
                             .overlay(Capsule().strokeBorder(Color.altimeterBlue.opacity(0.45), lineWidth: 1))
                             .buttonStyle(.plain)
                     }
-                }
-                .padding(.leading, 34)
-            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
-        .contextMenu {
-            if task.kind != .auto {
-                Button(L10n.Thread.markNotApplicable, systemImage: "minus.circle") { onDismissTask() }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(presentation.title)
-        .accessibilityValue(task.state == .done ? L10n.Thread.markDone : "")
-        .accessibilityAddTraits(task.kind == .auto ? [] : .isButton)
     }
 
     private var tickButton: some View {

@@ -552,6 +552,59 @@ extension View {
     }
 }
 
+// MARK: - Flow layout (v5.0.0)
+
+/// Lays subviews out left to right, wrapping to a new line when the next one will not fit.
+///
+/// Written because a thread task can carry a tool button and two links — "Copy ICAO flight plan",
+/// "Open skybriefing" — which does not fit on one line on an iPhone. An `HStack` would either
+/// compress the chips until their labels truncate or push them off the edge; neither is acceptable
+/// for a control whose whole job is to be readable and tappable.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var total = CGSize(width: 0, height: 0)
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                total.width = max(total.width, rowWidth)
+                total.height += rowHeight + spacing
+                rowWidth = size.width
+                rowHeight = size.height
+            } else {
+                rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+        }
+        total.width = max(total.width, rowWidth)
+        total.height += rowHeight
+        return total
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
 private struct NightModeKey: EnvironmentKey {
     static let defaultValue = false
 }

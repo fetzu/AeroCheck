@@ -1131,12 +1131,12 @@
         }
       }
     },
-    "Zurich RCC is alerted 30 min after your ETA" : {
+    "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le RCC de Zurich est alerté 30 min après votre ETA"
+            "value" : "S'il n'a pas été clôturé à l'arrivée, le RCC de Zurich est alerté 30 min après votre ETA"
           }
         }
       }
@@ -1331,12 +1331,12 @@
         }
       }
     },
-    "%@ — your VFR flight plan is still open. Zurich RCC is alerted 30 minutes after your ETA." : {
+    "%@ — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ — votre plan de vol VFR est toujours ouvert. Le RCC de Zurich est alerté 30 minutes après votre ETA."
+            "value" : "%@ — non marqué comme clôturé. Si la tour ne l'a pas clôturé pour vous, le RCC de Zurich est alerté 30 min après votre ETA."
           }
         }
       }
@@ -1361,12 +1361,12 @@
         }
       }
     },
-    "Your flight plan is still open" : {
+    "Flight plan not marked closed" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Plan de vol encore ouvert"
+            "value" : "Plan de vol non marqué comme clôturé"
           }
         }
       }

@@ -289,7 +289,7 @@ enum L10n {
         static let hintDabs = String(localized: "Daily Airspace Bulletin Switzerland")
         static let hintGafor = String(localized: "Route forecast — opens MeteoSwiss")
         static let hintFlightPlanFiled = String(localized: "Copy the ICAO plan, then file it on skybriefing")
-        static let hintFlightPlanClose = String(localized: "Zurich RCC is alerted 30 min after your ETA")
+        static let hintFlightPlanClose = String(localized: "If it was not closed on arrival, Zurich RCC is alerted 30 min after your ETA")
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
         static let hintPPR = String(localized: "Prior permission required — call ahead")
@@ -318,7 +318,7 @@ enum L10n {
         // Notifications
         static let closeFlightPlanTitle = String(localized: "Close your flight plan")
         static func closeFlightPlanBody(_ route: String) -> String {
-            String(localized: "\(route) — your VFR flight plan is still open. Zurich RCC is alerted 30 minutes after your ETA.")
+            String(localized: "\(route) — not marked closed. If the tower did not close it for you, Zurich RCC is alerted 30 min after your ETA.")
         }
         static let prepareReminderTitle = String(localized: "Flight tomorrow")
         static func prepareReminderBody(_ route: String) -> String {
@@ -326,7 +326,7 @@ enum L10n {
         }
 
         // Banner
-        static let openFlightPlanBanner = String(localized: "Your flight plan is still open")
+        static let openFlightPlanBanner = String(localized: "Flight plan not marked closed")
     }
 
     // MARK: - Home

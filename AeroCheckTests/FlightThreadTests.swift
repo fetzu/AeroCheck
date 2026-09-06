@@ -325,6 +325,82 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
     }
 
+    // MARK: - Circuits and close-out resolution (v5.x)
+
+    /// The regression this guards: circuits are flown with no plan, so END FLIGHT falls through to
+    /// "the thread the pilot is currently following" — which, with a cross-country planned for
+    /// Saturday, was that thread. A session of touch-and-gos would push it into close-out and raise
+    /// its close-your-flight-plan banner for a flight that had not happened.
+    @MainActor
+    func testCircuitsNeverCloseOutACrossCountryThread() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let planned = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: planned.id) }
+
+        XCTAssertNil(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: true))
+
+        // The same flight, NOT flown as circuits, still adopts it — that is the widget/deep-link path.
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: false),
+                       planned.id)
+    }
+
+    /// A planned circuit session IS the flight being flown, so it is still adopted.
+    @MainActor
+    func testCircuitsDoCloseOutALocalThread() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let local = manager.createThread(from: nil, profile: .local, routeLabel: "Circuits LSZQ")
+        defer { manager.deleteThread(threadId: local.id) }
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil, isCircuitMode: true),
+                       local.id)
+    }
+
+    @MainActor
+    func testCircuitCloseOutIsOfferedNotCreated() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let flightId = UUID()
+
+        manager.offerCircuitCloseOut(flightId: flightId,
+                                     departureIdent: "lszq",
+                                     aircraftRegistration: "HB-KFD")
+
+        // An offer changes nothing until it is taken: no thread, nothing current.
+        XCTAssertEqual(manager.circuitCloseOutOffer?.flightId, flightId)
+        XCTAssertTrue(manager.threads.isEmpty)
+        XCTAssertNil(manager.currentThreadId)
+
+        guard let offer = manager.circuitCloseOutOffer else { return XCTFail("expected an offer") }
+        let thread = manager.acceptCircuitCloseOut(offer)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertNil(manager.circuitCloseOutOffer)
+        XCTAssertEqual(manager.thread(withId: thread.id)?.profile, .local)
+        // Straight to CLOSE — the flying already happened.
+        XCTAssertEqual(manager.thread(withId: thread.id)?.state, .closeOut)
+        XCTAssertEqual(manager.thread(withId: thread.id)?.flightId, flightId)
+        XCTAssertTrue(thread.routeLabel.contains("LSZQ"), "ident should be normalised for display")
+
+        // The light profile: a logbook line and a debrief, and nothing about flight plans or customs.
+        let keys = Set(manager.thread(withId: thread.id)?.tasks.map(\.key) ?? [])
+        XCTAssertTrue(keys.contains(.logbookEntry))
+        XCTAssertTrue(keys.contains(.debriefWritten))
+        XCTAssertFalse(keys.contains(.flightPlanFiled))
+    }
+
+    /// A circuit session has no filed plan, so accepting the offer must stay silent — the red banner
+    /// and the RCC reminder belong to an open flight plan and nothing else.
+    @MainActor
+    func testAcceptingACircuitCloseOutRaisesNoOpenPlanNotice() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        manager.offerCircuitCloseOut(flightId: UUID(), departureIdent: "LSZQ", aircraftRegistration: nil)
+
+        guard let offer = manager.circuitCloseOutOffer else { return XCTFail("expected an offer") }
+        let thread = manager.acceptCircuitCloseOut(offer)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        XCTAssertNil(manager.openFlightPlanNotice)
+    }
+
     @MainActor
     func testFilingATaskAddsTheCloseOutTask() {
         let manager = FlightThreadManager(defaults: throwawayDefaults())

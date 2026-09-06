@@ -241,6 +241,26 @@
         }
       }
     },
+    "Log the session and write a debrief?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer la séance et rédiger un débriefing ?"
+          }
+        }
+      }
+    },
+    "Close out" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clôturer"
+          }
+        }
+      }
+    },
     "Logbook row" : {
       "localizations" : {
         "fr" : {

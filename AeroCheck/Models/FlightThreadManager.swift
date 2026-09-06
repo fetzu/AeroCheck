@@ -19,6 +19,8 @@ class FlightThreadManager: ObservableObject {
     /// Set when a landing closes a thread that still has an open flight plan; drives the urgent
     /// banner. Cleared when the pilot acts on it.
     @Published var openFlightPlanNotice: OpenFlightPlanNotice?
+    /// Set when a circuit session ends with no thread to close out; drives the offer banner. (v5.x)
+    @Published var circuitCloseOutOffer: CircuitCloseOutOffer?
     /// Multi-leg trips. Few and small, so they load and save as one file. (v5.x)
     @Published var trips: [Trip] = []
 
@@ -341,13 +343,61 @@ class FlightThreadManager: ObservableObject {
     ///
     /// Resolved from the flight and its plan rather than from a link made at flight start, so a flight
     /// launched from the widget or a deep link closes out its thread just like one started from Home.
-    func threadToCloseOut(flightId: UUID?, planId: UUID?) -> UUID? {
+    ///
+    /// That last fallback is the loose one, and it has to be: a widget launch carries neither a thread
+    /// nor a plan, so "the thread the pilot is currently following" is the only signal left. What it
+    /// cannot see on its own is that the flight just flown was a DIFFERENT flight from the one in the
+    /// list — and a circuit session is exactly that case, every time. Circuits are flown with no plan
+    /// (`FlightLauncher` drops it), so without this guard a session of touch-and-gos would push a
+    /// cross-country thread planned for Saturday into close-out, complete with its close-your-flight-
+    /// plan banner for a flight that has not happened.
+    ///
+    /// A `.local` thread is still adopted: a planned circuit session IS this flight.
+    func threadToCloseOut(flightId: UUID?, planId: UUID?, isCircuitMode: Bool = false) -> UUID? {
         if let flightId, let byFlight = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) {
             return byFlight.id
         }
         if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
-        if let current = currentThread, !current.isFinished, current.state != .closeOut { return current.id }
+        if let current = currentThread, !current.isFinished, current.state != .closeOut,
+           !(isCircuitMode && current.profile == .full) {
+            return current.id
+        }
         return nil
+    }
+
+    // MARK: - Circuits (v5.x)
+
+    /// Offer to close out a circuit session that ran without a thread.
+    ///
+    /// Circuits are start-now-only by design — there is no way to plan one, so a session of
+    /// touch-and-gos reaches END FLIGHT with nothing to resolve and used to get no close-out at all:
+    /// no logbook line, no debrief. That is exactly the `.local` profile's job.
+    ///
+    /// An OFFER rather than a thread created behind the pilot's back. A thread is optional
+    /// throughout, and putting unearned admin in front of a student who just flew six circuits is
+    /// what that rule exists to prevent. Silence is dismissible; a spawned thread is a chore.
+    func offerCircuitCloseOut(flightId: UUID, departureIdent: String?, aircraftRegistration: String?) {
+        let ident = departureIdent?.trimmingCharacters(in: .whitespaces).uppercased()
+        circuitCloseOutOffer = CircuitCloseOutOffer(
+            flightId: flightId,
+            routeLabel: (ident?.isEmpty == false)
+                ? L10n.Flights.circuitsAt(ident!)
+                : L10n.Button.circuits,
+            aircraftRegistration: aircraftRegistration
+        )
+    }
+
+    /// Accept the offer: a `.local` thread already in close-out, holding the session's own tasks.
+    @discardableResult
+    func acceptCircuitCloseOut(_ offer: CircuitCloseOutOffer) -> FlightThread {
+        let thread = createThread(from: nil,
+                                  profile: .local,
+                                  routeLabel: offer.routeLabel,
+                                  aircraftRegistration: offer.aircraftRegistration)
+        circuitCloseOutOffer = nil
+        // Straight to CLOSE: the flying already happened, so PLAN and PREPARE have nothing to ask.
+        beginCloseOut(threadId: thread.id, flightId: offer.flightId)
+        return thread
     }
 
     /// Called by the flight-event detector when a full-stop landing is confirmed: arms the one
@@ -410,6 +460,13 @@ class FlightThreadManager: ObservableObject {
     struct OpenFlightPlanNotice: Equatable {
         let threadId: UUID
         let routeLabel: String
+    }
+
+    /// A circuit session that ended without a thread, and the offer to close it out. (v5.x)
+    struct CircuitCloseOutOffer: Equatable {
+        let flightId: UUID
+        let routeLabel: String
+        let aircraftRegistration: String?
     }
 
     // MARK: - Context building

@@ -385,9 +385,11 @@ struct FlightView: View {
                 // v5.0.0: resolve the followed thread BEFORE the plan is deactivated — afterwards
                 // there is no plan left to resolve it from. A flight with no thread resolves to nil
                 // and nothing below changes, which is what "start a flight without a thread" means.
+                let wasCircuits = appState.isCircuitMode
                 let closingThreadId = threadManager.threadToCloseOut(
                     flightId: endedFlightId,
-                    planId: flightPlanManager.activeFlightPlan?.id
+                    planId: flightPlanManager.activeFlightPlan?.id,
+                    isCircuitMode: wasCircuits
                 )
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()
@@ -396,6 +398,15 @@ struct FlightView: View {
                 // arms the reminder, so it must run after the flight is actually over.
                 if let closingThreadId {
                     threadManager.beginCloseOut(threadId: closingThreadId, flightId: endedFlightId)
+                } else if wasCircuits, let endedFlightId,
+                          let flown = appState.flights.first(where: { $0.id == endedFlightId }) {
+                    // Circuits resolve to no thread by design — they cannot be planned. Offer the
+                    // light close-out rather than leaving the session with no logbook line. (v5.x)
+                    threadManager.offerCircuitCloseOut(
+                        flightId: endedFlightId,
+                        departureIdent: flown.departureAirportIdent,
+                        aircraftRegistration: flown.aircraftRegistration
+                    )
                 }
 
                 // Post-flight reconciliation (D2): re-segment the saved track offline and

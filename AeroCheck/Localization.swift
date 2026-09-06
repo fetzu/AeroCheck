@@ -316,6 +316,8 @@ enum L10n {
         static let followFlight = String(localized: "Follow this flight")
         static let untitledFlight = String(localized: "Untitled flight")
         static let noThread = String(localized: "Not followed")
+        static let circuitCloseOutOffer = String(localized: "Log the session and write a debrief?")
+        static let circuitCloseOutAccept = String(localized: "Close out")
 
         // Chapters
         static let chapterPlan = String(localized: "Plan")

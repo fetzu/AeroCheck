@@ -10344,13 +10344,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLIGHT PLAN"
+            "value": "ROUTE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PLAN DE VOL"
+            "value": "ROUTE"
           }
         }
       }
@@ -11063,13 +11063,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All Flight Plans"
+            "value": "All Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous les plans de vol"
+            "value": "Toutes les routes"
           }
         }
       }
@@ -11939,13 +11939,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plan"
+            "value": "Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol"
+            "value": "Route"
           }
         }
       }
@@ -11956,13 +11956,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plans"
+            "value": "Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plans de vol"
+            "value": "Routes"
           }
         }
       }
@@ -12746,13 +12746,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Flight Plan"
+            "value": "New Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nouveau plan de vol"
+            "value": "Nouvelle route"
           }
         }
       }

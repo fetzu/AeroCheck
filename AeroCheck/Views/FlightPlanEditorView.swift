@@ -51,6 +51,7 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var threadManager: FlightThreadManager
     @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -208,6 +209,12 @@ struct FlightPlanEditorView: View {
         flightPlanManager.updateFlightPlan(flightPlan)
     }
 
+    /// Whether a flight follows this plan. A plan nobody flies is a ROUTE — timeless, reusable, and
+    /// deliberately without a date.
+    private var isFlownByAFlight: Bool {
+        threadManager.thread(forPlanId: flightPlan.id) != nil
+    }
+
     // MARK: - Plan (header) Section
 
     private var headerSection: some View {
@@ -244,10 +251,16 @@ struct FlightPlanEditorView: View {
                         }
                     }
                 FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                DateFormField(label: L10n.Nav.date, date: Binding(
-                    get: { flightPlan.plannedDepartureTime ?? Date() },
-                    set: { flightPlan.plannedDepartureTime = $0 }
-                ))
+                // A ROUTE has no date. It is a path you can fly any day, and giving it one is what
+                // let three saved routes all claim to be "today's flight plan". The date belongs to
+                // the FLIGHT that uses the route, so it only appears once a flight follows this
+                // plan. (device pass)
+                if isFlownByAFlight {
+                    DateFormField(label: L10n.Nav.date, date: Binding(
+                        get: { flightPlan.plannedDepartureTime ?? Date() },
+                        set: { flightPlan.plannedDepartureTime = $0 }
+                    ))
+                }
                 // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
                 // gave no hint of what exists. The idents come from the departure aerodrome's own
                 // runway data; free text stays available because a grass strip the database does not

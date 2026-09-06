@@ -416,11 +416,6 @@ enum L10n {
         /// that word is already the plan list's badge for the same state, and this one has to read as
         /// "ready to fly" at a glance on a card that also has a "departing today" state. (v4.4.0)
         static let flightPlanArmed = String(localized: "home.flightPlanArmed")
-        static let armTodaysPlanTitle = String(localized: "Arm today's flight plan?")
-        static func armTodaysPlanMessage(_ route: String) -> String {
-            String(localized: "\(route) is planned for today but not armed. Without it there is no route, no leg timing and no waypoint sequencing in flight.")
-        }
-        static let armAndStart = String(localized: "Arm and start")
         static let outstandingTitle = String(localized: "Not everything is ticked")
         static func outstandingBeforeFlight(_ route: String, _ remaining: Int) -> String {
             String(localized: "\(route) still has \(remaining) item(s) open in Plan and Prepare.")
@@ -439,7 +434,6 @@ enum L10n {
         static func nextAndRemaining(_ task: String, _ remaining: Int) -> String {
             String(localized: "Next: \(task) · \(remaining) open in Plan and Prepare")
         }
-        static let startWithoutPlan = String(localized: "Start without it")
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)
         }

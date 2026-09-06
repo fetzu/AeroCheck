@@ -136,19 +136,18 @@ struct HomeView: View {
     @State private var showAircraftSheet = false
     @State private var startPrompt: StartPrompt?
 
-    /// The one question START FLIGHT may need answered first. Deliberately a single state rather
-    /// than a dialog per case: two independent confirmations could both want the screen, and the
-    /// pilot would answer one question about a flight and get another about a different one.
+    /// The one question START FLIGHT may need answered first.
+    ///
+    /// There used to be a second case — "arm today's flight plan" — for a saved route that carried a
+    /// date. Routes are timeless now, and a flight for today is the hero and arms its own route, so
+    /// nothing is left to ask about. (device pass)
     private enum StartPrompt: Identifiable {
         /// A followed flight for today with pre-flight work still open.
         case outstanding(thread: FlightThread, remaining: Int)
-        /// A plan for today that nothing armed.
-        case armPlan(FlightPlan)
 
         var id: String {
             switch self {
             case .outstanding(let thread, _): return "outstanding-\(thread.id)"
-            case .armPlan(let plan):          return "arm-\(plan.id)"
             }
         }
     }
@@ -324,19 +323,6 @@ struct HomeView: View {
                 }
                 Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
 
-            case .armPlan(let plan):
-                // Both answers depart; the question is only whether the route comes along.
-                Button(L10n.Home.armAndStart) {
-                    startPrompt = nil
-                    flightPlanManager.activateFlightPlan(plan)
-                    beginFlight(circuitMode: false)
-                }
-                Button(L10n.Home.startWithoutPlan) {
-                    startPrompt = nil
-                    beginFlight(circuitMode: false)
-                }
-                Button(L10n.Button.cancel, role: .cancel) { startPrompt = nil }
-
             case nil:
                 EmptyView()
             }
@@ -344,8 +330,6 @@ struct HomeView: View {
             switch startPrompt {
             case .outstanding(let thread, let remaining):
                 Text(L10n.Home.outstandingBeforeFlight(thread.routeLabel, remaining))
-            case .armPlan(let plan):
-                Text(L10n.Home.armTodaysPlanMessage(planRoute(plan)))
             case nil:
                 EmptyView()
             }
@@ -664,11 +648,7 @@ struct HomeView: View {
     }
 
     private var startPromptTitle: String {
-        switch startPrompt {
-        case .outstanding: return L10n.Home.outstandingTitle
-        case .armPlan:     return L10n.Home.armTodaysPlanTitle
-        case nil:          return ""
-        }
+        startPrompt == nil ? "" : L10n.Home.outstandingTitle
     }
 
     // MARK: - Flight-first hero (v5.x)
@@ -1058,13 +1038,6 @@ struct HomeView: View {
                                 badge: L10n.Nav.activate.uppercased(),
                                 showsRail: false,
                                 fillsHeight: fillsHeight)
-        } else if let today = todaysFlightPlan, let departure = today.plannedDepartureTime {
-            // Departing today but not armed — kept gold and distinct, so P1 doesn't collapse three
-            // states into two.
-            flightPlanStripCard(title: planRoute(today),
-                                detail: departure.formatted(date: .omitted, time: .shortened),
-                                accent: .aviationGold,
-                                fillsHeight: fillsHeight)
         } else {
             // Nothing more specific to say. This slot used to render the saved-plan count — and
             // NOTHING AT ALL for a pilot with no plans yet, which is precisely why the feature that
@@ -1139,27 +1112,6 @@ struct HomeView: View {
 
     /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
     /// imminent flight is one tap away instead of buried behind the generic list. (v4 UI/UX Revamp)
-    /// A route to fly today that no flight already speaks for.
-    ///
-    /// Same calendar day — not "within 24 hours", which is what a naive interval comparison would
-    /// give and would make tomorrow morning's flight look like today's.
-    ///
-    /// A plan FOLLOWED by a flight is excluded unless that flight is itself today. The flight is the
-    /// subject in that case and `startableFlightToday` has already had its say; offering to arm the
-    /// route behind tomorrow's flight is the app talking about a different day from the pilot.
-    /// (device pass)
-    private var todaysFlightPlan: FlightPlan? {
-        let calendar = Calendar.current
-        return flightPlanManager.flightPlans
-            .filter { plan in
-                guard let departure = plan.plannedDepartureTime,
-                      calendar.isDateInToday(departure) else { return false }
-                guard let followed = threadManager.thread(forPlanId: plan.id) else { return true }
-                guard let scheduled = followed.scheduledDeparture else { return false }
-                return calendar.isDateInToday(scheduled)
-            }
-            .min { ($0.plannedDepartureTime ?? .distantFuture) < ($1.plannedDepartureTime ?? .distantFuture) }
-    }
 
     /// `detail` is a longest-first list of candidate strings; the widest that fits is used. A single
     /// string is just a one-element list. `badge` and `showsRail` mark the armed state.
@@ -1766,16 +1718,12 @@ struct HomeView: View {
         }
     }
 
-    /// START FLIGHT, with one interception: a plan for today that was never armed.
+    /// START FLIGHT.
     ///
-    /// Arming is a deliberate act in the plan list, and forgetting it is silent — the flight departs
-    /// with no route, no leg timing and no waypoint sequencing, and the pilot finds out airborne with
-    /// the aircraft already moving. Home shows the unarmed plan in gold, but a strip is easy to read
-    /// past when you are about to press the big green button.
-    ///
-    /// An offer, not an automatic arm: `activateFlightPlan` resets the waypoint index and clears
-    /// every recorded time over, so arming a plan on the pilot's behalf can destroy data from a
-    /// flight already under way. Circuits skip it entirely — they drop the plan by design. (v5.x)
+    /// A followed flight for today is what this press is ABOUT, so it answers first — including one
+    /// left in FLY, which is a session the pilot abandoned and is coming back to. Everything else
+    /// departs straight away: there is no route to offer, because a route without a flight has no
+    /// date and is not "today's".
     private func startFlight() {
         // A followed flight for today is what this press is ABOUT, so it answers first — including
         // one left in FLY, which is a session the pilot abandoned and is coming back to. Asking
@@ -1787,11 +1735,6 @@ struct HomeView: View {
                 return
             }
             launch(followed)
-            return
-        }
-        if flightPlanManager.activeFlightPlan == nil,
-           let today = todaysFlightPlan, !today.waypoints.isEmpty {
-            startPrompt = .armPlan(today)
             return
         }
         beginFlight(circuitMode: false)

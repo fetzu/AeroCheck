@@ -536,10 +536,14 @@ struct HomeView: View {
     @ViewBuilder
     private func activityStrips(sideBySide: Bool) -> some View {
         if sideBySide {
+            // Both strips stretch to the taller of the two. They size independently otherwise, and
+            // the plan-a-flight card carries an explanatory line the last-flight strip does not — so
+            // side by side one card simply ended shorter than its neighbour.
             HStack(spacing: 12) {
-                lastFlightStrip
-                flightPlanStrip
+                lastFlightStrip.frame(maxHeight: .infinity)
+                flightPlanStrip.frame(maxHeight: .infinity)
             }
+            .fixedSize(horizontal: false, vertical: true)
         } else {
             VStack(spacing: 12) {
                 lastFlightStrip
@@ -779,14 +783,15 @@ struct HomeView: View {
                         .foregroundColor(.secondaryText)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.panelBackground)
+                    .fill(Color.cardBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.aviationGold.opacity(0.35), lineWidth: 1)
+                            .strokeBorder(Color.aviationGold.opacity(0.35), lineWidth: 1)
                     )
             )
         }

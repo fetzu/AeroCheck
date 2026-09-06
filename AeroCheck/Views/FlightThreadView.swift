@@ -250,6 +250,21 @@ struct FlightThreadView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(L10n.Button.close)
 
+            // The route, as a picture. The header named it and could not show it, which for a
+            // flight-planning app is the wrong way round: a shape is recognised faster than
+            // "LSZB → LSZQ" is read, and a route that is visibly wrong is caught before departure
+            // rather than in the cockpit. Reuses the plan list's cached snapshot component, so this
+            // costs one more consumer rather than a second implementation.
+            if let plan = plan(for: thread), !plan.waypoints.isEmpty {
+                Button { routeBuilderPlanId = plan.id } label: {
+                    RouteThumbnail(waypoints: plan.waypoints)
+                        .frame(width: 68, height: 46)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Thread.editRoute)
+                .accessibilityHint(thread.routeLabel)
+            }
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(thread.routeLabel)
                     .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)

@@ -20,6 +20,12 @@ struct PlanNewFlightView: View {
     private let onCreate: (NewFlightIntent) -> Void
     private let onCancel: () -> Void
 
+    /// The airport layer, for completing what the pilot types. Injected so this view stays testable
+    /// and so the caller decides whether the data is loaded.
+    @EnvironmentObject private var airports: AirportDataService
+    @State private var suggestions: [Airport] = []
+    @State private var isLoadingAirports = false
+
     @FocusState private var focused: Field?
     private enum Field { case from, to }
 
@@ -38,7 +44,6 @@ struct PlanNewFlightView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    kindSection
                     whenSection
                     aircraftSection
                     routeSection
@@ -60,18 +65,6 @@ struct PlanNewFlightView: View {
     }
 
     // MARK: - Sections
-
-    /// Kind comes first because it changes what the rest of the sheet asks for: circuits need one
-    /// aerodrome, not two.
-    private var kindSection: some View {
-        card(L10n.Flights.kind) {
-            Picker(L10n.Flights.kind, selection: $intent.kind) {
-                Text(L10n.Flights.crossCountry).tag(FlightKind.crossCountry)
-                Text(L10n.Flights.circuits).tag(FlightKind.circuits)
-            }
-            .pickerStyle(.segmented)
-        }
-    }
 
     private var whenSection: some View {
         card(L10n.Flights.when) {
@@ -144,23 +137,82 @@ struct PlanNewFlightView: View {
     }
 
     private var routeSection: some View {
-        card(intent.kind == .circuits ? L10n.Flights.aerodrome : L10n.Flights.fromTo) {
+        card(L10n.Flights.fromTo) {
             HStack(spacing: 10) {
                 identField(L10n.Flights.from, text: $intent.departureIdent, field: .from)
-                if intent.kind != .circuits {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.dimText)
-                    identField(L10n.Flights.to, text: $intent.arrivalIdent, field: .to)
-                }
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.dimText)
+                identField(L10n.Flights.to, text: $intent.arrivalIdent, field: .to)
             }
+
+            if focused != nil, !suggestions.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(suggestions.prefix(5), id: \.ident) { airport in
+                        Button { accept(airport) } label: {
+                            HStack(spacing: 8) {
+                                Text(airport.ident)
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.aviationGold)
+                                    .frame(width: 46, alignment: .leading)
+                                Text(airport.name)
+                                    .scaledFont(size: 13, relativeTo: .footnote)
+                                    .foregroundColor(.primaryText)
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .contentShape(Rectangle())
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                        if airport.ident != suggestions.prefix(5).last?.ident {
+                            Divider().overlay(Color.white.opacity(0.06))
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+            }
+
             // The route is genuinely optional — this is the whole point of planning a flight before
             // you have drawn one.
-            Text(intent.kind == .circuits ? L10n.Flights.circuitsHint : L10n.Flights.routeOptional)
+            Text(L10n.Flights.routeOptional)
                 .scaledFont(size: 12, relativeTo: .caption)
                 .foregroundColor(.dimText)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .task {
+            // Loaded on demand, so completion works even on a cold start — without this the field
+            // silently offers nothing and the pilot concludes the aerodrome is unknown.
+            isLoadingAirports = true
+            await airports.ensureLoaded()
+            isLoadingAirports = false
+            search()
+        }
+        .onChange(of: intent.departureIdent) { _, _ in if focused == .from { search() } }
+        .onChange(of: intent.arrivalIdent) { _, _ in if focused == .to { search() } }
+        .onChange(of: focused) { _, _ in search() }
+    }
+
+    /// Completion is by ICAO **or name**, because a pilot heading somewhere new knows "Grenchen"
+    /// long before they know "LSZG". `searchAirports` already matches ident, IATA, name and
+    /// municipality, and ranks exact-ident matches first, so typing a code still wins.
+    private func search() {
+        guard let focused else { suggestions = []; return }
+        let typed = (focused == .from ? intent.departureIdent : intent.arrivalIdent)
+            .trimmingCharacters(in: .whitespaces)
+        // One or two characters match half of Europe; the list is noise until the third.
+        guard typed.count >= 2 else { suggestions = []; return }
+        // An exact code the pilot has already finished typing needs no menu under it.
+        if typed.count == 4, airports.findAirport(byIdent: typed) != nil, suggestions.isEmpty { return }
+        suggestions = airports.searchAirports(query: typed, limit: 5, types: AirportType.fixedWing)
+    }
+
+    private func accept(_ airport: Airport) {
+        if focused == .from { intent.departureIdent = airport.ident }
+        else { intent.arrivalIdent = airport.ident }
+        suggestions = []
+        focused = nil
     }
 
     private var createButton: some View {
@@ -182,7 +234,7 @@ struct PlanNewFlightView: View {
             Text(label)
                 .scaledFont(size: 11, relativeTo: .caption2)
                 .foregroundColor(.dimText)
-            TextField("ICAO", text: text)
+            TextField(L10n.Flights.identPlaceholder, text: text)
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .font(.system(size: 17, weight: .semibold, design: .monospaced))

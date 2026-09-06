@@ -438,6 +438,13 @@ struct FlightView: View {
         .alert(L10n.Alert.abandonFlightTitle, isPresented: $showAbandonFlightAlert) {
             Button(L10n.Button.cancel, role: .cancel) { }
             Button(L10n.Alert.abandonFlightButton, role: .destructive) {
+                // Release the followed flight FIRST, while the flight id still exists to match on.
+                // An abandoned flight did not happen: leaving it attached left the thread reading
+                // IN FLIGHT forever, its FLY chapter green, and its START FLIGHT button hidden —
+                // with no flight running. (device pass)
+                if let abandonedId = appState.currentFlight?.id {
+                    threadManager.detachAbandonedFlight(abandonedId)
+                }
                 locationManager.stopTracking()
                 appState.cancelFlight()
                 flightPlanManager.deactivateFlightPlan()

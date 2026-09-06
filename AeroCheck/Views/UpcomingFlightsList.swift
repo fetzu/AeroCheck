@@ -16,6 +16,8 @@ struct UpcomingFlightsList: View {
     var trips: [Trip] = []
     let onOpen: (UUID) -> Void
     let onPlanNew: () -> Void
+    /// Opens the saved-routes list. Optional so the view still previews without it. (v5.x)
+    var onOpenRoutes: (() -> Void)?
 
     private var needsAttention: [FlightThread] { threads.filter { $0.state == .closeOut } }
 
@@ -36,6 +38,7 @@ struct UpcomingFlightsList: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 planButton
+                routesLink
 
                 if threads.isEmpty {
                     emptyState
@@ -70,6 +73,33 @@ struct UpcomingFlightsList: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(PrimaryButtonStyle())
+    }
+
+    /// The saved routes, reachable from here.
+    ///
+    /// Home shows ONE activity strip, and a followed flight takes that slot — which left the route
+    /// list with no way in at all as soon as a flight existed, and arming (a swipe in that list) with
+    /// it. Routes belong beside the flights that use them, so this is where they live now rather than
+    /// behind whichever card Home happened to be showing. (device pass)
+    @ViewBuilder
+    private var routesLink: some View {
+        if let onOpenRoutes {
+            Button(action: onOpenRoutes) {
+                HStack(spacing: 8) {
+                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    Text(L10n.Flights.savedRoutes)
+                        .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                }
+                .foregroundColor(.altimeterBlue)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var emptyState: some View {

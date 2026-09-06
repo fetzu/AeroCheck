@@ -58,6 +58,8 @@ struct FlightLogView: View {
     @State private var segment: FlightsSegment = .past
     /// The flight being planned — from the Upcoming empty state or "Plan this again". (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
+    /// The saved-routes list, reachable from Upcoming. (v5.x)
+    @State private var showFlightPlanning = false
     @State private var threadToOpen: UUID?
 
     enum FlightsSegment: String, CaseIterable {
@@ -134,7 +136,8 @@ struct FlightLogView: View {
                         UpcomingFlightsList(threads: threadManager.unfinishedThreads,
                                             trips: threadManager.trips,
                                             onOpen: { threadToOpen = $0 },
-                                            onPlanNew: { planningNewFlight = seedIntent() })
+                                            onPlanNew: { planningNewFlight = seedIntent() },
+                                            onOpenRoutes: { showFlightPlanning = true })
                     } else {
                         pastContent
                     }
@@ -156,6 +159,9 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showFlightPlanning) {
+            FlightPlanningView()
+        }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"

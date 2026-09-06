@@ -163,6 +163,7 @@ enum L10n {
 
         // Plan new flight
         static let planNewFlight = String(localized: "Plan new flight")
+        static let savedRoutes = String(localized: "Saved routes and arming")
         static let createFlight = String(localized: "Create flight")
         static let kind = String(localized: "Kind")
         static let crossCountry = String(localized: "Cross-country")
@@ -415,6 +416,12 @@ enum L10n {
             String(localized: "\(route) is planned for today but not armed. Without it there is no route, no leg timing and no waypoint sequencing in flight.")
         }
         static let armAndStart = String(localized: "Arm and start")
+        static let outstandingTitle = String(localized: "Not everything is ticked")
+        static func outstandingBeforeFlight(_ route: String, _ remaining: Int) -> String {
+            String(localized: "\(route) still has \(remaining) item(s) open in Plan and Prepare.")
+        }
+        static let reviewFlightFirst = String(localized: "Review the flight")
+        static let startAnyway = String(localized: "Start anyway")
         static let startWithoutPlan = String(localized: "Start without it")
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)

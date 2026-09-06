@@ -281,6 +281,56 @@
         }
       }
     },
+    "Not everything is ticked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout n'est pas coché"
+          }
+        }
+      }
+    },
+    "%1$@ still has %2$lld item(s) open in Plan and Prepare." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il reste %2$lld élément(s) ouvert(s) dans Planifier et Préparer pour %1$@."
+          }
+        }
+      }
+    },
+    "Review the flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir le vol"
+          }
+        }
+      }
+    },
+    "Start anyway" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer quand même"
+          }
+        }
+      }
+    },
+    "Saved routes and arming" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes enregistrées et activation"
+          }
+        }
+      }
+    },
     "Arm and start" : {
       "localizations" : {
         "fr" : {

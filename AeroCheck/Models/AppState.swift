@@ -105,14 +105,6 @@ struct AppSettings: Codable, Equatable {
     var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
 
     // Flight Planning
-    /// Flight planning is no longer optional: it is the spine of the app, and Home offers to plan a
-    /// flight on every launch. This stays as a property because ~9 sites in NavigationView still
-    /// branch on it, but it is deliberately ABSENT from `CodingKeys` — so it is always true, a stored
-    /// `false` from the beta cannot resurrect it, and nothing can turn the primary feature off.
-    /// Unwrapping those always-true branches is a follow-up; NavigationView is the in-flight screen
-    /// and does not deserve a drive-by refactor. (v5.0.0)
-    let enableFlightPlanning: Bool = true
-
     /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
     /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
     var enableCostTracking: Bool = true

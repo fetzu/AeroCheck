@@ -1052,16 +1052,11 @@ enum L10n {
 
     // MARK: - Warnings
     enum Warning {
-        static let betaFeature = String(localized: "warning.betaFeature")
         static let experimentalFeature = String(localized: "warning.experimentalFeature")
         static let iUnderstandEnable = String(localized: "warning.iUnderstandEnable")
         static let cancel = String(localized: "warning.cancel")
 
         // Flight Planning
-        static let flightPlanningBetaDesc = String(localized: "warning.flightPlanning.betaDesc")
-        static let flightPlanningPlanRoutes = String(localized: "warning.flightPlanning.planRoutes")
-        static let flightPlanningAutoAdvance = String(localized: "warning.flightPlanning.autoAdvance")
-        static let flightPlanningTerrainViz = String(localized: "warning.flightPlanning.terrainViz")
 
         // Online Airspace Streaming
         static let onlineAirspaceTitle = String(localized: "warning.onlineAirspace.title")

@@ -916,6 +916,42 @@ class DataPersistenceManager: ObservableObject {
         }.value
     }
 
+    // MARK: - Trips (v5.x)
+    //
+    // Trips are few and tiny — a handful of shared tasks and a list of ids — so they go in ONE file
+    // rather than the file-per-object treatment threads get. They also deliberately do NOT live in
+    // the FlightThreads directory: `decodeFlightThreads` enumerates that folder and would try to read
+    // a trip as a thread on every launch.
+
+    var tripsFileURL: URL {
+        localAppDirectory.appendingPathComponent("trips.json")
+    }
+
+    func saveTripsOffMain(_ trips: [Trip]) async {
+        let url = tripsFileURL
+        await Task.detached(priority: .utility) {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            do {
+                let data = try encoder.encode(trips)
+                try data.write(to: url, options: Self.protectedWriteOptions)
+            } catch {
+                AppLog.general.debugLine("Failed to save trips: \(error.localizedDescription)")
+            }
+        }.value
+    }
+
+    func loadTripsOffMain() async -> [Trip] {
+        let url = tripsFileURL
+        return await Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: url) else { return [] }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return (try? decoder.decode([Trip].self, from: data)) ?? []
+        }.value
+    }
+
     /// Loads + decodes all threads OFF the main actor (same reasoning as plans and flights: the
     /// directory sits in iCloud and can stall during launch).
     func loadFlightThreadsOffMain() async -> [FlightThread] {

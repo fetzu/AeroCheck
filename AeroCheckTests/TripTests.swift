@@ -147,6 +147,116 @@ final class TripTests: XCTestCase {
         XCTAssertFalse(Trip(legIds: [UUID(), UUID()]).isDegenerate)
     }
 
+    // MARK: - Forming and dissolving
+
+    @MainActor
+    private func manager() -> FlightThreadManager {
+        let suite = "TripTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        return FlightThreadManager(defaults: defaults)
+    }
+
+    @MainActor
+    private func plan(_ from: String, _ to: String) -> FlightPlan {
+        var plan = FlightPlan(name: "\(from) → \(to)")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: from, coordinate: .init(latitude: 47.4247, longitude: 7.1869)),
+            FlightPlanWaypoint(name: to, coordinate: .init(latitude: 46.7619, longitude: 6.6141)),
+        ]
+        return plan
+    }
+
+    @MainActor
+    func testFormingATripLiftsSharedPreparationOffTheFirstLeg() {
+        // This is the "add a leg later" path: a standalone flight already has its booking and its
+        // weather ticked, and promoting it to a trip must carry that up rather than re-ask.
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        guard let booking = a.tasks.first(where: { $0.key == .aircraftReserved }) else {
+            return XCTFail("no booking task")
+        }
+        m.setTaskState(.done, taskId: booking.id, threadId: a.id)
+
+        let trip = m.formTrip(from: [a.id, b.id])
+        XCTAssertNotNil(trip)
+        XCTAssertEqual(m.trip(forThreadId: b.id)?.id, trip?.id, "both legs belong to the trip")
+
+        let shared = m.trip(withId: trip!.id)?.sharedTasks ?? []
+        XCTAssertTrue(shared.contains { $0.key == .aircraftReserved && $0.state == .done },
+                      "the tick made before the trip existed must survive the promotion")
+
+        for leg in [a.id, b.id] {
+            let legTasks = m.thread(withId: leg)?.tasks ?? []
+            XCTAssertFalse(legTasks.contains { $0.key.scope == .trip },
+                           "a leg must not keep its own copy of a shared task")
+        }
+    }
+
+    @MainActor
+    func testATripNeedsTwoLegs() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LSGY"))
+        defer { m.deleteThread(threadId: a.id) }
+        XCTAssertNil(m.formTrip(from: [a.id]), "one leg is a flight, not a trip")
+        XCTAssertNil(m.thread(withId: a.id)?.tripId)
+    }
+
+    @MainActor
+    func testRemovingALegDissolvesTheTripAndGivesThePreparationBack() {
+        // A trip of one leg is just a flight. Without handing the shared tasks back, deleting one leg
+        // would take the survivor's whole preparation with it.
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: b.id) }
+        let trip = m.formTrip(from: [a.id, b.id])!
+
+        m.removeLeg(threadId: a.id)
+
+        XCTAssertNil(m.trip(withId: trip.id), "a one-leg trip should not survive")
+        let survivor = m.thread(withId: b.id)
+        XCTAssertNil(survivor?.tripId, "the survivor is a standalone flight again")
+        XCTAssertTrue(survivor?.tasks.contains { $0.key == .aircraftReserved } ?? false,
+                      "its shared preparation must come back with it")
+    }
+
+    @MainActor
+    func testTickingASharedTaskIsSeenFromEveryLeg() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = m.formTrip(from: [a.id, b.id])!
+
+        guard let notam = trip.sharedTasks.first(where: { $0.key == .notamChecked }) else {
+            return XCTFail("no NOTAM task")
+        }
+        m.setSharedTaskState(.done, taskId: notam.id, tripId: trip.id)
+
+        // Reached from leg B, though it was ticked while looking at the trip.
+        let fromB = m.trip(forThreadId: b.id)?.sharedTasks.first { $0.key == .notamChecked }
+        XCTAssertEqual(fromB?.state, .done)
+        XCTAssertNotNil(fromB?.completedAt, "the timestamp is what later legs measure staleness against")
+    }
+
+    @MainActor
+    func testALegDoesNotGenerateTripScopedTasks() {
+        // Otherwise "aircraft reserved" would appear on every leg and have to be ticked on each —
+        // the busywork trips exist to remove.
+        var context = ThreadTaskEngine.Context(profile: .full, homeCountry: "CH")
+        context.hasRoute = true
+        context.isLeg = true
+        let tasks = ThreadTaskEngine.generate(context: context)
+
+        XCTAssertFalse(tasks.contains { $0.key.scope == .trip }, "got \(tasks.map(\.key))")
+        XCTAssertTrue(tasks.contains { $0.key == .flightPlanFiled }, "leg tasks still appear")
+        XCTAssertTrue(tasks.contains { $0.key == .massAndBalance }, "W&B is per leg")
+    }
+
     // MARK: - Migration safety
 
     func testAThreadPersistedBeforeTripsStillDecodes() throws {

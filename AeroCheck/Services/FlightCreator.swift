@@ -42,4 +42,39 @@ enum FlightCreator {
         await notifications.requestAuthorization()
         return thread
     }
+
+    /// Create a multi-leg trip from consecutive aerodromes: LSZQ → LFSB → LSGY is two legs.
+    ///
+    /// Each leg is created by the SAME `create` above, so a leg is in every way an ordinary flight —
+    /// which is the whole premise. The trip is then formed from them, which lifts the shared
+    /// preparation off the first leg rather than asking for it again.
+    @discardableResult
+    static func createTrip(idents: [String],
+                           template: NewFlightIntent,
+                           plans: FlightPlanManager,
+                           threads: FlightThreadManager,
+                           airports: AirportDataService,
+                           notifications: NotificationService = .shared) async -> Trip? {
+        let stops = idents.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
+            .filter { !$0.isEmpty }
+        guard stops.count >= 3 else { return nil }   // fewer than two legs is just a flight
+
+        var legIds: [UUID] = []
+        for (from, to) in zip(stops, stops.dropFirst()) {
+            var intent = template
+            intent.departureIdent = from
+            intent.arrivalIdent = to
+            // Only the FIRST leg carries the departure time. The later ones depart when the earlier
+            // ones land, which the app cannot know, and a guessed time would drive both the T−24 h
+            // reminder and the staleness rule off a number nobody chose.
+            intent.departureTime = legIds.isEmpty ? template.departureTime : nil
+            let thread = await create(from: intent,
+                                      plans: plans,
+                                      threads: threads,
+                                      airports: airports,
+                                      notifications: notifications)
+            legIds.append(thread.id)
+        }
+        return threads.formTrip(from: legIds)
+    }
 }

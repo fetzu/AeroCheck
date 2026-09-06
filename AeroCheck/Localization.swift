@@ -159,6 +159,23 @@ enum L10n {
         static func circuitsAt(_ ident: String) -> String {
             String(localized: "Circuits — \(ident)")
         }
+
+        // Plan new flight
+        static let planNewFlight = String(localized: "Plan new flight")
+        static let createFlight = String(localized: "Create flight")
+        static let kind = String(localized: "Kind")
+        static let crossCountry = String(localized: "Cross-country")
+        static let circuits = String(localized: "Circuits")
+        static let when = String(localized: "When")
+        static let knowWhen = String(localized: "I know when I am flying")
+        static let whenHint = String(localized: "Used for the reminder the day before")
+        static let aircraft = String(localized: "Aircraft")
+        static let fromTo = String(localized: "From → To")
+        static let aerodrome = String(localized: "Aerodrome")
+        static let from = String(localized: "From")
+        static let to = String(localized: "To")
+        static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
+        static let circuitsHint = String(localized: "Circuits start and finish at the same field")
     }
 
     enum Logbook {

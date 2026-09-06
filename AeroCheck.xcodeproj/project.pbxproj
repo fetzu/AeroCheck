@@ -178,6 +178,7 @@
 		REC00001211111110000003 /* FlightReconciliationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = REC00001111111110000003 /* FlightReconciliationTests.swift */; };
 		F1000001211111110000002 /* EventConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000002 /* EventConfirmationView.swift */; };
 		F1000001211111110000003 /* FlightThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000003 /* FlightThreadView.swift */; };
+		F1000001211111110000033 /* PlanNewFlightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000033 /* PlanNewFlightView.swift */; };
 		F1000001211111110000005 /* WeightBalanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000005 /* WeightBalanceView.swift */; };
 		F1000001211111110000004 /* FlightNumbersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001111111110000004 /* FlightNumbersView.swift */; };
 		G1000001211111110000001 /* HourMeterInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000001111111110000001 /* HourMeterInputView.swift */; };
@@ -422,6 +423,7 @@
 		REC00001111111110000003 /* FlightReconciliationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightReconciliationTests.swift; sourceTree = "<group>"; };
 		F1000001111111110000002 /* EventConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventConfirmationView.swift; sourceTree = "<group>"; };
 		F1000001111111110000003 /* FlightThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightThreadView.swift; sourceTree = "<group>"; };
+		F1000001111111110000033 /* PlanNewFlightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanNewFlightView.swift; sourceTree = "<group>"; };
 		F1000001111111110000005 /* WeightBalanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalanceView.swift; sourceTree = "<group>"; };
 		F1000001111111110000004 /* FlightNumbersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightNumbersView.swift; sourceTree = "<group>"; };
 		G1000001111111110000001 /* HourMeterInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourMeterInputView.swift; sourceTree = "<group>"; };
@@ -625,6 +627,7 @@
 				B3000001111111110000004 /* SubscriptionView.swift */,
 				F1000001111111110000002 /* EventConfirmationView.swift */,
 				F1000001111111110000003 /* FlightThreadView.swift */,
+				F1000001111111110000033 /* PlanNewFlightView.swift */,
 				F1000001111111110000005 /* WeightBalanceView.swift */,
 				F1000001111111110000004 /* FlightNumbersView.swift */,
 				REC00001111111110000002 /* FlightReconciliationView.swift */,
@@ -1112,6 +1115,7 @@
 				A1000001211111110000910 /* SigmetRelevance.swift in Sources */,
 				F1000001211111110000002 /* EventConfirmationView.swift in Sources */,
 				F1000001211111110000003 /* FlightThreadView.swift in Sources */,
+				F1000001211111110000033 /* PlanNewFlightView.swift in Sources */,
 				F1000001211111110000005 /* WeightBalanceView.swift in Sources */,
 				F1000001211111110000004 /* FlightNumbersView.swift in Sources */,
 				G1000001211111110000001 /* HourMeterInputView.swift in Sources */,

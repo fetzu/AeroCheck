@@ -182,6 +182,16 @@ enum L10n {
         static func savedPlans(_ count: Int) -> String {
             String(localized: "\(count) saved plans")
         }
+
+        // Flights destination
+        static let upcoming = String(localized: "Upcoming")
+        static let past = String(localized: "Past")
+        static let needsAttention = String(localized: "Needs attention")
+        static let nothingPlanned = String(localized: "Nothing planned")
+        static let planThisAgain = String(localized: "Plan this again")
+        static func toDo(_ count: Int) -> String {
+            String(localized: "\(count) to do")
+        }
     }
 
     enum Logbook {

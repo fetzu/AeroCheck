@@ -630,7 +630,7 @@ struct HomeView: View {
     private var navButtons: some View {
         // Title Case for the menu labels, per Apple HIG (matches "Settings"). The compact all-caps
         // "NAV"/"SPEEDS" forms stay on the in-flight FlightView chrome. (v4 UI/UX Revamp — device feedback)
-        navButton("clock.arrow.circlepath", L10n.FlightLog.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
+        navButton("airplane.departure", L10n.Flights.title, tint: .aviationGold, badge: appState.flights.count) { flightLogSelectionID = nil; showFlightLog = true }
         navButton("map.fill", L10n.Nav.navigation, tint: .altimeterBlue) { showNavigation = true }
         navButton("speedometer", L10n.Nav.speeds, tint: .aviationGreen) { showSpeedReference = true }
         navButton("gearshape.fill", L10n.Settings.title, tint: .secondaryText) { pendingSettingsSection = nil; showSettings = true }
@@ -1402,22 +1402,10 @@ struct HomeView: View {
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
     private func createFlight(from intent: NewFlightIntent) {
         Task { @MainActor in
-            if !intent.departureIdent.isEmpty {
-                await airportDataService.ensureLoaded()
-            }
-            let plan = FlightPlan.from(intent: intent) { ident in
-                airportDataService.findAirport(byIdent: ident)?.coordinate
-            }
-            flightPlanManager.add(plan)
-            let thread = threadManager.createThread(
-                from: plan,
-                profile: intent.kind.profile,
-                routeLabel: intent.routeLabel,
-                aircraftRegistration: intent.aircraftRegistration
-            )
-            // The two reminders are the whole reason to follow a flight, so the permission prompt
-            // arrives here — with the pilot having just asked for it — rather than at cold launch.
-            await NotificationService.shared.requestAuthorization()
+            let thread = await FlightCreator.create(from: intent,
+                                                    plans: flightPlanManager,
+                                                    threads: threadManager,
+                                                    airports: airportDataService)
             threadToOpen = thread.id
         }
     }

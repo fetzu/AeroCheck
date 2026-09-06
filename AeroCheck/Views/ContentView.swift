@@ -252,6 +252,7 @@ struct ContentView: View {
             FlightLogView()
                 .environment(appState)
                 .environmentObject(flightPlanManager)
+                .environmentObject(threadManager)
                 .environmentObject(airportDataService)
                 .environmentObject(openAIPDataService)
         }

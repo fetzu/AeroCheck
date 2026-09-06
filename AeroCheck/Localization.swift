@@ -1444,6 +1444,7 @@ enum L10n {
         static let additionalFuel = String(localized: "nav.additionalFuel")
         static let extraFuel = String(localized: "nav.extraFuel")
         static let requiredFuel = String(localized: "nav.requiredFuel")
+        static let fuelOnBoard = String(localized: "Fuel on board (L)")
 
         // Timing
         static let timing = String(localized: "nav.timing")
@@ -1517,7 +1518,15 @@ enum L10n {
         static let airspace = String(localized: "nav.airspace")
         static let airspaceNoData = String(localized: "nav.airspaceNoData")
         static let downloadAirspaceData = String(localized: "nav.downloadAirspaceData")
-        static let tripDataMissing = String(localized: "Missing data for this trip")   // v4.1.0 prefetch banner (literal-keyed)
+        /// Deliberately "near your route", not "for this trip". The country list includes anything
+        /// within the inclusion buffer — a route along the Jura reports France, and one to Samedan
+        /// reports Italy — because that is the airspace you can see and enter. Saying "for this trip"
+        /// read as "you are flying to these countries", which is why it looked wrong on a Swiss
+        /// domestic flight. (device pass)
+        static let tripDataMissing = String(localized: "Airspace data missing near your route")
+        static func tripDataProgress(_ done: Int, _ total: Int) -> String {
+            String(localized: "\(done)/\(total) layers")
+        }
         /// Shown in the same banner when the download ran but some layers came back empty — so the
         /// banner stops silently re-offering a button that cannot succeed. (v4.4.0)
         static let tripDataFailed = String(localized: "Some data could not be downloaded")

@@ -61,7 +61,9 @@ struct FlightLogView: View {
     @State private var threadToOpen: UUID?
 
     enum FlightsSegment: String, CaseIterable {
-        case upcoming, past
+        // Past first: it is the half with data in it, it is what this screen has always opened on,
+        // and left-to-right reading puts what happened before what has not happened yet.
+        case past, upcoming
         var label: String { self == .upcoming ? L10n.Flights.upcoming : L10n.Flights.past }
     }
 

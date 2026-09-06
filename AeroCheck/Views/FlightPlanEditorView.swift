@@ -208,6 +208,14 @@ struct FlightPlanEditorView: View {
             let cols = isCompactWidth ? 2 : 4
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: cols), spacing: 12) {
                 FormField(label: L10n.Nav.pilot, text: $flightPlan.pilot)
+                    .onAppear {
+                        // Settings now hold the pilot's name for the logbook; a blank field here
+                        // meant typing it again on every plan. Only fills an EMPTY field, so a plan
+                        // flown by someone else is never quietly reassigned. (device pass)
+                        if flightPlan.pilot.trimmingCharacters(in: .whitespaces).isEmpty {
+                            flightPlan.pilot = appState.settings.pilotName
+                        }
+                    }
                 FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
                 DateFormField(label: L10n.Nav.date, date: Binding(
                     get: { flightPlan.plannedDepartureTime ?? Date() },
@@ -293,6 +301,19 @@ struct FlightPlanEditorView: View {
                     label: L10n.Nav.requiredFuel,
                     text: .constant(flightPlan.fuelRequired.map { String(format: "%.1f", $0) } ?? "--"),
                     isReadOnly: true
+                )
+
+                // Fuel ON BOARD had no field anywhere in the app. The model carried it, the thread's
+                // fuel task compared against it, and the nav log printed it — but nothing could set
+                // it, so that task could never be satisfied and the row sat pending forever.
+                // (device pass)
+                NumberFormField(
+                    label: L10n.Nav.fuelOnBoard,
+                    value: Binding(
+                        get: { flightPlan.fuelOnBoard ?? 0 },
+                        set: { flightPlan.fuelOnBoard = $0 }
+                    ),
+                    format: "%.1f"
                 )
             }
         }

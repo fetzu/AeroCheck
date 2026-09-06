@@ -1391,6 +1391,26 @@
         }
       }
     },
+    "%1$lld/%2$lld layers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld/%2$lld couches"
+          }
+        }
+      }
+    },
+    "Fuel on board (L)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant à bord (L)"
+          }
+        }
+      }
+    },
     "Add stop" : {
       "localizations" : {
         "fr" : {
@@ -3575,12 +3595,12 @@
         }
       }
     },
-    "Missing data for this trip": {
+    "Airspace data missing near your route": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Données manquantes pour ce vol"
+            "value": "Données d'espace aérien manquantes près de votre route"
           }
         }
       }

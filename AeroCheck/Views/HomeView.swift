@@ -1139,12 +1139,24 @@ struct HomeView: View {
 
     /// The soonest flight plan whose planned departure falls today — surfaced on the strip so an
     /// imminent flight is one tap away instead of buried behind the generic list. (v4 UI/UX Revamp)
+    /// A route to fly today that no flight already speaks for.
+    ///
+    /// Same calendar day — not "within 24 hours", which is what a naive interval comparison would
+    /// give and would make tomorrow morning's flight look like today's.
+    ///
+    /// A plan FOLLOWED by a flight is excluded unless that flight is itself today. The flight is the
+    /// subject in that case and `startableFlightToday` has already had its say; offering to arm the
+    /// route behind tomorrow's flight is the app talking about a different day from the pilot.
+    /// (device pass)
     private var todaysFlightPlan: FlightPlan? {
         let calendar = Calendar.current
         return flightPlanManager.flightPlans
             .filter { plan in
-                guard let departure = plan.plannedDepartureTime else { return false }
-                return calendar.isDateInToday(departure)
+                guard let departure = plan.plannedDepartureTime,
+                      calendar.isDateInToday(departure) else { return false }
+                guard let followed = threadManager.thread(forPlanId: plan.id) else { return true }
+                guard let scheduled = followed.scheduledDeparture else { return false }
+                return calendar.isDateInToday(scheduled)
             }
             .min { ($0.plannedDepartureTime ?? .distantFuture) < ($1.plannedDepartureTime ?? .distantFuture) }
     }

@@ -16,6 +16,8 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
+    /// Guards the one-shot route-date sweep, so a later load cannot run it twice.
+    @State private var hasSweptRouteDates = false
     @ObservedObject private var marketingProvider = MarketingLocationProvider.shared
 
     var body: some View {
@@ -199,6 +201,12 @@ struct ContentView: View {
         // manager owns the settings-aware side, so the root is where the two are joined. (v5.0.0)
         .onChange(of: appState.settings.enableCostTracking) { _, tracks in
             threadManager.tracksCost = tracks
+        }
+        // Once — and only once BOTH sides have loaded. Deliberately not hung off a plan change:
+        // `FlightCreator` adds the plan before it creates the flight, so a sweep triggered by the
+        // insertion would strip the date it had just set, a beat before anything followed it. (v5.x)
+        .onChange(of: routeDateSweepReady) { _, ready in
+            if ready { sweepRouteDates() }
         }
         // Re-derive the AUTO rows whenever a plan changes anywhere. The flight screen refreshes
         // itself on appear, but Home's strip advertises the next task and the readiness ring off the
@@ -639,6 +647,22 @@ struct DataFreshnessNudgeBanner: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(message)
         .accessibilityHint(Text(L10n.Button.close))
+    }
+}
+
+private extension ContentView {
+
+    /// Both managers load off-main; the sweep needs the answer to "does a flight follow this plan?",
+    /// which is only trustworthy once the threads are actually here.
+    var routeDateSweepReady: Bool {
+        flightPlanManager.hasLoadedPlans && threadManager.hasLoadedThreads
+    }
+
+    func sweepRouteDates() {
+        guard !hasSweptRouteDates else { return }
+        hasSweptRouteDates = true
+        let followed = Set(threadManager.threads.compactMap(\.flightPlanId))
+        flightPlanManager.clearDatesFromUnflownRoutes(followedPlanIds: followed)
     }
 }
 

@@ -23,6 +23,12 @@ class FlightThreadManager: ObservableObject {
     @Published var circuitCloseOutOffer: CircuitCloseOutOffer?
     /// Multi-leg trips. Few and small, so they load and save as one file. (v5.x)
     @Published var trips: [Trip] = []
+    /// True once the on-disk threads have arrived.
+    ///
+    /// Load is async (iCloud), so before it finishes EVERY plan looks unfollowed. Anything that
+    /// decides a plan's fate by "does a flight reference it" must wait for this, or it would strip
+    /// the dates off flights that do exist. (v5.x)
+    @Published private(set) var hasLoadedThreads = false
 
     // MARK: - Private Properties
 
@@ -711,6 +717,7 @@ class FlightThreadManager: ObservableObject {
             currentThreadId = nil
             saveCurrentThreadPointer()
         }
+        hasLoadedThreads = true
     }
 
     private func saveCurrentThreadPointer() {

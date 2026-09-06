@@ -292,9 +292,19 @@ struct HomeView: View {
                                  onClose: { threadToOpen = nil },
                                  onStartFlight: { circuits in
                                      threadToOpen = nil
-                                     // Pressed inside this followed flight, so it names itself —
-                                     // no inference needed at either end of the flight. (v5.x)
-                                     beginFlight(circuitMode: circuits, followedFlightId: id)
+                                     // Through `launch`, not `beginFlight`. The hero's button armed
+                                     // the flight's route and this one did not, so a flight started
+                                     // from its own screen flew with an empty map — the one place a
+                                     // pilot has most reason to expect the route to be there.
+                                     // Circuits still bypass it: they drop the plan by design.
+                                     // (device pass)
+                                     if circuits {
+                                         beginFlight(circuitMode: true, followedFlightId: id)
+                                     } else if let thread = threadManager.thread(withId: id) {
+                                         launch(thread)
+                                     } else {
+                                         beginFlight(circuitMode: false, followedFlightId: id)
+                                     }
                                  })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)

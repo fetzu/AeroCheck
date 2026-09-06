@@ -28,10 +28,18 @@ enum LogbookPDFExportService {
         /// Rows before a page break. The form is a page of lines with totals under it, so this is
         /// what makes the arithmetic per-page rather than one long list.
         var rowsPerPage: Int = 15
+        /// Whose logbook this is. A student's lines are Dual with the instructor as PIC, and the
+        /// page totals have to agree with them. (v5.x)
+        var pilot: LogbookLineBuilder.PilotContext = .unknown
 
-        init(pilotName: String? = nil, rowsPerPage: Int = 15) {
+        init(pilotName: String? = nil,
+             rowsPerPage: Int = 15,
+             pilot: LogbookLineBuilder.PilotContext = .unknown) {
             self.pilotName = pilotName
             self.rowsPerPage = max(1, rowsPerPage)
+            self.pilot = LogbookLineBuilder.PilotContext(name: pilot.name ?? pilotName,
+                                                         isStudent: pilot.isStudent,
+                                                         instructorName: pilot.instructorName)
         }
     }
 
@@ -56,7 +64,7 @@ enum LogbookPDFExportService {
             var broughtForward = LogbookTotals.zero
             for (index, pageFlights) in pages.enumerated() {
                 context.beginPage()
-                let pageTotals = LogbookTotals.forFlights(pageFlights)
+                let pageTotals = LogbookTotals.forFlights(pageFlights, pilot: options.pilot)
                 draw(pageFlights,
                      pageTotals: pageTotals,
                      broughtForward: broughtForward,
@@ -273,8 +281,9 @@ enum LogbookPDFExportService {
     ) {
         let line = LogbookLineBuilder.build(flight: flight,
                                             overrides: flight.logbook,
-                                            defaultPilotName: options.pilotName)
-        let totals = LogbookTotals.forFlight(flight)
+                                            defaultPilotName: options.pilotName,
+                                            pilot: options.pilot)
+        let totals = LogbookTotals.forFlight(flight, pilot: options.pilot)
         let y = top + (height - font.lineHeight) / 2
 
         func cell(_ index: Int, _ text: String, align: NSTextAlignment = .center) {

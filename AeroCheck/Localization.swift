@@ -263,6 +263,9 @@ enum L10n {
     // MARK: - Flight cost (v5.0.0)
     enum Cost {
         static let title = String(localized: "Flight cost")
+        /// The sheet that holds the cost, the logbook line and mass & balance. Named after all
+        /// three, since the logbook is what a pilot most often comes for. (v5.x)
+        static let afterTheFlight = String(localized: "Logbook & costs")
         static let basisBlock = String(localized: "Block time")
         static let basisFlight = String(localized: "Flight time")
         static let basisEngineHours = String(localized: "Engine hours")
@@ -716,6 +719,9 @@ enum L10n {
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
+        static let studentPilot = String(localized: "Student pilot")
+        static let studentPilotSubtitle = String(localized: "Log flights as dual, with your instructor as PIC")
+        static let instructorNamePlaceholder = String(localized: "Instructor's name")
         static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
         static let costTracking = String(localized: "Track flight costs")
         static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")

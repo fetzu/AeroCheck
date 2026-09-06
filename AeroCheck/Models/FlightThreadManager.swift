@@ -149,9 +149,25 @@ class FlightThreadManager: ObservableObject {
             ?? Self.pprIdents(on: plan, fallingBackTo: existing)
         context.destinationFuels = Self.destinationFuels(on: plan)
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        let regenerated = ThreadTaskEngine.generate(context: context, existing: existing)
+
+        // Bail out when nothing actually changed.
+        //
+        // Regeneration runs on every plan publish and on the flight screen's appearance, and it used
+        // to rewrite the task array and `touch()` the thread REGARDLESS — so a screen the pilot was
+        // reading had its list replaced, and `unfinishedThreads` (sorted by `updatedAt`) reordered,
+        // for no change at all. Replacing rows underneath a finger is a plausible cause of the crash
+        // reported when ticking a task on a freshly created flight, and it is churn worth removing
+        // either way. (device pass)
+        guard regenerated != existing
+                || threads[index].countries != context.countries
+                || threads[index].homeCountry != context.homeCountry
+                || (plan != nil && plan?.plannedDepartureTime != threads[index].scheduledDeparture)
+        else { return }
+
         threads[index].countries = context.countries
         threads[index].homeCountry = context.homeCountry
-        threads[index].tasks = ThreadTaskEngine.generate(context: context, existing: existing)
+        threads[index].tasks = regenerated
 
         // The cached departure drives "is this today?" and the preparation reminder. Left stale it
         // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being

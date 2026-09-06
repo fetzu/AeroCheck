@@ -51,7 +51,7 @@ struct FlightNumbersView: View {
                         .foregroundColor(.secondaryText)
                 }
             }
-            .navigationTitle(L10n.Cost.title)
+            .navigationTitle(L10n.Cost.afterTheFlight)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -229,7 +229,8 @@ struct FlightNumbersView: View {
     private func logbookSection(_ flight: Flight) -> some View {
         let line = LogbookLineBuilder.build(flight: flight,
                                             overrides: flight.logbook,
-                                            defaultPilotName: appState.settings.pilotName)
+                                            defaultPilotName: appState.settings.pilotName,
+                                            pilot: appState.settings.logbookPilotContext)
 
         card(title: L10n.Logbook.title.uppercased(), tint: .altimeterBlue) {
             VStack(alignment: .leading, spacing: 10) {

@@ -288,11 +288,12 @@ struct FlightLogView: View {
     /// none of it belongs in a `.sheet` content builder. (v5.0.0)
     private func prepareLogbookPDF(_ flights: [Flight]) {
         let pilotName = appState.settings.pilotName
+        let pilotContext = appState.settings.logbookPilotContext
         isPreparingExportAll = true
         Task { @MainActor in
             let data = await Task.detached(priority: .userInitiated) {
                 LogbookPDFExportService.export(flights: flights,
-                                               options: .init(pilotName: pilotName))
+                                               options: .init(pilotName: pilotName, pilot: pilotContext))
             }.value
             logbookPDFData = data
             isPreparingExportAll = false
@@ -2106,7 +2107,7 @@ struct FlightDetailView: View {
             }
             // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
             // without a thread still has a cost and still produces a logbook line.
-            detailActionButton(title: L10n.Cost.title, icon: "banknote", tint: .secondaryText) { showNumbers = true }
+            detailActionButton(title: L10n.Cost.afterTheFlight, icon: "book.closed", tint: .secondaryText) { showNumbers = true }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {
                 HStack(spacing: 5) {

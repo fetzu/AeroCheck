@@ -105,6 +105,25 @@ struct AppSettings: Codable, Equatable {
     var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
 
     // Flight Planning
+    /// Training mode: this pilot flies dual, with an instructor.
+    ///
+    /// A licensed pilot logs their own flights as PIC, and defaulting to that is right for them. A
+    /// student is the opposite case and just as common — every flight is dual, and AMC1 FCL.050
+    /// wants the INSTRUCTOR named in the PIC column, not the student writing the logbook. Without
+    /// this the app quietly filled the student's own name into a column that is a statement about
+    /// who commanded the aircraft. (v5.x)
+    var isStudentPilot: Bool = false
+    /// The usual instructor, so a dual flight does not need the name typed onto every plan.
+    var instructorName: String = ""
+
+    /// The logbook's view of who is writing it. Built here so the card, the PDF extract and the
+    /// page totals all read the same settings.
+    var logbookPilotContext: LogbookLineBuilder.PilotContext {
+        LogbookLineBuilder.PilotContext(name: pilotName.isEmpty ? nil : pilotName,
+                                        isStudent: isStudentPilot,
+                                        instructorName: instructorName.isEmpty ? nil : instructorName)
+    }
+
     /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
     /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
     var enableCostTracking: Bool = true
@@ -242,6 +261,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -316,6 +336,8 @@ struct AppSettings: Codable, Equatable {
         // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
         // which is exactly how the calculators treat them.
         pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
+        isStudentPilot = try container.decodeIfPresent(Bool.self, forKey: .isStudentPilot) ?? false
+        instructorName = try container.decodeIfPresent(String.self, forKey: .instructorName) ?? ""
         // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
         // starts on for them and their preference falls back to day.
         sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)

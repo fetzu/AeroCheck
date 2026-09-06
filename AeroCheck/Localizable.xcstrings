@@ -481,6 +481,46 @@
         }
       }
     },
+    "Logbook & costs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carnet et coûts"
+          }
+        }
+      }
+    },
+    "Student pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Élève pilote"
+          }
+        }
+      }
+    },
+    "Log flights as dual, with your instructor as PIC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer les vols en double commande, avec votre instructeur comme PIC"
+          }
+        }
+      }
+    },
+    "Instructor's name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom de l'instructeur"
+          }
+        }
+      }
+    },
     "Saved routes" : {
       "localizations" : {
         "fr" : {

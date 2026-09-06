@@ -287,6 +287,15 @@ struct FlightPlanEditorView: View {
                     }
                 }
                 OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                    .onAppear {
+                        // Same rule as the pilot field: fill an EMPTY one only, so a flight with a
+                        // different instructor is never quietly reassigned. (v5.x)
+                        guard appState.settings.isStudentPilot,
+                              !appState.settings.instructorName.isEmpty,
+                              (flightPlan.instructor ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+                        else { return }
+                        flightPlan.instructor = appState.settings.instructorName
+                    }
                 FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
                 FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
                 FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)

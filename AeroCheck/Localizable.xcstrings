@@ -331,6 +331,36 @@
         }
       }
     },
+    "Start from a saved route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partir d'une route enregistrée"
+          }
+        }
+      }
+    },
+    "Choose a route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir une route"
+          }
+        }
+      }
+    },
+    "Copied with its %lld waypoint(s), altitudes and fuel" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiée avec ses %lld point(s) tournant(s), altitudes et carburant"
+          }
+        }
+      }
+    },
     "Arm and start" : {
       "localizations" : {
         "fr" : {

@@ -164,6 +164,11 @@ enum L10n {
         // Plan new flight
         static let planNewFlight = String(localized: "Plan new flight")
         static let savedRoutes = String(localized: "Saved routes and arming")
+        static let startFromRoute = String(localized: "Start from a saved route")
+        static let chooseRoute = String(localized: "Choose a route")
+        static func routeCopied(_ count: Int) -> String {
+            String(localized: "Copied with its \(count) waypoint(s), altitudes and fuel")
+        }
         static let createFlight = String(localized: "Create flight")
         static let kind = String(localized: "Kind")
         static let crossCountry = String(localized: "Cross-country")

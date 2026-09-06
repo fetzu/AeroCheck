@@ -17,13 +17,20 @@ struct PlanNewFlightView: View {
     @State private var hasDepartureTime: Bool
 
     private let aircraft: [AircraftOption]
-    private let onCreate: ([String], NewFlightIntent) -> Void
+    /// Routes already saved, offered as a starting point. (v5.x)
+    private let savedRoutes: [FlightPlan]
+    /// The third argument is the saved route this flight was built from, when there was one — the
+    /// creator copies it wholesale rather than rebuilding from the two end idents.
+    private let onCreate: ([String], NewFlightIntent, FlightPlan?) -> Void
     private let onCancel: () -> Void
 
     /// The airport layer, for completing what the pilot types. Injected so this view stays testable
     /// and so the caller decides whether the data is loaded.
     @EnvironmentObject private var airports: AirportDataService
     @State private var suggestions: [Airport] = []
+    /// A saved route this flight starts from. Non-nil means the route is copied whole rather than
+    /// rebuilt from the idents below, which is what keeps its waypoints, altitudes and fuel. (v5.x)
+    @State private var selectedRoute: FlightPlan?
     /// Scroll target for the completion list, so the keyboard never covers it.
     private static let suggestionsAnchor = "aerocheck.plan.suggestions"
     @State private var isLoadingAirports = false
@@ -35,12 +42,14 @@ struct PlanNewFlightView: View {
 
     init(intent: NewFlightIntent,
          aircraft: [AircraftOption],
-         onCreate: @escaping ([String], NewFlightIntent) -> Void,
+         savedRoutes: [FlightPlan] = [],
+         onCreate: @escaping ([String], NewFlightIntent, FlightPlan?) -> Void,
          onCancel: @escaping () -> Void) {
         _intent = State(initialValue: intent)
         _stops = State(initialValue: [intent.departureIdent, intent.arrivalIdent])
         _hasDepartureTime = State(initialValue: intent.departureTime != nil)
         self.aircraft = aircraft
+        self.savedRoutes = savedRoutes
         self.onCreate = onCreate
         self.onCancel = onCancel
     }
@@ -52,6 +61,7 @@ struct PlanNewFlightView: View {
                     VStack(spacing: 16) {
                         whenSection
                         aircraftSection
+                        savedRouteSection
                         routeSection
                         createButton
                     }
@@ -151,6 +161,76 @@ struct PlanNewFlightView: View {
                 }
             }
         }
+    }
+
+    /// Start from a route already built, instead of typing the ends again.
+    ///
+    /// A saved route is worth having because of the work inside it — waypoints placed by hand,
+    /// altitudes, fuel figures. Before this the only way into a flight was two idents, which threw
+    /// all of that away and left the route list looking like a museum. (v5.x)
+    @ViewBuilder
+    private var savedRouteSection: some View {
+        if !savedRoutes.isEmpty {
+            card(L10n.Flights.startFromRoute) {
+                if let selectedRoute {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(routeLabel(selectedRoute))
+                                .scaledFont(size: 15, weight: .semibold, design: .monospaced, relativeTo: .subheadline)
+                                .foregroundColor(.primaryText)
+                            Text(L10n.Flights.routeCopied(selectedRoute.waypoints.count))
+                                .scaledFont(size: 12, relativeTo: .caption)
+                                .foregroundColor(.dimText)
+                        }
+                        Spacer(minLength: 8)
+                        Button(L10n.Button.clear) { clearRoute() }
+                            .scaledFont(size: 13, weight: .semibold, relativeTo: .footnote)
+                            .foregroundColor(.altimeterBlue)
+                            .buttonStyle(.plain)
+                            .frame(minHeight: 44)
+                    }
+                } else {
+                    Menu {
+                        ForEach(savedRoutes) { route in
+                            Button(routeLabel(route)) { choose(route) }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            Text(L10n.Flights.chooseRoute)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                        }
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.aviationGold)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                }
+            }
+        }
+    }
+
+    private func routeLabel(_ route: FlightPlan) -> String {
+        let names = route.waypoints.map(\.name).filter { !$0.isEmpty }
+        if let first = names.first, let last = names.last, names.count >= 2 { return "\(first) → \(last)" }
+        return route.name.isEmpty ? (names.first ?? L10n.Thread.untitledFlight) : route.name
+    }
+
+    /// Picking a route fills the idents from it, so the fields below still read as the flight's route
+    /// and a pilot can see what they chose without opening it.
+    private func choose(_ route: FlightPlan) {
+        selectedRoute = route
+        let idents = route.waypoints.map(\.name).filter { !$0.isEmpty }
+        stops = idents.count >= 2 ? idents : (idents + ["", ""]).prefix(2).map { $0 }
+        focused = nil
+        suggestions = []
+    }
+
+    private func clearRoute() {
+        selectedRoute = nil
+        stops = ["", ""]
     }
 
     private var routeSection: some View {
@@ -278,7 +358,7 @@ struct PlanNewFlightView: View {
 
     private var createButton: some View {
         Button {
-            onCreate(normalisedStops(), normalised())
+            onCreate(normalisedStops(), normalised(), selectedRoute)
         } label: {
             Text(legCount > 1 ? L10n.Flights.createFlights(legCount) : L10n.Flights.createFlight)
                 .frame(maxWidth: .infinity)

@@ -191,10 +191,19 @@ struct FlightLogView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: [],
-                    onCreate: { stops, intent in
+                    savedRoutes: flightPlanManager.flightPlans,
+                    onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         Task { @MainActor in
                             segment = .upcoming
+                            if let route {
+                                let thread = await FlightCreator.create(fromRoute: route,
+                                                                        intent: intent,
+                                                                        plans: flightPlanManager,
+                                                                        threads: threadManager)
+                                threadToOpen = thread.id
+                                return
+                            }
                             if stops.count > 2,
                                let trip = await FlightCreator.createTrip(idents: stops,
                                                                          template: intent,

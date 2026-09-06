@@ -344,9 +344,10 @@ struct HomeView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: availableAircraft,
-                    onCreate: { stops, intent in
+                    savedRoutes: flightPlanManager.flightPlans,
+                    onCreate: { stops, intent, route in
                         planningNewFlight = nil
-                        createFlight(stops: stops, from: intent)
+                        createFlight(stops: stops, from: intent, route: route)
                     },
                     onCancel: { planningNewFlight = nil }
                 )
@@ -1501,8 +1502,18 @@ struct HomeView: View {
     /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
     /// Three or more stops is a trip; two is the single flight this has always made.
-    private func createFlight(stops: [String], from intent: NewFlightIntent) {
+    private func createFlight(stops: [String], from intent: NewFlightIntent, route: FlightPlan? = nil) {
         Task { @MainActor in
+            // A saved route is copied whole — its waypoints, altitudes and fuel are the reason it
+            // was worth saving, and rebuilding from two idents would discard all of it.
+            if let route {
+                let thread = await FlightCreator.create(fromRoute: route,
+                                                        intent: intent,
+                                                        plans: flightPlanManager,
+                                                        threads: threadManager)
+                threadToOpen = thread.id
+                return
+            }
             if stops.count > 2,
                let trip = await FlightCreator.createTrip(idents: stops,
                                                          template: intent,

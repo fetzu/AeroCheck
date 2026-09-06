@@ -1311,6 +1311,16 @@
         }
       }
     },
+    "ICAO or name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OACI ou nom"
+          }
+        }
+      }
+    },
     "Circuits — %@" : {
       "localizations" : {
         "fr" : {
@@ -1451,6 +1461,26 @@
         }
       }
     },
+    "View route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir la route"
+          }
+        }
+      }
+    },
+    "Fuel & times" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant et heures"
+          }
+        }
+      }
+    },
     "Export nav log" : {
       "localizations" : {
         "fr" : {
@@ -1531,12 +1561,12 @@
         }
       }
     },
-    "Delete thread" : {
+    "Cancel flight" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Supprimer le suivi"
+            "value" : "Annuler le vol"
           }
         }
       }

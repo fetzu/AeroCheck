@@ -174,6 +174,7 @@ enum L10n {
         static let aerodrome = String(localized: "Aerodrome")
         static let from = String(localized: "From")
         static let to = String(localized: "To")
+        static let identPlaceholder = String(localized: "ICAO or name")
         static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
         static let circuitsHint = String(localized: "Circuits start and finish at the same field")
 
@@ -345,11 +346,14 @@ enum L10n {
         static let openDabs = String(localized: "Open DABS")
         static let openNotamBriefing = String(localized: "Open NOTAM briefing")
         static let exportNavLog = String(localized: "Export nav log")
+        static let editRoute = String(localized: "View route")
+        static let editFuel = String(localized: "Fuel & times")
         static let openMeteoSwiss = String(localized: "Open MeteoSwiss")
         static let markFlightPlanClosed = String(localized: "Mark closed")
         static let callFIC = String(localized: "Call 0800 437 837")
         static let finishThread = String(localized: "Finish")
-        static let deleteThread = String(localized: "Delete thread")
+        /// "Thread" is our internal word for it; a pilot cancels a flight.
+        static let deleteThread = String(localized: "Cancel flight")
 
         // Readiness
         static func readiness(_ done: Int, _ total: Int) -> String {

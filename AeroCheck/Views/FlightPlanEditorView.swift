@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MapKit
 import UniformTypeIdentifiers
 
@@ -105,6 +106,16 @@ struct FlightPlanEditorView: View {
                     Button(L10n.Button.done) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) { exportMenu }
+                // A decimal pad has no return key, so a pilot who typed a fuel figure had nothing to
+                // press and no way to see the field settle. (device pass)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(L10n.Button.done) {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .foregroundColor(.aviationGold)
+                }
             }
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
@@ -112,6 +123,10 @@ struct FlightPlanEditorView: View {
             .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $showingICAOCopied)
         }
         .preferredColorScheme(.dark)
+        // AND the local override. A sheet is its own hierarchy, so it inherits neither the root's
+        // `.environment(\.colorScheme, .dark)` nor, evidently, enough of `preferredColorScheme` to
+        // reach the keyboard — which the system draws in the field's own scheme. (device pass)
+        .environment(\.colorScheme, .dark)
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
         .onDisappear { flushCommit() }

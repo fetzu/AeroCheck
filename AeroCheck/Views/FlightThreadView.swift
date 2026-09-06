@@ -230,7 +230,10 @@ struct FlightThreadView: View {
                 FlightPlanMapBuilderView(planId: id)
             }
         }
-        .sheet(item: $planEditorPlan) { plan in
+        // `onDismiss` rather than relying on the plan-watching onChange alone: the editor flushes
+        // its debounced commit in its own `onDisappear`, and the pilot should not have to leave the
+        // flight and come back to see the fuel row settle. (device pass)
+        .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
             FlightPlanEditorView(flightPlan: plan)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
@@ -285,18 +288,26 @@ struct FlightThreadView: View {
                 .accessibilityHint(thread.routeLabel)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(thread.routeLabel)
-                    .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                Text(subtitle(thread))
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+            // The title opens the flight's own details — the date, the pilot, the fuel. It names the
+            // flight, so it is where a pilot reaches when they want to change something about it,
+            // and the thumbnail beside it already opens the route. (device pass)
+            Button { planEditorPlan = plan(for: thread) } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(thread.routeLabel)
+                        .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    Text(subtitle(thread))
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-
-            Spacer(minLength: 8)
+            .buttonStyle(.plain)
+            .disabled(plan(for: thread) == nil)
+            .accessibilityHint(L10n.Nav.flightPlanDetails)
 
             stateChip(thread)
             readinessRing(thread)

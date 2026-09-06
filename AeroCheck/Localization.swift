@@ -1409,6 +1409,7 @@ enum L10n {
         static let active = String(localized: "nav.active")
         static let duplicate = String(localized: "nav.duplicate")
         static let activate = String(localized: "Show on map")
+        static let flightPlanDetails = String(localized: "Flight details")
         static let deactivate = String(localized: "Clear from map")
         static let inUse = String(localized: "nav.inUse")
         static let tapToBuild = String(localized: "nav.tapToBuild")

@@ -135,7 +135,18 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
     /// Download + cache the layer for the given countries from the public, keyless GeoJSON exports.
     /// A per-country failure keeps that country's existing cache rather than dropping it.
     /// `onProgress` is called on the main actor after each completed country.
-    func downloadData(for countries: [String], onProgress: (Double) -> Void) async -> DownloadResult {
+    /// `skippingCached` reuses a country already on disk instead of fetching it again.
+    ///
+    /// The pruning below means every additive caller has to pass the UNION of what it wants and what
+    /// it already has, or the layer would drop the countries it left out. That union was then
+    /// re-downloaded in full: adding Austria to a device holding Switzerland, France and Germany
+    /// fetched all four countries, four times over — which is why a banner quoting 257 KB sat there
+    /// for minutes. The union still goes in, so nothing is pruned; only the genuinely missing
+    /// countries now touch the network. A deliberate refresh passes false and re-fetches everything.
+    /// (device pass)
+    func downloadData(for countries: [String],
+                      skippingCached: Bool = false,
+                      onProgress: (Double) -> Void) async -> DownloadResult {
         try? fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
         DataPersistenceManager.excludeFromBackup(dataDirectory) // SEC-C28
         var metadata = (try? Data(contentsOf: metadataFileURL))
@@ -144,6 +155,12 @@ final class OpenAIPLayerCache<Feature: Codable & Sendable> {
 
         var failed: [String] = []
         for (index, country) in countries.enumerated() {
+            if skippingCached, metadata.counts[country] != nil,
+               fileManager.fileExists(atPath: featureFileURL(for: country).path) {
+                appendExistingCache(for: country, into: &allLoaded)
+                onProgress(Double(index + 1) / Double(countries.count))
+                continue
+            }
             do {
                 // Bucket first (one request), core API second (paged). See `fetchViaCoreAPI`.
                 let parsed: [Feature]

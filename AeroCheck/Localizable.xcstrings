@@ -491,6 +491,16 @@
         }
       }
     },
+    "Flight details" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails du vol"
+          }
+        }
+      }
+    },
     "Arm and start" : {
       "localizations" : {
         "fr" : {

@@ -1391,6 +1391,16 @@
         }
       }
     },
+    "Export nav log" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter le log de nav"
+          }
+        }
+      }
+    },
     "Open NOTAM briefing" : {
       "localizations" : {
         "fr" : {

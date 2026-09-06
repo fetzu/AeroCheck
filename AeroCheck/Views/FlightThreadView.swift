@@ -124,6 +124,9 @@ struct ThreadTaskPresentation {
 struct FlightThreadView: View {
     let threadId: UUID
     var onClose: (() -> Void)?
+    /// Supplied by whoever presents this screen, because starting a flight runs `FlightLauncher`'s
+    /// whole guard sequence and that belongs to the presenter, not here. `Bool` is circuit mode.
+    var onStartFlight: ((Bool) -> Void)?
 
     @EnvironmentObject var threadManager: FlightThreadManager
     @EnvironmentObject var flightPlanManager: FlightPlanManager
@@ -137,6 +140,8 @@ struct FlightThreadView: View {
     @State private var numbersFlightId: UUID?
     /// Confirmation for the ICAO flight-plan copy, which is otherwise invisible. (v5.0.0)
     @State private var copiedFPL = false
+    /// The nav log rendered for sharing, held until its share sheet is up. (v5.0.0)
+    @State private var navLogExport: Data?
 
     private var thread: FlightThread? { threadManager.thread(withId: threadId) }
 
@@ -196,6 +201,18 @@ struct FlightThreadView: View {
         )) {
             if let id = numbersFlightId {
                 FlightNumbersView(flightId: id, onClose: { numbersFlightId = nil })
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { navLogExport != nil },
+            set: { if !$0 { navLogExport = nil } }
+        )) {
+            if let data = navLogExport, let thread {
+                ShareSheet(activityItems: [
+                    ShareFile(data: data,
+                              filename: "\(thread.routeLabel.replacingOccurrences(of: " ", with: ""))_NavLog.pdf",
+                              dataTypeIdentifier: "com.adobe.pdf")
+                ])
             }
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
@@ -348,7 +365,7 @@ struct FlightThreadView: View {
     private func chapterSection(_ thread: FlightThread, chapter: ThreadChapter) -> some View {
         let tasks = thread.tasks(in: chapter)
         if chapter == .fly {
-            flyChapterCard()
+            flyChapterCard(thread)
         } else if !tasks.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
@@ -391,7 +408,8 @@ struct FlightThreadView: View {
 
     /// The flight itself. Not a task list — the 16 phases are the app's core and stay exactly where
     /// they are; this card only marks their place in the thread.
-    private func flyChapterCard() -> some View {
+    private func flyChapterCard(_ thread: FlightThread) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
         HStack(spacing: 12) {
             Image(systemName: "airplane")
                 .scaledFont(size: 18, relativeTo: .title3)
@@ -407,6 +425,26 @@ struct FlightThreadView: View {
                     .foregroundColor(.dimText)
             }
             Spacer()
+        }
+
+        // The chapter said what happens next without offering to do it, which made FLY the one
+        // chapter you had to leave the flight to act on. The 16 phases still live where they always
+        // did — this only starts them.
+        if let onStartFlight, thread.flightId == nil {
+            Button {
+                onStartFlight(thread.profile == .local)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: thread.profile == .local
+                          ? "arrow.triangle.2.circlepath" : "play.fill")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                    Text(thread.profile == .local ? L10n.Button.circuits : L10n.Button.startFlight)
+                        .scaledFont(size: 14, weight: .bold, relativeTo: .subheadline)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryButtonStyle(color: thread.profile == .local ? .aviationAmber : .aviationGreen))
+        }
         }
         .padding(14)
         .background(Color.cardBackground)
@@ -503,10 +541,18 @@ struct FlightThreadView: View {
             return L10n.Nav.copyICAOFlightPlan
         case .massAndBalance:
             return thread.aircraftRegistration?.isEmpty == false ? L10n.WeightBalance.title : nil
-        case .feesPaid, .logbookEntry:
-            // Only once there is a flight to compute from — before that there are no hours to bill
-            // and no times to log.
+        case .navLogReady:
+            // The nav log is the one artefact this task is about, so the task should hand it over
+            // rather than send the pilot to the plan editor to find the same export.
+            guard let plan = plan(for: thread), plan.waypoints.count >= 2 else { return nil }
+            return L10n.Thread.exportNavLog
+        case .feesPaid:
+            // Only once there is a flight to compute from — before that there are no hours to bill.
             return thread.flightId != nil ? L10n.Cost.title : nil
+        case .logbookEntry:
+            // Same sheet as the fee task, but labelled for what this row is about: a pilot ticking
+            // "logbook entry" is looking for the line, not the cost.
+            return thread.flightId != nil ? L10n.Logbook.title : nil
         default:
             return nil
         }
@@ -527,6 +573,9 @@ struct FlightThreadView: View {
             copiedFPL = true
         case .massAndBalance:
             weightBalanceRegistration = thread.aircraftRegistration
+        case .navLogReady:
+            guard let plan = plan(for: thread) else { return }
+            navLogExport = FlightPlanExportService.exportToPDF(plan)
         case .feesPaid, .logbookEntry:
             numbersFlightId = thread.flightId
         default:

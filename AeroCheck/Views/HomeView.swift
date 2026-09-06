@@ -254,7 +254,12 @@ struct HomeView: View {
             set: { if !$0 { threadToOpen = nil } }
         )) {
             if let id = threadToOpen {
-                FlightThreadView(threadId: id, onClose: { threadToOpen = nil })
+                FlightThreadView(threadId: id,
+                                 onClose: { threadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     threadToOpen = nil
+                                     beginFlight(circuitMode: circuits)
+                                 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
             }

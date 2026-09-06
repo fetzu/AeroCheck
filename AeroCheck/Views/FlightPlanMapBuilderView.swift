@@ -153,13 +153,13 @@ struct FlightPlanMapBuilderView: View {
         // pilot nothing about whether to keep waiting. (device pass)
         prefetchStep = 0
         prefetchTotal = 4
-        await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries))
+        await openAIPDataService.downloadData(for: union(openAIPDataService.downloadedCountries), skippingCached: true)
         prefetchStep = 1
-        await navaidService.downloadData(for: union(navaidService.downloadedCountries))
+        await navaidService.downloadData(for: union(navaidService.downloadedCountries), skippingCached: true)
         prefetchStep = 2
-        await obstacleService.downloadData(for: union(obstacleService.downloadedCountries))
+        await obstacleService.downloadData(for: union(obstacleService.downloadedCountries), skippingCached: true)
         prefetchStep = 3
-        await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries))
+        await reportingPointService.downloadData(for: union(reportingPointService.downloadedCountries), skippingCached: true)
         prefetchStep = 4
         isPrefetchingTrip = false
         tripPrefetchFailed = !tripNeededCountries.isEmpty

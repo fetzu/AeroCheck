@@ -105,13 +105,24 @@ struct AppSettings: Codable, Equatable {
     var distanceInNauticalMiles: Bool = true // Flight Log distances: true = NM, false = km (toggle on the NM card)
 
     // Flight Planning
-    /// Flight planning is no longer optional: it is the spine of the app, and Home offers to plan a
-    /// flight on every launch. This stays as a property because ~9 sites in NavigationView still
-    /// branch on it, but it is deliberately ABSENT from `CodingKeys` — so it is always true, a stored
-    /// `false` from the beta cannot resurrect it, and nothing can turn the primary feature off.
-    /// Unwrapping those always-true branches is a follow-up; NavigationView is the in-flight screen
-    /// and does not deserve a drive-by refactor. (v5.0.0)
-    let enableFlightPlanning: Bool = true
+    /// Training mode: this pilot flies dual, with an instructor.
+    ///
+    /// A licensed pilot logs their own flights as PIC, and defaulting to that is right for them. A
+    /// student is the opposite case and just as common — every flight is dual, and AMC1 FCL.050
+    /// wants the INSTRUCTOR named in the PIC column, not the student writing the logbook. Without
+    /// this the app quietly filled the student's own name into a column that is a statement about
+    /// who commanded the aircraft. (v5.x)
+    var isStudentPilot: Bool = false
+    /// The usual instructor, so a dual flight does not need the name typed onto every plan.
+    var instructorName: String = ""
+
+    /// The logbook's view of who is writing it. Built here so the card, the PDF extract and the
+    /// page totals all read the same settings.
+    var logbookPilotContext: LogbookLineBuilder.PilotContext {
+        LogbookLineBuilder.PilotContext(name: pilotName.isEmpty ? nil : pilotName,
+                                        isStudent: isStudentPilot,
+                                        instructorName: instructorName.isEmpty ? nil : instructorName)
+    }
 
     /// Whether the fee task and the cost half of the numbers sheet appear. Not every pilot tracks
     /// what a flight cost, and the logbook line stands on its own without it. (v5.0.0)
@@ -250,6 +261,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
 
@@ -324,6 +336,8 @@ struct AppSettings: Codable, Equatable {
         // v5.0.0 numbers. Absent on every existing save; empty dictionaries mean "not set up yet",
         // which is exactly how the calculators treat them.
         pilotName = try container.decodeIfPresent(String.self, forKey: .pilotName) ?? ""
+        isStudentPilot = try container.decodeIfPresent(Bool.self, forKey: .isStudentPilot) ?? false
+        instructorName = try container.decodeIfPresent(String.self, forKey: .instructorName) ?? ""
         // A pilot who had picked the old `sunlight` mode wanted the bright palette, so the boost
         // starts on for them and their preference falls back to day.
         sunlightBoost = try container.decodeIfPresent(Bool.self, forKey: .sunlightBoost)
@@ -675,6 +689,10 @@ class AppState {
 
     // Circuit mode - skips CRUISE and DESCENT phases
     var isCircuitMode: Bool = false
+    /// Set when the pilot chose "Fly without a plan" over a flight they had planned. Transient, like
+    /// `isCircuitMode`: it exists so END FLIGHT does not adopt the followed flight they deliberately
+    /// stepped around. (v5.x)
+    var flightIsUnplanned: Bool = false
 
     // MARK: - Private Properties
 
@@ -950,7 +968,7 @@ class AppState {
         )
     }
 
-    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
+    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false, unplanned: Bool = false) {
         // ARCH-01: never begin a flight for a premium aircraft without its resolved checklist —
         // this is the single choke point, so deep-link/widget entry points are covered too. A
         // blocked start surfaces an explicit error instead of silently showing WT9 content.
@@ -975,6 +993,7 @@ class AppState {
         currentPhase = .preflight
         isFlightActive = true
         isCircuitMode = circuitMode
+        flightIsUnplanned = unplanned
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil

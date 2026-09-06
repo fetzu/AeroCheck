@@ -230,13 +230,33 @@ struct FlightThreadView: View {
                 FlightPlanMapBuilderView(planId: id)
             }
         }
-        .sheet(item: $planEditorPlan) { plan in
+        // `onDismiss` rather than relying on the plan-watching onChange alone: the editor flushes
+        // its debounced commit in its own `onDisappear`, and the pilot should not have to leave the
+        // flight and come back to see the fuel row settle. (device pass)
+        .sheet(item: $planEditorPlan, onDismiss: { refreshFromPlan() }) { plan in
             FlightPlanEditorView(flightPlan: plan)
         }
         .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $copiedFPL)
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
+        // The AUTO rows are a computation over the plan, and the plan is edited from sheets this
+        // screen presents. Without this they kept the values they were generated with — a fuel row
+        // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
+        // `regenerateTasks` preserves everything the pilot has ticked, so this is safe to run often.
+        .onAppear { refreshFromPlan() }
+        .onChange(of: planForRefresh) { _, _ in refreshFromPlan() }
+    }
+
+    /// The followed plan, watched so an edit anywhere re-derives the AUTO rows.
+    private var planForRefresh: FlightPlan? {
+        guard let thread = threadManager.thread(withId: threadId) else { return nil }
+        return plan(for: thread)
+    }
+
+    private func refreshFromPlan() {
+        guard let thread = threadManager.thread(withId: threadId) else { return }
+        threadManager.regenerateTasks(threadId: threadId, plan: plan(for: thread))
     }
 
     // MARK: - Header
@@ -268,18 +288,26 @@ struct FlightThreadView: View {
                 .accessibilityHint(thread.routeLabel)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(thread.routeLabel)
-                    .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
-                    .foregroundColor(.primaryText)
-                    .lineLimit(1)
-                Text(subtitle(thread))
-                    .scaledFont(size: 12, relativeTo: .caption)
-                    .foregroundColor(.dimText)
-                    .lineLimit(1)
+            // The title opens the flight's own details — the date, the pilot, the fuel. It names the
+            // flight, so it is where a pilot reaches when they want to change something about it,
+            // and the thumbnail beside it already opens the route. (device pass)
+            Button { planEditorPlan = plan(for: thread) } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(thread.routeLabel)
+                        .scaledFont(size: 19, weight: .semibold, design: .monospaced, relativeTo: .title3)
+                        .foregroundColor(.primaryText)
+                        .lineLimit(1)
+                    Text(subtitle(thread))
+                        .scaledFont(size: 12, relativeTo: .caption)
+                        .foregroundColor(.dimText)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-
-            Spacer(minLength: 8)
+            .buttonStyle(.plain)
+            .disabled(plan(for: thread) == nil)
+            .accessibilityHint(L10n.Nav.flightPlanDetails)
 
             stateChip(thread)
             readinessRing(thread)
@@ -453,7 +481,11 @@ struct FlightThreadView: View {
         // know is the same question as every other chapter: is it done? Gold until the flight has
         // been recorded, green once it has — and it is the flight that feeds CLOSE, so its state is
         // exactly what says whether the logbook line and the cost can be filled in yet.
-        let flown = thread.flightId != nil
+        //
+        // Read from the STATE, not from `flightId`. Since a flight links itself at start, a flightId
+        // means "a flight began", not "a flight happened" — so this went green the moment the engine
+        // did, and stayed green after an abandoned flight. (device pass)
+        let flown = thread.state == .closeOut || thread.state == .done
         let color: Color = chapter == .fly
             ? (flown ? .aviationGreen : .aviationGold)
             : (isComplete ? .aviationGreen : .aviationGold)

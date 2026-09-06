@@ -711,13 +711,11 @@ struct NavigationMapView: View {
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: compactSheetHeight)
             }
 
-            // Bottom nav sheet — only with flight planning on (it carries the plan + frequencies). The
-            // sheet sizes to its content; the map view stays clean when planning is off. (v4 UI/UX Revamp)
-            if appState.settings.enableFlightPlanning {
-                VStack {
-                    Spacer()
-                    compactNavSheet(geometry: geometry)
-                }
+            // Bottom nav sheet — carries the plan + frequencies. Sizes to its content.
+            // (v4 UI/UX Revamp)
+            VStack {
+                Spacer()
+                compactNavSheet(geometry: geometry)
             }
         }
         .ignoresSafeArea()
@@ -850,9 +848,7 @@ struct NavigationMapView: View {
                     .floatingChromeCircle()
             }
 
-            // Flight Plan button — only when flight planning (Beta) is on; the map view stays clean
-            // (no plan button or sheet) when it's off. (v4 UI/UX Revamp — iPhone)
-            if appState.settings.enableFlightPlanning {
+            // Flight Plan button. (v4 UI/UX Revamp — iPhone)
             if hasActiveFlightPlan && !flightPlanManager.isFlightPlanCompleted {
                 Button(action: {
                     // No animated expand/collapse under Reduce Motion (UX-18)
@@ -893,7 +889,6 @@ struct NavigationMapView: View {
                         .environmentObject(openAIPDataService)
                         .environmentObject(locationManager)
                 }
-            }
             }
 
             Spacer()
@@ -1612,15 +1607,13 @@ struct NavigationMapView: View {
 
             // Full-width bottom bar = the expandable flight-plan sheet, pinned to the bottom edge.
             VStack(spacing: 0) {
-                if appState.settings.enableFlightPlanning {
-                    navSheetHandle
-                    if navSheetExpanded {
-                        navSheetContent
-                    } else {
-                        navGlanceRow
-                    }
-                    Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
+                navSheetHandle
+                if navSheetExpanded {
+                    navSheetContent
+                } else {
+                    navGlanceRow
                 }
+                Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.5)
                 // Degrade the row when horizontal space runs out: MARK/START labels → icons (compact),
                 // then drop the +/− zoom buttons (minimal). ViewThatFits picks the first that fits. (v4 UI/UX Revamp)
                 ViewThatFits(in: .horizontal) {
@@ -1858,11 +1851,6 @@ struct NavigationMapView: View {
     /// area FIS, nearby CTRs) is `.other`, revealed by "All Frequencies". Deduped; cached (recomputed
     /// on phase change + significant move). (v4 UI/UX Revamp — current/next)
     private func recomputePhaseFrequencies() {
-        guard appState.settings.enableFlightPlanning else {
-            phaseFreqItems = []
-            WatchConnectivityManager.shared.updatePanelFrequencies([])
-            return
-        }
         var items: [PhaseFrequency] = []
         var seen = Set<String>()
         func add(_ station: String, _ freq: String, role: FreqRole = .other, emergency: Bool = false) {
@@ -2446,22 +2434,20 @@ struct NavigationMapView: View {
 
     private func bottomControlRow(_ density: BarDensity) -> some View {
         HStack(spacing: 12) {
-            if appState.settings.enableFlightPlanning {
-                Button(action: { showFlightPlanning = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                            .font(.system(size: 17, weight: .medium))
-                        if flightPlanManager.activeFlightPlan != nil {
-                            Circle().fill(theme.onTarget).frame(width: 7, height: 7)
-                        }
+            Button(action: { showFlightPlanning = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.system(size: 17, weight: .medium))
+                    if flightPlanManager.activeFlightPlan != nil {
+                        Circle().fill(theme.onTarget).frame(width: 7, height: 7)
                     }
-                    .foregroundColor(flightPlanManager.activeFlightPlan != nil ? theme.onTarget : theme.textPrimary)
-                    .frame(width: 50, height: 40)
-                    .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the flight-planning toggle (UX-16)
-                    .contentShape(Rectangle())
                 }
-                .accessibilityLabel(L10n.Nav.flightPlan)
+                .foregroundColor(flightPlanManager.activeFlightPlan != nil ? theme.onTarget : theme.textPrimary)
+                .frame(width: 50, height: 40)
+                .frame(minWidth: 44, minHeight: 44) // 44pt touch target around the flight-planning toggle (UX-16)
+                .contentShape(Rectangle())
             }
+            .accessibilityLabel(L10n.Nav.flightPlan)
 
             // Destination summary — endpoint + total remaining + ETA, so the drawer is only needed for
             // the mid-route outlook. (v4 UI/UX Revamp — device feedback)
@@ -2550,8 +2536,7 @@ struct NavigationMapView: View {
     /// it costs a handful of segment tests against a map that is redrawing chart tiles anyway. Caching
     /// it would mean observing `mapState.region`, which changes on every pan.
     private var routeOffScreenHint: RouteVisibility.OffScreenHint? {
-        guard appState.settings.enableFlightPlanning,
-              let plan = flightPlanManager.activeFlightPlan,
+        guard let plan = flightPlanManager.activeFlightPlan,
               !flightPlanManager.isFlightPlanCompleted else { return nil }
         return RouteVisibility.offScreenHint(route: plan.waypoints.map(\.coordinate),
                                              region: mapState.region)

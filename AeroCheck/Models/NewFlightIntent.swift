@@ -73,8 +73,30 @@ extension FlightPlan {
     /// more than it looks: the country detection behind customs, DABS and GAFOR runs on coordinates,
     /// so a fabricated position would put a flight in the wrong country — which is the defect this
     /// release already had to fix once.
+    /// What the route builder needs to know about an aerodrome: where it is, and how high.
+    struct ResolvedPlace {
+        let coordinate: CLLocationCoordinate2D
+        /// Field elevation in feet AMSL, when the airport data knows it.
+        let elevationFeet: Double?
+
+        init(coordinate: CLLocationCoordinate2D, elevationFeet: Double? = nil) {
+            self.coordinate = coordinate
+            self.elevationFeet = elevationFeet
+        }
+    }
+
+    /// Cruise height above an aerodrome overflown en route.
+    ///
+    /// A placeholder with a reason rather than a forecast: none of the data the app currently carries
+    /// says how high a pilot intends to cross a field, and leaving the altitude empty means the route
+    /// profile has nothing to draw and the ICAO level field stays blank. 4000 ft AGL clears a
+    /// standard circuit by a wide margin and is an ordinary VFR transit height — and it is the
+    /// pilot's to change on the waypoint, which is why it goes in as a value rather than a guess
+    /// dressed up as a computation. (v5.x)
+    static let overflightHeightAboveField: Double = 4000
+
     static func from(intent: NewFlightIntent,
-                     resolve: (String) -> CLLocationCoordinate2D?) -> FlightPlan {
+                     resolve: (String) -> ResolvedPlace?) -> FlightPlan {
         var plan = FlightPlan(
             name: intent.routeLabel,
             aircraftTypeId: intent.aircraftTypeId,
@@ -92,10 +114,24 @@ extension FlightPlan {
             idents.append(intent.arrivalIdent)
         }
 
-        plan.waypoints = idents.compactMap { ident -> FlightPlanWaypoint? in
+        let resolved = idents.compactMap { ident -> (String, ResolvedPlace)? in
             let trimmed = ident.trimmingCharacters(in: .whitespaces).uppercased()
-            guard !trimmed.isEmpty, let coordinate = resolve(trimmed) else { return nil }
-            return FlightPlanWaypoint(name: trimmed, coordinate: coordinate)
+            guard !trimmed.isEmpty, let place = resolve(trimmed) else { return nil }
+            return (trimmed, place)
+        }
+
+        // Altitudes come from the field itself. The ends sit ON the ground — that is what departure
+        // and arrival mean — and anything in between is overflown, so it gets the field elevation
+        // plus a transit height. Without this every waypoint was nil, which left the route profile
+        // with nothing to plot and the ICAO level field empty. Nil elevation stays nil: an invented
+        // altitude in a flight plan is worse than a blank one the pilot fills in. (device pass)
+        plan.waypoints = resolved.enumerated().map { index, entry in
+            let (name, place) = entry
+            let isEndpoint = index == 0 || index == resolved.count - 1
+            let altitude = place.elevationFeet.map { elevation in
+                isEndpoint ? elevation : elevation + Self.overflightHeightAboveField
+            }
+            return FlightPlanWaypoint(name: name, coordinate: place.coordinate, altitude: altitude)
         }
         plan.calculateRouteData()
         return plan

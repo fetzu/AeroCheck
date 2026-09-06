@@ -106,6 +106,61 @@ final class FlightNumbersTests: XCTestCase {
                        ["", ""], "night and IFR are the pilot's to enter")
     }
 
+    // MARK: - Student pilots (v5.x)
+
+    /// A licensed pilot logs PIC. A student logs DUAL with the INSTRUCTOR in the PIC column — that
+    /// column states who commanded the aircraft, so filling the student's own name into it is a
+    /// false entry, not a convenience.
+    func testAStudentLogsDualWithTheInstructorAsPIC() {
+        let student = LogbookLineBuilder.PilotContext(
+            name: "A. Élève", isStudent: true, instructorName: "M. Dupont")
+        let line = LogbookLineBuilder.build(flight: flight(), pilot: student)
+
+        XCTAssertEqual(line.function, .dual)
+        XCTAssertEqual(line.picName, "M. Dupont")
+    }
+
+    /// The instructor on this flight's own plan is the specific fact and beats the usual one.
+    func testTheFlightsOwnInstructorBeatsTheUsualOne() {
+        let student = LogbookLineBuilder.PilotContext(
+            name: "A. Élève", isStudent: true, instructorName: "M. Dupont")
+        let line = LogbookLineBuilder.build(flight: flight(instructor: "Mme Rochat"), pilot: student)
+
+        XCTAssertEqual(line.picName, "Mme Rochat")
+    }
+
+    /// Turning the setting off must restore the licensed pilot's own line exactly.
+    func testALicensedPilotIsUnaffected() {
+        let licensed = LogbookLineBuilder.PilotContext(name: "J. Bono", isStudent: false)
+        let line = LogbookLineBuilder.build(flight: flight(), pilot: licensed)
+
+        XCTAssertEqual(line.function, .pic)
+        XCTAssertEqual(line.picName, "J. Bono")
+    }
+
+    /// The page totals share the function rule, so a student's totals must land in DUAL too — a
+    /// logbook whose lines say dual and whose total says PIC is the arithmetic an audit finds.
+    func testTotalsFollowTheSameRuleAsTheLines() {
+        let student = LogbookLineBuilder.PilotContext(
+            name: "A. Élève", isStudent: true, instructorName: "M. Dupont")
+        let totals = LogbookTotals.forFlight(flight(), pilot: student)
+
+        XCTAssertEqual(totals.dualMinutes, 89)
+        XCTAssertEqual(totals.picMinutes, 0)
+        XCTAssertTrue(totals.functionMinutesBalance)
+    }
+
+    /// An explicit override still wins over the setting — the pilot's own correction is final.
+    func testAnOverrideStillWinsOverStudentMode() {
+        let student = LogbookLineBuilder.PilotContext(
+            name: "A. Élève", isStudent: true, instructorName: "M. Dupont")
+        var overrides = LogbookOverrides()
+        overrides.function = .pic
+        let line = LogbookLineBuilder.build(flight: flight(), overrides: overrides, pilot: student)
+
+        XCTAssertEqual(line.function, .pic)
+    }
+
     func testTimesAreUTCNotLocal() {
         // AMC1 FCL.050 is explicit that logbook times are UTC. A local time silently written into
         // that column is the error nobody catches until an audit.

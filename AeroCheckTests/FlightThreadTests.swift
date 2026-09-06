@@ -325,6 +325,149 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
     }
 
+    // MARK: - Regeneration from the plan (v5.x)
+
+    /// The defect this guards: `regenerateTasks` had NO callers, so the AUTO rows kept the values
+    /// they were generated with. A flight created before the tanks were entered showed REQ 0 / FOB 0
+    /// for ever and never ticked its own fuel row.
+    @MainActor
+    func testFuelRowFollowsThePlanAfterTheTanksAreEntered() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        // A flight created before any fuel figures exist — which is the normal case, since the
+        // creation sheet asks for a route and a time, not for tanks.
+        var plan = swissPlan()
+        plan.tripFuel = nil
+        plan.fuelOnBoard = nil
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        let before = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(before?.state, .pending, "no figures yet, so nothing to claim")
+        XCTAssertNil(before?.detail, "and nothing to state either")
+
+        // fuelRequired is computed: trip + reserve + additional + extra.
+        plan.tripFuel = 40
+        plan.reserveFuel = 10
+        plan.additionalFuel = 10
+        plan.extraFuel = 0
+        plan.fuelOnBoard = 80
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        let after = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(after?.state, .done, "enough on board — the AUTO row settles itself")
+        XCTAssertEqual(after?.detail, "REQ 60 L · FOB 80 L")
+    }
+
+    @MainActor
+    func testNotEnoughFuelLeavesTheRowPendingRatherThanTicked() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        var plan = swissPlan()
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        plan.tripFuel = 60
+        plan.reserveFuel = 15
+        plan.additionalFuel = 15
+        plan.extraFuel = 0
+        plan.fuelOnBoard = 40
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        let row = manager.thread(withId: thread.id)?.tasks.first { $0.key == .fuelPlanned }
+        XCTAssertEqual(row?.state, .pending)
+        XCTAssertEqual(row?.detail, "REQ 90 L · FOB 40 L")
+    }
+
+    /// `weatherSummary` and `pprIdents` used to default to nil/empty, so a caller that did not know
+    /// to pass them erased the pilot's own briefing text. Regeneration must never lose work.
+    @MainActor
+    func testRegenerationKeepsTicksAndTheBriefingItWasGiven() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let weather = manager.thread(withId: thread.id)?.tasks.first(where: { $0.key == .weatherBriefed })
+        else { return XCTFail("expected a weather task") }
+        manager.setTaskState(.done, taskId: weather.id, threadId: thread.id)
+        manager.regenerateTasks(threadId: thread.id, plan: plan, weatherSummary: "SW 8 kt, CAVOK")
+        manager.regenerateTasks(threadId: thread.id, plan: plan)   // the caller that knows nothing
+
+        let after = manager.thread(withId: thread.id)?.tasks.first { $0.key == .weatherBriefed }
+        XCTAssertEqual(after?.state, .done, "a tick survives regeneration")
+        XCTAssertEqual(after?.detail, "SW 8 kt, CAVOK", "and so does the briefing it was given")
+    }
+
+    /// The stale cached date is what made a flight moved to tomorrow keep being offered as today's.
+    @MainActor
+    func testTheCachedDepartureFollowsThePlan() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        var plan = swissPlan()
+        plan.plannedDepartureTime = Date(timeIntervalSince1970: 1_790_000_000)
+        let thread = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        let moved = Date(timeIntervalSince1970: 1_790_500_000)
+        plan.plannedDepartureTime = moved
+        manager.regenerateTasks(threadId: thread.id, plan: plan)
+
+        XCTAssertEqual(manager.thread(withId: thread.id)?.scheduledDeparture, moved)
+    }
+
+    // MARK: - Attaching at flight start (v5.x)
+
+    @MainActor
+    func testAttachingResolvesFromTheArmedPlanOrAnExplicitChoice() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        // The armed plan names it — this is the Home / widget / deep-link path.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: nil, planId: plan.id), followed.id)
+        // Pressing START FLIGHT inside it names it directly.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: followed.id, planId: nil), followed.id)
+    }
+
+    /// The critical asymmetry with `threadToCloseOut`: attaching states a fact, and once stated the
+    /// close-out lookup trusts it absolutely. A guess made here would be cemented, not re-examined.
+    @MainActor
+    func testAttachingNeverGuessesFromTheCurrentFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        XCTAssertEqual(manager.currentThreadId, followed.id, "it is current…")
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: nil, planId: nil),
+                     "…but a flight with no plan and no explicit choice must not claim it")
+    }
+
+    @MainActor
+    func testAttachingMovesItIntoFlyAndMakesCloseOutExact() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        let flightId = UUID()
+
+        manager.attachFlight(flightId, toThreadId: followed.id)
+
+        XCTAssertEqual(manager.thread(withId: followed.id)?.state, .flying)
+        XCTAssertEqual(manager.thread(withId: followed.id)?.flightId, flightId)
+        // Close-out now resolves on the exact flight, without needing the plan or the fallback.
+        XCTAssertEqual(manager.threadToCloseOut(flightId: flightId, planId: nil), followed.id)
+    }
+
+    /// A finished flight is not a candidate to fly again.
+    @MainActor
+    func testAttachingIgnoresAFinishedFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        manager.finishThread(threadId: followed.id)
+
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: followed.id, planId: nil))
+    }
+
     // MARK: - Circuits and close-out resolution (v5.x)
 
     /// The regression this guards: circuits are flown with no plan, so END FLIGHT falls through to

@@ -199,11 +199,16 @@ struct LogbookTotals: Equatable, Sendable {
         picMinutes + coPilotMinutes + dualMinutes + instructorMinutes == totalMinutes
     }
 
-    static func forFlights(_ flights: [Flight]) -> LogbookTotals {
-        flights.reduce(.zero) { $0 + forFlight($1) }
+    /// `pilot` must be the SAME context the lines were built with. The page total and the lines
+    /// above it disagreeing about which column a flight belongs in is exactly the arithmetic error
+    /// an audit finds — and a student whose lines say Dual while the total says PIC is that error.
+    static func forFlights(_ flights: [Flight],
+                           pilot: LogbookLineBuilder.PilotContext = .unknown) -> LogbookTotals {
+        flights.reduce(.zero) { $0 + forFlight($1, pilot: pilot) }
     }
 
-    static func forFlight(_ flight: Flight) -> LogbookTotals {
+    static func forFlight(_ flight: Flight,
+                          pilot: LogbookLineBuilder.PilotContext = .unknown) -> LogbookTotals {
         // No block times means no duration to log. The date columns fall back to engine or GPS
         // times, but a total is arithmetic and must not be invented from a weaker source.
         let minutes = flight.blockTime.map { Int(($0 / 60).rounded()) } ?? 0
@@ -215,7 +220,7 @@ struct LogbookTotals: Equatable, Sendable {
             landingsDay: flight.totalLandings,
             landingsNight: 0
         )
-        switch LogbookLineBuilder.function(for: flight, overrides: flight.logbook) {
+        switch LogbookLineBuilder.function(for: flight, overrides: flight.logbook, pilot: pilot) {
         case .pic:        totals.picMinutes = minutes
         case .coPilot:    totals.coPilotMinutes = minutes
         case .dual:       totals.dualMinutes = minutes
@@ -233,18 +238,35 @@ enum LogbookLineBuilder {
 
     /// `defaultPilotName` is the pilot's own name from settings; EASA wants the PIC named, and
     /// "SELF" is the accepted convention when that is the person writing the logbook.
+    /// Who is writing this logbook, so the line can be filled from the pilot's own situation.
+    ///
+    /// A licensed pilot logs PIC; a student logs dual with the instructor named in the PIC column.
+    /// The app cannot tell them apart from a flight, which is why this is a setting.
+    struct PilotContext: Equatable, Sendable {
+        var name: String?
+        var isStudent: Bool = false
+        /// The usual instructor, when the flight's own plan does not name one.
+        var instructorName: String?
+
+        static let unknown = PilotContext()
+    }
+
     static func build(
         flight: Flight,
         overrides: LogbookOverrides? = nil,
-        defaultPilotName: String? = nil
+        defaultPilotName: String? = nil,
+        pilot: PilotContext = .unknown
     ) -> LogbookLine {
+        let pilot = PilotContext(name: pilot.name ?? defaultPilotName,
+                                 isStudent: pilot.isStudent,
+                                 instructorName: pilot.instructorName)
         let blockOff = flight.blockOffTime ?? flight.engineStartTime ?? flight.startTime
         let blockOn = flight.blockOnTime ?? flight.engineShutdownTime ?? flight.stopTime
 
         let total = flight.blockTime
         let totalText = formatHoursMinutes(total)
 
-        let inferredFunction = function(for: flight, overrides: overrides)
+        let inferredFunction = function(for: flight, overrides: overrides, pilot: pilot)
 
         // Landings: the detector separates full stops from touch-and-gos, and a logbook counts
         // landings, so both belong in the day column unless the pilot says otherwise.
@@ -263,7 +285,7 @@ enum LogbookLineBuilder {
             singlePilotTime: totalText,
             totalTime: totalText,
             picName: resolvedPICName(overrides: overrides,
-                                     defaultPilotName: defaultPilotName,
+                                     pilot: pilot,
                                      function: inferredFunction,
                                      flight: flight),
             landingsDay: landings,
@@ -283,26 +305,35 @@ enum LogbookLineBuilder {
     /// Shared with the totals builder rather than duplicated: the page total and the lines above it
     /// disagreeing about which column a flight belongs in is exactly the kind of arithmetic error an
     /// audit finds.
-    static func function(for flight: Flight, overrides: LogbookOverrides?) -> LogbookFunction {
+    static func function(for flight: Flight,
+                         overrides: LogbookOverrides?,
+                         pilot: PilotContext = .unknown) -> LogbookFunction {
         if let explicit = overrides?.function { return explicit }
         let instructor = flight.flightPlan?.instructor?.trimmingCharacters(in: .whitespaces)
-        return (instructor?.isEmpty == false) ? .dual : .pic
+        if instructor?.isEmpty == false { return .dual }
+        // A student flies dual whether or not the plan happened to name the instructor. Defaulting
+        // them to PIC would log every training flight as command time they did not have.
+        return pilot.isStudent ? .dual : .pic
     }
 
     /// On a dual flight the PIC is the instructor, not the pilot writing the logbook — logging
     /// "SELF" there would be a false entry, so the instructor's name is used when it is known.
     private static func resolvedPICName(
         overrides: LogbookOverrides?,
-        defaultPilotName: String?,
+        pilot: PilotContext,
         function: LogbookFunction,
         flight: Flight
     ) -> String {
         if let explicit = overrides?.picName, !explicit.isEmpty { return explicit }
         if function == .dual {
-            let instructor = flight.flightPlan?.instructor?.trimmingCharacters(in: .whitespaces)
-            if let instructor, !instructor.isEmpty { return instructor }
+            // The flight's own instructor first — it is the specific fact. The settings name is the
+            // fallback for a student who did not type it onto this particular plan.
+            let onPlan = flight.flightPlan?.instructor?.trimmingCharacters(in: .whitespaces)
+            if let onPlan, !onPlan.isEmpty { return onPlan }
+            let usual = pilot.instructorName?.trimmingCharacters(in: .whitespaces)
+            if let usual, !usual.isEmpty { return usual }
         }
-        if let name = defaultPilotName?.trimmingCharacters(in: .whitespaces), !name.isEmpty { return name }
+        if let name = pilot.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty { return name }
         return "SELF"
     }
 

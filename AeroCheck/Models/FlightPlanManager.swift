@@ -43,6 +43,9 @@ class FlightPlanManager: ObservableObject {
 
     // MARK: - Initialization
 
+    /// True once the on-disk plans have arrived — see `FlightThreadManager.hasLoadedThreads`.
+    @Published private(set) var hasLoadedPlans = false
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         // Active plan + chronometer come from UserDefaults (local, fast) and are needed for
@@ -54,6 +57,36 @@ class FlightPlanManager: ObservableObject {
         Task { [weak self] in
             await self?.loadFlightPlansAsync()
         }
+    }
+
+    /// Clear the departure time from every plan no flight follows.
+    ///
+    /// A route is a path, not an appointment: it is flyable any day, and the date belongs to the
+    /// FLIGHT that uses it. Saves written before that distinction existed still carry a time, and a
+    /// route claiming a date is what made three of them all look like "today's flight plan".
+    ///
+    /// `followedPlanIds` is passed in rather than reached for — this type knows nothing about
+    /// flights, and the caller is the one place that can see both. It must only be called once the
+    /// threads have actually loaded, or every plan looks unfollowed and real flights lose their
+    /// dates; `FlightThreadManager.hasLoadedThreads` is that gate. (v5.x)
+    func clearDatesFromUnflownRoutes(followedPlanIds: Set<UUID>) {
+        var changed = false
+        for index in flightPlans.indices
+        where flightPlans[index].plannedDepartureTime != nil
+            && !followedPlanIds.contains(flightPlans[index].id) {
+            flightPlans[index].plannedDepartureTime = nil
+            flightPlans[index].updatedAt = Date()
+            changed = true
+        }
+        guard changed else { return }
+        // The active route is a copy held separately; leave it holding a date the list no longer has
+        // and the next edit would write it back.
+        if let active = activeFlightPlan, !followedPlanIds.contains(active.id) {
+            activeFlightPlan?.plannedDepartureTime = nil
+            saveActiveFlightPlan()
+        }
+        saveFlightPlans()
+        AppLog.general.debugLine("Cleared departure times from routes with no flight")
     }
 
     // MARK: - Flight Plan CRUD
@@ -803,6 +836,7 @@ class FlightPlanManager: ObservableObject {
     }
 
     private func loadFlightPlansAsync() async {
+        defer { hasLoadedPlans = true }
         let loaded = await persistence.loadNavigationPlansOffMain()
         // The async load can finish long after launch (an iCloud download on a slow network).
         // Plans created/edited in the meantime win by id; loaded plans only fill the gaps.

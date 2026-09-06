@@ -261,6 +261,306 @@
         }
       }
     },
+    "Arm today's flight plan?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer le plan de vol du jour ?"
+          }
+        }
+      }
+    },
+    "%@ is planned for today but not armed. Without it there is no route, no leg timing and no waypoint sequencing in flight." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est prévu aujourd'hui mais n'est pas activé. Sans lui, ni route, ni minutage des tronçons, ni séquencement des points tournants en vol."
+          }
+        }
+      }
+    },
+    "Not everything is ticked" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout n'est pas coché"
+          }
+        }
+      }
+    },
+    "%1$@ still has %2$lld item(s) open in Plan and Prepare." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il reste %2$lld élément(s) ouvert(s) dans Planifier et Préparer pour %1$@."
+          }
+        }
+      }
+    },
+    "Review the flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir le vol"
+          }
+        }
+      }
+    },
+    "Start anyway" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer quand même"
+          }
+        }
+      }
+    },
+    "Saved routes and arming" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes enregistrées et activation"
+          }
+        }
+      }
+    },
+    "Start from a saved route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partir d'une route enregistrée"
+          }
+        }
+      }
+    },
+    "Choose a route" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir une route"
+          }
+        }
+      }
+    },
+    "Copied with its %lld waypoint(s), altitudes and fuel" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiée avec ses %lld point(s) tournant(s), altitudes et carburant"
+          }
+        }
+      }
+    },
+    "Start this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer ce vol"
+          }
+        }
+      }
+    },
+    "Resume this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre ce vol"
+          }
+        }
+      }
+    },
+    "Review" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir"
+          }
+        }
+      }
+    },
+    "Fly without a plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler sans plan"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aujourd'hui"
+          }
+        }
+      }
+    },
+    "Everything ticked — ready to fly" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est coché — prêt à voler"
+          }
+        }
+      }
+    },
+    "Next: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %@"
+          }
+        }
+      }
+    },
+    "Next: %1$@ · %2$lld open in Plan and Prepare" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer"
+          }
+        }
+      }
+    },
+    "Show on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher sur la carte"
+          }
+        }
+      }
+    },
+    "Clear from map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer de la carte"
+          }
+        }
+      }
+    },
+    "Show this route on the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher cette route sur la carte"
+          }
+        }
+      }
+    },
+    "Clear this route from the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer cette route de la carte"
+          }
+        }
+      }
+    },
+    "Logbook & costs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carnet et coûts"
+          }
+        }
+      }
+    },
+    "Student pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Élève pilote"
+          }
+        }
+      }
+    },
+    "Log flights as dual, with your instructor as PIC" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer les vols en double commande, avec votre instructeur comme PIC"
+          }
+        }
+      }
+    },
+    "Instructor's name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom de l'instructeur"
+          }
+        }
+      }
+    },
+    "Saved routes" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes enregistrées"
+          }
+        }
+      }
+    },
+    "Flight details" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails du vol"
+          }
+        }
+      }
+    },
+    "Arm and start" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer et démarrer"
+          }
+        }
+      }
+    },
+    "Start without it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer sans"
+          }
+        }
+      }
+    },
     "Logbook row" : {
       "localizations" : {
         "fr" : {
@@ -10084,13 +10384,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "FLIGHT PLAN"
+            "value": "ROUTE"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PLAN DE VOL"
+            "value": "ROUTE"
           }
         }
       }
@@ -10803,13 +11103,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All Flight Plans"
+            "value": "All Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tous les plans de vol"
+            "value": "Toutes les routes"
           }
         }
       }
@@ -11679,13 +11979,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plan"
+            "value": "Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plan de vol"
+            "value": "Route"
           }
         }
       }
@@ -11696,13 +11996,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Flight Plans"
+            "value": "Routes"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plans de vol"
+            "value": "Routes"
           }
         }
       }
@@ -12486,13 +12786,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Flight Plan"
+            "value": "New Route"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nouveau plan de vol"
+            "value": "Nouvelle route"
           }
         }
       }
@@ -18935,23 +19235,6 @@
       "comment": "A label for the heading when the value is unknown.",
       "isCommentAutoGenerated": true
     },
-    "warning.betaFeature": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beta Feature"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fonctionnalité bêta"
-          }
-        }
-      }
-    },
     "warning.cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -18982,74 +19265,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fonctionnalité expérimentale"
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.autoAdvance": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "During flight, the app can automatically advance waypoints based on your GPS position."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pendant le vol, l'application peut faire avancer automatiquement les waypoints en fonction de votre position GPS."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.betaDesc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Flight Planning is a beta feature. It is provided for planning purposes only and should not replace proper flight preparation."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La planification de vol est une fonctionnalité bêta. Elle est fournie à des fins de planification uniquement et ne doit pas remplacer une préparation de vol appropriée."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.planRoutes": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plan routes with waypoints, calculate times and distances, and visualize terrain along your route."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Planifiez des routes avec waypoints, calculez les temps et distances, et visualisez le terrain le long de votre route."
-          }
-        }
-      }
-    },
-    "warning.flightPlanning.terrainViz": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terrain visualization is only available within Switzerland using swisstopo data."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La visualisation du terrain n'est disponible qu'en Suisse en utilisant les données swisstopo."
           }
         }
       }

@@ -58,6 +58,8 @@ struct FlightLogView: View {
     @State private var segment: FlightsSegment = .past
     /// The flight being planned — from the Upcoming empty state or "Plan this again". (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
+    /// The saved-routes list, reachable from Upcoming. (v5.x)
+    @State private var showFlightPlanning = false
     @State private var threadToOpen: UUID?
 
     enum FlightsSegment: String, CaseIterable {
@@ -134,7 +136,8 @@ struct FlightLogView: View {
                         UpcomingFlightsList(threads: threadManager.unfinishedThreads,
                                             trips: threadManager.trips,
                                             onOpen: { threadToOpen = $0 },
-                                            onPlanNew: { planningNewFlight = seedIntent() })
+                                            onPlanNew: { planningNewFlight = seedIntent() },
+                                            onOpenRoutes: { showFlightPlanning = true })
                     } else {
                         pastContent
                     }
@@ -156,6 +159,9 @@ struct FlightLogView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showFlightPlanning) {
+            FlightPlanningView()
+        }
         .sheet(isPresented: $showExportAllSheet) {
             if let zipData = exportAllZipData {
                 let filename = "AeroCheck_\(formattedExportDate)_ExportBundle.zip"
@@ -185,10 +191,19 @@ struct FlightLogView: View {
                 PlanNewFlightView(
                     intent: seed,
                     aircraft: [],
-                    onCreate: { stops, intent in
+                    savedRoutes: flightPlanManager.flightPlans,
+                    onCreate: { stops, intent, route in
                         planningNewFlight = nil
                         Task { @MainActor in
                             segment = .upcoming
+                            if let route {
+                                let thread = await FlightCreator.create(fromRoute: route,
+                                                                        intent: intent,
+                                                                        plans: flightPlanManager,
+                                                                        threads: threadManager)
+                                threadToOpen = thread.id
+                                return
+                            }
                             if stops.count > 2,
                                let trip = await FlightCreator.createTrip(idents: stops,
                                                                          template: intent,
@@ -273,11 +288,12 @@ struct FlightLogView: View {
     /// none of it belongs in a `.sheet` content builder. (v5.0.0)
     private func prepareLogbookPDF(_ flights: [Flight]) {
         let pilotName = appState.settings.pilotName
+        let pilotContext = appState.settings.logbookPilotContext
         isPreparingExportAll = true
         Task { @MainActor in
             let data = await Task.detached(priority: .userInitiated) {
                 LogbookPDFExportService.export(flights: flights,
-                                               options: .init(pilotName: pilotName))
+                                               options: .init(pilotName: pilotName, pilot: pilotContext))
             }.value
             logbookPDFData = data
             isPreparingExportAll = false
@@ -2091,7 +2107,7 @@ struct FlightDetailView: View {
             }
             // v5.0.0: cost + logbook line. Here as well as on the thread, because a flight flown
             // without a thread still has a cost and still produces a logbook line.
-            detailActionButton(title: L10n.Cost.title, icon: "banknote", tint: .secondaryText) { showNumbers = true }
+            detailActionButton(title: L10n.Cost.afterTheFlight, icon: "book.closed", tint: .secondaryText) { showNumbers = true }
             detailActionButton(title: L10n.FlightDetail.export, icon: "square.and.arrow.up", tint: .secondaryText) { showExportOptions = true }
             Button { showShareCustomization = true } label: {
                 HStack(spacing: 5) {

@@ -11,8 +11,13 @@ final class NewFlightIntentTests: XCTestCase {
     private let lszq = CLLocationCoordinate2D(latitude: 47.4247, longitude: 7.1869)
     private let lsgy = CLLocationCoordinate2D(latitude: 46.7619, longitude: 6.6141)
 
-    private func resolver(_ known: [String: CLLocationCoordinate2D]) -> (String) -> CLLocationCoordinate2D? {
-        { known[$0.uppercased()] }
+    private func resolver(_ known: [String: CLLocationCoordinate2D],
+                          elevations: [String: Double] = [:]) -> (String) -> FlightPlan.ResolvedPlace? {
+        { ident in
+            let key = ident.uppercased()
+            guard let coordinate = known[key] else { return nil }
+            return FlightPlan.ResolvedPlace(coordinate: coordinate, elevationFeet: elevations[key])
+        }
     }
 
     private func intent(from: String = "LSZQ",
@@ -64,6 +69,31 @@ final class NewFlightIntentTests: XCTestCase {
         let plan = FlightPlan.from(intent: intent(to: "lszq"),
                                    resolve: resolver(["LSZQ": lszq]))
         XCTAssertEqual(plan.waypoints.map(\.name), ["LSZQ"])
+    }
+
+    // MARK: - Waypoint altitudes (v5.x)
+
+    /// The ends of a route are on the ground; anything between them is overflown. Leaving every
+    /// altitude nil gave the route profile nothing to plot and the ICAO level field nothing to say.
+    func testEndpointsTakeFieldElevationAndOverflightsClearIt() {
+        var intent = self.intent(to: "LSGY")
+        intent.departureIdent = "LSZQ"
+        let plan = FlightPlan.from(
+            intent: intent,
+            resolve: resolver(["LSZQ": lszq, "LSGY": lsgy],
+                              elevations: ["LSZQ": 1660, "LSGY": 1349]))
+
+        XCTAssertEqual(plan.waypoints.first?.altitude, 1660, "departure sits at field elevation")
+        XCTAssertEqual(plan.waypoints.last?.altitude, 1349, "arrival sits at field elevation")
+    }
+
+    /// An unknown elevation stays unknown: a fabricated altitude in a flight plan is worse than an
+    /// empty one the pilot fills in.
+    func testAnUnknownElevationLeavesTheAltitudeEmpty() {
+        let plan = FlightPlan.from(intent: intent(),
+                                   resolve: resolver(["LSZQ": lszq, "LSGY": lsgy]))
+        XCTAssertNil(plan.waypoints.first?.altitude)
+        XCTAssertNil(plan.waypoints.last?.altitude)
     }
 
     // MARK: - Labels and creatability

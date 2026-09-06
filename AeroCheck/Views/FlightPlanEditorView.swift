@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MapKit
 import UniformTypeIdentifiers
 
@@ -50,6 +51,7 @@ struct FlightPlanEditorView: View {
     @EnvironmentObject var flightPlanManager: FlightPlanManager
     @EnvironmentObject var airportDataService: AirportDataService
     @EnvironmentObject var openAIPDataService: OpenAIPDataService
+    @EnvironmentObject var threadManager: FlightThreadManager
     @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -105,6 +107,16 @@ struct FlightPlanEditorView: View {
                     Button(L10n.Button.done) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) { exportMenu }
+                // A decimal pad has no return key, so a pilot who typed a fuel figure had nothing to
+                // press and no way to see the field settle. (device pass)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(L10n.Button.done) {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .foregroundColor(.aviationGold)
+                }
             }
             .sheet(item: $exportItem) { item in
                 ShareSheet(activityItems: [item.url])
@@ -112,6 +124,10 @@ struct FlightPlanEditorView: View {
             .copiedConfirmation(L10n.Nav.icaoFlightPlanCopied, isPresented: $showingICAOCopied)
         }
         .preferredColorScheme(.dark)
+        // AND the local override. A sheet is its own hierarchy, so it inherits neither the root's
+        // `.environment(\.colorScheme, .dark)` nor, evidently, enough of `preferredColorScheme` to
+        // reach the keyboard — which the system draws in the field's own scheme. (device pass)
+        .environment(\.colorScheme, .dark)
         // Live: non-route edits auto-commit (debounced) — no Save, no snapshot of the route. (#5)
         .onChange(of: flightPlan) { _, _ in scheduleCommit() }
         .onDisappear { flushCommit() }
@@ -193,6 +209,12 @@ struct FlightPlanEditorView: View {
         flightPlanManager.updateFlightPlan(flightPlan)
     }
 
+    /// Whether a flight follows this plan. A plan nobody flies is a ROUTE — timeless, reusable, and
+    /// deliberately without a date.
+    private var isFlownByAFlight: Bool {
+        threadManager.thread(forPlanId: flightPlan.id) != nil
+    }
+
     // MARK: - Plan (header) Section
 
     private var headerSection: some View {
@@ -229,10 +251,16 @@ struct FlightPlanEditorView: View {
                         }
                     }
                 FormField(label: L10n.Nav.aircraft, text: .constant(flightPlan.aircraftRegistration), isReadOnly: true)
-                DateFormField(label: L10n.Nav.date, date: Binding(
-                    get: { flightPlan.plannedDepartureTime ?? Date() },
-                    set: { flightPlan.plannedDepartureTime = $0 }
-                ))
+                // A ROUTE has no date. It is a path you can fly any day, and giving it one is what
+                // let three saved routes all claim to be "today's flight plan". The date belongs to
+                // the FLIGHT that uses the route, so it only appears once a flight follows this
+                // plan. (device pass)
+                if isFlownByAFlight {
+                    DateFormField(label: L10n.Nav.date, date: Binding(
+                        get: { flightPlan.plannedDepartureTime ?? Date() },
+                        set: { flightPlan.plannedDepartureTime = $0 }
+                    ))
+                }
                 // Typed by hand until now, which invited "24" for a field whose runway is 06/24 and
                 // gave no hint of what exists. The idents come from the departure aerodrome's own
                 // runway data; free text stays available because a grass strip the database does not
@@ -259,6 +287,15 @@ struct FlightPlanEditorView: View {
                     }
                 }
                 OptionalFormField(label: L10n.Nav.instructor, text: $flightPlan.instructor)
+                    .onAppear {
+                        // Same rule as the pilot field: fill an EMPTY one only, so a flight with a
+                        // different instructor is never quietly reassigned. (v5.x)
+                        guard appState.settings.isStudentPilot,
+                              !appState.settings.instructorName.isEmpty,
+                              (flightPlan.instructor ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+                        else { return }
+                        flightPlan.instructor = appState.settings.instructorName
+                    }
                 FormField(label: L10n.Nav.totalEET, text: .constant(flightPlan.formattedTotalEET), isReadOnly: true)
                 FormField(label: L10n.Nav.distance, text: .constant(String(format: "%.1f NM", flightPlan.totalDistance)), isReadOnly: true)
                 FormField(label: L10n.Nav.endurance, text: .constant(flightPlan.formattedEndurance ?? "--:--"), isReadOnly: true)
@@ -809,31 +846,25 @@ struct DateFormField: View {
     let label: String
     @Binding var date: Date
 
-    @State private var showingDatePicker = false
-
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd MMM yyyy"
-        return formatter
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             FieldLabel(text: label)
 
-            // Display date as styled text, tap to edit
-            Button(action: { showingDatePicker = true }) {
-                Text(dateFormatter.string(from: date))
-                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
-                    .foregroundColor(.primaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fieldBox()
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .sheet(isPresented: $showingDatePicker) {
-            DatePickerSheet(selectedDate: $date, isPresented: $showingDatePicker)
+            // The system's own compact picker, not a bespoke sheet. The sheet version presented a
+            // second sheet on top of the editor's, filled a `.large` detent with a calendar that
+            // needed a third of it, and — the reason it had to go — its Done dismissed without the
+            // date ever reaching the plan, so the flight could not be moved to another day at all.
+            // This writes through the binding as the pilot taps, and iOS sizes its own popover.
+            // (device pass)
+            // No `fieldBox` here: the compact picker draws its own chip, and a box around it would
+            // nest two backgrounds. The vertical padding matches the neighbouring fields so the row
+            // still lines up.
+            DatePicker("", selection: $date, displayedComponents: [.date])
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(.aviationGold)
+                .padding(.vertical, 1)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -863,29 +894,6 @@ private struct SheetHeader: View {
 }
 
 /// Compact sheet for picking date (popover-style)
-struct DatePickerSheet: View {
-    @Binding var selectedDate: Date
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        VStack(spacing: 16) {
-            SheetHeader(title: L10n.Nav.selectDate, isPresented: $isPresented)
-
-            // Date picker
-            DatePicker("", selection: $selectedDate, displayedComponents: [.date])
-                .labelsHidden()
-                .datePickerStyle(.graphical)
-                .tint(.aviationGold)
-
-            Spacer()
-        }
-        .background(Color.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-        .preferredColorScheme(.dark)
-    }
-}
 
 struct OptionalTimeFormField: View {
     let label: String
@@ -964,21 +972,59 @@ struct TimePickerSheet: View {
     }
 }
 
+/// A number you can actually type into.
+///
+/// `TextField(value:format:)` was three bugs at once. It commits only on end-editing and silently
+/// REVERTS anything it cannot parse, so a half-typed "23." became 0 again the moment the field lost
+/// focus — which is the "tapping enter just resets it" the device pass found. It ignored `format`
+/// entirely, so a computed trip fuel rendered as `23.908338`. And because the bindings behind these
+/// fields resolve nil to 0, every empty field displayed a literal "0" that typing appended to: "023".
+///
+/// Text-backed instead. The value is written on every keystroke, `format` is honoured when the field
+/// is not being edited, and focusing a field that reads 0 clears it — a zero there is a placeholder,
+/// not a figure the pilot chose. (device pass)
 struct NumberFormField: View {
     let label: String
     @Binding var value: Double
     let format: String
 
+    @State private var text: String = ""
+    @FocusState private var isEditing: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             FieldLabel(text: label)
 
-            TextField("", value: $value, format: .number)
+            TextField("", text: $text)
                 .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.decimalPad)
+                .focused($isEditing)
                 .fieldBox()
         }
+        .onAppear { text = Self.display(value, format: format) }
+        .onChange(of: text) { _, typed in
+            // Accept the comma the pilot's keyboard offers in a French locale.
+            let normalised = typed.replacingOccurrences(of: ",", with: ".")
+            if normalised.isEmpty { value = 0 }
+            else if let parsed = Double(normalised) { value = parsed }
+        }
+        .onChange(of: isEditing) { _, editing in
+            if editing {
+                if value == 0 { text = "" }
+            } else {
+                text = Self.display(value, format: format)
+            }
+        }
+        // Follow the model when it changes underneath — a fuel figure recomputed from the route —
+        // but never while the pilot is mid-number.
+        .onChange(of: value) { _, updated in
+            if !isEditing { text = Self.display(updated, format: format) }
+        }
+    }
+
+    private static func display(_ value: Double, format: String) -> String {
+        String(format: format, value)
     }
 }
 
@@ -986,15 +1032,32 @@ struct IntFormField: View {
     let label: String
     @Binding var value: Int
 
+    @State private var text: String = ""
+    @FocusState private var isEditing: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             FieldLabel(text: label)
 
-            TextField("", value: $value, format: .number)
+            TextField("", text: $text)
                 .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
                 .textFieldStyle(.plain)
                 .keyboardType(.numberPad)
+                .focused($isEditing)
                 .fieldBox()
+        }
+        .onAppear { text = String(value) }
+        .onChange(of: text) { _, typed in
+            let digits = typed.filter(\.isNumber)
+            if digits != typed { text = digits; return }
+            value = Int(digits) ?? 0
+        }
+        .onChange(of: isEditing) { _, editing in
+            if editing { if value == 0 { text = "" } }
+            else { text = String(value) }
+        }
+        .onChange(of: value) { _, updated in
+            if !isEditing { text = String(updated) }
         }
     }
 }

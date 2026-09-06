@@ -163,6 +163,12 @@ enum L10n {
 
         // Plan new flight
         static let planNewFlight = String(localized: "Plan new flight")
+        static let savedRoutes = String(localized: "Saved routes")
+        static let startFromRoute = String(localized: "Start from a saved route")
+        static let chooseRoute = String(localized: "Choose a route")
+        static func routeCopied(_ count: Int) -> String {
+            String(localized: "Copied with its \(count) waypoint(s), altitudes and fuel")
+        }
         static let createFlight = String(localized: "Create flight")
         static let kind = String(localized: "Kind")
         static let crossCountry = String(localized: "Cross-country")
@@ -257,6 +263,9 @@ enum L10n {
     // MARK: - Flight cost (v5.0.0)
     enum Cost {
         static let title = String(localized: "Flight cost")
+        /// The sheet that holds the cost, the logbook line and mass & balance. Named after all
+        /// three, since the logbook is what a pilot most often comes for. (v5.x)
+        static let afterTheFlight = String(localized: "Logbook & costs")
         static let basisBlock = String(localized: "Block time")
         static let basisFlight = String(localized: "Flight time")
         static let basisEngineHours = String(localized: "Engine hours")
@@ -410,6 +419,24 @@ enum L10n {
         /// that word is already the plan list's badge for the same state, and this one has to read as
         /// "ready to fly" at a glance on a card that also has a "departing today" state. (v4.4.0)
         static let flightPlanArmed = String(localized: "home.flightPlanArmed")
+        static let outstandingTitle = String(localized: "Not everything is ticked")
+        static func outstandingBeforeFlight(_ route: String, _ remaining: Int) -> String {
+            String(localized: "\(route) still has \(remaining) item(s) open in Plan and Prepare.")
+        }
+        static let reviewFlightFirst = String(localized: "Review the flight")
+        static let startAnyway = String(localized: "Start anyway")
+        static let startThisFlight = String(localized: "Start this flight")
+        static let resumeThisFlight = String(localized: "Resume this flight")
+        static let reviewFlight = String(localized: "Review")
+        static let flyWithoutAPlan = String(localized: "Fly without a plan")
+        static let today = String(localized: "Today")
+        static let readyToFly = String(localized: "Everything ticked — ready to fly")
+        static func nextOnly(_ task: String) -> String {
+            String(localized: "Next: \(task)")
+        }
+        static func nextAndRemaining(_ task: String, _ remaining: Int) -> String {
+            String(localized: "Next: \(task) · \(remaining) open in Plan and Prepare")
+        }
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)
         }
@@ -692,6 +719,9 @@ enum L10n {
         static let pilot = String(localized: "Pilot")
         static let pilotName = String(localized: "Your name")
         static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
+        static let studentPilot = String(localized: "Student pilot")
+        static let studentPilotSubtitle = String(localized: "Log flights as dual, with your instructor as PIC")
+        static let instructorNamePlaceholder = String(localized: "Instructor's name")
         static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
         static let costTracking = String(localized: "Track flight costs")
         static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
@@ -1052,16 +1082,11 @@ enum L10n {
 
     // MARK: - Warnings
     enum Warning {
-        static let betaFeature = String(localized: "warning.betaFeature")
         static let experimentalFeature = String(localized: "warning.experimentalFeature")
         static let iUnderstandEnable = String(localized: "warning.iUnderstandEnable")
         static let cancel = String(localized: "warning.cancel")
 
         // Flight Planning
-        static let flightPlanningBetaDesc = String(localized: "warning.flightPlanning.betaDesc")
-        static let flightPlanningPlanRoutes = String(localized: "warning.flightPlanning.planRoutes")
-        static let flightPlanningAutoAdvance = String(localized: "warning.flightPlanning.autoAdvance")
-        static let flightPlanningTerrainViz = String(localized: "warning.flightPlanning.terrainViz")
 
         // Online Airspace Streaming
         static let onlineAirspaceTitle = String(localized: "warning.onlineAirspace.title")
@@ -1383,8 +1408,9 @@ enum L10n {
         static let unnamedPlan = String(localized: "nav.unnamedPlan")
         static let active = String(localized: "nav.active")
         static let duplicate = String(localized: "nav.duplicate")
-        static let activate = String(localized: "nav.activate")
-        static let deactivate = String(localized: "nav.deactivate")
+        static let activate = String(localized: "Show on map")
+        static let flightPlanDetails = String(localized: "Flight details")
+        static let deactivate = String(localized: "Clear from map")
         static let inUse = String(localized: "nav.inUse")
         static let tapToBuild = String(localized: "nav.tapToBuild")
         static let from = String(localized: "nav.from")
@@ -1472,8 +1498,8 @@ enum L10n {
         static let debriefing = String(localized: "nav.debriefing")
 
         // Actions
-        static let activateFlightPlan = String(localized: "nav.activateFlightPlan")
-        static let deactivateFlightPlan = String(localized: "nav.deactivateFlightPlan")
+        static let activateFlightPlan = String(localized: "Show this route on the map")
+        static let deactivateFlightPlan = String(localized: "Clear this route from the map")
         /// Only shown when the plan has recorded progress — re-activating clears every ATO and
         /// resets the leg index, so an accidental tap mid-flight destroys logged times. (v4.4.0)
         static let deactivateConfirmTitle = String(localized: "nav.deactivateConfirmTitle")

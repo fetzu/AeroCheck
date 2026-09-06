@@ -30,7 +30,9 @@ enum FlightCreator {
             await airports.ensureLoaded()
         }
         let plan = FlightPlan.from(intent: intent) { ident in
-            airports.findAirport(byIdent: ident)?.coordinate
+            guard let airport = airports.findAirport(byIdent: ident) else { return nil }
+            return FlightPlan.ResolvedPlace(coordinate: airport.coordinate,
+                                            elevationFeet: airport.elevation.map(Double.init))
         }
         plans.add(plan)
 
@@ -43,6 +45,64 @@ enum FlightCreator {
 
         // The two reminders are the whole reason to follow a flight, so the permission prompt lands
         // here — with the pilot having just asked for it — rather than at cold launch.
+        await notifications.requestAuthorization()
+        return thread
+    }
+
+    /// Create a flight from a route the pilot has already built, rather than from typed idents.
+    ///
+    /// The route is COPIED, never referenced. Flying LSZQ → LSGY three times must not mean that
+    /// entering October's fuel rewrites August's — and `thread(forPlanId:)` answers with ONE thread
+    /// per plan, so two flights sharing a plan would make close-out ambiguous at exactly the moment
+    /// it matters.
+    ///
+    /// Copying is also what makes a saved route worth having: the waypoints the pilot placed by
+    /// hand, the altitudes, the fuel figures. Rebuilding from the two end idents would throw all of
+    /// that away and hand back something that only looks like the route. (v5.x)
+    @discardableResult
+    static func create(fromRoute route: FlightPlan,
+                       intent: NewFlightIntent,
+                       plans: FlightPlanManager,
+                       threads: FlightThreadManager,
+                       notifications: NotificationService? = nil) async -> FlightThread {
+        let notifications = notifications ?? NotificationService.shared
+
+        // A fresh plan carrying the route's own work: waypoints, fuel figures, remarks. `id` is a
+        // `let`, so this is a new value rather than a mutated copy — which is the point.
+        var plan = FlightPlan(
+            name: route.name,
+            waypoints: route.waypoints,
+            aircraftTypeId: intent.aircraftTypeId,
+            // The aircraft is the FLIGHT's, not the route's: the same route next month may be a
+            // different tail, and the checklist and the fuel flow follow the aircraft.
+            aircraftRegistration: intent.aircraftRegistration,
+            aircraftModelName: intent.aircraftModelName,
+            pilot: route.pilot,
+            instructor: route.instructor,
+            flightType: route.flightType,
+            runwayInUse: route.runwayInUse,
+            fuelFlow: route.fuelFlow,
+            reserveFuel: route.reserveFuel,
+            additionalFuel: route.additionalFuel,
+            extraFuel: route.extraFuel,
+            fuelOnBoard: route.fuelOnBoard,
+            remarks: route.remarks
+        )
+        plan.tripFuel = route.tripFuel
+        plan.plannedDepartureTime = intent.departureTime
+        // Times over recorded on a previous flight of this route belong to that flight.
+        for index in plan.waypoints.indices {
+            plan.waypoints[index].actualTimeOver = nil
+        }
+        plan.calculateRouteData()
+        plans.add(plan)
+
+        let thread = threads.createThread(
+            from: plan,
+            profile: intent.kind.profile,
+            routeLabel: FlightThreadManager.routeLabel(for: plan),
+            aircraftRegistration: intent.aircraftRegistration
+        )
         await notifications.requestAuthorization()
         return thread
     }

@@ -42,6 +42,58 @@ final class FlightPlanActivationTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - Routes have no date (v5.x)
+
+    /// A route is a path, not an appointment. Saves written before that distinction carried a
+    /// departure time, and a route claiming a date is what made several of them all look like
+    /// "today's flight plan".
+    @MainActor
+    func testTheSweepClearsDatesFromRoutesNoFlightFollows() {
+        let plans = manager()
+        var route = FlightPlan(name: "Route")
+        route.plannedDepartureTime = Date()
+        plans.add(route)
+
+        plans.clearDatesFromUnflownRoutes(followedPlanIds: [])
+
+        XCTAssertNil(plans.flightPlans.first { $0.id == route.id }?.plannedDepartureTime)
+    }
+
+    /// The destructive half. A plan a flight follows keeps its date — that date IS the flight, and
+    /// a sweep that ran before the threads loaded would take it away.
+    @MainActor
+    func testTheSweepLeavesAFlightsOwnDateAlone() {
+        let plans = manager()
+        var flown = FlightPlan(name: "Flown")
+        let when = Date(timeIntervalSince1970: 1_790_000_000)
+        flown.plannedDepartureTime = when
+        plans.add(flown)
+
+        plans.clearDatesFromUnflownRoutes(followedPlanIds: [flown.id])
+
+        XCTAssertEqual(plans.flightPlans.first { $0.id == flown.id }?.plannedDepartureTime, when)
+    }
+
+    /// The active copy is held separately, so clearing only the list would let the next edit write
+    /// the date back.
+    @MainActor
+    func testTheSweepAlsoClearsTheActiveCopy() {
+        let plans = manager()
+        var route = FlightPlan(name: "Route")
+        route.waypoints = [
+            FlightPlanWaypoint(name: "LSZQ", coordinate: CLLocationCoordinate2D(latitude: 47.4, longitude: 7.2)),
+            FlightPlanWaypoint(name: "LSGY", coordinate: CLLocationCoordinate2D(latitude: 46.8, longitude: 6.6))
+        ]
+        route.plannedDepartureTime = Date()
+        plans.add(route)
+        plans.activateFlightPlan(route)
+        XCTAssertNotNil(plans.activeFlightPlan?.plannedDepartureTime)
+
+        plans.clearDatesFromUnflownRoutes(followedPlanIds: [])
+
+        XCTAssertNil(plans.activeFlightPlan?.plannedDepartureTime)
+    }
+
     func testActivationStampsTheTime() {
         let manager = manager()
         manager.activateFlightPlan(plan())

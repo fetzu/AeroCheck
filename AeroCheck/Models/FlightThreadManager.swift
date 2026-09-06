@@ -23,6 +23,12 @@ class FlightThreadManager: ObservableObject {
     @Published var circuitCloseOutOffer: CircuitCloseOutOffer?
     /// Multi-leg trips. Few and small, so they load and save as one file. (v5.x)
     @Published var trips: [Trip] = []
+    /// True once the on-disk threads have arrived.
+    ///
+    /// Load is async (iCloud), so before it finishes EVERY plan looks unfollowed. Anything that
+    /// decides a plan's fate by "does a flight reference it" must wait for this, or it would strip
+    /// the dates off flights that do exist. (v5.x)
+    @Published private(set) var hasLoadedThreads = false
 
     // MARK: - Private Properties
 
@@ -89,8 +95,8 @@ class FlightThreadManager: ObservableObject {
                       profile: ThreadProfile = .full,
                       routeLabel: String? = nil,
                       aircraftRegistration: String? = nil,
-                      pprIdents: [String] = [],
-                      destinationFuels: [String] = []) -> FlightThread {
+                      pprIdents: [String]? = nil,
+                      destinationFuels: [String]? = nil) -> FlightThread {
         var thread = FlightThread(
             flightPlanId: plan?.id,
             profile: profile,
@@ -100,8 +106,8 @@ class FlightThreadManager: ObservableObject {
         )
         var context = Self.context(for: plan, profile: profile)
         context.tracksCost = tracksCost
-        context.pprIdents = pprIdents
-        context.destinationFuels = destinationFuels
+        context.pprIdents = pprIdents ?? Self.pprIdents(on: plan, fallingBackTo: [])
+        context.destinationFuels = destinationFuels ?? Self.destinationFuels(on: plan)
         thread.countries = context.countries
         thread.homeCountry = context.homeCountry
         thread.tasks = ThreadTaskEngine.generate(context: context)
@@ -121,24 +127,106 @@ class FlightThreadManager: ObservableObject {
         return thread
     }
 
-    /// Rebuild a thread's tasks from its plan, preserving everything the pilot has already ticked.
-    /// Called when the plan changes underneath the thread.
+    /// Rebuild from the plan as it is NOW, preserving everything the pilot has ticked.
+    ///
+    /// `weatherSummary` and `pprIdents` used to be the caller's to supply, and defaulted to
+    /// nil/empty — so any caller that did not know to pass them would have silently erased the
+    /// weather detail and every PPR row. Both are derivable, so this derives them: from the route
+    /// for PPR and the destination's fuel grades, and from the existing task for the weather summary
+    /// the pilot's own briefing produced. A regeneration can now never lose context.
     func regenerateTasks(threadId: UUID,
                          plan: FlightPlan?,
                          weatherSummary: String? = nil,
-                         pprIdents: [String] = []) {
+                         pprIdents: [String]? = nil) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        let existing = threads[index].tasks
         var context = Self.context(for: plan, profile: threads[index].profile)
         context.tracksCost = tracksCost
         context.isLeg = threads[index].tripId != nil
         context.weatherSummary = weatherSummary
+            ?? existing.first { $0.key == .weatherBriefed }?.detail
         context.pprIdents = pprIdents
+            ?? Self.pprIdents(on: plan, fallingBackTo: existing)
+        context.destinationFuels = Self.destinationFuels(on: plan)
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        let regenerated = ThreadTaskEngine.generate(context: context, existing: existing)
+
+        // Bail out when nothing actually changed.
+        //
+        // Regeneration runs on every plan publish and on the flight screen's appearance, and it used
+        // to rewrite the task array and `touch()` the thread REGARDLESS — so a screen the pilot was
+        // reading had its list replaced, and `unfinishedThreads` (sorted by `updatedAt`) reordered,
+        // for no change at all. Replacing rows underneath a finger is a plausible cause of the crash
+        // reported when ticking a task on a freshly created flight, and it is churn worth removing
+        // either way. (device pass)
+        guard regenerated != existing
+                || threads[index].countries != context.countries
+                || threads[index].homeCountry != context.homeCountry
+                || (plan != nil && plan?.plannedDepartureTime != threads[index].scheduledDeparture)
+        else { return }
+
         threads[index].countries = context.countries
         threads[index].homeCountry = context.homeCountry
-        threads[index].tasks = ThreadTaskEngine.generate(context: context, existing: threads[index].tasks)
+        threads[index].tasks = regenerated
+
+        // The cached departure drives "is this today?" and the preparation reminder. Left stale it
+        // reads a date the plan no longer has, which is how a flight moved to tomorrow kept being
+        // offered as today's. (device pass)
+        let previousDeparture = threads[index].scheduledDeparture
+        if let plan, plan.plannedDepartureTime != previousDeparture {
+            threads[index].scheduledDeparture = plan.plannedDepartureTime
+            reschedulePreparationReminder(at: index, from: previousDeparture)
+        }
         threads[index].touch()
         saveThreads()
+    }
+
+    /// Re-derive every unfinished flight's AUTO rows from the plans as they now stand.
+    ///
+    /// Cheap: the engine is pure, the thread count is small, and `saveThreads` is dirty-diffed, so a
+    /// regeneration that changes nothing writes nothing.
+    func refreshTasks(from plans: [FlightPlan]) {
+        let byId = Dictionary(plans.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for thread in threads where !thread.isFinished {
+            guard let planId = thread.flightPlanId, let plan = byId[planId] else { continue }
+            regenerateTasks(threadId: thread.id, plan: plan)
+        }
+    }
+
+    private func reschedulePreparationReminder(at index: Int, from previous: Date?) {
+        let thread = threads[index]
+        notifications.cancelPreparationReminder(threadId: thread.id)
+        guard let departure = thread.scheduledDeparture, thread.state == .planned || thread.state == .ready
+        else { return }
+        Task { [notifications] in
+            await notifications.schedulePreparationReminder(threadId: thread.id,
+                                                            routeLabel: thread.routeLabel,
+                                                            departure: departure)
+        }
+    }
+
+    /// Aerodromes on the route that OpenAIP flags as PPR. Falls back to the rows already on the
+    /// thread when the airport layer is not loaded — an undownloaded dataset must never delete a
+    /// requirement the pilot has already been shown, let alone one they have ticked.
+    static func pprIdents(on plan: FlightPlan?, fallingBackTo existing: [ThreadTask]) -> [String] {
+        let previous = existing.filter { $0.key == .pprObtained }.compactMap(\.subject)
+        guard let plan else { return previous }
+        let onRoute = Set(plan.waypoints.map(\.name).filter(looksLikeICAO))
+        guard !onRoute.isEmpty else { return previous }
+        let loaded = OpenAIPAirportDataService.shared.allLoadedAirports()
+        guard !loaded.isEmpty else { return previous }
+        return loaded.filter { $0.isPPR }.compactMap(\.icaoCode).filter(onRoute.contains)
+    }
+
+    /// Fuel grades the destination reports, so the fuel row can answer "can I fill up at the far
+    /// end". Empty is "not stated", never "none available".
+    static func destinationFuels(on plan: FlightPlan?) -> [String] {
+        guard let plan,
+              let arrival = plan.waypoints.map(\.name).last(where: looksLikeICAO)
+        else { return [] }
+        return OpenAIPAirportDataService.shared.allLoadedAirports()
+            .first { $0.icaoCode == arrival }?
+            .fuelTypes.map(\.label) ?? []
     }
 
     // MARK: - Trips (v5.x)
@@ -310,13 +398,47 @@ class FlightThreadManager: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Link a thread to the flight that just started.
+    /// Which followed flight, if any, the flight now starting is being flown for.
+    ///
+    /// Deliberately has NO "current thread" fallback, unlike `threadToCloseOut`. Attaching states a
+    /// fact — and once stated, `threadToCloseOut`'s first branch trusts it absolutely, so a guess
+    /// made here would be cemented rather than re-examined at the end. Only two signals are exact
+    /// enough: the pilot pressed START FLIGHT inside a followed flight, or a plan is armed and one
+    /// of them follows it. A flight with neither is left to resolve at the end, where the looser
+    /// rule at least knows the flight actually happened.
+    func threadToAttach(explicitThreadId: UUID?, planId: UUID?) -> UUID? {
+        if let explicitThreadId,
+           let explicit = thread(withId: explicitThreadId), !explicit.isFinished {
+            return explicit.id
+        }
+        if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
+        return nil
+    }
+
+    /// Link a followed flight to the flight that just started, and move it into FLY.
     func attachFlight(_ flightId: UUID, toThreadId threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         threads[index].flightId = flightId
         threads[index].state = .flying
         threads[index].touch()
         notifications.cancelPreparationReminder(threadId: threadId)
+        saveThreads()
+    }
+
+    /// Undo `attachFlight` for a flight the pilot abandoned.
+    ///
+    /// An abandoned flight did not happen, so the followed flight goes back to where it was: no
+    /// flight id, and out of FLY. It returns to READY rather than PLANNED — the preparation was
+    /// genuinely done, and making the pilot re-tick a briefing they really did perform would be the
+    /// app lying in the other direction. (v5.x)
+    func detachAbandonedFlight(_ flightId: UUID) {
+        guard let index = threads.firstIndex(where: { $0.flightId == flightId && $0.state == .flying })
+        else { return }
+        threads[index].flightId = nil
+        threads[index].state = .ready
+        threads[index].touch()
+        // The flight is off again, so the preparation nudge is due again if it has not passed.
+        reschedulePreparationReminder(at: index, from: nil)
         saveThreads()
     }
 
@@ -353,16 +475,38 @@ class FlightThreadManager: ObservableObject {
     /// plan banner for a flight that has not happened.
     ///
     /// A `.local` thread is still adopted: a planned circuit session IS this flight.
-    func threadToCloseOut(flightId: UUID?, planId: UUID?, isCircuitMode: Bool = false) -> UUID? {
+    func threadToCloseOut(flightId: UUID?, planId: UUID?,
+                          isCircuitMode: Bool = false,
+                          isUnplanned: Bool = false) -> UUID? {
         if let flightId, let byFlight = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) {
             return byFlight.id
         }
         if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
-        if let current = currentThread, !current.isFinished, current.state != .closeOut,
+        // "Fly without a plan" is the pilot stepping deliberately around a flight they had planned.
+        // Adopting it here would close out the very flight they chose not to fly.
+        if !isUnplanned,
+           let current = currentThread, !current.isFinished, current.state != .closeOut,
            !(isCircuitMode && current.profile == .full) {
             return current.id
         }
         return nil
+    }
+
+    /// The followed flight START FLIGHT should be about, if any.
+    ///
+    /// A flight already in FLY comes first — that is a session the pilot left and is coming back to,
+    /// and offering to arm tomorrow's plan instead of resuming it is how the app ended up talking
+    /// about the wrong flight entirely. Otherwise the one scheduled for today. (v5.x)
+    var startableFlightToday: FlightThread? {
+        if let flying = threads.first(where: { $0.state == .flying }) { return flying }
+        let calendar = Calendar.current
+        return threads
+            .filter { !$0.isFinished && $0.state != .closeOut }
+            .filter { thread in
+                guard let departure = thread.scheduledDeparture else { return false }
+                return calendar.isDateInToday(departure)
+            }
+            .min { ($0.scheduledDeparture ?? .distantFuture) < ($1.scheduledDeparture ?? .distantFuture) }
     }
 
     // MARK: - Circuits (v5.x)
@@ -589,6 +733,7 @@ class FlightThreadManager: ObservableObject {
             currentThreadId = nil
             saveCurrentThreadPointer()
         }
+        hasLoadedThreads = true
     }
 
     private func saveCurrentThreadPointer() {

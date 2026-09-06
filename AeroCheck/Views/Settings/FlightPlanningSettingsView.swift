@@ -10,6 +10,8 @@ struct FlightPlanningSettingsView: View {
     @Environment(AppState.self) private var appState
 
     @State private var pilotName: String = ""
+    @State private var isStudentPilot = false
+    @State private var instructorName: String = ""
     @State private var enableCostTracking: Bool = true
     @State private var waypointProximityThreshold: Double = 500
     @State private var terrainAltitudeUnit: TerrainAltitudeUnit = .feet
@@ -28,6 +30,8 @@ struct FlightPlanningSettingsView: View {
         .onAppear { loadSettings() }
         .onChange(of: appState.settings) { _, _ in loadSettings() }
         .onChange(of: pilotName) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: isStudentPilot) { _, _ in if !isLoadingSettings { saveSettings() } }
+        .onChange(of: instructorName) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: enableCostTracking) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: waypointProximityThreshold) { _, _ in if !isLoadingSettings { saveSettings() } }
         .onChange(of: terrainAltitudeUnit) { _, _ in if !isLoadingSettings { saveSettings() } }
@@ -53,6 +57,29 @@ struct FlightPlanningSettingsView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+
+                Divider().overlay(Color.white.opacity(0.08)).padding(.vertical, 3)
+
+                // A licensed pilot logs PIC; a student logs DUAL with the instructor named in the
+                // PIC column, because that column says who commanded the aircraft. The app cannot
+                // tell the two apart from a flight, so it asks once. (v5.x)
+                Toggle(isOn: $isStudentPilot) {
+                    SettingsRowLabel(icon: "graduationcap",
+                                     title: L10n.Settings.studentPilot,
+                                     subtitle: L10n.Settings.studentPilotSubtitle,
+                                     tint: tint)
+                }
+                .tint(.aviationGreen)
+
+                if isStudentPilot {
+                    TextField(L10n.Settings.instructorNamePlaceholder, text: $instructorName)
+                        .textInputAutocapitalization(.words)
+                        .scaledFont(size: 16, relativeTo: .body)
+                        .foregroundColor(.primaryText)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.cardBackground))
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
@@ -114,6 +141,8 @@ struct FlightPlanningSettingsView: View {
     private func loadSettings() {
         isLoadingSettings = true
         pilotName = appState.settings.pilotName
+        isStudentPilot = appState.settings.isStudentPilot
+        instructorName = appState.settings.instructorName
         enableCostTracking = appState.settings.enableCostTracking
         waypointProximityThreshold = appState.settings.waypointProximityThreshold
         terrainAltitudeUnit = appState.settings.terrainAltitudeUnit
@@ -124,6 +153,8 @@ struct FlightPlanningSettingsView: View {
 
     private func saveSettings() {
         appState.settings.pilotName = pilotName.trimmingCharacters(in: .whitespaces)
+        appState.settings.isStudentPilot = isStudentPilot
+        appState.settings.instructorName = instructorName.trimmingCharacters(in: .whitespaces)
         appState.settings.enableCostTracking = enableCostTracking
         appState.settings.waypointProximityThreshold = waypointProximityThreshold
         appState.settings.terrainAltitudeUnit = terrainAltitudeUnit

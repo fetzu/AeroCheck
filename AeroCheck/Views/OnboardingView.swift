@@ -608,11 +608,10 @@ struct OnboardingView: View {
             subtitle: String(localized: "How the app behaves in the air, plus the bigger features and your data."),
             page: 6
         ) {
+            // Flight planning is no longer a toggle: it is the app's spine, introduced two pages
+            // earlier as the first chapter of a flight. Offering to switch it off here would have
+            // contradicted the page that just explained it. (v5.0.0)
             LazyVGrid(columns: toggleColumns, spacing: 11) {
-                toggleRow("point.3.connected.trianglepath.dotted", .aviationGreen,
-                          String(localized: "Flight planning"),
-                          String(localized: "Map-first route builder"),
-                          Bindable(appState).settings.enableFlightPlanning)
                 toggleRow("gauge.with.needle", .aviationGold,
                           String(localized: "Log engine hours"),
                           String(localized: "Prompt for the hour meter"),

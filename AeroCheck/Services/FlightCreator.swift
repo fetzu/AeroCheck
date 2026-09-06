@@ -21,7 +21,11 @@ enum FlightCreator {
                        plans: FlightPlanManager,
                        threads: FlightThreadManager,
                        airports: AirportDataService,
-                       notifications: NotificationService = .shared) async -> FlightThread {
+                       notifications: NotificationService? = nil) async -> FlightThread {
+        // Resolved INSIDE the body rather than as a default argument. Default arguments are
+        // evaluated in a nonisolated context, so `= .shared` reaches a main-actor property from
+        // outside the actor — a warning today and an error under Swift 6.
+        let notifications = notifications ?? NotificationService.shared
         if !intent.departureIdent.isEmpty {
             await airports.ensureLoaded()
         }
@@ -54,7 +58,8 @@ enum FlightCreator {
                            plans: FlightPlanManager,
                            threads: FlightThreadManager,
                            airports: AirportDataService,
-                           notifications: NotificationService = .shared) async -> Trip? {
+                           notifications: NotificationService? = nil) async -> Trip? {
+        let notifications = notifications ?? NotificationService.shared
         let stops = idents.map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
             .filter { !$0.isEmpty }
         guard stops.count >= 3 else { return nil }   // fewer than two legs is just a flight

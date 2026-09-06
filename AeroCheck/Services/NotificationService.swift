@@ -46,7 +46,10 @@ final class NotificationService: NSObject, ObservableObject {
     }
 
     /// Userinfo key carrying the thread this notification belongs to.
-    private static let threadIdKey = "threadId"
+    /// `nonisolated` because the `UNUserNotificationCenterDelegate` callback that reads it is
+    /// nonisolated — it runs wherever the system delivers the tap. A `String` constant is Sendable,
+    /// so there is nothing to protect and the isolation was only ever in the way.
+    nonisolated private static let threadIdKey = "threadId"
 
     private override init() {
         super.init()

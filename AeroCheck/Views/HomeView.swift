@@ -128,6 +128,8 @@ struct HomeView: View {
     /// precedent) rather than a rail overlay: the admin chapters are read sitting down, often on the
     /// phone, and they do not need the rail beside them. (v5.0.0)
     @State private var threadToOpen: UUID?
+    /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
+    @State private var planningNewFlight: NewFlightIntent?
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
     @State private var flightLogSelectionID: UUID? = nil
@@ -255,6 +257,24 @@ struct HomeView: View {
                 FlightThreadView(threadId: id, onClose: { threadToOpen = nil })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
+            }
+        }
+        // Derived binding rather than `item:` — NewFlightIntent is a value the sheet edits, and
+        // presenting on `item:` would rebuild the sheet on every keystroke it reports back.
+        .sheet(isPresented: Binding(
+            get: { planningNewFlight != nil },
+            set: { if !$0 { planningNewFlight = nil } }
+        )) {
+            if let seed = planningNewFlight {
+                PlanNewFlightView(
+                    intent: seed,
+                    aircraft: availableAircraft,
+                    onCreate: { intent in
+                        planningNewFlight = nil
+                        createFlight(from: intent)
+                    },
+                    onCancel: { planningNewFlight = nil }
+                )
             }
         }
         // Last-flight detail opened straight from the Home strip (non-rail layouts) — its back button
@@ -720,11 +740,53 @@ struct HomeView: View {
             flightPlanStripCard(title: planRoute(today),
                                 detail: departure.formatted(date: .omitted, time: .shortened),
                                 accent: .aviationGold)
-        } else if !flightPlanManager.flightPlans.isEmpty {
-            flightPlanStripCard(title: L10n.Nav.flightPlans,
-                                detail: "\(flightPlanManager.flightPlans.count)",
-                                accent: .secondaryText)
+        } else {
+            // Nothing more specific to say. This slot used to render the saved-plan count — and
+            // NOTHING AT ALL for a pilot with no plans yet, which is precisely why the feature that
+            // defines this release was unreachable: Home never once mentioned that a flight can be
+            // followed. It now always offers to plan one.
+            planNewFlightStripCard
         }
+    }
+
+    /// The teaching state, and the only door to following a flight that does not require already
+    /// having a flight plan.
+    private var planNewFlightStripCard: some View {
+        Button { beginPlanningNewFlight() } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar.badge.plus")
+                        .scaledFont(size: 14, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.aviationGold)
+                    Text(L10n.Flights.planNewFlight)
+                        .scaledFont(size: 15, weight: .semibold, relativeTo: .subheadline)
+                        .foregroundColor(.primaryText)
+                    Spacer(minLength: 0)
+                }
+                Text(L10n.Flights.homeExplainer)
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+                if !flightPlanManager.flightPlans.isEmpty {
+                    Text(L10n.Flights.savedPlans(flightPlanManager.flightPlans.count))
+                        .scaledFont(size: 11, relativeTo: .caption2)
+                        .foregroundColor(.secondaryText)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.panelBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.aviationGold.opacity(0.35), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(L10n.Flights.planNewFlight). \(L10n.Flights.homeExplainer)")
     }
 
     /// Detail line for an armed plan, longest-first. `ViewThatFits` in the card picks one.
@@ -1307,6 +1369,54 @@ struct HomeView: View {
         }
     }
     
+    // MARK: - Planning a flight (v5.0.0)
+
+    /// Open the one creation sheet, seeded from the aircraft already selected on this screen.
+    /// `seed` is supplied by "Plan this again"; nil starts from scratch.
+    private func beginPlanningNewFlight(_ seed: NewFlightIntent? = nil) {
+        if let seed {
+            planningNewFlight = seed
+            return
+        }
+        let aircraft = selectedAircraft
+        planningNewFlight = NewFlightIntent(
+            departureIdent: "",
+            arrivalIdent: "",
+            departureTime: nil,
+            aircraftTypeId: aircraft?.aircraftType ?? appState.settings.selectedAircraft.rawValue,
+            aircraftRegistration: aircraft?.registration ?? appState.settings.selectedAircraft.registration,
+            aircraftModelName: aircraft?.modelName ?? appState.settings.selectedAircraft.modelName,
+            kind: .crossCountry
+        )
+    }
+
+    /// Turn an intent into a plan and the flight that follows it.
+    ///
+    /// The airport layer is loaded on demand rather than at launch, so this awaits it before
+    /// resolving idents — otherwise a flight created on a cold start would silently get no waypoints,
+    /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
+    private func createFlight(from intent: NewFlightIntent) {
+        Task { @MainActor in
+            if !intent.departureIdent.isEmpty {
+                await airportDataService.ensureLoaded()
+            }
+            let plan = FlightPlan.from(intent: intent) { ident in
+                airportDataService.findAirport(byIdent: ident)?.coordinate
+            }
+            flightPlanManager.add(plan)
+            let thread = threadManager.createThread(
+                from: plan,
+                profile: intent.kind.profile,
+                routeLabel: intent.routeLabel,
+                aircraftRegistration: intent.aircraftRegistration
+            )
+            // The two reminders are the whole reason to follow a flight, so the permission prompt
+            // arrives here — with the pilot having just asked for it — rather than at cold launch.
+            await NotificationService.shared.requestAuthorization()
+            threadToOpen = thread.id
+        }
+    }
+
     private func startFlight() { beginFlight(circuitMode: false) }
 
     private func startCircuits() { beginFlight(circuitMode: true) }

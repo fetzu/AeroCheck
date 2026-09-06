@@ -176,6 +176,12 @@ enum L10n {
         static let to = String(localized: "To")
         static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
         static let circuitsHint = String(localized: "Circuits start and finish at the same field")
+
+        // Home
+        static let homeExplainer = String(localized: "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers")
+        static func savedPlans(_ count: Int) -> String {
+            String(localized: "\(count) saved plans")
+        }
     }
 
     enum Logbook {

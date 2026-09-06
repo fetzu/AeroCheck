@@ -1231,6 +1231,26 @@
         }
       }
     },
+    "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivez un vol de la planification au carnet — carburant, météo, douane, puis les chiffres"
+          }
+        }
+      }
+    },
+    "%lld saved plans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld plans enregistrés"
+          }
+        }
+      }
+    },
     "Circuits — %@" : {
       "localizations" : {
         "fr" : {

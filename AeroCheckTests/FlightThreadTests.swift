@@ -325,6 +325,61 @@ final class FlightThreadTests: XCTestCase {
         XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
     }
 
+    // MARK: - Attaching at flight start (v5.x)
+
+    @MainActor
+    func testAttachingResolvesFromTheArmedPlanOrAnExplicitChoice() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        // The armed plan names it — this is the Home / widget / deep-link path.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: nil, planId: plan.id), followed.id)
+        // Pressing START FLIGHT inside it names it directly.
+        XCTAssertEqual(manager.threadToAttach(explicitThreadId: followed.id, planId: nil), followed.id)
+    }
+
+    /// The critical asymmetry with `threadToCloseOut`: attaching states a fact, and once stated the
+    /// close-out lookup trusts it absolutely. A guess made here would be cemented, not re-examined.
+    @MainActor
+    func testAttachingNeverGuessesFromTheCurrentFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+
+        XCTAssertEqual(manager.currentThreadId, followed.id, "it is current…")
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: nil, planId: nil),
+                     "…but a flight with no plan and no explicit choice must not claim it")
+    }
+
+    @MainActor
+    func testAttachingMovesItIntoFlyAndMakesCloseOutExact() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let plan = swissPlan()
+        let followed = manager.createThread(from: plan, profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        let flightId = UUID()
+
+        manager.attachFlight(flightId, toThreadId: followed.id)
+
+        XCTAssertEqual(manager.thread(withId: followed.id)?.state, .flying)
+        XCTAssertEqual(manager.thread(withId: followed.id)?.flightId, flightId)
+        // Close-out now resolves on the exact flight, without needing the plan or the fallback.
+        XCTAssertEqual(manager.threadToCloseOut(flightId: flightId, planId: nil), followed.id)
+    }
+
+    /// A finished flight is not a candidate to fly again.
+    @MainActor
+    func testAttachingIgnoresAFinishedFollowedFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let followed = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: followed.id) }
+        manager.finishThread(threadId: followed.id)
+
+        XCTAssertNil(manager.threadToAttach(explicitThreadId: followed.id, planId: nil))
+    }
+
     // MARK: - Circuits and close-out resolution (v5.x)
 
     /// The regression this guards: circuits are flown with no plan, so END FLIGHT falls through to

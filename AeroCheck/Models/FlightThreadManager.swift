@@ -310,7 +310,24 @@ class FlightThreadManager: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Link a thread to the flight that just started.
+    /// Which followed flight, if any, the flight now starting is being flown for.
+    ///
+    /// Deliberately has NO "current thread" fallback, unlike `threadToCloseOut`. Attaching states a
+    /// fact — and once stated, `threadToCloseOut`'s first branch trusts it absolutely, so a guess
+    /// made here would be cemented rather than re-examined at the end. Only two signals are exact
+    /// enough: the pilot pressed START FLIGHT inside a followed flight, or a plan is armed and one
+    /// of them follows it. A flight with neither is left to resolve at the end, where the looser
+    /// rule at least knows the flight actually happened.
+    func threadToAttach(explicitThreadId: UUID?, planId: UUID?) -> UUID? {
+        if let explicitThreadId,
+           let explicit = thread(withId: explicitThreadId), !explicit.isFinished {
+            return explicit.id
+        }
+        if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
+        return nil
+    }
+
+    /// Link a followed flight to the flight that just started, and move it into FLY.
     func attachFlight(_ flightId: UUID, toThreadId threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         threads[index].flightId = flightId

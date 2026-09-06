@@ -16,6 +16,11 @@ struct FlightLauncher {
     let airportDataService: AirportDataService
     let flightEventDetector: FlightEventDetector
     let flightPlanManager: FlightPlanManager
+    /// Optional so the guard sequence above stays independent of the Flight Thread feature: a launch
+    /// with no manager behaves exactly as it always did. Used only AFTER a successful start, never
+    /// as a condition of one — linking a followed flight is a consequence of departing, not a
+    /// permission to depart. (v5.x)
+    var threadManager: FlightThreadManager?
 
     /// The outcome of a launch attempt, so a caller can present the right follow-up.
     enum Outcome: Equatable {
@@ -63,8 +68,10 @@ struct FlightLauncher {
 
     /// Resolve the checklist, run the guards, start the flight, and begin GPS tracking.
     /// Returns the outcome; side effects (paywall request / error alert) are set on `appState`.
+    /// `followedFlightId` is set when the pilot pressed START FLIGHT inside a followed flight, which
+    /// names it exactly. Every other entry point leaves it nil and relies on the armed plan.
     @discardableResult
-    func begin(circuitMode: Bool) async -> Outcome {
+    func begin(circuitMode: Bool, followedFlightId: UUID? = nil) async -> Outcome {
         // UX-06: never overwrite a running flight. Checked first so we don't reload the active
         // checklist out from under a flight already in progress.
         guard !appState.isFlightActive else { return .blockedActiveFlight }
@@ -136,6 +143,15 @@ struct FlightLauncher {
         // startFlight() is the authoritative guard and may still have refused the start (e.g. a
         // race on the unresolved-checklist state). Only begin tracking if it actually started.
         guard appState.isFlightActive else { return .blockedChecklistUnresolved }
+
+        // The flight is real: tell the followed flight it is under way, so it shows FLY rather than
+        // sitting in PREPARE until landing, and stops offering to start a flight already running.
+        // Only ever on an exact signal — see `threadToAttach`. (v5.x)
+        if let threadManager, let startedFlightId = appState.currentFlight?.id,
+           let threadId = threadManager.threadToAttach(explicitThreadId: followedFlightId,
+                                                       planId: flightPlanId) {
+            threadManager.attachFlight(startedFlightId, toThreadId: threadId)
+        }
 
         locationManager.startTracking(
             appState: appState,

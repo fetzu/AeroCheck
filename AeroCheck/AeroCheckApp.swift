@@ -306,7 +306,8 @@ struct AeroCheckApp: App {
                 aircraftDataService: aircraftDataService,
                 airportDataService: airportDataService,
                 flightEventDetector: flightEventDetector,
-                flightPlanManager: flightPlanManager
+                flightPlanManager: flightPlanManager,
+                threadManager: flightThreadManager
             )
             Task { await launcher.begin(circuitMode: false) }
         case "flight-log":

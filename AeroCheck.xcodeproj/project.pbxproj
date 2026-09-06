@@ -28,6 +28,7 @@
 		A5000032111111110000002 /* BorderCrossingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000032111111110000001 /* BorderCrossingTests.swift */; };
 		A5000033111111110000002 /* LogbookPDFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000033111111110000001 /* LogbookPDFTests.swift */; };
 		A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000034111111110000001 /* NewFlightIntentTests.swift */; };
+		A5000035111111110000002 /* TripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5000035111111110000001 /* TripTests.swift */; };
 		A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002B111111110000001 /* OnboardingRegionTests.swift */; };
 		A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002E111111110000001 /* DisclaimerGateTests.swift */; };
 		A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A500002D111111110000001 /* AviationWeatherServiceTests.swift */; };
@@ -169,6 +170,7 @@
 		E1000001211111110000028 /* WeightBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000028 /* WeightBalance.swift */; };
 		E1000001211111110000029 /* BorderCrossing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000029 /* BorderCrossing.swift */; };
 		E1000001211111110000030 /* NewFlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000030 /* NewFlightIntent.swift */; };
+		E1000001211111110000031 /* Trip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000031 /* Trip.swift */; };
 		E1000001211111110000027 /* FlightCost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000027 /* FlightCost.swift */; };
 		E1000001211111110000026 /* LogbookEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000026 /* LogbookEntry.swift */; };
 		E1000001211111110000002 /* AirportDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1000001111111110000002 /* AirportDataService.swift */; };
@@ -281,6 +283,7 @@
 		A5000032111111110000001 /* BorderCrossingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossingTests.swift; sourceTree = "<group>"; };
 		A5000033111111110000001 /* LogbookPDFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookPDFTests.swift; sourceTree = "<group>"; };
 		A5000034111111110000001 /* NewFlightIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntentTests.swift; sourceTree = "<group>"; };
+		A5000035111111110000001 /* TripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTests.swift; sourceTree = "<group>"; };
 		A500002B111111110000001 /* OnboardingRegionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingRegionTests.swift; sourceTree = "<group>"; };
 		A500002E111111110000001 /* DisclaimerGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerGateTests.swift; sourceTree = "<group>"; };
 		A500002D111111110000001 /* AviationWeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AviationWeatherServiceTests.swift; sourceTree = "<group>"; };
@@ -416,6 +419,7 @@
 		E1000001111111110000028 /* WeightBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightBalance.swift; sourceTree = "<group>"; };
 		E1000001111111110000029 /* BorderCrossing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BorderCrossing.swift; sourceTree = "<group>"; };
 		E1000001111111110000030 /* NewFlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewFlightIntent.swift; sourceTree = "<group>"; };
+		E1000001111111110000031 /* Trip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trip.swift; sourceTree = "<group>"; };
 		E1000001111111110000027 /* FlightCost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCost.swift; sourceTree = "<group>"; };
 		E1000001111111110000026 /* LogbookEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogbookEntry.swift; sourceTree = "<group>"; };
 		E1000001111111110000002 /* AirportDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirportDataService.swift; sourceTree = "<group>"; };
@@ -518,6 +522,7 @@
 				A5000032111111110000001 /* BorderCrossingTests.swift */,
 				A5000033111111110000001 /* LogbookPDFTests.swift */,
 				A5000034111111110000001 /* NewFlightIntentTests.swift */,
+				A5000035111111110000001 /* TripTests.swift */,
 				A500002B111111110000001 /* OnboardingRegionTests.swift */,
 				A500002E111111110000001 /* DisclaimerGateTests.swift */,
 				A500002D111111110000001 /* AviationWeatherServiceTests.swift */,
@@ -670,6 +675,7 @@
 				E1000001111111110000028 /* WeightBalance.swift */,
 				E1000001111111110000029 /* BorderCrossing.swift */,
 				E1000001111111110000030 /* NewFlightIntent.swift */,
+				E1000001111111110000031 /* Trip.swift */,
 				E1000001111111110000027 /* FlightCost.swift */,
 				E1000001111111110000026 /* LogbookEntry.swift */,
 				H1000001111111110000001 /* BriefingData.swift */,
@@ -987,6 +993,7 @@
 				A5000032111111110000002 /* BorderCrossingTests.swift in Sources */,
 				A5000033111111110000002 /* LogbookPDFTests.swift in Sources */,
 				A5000034111111110000002 /* NewFlightIntentTests.swift in Sources */,
+				A5000035111111110000002 /* TripTests.swift in Sources */,
 				A500002B111111110000002 /* OnboardingRegionTests.swift in Sources */,
 				A500002E111111110000002 /* DisclaimerGateTests.swift in Sources */,
 				A500002D111111110000002 /* AviationWeatherServiceTests.swift in Sources */,
@@ -1110,6 +1117,7 @@
 				E1000001211111110000028 /* WeightBalance.swift in Sources */,
 				E1000001211111110000029 /* BorderCrossing.swift in Sources */,
 				E1000001211111110000030 /* NewFlightIntent.swift in Sources */,
+				E1000001211111110000031 /* Trip.swift in Sources */,
 				E1000001211111110000027 /* FlightCost.swift in Sources */,
 				E1000001211111110000026 /* LogbookEntry.swift in Sources */,
 				E1000001211111110000002 /* AirportDataService.swift in Sources */,

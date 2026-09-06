@@ -130,6 +130,8 @@ struct HomeView: View {
     @State private var threadToOpen: UUID?
     /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
+    /// A plan for today that START FLIGHT found unarmed. Non-nil asks before departing. (v5.x)
+    @State private var unarmedPlanOffer: FlightPlan?
     /// When the Flight Log is opened from the last-flight strip, preselect that flight so its details
     /// show immediately; the Flight Log nav button clears it to open the plain list. (v4 UI/UX Revamp — feedback)
     @State private var flightLogSelectionID: UUID? = nil
@@ -258,10 +260,37 @@ struct HomeView: View {
                                  onClose: { threadToOpen = nil },
                                  onStartFlight: { circuits in
                                      threadToOpen = nil
-                                     beginFlight(circuitMode: circuits)
+                                     // Pressed inside this followed flight, so it names itself —
+                                     // no inference needed at either end of the flight. (v5.x)
+                                     beginFlight(circuitMode: circuits, followedFlightId: id)
                                  })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
+            }
+        }
+        // Both answers start the flight — the question is only whether the route comes with it, so
+        // neither button is destructive and there is no "cancel". Backing out is the sheet dismissal.
+        .confirmationDialog(
+            L10n.Home.armTodaysPlanTitle,
+            isPresented: Binding(
+                get: { unarmedPlanOffer != nil },
+                set: { if !$0 { unarmedPlanOffer = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(L10n.Home.armAndStart) {
+                if let plan = unarmedPlanOffer { flightPlanManager.activateFlightPlan(plan) }
+                unarmedPlanOffer = nil
+                beginFlight(circuitMode: false)
+            }
+            Button(L10n.Home.startWithoutPlan) {
+                unarmedPlanOffer = nil
+                beginFlight(circuitMode: false)
+            }
+            Button(L10n.Button.cancel, role: .cancel) { unarmedPlanOffer = nil }
+        } message: {
+            if let plan = unarmedPlanOffer {
+                Text(L10n.Home.armTodaysPlanMessage(planRoute(plan)))
             }
         }
         // Derived binding rather than `item:` — NewFlightIntent is a value the sheet edits, and
@@ -1431,7 +1460,24 @@ struct HomeView: View {
         }
     }
 
-    private func startFlight() { beginFlight(circuitMode: false) }
+    /// START FLIGHT, with one interception: a plan for today that was never armed.
+    ///
+    /// Arming is a deliberate act in the plan list, and forgetting it is silent — the flight departs
+    /// with no route, no leg timing and no waypoint sequencing, and the pilot finds out airborne with
+    /// the aircraft already moving. Home shows the unarmed plan in gold, but a strip is easy to read
+    /// past when you are about to press the big green button.
+    ///
+    /// An offer, not an automatic arm: `activateFlightPlan` resets the waypoint index and clears
+    /// every recorded time over, so arming a plan on the pilot's behalf can destroy data from a
+    /// flight already under way. Circuits skip it entirely — they drop the plan by design. (v5.x)
+    private func startFlight() {
+        if flightPlanManager.activeFlightPlan == nil,
+           let today = todaysFlightPlan, !today.waypoints.isEmpty {
+            unarmedPlanOffer = today
+            return
+        }
+        beginFlight(circuitMode: false)
+    }
 
     private func startCircuits() { beginFlight(circuitMode: true) }
 
@@ -1439,16 +1485,17 @@ struct HomeView: View {
     /// goes through the shared `FlightLauncher`, which resolves the checklist, runs the ARCH-01 /
     /// entitlement / permission / active-flight guards, configures the event detector, starts the
     /// flight and begins GPS tracking in one place. (Task 2/3)
-    private func beginFlight(circuitMode: Bool) {
+    private func beginFlight(circuitMode: Bool, followedFlightId: UUID? = nil) {
         let launcher = FlightLauncher(
             appState: appState,
             locationManager: locationManager,
             aircraftDataService: aircraftDataService,
             airportDataService: airportDataService,
             flightEventDetector: flightEventDetector,
-            flightPlanManager: flightPlanManager
+            flightPlanManager: flightPlanManager,
+            threadManager: threadManager
         )
-        Task { await launcher.begin(circuitMode: circuitMode) }
+        Task { await launcher.begin(circuitMode: circuitMode, followedFlightId: followedFlightId) }
     }
 }
 

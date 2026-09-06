@@ -261,6 +261,46 @@
         }
       }
     },
+    "Arm today's flight plan?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer le plan de vol du jour ?"
+          }
+        }
+      }
+    },
+    "%@ is planned for today but not armed. Without it there is no route, no leg timing and no waypoint sequencing in flight." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est prévu aujourd'hui mais n'est pas activé. Sans lui, ni route, ni minutage des tronçons, ni séquencement des points tournants en vol."
+          }
+        }
+      }
+    },
+    "Arm and start" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer et démarrer"
+          }
+        }
+      }
+    },
+    "Start without it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer sans"
+          }
+        }
+      }
+    },
     "Logbook row" : {
       "localizations" : {
         "fr" : {

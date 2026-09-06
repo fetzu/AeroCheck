@@ -423,34 +423,13 @@ struct FlightPlanningView: View {
     /// point of following a flight is the two reminders it can send. The prompt arrives here — with
     /// the pilot having just asked for it — rather than at cold launch. (v5.0.0)
     private func followFlight(_ plan: FlightPlan) {
-        threadManager.createThread(from: plan,
-                                   pprIdents: pprIdents(on: plan),
-                                   destinationFuels: destinationFuels(on: plan))
+        // PPR and destination fuel are derived by the manager now, so creation and regeneration
+        // can never disagree about them.
+        threadManager.createThread(from: plan)
         Task { await NotificationService.shared.requestAuthorization() }
     }
 
-    /// Aerodromes on the route that OpenAIP flags as PPR, so the thread can raise the call-ahead
-    /// task by itself. Returns nothing when the airport layer has not been downloaded — a missing
-    /// dataset must not invent a requirement, and the pilot can still add the task by hand. (v5.0.0)
-    private func pprIdents(on plan: FlightPlan) -> [String] {
-        let onRoute = Set(plan.waypoints.map(\.name).filter(FlightThreadManager.looksLikeICAO))
-        guard !onRoute.isEmpty else { return [] }
-        return OpenAIPAirportDataService.shared.allLoadedAirports()
-            .filter { $0.isPPR }
-            .compactMap(\.icaoCode)
-            .filter(onRoute.contains)
-    }
 
-    /// Fuel grades the destination reports, piston grades first, so the thread's fuel row can answer
-    /// "can I fill up at the far end". Empty when the airport layer is not downloaded — absent is
-    /// "not stated", never "none available". (v5.0.0)
-    private func destinationFuels(on plan: FlightPlan) -> [String] {
-        guard let arrival = plan.waypoints.map(\.name).last(where: FlightThreadManager.looksLikeICAO)
-        else { return [] }
-        return OpenAIPAirportDataService.shared.allLoadedAirports()
-            .first { $0.icaoCode == arrival }?
-            .fuelTypes.map(\.label) ?? []
-    }
 
     /// Cockpit-style section header: tracked uppercase label with an optional status dot. (v4 UI/UX Revamp)
     private func cockpitSectionHeader(_ title: String, tint: Color, showDot: Bool) -> some View {

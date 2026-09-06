@@ -237,6 +237,23 @@ struct FlightThreadView: View {
         // Warm the tariff registry so the fee task can offer the operator's page. Cached for a week
         // and silent on failure — a missing link is a missing convenience, never an error.
         .task { await AirfieldTariffService.shared.refreshIfNeeded() }
+        // The AUTO rows are a computation over the plan, and the plan is edited from sheets this
+        // screen presents. Without this they kept the values they were generated with — a fuel row
+        // reading REQ 0 / FOB 0 forever, and never ticking itself once the tanks were entered.
+        // `regenerateTasks` preserves everything the pilot has ticked, so this is safe to run often.
+        .onAppear { refreshFromPlan() }
+        .onChange(of: planForRefresh) { _, _ in refreshFromPlan() }
+    }
+
+    /// The followed plan, watched so an edit anywhere re-derives the AUTO rows.
+    private var planForRefresh: FlightPlan? {
+        guard let thread = threadManager.thread(withId: threadId) else { return nil }
+        return plan(for: thread)
+    }
+
+    private func refreshFromPlan() {
+        guard let thread = threadManager.thread(withId: threadId) else { return }
+        threadManager.regenerateTasks(threadId: threadId, plan: plan(for: thread))
     }
 
     // MARK: - Header
@@ -453,7 +470,11 @@ struct FlightThreadView: View {
         // know is the same question as every other chapter: is it done? Gold until the flight has
         // been recorded, green once it has — and it is the flight that feeds CLOSE, so its state is
         // exactly what says whether the logbook line and the cost can be filled in yet.
-        let flown = thread.flightId != nil
+        //
+        // Read from the STATE, not from `flightId`. Since a flight links itself at start, a flightId
+        // means "a flight began", not "a flight happened" — so this went green the moment the engine
+        // did, and stayed green after an abandoned flight. (device pass)
+        let flown = thread.state == .closeOut || thread.state == .done
         let color: Color = chapter == .fly
             ? (flown ? .aviationGreen : .aviationGold)
             : (isComplete ? .aviationGreen : .aviationGold)

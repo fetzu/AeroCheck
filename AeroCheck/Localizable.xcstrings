@@ -1321,6 +1321,66 @@
         }
       }
     },
+    "Pilot" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilote"
+          }
+        }
+      }
+    },
+    "Your name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre nom"
+          }
+        }
+      }
+    },
+    "Name as it appears in your logbook" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom tel qu'il figure dans votre carnet"
+          }
+        }
+      }
+    },
+    "Used for the PIC column and the logbook PDF's holder line." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisé pour la colonne PIC et la ligne « titulaire » du PDF du carnet."
+          }
+        }
+      }
+    },
+    "Track flight costs" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivre les coûts de vol"
+          }
+        }
+      }
+    },
+    "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactivé, masque les tâches de taxes d'atterrissage et la fiche de coûts. Votre ligne de carnet n'est pas affectée."
+          }
+        }
+      }
+    },
     "Circuits — %@" : {
       "localizations" : {
         "fr" : {

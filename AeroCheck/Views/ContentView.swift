@@ -173,6 +173,13 @@ struct ContentView: View {
             if !appState.isFlightActive {
                 flightPlanManager.expireStaleActivation()
             }
+
+            threadManager.tracksCost = appState.settings.enableCostTracking
+        }
+        // Keep the task engine's view of the cost setting in step. The engine is pure and the
+        // manager owns the settings-aware side, so the root is where the two are joined. (v5.0.0)
+        .onChange(of: appState.settings.enableCostTracking) { _, tracks in
+            threadManager.tracksCost = tracks
         }
         #if DEBUG
         .task {

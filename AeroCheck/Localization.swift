@@ -662,7 +662,12 @@ enum L10n {
 
         // Flight Planning
         static let flightPlanning = String(localized: "settings.flightPlanning")
-        static let enableFlightPlanning = String(localized: "settings.flightPlanning.enable")
+        static let pilot = String(localized: "Pilot")
+        static let pilotName = String(localized: "Your name")
+        static let pilotNamePlaceholder = String(localized: "Name as it appears in your logbook")
+        static let pilotNameFooter = String(localized: "Used for the PIC column and the logbook PDF's holder line.")
+        static let costTracking = String(localized: "Track flight costs")
+        static let costTrackingFooter = String(localized: "Off hides the landing-fee tasks and the cost sheet. Your logbook line is unaffected.")
         static let waypointProximity = String(localized: "settings.flightPlanning.waypointProximity")
         static let terrainAltitudeUnit = String(localized: "settings.flightPlanning.terrainAltitudeUnit")
         static let flightPlanningFooter = String(localized: "settings.flightPlanning.planFlightRoutes")

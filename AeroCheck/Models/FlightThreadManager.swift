@@ -26,6 +26,10 @@ class FlightThreadManager: ObservableObject {
     private let persistence = DataPersistenceManager.shared
     private let defaults: UserDefaults
     private let notifications: NotificationService
+    /// Mirrors `AppSettings.enableCostTracking`. Held here rather than reached for, because the task
+    /// engine is pure and the manager is what owns the side of the app that knows about settings.
+    /// The app keeps it in step; it defaults to on so a manager built in a test behaves normally.
+    var tracksCost: Bool = true
 
     /// Snapshot of each thread as last persisted, for dirty detection (same idea as the plan manager).
     private var lastPersisted: [UUID: FlightThread] = [:]
@@ -90,6 +94,7 @@ class FlightThreadManager: ObservableObject {
             scheduledDeparture: plan?.plannedDepartureTime
         )
         var context = Self.context(for: plan, profile: profile)
+        context.tracksCost = tracksCost
         context.pprIdents = pprIdents
         context.destinationFuels = destinationFuels
         thread.countries = context.countries
@@ -119,6 +124,7 @@ class FlightThreadManager: ObservableObject {
                          pprIdents: [String] = []) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         var context = Self.context(for: plan, profile: threads[index].profile)
+        context.tracksCost = tracksCost
         context.weatherSummary = weatherSummary
         context.pprIdents = pprIdents
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil

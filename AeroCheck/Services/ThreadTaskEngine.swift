@@ -36,6 +36,9 @@ enum ThreadTaskEngine {
         /// layer is not downloaded or the aerodrome reports none — absent is "not stated", never
         /// "none available". (v5.0.0)
         var destinationFuels: [String] = []
+        /// Whether the pilot tracks what a flight costs. Off hides the fee tasks; the logbook line
+        /// stands on its own without them. (v5.0.0)
+        var tracksCost: Bool = true
         /// Whether a flight plan has been filed for this thread — the close-out reminder only exists
         /// once there is something to close.
         var flightPlanFiled: Bool = false
@@ -136,7 +139,7 @@ enum ThreadTaskEngine {
             // after the ETA on an unclosed plan.
             specs.append(Spec(key: .flightPlanClosed, kind: .reminder, isUrgent: true))
         }
-        for ident in c.feeIdents.sorted() {
+        for ident in c.tracksCost ? c.feeIdents.sorted() : [] {
             specs.append(Spec(key: .feesPaid, subject: ident, kind: .check))
         }
         specs.append(Spec(key: .logbookEntry, kind: .check))

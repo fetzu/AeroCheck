@@ -71,7 +71,7 @@ struct FlightLauncher {
     /// `followedFlightId` is set when the pilot pressed START FLIGHT inside a followed flight, which
     /// names it exactly. Every other entry point leaves it nil and relies on the armed plan.
     @discardableResult
-    func begin(circuitMode: Bool, followedFlightId: UUID? = nil) async -> Outcome {
+    func begin(circuitMode: Bool, followedFlightId: UUID? = nil, unplanned: Bool = false) async -> Outcome {
         // UX-06: never overwrite a running flight. Checked first so we don't reload the active
         // checklist out from under a flight already in progress.
         guard !appState.isFlightActive else { return .blockedActiveFlight }
@@ -137,7 +137,8 @@ struct FlightLauncher {
             aircraftType: selectedAircraftType,
             checklistVersion: selectedVersion,
             flightPlanId: flightPlanId,
-            circuitMode: circuitMode
+            circuitMode: circuitMode,
+            unplanned: unplanned
         )
 
         // startFlight() is the authoritative guard and may still have refused the start (e.g. a

@@ -389,7 +389,8 @@ struct FlightView: View {
                 let closingThreadId = threadManager.threadToCloseOut(
                     flightId: endedFlightId,
                     planId: flightPlanManager.activeFlightPlan?.id,
-                    isCircuitMode: wasCircuits
+                    isCircuitMode: wasCircuits,
+                    isUnplanned: appState.flightIsUnplanned
                 )
                 appState.endFlight(withFlightPlan: flightPlanManager.activeFlightPlan)
                 flightPlanManager.deactivateFlightPlan()

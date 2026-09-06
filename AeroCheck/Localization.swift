@@ -163,7 +163,7 @@ enum L10n {
 
         // Plan new flight
         static let planNewFlight = String(localized: "Plan new flight")
-        static let savedRoutes = String(localized: "Saved routes and arming")
+        static let savedRoutes = String(localized: "Saved routes")
         static let startFromRoute = String(localized: "Start from a saved route")
         static let chooseRoute = String(localized: "Choose a route")
         static func routeCopied(_ count: Int) -> String {
@@ -427,6 +427,18 @@ enum L10n {
         }
         static let reviewFlightFirst = String(localized: "Review the flight")
         static let startAnyway = String(localized: "Start anyway")
+        static let startThisFlight = String(localized: "Start this flight")
+        static let resumeThisFlight = String(localized: "Resume this flight")
+        static let reviewFlight = String(localized: "Review")
+        static let flyWithoutAPlan = String(localized: "Fly without a plan")
+        static let today = String(localized: "Today")
+        static let readyToFly = String(localized: "Everything ticked — ready to fly")
+        static func nextOnly(_ task: String) -> String {
+            String(localized: "Next: \(task)")
+        }
+        static func nextAndRemaining(_ task: String, _ remaining: Int) -> String {
+            String(localized: "Next: \(task) · \(remaining) open in Plan and Prepare")
+        }
         static let startWithoutPlan = String(localized: "Start without it")
         static func flightPlanWaypointCount(_ count: Int) -> String {
             String(format: String(localized: "home.flightPlanWaypointCount"), count)
@@ -1396,8 +1408,8 @@ enum L10n {
         static let unnamedPlan = String(localized: "nav.unnamedPlan")
         static let active = String(localized: "nav.active")
         static let duplicate = String(localized: "nav.duplicate")
-        static let activate = String(localized: "nav.activate")
-        static let deactivate = String(localized: "nav.deactivate")
+        static let activate = String(localized: "Show on map")
+        static let deactivate = String(localized: "Clear from map")
         static let inUse = String(localized: "nav.inUse")
         static let tapToBuild = String(localized: "nav.tapToBuild")
         static let from = String(localized: "nav.from")
@@ -1485,8 +1497,8 @@ enum L10n {
         static let debriefing = String(localized: "nav.debriefing")
 
         // Actions
-        static let activateFlightPlan = String(localized: "nav.activateFlightPlan")
-        static let deactivateFlightPlan = String(localized: "nav.deactivateFlightPlan")
+        static let activateFlightPlan = String(localized: "Show this route on the map")
+        static let deactivateFlightPlan = String(localized: "Clear this route from the map")
         /// Only shown when the plan has recorded progress — re-activating clears every ATO and
         /// resets the leg index, so an accidental tap mid-flight destroys logged times. (v4.4.0)
         static let deactivateConfirmTitle = String(localized: "nav.deactivateConfirmTitle")

@@ -361,6 +361,136 @@
         }
       }
     },
+    "Start this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Démarrer ce vol"
+          }
+        }
+      }
+    },
+    "Resume this flight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre ce vol"
+          }
+        }
+      }
+    },
+    "Review" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoir"
+          }
+        }
+      }
+    },
+    "Fly without a plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voler sans plan"
+          }
+        }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aujourd'hui"
+          }
+        }
+      }
+    },
+    "Everything ticked — ready to fly" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est coché — prêt à voler"
+          }
+        }
+      }
+    },
+    "Next: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %@"
+          }
+        }
+      }
+    },
+    "Next: %1$@ · %2$lld open in Plan and Prepare" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant : %1$@ · %2$lld ouvert(s) dans Planifier et Préparer"
+          }
+        }
+      }
+    },
+    "Show on map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher sur la carte"
+          }
+        }
+      }
+    },
+    "Clear from map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer de la carte"
+          }
+        }
+      }
+    },
+    "Show this route on the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher cette route sur la carte"
+          }
+        }
+      }
+    },
+    "Clear this route from the map" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer cette route de la carte"
+          }
+        }
+      }
+    },
+    "Saved routes" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routes enregistrées"
+          }
+        }
+      }
+    },
     "Arm and start" : {
       "localizations" : {
         "fr" : {

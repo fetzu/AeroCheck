@@ -667,6 +667,10 @@ class AppState {
 
     // Circuit mode - skips CRUISE and DESCENT phases
     var isCircuitMode: Bool = false
+    /// Set when the pilot chose "Fly without a plan" over a flight they had planned. Transient, like
+    /// `isCircuitMode`: it exists so END FLIGHT does not adopt the followed flight they deliberately
+    /// stepped around. (v5.x)
+    var flightIsUnplanned: Bool = false
 
     // MARK: - Private Properties
 
@@ -942,7 +946,7 @@ class AppState {
         )
     }
 
-    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false) {
+    func startFlight(withAircraft aircraft: String, aircraftRegistration: String? = nil, aircraftType: String? = nil, checklistVersion: String? = nil, flightPlanId: UUID? = nil, circuitMode: Bool = false, unplanned: Bool = false) {
         // ARCH-01: never begin a flight for a premium aircraft without its resolved checklist —
         // this is the single choke point, so deep-link/widget entry points are covered too. A
         // blocked start surfaces an explicit error instead of silently showing WT9 content.
@@ -967,6 +971,7 @@ class AppState {
         currentPhase = .preflight
         isFlightActive = true
         isCircuitMode = circuitMode
+        flightIsUnplanned = unplanned
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil

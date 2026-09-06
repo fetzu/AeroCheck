@@ -453,12 +453,17 @@ class FlightThreadManager: ObservableObject {
     /// plan banner for a flight that has not happened.
     ///
     /// A `.local` thread is still adopted: a planned circuit session IS this flight.
-    func threadToCloseOut(flightId: UUID?, planId: UUID?, isCircuitMode: Bool = false) -> UUID? {
+    func threadToCloseOut(flightId: UUID?, planId: UUID?,
+                          isCircuitMode: Bool = false,
+                          isUnplanned: Bool = false) -> UUID? {
         if let flightId, let byFlight = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) {
             return byFlight.id
         }
         if let planId, let byPlan = thread(forPlanId: planId) { return byPlan.id }
-        if let current = currentThread, !current.isFinished, current.state != .closeOut,
+        // "Fly without a plan" is the pilot stepping deliberately around a flight they had planned.
+        // Adopting it here would close out the very flight they chose not to fly.
+        if !isUnplanned,
+           let current = currentThread, !current.isFinished, current.state != .closeOut,
            !(isCircuitMode && current.profile == .full) {
             return current.id
         }

@@ -165,6 +165,37 @@ struct AppSettings: Codable, Equatable {
     /// Mass & balance setup per registration. Empty until the pilot enters their aircraft's figures.
     var weightBalanceProfiles: [String: WeightBalanceProfile] = [:]
 
+    /// Which generation of the settings schema wrote this blob.
+    ///
+    /// Settings sync as ONE unversioned record with last-writer-wins semantics, so a device running
+    /// an older build re-encodes the whole struct without the keys it does not know and pushes it
+    /// back. Ingest then assigned it wholesale and saved — silently erasing every mass & balance
+    /// envelope and hourly rate the pilot had entered, from the only place they live. Stamping the
+    /// writer's generation lets ingest tell "the user cleared this" apart from "the writer could
+    /// not express it". (review F8)
+    var schemaVersion: Int = AppSettings.currentSchemaVersion
+
+    /// Bump whenever a stored property is added that an older build cannot round-trip, and add it
+    /// to `preservingFieldsUnknownTo(_:)` below.
+    static let currentSchemaVersion = 2
+
+    /// Merge an incoming settings record over `self`, keeping local values the writer could not have
+    /// carried. Same-or-newer writers are taken at their word, including deliberate clearings.
+    func preservingFieldsUnknownTo(_ incoming: AppSettings) -> AppSettings {
+        guard incoming.schemaVersion < AppSettings.currentSchemaVersion else { return incoming }
+        var merged = incoming
+        // Schema 2 (v5.0.0): none of these round-trip through a v4.x writer.
+        merged.pilotName = pilotName
+        merged.isStudentPilot = isStudentPilot
+        merged.instructorName = instructorName
+        merged.sunlightBoost = sunlightBoost
+        merged.aircraftRates = aircraftRates
+        merged.weightBalanceProfiles = weightBalanceProfiles
+        merged.enableCostTracking = enableCostTracking
+        merged.schemaVersion = AppSettings.currentSchemaVersion
+        return merged
+    }
+
     // Flight logging
     var logEngineHours: Bool = true // When true, prompts for hour meter reading at engine start and stop (ON by default)
 
@@ -261,6 +292,7 @@ struct AppSettings: Codable, Equatable {
         case enableCompanionMode
         case companionRole
         case pilotName, aircraftRates, weightBalanceProfiles, sunlightBoost
+        case schemaVersion
         case isStudentPilot, instructorName
         // marketingMode and developerMode are intentionally excluded (non-persisted, reset each launch)
     }
@@ -345,8 +377,15 @@ struct AppSettings: Codable, Equatable {
         // `.sunlight` is no longer offered by any picker, so a save still holding it would show an
         // empty selection and pin the palette on regardless of the boost.
         if themePreference == .sunlight { themePreference = .day }
-        aircraftRates = try container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates) ?? [:]
-        weightBalanceProfiles = try container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles) ?? [:]
+        // `try?`, not `try`: these are the first nested custom structs in AppSettings, and
+        // `decodeIfPresent` only tolerates an ABSENT key — a present-but-unparseable value throws,
+        // and the throw escapes all the way out to a caller that swallows it into a default
+        // AppSettings, losing every OTHER setting too and then persisting the defaults. Degrading
+        // to "profiles not set up" is bad; silently resetting the whole store is worse.
+        aircraftRates = (try? container.decodeIfPresent([String: AircraftRateProfile].self, forKey: .aircraftRates)) ?? [:]
+        weightBalanceProfiles = (try? container.decodeIfPresent([String: WeightBalanceProfile].self, forKey: .weightBalanceProfiles)) ?? [:]
+        // Absent means a writer from before the version existed, which is exactly schema 1.
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
 
     }
 
@@ -424,6 +463,12 @@ struct ActiveFlightState: Codable {
     /// restore — a restored premium flight reloads its own checklist, never the WT9 residue. (ARCH-08)
     let selectedAircraft: AircraftType
     let selectedRemoteAircraftId: String?
+    /// Captured alongside `isCircuitMode`, and for the same reason: it decides which thread END
+    /// FLIGHT closes out. Left out of the snapshot, a jetsam mid-flight — routine on a two-hour
+    /// flight with background GPS and map tiles — restored the flight with the pilot's explicit
+    /// "not this one" silently cleared, and close-out then adopted the flight they avoided.
+    /// Optional so an older checkpoint still decodes. (review F3)
+    let flightIsUnplanned: Bool?
     let savedAt: Date
 
     /// Builds a snapshot from a **non-optional** flight, so a nil `currentFlight` can never
@@ -441,6 +486,7 @@ struct ActiveFlightState: Codable {
         self.currentHighlightedItem = appState.currentHighlightedItem
         self.hasLandingBeenDetected = appState.hasLandingBeenDetected
         self.isCircuitMode = appState.isCircuitMode
+        self.flightIsUnplanned = appState.flightIsUnplanned
         self.selectedAircraft = appState.settings.selectedAircraft
         self.selectedRemoteAircraftId = appState.settings.selectedRemoteAircraftId
         self.savedAt = Date()
@@ -461,6 +507,7 @@ struct ActiveFlightState: Codable {
         appState.currentHighlightedItem = currentHighlightedItem
         appState.hasLandingBeenDetected = hasLandingBeenDetected
         appState.isCircuitMode = isCircuitMode
+        appState.flightIsUnplanned = flightIsUnplanned ?? false
         // Re-apply the captured aircraft selection so the active checklist resolves to the
         // restored flight's aircraft. The premium checklist body is re-fetched at launch (see
         // AeroCheckApp's `.task`); until it resolves, `activeChecklist` reports `.unresolved`
@@ -797,7 +844,11 @@ class AppState {
                 // Preserve device-local, non-persisted fields. They aren't encoded (so the incoming record
                 // always has them at their defaults); a wholesale assign would reset them on every sync —
                 // which is why developer mode kept switching itself off when the paired device synced. (v4.1)
-                var merged = settings
+                // Keep the device-local, non-persisted fields (they aren't encoded, so the incoming
+                // record always has them at their defaults) AND anything the writer's schema could
+                // not express — otherwise a device on an older build erases the pilot's mass &
+                // balance profiles and hourly rates for every device. (v4.1 + review F8)
+                var merged = self.settings.preservingFieldsUnknownTo(settings)
                 merged.developerMode = self.settings.developerMode
                 merged.marketingMode = self.settings.marketingMode
                 self.settings = merged
@@ -1054,6 +1105,7 @@ class AppState {
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
+        flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil
@@ -1081,6 +1133,7 @@ class AppState {
         currentFlight = nil
         isFlightActive = false
         isCircuitMode = false
+        flightIsUnplanned = false
         engineStartTime = nil
         lineUpTime = nil
         landingTime = nil

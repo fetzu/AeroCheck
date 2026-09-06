@@ -108,8 +108,15 @@ struct FlightLauncher {
         // window — a stationary aircraft on the ramp stops producing fresh fixes but its position is valid.
         let hasOwnFix = locationManager.hasRecentUsableFix
         let hasPeerFix = CompanionConnectivityManager.shared.hasUsablePeerFix
-        switch FlightLauncher.evaluate(isFlightActive: false, isOwned: true, isChecklistResolved: true,
+        // Re-read rather than passing `false`: the entry guard ran BEFORE two suspension points
+        // (the checklist fetch and `ensureLoaded`), so a second launch that started during either
+        // one is already running by now. Hardcoding false here let both callers through, and the
+        // second `startFlight` would replace `currentFlight` and orphan the first. (review F5)
+        switch FlightLauncher.evaluate(isFlightActive: appState.isFlightActive, isOwned: true,
+                                       isChecklistResolved: true,
                                        authorization: authorization, hasOwnFix: hasOwnFix, hasPeerFix: hasPeerFix) {
+        case .blockedActiveFlight:
+            return .blockedActiveFlight
         case .blockedLocationDenied:
             appState.flightStartError = L10n.Alert.locationRequired
             return .blockedLocationDenied
@@ -129,8 +136,13 @@ struct FlightLauncher {
             break   // .started — proceed (a `.notDetermined` defer also lands here; startTracking prompts)
         }
 
-        // A flight plan applies to a normal flight only, not to circuit training.
-        let flightPlanId = circuitMode ? nil : flightPlanManager.activeFlightPlan?.id
+        // A flight plan applies to a normal flight only, not to circuit training — and not to a
+        // flight the pilot deliberately started WITHOUT their plan. `unplanned` has to be here and
+        // not only on `AppState.flightIsUnplanned`: leaving the plan attached lets `threadToAttach`
+        // resolve the followed thread BY PLAN, and `threadToCloseOut`'s first branch then matches it
+        // by `flightId` — closing out the very flight the pilot stepped around, which is the guard
+        // on the third branch being bypassed rather than applied. (cumulative review F1)
+        let flightPlanId = (circuitMode || unplanned) ? nil : flightPlanManager.activeFlightPlan?.id
         appState.startFlight(
             withAircraft: appState.settings.defaultAirplane,
             aircraftRegistration: selectedRegistration,

@@ -52,9 +52,22 @@ struct ThreadTaskPresentation {
                 // itself, so how recently a human read the source is what tells the pilot whether to
                 // trust these four words or go and look.
                 parts.append(L10n.Border.reviewed(rule.lastReviewed))
+                // The pack's own caveats, which were written and translated and then never shown.
+                // `unknownWarning` only when something in this rule actually IS unknown or
+                // disputed — a pilot reading "Official sources disagree" needs to be told what to
+                // do about it, and the rest of the time it is noise. (review F28)
+                if rule.customsAerodrome == .unknown || rule.priorNotification == .unknown
+                    || rule.customsAerodrome == .disputed || rule.priorNotification == .disputed {
+                    parts.append(L10n.Border.unknownWarning)
+                }
+                parts.append(L10n.Border.advisory)
                 return parts.joined(separator: " · ")
             }()
-            return .init(title: L10n.Thread.taskCustoms(task.subject ?? ""), hint: hint, icon: "globe.europe.africa")
+            // The country is shown as a NAME, not the raw ISO-3166 code the task carries as its
+            // subject — "Border crossing — DE" was never localized in either language, and the app
+            // already resolves this twice over. (review, localization 14)
+            let country = task.subject.map { OpenAIPConfig.countryName(for: $0) } ?? ""
+            return .init(title: L10n.Thread.taskCustoms(country), hint: hint, icon: "globe.europe.africa")
         case .flightPlanClosed:
             return .init(title: L10n.Thread.taskFlightPlanClose, hint: L10n.Thread.hintFlightPlanClose, icon: "checkmark.shield")
         case .feesPaid:
@@ -382,7 +395,7 @@ struct FlightThreadView: View {
     /// what is not. The state lives on the trip, so a tick here is a tick everywhere.
     private func tripBand(_ trip: Trip, leg: FlightThread) -> some View {
         // What THIS leg sees: a briefing that no longer covers its departure reads as pending again.
-        let tasks = trip.tasks(forLegDeparting: leg.scheduledDeparture)
+        let tasks = trip.tasks(forLegDeparting: leg.scheduledDeparture, legId: leg.id)
         let done = tasks.filter { $0.state == .done }.count
 
         return VStack(alignment: .leading, spacing: 0) {
@@ -406,7 +419,8 @@ struct FlightThreadView: View {
                 Button {
                     threadManager.setSharedTaskState(task.state == .done ? .pending : .done,
                                                      taskId: task.id,
-                                                     tripId: trip.id)
+                                                     tripId: trip.id,
+                                                     fromLegId: leg.id)
                 } label: {
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: task.state == .done ? "checkmark.circle.fill" : "circle")
@@ -671,7 +685,13 @@ struct FlightThreadView: View {
                 .frame(maxWidth: .infinity)
             }
             Button(role: .destructive) {
-                threadManager.deleteThread(threadId: thread.id)
+                // `removeLeg`, not `deleteThread`: this is the app's ONLY delete affordance and it
+                // is shown on trip legs too. `deleteThread` knows nothing about trips, so cancelling
+                // a leg left its id dangling in `Trip.legIds` — "Leg 3 of 3" on the second of two, a
+                // degenerate trip never dissolved, and the survivor stuck with `tripId` set so its
+                // trip-scoped rows never came back. `removeLeg` delegates to `deleteThread` for a
+                // thread that is not in a trip, so it is a safe drop-in. (review F14)
+                threadManager.removeLeg(threadId: thread.id)
                 close()
             } label: {
                 Text(L10n.Thread.deleteThread)
@@ -809,7 +829,7 @@ struct ThreadTaskRow: View {
                             .foregroundColor(task.state == .notApplicable ? .dimText : .primaryText)
                             .strikethrough(task.state == .notApplicable)
                         if task.kind == .auto {
-                            Text("AUTO")
+                            Text(L10n.ThreadBadge.auto)
                                 .scaledFont(size: 9, weight: .bold, design: .monospaced, relativeTo: .caption2)
                                 .foregroundColor(.aviationGreen)
                                 .padding(.horizontal, 5)

@@ -423,10 +423,16 @@ struct FlightPlanningView: View {
     /// point of following a flight is the two reminders it can send. The prompt arrives here — with
     /// the pilot having just asked for it — rather than at cold launch. (v5.0.0)
     private func followFlight(_ plan: FlightPlan) {
-        // PPR and destination fuel are derived by the manager now, so creation and regeneration
-        // can never disagree about them.
-        threadManager.createThread(from: plan)
-        Task { await NotificationService.shared.requestAuthorization() }
+        // Ask FIRST, then create: `createThread` schedules the T-24h reminder behind a
+        // `hasPermission()` guard, and on a fresh install the status is still `.notDetermined`
+        // while the prompt is up — so scheduling first dropped the reminder, permanently, on the
+        // very first flight a pilot follows. (review F16)
+        Task {
+            await NotificationService.shared.requestAuthorization()
+            // PPR and destination fuel are derived by the manager now, so creation and
+            // regeneration can never disagree about them.
+            threadManager.createThread(from: plan)
+        }
     }
 
 

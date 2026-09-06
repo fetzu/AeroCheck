@@ -70,21 +70,32 @@ class FlightPlanManager: ObservableObject {
     /// threads have actually loaded, or every plan looks unfollowed and real flights lose their
     /// dates; `FlightThreadManager.hasLoadedThreads` is that gate. (v5.x)
     func clearDatesFromUnflownRoutes(followedPlanIds: Set<UUID>) {
+        // The active route is a copy held separately, so it is cleared FIRST and unconditionally.
+        // Behind the `guard changed` below it was skipped whenever the active plan was the only one
+        // carrying a date — producing exactly the state the guard's own comment says it exists to
+        // prevent: the next edit writes the date back and the route re-acquires a departure time
+        // the sweep already decided it should not have. (review F11)
+        if let active = activeFlightPlan,
+           active.plannedDepartureTime != nil,
+           !followedPlanIds.contains(active.id) {
+            activeFlightPlan?.plannedDepartureTime = nil
+            // Waypoint times-over are DERIVED from the departure time. Clearing the date without
+            // recomputing left a full set of ETOs hanging off a time that no longer exists, which
+            // the editor then would not show and could not explain. (review F11)
+            activeFlightPlan?.calculateRouteData()
+            saveActiveFlightPlan()
+        }
+
         var changed = false
         for index in flightPlans.indices
         where flightPlans[index].plannedDepartureTime != nil
             && !followedPlanIds.contains(flightPlans[index].id) {
             flightPlans[index].plannedDepartureTime = nil
+            flightPlans[index].calculateRouteData()
             flightPlans[index].updatedAt = Date()
             changed = true
         }
         guard changed else { return }
-        // The active route is a copy held separately; leave it holding a date the list no longer has
-        // and the next edit would write it back.
-        if let active = activeFlightPlan, !followedPlanIds.contains(active.id) {
-            activeFlightPlan?.plannedDepartureTime = nil
-            saveActiveFlightPlan()
-        }
         saveFlightPlans()
         AppLog.general.debugLine("Cleared departure times from routes with no flight")
     }

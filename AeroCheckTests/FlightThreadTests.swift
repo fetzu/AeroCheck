@@ -754,3 +754,118 @@ final class FlightThreadTests: XCTestCase {
         return defaults
     }
 }
+
+
+// MARK: - Cumulative review regressions (v5.0.1)
+
+extension FlightThreadTests {
+
+    @MainActor
+    private func datedPlan(_ departure: Date?) -> FlightPlan {
+        var plan = FlightPlan(name: "Test")
+        plan.waypoints = [
+            FlightPlanWaypoint(name: "LSZQ",
+                               coordinate: CLLocationCoordinate2D(latitude: 47.4247, longitude: 7.1869),
+                               altitude: 3000),
+            FlightPlanWaypoint(name: "LSGY",
+                               coordinate: CLLocationCoordinate2D(latitude: 46.7619, longitude: 6.6141),
+                               altitude: 3000),
+        ]
+        plan.plannedDepartureTime = departure
+        return plan
+    }
+
+    /// F2. The `currentThread` fallback cannot see WHICH flight was flown, and had no date check — so
+    /// a Thursday evening hop pushed Saturday's cross-country into close-out, complete with its
+    /// close-your-flight-plan banner for a flight that had not happened. Guarding only the circuits
+    /// case was not enough: Home offers no "not this one" button on a day with no hero flight.
+    @MainActor
+    func testTheCloseOutFallbackRefusesAThreadScheduledForAnotherDay() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let saturday = manager.createThread(from: datedPlan(Date().addingTimeInterval(2 * 24 * 3600)))
+        defer { manager.deleteThread(threadId: saturday.id) }
+        manager.setCurrentThread(saturday.id)
+
+        XCTAssertNil(manager.threadToCloseOut(flightId: UUID(), planId: nil,
+                                              isCircuitMode: false, isUnplanned: false),
+                     "a flight two days out is not the flight that was just flown")
+    }
+
+    @MainActor
+    func testTheCloseOutFallbackStillAdoptsTodaysFlight() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let today = manager.createThread(from: datedPlan(Date()))
+        defer { manager.deleteThread(threadId: today.id) }
+        manager.setCurrentThread(today.id)
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil), today.id)
+    }
+
+    @MainActor
+    func testTheCloseOutFallbackStillAdoptsAnUndatedFlight() {
+        // No date at all is the widget/deep-link case the fallback exists for; it carries nothing to
+        // contradict, so it must stay eligible.
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let undated = manager.createThread(from: datedPlan(nil))
+        defer { manager.deleteThread(threadId: undated.id) }
+        manager.setCurrentThread(undated.id)
+
+        XCTAssertEqual(manager.threadToCloseOut(flightId: UUID(), planId: nil), undated.id)
+    }
+
+    /// F4. Finishing a thread is optional, so one that already flew and closed out is still
+    /// `!isFinished` and `thread(forPlanId:)` hands it back when the pilot re-arms the same saved
+    /// route. Carrying the first flight's filing latches into the second made `hasOpenFlightPlan`
+    /// false for a plan that was genuinely open — no banner and no reminder on the second flight.
+    @MainActor
+    func testReFlyingAThreadStartsAFreshCloseChapter() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let thread = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: thread.id) }
+
+        guard let filed = manager.thread(withId: thread.id)?.tasks
+            .first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no flight-plan-filed task")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: thread.id)
+        let firstFlight = UUID()
+        manager.attachFlight(firstFlight, toThreadId: thread.id)
+        manager.beginCloseOut(threadId: thread.id, flightId: firstFlight)
+        manager.markFlightPlanClosed(threadId: thread.id)
+        XCTAssertFalse(manager.thread(withId: thread.id)?.hasOpenFlightPlan ?? true)
+
+        // Same thread, next weekend, same saved route.
+        manager.attachFlight(UUID(), toThreadId: thread.id)
+
+        let after = manager.thread(withId: thread.id)
+        XCTAssertNil(after?.flightPlanFiledAt, "the new flight has filed nothing yet")
+        XCTAssertNil(after?.flightPlanClosedAt, "and must not inherit the last one's close stamp")
+        XCTAssertEqual(after?.tasks.first { $0.key == .flightPlanFiled }?.state, .pending,
+                       "the task and the latch must never disagree")
+    }
+
+    /// F5. `regenerateAfterFilingChange` never set `isLeg`, so ticking "flight plan filed" on a trip
+    /// leg re-created the trip's own rows on it as pending duplicates — dropping a 6/6 leg to 6/11
+    /// and diverting START to the outstanding-tasks prompt.
+    @MainActor
+    func testFilingAPlanOnATripLegDoesNotResurrectTheTripsTasks() {
+        let manager = FlightThreadManager(defaults: throwawayDefaults())
+        let a = manager.createThread(from: swissPlan(), profile: .full)
+        let b = manager.createThread(from: swissPlan(), profile: .full)
+        defer { manager.deleteThread(threadId: a.id); manager.deleteThread(threadId: b.id) }
+        _ = manager.formTrip(from: [a.id, b.id])
+
+        let before = manager.thread(withId: a.id)?.tasks.count ?? 0
+        guard let filed = manager.thread(withId: a.id)?.tasks
+            .first(where: { $0.key == .flightPlanFiled }) else {
+            return XCTFail("no flight-plan-filed task on the leg")
+        }
+        manager.setTaskState(.done, taskId: filed.id, threadId: a.id)
+
+        let after = manager.thread(withId: a.id)?.tasks ?? []
+        XCTAssertTrue(after.allSatisfy { $0.key.scope == .leg },
+                      "a leg must never carry a trip-scoped row — those live on the trip")
+        XCTAssertEqual(after.count, before + 1,
+                       "filing adds the close-out task and nothing else")
+    }
+}

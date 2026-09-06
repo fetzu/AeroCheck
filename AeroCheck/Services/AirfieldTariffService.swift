@@ -100,8 +100,15 @@ final class AirfieldTariffService: ObservableObject {
     // MARK: - Cache
 
     private func loadCache() {
+        // `.iso8601` on BOTH sides. `saveCache` encodes `fetchedAt` as "2026-09-06T20:39:35Z" while
+        // this decoded with a default JSONDecoder, whose `.deferredToDate` wants a Double — so the
+        // decode always failed, the guard always bailed, and the cache was write-only. The offline
+        // promise ("a pilot planning a flight offline should still get the link they saw last week")
+        // never held, and `lastFetch` never restored either, so every launch re-fetched. (review F24)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         guard let data = try? Data(contentsOf: cacheURL),
-              let cached = try? JSONDecoder().decode(CachedRegistry.self, from: data) else { return }
+              let cached = try? decoder.decode(CachedRegistry.self, from: data) else { return }
         tariffs = Dictionary(cached.tariffs.map { ($0.icao, $0) }, uniquingKeysWith: { first, _ in first })
         lastFetch = cached.fetchedAt
     }

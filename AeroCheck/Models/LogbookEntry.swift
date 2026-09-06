@@ -31,11 +31,20 @@ struct LogbookOverrides: Codable, Equatable, Sendable {
     var nightMinutes: Int?
     /// Minutes under IFR, entered by the pilot.
     var ifrMinutes: Int?
+    /// Landings made at night, entered by the pilot.
+    ///
+    /// Hardcoding this to 0 was the one place the file's own "a plausible wrong number is worse than
+    /// an empty one" rule was broken in the wrong direction: night TIME was correctly left for the
+    /// pilot, but the landings were actively ASSERTED as day landings — on screen, in the CSV and in
+    /// the PDF column that FCL.060 night recency is counted off. Absent still means "all day", which
+    /// is right for the overwhelming majority of flights; it is now a claim the pilot can correct.
+    /// (review F25)
+    var landingsNight: Int?
     var remarks: String?
 
     var isEmpty: Bool {
         picName == nil && function == nil && nightMinutes == nil && ifrMinutes == nil
-            && (remarks?.isEmpty ?? true)
+            && landingsNight == nil && (remarks?.isEmpty ?? true)
     }
 }
 
@@ -217,8 +226,8 @@ struct LogbookTotals: Equatable, Sendable {
             singlePilotSEMinutes: minutes,
             nightMinutes: flight.logbook?.nightMinutes ?? 0,
             ifrMinutes: flight.logbook?.ifrMinutes ?? 0,
-            landingsDay: flight.totalLandings,
-            landingsNight: 0
+            landingsDay: max(0, flight.totalLandings - (flight.logbook?.landingsNight ?? 0)),
+            landingsNight: min(flight.totalLandings, flight.logbook?.landingsNight ?? 0)
         )
         switch LogbookLineBuilder.function(for: flight, overrides: flight.logbook, pilot: pilot) {
         case .pic:        totals.picMinutes = minutes
@@ -269,8 +278,10 @@ enum LogbookLineBuilder {
         let inferredFunction = function(for: flight, overrides: overrides, pilot: pilot)
 
         // Landings: the detector separates full stops from touch-and-gos, and a logbook counts
-        // landings, so both belong in the day column unless the pilot says otherwise.
+        // landings, so both belong in the day column unless the pilot says otherwise — which they
+        // now can, via `LogbookOverrides.landingsNight`. (review F25)
         let landings = flight.totalLandings
+        let nightLandings = min(landings, max(0, overrides?.landingsNight ?? 0))
         let nightMinutes = overrides?.nightMinutes ?? 0
         let ifrMinutes = overrides?.ifrMinutes ?? 0
 
@@ -288,8 +299,8 @@ enum LogbookLineBuilder {
                                      pilot: pilot,
                                      function: inferredFunction,
                                      flight: flight),
-            landingsDay: landings,
-            landingsNight: 0,
+            landingsDay: max(0, landings - nightLandings),
+            landingsNight: min(landings, nightLandings),
             nightTime: formatMinutes(nightMinutes),
             ifrTime: formatMinutes(ifrMinutes),
             function: inferredFunction,
@@ -334,7 +345,10 @@ enum LogbookLineBuilder {
             if let usual, !usual.isEmpty { return usual }
         }
         if let name = pilot.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty { return name }
-        return "SELF"
+        // A VALUE in the PIC column, not a column heading — so unlike the headings above it, this is
+        // localized. "SELF" is an English-logbook convention that a French pilot's logbook does not
+        // use. (review, localization 11)
+        return L10n.Logbook.picSelf
     }
 
     private static func defaultRemarks(for flight: Flight) -> String {

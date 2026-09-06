@@ -108,6 +108,15 @@ struct ThreadTask: Codable, Identifiable, Equatable, Sendable {
     var chapter: ThreadChapter { key.chapter }
     var isSettled: Bool { state != .pending }
 
+    /// Legs this tick was explicitly made for, when it is a shared trip task.
+    ///
+    /// A stale row is rendered as pending, so ticking it wrote `completedAt = now` — and `now` is
+    /// still on the wrong side of the staleness rule for that leg, so the row bounced straight back
+    /// to pending and could never be completed. Recording the leg the pilot ticked FROM is the
+    /// honest fix: they refreshed the briefing while looking at that leg, so it covers that leg,
+    /// whatever the clock says. Later legs still go stale on their own terms. (review F13)
+    var acknowledgedLegIds: Set<UUID> = []
+
     /// Identity for regeneration: the same key for the same subject is the same task.
     var matchToken: String { "\(key.rawValue)#\(subject ?? "")" }
 }
@@ -246,6 +255,29 @@ struct FlightThread: Codable, Identifiable, Equatable, Sendable {
             break
         }
         touch()
+    }
+
+    /// Reset the flight-specific record so a re-flown thread starts a clean chapter.
+    ///
+    /// Only the CLOSE chapter and the two filing latches: PLAN and PREPARE are the pilot's standing
+    /// preparation for this route and survive, which is the point of re-arming a saved route rather
+    /// than building it again. Without this, flying the same thread twice carried the first
+    /// flight's `flightPlanClosedAt` into the second, so `hasOpenFlightPlan` read false for a plan
+    /// that had genuinely been filed and never closed. (review F4)
+    mutating func beginNewChapter(now: Date = Date()) {
+        flightPlanFiledAt = nil
+        flightPlanClosedAt = nil
+        // `flightPlanFiled` lives in PREPARE but is flight-specific in the same way — a new flight
+        // needs its own plan filed — and leaving it `.done` while clearing `flightPlanFiledAt`
+        // would break the invariant `setState` maintains between the task and the latch.
+        for index in tasks.indices
+        where tasks[index].key.chapter == .close || tasks[index].key == .flightPlanFiled {
+            tasks[index].state = .pending
+            tasks[index].completedAt = nil
+            tasks[index].note = nil
+        }
+        flightId = nil
+        updatedAt = now
     }
 
     mutating func setNote(_ note: String?, forTaskWithId taskId: UUID) {

@@ -30,6 +30,11 @@ class FlightThreadManager: ObservableObject {
     /// the dates off flights that do exist. (v5.x)
     @Published private(set) var hasLoadedThreads = false
 
+    /// True once the on-disk trips have arrived. Set independently of `hasLoadedThreads` because
+    /// the two loads land at different times, and a leg is invisible in both lists while its trip
+    /// is missing — so anything that renders the flights list needs to know about this one too.
+    @Published private(set) var hasLoadedTrips = false
+
     // MARK: - Private Properties
 
     private let currentThreadKey = "currentFlightThreadId"
@@ -51,8 +56,12 @@ class FlightThreadManager: ObservableObject {
         self.notifications = notifications ?? NotificationService.shared
         loadCurrentThreadPointer()
         Task { [weak self] in
-            await self?.loadThreadsAsync()
+            // Trips FIRST: `hasLoadedThreads` is what the flights list waits on, and a leg whose
+            // trip has not arrived yet appears in neither the standalone list nor the trip list.
+            // Loading trips after it meant a window where the app said "loaded" and the legs were
+            // simply absent. (review F10)
             await self?.loadTrips()
+            await self?.loadThreadsAsync()
         }
     }
 
@@ -255,12 +264,42 @@ class FlightThreadManager: ObservableObject {
     /// takes when a second leg is added to it, and its preparation should survive that.
     @discardableResult
     func formTrip(from threadIds: [UUID]) -> Trip? {
-        guard threadIds.count >= 2 else { return nil }
-        var trip = Trip(legIds: threadIds)
-
-        if let firstIndex = threads.firstIndex(where: { $0.id == threadIds[0] }) {
-            trip.sharedTasks = threads[firstIndex].tasks.filter { $0.key.scope == .trip }
+        // De-duplicate and keep only ids that actually resolve, in the order given. Without this a
+        // repeated or unknown id still landed in `legIds`, producing a "trip" that is not
+        // `isDegenerate` but has fewer real legs than it claims — the dangling state, at birth.
+        var seen = Set<UUID>()
+        let resolved = threadIds.filter { id in
+            guard seen.insert(id).inserted else { return false }
+            guard let index = threads.firstIndex(where: { $0.id == id }) else { return false }
+            // A flight already under way, already closed out, or already in another trip is not
+            // something to fold into a new one. (review F-formTrip)
+            return threads[index].tripId == nil
+                && threads[index].state != .flying
+                && !threads[index].isFinished
         }
+        guard resolved.count >= 2 else { return nil }
+        let threadIds = resolved
+        var trip = Trip(legIds: threadIds)
+        // The one date in a trip the pilot actually chose: the first leg's departure. It is what an
+        // undated later leg measures a shared tick against. (review F12)
+        trip.scheduledStart = threads.first { $0.id == threadIds[0] }?.scheduledDeparture
+
+        // Every leg's trip-scoped rows are candidates, not just leg 1's, and the most-settled
+        // version of each row wins. Taking leg 1 alone deleted whatever the other legs had recorded
+        // — and worse, a row leg 1 never needed (a France-only first leg emits no DABS) could not
+        // be produced by any later leg either, because `generate` filters trip-scoped specs off a
+        // leg. The row then existed nowhere on a trip that does enter Swiss airspace. (review F15)
+        var promoted: [String: ThreadTask] = [:]
+        for id in threadIds {
+            guard let index = threads.firstIndex(where: { $0.id == id }) else { continue }
+            for task in threads[index].tasks where task.key.scope == .trip {
+                if let existing = promoted[task.matchToken], existing.isSettled, !task.isSettled {
+                    continue
+                }
+                promoted[task.matchToken] = task
+            }
+        }
+        trip.sharedTasks = promoted.values.sorted { $0.key.rawValue < $1.key.rawValue }
         for id in threadIds {
             guard let index = threads.firstIndex(where: { $0.id == id }) else { continue }
             threads[index].tripId = trip.id
@@ -275,13 +314,23 @@ class FlightThreadManager: ObservableObject {
 
     /// Tick a shared task. Reached from whichever leg the pilot happens to be looking at — the state
     /// lives on the trip, so all of them see it at once.
-    func setSharedTaskState(_ state: ThreadTaskState, taskId: UUID, tripId: UUID) {
+    /// `fromLegId` is the leg the pilot was looking at when they ticked. A tick made there covers
+    /// that leg outright — see `ThreadTask.acknowledgedLegIds` for why the timestamp alone could
+    /// not. (review F13)
+    func setSharedTaskState(_ state: ThreadTaskState, taskId: UUID, tripId: UUID, fromLegId: UUID? = nil) {
         guard let index = trips.firstIndex(where: { $0.id == tripId }),
               let taskIndex = trips[index].sharedTasks.firstIndex(where: { $0.id == taskId })
         else { return }
         trips[index].sharedTasks[taskIndex].state = state
         // Refreshing a stale briefing re-stamps it, which is what makes it cover the later legs.
         trips[index].sharedTasks[taskIndex].completedAt = (state == .done) ? Date() : nil
+        if state == .done {
+            if let fromLegId { trips[index].sharedTasks[taskIndex].acknowledgedLegIds.insert(fromLegId) }
+        } else {
+            // Un-ticking retracts the acknowledgement everywhere, or the row would stay green on
+            // the leg it was ticked from while reading pending on every other leg.
+            trips[index].sharedTasks[taskIndex].acknowledgedLegIds = []
+        }
         trips[index].touch()
         saveTrips()
     }
@@ -314,13 +363,33 @@ class FlightThreadManager: ObservableObject {
         saveTrips()
     }
 
+    /// Serialises trip writes. `saveTripsOffMain` writes the WHOLE file from a detached task, and
+    /// detached tasks have no ordering, so two quick ticks in the trip band could land out of order
+    /// and leave the file holding the older array. Threads self-heal from that via their dirty-diff;
+    /// trips have no such tracking, so a lost tick simply came back unticked. Chaining each write
+    /// onto the previous one gives them the FIFO order the shape assumed. (review F-trips-order)
+    private var tripWriteChain: Task<Void, Never>?
+
     private func saveTrips() {
         let snapshot = trips
-        Task { await persistence.saveTripsOffMain(snapshot) }
+        let previous = tripWriteChain
+        tripWriteChain = Task { [persistence] in
+            await previous?.value
+            await persistence.saveTripsOffMain(snapshot)
+        }
     }
 
+    /// Merge rather than assign, exactly as `loadThreadsAsync` does and for the same reason: this
+    /// lands AFTER the iCloud-backed thread load, seconds into the session, and a trip the pilot
+    /// formed in that window was overwritten out of memory while both its legs kept `tripId` — so
+    /// `trip(forThreadId:)` found nothing (no trip band) and `context.isLeg` stayed true (the
+    /// trip-scoped rows filtered off the legs). The preparation existed in neither place, and
+    /// `saveTrips` then made the truncated file permanent. (review F10)
     private func loadTrips() async {
-        trips = await persistence.loadTripsOffMain()
+        let loaded = await persistence.loadTripsOffMain()
+        let existingIds = Set(trips.map(\.id))
+        trips = trips + loaded.filter { !existingIds.contains($0.id) }
+        hasLoadedTrips = true
     }
 
     // MARK: - Task mutation
@@ -357,6 +426,12 @@ class FlightThreadManager: ObservableObject {
     private func regenerateAfterFilingChange(at index: Int) {
         var context = Self.context(for: nil, profile: threads[index].profile)
         context.flightPlanFiled = threads[index].flightPlanFiledAt != nil
+        // A leg's trip-scoped rows live on the TRIP. `regenerateTasks` sets this and this path did
+        // not, so `isLeg` defaulted to false and ticking "flight plan filed" on a leg re-created
+        // weather/DABS/GAFOR/NOTAM/booking/debrief on it as pending duplicates of rows already
+        // ticked in the trip band — dropping the leg from 6/6 to 6/11 and diverting START to the
+        // outstanding-tasks prompt. (review F5)
+        context.isLeg = threads[index].tripId != nil
         // Keep the route-derived parts of the existing tasks by regenerating from the tasks we have:
         // only the close-out task set depends on the filing flag, so a minimal context is enough to
         // decide it, and `generate` carries every other task's state across unchanged.
@@ -418,6 +493,14 @@ class FlightThreadManager: ObservableObject {
     /// Link a followed flight to the flight that just started, and move it into FLY.
     func attachFlight(_ flightId: UUID, toThreadId threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        // Finishing a thread is optional, so a thread that already flew and closed out is still
+        // `!isFinished` and `thread(forPlanId:)` will hand it back when the pilot re-arms the same
+        // saved route. Carrying the previous flight's filing latches into the new one made
+        // `hasOpenFlightPlan` false for a plan that was genuinely open — no banner, no reminder,
+        // on the second flight. A new flight is a new chapter. (review F4)
+        if threads[index].state == .closeOut || threads[index].flightId != nil {
+            threads[index].beginNewChapter()
+        }
         threads[index].flightId = flightId
         threads[index].state = .flying
         threads[index].touch()
@@ -486,10 +569,28 @@ class FlightThreadManager: ObservableObject {
         // Adopting it here would close out the very flight they chose not to fly.
         if !isUnplanned,
            let current = currentThread, !current.isFinished, current.state != .closeOut,
-           !(isCircuitMode && current.profile == .full) {
+           !(isCircuitMode && current.profile == .full),
+           Self.isPlausiblyToday(current) {
             return current.id
         }
         return nil
+    }
+
+    /// Whether a thread could be the flight that was just flown, judged by its date alone.
+    ///
+    /// The fallback's whole problem is that it cannot see WHICH flight was flown, so the one thing
+    /// it can still check is that the candidate is not scheduled for some other day. Without this a
+    /// Thursday evening hop closed out Saturday's cross-country: the pilot got a close-your-flight-
+    /// plan banner for a flight that had not happened, and — if they obeyed it — Saturday's real
+    /// flight then reported `hasOpenFlightPlan == false` and raised no banner and no reminder at
+    /// all. Guarding the circuits case alone was not enough, because Home offers no "not this one"
+    /// button on a day with no hero flight. (review F2)
+    ///
+    /// A thread with NO scheduled departure stays eligible: that is the widget/deep-link case the
+    /// fallback exists for, and it carries no date to contradict.
+    static func isPlausiblyToday(_ thread: FlightThread, now: Date = Date()) -> Bool {
+        guard let departure = thread.scheduledDeparture else { return true }
+        return Calendar.current.isDate(departure, inSameDayAs: now)
     }
 
     /// The followed flight START FLIGHT should be about, if any.
@@ -544,19 +645,50 @@ class FlightThreadManager: ObservableObject {
         return thread
     }
 
-    /// Called by the flight-event detector when a full-stop landing is confirmed: arms the one
-    /// reminder that matters. Safe to call more than once — scheduling replaces by identifier.
-    func scheduleCloseReminderIfNeeded(threadId: UUID) {
+    /// Arm the one reminder that matters. Safe to call more than once — scheduling replaces by
+    /// identifier, so repeated full-stops in a circuit session just move it.
+    ///
+    /// `delay` distinguishes the two arming points. END FLIGHT uses the short one: the pilot has the
+    /// app open and the in-app banner is already up. A confirmed full-stop landing uses the long
+    /// one, and is the case that actually needs a notification — the pilot who lands, shuts down and
+    /// walks away without pressing anything used to get NO prompt at all before Skyguide's RCC
+    /// alerted at ETA+30, because this was only ever called from `beginCloseOut` despite the comment
+    /// here claiming the detector called it. (review F6)
+    func scheduleCloseReminderIfNeeded(threadId: UUID,
+                                       delay: TimeInterval = NotificationService.postFlightDelay) {
         guard let thread = thread(withId: threadId), thread.hasOpenFlightPlan else { return }
         Task { [notifications] in
             await notifications.scheduleFlightPlanCloseReminder(threadId: thread.id,
-                                                               routeLabel: thread.routeLabel)
+                                                               routeLabel: thread.routeLabel,
+                                                               delay: delay)
         }
     }
 
+    /// A full-stop landing was confirmed for the running flight: arm the close reminder on whatever
+    /// thread that flight belongs to, without waiting for END FLIGHT.
+    ///
+    /// Resolution is deliberately narrower than `threadToCloseOut`'s: only an EXACT `flightId`
+    /// match, never the `currentThread` fallback. Arming a reminder is cheap to get right and
+    /// expensive to get wrong, and this fires automatically with nothing the pilot can see or
+    /// correct — so it must not guess. (review F6)
+    func noteFullStopLanding(flightId: UUID) {
+        guard let thread = threads.first(where: { $0.flightId == flightId && !$0.isFinished }) else { return }
+        scheduleCloseReminderIfNeeded(threadId: thread.id, delay: NotificationService.landingDelay)
+    }
+
+    /// A close requested before the threads finished loading, replayed once they have.
+    ///
+    /// The notification action can arrive at cold launch, while `loadThreadsAsync` is still reading
+    /// an iCloud-backed directory. Returning silently from an empty array meant the pilot confirmed
+    /// the plan was closed and the app kept the thread open, then re-raised the banner. (review F17)
+    private var deferredCloseRequests: Set<UUID> = []
+
     /// Mark the flight plan closed — from the banner, the task row, or the notification action.
     func markFlightPlanClosed(threadId: UUID) {
-        guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
+        guard let index = threads.firstIndex(where: { $0.id == threadId }) else {
+            if !hasLoadedThreads { deferredCloseRequests.insert(threadId) }
+            return
+        }
         threads[index].flightPlanClosedAt = Date()
         if let task = threads[index].tasks.first(where: { $0.key == .flightPlanClosed }) {
             threads[index].setState(.done, forTaskWithId: task.id)
@@ -584,8 +716,17 @@ class FlightThreadManager: ObservableObject {
     func deleteThread(threadId: UUID) {
         guard let index = threads.firstIndex(where: { $0.id == threadId }) else { return }
         let thread = threads[index]
+        // Backstop for any caller that is not `removeLeg`: never leave a trip holding an id whose
+        // thread no longer exists. `removeLeg` has already done this (and handles dissolving the
+        // trip properly); this only catches a leg deleted by some other path. (review F14)
+        for tripIndex in trips.indices where trips[tripIndex].legIds.contains(threadId) {
+            trips[tripIndex].legIds.removeAll { $0 == threadId }
+            trips[tripIndex].touch()
+            saveTrips()
+        }
         threads.remove(at: index)
         lastPersisted[threadId] = nil
+        deletedThreadIds.insert(threadId)
         persistence.deleteFlightThread(thread)
         notifications.cancelAll(threadId: threadId)
         if currentThreadId == threadId {
@@ -707,14 +848,25 @@ class FlightThreadManager: ObservableObject {
 
     /// Persist only the threads that changed, off the main actor — same dirty-diff shape the plan
     /// manager uses, for the same reason (this is called on every task tick).
+    /// Threads deleted while a save was in flight.
+    ///
+    /// `deleteThread` removes the file synchronously on the main actor while `saveThreads` writes
+    /// from a detached utility task. Tick a task and then delete that flight in the next touch
+    /// event, and the late write could re-create the file — resurrecting a thread the pilot
+    /// deleted, with `lastPersisted` already cleared so nothing ever noticed. (review, concurrency)
+    private var deletedThreadIds: Set<UUID> = []
+
     private func saveThreads() {
         let changed = threads.filter { lastPersisted[$0.id] != $0 }
         guard !changed.isEmpty else { return }
         Task { [weak self] in
-            let written = await self?.persistence.saveFlightThreadsOffMain(changed: changed) ?? []
             guard let self else { return }
+            // Re-read on the main actor AFTER the hop: anything deleted in the meantime is dropped.
+            let live = changed.filter { !self.deletedThreadIds.contains($0.id) }
+            guard !live.isEmpty else { return }
+            let written = await self.persistence.saveFlightThreadsOffMain(changed: live)
             let confirmed = Set(written)
-            for thread in changed where confirmed.contains(thread.id) {
+            for thread in live where confirmed.contains(thread.id) && !self.deletedThreadIds.contains(thread.id) {
                 self.lastPersisted[thread.id] = thread
             }
         }
@@ -734,6 +886,10 @@ class FlightThreadManager: ObservableObject {
             saveCurrentThreadPointer()
         }
         hasLoadedThreads = true
+        // Replay anything the pilot confirmed while this load was still in flight.
+        let deferred = deferredCloseRequests
+        deferredCloseRequests = []
+        for threadId in deferred { markFlightPlanClosed(threadId: threadId) }
     }
 
     private func saveCurrentThreadPointer() {

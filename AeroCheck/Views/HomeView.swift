@@ -128,6 +128,8 @@ struct HomeView: View {
     /// precedent) rather than a rail overlay: the admin chapters are read sitting down, often on the
     /// phone, and they do not need the rail beside them. (v5.0.0)
     @State private var threadToOpen: UUID?
+    /// True while a flight is being created, so a double-tap cannot make two. (review, concurrency)
+    @State private var isCreatingFlight = false
     /// The flight being planned. Non-nil presents the one creation sheet. (v5.0.0)
     @State private var planningNewFlight: NewFlightIntent?
     /// What START FLIGHT needs to ask before it departs. (v5.x)
@@ -1700,7 +1702,14 @@ struct HomeView: View {
     /// and with no coordinates there is no country detection and therefore no customs, DABS or GAFOR.
     /// Three or more stops is a trip; two is the single flight this has always made.
     private func createFlight(stops: [String], from intent: NewFlightIntent, route: FlightPlan? = nil) {
+        // The creation awaits `ensureLoaded()` and the notification prompt, and the sheet stays
+        // hit-testable through its dismissal animation — so a double-tap ran this body twice and
+        // produced two plans and two threads, breaking the one-thread-per-plan invariant that
+        // `thread(forPlanId:)` and close-out both depend on. (review, concurrency)
+        guard !isCreatingFlight else { return }
+        isCreatingFlight = true
         Task { @MainActor in
+            defer { isCreatingFlight = false }
             // A saved route is copied whole — its waypoints, altitudes and fuel are the reason it
             // was worth saving, and rebuilding from two idents would discard all of it.
             if let route {
@@ -1755,13 +1764,25 @@ struct HomeView: View {
     /// Arming here is what the pilot means by pressing START FLIGHT on a flight they planned — the
     /// route, the leg timing and the waypoint sequencing are the reason they built it.
     private func launch(_ thread: FlightThread) {
+        // The aircraft the flight was PLANNED with, not whatever the carousel was left on. Without
+        // this the hero card names HB-PFA while the flight starts on the WT9's checklist, with the
+        // WT9's speeds in the event detector, logged under the wrong registration — and the thread,
+        // its mass & balance and its cost ledger all disagree with the flight. `selectAircraft`
+        // resolves a registration and leaves the selection untouched if it cannot. (review F19)
+        if let registration = thread.aircraftRegistration, !registration.isEmpty {
+            _ = appState.selectAircraft(id: registration,
+                                        available: aircraftDataService.availableAircraft)
+        }
         if let planId = thread.flightPlanId,
            flightPlanManager.activeFlightPlan?.id != planId,
            let plan = flightPlanManager.flightPlans.first(where: { $0.id == planId }),
            !plan.waypoints.isEmpty {
             flightPlanManager.activateFlightPlan(plan)
         }
-        beginFlight(circuitMode: false, followedFlightId: thread.id)
+        // A planned circuits session is still circuits. Hardcoding false here started it as a
+        // 16-phase cross-country from the hero while its own screen started it correctly, so one
+        // thread produced two different flights depending on which button was pressed. (review F20)
+        beginFlight(circuitMode: thread.profile == .local, followedFlightId: thread.id)
     }
 
     private func startCircuits() { beginFlight(circuitMode: true) }

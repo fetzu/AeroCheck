@@ -76,7 +76,18 @@ struct FlightCostEntry: Codable, Equatable, Sendable {
 
     var total: Double { aircraftCost + feesTotal }
 
-    var isEmpty: Bool { hourlyRate == nil && fees.isEmpty && (note?.isEmpty ?? true) }
+    /// Whether this entry contributes nothing at all.
+    ///
+    /// `hasCost` rather than `hourlyRate != nil`: `aircraftCost` also needs `billedHours`, which is
+    /// nil whenever the basis was never recorded (a club billing on engine hours, and a pilot who
+    /// never logs the counter). An entry with a rate and no hours passed `!isEmpty`, counted as a
+    /// flight WITH a cost, and contributed 0 — so the dashboard read "LEDGER CHF 0" over twenty
+    /// priced flights with no "N without cost" caveat, because the very guard that would have
+    /// raised one was satisfied. (review F-cost-4)
+    var isEmpty: Bool { !hasCost && (note?.isEmpty ?? true) }
+
+    /// True when this entry actually produces money.
+    var hasCost: Bool { aircraftCost > 0 || !fees.isEmpty }
 }
 
 // MARK: - Calculator
@@ -150,8 +161,24 @@ enum CostLedger {
     /// not a yearly total, and a dashboard that shows only the sum invites reading it as one.
     /// Mixed currencies are reported under the most common one rather than silently added — this is
     /// a personal ledger, not an accounting package, but adding francs to euros is still wrong.
-    static func summarize(flights: [Flight], fallbackCurrency: String = "CHF") -> CostLedgerSummary {
-        let entries = flights.compactMap { $0.costEntry }.filter { !$0.isEmpty }
+    /// `rates` lets a flight with no stored `costEntry` still be costed from its aircraft's rate
+    /// profile — which is exactly what the per-flight screen already does. Without it the two
+    /// disagreed: every flight showed a full cost on its own numbers sheet while the ledger counted
+    /// it as having none, so the dashboard read "CHF 420" beside "11 flights without cost" for
+    /// twelve identically-priced flights. `costEntry` is only ever written for the flight the pilot
+    /// happened to open, so it can never be the whole picture on its own. (review F-cost-3)
+    static func summarize(flights: [Flight],
+                          rates: [String: AircraftRateProfile] = [:],
+                          fallbackCurrency: String = "CHF") -> CostLedgerSummary {
+        let entries = flights.compactMap { flight -> FlightCostEntry? in
+            if let stored = flight.costEntry, !stored.isEmpty { return stored }
+            // A stored entry wins even when empty — the pilot may have deliberately cleared it.
+            if flight.costEntry != nil { return nil }
+            guard let key = FlightCostCalculator.profileKey(for: flight),
+                  let profile = rates[key] else { return nil }
+            let derived = FlightCostCalculator.makeEntry(for: flight, profile: profile)
+            return derived.isEmpty ? nil : derived
+        }
         guard !entries.isEmpty else {
             return CostLedgerSummary(currency: fallbackCurrency, aircraftCost: 0, fees: 0,
                                      flightsWithCost: 0, flightsMissingCost: flights.count)

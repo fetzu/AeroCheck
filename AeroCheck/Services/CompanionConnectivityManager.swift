@@ -1013,7 +1013,11 @@ class CompanionConnectivityManager: NSObject, ObservableObject {
             // Resolve against the DEVICE's real appearance (published from AppRootView) so the viewer
             // mirrors what the iPad displays. The window trait is force-dark, which made `.auto` always
             // stream night. (companion v2 — theme default fix)
-            cockpitThemeMode: appState.settings.cockpitThemeMode(systemIsDark: appState.deviceIsDark).rawValue,
+            // `screenBrightness` matters here too: without it the parameter defaults to 0, the sunlight
+            // boost never engages, and a master iPad on the high-contrast palette streamed `.day` to
+            // the companion — two screens side by side disagreeing. (review, missed caller)
+            cockpitThemeMode: appState.settings.cockpitThemeMode(systemIsDark: appState.deviceIsDark,
+                                                                 screenBrightness: Double(UIScreen.main.brightness)).rawValue,
             currentWaypointIndex: flightPlanManager.activeFlightPlan?.currentWaypointIndex ?? 0,
             chronometerStartTime: flightPlanManager.activeFlightPlan?.chronometerStartTime,
             chronometerElapsed: flightPlanManager.chronometerElapsed,

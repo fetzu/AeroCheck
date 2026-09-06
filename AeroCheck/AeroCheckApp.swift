@@ -1,9 +1,26 @@
 import SwiftUI
 import UIKit
 
+/// Registers the notification delegate before launch finishes.
+///
+/// It used to be set from the root view's `.task`, i.e. after first render. The close-flight-plan
+/// action is non-foreground (`options: []`), so tapping it from the lock screen wakes the app in the
+/// background with no scene — the `.task` never ran, the delegate was never assigned, and the
+/// pilot's "Mark flight plan closed" was silently discarded on the one reminder with a
+/// search-and-rescue consequence. Apple's contract is that the delegate exists before launch
+/// finishes, and only an app delegate can promise that. (review F17)
+final class AeroCheckAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        NotificationService.shared.configure()
+        return true
+    }
+}
+
 /// Main application entry point
 @main
 struct AeroCheckApp: App {
+    @UIApplicationDelegateAdaptor(AeroCheckAppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @StateObject private var locationManager = LocationManager()
     @StateObject private var offlineMapManager: OfflineMapManager
@@ -129,16 +146,29 @@ struct AeroCheckApp: App {
                         flightPlanManager.activeNextWaypointName
                     }
 
-                    // v5.0.0: register the notification delegate + the actionable close-flight-plan
-                    // category. No permission is requested here — that happens when the pilot first
-                    // follows a flight, so the prompt arrives with context instead of at cold launch.
-                    NotificationService.shared.configure()
+                    // The delegate and its category are registered in `AeroCheckAppDelegate` before
+                    // launch finishes; only the handlers are wired here, because they need the
+                    // managers. No permission is requested here either — that happens when the pilot
+                    // first follows a flight, so the prompt arrives with context. (review F17)
                     NotificationService.shared.markFlightPlanClosedHandler = { threadId in
                         flightThreadManager.markFlightPlanClosed(threadId: threadId)
                     }
                     NotificationService.shared.openThreadHandler = { threadId in
                         flightThreadManager.setCurrentThread(threadId)
                         appState.pendingThreadToOpen = threadId
+                    }
+                    // Anything that arrived before the handlers existed — the cold-launch case the
+                    // delegate move exists for — is replayed now.
+                    NotificationService.shared.drainPendingActions()
+
+                    // A confirmed full-stop landing arms the close-your-flight-plan reminder without
+                    // waiting for END FLIGHT, which is the pilot who lands and walks away. (review F6)
+                    flightEventDetector.onEvent = { [weak flightThreadManager] kind, _ in
+                        guard kind == .fullStop else { return }
+                        Task { @MainActor in
+                            guard let flightId = appState.currentFlight?.id else { return }
+                            flightThreadManager?.noteFullStopLanding(flightId: flightId)
+                        }
                     }
                     // Auto-connect if companion mode is on and a device is paired — the user shouldn't
                     // have to start it on both devices. (v4.1 companion UX)

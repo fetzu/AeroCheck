@@ -2516,6 +2516,66 @@
         }
       }
     },
+    "AeroCheck follows a flight end to end — plan it, prepare it, fly it, close it out.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AéroCheck suit un vol de bout en bout — planifiez-le, préparez-le, volez, clôturez-le."
+          }
+        }
+      }
+    },
+    "Route, fuel, mass & balance, the aircraft booked": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route, carburant, masse et centrage, avion réservé"
+          }
+        }
+      }
+    },
+    "Weather, NOTAM, customs, the flight plan filed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Météo, NOTAM, douane, plan de vol déposé"
+          }
+        }
+      }
+    },
+    "The 16-phase checklist you already know": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La checklist en 16 phases que vous connaissez déjà"
+          }
+        }
+      }
+    },
+    "Close the flight plan, fees, the logbook line": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clôture du plan de vol, taxes, ligne de carnet"
+          }
+        }
+      }
+    },
+    "Plan a flight from the Home screen. You can always start flying without one.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planifiez un vol depuis l'écran d'accueil. Vous pouvez toujours voler sans en créer un."
+          }
+        }
+      }
+    },
     "Checklists": {
       "localizations": {
         "fr": {

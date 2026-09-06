@@ -1091,6 +1091,26 @@
         }
       }
     },
+    "Circuits — %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tours de piste — %@"
+          }
+        }
+      }
+    },
+    "Flights" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vols"
+          }
+        }
+      }
+    },
     "Check the load sheet against the envelope in the POH" : {
       "localizations" : {
         "fr" : {

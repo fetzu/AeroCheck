@@ -152,6 +152,15 @@ enum L10n {
     }
 
     // MARK: - Logbook line (v5.0.0)
+    // MARK: - Flights (v5.0.0)
+
+    enum Flights {
+        static let title = String(localized: "Flights")
+        static func circuitsAt(_ ident: String) -> String {
+            String(localized: "Circuits — \(ident)")
+        }
+    }
+
     enum Logbook {
         static let title = String(localized: "Logbook line")
         static let subtitle = String(localized: "EASA AMC1 FCL.050")

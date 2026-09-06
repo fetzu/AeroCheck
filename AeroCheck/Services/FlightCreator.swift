@@ -30,7 +30,9 @@ enum FlightCreator {
             await airports.ensureLoaded()
         }
         let plan = FlightPlan.from(intent: intent) { ident in
-            airports.findAirport(byIdent: ident)?.coordinate
+            guard let airport = airports.findAirport(byIdent: ident) else { return nil }
+            return FlightPlan.ResolvedPlace(coordinate: airport.coordinate,
+                                            elevationFeet: airport.elevation.map(Double.init))
         }
         plans.add(plan)
 

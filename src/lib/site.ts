@@ -5,7 +5,9 @@ import yaml from 'js-yaml';
 export type Lang = 'en' | 'fr';
 
 export interface CTA { label: string; href: string; icon: string; }
-export interface FlagshipItem { step: string; title: string; description: string; chips: string[]; shot: string; }
+export interface FlagshipItem { step: string; title: string; description: string; chips: string[]; shot: string; anchor?: string; }
+/** One of the four chapters a flight has in the app. `core` marks FLY, drawn filled like the app does. */
+export interface Chapter { key: string; name: string; line: string; core?: boolean; }
 export interface SupportingItem { title: string; description: string; icon: string; }
 export interface EcoItem { label: string; icon: string; }
 
@@ -19,6 +21,7 @@ export interface SiteData {
     primary: CTA; secondary: CTA;
     cycle_caption: string; cycle: string[];
   };
+  chapters: { heading: string; items: Chapter[] };
   flagship: { heading: string; items: FlagshipItem[] };
   supporting: { heading: string; items: SupportingItem[] };
   ecosystem: EcoItem[];

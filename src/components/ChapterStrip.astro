@@ -1,0 +1,46 @@
+---
+// The four chapters a flight has in the app — PLAN · PREPARE · FLY · CLOSE — drawn the way the app
+// draws them (gold outline, FLY filled), each linking to its row below. It does the teaching the
+// app does: the reader sees the shape of a flight before reading a single feature. (v5.0.0)
+import type { Chapter } from '../lib/site';
+interface Props { heading: string; items: Chapter[]; }
+const { heading, items } = Astro.props;
+---
+<section class="chapters reveal" aria-label={heading}>
+  <div class="container">
+    <p class="section-label">{heading}</p>
+    <ol class="strip">
+      {items.map((c, i) => (
+        <li class="strip-item">
+          <a href={`#${c.key}`} class:list={['chap', { 'chap--core': c.core }]}>
+            <span class="chap-name">{c.name}</span>
+            <span class="chap-line">{c.line}</span>
+          </a>
+          {i < items.length - 1 && <span class="arrow" aria-hidden="true">→</span>}
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .chapters { padding: 6px 0 22px; text-align: center; }
+  .strip { display: flex; justify-content: center; align-items: stretch; gap: 8px; list-style: none; margin: 14px 0 0; padding: 0; flex-wrap: wrap; }
+  .strip-item { display: flex; align-items: center; gap: 8px; }
+  .chap { display: flex; flex-direction: column; gap: 5px; width: 200px; padding: 12px 14px; border: 1px solid var(--gold); border-radius: 12px; text-decoration: none; text-align: left; transition: transform .15s ease, background .15s ease; }
+  .chap:hover, .chap:focus-visible { transform: translateY(-2px); background: rgba(224, 169, 44, .08); outline: none; }
+  .chap:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+  .chap-name { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .chap-line { font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .chap--core { background: var(--gold); }
+  .chap--core:hover, .chap--core:focus-visible { background: var(--gold); filter: brightness(1.05); }
+  .chap--core .chap-name, .chap--core .chap-line { color: #2a1d02; }
+  .arrow { font-family: var(--mono); color: var(--muted); font-size: 14px; }
+  @media (max-width: 760px) {
+    .strip { flex-direction: column; align-items: center; }
+    .strip-item { flex-direction: column; gap: 4px; }
+    .arrow { transform: rotate(90deg); }
+    .chap { width: min(100%, 340px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .chap { transition: none; } .chap:hover { transform: none; } }
+</style>

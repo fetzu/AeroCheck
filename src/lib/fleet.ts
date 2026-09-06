@@ -112,3 +112,78 @@ export function applyFleetTokensDeep<T>(value: T, counts: FleetCounts): T {
   }
   return value;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Landing-fee registry counts (v5.0.0)
+//
+// The server publishes WHERE each aerodrome states its own fees — URLs, never amounts — and the
+// site quotes how many. Same rule as the fleet: derived at build time, never typed into the copy,
+// because the registry grows with the quarterly freshness check and a typed number would drift.
+//
+// The endpoint is client-gated (`X-AeroCheck-Client`, a rotatable list on the server), so the build
+// sends the value from AEROCHECK_CLIENT when the CI provides one. Without it the fetch is refused
+// and the counts fall back to the last known good — loudly, like the fleet fallback above.
+// ---------------------------------------------------------------------------------------------
+
+const TARIFFS_API = 'https://api.aerocheck.app/api/v3/airfields/tariffs';
+
+interface TariffSource { icao: string; country: string; }
+
+export interface TariffCounts {
+  tariffs: number;
+  tariffCountries: number;
+  /** False when the registry could not be read at build time; the counts are then the fallback. */
+  tariffsLive: boolean;
+}
+
+/** Last-known-good, read from the server's own data file on 2026-09-06. */
+const TARIFF_FALLBACK: Omit<TariffCounts, 'tariffsLive'> = { tariffs: 810, tariffCountries: 37 };
+
+export async function loadTariffCounts(): Promise<TariffCounts> {
+  const client = process.env.AEROCHECK_CLIENT;
+  try {
+    const res = await fetch(TARIFFS_API, { headers: client ? { 'X-AeroCheck-Client': client } : {} });
+    if (!res.ok) throw new Error('HTTP ' + res.status + (res.status === 403 && !client ? ' (AEROCHECK_CLIENT not set)' : ''));
+    const list: TariffSource[] = (await res.json())?.data?.tariffs ?? [];
+    if (!list.length) throw new Error('empty registry');
+    return {
+      tariffs: list.length,
+      tariffCountries: new Set(list.map((t) => t.country).filter(Boolean)).size,
+      tariffsLive: true,
+    };
+  } catch (err) {
+    console.warn(
+      `[tariffs] Could not read the landing-fee registry (${err instanceof Error ? err.message : err}). ` +
+        `Falling back to ${TARIFF_FALLBACK.tariffs} aerodromes / ${TARIFF_FALLBACK.tariffCountries} countries — ` +
+        `the page will be WRONG if the registry has changed.`
+    );
+    return { ...TARIFF_FALLBACK, tariffsLive: false };
+  }
+}
+
+/** Everything the copy may quote as a number. */
+export type SiteCounts = FleetCounts & TariffCounts;
+
+export async function loadSiteCounts(): Promise<SiteCounts> {
+  const [fleet, tariffs] = await Promise.all([loadFleetCounts(), loadTariffCounts()]);
+  return { ...fleet, ...tariffs };
+}
+
+export function applySiteTokens(text: string, counts: SiteCounts): string {
+  return applyFleetTokens(text, counts)
+    .replace(/\{tariffs\}/g, String(counts.tariffs))
+    .replace(/\{tariffCountries\}/g, String(counts.tariffCountries));
+}
+
+export function applySiteTokensDeep<T>(value: T, counts: SiteCounts): T {
+  if (typeof value === 'string') return applySiteTokens(value, counts) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => applySiteTokensDeep(v, counts)) as unknown as T;
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = applySiteTokensDeep(v, counts);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}

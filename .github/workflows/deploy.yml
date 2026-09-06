@@ -39,6 +39,11 @@ jobs:
           # Lets the build-time GitHub fetches (footer version, changelog) use the authenticated
           # rate limit (5000/hr) instead of the anonymous 60/hr shared across Actions runner IPs.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Lets the build read the landing-fee registry count (`X-AeroCheck-Client`). The value is a
+          # repo secret and must ALSO be listed in the server's APP_CLIENT_SECRETS (it is a rotatable
+          # list — give the site its own entry). Absent, the build falls back to the last-known count
+          # with a warning; it never fails.
+          AEROCHECK_CLIENT: ${{ secrets.AEROCHECK_CLIENT }}
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

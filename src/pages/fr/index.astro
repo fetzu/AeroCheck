@@ -4,15 +4,17 @@ import Hero from '../../components/Hero.astro';
 import FeatureRow from '../../components/FeatureRow.astro';
 import FeatureGrid from '../../components/FeatureGrid.astro';
 import Pills from '../../components/Pills.astro';
+import ChapterStrip from '../../components/ChapterStrip.astro';
 import { loadSite } from '../../lib/site';
-import { loadFleetCounts, applyFleetTokensDeep } from '../../lib/fleet';
+import { loadSiteCounts, applySiteTokensDeep } from '../../lib/fleet';
 // Fleet figures come from the API, never from the copy. The home page used to state them
 // as prose and drifted the moment a tail was added; the /aircraft page never did, because
 // it derives. Same source now.
-const site = applyFleetTokensDeep(loadSite('fr'), await loadFleetCounts());
+const site = applySiteTokensDeep(loadSite('fr'), await loadSiteCounts());
 ---
 <Base site={site} lang="fr">
   <Hero site={site} />
+  <ChapterStrip heading={site.chapters.heading} items={site.chapters.items} />
 
   <section id="features" class="flagship">
     <div class="container">

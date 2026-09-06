@@ -146,7 +146,12 @@ struct Flight: Identifiable, Codable {
 
     /// Current flight record schema version. Records claiming a higher version come from a newer
     /// app build and are rejected on ingest rather than mis-applied.
-    static let currentSchemaVersion = 1
+    /// Bumped to 2 in v5.0.0 for `costEntry` and `logbook`. Left at 1, a v5 flight was
+    /// indistinguishable from a v4.4 one: an older device accepted it (`schemaVersion <= 1`),
+    /// dropped the two unknown keys on decode, and the first `touch()` there made its stripped copy
+    /// win `merge` — erasing the cost entry and logbook overrides on every device, permanently and
+    /// with no visible cue. That rejection is exactly what this constant is for. (review F7)
+    static let currentSchemaVersion = 2
 
     // MARK: - Coding Keys
 
@@ -438,7 +443,12 @@ struct Flight: Identifiable, Codable {
     /// Block time duration (from first movement to last stop)
     var blockTime: TimeInterval? {
         guard let off = blockOffTime, let on = blockOnTime else { return nil }
-        return on.timeIntervalSince(off)
+        let interval = on.timeIntervalSince(off)
+        // Same guard as `flightTime` below, and for the same reason: block-on recorded before
+        // block-off (clock skew / out-of-order events) reads negative. The logbook consumes this
+        // raw, so an unguarded negative was SUBTRACTED from TOTAL THIS PAGE while the row itself
+        // rendered blank — a page that silently disagreed with its own rows. (review F25)
+        return interval >= 0 ? interval : nil
     }
 
     /// Flight time duration (from lineup/takeoff to landing)

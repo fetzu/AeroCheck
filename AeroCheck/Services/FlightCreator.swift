@@ -10,6 +10,7 @@ import Foundation
 @MainActor
 enum FlightCreator {
 
+
     /// Turn an intent into a saved plan and the flight thread that follows it.
     ///
     /// The airport layer loads on demand rather than at launch, so this awaits it before resolving
@@ -36,16 +37,20 @@ enum FlightCreator {
         }
         plans.add(plan)
 
+        // BEFORE `createThread`, which schedules the T-24h reminder behind a `hasPermission()`
+        // guard. Asking afterwards meant that on a fresh install the status was still
+        // `.notDetermined` when the guard ran, the reminder was dropped, and nothing ever rescans —
+        // so the first flight a pilot ever plans silently got no preparation reminder. The prompt
+        // still lands here, with the pilot having just asked for it, rather than at cold launch.
+        // (review F16)
+        await notifications.requestAuthorization()
+
         let thread = threads.createThread(
             from: plan,
             profile: intent.kind.profile,
             routeLabel: intent.routeLabel,
             aircraftRegistration: intent.aircraftRegistration
         )
-
-        // The two reminders are the whole reason to follow a flight, so the permission prompt lands
-        // here — with the pilot having just asked for it — rather than at cold launch.
-        await notifications.requestAuthorization()
         return thread
     }
 
@@ -97,13 +102,15 @@ enum FlightCreator {
         plan.calculateRouteData()
         plans.add(plan)
 
+        // Before `createThread`, for the reason given in `create(from:)` above. (review F16)
+        await notifications.requestAuthorization()
+
         let thread = threads.createThread(
             from: plan,
             profile: intent.kind.profile,
             routeLabel: FlightThreadManager.routeLabel(for: plan),
             aircraftRegistration: intent.aircraftRegistration
         )
-        await notifications.requestAuthorization()
         return thread
     }
 

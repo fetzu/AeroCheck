@@ -90,11 +90,23 @@ enum TripTaskFreshness {
         return departure.timeIntervalSince(tickedAt) > window
     }
 
-    /// A leg with no scheduled departure cannot be measured against, so a tick keeps covering it.
-    /// Inventing a departure to test against would manufacture a staleness the pilot cannot act on.
-    static func isStale(tickedAt: Date?, forLegDeparting departure: Date?) -> Bool {
-        guard let tickedAt, let departure else { return false }
-        return isStale(tickedAt: tickedAt, forLegDeparting: departure)
+    /// The same rule with the leg's departure possibly missing, falling back to a trip-level
+    /// reference date.
+    ///
+    /// This fallback is why the rule fires at all. `FlightCreator.createTrip` gives ONLY the first
+    /// leg a departure time — deliberately, because the app cannot know when the earlier legs land
+    /// and a guessed time would also drive the T-24h reminder. But the first leg is the one whose
+    /// tick it is, so with no fallback every later leg answered "not stale" and yesterday's NOTAM
+    /// briefing showed a green tick on today's flight. That is the exact assertion the file header
+    /// says must never be made.
+    ///
+    /// The reference is the trip's own date, not an invented leg departure: it is a real number the
+    /// pilot chose, it never pretends to be a departure, and it degrades to "the day the trip was
+    /// planned", which is the right thing to measure a shared briefing against. (review F12)
+    static func isStale(tickedAt: Date?, forLegDeparting departure: Date?, reference: Date? = nil) -> Bool {
+        guard let tickedAt else { return false }
+        guard let against = departure ?? reference else { return false }
+        return isStale(tickedAt: tickedAt, forLegDeparting: against)
     }
 }
 
@@ -117,6 +129,17 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
 
     var legCount: Int { legIds.count }
 
+    /// What an undated leg measures a shared tick against.
+    ///
+    /// The trip's planned date when it has one, otherwise the day it was created. `scheduledStart`
+    /// is written by `formTrip` from the first leg's departure, which is the one date in a trip the
+    /// pilot actually chose.
+    var freshnessReference: Date { scheduledStart ?? createdAt }
+
+    /// The trip's own departure — the first leg's, captured when the trip forms. Optional because a
+    /// trip can be built with no date at all.
+    var scheduledStart: Date?
+
     /// A trip of one leg is just a flight. Used to decide when a trip has outlived its purpose and
     /// should be dissolved back into a standalone flight.
     var isDegenerate: Bool { legIds.count < 2 }
@@ -131,10 +154,16 @@ struct Trip: Codable, Identifiable, Equatable, Sendable {
     /// Shared tasks as this leg should see them: a staleable tick that no longer covers the leg's
     /// departure reads as pending again, carrying when it was last done so the pilot can tell a
     /// refresh from something they forgot.
-    func tasks(forLegDeparting departure: Date?) -> [ThreadTask] {
+    func tasks(forLegDeparting departure: Date?, legId: UUID? = nil) -> [ThreadTask] {
         sharedTasks.map { task in
+            // A tick made from this very leg covers it, regardless of the clock. Without this a
+            // stale row was untickable: the tap re-stamped `completedAt` to now, the rule measured
+            // that against the SAME leg departure, and it read stale again. (review F13)
+            if let legId, task.acknowledgedLegIds.contains(legId) { return task }
             guard task.key.goesStale, task.state == .done,
-                  TripTaskFreshness.isStale(tickedAt: task.completedAt, forLegDeparting: departure)
+                  TripTaskFreshness.isStale(tickedAt: task.completedAt,
+                                            forLegDeparting: departure,
+                                            reference: freshnessReference)
             else { return task }
             var stale = task
             stale.state = .pending

@@ -101,6 +101,103 @@
         }
       }
     },
+    "Fuel burn" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carburant consommé"
+          }
+        }
+      }
+    },
+    "Fuel station" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste carburant"
+          }
+        }
+      }
+    },
+    "Night landings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atterrissages de nuit"
+          }
+        }
+      }
+    },
+    "TAKE-OFF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DÉCOLLAGE"
+          }
+        }
+      }
+    },
+    "LANDING" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTERRISSAGE"
+          }
+        }
+      }
+    },
+    "OUTSIDE the envelope at landing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HORS enveloppe à l'atterrissage"
+          }
+        }
+      }
+    },
+    "Not every station has a mass — this is not a check" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toutes les stations n'ont pas de masse — ce n'est pas une vérification"
+          }
+        }
+      }
+    },
+    "No mass entered for: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune masse saisie pour : %@"
+          }
+        }
+      }
+    },
+    "logbook.pic.self" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SELF"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MOI-MÊME"
+          }
+        }
+      }
+    },
     "Checked %@" : {
       "localizations" : {
         "fr" : {
@@ -203,20 +300,80 @@
     },
     "%lld touch-and-go" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-goes"
+                }
+              }
+            }
+          }
+        },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld touch-and-go"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld touch-and-go"
+                }
+              }
+            }
           }
         }
       }
     },
     "%lld go-around" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld go-around"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld go-arounds"
+                }
+              }
+            }
+          }
+        },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld remise de gaz"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld remise de gaz"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld remises de gaz"
+                }
+              }
+            }
           }
         }
       }
@@ -261,26 +418,6 @@
         }
       }
     },
-    "Arm today's flight plan?" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activer le plan de vol du jour ?"
-          }
-        }
-      }
-    },
-    "%@ is planned for today but not armed. Without it there is no route, no leg timing and no waypoint sequencing in flight." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ est prévu aujourd'hui mais n'est pas activé. Sans lui, ni route, ni minutage des tronçons, ni séquencement des points tournants en vol."
-          }
-        }
-      }
-    },
     "Not everything is ticked" : {
       "localizations" : {
         "fr" : {
@@ -317,16 +454,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Démarrer quand même"
-          }
-        }
-      }
-    },
-    "Saved routes and arming" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Routes enregistrées et activation"
           }
         }
       }
@@ -537,26 +664,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Détails du vol"
-          }
-        }
-      }
-    },
-    "Arm and start" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activer et démarrer"
-          }
-        }
-      }
-    },
-    "Start without it" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Démarrer sans"
           }
         }
       }
@@ -791,16 +898,6 @@
         }
       }
     },
-    "Fees" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Taxes"
-          }
-        }
-      }
-    },
     "Add fee" : {
       "localizations" : {
         "fr" : {
@@ -873,10 +970,40 @@
     },
     "%lld flights without a recorded cost" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld flight without a recorded cost"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld flights without a recorded cost"
+                }
+              }
+            }
+          }
+        },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld vols sans coût enregistré"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld vol sans coût enregistré"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld vols sans coût enregistré"
+                }
+              }
+            }
           }
         }
       }
@@ -987,16 +1114,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bras"
-          }
-        }
-      }
-    },
-    "Mass" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Masse"
           }
         }
       }
@@ -1461,26 +1578,6 @@
         }
       }
     },
-    "Kind" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type"
-          }
-        }
-      }
-    },
-    "Cross-country" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voyage"
-          }
-        }
-      }
-    },
     "Circuits" : {
       "localizations" : {
         "fr" : {
@@ -1531,16 +1628,6 @@
         }
       }
     },
-    "Aerodrome" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aérodrome"
-          }
-        }
-      }
-    },
     "From" : {
       "localizations" : {
         "fr" : {
@@ -1571,16 +1658,6 @@
         }
       }
     },
-    "Circuits start and finish at the same field" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les tours de piste partent et reviennent au même terrain"
-          }
-        }
-      }
-    },
     "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers" : {
       "localizations" : {
         "fr" : {
@@ -1593,10 +1670,40 @@
     },
     "%lld saved plans" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved plan"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld saved plans"
+                }
+              }
+            }
+          }
+        },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld plans enregistrés"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld itinéraire enregistré"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld itinéraires enregistrés"
+                }
+              }
+            }
           }
         }
       }
@@ -1941,16 +2048,6 @@
         }
       }
     },
-    "Check customs and notification requirements" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifier les formalités douanières et d'annonce"
-          }
-        }
-      }
-    },
     "Mark done" : {
       "localizations" : {
         "fr" : {
@@ -1967,16 +2064,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Non applicable"
-          }
-        }
-      }
-    },
-    "Copy ICAO plan" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copier le plan OACI"
           }
         }
       }

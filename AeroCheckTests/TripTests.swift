@@ -273,3 +273,163 @@ final class TripTests: XCTestCase {
         XCTAssertEqual(thread.routeLabel, "LSZQ → LSGY")
     }
 }
+
+// MARK: - Cumulative review regressions (v5.0.1)
+
+/// The defects that only appear when separately reasonable commits meet.
+extension TripTests {
+
+    private func utcDate(_ iso: String) -> Date {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: iso)!
+    }
+
+    /// F12. `createTrip` gives ONLY the first leg a departure, so before the trip-level fallback
+    /// every later leg answered "not stale" and yesterday's briefing showed a green tick on today's
+    /// flight. The rule was inert on exactly the legs it was written for.
+    func testAnUndatedLegFallsBackToTheTripsOwnDate() {
+        var trip = Trip(legIds: [UUID(), UUID()])
+        trip.scheduledStart = utcDate("2026-09-12T08:00:00Z")
+        var task = ThreadTask(key: .notamChecked, kind: .check)
+        task.state = .done
+        task.completedAt = utcDate("2026-09-11T18:00:00Z")   // the day BEFORE the trip
+        trip.sharedTasks = [task]
+
+        let seen = trip.tasks(forLegDeparting: nil)
+        XCTAssertEqual(seen.first?.state, .pending,
+                       "an undated leg must still measure against the trip's own date")
+        XCTAssertNotNil(seen.first?.completedAt,
+                        "the stamp is kept so the row can say 're-check' rather than look untouched")
+    }
+
+    func testAnUndatedLegOnAFreshlyTickedTripIsNotStale() {
+        var trip = Trip(legIds: [UUID(), UUID()])
+        trip.scheduledStart = utcDate("2026-09-12T08:00:00Z")
+        var task = ThreadTask(key: .notamChecked, kind: .check)
+        task.state = .done
+        task.completedAt = utcDate("2026-09-12T06:00:00Z")   // same UTC day, inside the window
+        trip.sharedTasks = [task]
+
+        XCTAssertEqual(trip.tasks(forLegDeparting: nil).first?.state, .done)
+    }
+
+    func testATripWithNoDateAtAllFallsBackToWhenItWasCreated() {
+        // `freshnessReference` degrades to `createdAt`, which is still a real date the rule can use.
+        var trip = Trip(legIds: [UUID(), UUID()])
+        trip.createdAt = utcDate("2026-09-12T08:00:00Z")
+        var task = ThreadTask(key: .weatherBriefed, kind: .check)
+        task.state = .done
+        task.completedAt = utcDate("2026-09-10T08:00:00Z")
+        trip.sharedTasks = [task]
+
+        XCTAssertEqual(trip.tasks(forLegDeparting: nil).first?.state, .pending)
+    }
+
+    /// F13. A stale row renders as pending, so ticking it re-stamped `completedAt` to now — which
+    /// the rule then measured against the SAME leg departure and called stale again. The row was
+    /// untickable, forever.
+    func testATickAcknowledgedForALegCoversItEvenWhenTheClockSaysStale() {
+        let legA = UUID(), legB = UUID()
+        var trip = Trip(legIds: [legA, legB])
+        var task = ThreadTask(key: .notamChecked, kind: .check)
+        task.state = .done
+        // Ticked on Saturday evening for a leg departing Sunday: a different UTC day, so the rule
+        // calls it stale however recently it was stamped.
+        task.completedAt = utcDate("2026-09-12T20:00:00Z")
+        task.acknowledgedLegIds = [legB]
+        trip.sharedTasks = [task]
+
+        let departure = utcDate("2026-09-13T10:00:00Z")
+        XCTAssertEqual(trip.tasks(forLegDeparting: departure, legId: legB).first?.state, .done,
+                       "a tick made from this leg covers this leg, whatever the clock says")
+        XCTAssertEqual(trip.tasks(forLegDeparting: departure, legId: legA).first?.state, .pending,
+                       "and only that leg — the others still go stale on their own terms")
+    }
+
+    /// The manager is what records the acknowledgement, from whichever leg the pilot ticked.
+    @MainActor
+    func testTickingFromALegRecordsThatLeg() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = m.formTrip(from: [a.id, b.id])!
+        guard let notam = trip.sharedTasks.first(where: { $0.key == .notamChecked }) else {
+            return XCTFail("no NOTAM task")
+        }
+        m.setSharedTaskState(.done, taskId: notam.id, tripId: trip.id, fromLegId: b.id)
+
+        let stored = m.trip(withId: trip.id)?.sharedTasks.first { $0.key == .notamChecked }
+        XCTAssertEqual(stored?.acknowledgedLegIds, [b.id])
+    }
+
+    @MainActor
+    func testUntickingRetractsTheAcknowledgementEverywhere() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+        let trip = m.formTrip(from: [a.id, b.id])!
+        guard let notam = trip.sharedTasks.first(where: { $0.key == .notamChecked }) else {
+            return XCTFail("no NOTAM task")
+        }
+        m.setSharedTaskState(.done, taskId: notam.id, tripId: trip.id, fromLegId: b.id)
+        m.setSharedTaskState(.pending, taskId: notam.id, tripId: trip.id, fromLegId: b.id)
+
+        let task = m.trip(withId: trip.id)?.sharedTasks.first { $0.key == .notamChecked }
+        XCTAssertEqual(task?.state, .pending)
+        XCTAssertTrue(task?.acknowledgedLegIds.isEmpty ?? false,
+                      "an un-tick must not leave the row green on the leg it was ticked from")
+    }
+
+    /// F14. The app's only delete affordance called `deleteThread`, which knows nothing about trips.
+    @MainActor
+    func testDeletingALegNeverLeavesADanglingIdInTheTrip() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        let c = m.createThread(from: plan("LSGY", "LSZQ"))
+        defer { m.deleteThread(threadId: b.id); m.deleteThread(threadId: c.id) }
+        let trip = m.formTrip(from: [a.id, b.id, c.id])!
+
+        // The raw path, as any caller that is not `removeLeg` would take it.
+        m.deleteThread(threadId: a.id)
+
+        let after = m.trip(withId: trip.id)
+        XCTAssertEqual(after?.legIds.count, 2, "a deleted leg must not stay in legIds")
+        XCTAssertFalse(after?.legIds.contains(a.id) ?? true)
+        XCTAssertEqual(after?.legNumber(of: c.id), 2, "the survivors renumber")
+    }
+
+    /// F15. `sharedTasks` was captured from leg 1 alone, so a row leg 1 never needed could not be
+    /// produced by any later leg either — it existed nowhere.
+    @MainActor
+    func testFormingATripCarriesUpEveryLegsTicksNotJustTheFirsts() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        let b = m.createThread(from: plan("LFSB", "LSGY"))
+        defer { m.deleteThread(threadId: a.id); m.deleteThread(threadId: b.id) }
+
+        // Tick a trip-scoped row on the SECOND leg, before the trip exists.
+        guard let notamOnB = m.thread(withId: b.id)?.tasks.first(where: { $0.key == .notamChecked })
+        else { return XCTFail("no NOTAM task on leg B") }
+        m.setTaskState(.done, taskId: notamOnB.id, threadId: b.id)
+
+        let trip = m.formTrip(from: [a.id, b.id])!
+        let promoted = trip.sharedTasks.first { $0.key == .notamChecked }
+        XCTAssertEqual(promoted?.state, .done,
+                       "a tick made before the trip existed is carried up from ANY leg, not only the first")
+    }
+
+    /// F-formTrip. The guard was a bare count, so a repeated or unknown id still landed in legIds.
+    @MainActor
+    func testFormTripRefusesDuplicateAndUnknownIds() {
+        let m = manager()
+        let a = m.createThread(from: plan("LSZQ", "LFSB"))
+        defer { m.deleteThread(threadId: a.id) }
+
+        XCTAssertNil(m.formTrip(from: [a.id, a.id]), "the same flight twice is not a trip")
+        XCTAssertNil(m.formTrip(from: [a.id, UUID()]), "an id that resolves to nothing is not a leg")
+    }
+}

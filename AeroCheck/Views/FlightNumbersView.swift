@@ -415,6 +415,12 @@ struct FlightNumbersView: View {
     private func logbookEditor(_ flight: Flight) -> some View {
         LogbookOverridesEditor(
             overrides: flight.logbook ?? LogbookOverrides(),
+            derivedFunction: LogbookLineBuilder.function(
+                for: flight,
+                overrides: nil,
+                pilot: LogbookLineBuilder.PilotContext(name: appState.settings.pilotName,
+                                                        isStudent: appState.settings.isStudentPilot,
+                                                        instructorName: appState.settings.instructorName)),
             onSave: { updated in
                 appState.updateFlightLogbook(flight, overrides: updated)
                 showLogbookEditor = false
@@ -587,11 +593,15 @@ struct FlightNumbersView: View {
 /// The columns the app cannot derive: function time, night, IFR and remarks.
 private struct LogbookOverridesEditor: View {
     @State var overrides: LogbookOverrides
+    /// What the app worked out for this flight, so the picker starts on the app's own answer rather
+    /// than contradicting the card above it. (review F-logbook-9)
+    let derivedFunction: LogbookFunction
     let onSave: (LogbookOverrides) -> Void
     let onCancel: () -> Void
 
     @State private var nightText = ""
     @State private var ifrText = ""
+    @State private var nightLandingsText = ""
 
     var body: some View {
         NavigationStack {
@@ -608,8 +618,12 @@ private struct LogbookOverridesEditor: View {
                             Text(L10n.Logbook.function)
                                 .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
                                 .foregroundColor(.dimText)
+                            // `derivedFunction`, not `.pic`. With no explicit override the sheet
+                            // highlighted PIC directly under a card reading "Dual" for a student —
+                            // and tapping away and back onto PIC then wrote that override, logging
+                            // a training flight as command time. (review F-logbook-9)
                             Picker(L10n.Logbook.function, selection: Binding(
-                                get: { overrides.function ?? .pic },
+                                get: { overrides.function ?? derivedFunction },
                                 set: { overrides.function = $0 }
                             )) {
                                 ForEach(LogbookFunction.allCases, id: \.self) { function in
@@ -622,6 +636,9 @@ private struct LogbookOverridesEditor: View {
                         HStack(spacing: 12) {
                             minutesField(L10n.Logbook.nightTime, text: $nightText)
                             minutesField(L10n.Logbook.ifrTime, text: $ifrText)
+                            // review F25 — the landings column is a claim, and this is how the
+                            // pilot corrects it.
+                            minutesField(L10n.Logbook.nightLandings, text: $nightLandingsText)
                         }
                         Text(L10n.Logbook.nightNotComputed)
                             .scaledFont(size: 11, relativeTo: .caption2)
@@ -647,6 +664,7 @@ private struct LogbookOverridesEditor: View {
                     Button(L10n.Button.done) {
                         overrides.nightMinutes = Int(nightText)
                         overrides.ifrMinutes = Int(ifrText)
+                        overrides.landingsNight = Int(nightLandingsText)
                         onSave(overrides)
                     }
                 }
@@ -654,6 +672,7 @@ private struct LogbookOverridesEditor: View {
             .onAppear {
                 nightText = overrides.nightMinutes.map(String.init) ?? ""
                 ifrText = overrides.ifrMinutes.map(String.init) ?? ""
+                nightLandingsText = overrides.landingsNight.map(String.init) ?? ""
             }
         }
     }

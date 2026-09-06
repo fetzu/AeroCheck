@@ -38,7 +38,16 @@ struct FlightLogView: View {
     
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// Year scope for the dashboard + list (nil = all time). Defaults to the current year, like a logbook.
-    @State private var selectedYear: Int? = Calendar.current.component(.year, from: Date())
+    /// UTC, to match `filteredFlights` — see the note there. (review F-logbook-7)
+    static let logbookCalendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }()
+
+    @State private var selectedYear: Int? = FlightLogView.logbookCalendar.component(.year, from: Date())
+    /// True while a flight is being created, so a double-tap cannot make two. (review, concurrency)
+    @State private var isCreatingFlight = false
     /// Optional aircraft filter (registration); nil = all aircraft.
     @State private var selectedAircraft: String? = nil
     /// Selected flight id — drives the iPad-landscape 2-column detail pane and the compact
@@ -194,7 +203,13 @@ struct FlightLogView: View {
                     savedRoutes: flightPlanManager.flightPlans,
                     onCreate: { stops, intent, route in
                         planningNewFlight = nil
+                        // See HomeView.createFlight: the sheet stays hit-testable through its
+                        // dismissal, and the creation suspends — so a double-tap made two flights.
+                        // (review, concurrency)
+                        guard !isCreatingFlight else { return }
+                        isCreatingFlight = true
                         Task { @MainActor in
+                            defer { isCreatingFlight = false }
                             segment = .upcoming
                             if let route {
                                 let thread = await FlightCreator.create(fromRoute: route,
@@ -498,7 +513,11 @@ struct FlightLogView: View {
         // is the remaining cost either way. Revisit if the logbook screen ever shows up in a trace.
         guard selectedYear != nil || selectedAircraft != nil else { return sortedFlights }
 
-        let calendar = Calendar.current
+        // UTC, matching every date the logbook PRINTS. Scoping by the local calendar year while the
+        // pages are dated in UTC put a flight blocking off 1 Jan 00:30 CET (31 Dec 23:30 UTC) in the
+        // 2027 extract, printed as "31.12.2026" — a page contradicting its own scope, and both
+        // years' totals out by one flight. (review F-logbook-7)
+        let calendar = FlightLogView.logbookCalendar
         return sortedFlights.filter { flight in
             let yearOK: Bool = {
                 guard let year = selectedYear else { return true }
@@ -512,7 +531,9 @@ struct FlightLogView: View {
 
     /// Distinct years present in the log, most recent first.
     private var availableYears: [Int] {
-        Set(appState.flights.compactMap { $0.startTime.map { Calendar.current.component(.year, from: $0) } }).sorted(by: >)
+        Set(appState.flights.compactMap {
+            $0.startTime.map { FlightLogView.logbookCalendar.component(.year, from: $0) }
+        }).sorted(by: >)
     }
 
     /// Distinct aircraft (registration) present in the log, in recency order.
@@ -812,7 +833,7 @@ struct FlightLogView: View {
     /// forty flights is not a period total and a bare sum invites reading it as one. (v5.0.0)
     @ViewBuilder
     private var spendRow: some View {
-        let summary = CostLedger.summarize(flights: filteredFlights)
+        let summary = CostLedger.summarize(flights: filteredFlights, rates: appState.settings.aircraftRates)
         if summary.flightsWithCost > 0 {
             HStack(spacing: 10) {
                 Text(L10n.Cost.ledgerTitle.uppercased())
@@ -957,7 +978,7 @@ struct FlightLogView: View {
 
     private var filterMenu: some View {
         Menu {
-            Picker("Aircraft", selection: $selectedAircraft) {
+            Picker(L10n.Settings.aircraft, selection: $selectedAircraft) {
                 Text("All aircraft").tag(String?.none)
                 ForEach(availableAircraft, id: \.self) { aircraft in
                     Text(aircraft).tag(String?.some(aircraft))

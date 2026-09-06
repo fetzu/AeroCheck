@@ -69,6 +69,8 @@ struct WeightBalanceView: View {
     // MARK: - Cards
 
     private var verdictCard: some View {
+        // `isWithinLimits` is nil for "unknown", which now includes an incomplete load sheet — so
+        // amber, never green. (review F22)
         let verdict = result.isWithinLimits
         let tint: Color = verdict == true ? .aviationGreen : (verdict == false ? .aviationRed : .aviationAmber)
 
@@ -90,6 +92,22 @@ struct WeightBalanceView: View {
                 .foregroundColor(tint)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+
+            unsetStationsNote
+
+            // Both points, when the pilot gave a fuel burn. The AFM asks for both; showing only
+            // take-off was a cross-check with a hole in it. (review F23)
+            if let landing = result.landing {
+                HStack(spacing: 14) {
+                    metric(L10n.WeightBalance.takeoffCase,
+                           value: result.centreOfGravityMeters.map { String(format: "%.3f m", $0) } ?? "—",
+                           tint: result.isInsideEnvelope == false ? .aviationRed : .secondaryText)
+                    metric(L10n.WeightBalance.landingCase,
+                           value: landing.centreOfGravityMeters.map { String(format: "%.3f m", $0) } ?? "—",
+                           tint: landing.isInsideEnvelope == false ? .aviationRed : .secondaryText)
+                }
+                .padding(.top, 2)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity)
@@ -100,10 +118,31 @@ struct WeightBalanceView: View {
 
     private var verdictText: String {
         if result.isOverweight { return L10n.WeightBalance.overweight }
+        // Order matters: a failure is reported before an incompleteness, and an incompleteness
+        // before any claim of being inside. The screen must never say "inside the envelope" about a
+        // load sheet with a station nobody filled in. (review F22/F23)
+        if result.isInsideEnvelope == false { return L10n.WeightBalance.outsideEnvelope }
+        if result.landing?.isInsideEnvelope == false { return L10n.WeightBalance.landingOutside }
+        if result.hasUnsetStations { return L10n.WeightBalance.incomplete }
         switch result.isInsideEnvelope {
         case .some(true):  return L10n.WeightBalance.insideEnvelope
         case .some(false): return L10n.WeightBalance.outsideEnvelope
         case .none:        return L10n.WeightBalance.envelopeUnknown
+        }
+    }
+
+    /// Names the stations still to be filled in, under the verdict. Saying "not a check" without
+    /// saying WHICH row is missing leaves the pilot hunting. (review F22)
+    @ViewBuilder
+    private var unsetStationsNote: some View {
+        if result.hasUnsetStations {
+            Text(L10n.WeightBalance.stationsUnset(
+                result.unsetStationNames.filter { !$0.isEmpty }.joined(separator: ", ")))
+                .scaledFont(size: 11, relativeTo: .caption2)
+                .foregroundColor(.aviationAmber)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 2)
         }
     }
 
@@ -126,7 +165,7 @@ struct WeightBalanceView: View {
             VStack(spacing: 0) {
                 stationRow(name: L10n.WeightBalance.emptyWeight,
                            arm: draft.emptyArmMeters,
-                           weight: Binding(get: { draft.emptyWeightKg }, set: { draft.emptyWeightKg = $0 }),
+                           weight: Binding(get: { draft.emptyWeightKg }, set: { draft.emptyWeightKg = $0 ?? 0 }),
                            editable: false)
                 ForEach($draft.stations) { $station in
                     Divider().overlay(Color.white.opacity(0.06))
@@ -144,7 +183,7 @@ struct WeightBalanceView: View {
         .onChange(of: draft) { _, _ in persist() }
     }
 
-    private func stationRow(name: String, arm: Double, weight: Binding<Double>, editable: Bool) -> some View {
+    private func stationRow(name: String, arm: Double, weight: Binding<Double?>, editable: Bool) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
@@ -162,7 +201,7 @@ struct WeightBalanceView: View {
                     .padding(7)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
             } else {
-                Text(String(format: "%.0f", weight.wrappedValue))
+                Text(String(format: "%.0f", weight.wrappedValue ?? 0))
                     .scaledFont(size: 15, design: .monospaced, relativeTo: .subheadline)
                     .foregroundColor(.secondaryText)
                     .frame(width: 78, alignment: .trailing)
@@ -272,6 +311,7 @@ private struct WeightBalanceSetupSheet: View {
                         numberField(L10n.WeightBalance.mtow, unit: "kg", value: $profile.maxTakeoffWeightKg)
 
                         stationsEditor
+                        fuelBurnEditor
                         envelopeEditor
                     }
                     .padding(20)
@@ -283,6 +323,37 @@ private struct WeightBalanceSetupSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button(L10n.Button.cancel) { onCancel() } }
                 ToolbarItem(placement: .topBarTrailing) { Button(L10n.Button.done) { onSave(profile) } }
+            }
+        }
+    }
+
+    /// Which station the fuel sits in, and how much of it the flight burns. Both optional: with no
+    /// burn entered the calculator says nothing about landing rather than guessing. (review F23)
+    private var fuelBurnEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.WeightBalance.fuelBurn)
+                .scaledFont(size: 11, weight: .semibold, relativeTo: .caption2)
+                .foregroundColor(.dimText)
+
+            HStack(spacing: 8) {
+                Picker(L10n.WeightBalance.fuelStation, selection: $profile.fuelStationId) {
+                    Text("—").tag(UUID?.none)
+                    ForEach(profile.stations) { station in
+                        Text(station.name.isEmpty ? L10n.WeightBalance.stationName : station.name)
+                            .tag(UUID?.some(station.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                NumberField(placeholder: "0", value: $profile.fuelBurnKg, alignment: .trailing)
+                    .scaledFont(size: 14, design: .monospaced, relativeTo: .subheadline)
+                    .frame(width: 80)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.panelBackground))
+                Text("kg")
+                    .scaledFont(size: 12, relativeTo: .caption)
+                    .foregroundColor(.dimText)
             }
         }
     }
@@ -317,7 +388,7 @@ private struct WeightBalanceSetupSheet: View {
             }
 
             Button {
-                profile.stations.append(WeightBalanceStation(name: "", armMeters: 0, weightKg: 0))
+                profile.stations.append(WeightBalanceStation(name: "", armMeters: 0))
             } label: {
                 Label(L10n.WeightBalance.addStation, systemImage: "plus.circle")
                     .scaledFont(size: 13, relativeTo: .footnote)
@@ -343,7 +414,7 @@ private struct WeightBalanceSetupSheet: View {
                         .scaledFont(size: 11, design: .monospaced, relativeTo: .caption2)
                         .foregroundColor(.dimText)
                         .frame(width: 18)
-                    NumberField(placeholder: "arm", value: Binding(
+                    NumberField(placeholder: L10n.WeightBalance.arm, value: Binding(
                         get: { point.armMeters },
                         set: { profile.envelope?[index].armMeters = $0 }
                     ), keyboard: .numbersAndPunctuation)
@@ -398,11 +469,33 @@ private struct WeightBalanceSetupSheet: View {
 /// "0300" — and worse, tapping a field that already holds a value and typing appends to it. Both were
 /// hit within a minute of using the setup sheet. Showing nothing for zero makes an unset field
 /// obviously unset and lets the first keystroke start the number.
+///
+/// The binding is `Double?` so an EMPTY field stays empty rather than becoming 0. That distinction
+/// is load-bearing for the station masses: a blank box that silently means "0 kg" is what let the
+/// calculator print a green verdict over a load sheet the pilot had not finished. (review F22)
 private struct NumberField: View {
     let placeholder: String
-    @Binding var value: Double
+    @Binding var value: Double?
     var keyboard: UIKeyboardType = .decimalPad
     var alignment: TextAlignment = .leading
+
+    /// For fields where "not entered" and 0 genuinely mean the same thing (an arm, an envelope
+    /// point), so those call sites keep a plain `Double`.
+    init(placeholder: String, value: Binding<Double>,
+         keyboard: UIKeyboardType = .decimalPad, alignment: TextAlignment = .leading) {
+        self.placeholder = placeholder
+        self._value = Binding(get: { value.wrappedValue }, set: { value.wrappedValue = $0 ?? 0 })
+        self.keyboard = keyboard
+        self.alignment = alignment
+    }
+
+    init(placeholder: String, value: Binding<Double?>,
+         keyboard: UIKeyboardType = .decimalPad, alignment: TextAlignment = .leading) {
+        self.placeholder = placeholder
+        self._value = value
+        self.keyboard = keyboard
+        self.alignment = alignment
+    }
 
     @State private var text: String = ""
     @FocusState private var focused: Bool
@@ -420,16 +513,17 @@ private struct NumberField: View {
             }
             .onChange(of: text) { _, new in
                 // Both separators: a Swiss tariff page writes 23,50 and 19.50 in the same table.
-                let normalised = new.replacingOccurrences(of: ",", with: ".")
-                value = Double(normalised) ?? 0
+                let trimmed = new.trimmingCharacters(in: .whitespaces)
+                let normalised = trimmed.replacingOccurrences(of: ",", with: ".")
+                value = trimmed.isEmpty ? nil : Double(normalised)
             }
             .onChange(of: focused) { _, isFocused in
                 if !isFocused { text = Self.display(value) }
             }
     }
 
-    private static func display(_ value: Double) -> String {
-        guard value != 0 else { return "" }
+    private static func display(_ value: Double?) -> String {
+        guard let value, value != 0 else { return "" }
         // Trim a trailing ".0" so 300.0 reads as 300.
         return value == value.rounded() && abs(value) < 1e9
             ? String(Int(value))

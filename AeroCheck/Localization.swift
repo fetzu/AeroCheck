@@ -152,6 +152,12 @@ enum L10n {
         static let unknownWarning = String(localized: "Treat an unestablished requirement as one that applies until you have checked")
     }
 
+    enum ThreadBadge {
+        /// Rendered on a task the app ticks by itself. Identical in French, but it was the one
+        /// prose literal in FlightThreadView that bypassed the catalogue. (review, localization 12)
+        static let auto = String(localized: "AUTO")
+    }
+
     // MARK: - Logbook line (v5.0.0)
     // MARK: - Flights (v5.0.0)
 
@@ -170,15 +176,12 @@ enum L10n {
             String(localized: "Copied with its \(count) waypoint(s), altitudes and fuel")
         }
         static let createFlight = String(localized: "Create flight")
-        static let kind = String(localized: "Kind")
-        static let crossCountry = String(localized: "Cross-country")
         static let circuits = String(localized: "Circuits")
         static let when = String(localized: "When")
         static let knowWhen = String(localized: "I know when I am flying")
         static let whenHint = String(localized: "Used for the reminder the day before")
-        static let aircraft = String(localized: "Aircraft")
+        static let aircraft = String(localized: "settings.aircraft")
         static let fromTo = String(localized: "From → To")
-        static let aerodrome = String(localized: "Aerodrome")
         static let from = String(localized: "From")
         static let to = String(localized: "To")
         static let identPlaceholder = String(localized: "ICAO or name")
@@ -202,7 +205,6 @@ enum L10n {
             String(localized: "Checked \(when) — re-check for this leg")
         }
         static let routeOptional = String(localized: "The route is optional — draw it on the map whenever you are ready")
-        static let circuitsHint = String(localized: "Circuits start and finish at the same field")
 
         // Home
         static let homeExplainer = String(localized: "Follow a flight from planning to logbook — fuel, weather, customs, then the numbers")
@@ -246,6 +248,9 @@ enum L10n {
         static let remarks = String(localized: "Remarks")
         static let notALogbook = String(localized: "A draft for your logbook — AeroCheck is not a logbook of record")
         static let timesAreUTC = String(localized: "Times are UTC, from block off and block on")
+        static let nightLandings = String(localized: "Night landings")
+        /// The PIC-column fallback when no pilot name is set.
+        static let picSelf = String(localized: "logbook.pic.self")
         static let nightNotComputed = String(localized: "Night and IFR time are yours to enter — the app does not compute twilight")
 
         // PDF extract
@@ -272,8 +277,6 @@ enum L10n {
         static let hourlyRate = String(localized: "Hourly rate")
         static let billingBasis = String(localized: "Billed on")
         static let currency = String(localized: "Currency")
-        static let aircraft = String(localized: "Aircraft")
-        static let fees = String(localized: "Fees")
         static let addFee = String(localized: "Add fee")
         static let feeLabel = String(localized: "What for")
         static let feeAmount = String(localized: "Amount")
@@ -300,13 +303,22 @@ enum L10n {
         static let addStation = String(localized: "Add station")
         static let stationName = String(localized: "Station")
         static let arm = String(localized: "Arm")
-        static let weight = String(localized: "Mass")
         static let totalWeight = String(localized: "Total mass")
         static let centreOfGravity = String(localized: "CG")
         static let insideEnvelope = String(localized: "Inside the envelope")
         static let outsideEnvelope = String(localized: "OUTSIDE the envelope")
         static let envelopeUnknown = String(localized: "No envelope entered — mass and CG only")
         static let overweight = String(localized: "OVER MTOW")
+        // review F22 / F23 — an incomplete load sheet and the landing case.
+        static let incomplete = String(localized: "Not every station has a mass — this is not a check")
+        static func stationsUnset(_ names: String) -> String {
+            String(localized: "No mass entered for: \(names)")
+        }
+        static let fuelBurn = String(localized: "Fuel burn")
+        static let fuelStation = String(localized: "Fuel station")
+        static let takeoffCase = String(localized: "TAKE-OFF")
+        static let landingCase = String(localized: "LANDING")
+        static let landingOutside = String(localized: "OUTSIDE the envelope at landing")
         static let remainingPayload = String(localized: "Remaining payload")
         static let notConfigured = String(localized: "Enter this aircraft's figures to use the calculator")
         static let setup = String(localized: "Set up this aircraft")
@@ -370,12 +382,10 @@ enum L10n {
         static let hintReservation = String(localized: "Booked with your club")
         static let hintNavLog = String(localized: "Exported or printed for the cockpit")
         static let hintPPR = String(localized: "Prior permission required — call ahead")
-        static let hintCustoms = String(localized: "Check customs and notification requirements")
 
         // Actions
         static let markDone = String(localized: "Mark done")
         static let markNotApplicable = String(localized: "Not applicable")
-        static let copyICAOPlan = String(localized: "Copy ICAO plan")
         static let openSkybriefing = String(localized: "Open skybriefing")
         static let openDabs = String(localized: "Open DABS")
         static let openNotamBriefing = String(localized: "Open NOTAM briefing")
@@ -742,7 +752,6 @@ enum L10n {
         static let themeFooter = String(localized: "settings.display.themeDesc")
         static let themeAuto = String(localized: "settings.display.theme.auto")
         static let themeDay = String(localized: "settings.display.theme.day")
-        static let themeSunlight = String(localized: "settings.display.theme.sunlight")
         static let themeNight = String(localized: "settings.display.theme.night")
         // Replay onboarding (v4 UI/UX Revamp)
         static let replayIntro = String(localized: "settings.about.replayIntro")

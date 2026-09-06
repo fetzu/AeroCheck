@@ -923,7 +923,23 @@ class DataPersistenceManager: ObservableObject {
     // the FlightThreads directory: `decodeFlightThreads` enumerates that folder and would try to read
     // a trip as a thread on every launch.
 
+    /// Beside the threads in iCloud, NOT in local Application Support. `FlightThread.tripId` syncs
+    /// with the thread; leaving the trip itself device-local meant a second device saw two legs each
+    /// claiming a trip that did not exist there — excluded from the standalone list (`tripId == nil`)
+    /// AND from the trip list, so both flights were simply invisible, with their trip-scoped
+    /// preparation already stripped off them by `formTrip`. (review F9)
+    ///
+    /// It sits in the iCloud Documents ROOT rather than the FlightThreads folder because
+    /// `decodeFlightThreads` enumerates that folder and would try to read a trip as a thread.
     var tripsFileURL: URL {
+        if let iCloudDocs = iCloudDocumentsURL {
+            return iCloudDocs.appendingPathComponent("trips.json")
+        }
+        return localAppDirectory.appendingPathComponent("trips.json")
+    }
+
+    /// The pre-v5.0.1 location, read once so a trip built before the move is not orphaned.
+    var legacyLocalTripsFileURL: URL {
         localAppDirectory.appendingPathComponent("trips.json")
     }
 
@@ -944,10 +960,14 @@ class DataPersistenceManager: ObservableObject {
 
     func loadTripsOffMain() async -> [Trip] {
         let url = tripsFileURL
+        let legacy = legacyLocalTripsFileURL
         return await Task.detached(priority: .utility) {
-            guard let data = try? Data(contentsOf: url) else { return [] }
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
+            // Migration: fall back to the old local path once, so trips built before the iCloud
+            // move survive the upgrade. The next `saveTrips` writes them to the new location.
+            let data = (try? Data(contentsOf: url)) ?? (try? Data(contentsOf: legacy))
+            guard let data else { return [] }
             return (try? decoder.decode([Trip].self, from: data)) ?? []
         }.value
     }

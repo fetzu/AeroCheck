@@ -13,6 +13,9 @@ struct ContentView: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @EnvironmentObject var aircraftDataService: AircraftDataService
     @EnvironmentObject var dataStatusManager: DataStatusManager
+    /// Needed to build a `FlightLauncher`, so a thread opened from its own notification can start
+    /// its flight from there. (review F21)
+    @EnvironmentObject var flightEventDetector: FlightEventDetector
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.scenePhase) var scenePhase
     @State private var showMarketingControls: Bool = false
@@ -304,7 +307,16 @@ struct ContentView: View {
             set: { if !$0 { appState.pendingThreadToOpen = nil } }
         )) {
             if let id = appState.pendingThreadToOpen {
-                FlightThreadView(threadId: id, onClose: { appState.pendingThreadToOpen = nil })
+                // `onStartFlight` is what gates the START FLIGHT button. Omitting it here meant the
+                // cover reached from the T-24h reminder and the open-flight-plan banner — the "time
+                // to go fly" moment — showed the whole thread with no way to depart from it.
+                // (review F21)
+                FlightThreadView(threadId: id,
+                                 onClose: { appState.pendingThreadToOpen = nil },
+                                 onStartFlight: { circuits in
+                                     appState.pendingThreadToOpen = nil
+                                     startFollowedFlight(threadId: id, circuits: circuits)
+                                 })
                     .environmentObject(threadManager)
                     .environmentObject(flightPlanManager)
             }
@@ -368,6 +380,36 @@ struct ContentView: View {
                 break
             }
         }
+    }
+
+    /// Depart on a followed flight opened from its notification or from the close-out banner.
+    ///
+    /// Mirrors HomeView's `launch(_:)`: arm the thread's route, select the aircraft it was planned
+    /// with, and go through the shared `FlightLauncher` rather than starting a flight some other
+    /// way. Circuits skip the plan by design. (review F21)
+    private func startFollowedFlight(threadId: UUID, circuits: Bool) {
+        guard let thread = threadManager.thread(withId: threadId) else { return }
+        if let registration = thread.aircraftRegistration, !registration.isEmpty {
+            _ = appState.selectAircraft(id: registration,
+                                        available: aircraftDataService.availableAircraft)
+        }
+        if !circuits,
+           let planId = thread.flightPlanId,
+           flightPlanManager.activeFlightPlan?.id != planId,
+           let plan = flightPlanManager.flightPlans.first(where: { $0.id == planId }),
+           !plan.waypoints.isEmpty {
+            flightPlanManager.activateFlightPlan(plan)
+        }
+        let launcher = FlightLauncher(
+            appState: appState,
+            locationManager: locationManager,
+            aircraftDataService: aircraftDataService,
+            airportDataService: airportDataService,
+            flightEventDetector: flightEventDetector,
+            flightPlanManager: flightPlanManager,
+            threadManager: threadManager
+        )
+        Task { await launcher.begin(circuitMode: circuits, followedFlightId: threadId) }
     }
 }
 

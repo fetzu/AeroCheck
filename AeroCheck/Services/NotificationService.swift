@@ -106,8 +106,18 @@ final class NotificationService: NSObject, ObservableObject {
     ///
     /// `delay` is small but non-zero on purpose: the aircraft is still rolling out when the detector
     /// fires, and a notification at that moment is both useless and distracting. Two minutes puts it
-    /// somewhere around the after-landing checks.
-    func scheduleFlightPlanCloseReminder(threadId: UUID, routeLabel: String, delay: TimeInterval = 120) async {
+    /// somewhere around the after-landing checks — that is `postFlightDelay`, used when the pilot
+    /// has already pressed END FLIGHT and is sitting with the app open.
+    ///
+    /// `landingDelay` is the safety net for the pilot who lands, shuts down and walks away without
+    /// pressing anything. It has to be long enough not to fire during the roll-out and short enough
+    /// to leave usable margin inside the 30-minute RCC window, so it sits at the halfway mark.
+    /// Scheduling replaces by identifier, so a later END FLIGHT simply supersedes it.
+    static let postFlightDelay: TimeInterval = 120
+    static let landingDelay: TimeInterval = 15 * 60
+
+    func scheduleFlightPlanCloseReminder(threadId: UUID, routeLabel: String,
+                                         delay: TimeInterval = NotificationService.postFlightDelay) async {
         guard await hasPermission() else { return }
 
         let content = UNMutableNotificationContent()
@@ -133,15 +143,26 @@ final class NotificationService: NSObject, ObservableObject {
     }
 
     /// Nudge the pilot a day before departure, while there is still time to act on what it finds.
+    /// How close to departure the nudge stops being worth sending. Below this the pilot is already
+    /// on their way and a "flight tomorrow" banner is noise.
+    static let minimumPreparationLead: TimeInterval = 60 * 60
+
     func schedulePreparationReminder(threadId: UUID,
                                      routeLabel: String,
                                      departure: Date,
                                      leadTime: TimeInterval = 24 * 60 * 60) async {
         guard await hasPermission() else { return }
-        let fireDate = departure.addingTimeInterval(-leadTime)
-        // A departure less than the lead time away has already missed this reminder; scheduling it in
-        // the past would deliver it immediately, which reads as a bug.
-        guard fireDate > Date() else { return }
+        let now = Date()
+        let ideal = departure.addingTimeInterval(-leadTime)
+        // A departure less than the lead time away has already missed the IDEAL moment — but
+        // dropping the reminder outright was worse than firing it late. The app's own pre-filled
+        // departure is "tomorrow at 10:00", so every planning session after 10:00 (i.e. the normal
+        // evening one) produced a fire date in the past and silently got nothing, under UI copy
+        // saying the toggle exists precisely because of this reminder. Slide it to a short delay
+        // instead, and only give up when the departure itself is too close for the nudge to be
+        // worth anything. (review F18)
+        let fireDate = ideal > now ? ideal : now.addingTimeInterval(Self.minimumPreparationLead)
+        guard fireDate > now, departure.timeIntervalSince(fireDate) >= Self.minimumPreparationLead else { return }
 
         let content = UNMutableNotificationContent()
         content.title = L10n.Thread.prepareReminderTitle
@@ -149,8 +170,12 @@ final class NotificationService: NSObject, ObservableObject {
         content.sound = .default
         content.userInfo = [Self.threadIdKey: threadId.uuidString]
 
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        // An absolute instant, not wall-clock components. `UNCalendarNotificationTrigger` with no
+        // time zone on its components is re-evaluated in whatever zone the device is in when it
+        // fires, so a pilot who plans in Switzerland and travels before the flight got the nudge an
+        // hour out. The fire date is already known exactly; there is nothing to re-derive.
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, fireDate.timeIntervalSinceNow),
+                                                        repeats: false)
         let request = UNNotificationRequest(identifier: Identifier.preparation(threadId),
                                             content: content,
                                             trigger: trigger)
@@ -171,12 +196,50 @@ final class NotificationService: NSObject, ObservableObject {
 
     func cancelPreparationReminder(threadId: UUID) {
         center.removePendingNotificationRequests(withIdentifiers: [Identifier.preparation(threadId)])
+        // Also clear a banner already sitting in Notification Center — otherwise "Flight tomorrow"
+        // outlives the flight being cancelled or deleted, same as the close reminder above.
+        center.removeDeliveredNotifications(withIdentifiers: [Identifier.preparation(threadId)])
     }
 
     /// Everything belonging to one thread, for deletion.
     func cancelAll(threadId: UUID) {
         cancelFlightPlanCloseReminder(threadId: threadId)
         cancelPreparationReminder(threadId: threadId)
+    }
+
+    // MARK: - Deferred actions
+
+    /// Actions that arrived before the app could act on them.
+    ///
+    /// Registering the delegate at launch fixes half the problem; the other half is that the
+    /// handlers reach a `FlightThreadManager` whose `threads` array is still being read off disk
+    /// (iCloud-backed, so seconds). Both handlers start with a `firstIndex(where:)` that finds
+    /// nothing in an empty array and returns silently — so the pilot's "Mark flight plan closed"
+    /// was accepted by iOS and then dropped by the app. Queue instead, and replay once the handlers
+    /// and the threads exist. (review F17)
+    fileprivate enum PendingAction {
+        case markClosed(UUID)
+        case open(UUID)
+    }
+
+    private var pendingActions: [PendingAction] = []
+
+    fileprivate func enqueueOrRun(_ action: PendingAction) {
+        switch action {
+        case .markClosed(let id):
+            guard let handler = markFlightPlanClosedHandler else { pendingActions.append(action); return }
+            handler(id)
+        case .open(let id):
+            guard let handler = openThreadHandler else { pendingActions.append(action); return }
+            handler(id)
+        }
+    }
+
+    /// Replay anything queued before the handlers were wired. Idempotent.
+    func drainPendingActions() {
+        let queued = pendingActions
+        pendingActions = []
+        for action in queued { enqueueOrRun(action) }
     }
 }
 
@@ -202,10 +265,10 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         await MainActor.run {
             switch actionIdentifier {
             case "AEROCHECK_MARK_FPL_CLOSED":
-                NotificationService.shared.markFlightPlanClosedHandler?(threadId)
+                NotificationService.shared.enqueueOrRun(.markClosed(threadId))
             default:
                 // Tapping the notification itself opens the thread.
-                NotificationService.shared.openThreadHandler?(threadId)
+                NotificationService.shared.enqueueOrRun(.open(threadId))
             }
         }
     }
